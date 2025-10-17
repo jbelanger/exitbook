@@ -3,8 +3,11 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
+import type { EvmTransaction } from '../../types.ts';
 
+import { ThetaScanTransactionMapper } from './thetascan.mapper.ts';
 import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBalance } from './thetascan.types.ts';
 
 @RegisterApiClient({
@@ -31,8 +34,11 @@ import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBala
   supportedChains: ['theta'],
 })
 export class ThetaScanApiClient extends BaseApiClient {
+  private mapper: ThetaScanTransactionMapper;
+
   constructor(config: ProviderConfig) {
     super(config);
+    this.mapper = new ThetaScanTransactionMapper();
   }
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
@@ -136,7 +142,7 @@ export class ThetaScanApiClient extends BaseApiClient {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<Result<ThetaScanTransaction[], Error>> {
+  }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
     const { address, since } = params;
 
     if (!this.isValidEthAddress(address)) {
@@ -154,9 +160,37 @@ export class ThetaScanApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    this.logger.debug(`Retrieved ${result.value.length} raw transactions for ${maskAddress(address)}`);
+    const rawTransactions = result.value;
 
-    return ok(result.value);
+    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
+      this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
+      return ok([]);
+    }
+
+    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
+    for (const rawTx of rawTransactions) {
+      const mapResult = this.mapper.map(
+        rawTx as never,
+        { providerId: 'thetascan', sourceAddress: address },
+        {} as never
+      );
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
+    }
+
+    this.logger.debug(
+      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
+    );
+    return ok(transactions);
   }
 
   private async getRawTokenBalances(params: {

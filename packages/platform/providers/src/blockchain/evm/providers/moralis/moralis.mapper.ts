@@ -9,8 +9,8 @@ import type { NormalizationError } from '../../../../core/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.ts';
 import type { EvmTransaction } from '../../types.ts';
 
-import { MoralisTransactionSchema } from './moralis.schemas.ts';
-import type { MoralisTransaction } from './moralis.types.ts';
+import { MoralisTransactionSchema, MoralisTokenTransferSchema } from './moralis.schemas.ts';
+import type { MoralisTransaction, MoralisTokenTransfer } from './moralis.types.ts';
 
 @RegisterTransactionMapper('moralis')
 export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransaction, EvmTransaction> {
@@ -22,7 +22,6 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
     _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<EvmTransaction, NormalizationError> {
-    // Get chain-specific info from augmented fields
     const nativeCurrency = rawData._nativeCurrency || 'UNKNOWN';
     const nativeDecimals = rawData._nativeDecimals || 18;
 
@@ -59,6 +58,47 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
       to: rawData.to_address,
       tokenType: 'native',
       type: 'transfer',
+    };
+
+    return ok(transaction);
+  }
+}
+
+@RegisterTransactionMapper('moralis-token-transfer')
+export class MoralisTokenTransferMapper extends BaseRawDataMapper<MoralisTokenTransfer, EvmTransaction> {
+  protected readonly inputSchema = MoralisTokenTransferSchema;
+  protected readonly outputSchema = EvmTransactionSchema;
+
+  protected mapInternal(
+    rawData: MoralisTokenTransfer,
+    _metadata: RawTransactionMetadata,
+    _sessionContext: ImportSessionMetadata
+  ): Result<EvmTransaction, NormalizationError> {
+    const timestamp = new Date(rawData.block_timestamp).getTime();
+
+    // Parse token decimals
+    const tokenDecimals = parseInt(rawData.token_decimals);
+
+    // Convert token value to decimal representation
+    const valueRaw = new Decimal(rawData.value);
+    const valueDecimal = valueRaw.dividedBy(new Decimal(10).pow(tokenDecimals));
+
+    const transaction: EvmTransaction = {
+      amount: valueDecimal.toString(),
+      blockHeight: parseInt(rawData.block_number),
+      blockId: rawData.block_hash,
+      currency: rawData.token_symbol,
+      from: rawData.from_address,
+      id: rawData.transaction_hash,
+      providerId: 'moralis',
+      status: 'success', // Token transfers are always successful if they appear in the results
+      timestamp,
+      to: rawData.to_address,
+      tokenAddress: rawData.address,
+      tokenDecimals,
+      tokenSymbol: rawData.token_symbol,
+      tokenType: rawData.contract_type as EvmTransaction['tokenType'],
+      type: 'token_transfer',
     };
 
     return ok(transaction);

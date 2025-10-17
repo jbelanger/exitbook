@@ -5,8 +5,11 @@ import { err, ok, type Result } from 'neverthrow';
 import { BaseApiClient } from '../../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
+import type { EvmTransaction } from '../../types.ts';
 
+import { SnowtraceTransactionMapper } from './snowtrace.mapper.ts';
 import type {
   SnowtraceApiResponse,
   SnowtraceInternalTransaction,
@@ -45,8 +48,11 @@ import type {
   supportedChains: ['avalanche'],
 })
 export class SnowtraceApiClient extends BaseApiClient {
+  private mapper: SnowtraceTransactionMapper;
+
   constructor(config: ProviderConfig) {
     super(config);
+    this.mapper = new SnowtraceTransactionMapper();
   }
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
@@ -280,7 +286,7 @@ export class SnowtraceApiClient extends BaseApiClient {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<Result<SnowtraceTransaction[], Error>> {
+  }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
     const { address, since } = params;
 
     if (!this.isValidAvalancheAddress(address)) {
@@ -298,15 +304,13 @@ export class SnowtraceApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    this.logger.debug(`Retrieved ${result.value.length} raw transactions for ${maskAddress(address)}`);
-
-    return ok(result.value);
+    return this.normalizeTransactions(result.value, address, 'transactions');
   }
 
   private async getRawAddressInternalTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<Result<SnowtraceInternalTransaction[], Error>> {
+  }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
     const { address, since } = params;
 
     if (!this.isValidAvalancheAddress(address)) {
@@ -326,9 +330,7 @@ export class SnowtraceApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    this.logger.debug(`Retrieved ${result.value.length} raw internal transactions for ${maskAddress(address)}`);
-
-    return ok(result.value);
+    return this.normalizeTransactions(result.value, address, 'internal transactions');
   }
 
   private async getRawTokenBalances(_params: {
@@ -346,9 +348,15 @@ export class SnowtraceApiClient extends BaseApiClient {
     limit?: number | undefined;
     since?: number | undefined;
     until?: number | undefined;
-  }): Promise<Result<SnowtraceTokenTransfer[], Error>> {
+  }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
     const { address, contractAddress, since } = params;
-    return this.getTokenTransfers(address, since, contractAddress);
+    const result = await this.getTokenTransfers(address, since, contractAddress);
+
+    if (result.isErr()) {
+      return err(result.error);
+    }
+
+    return this.normalizeTransactions(result.value, address, 'token transactions');
   }
 
   private async getTokenTransfers(
@@ -424,5 +432,41 @@ export class SnowtraceApiClient extends BaseApiClient {
     // Avalanche C-Chain uses Ethereum-style addresses but they are case-sensitive
     const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
     return ethAddressRegex.test(address);
+  }
+
+  private normalizeTransactions(
+    rawTransactions: (SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer)[],
+    address: string,
+    transactionType: string
+  ): Result<TransactionWithRawData<EvmTransaction>[], Error> {
+    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
+      this.logger.debug(`No raw ${transactionType} found - Address: ${maskAddress(address)}`);
+      return ok([]);
+    }
+
+    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
+    for (const rawTx of rawTransactions) {
+      const mapResult = this.mapper.map(
+        rawTx as never,
+        { providerId: 'snowtrace', sourceAddress: address },
+        {} as never
+      );
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
+    }
+
+    this.logger.debug(
+      `Successfully retrieved and normalized ${transactionType} - Address: ${maskAddress(address)}, Count: ${transactions.length}`
+    );
+    return ok(transactions);
   }
 }

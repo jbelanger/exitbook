@@ -120,19 +120,19 @@ describe('EvmImporter', () => {
       mockProviderManager.executeWithFailover
         .mockResolvedValueOnce(
           ok({
-            data: [mockNormalTx],
+            data: [{ raw: mockNormalTx, normalized: undefined }],
             providerName: 'alchemy',
           } as FailoverExecutionResult<unknown>)
         )
         .mockResolvedValueOnce(
           ok({
-            data: [mockInternalTx],
+            data: [{ raw: mockInternalTx, normalized: undefined }],
             providerName: 'alchemy',
           } as FailoverExecutionResult<unknown>)
         )
         .mockResolvedValueOnce(
           ok({
-            data: [mockTokenTx],
+            data: [{ raw: mockTokenTx, normalized: undefined }],
             providerName: 'alchemy',
           } as FailoverExecutionResult<unknown>)
         );
@@ -151,6 +151,7 @@ describe('EvmImporter', () => {
             transactionType: 'normal',
           },
           rawData: mockNormalTx,
+          normalizedData: undefined,
         });
 
         // Verify internal transaction
@@ -161,6 +162,7 @@ describe('EvmImporter', () => {
             transactionType: 'internal',
           },
           rawData: mockInternalTx,
+          normalizedData: undefined,
         });
 
         // Verify token transaction
@@ -171,6 +173,7 @@ describe('EvmImporter', () => {
             transactionType: 'token',
           },
           rawData: mockTokenTx,
+          normalizedData: undefined,
         });
       }
 
@@ -431,7 +434,10 @@ describe('EvmImporter', () => {
       const importer = createImporter();
       const address = '0x1234567890123456789012345678901234567890';
 
-      const multipleNormalTxs = [mockNormalTx, { ...mockNormalTx, hash: '0x789' }];
+      const multipleNormalTxs = [
+        { raw: mockNormalTx, normalized: undefined },
+        { raw: { ...mockNormalTx, hash: '0x789' }, normalized: undefined },
+      ];
 
       // Mock with array of transactions
       mockProviderManager.executeWithFailover

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
+import type { EvmTransaction } from '../../../types.ts';
 import { SnowtraceApiClient } from '../snowtrace.api-client.ts';
 import type { SnowtraceBalanceResponse } from '../snowtrace.types.ts';
 
@@ -41,16 +43,7 @@ describe('SnowtraceApiClient Integration', () => {
 
   describe('Raw Address Transactions', () => {
     it('should fetch raw address transactions successfully', async () => {
-      const result = await provider.execute<
-        {
-          blockNumber: string;
-          from: string;
-          hash: string;
-          timeStamp: string;
-          to: string;
-          value: string;
-        }[]
-      >({
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
@@ -61,26 +54,20 @@ describe('SnowtraceApiClient Integration', () => {
         expect(Array.isArray(transactions)).toBe(true);
 
         if (transactions.length > 0) {
-          expect(transactions[0]).toHaveProperty('hash');
-          expect(transactions[0]).toHaveProperty('from');
-          expect(transactions[0]).toHaveProperty('to');
-          expect(transactions[0]).toHaveProperty('value');
-          expect(transactions[0]).toHaveProperty('timeStamp');
+          const firstTx = transactions[0]!;
+          expect(firstTx).toHaveProperty('raw');
+          expect(firstTx).toHaveProperty('normalized');
+          expect(firstTx.normalized).toHaveProperty('id');
+          expect(firstTx.normalized).toHaveProperty('from');
+          expect(firstTx.normalized).toHaveProperty('to');
+          expect(firstTx.normalized.currency).toBe('AVAX');
+          expect(firstTx.normalized.providerId).toBe('snowtrace');
         }
       }
     }, 30000);
 
     it('should fetch raw address internal transactions successfully', async () => {
-      const result = await provider.execute<
-        {
-          blockNumber: string;
-          from: string;
-          hash: string;
-          timeStamp: string;
-          to: string;
-          value: string;
-        }[]
-      >({
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getRawAddressInternalTransactions',
       });
@@ -91,11 +78,13 @@ describe('SnowtraceApiClient Integration', () => {
         expect(Array.isArray(transactions)).toBe(true);
 
         if (transactions.length > 0) {
-          expect(transactions[0]).toHaveProperty('hash');
-          expect(transactions[0]).toHaveProperty('from');
-          expect(transactions[0]).toHaveProperty('to');
-          expect(transactions[0]).toHaveProperty('value');
-          expect(transactions[0]).toHaveProperty('timeStamp');
+          const firstTx = transactions[0]!;
+          expect(firstTx).toHaveProperty('raw');
+          expect(firstTx).toHaveProperty('normalized');
+          expect(firstTx.normalized).toHaveProperty('id');
+          expect(firstTx.normalized).toHaveProperty('from');
+          expect(firstTx.normalized).toHaveProperty('to');
+          expect(firstTx.normalized.providerId).toBe('snowtrace');
         }
       }
     }, 30000);
@@ -103,19 +92,7 @@ describe('SnowtraceApiClient Integration', () => {
 
   describe('Token Transactions', () => {
     it('should fetch token transactions successfully', async () => {
-      const result = await provider.execute<
-        {
-          blockNumber: string;
-          contractAddress: string;
-          from: string;
-          hash: string;
-          timeStamp: string;
-          to: string;
-          tokenName: string;
-          tokenSymbol: string;
-          value: string;
-        }[]
-      >({
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getTokenTransactions',
       });
@@ -125,14 +102,12 @@ describe('SnowtraceApiClient Integration', () => {
         const transactions = result.value;
         expect(Array.isArray(transactions)).toBe(true);
         if (transactions.length > 0) {
-          expect(transactions[0]).toHaveProperty('hash');
-          expect(transactions[0]).toHaveProperty('from');
-          expect(transactions[0]).toHaveProperty('to');
-          expect(transactions[0]).toHaveProperty('value');
-          expect(transactions[0]).toHaveProperty('timeStamp');
-          expect(transactions[0]).toHaveProperty('tokenSymbol');
-          expect(transactions[0]).toHaveProperty('tokenName');
-          expect(transactions[0]).toHaveProperty('contractAddress');
+          const firstTx = transactions[0]!;
+          expect(firstTx).toHaveProperty('raw');
+          expect(firstTx).toHaveProperty('normalized');
+          expect(firstTx.normalized).toHaveProperty('id');
+          expect(firstTx.normalized.type).toBe('token_transfer');
+          expect(firstTx.normalized.providerId).toBe('snowtrace');
         }
       }
     }, 30000);

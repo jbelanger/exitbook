@@ -99,10 +99,16 @@ describe('SolanaTransactionImporter', () => {
       const importer = createImporter();
       const address = 'user1111111111111111111111111111111111111111';
 
-      // Mock API call to succeed
+      // Mock API call to succeed with TransactionWithRawData format
+      const mockNormalizedSol = { id: 'sig123abc', amount: '1', currency: 'SOL' };
+      const mockNormalizedToken = { id: 'sig456def', amount: '1', currency: 'USDC' };
+
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: [mockSolTx, mockTokenTx],
+          data: [
+            { normalized: mockNormalizedSol, raw: mockSolTx },
+            { normalized: mockNormalizedToken, raw: mockTokenTx },
+          ],
           providerName: 'helius',
         } as FailoverExecutionResult<unknown>)
       );
@@ -119,6 +125,7 @@ describe('SolanaTransactionImporter', () => {
             providerId: 'helius',
             sourceAddress: address,
           },
+          normalizedData: mockNormalizedSol,
           rawData: mockSolTx,
         });
 
@@ -128,6 +135,7 @@ describe('SolanaTransactionImporter', () => {
             providerId: 'helius',
             sourceAddress: address,
           },
+          normalizedData: mockNormalizedToken,
           rawData: mockTokenTx,
         });
       }
@@ -195,7 +203,15 @@ describe('SolanaTransactionImporter', () => {
       const importer = createImporter();
       const address = 'user1111111111111111111111111111111111111111';
 
-      const multipleTxs = [mockSolTx, { ...mockSolTx, signature: 'sig789' }, { ...mockSolTx, signature: 'sig012' }];
+      const tx1 = mockSolTx;
+      const tx2 = { ...mockSolTx, signature: 'sig789' };
+      const tx3 = { ...mockSolTx, signature: 'sig012' };
+
+      const multipleTxs = [
+        { normalized: { id: 'sig123abc' }, raw: tx1 },
+        { normalized: { id: 'sig789' }, raw: tx2 },
+        { normalized: { id: 'sig012' }, raw: tx3 },
+      ];
 
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({

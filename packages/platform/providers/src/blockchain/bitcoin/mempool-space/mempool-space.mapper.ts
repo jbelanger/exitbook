@@ -32,7 +32,6 @@ export class MempoolSpaceTransactionMapper extends BaseRawDataMapper<MempoolTran
     const timestamp =
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time.getTime() : Date.now();
 
-    // Extract structured inputs with addresses and values
     const inputs: BitcoinTransactionInput[] = rawData.vin.map((input, _index) => ({
       address: input.prevout?.scriptpubkey_address,
       txid: input.txid,
@@ -40,7 +39,6 @@ export class MempoolSpaceTransactionMapper extends BaseRawDataMapper<MempoolTran
       vout: input.vout,
     }));
 
-    // Extract structured outputs with addresses and values
     const outputs: BitcoinTransactionOutput[] = rawData.vout.map((output, index) => ({
       address: output.scriptpubkey_address,
       index,
@@ -57,7 +55,6 @@ export class MempoolSpaceTransactionMapper extends BaseRawDataMapper<MempoolTran
       timestamp,
     };
 
-    // Add optional fields
     if (rawData.status.block_height) {
       normalized.blockHeight = rawData.status.block_height;
     }

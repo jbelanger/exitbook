@@ -24,7 +24,7 @@ export interface BlockstreamTransaction {
     sequence: number;
     txid: string;
     vout: number;
-    witness: string[];
+    witness?: string[] | undefined;
   }[];
   vout: {
     scriptpubkey: string;

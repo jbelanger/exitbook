@@ -19,5 +19,5 @@
   ],
 
   // cSpell custom words
-  "cSpell.words": ["batcat", "sparkline"]
+  "cSpell.enabled": false
 }

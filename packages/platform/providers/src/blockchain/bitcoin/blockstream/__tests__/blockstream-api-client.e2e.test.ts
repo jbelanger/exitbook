@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import type { TransactionWithRawData } from '../../../../core/blockchain/index.ts';
 import { ProviderRegistry } from '../../../../core/blockchain/index.ts';
-import type { AddressInfo } from '../../types.js';
+import type { AddressInfo, BitcoinTransaction } from '../../types.js';
 import { BlockstreamApiClient } from '../blockstream-api-client.js';
-import type { BlockstreamTransaction } from '../blockstream.types.js';
 
 describe('BlockstreamApiClient E2E', () => {
   const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockstream.info');
@@ -36,8 +36,8 @@ describe('BlockstreamApiClient E2E', () => {
     }
   }, 60000);
 
-  it('should get raw address transactions', async () => {
-    const result = await client.execute<BlockstreamTransaction[]>({
+  it('should get normalized address transactions', async () => {
+    const result = await client.execute<TransactionWithRawData<BitcoinTransaction>[]>({
       address: testAddress,
       type: 'getRawAddressTransactions',
     });
@@ -47,12 +47,22 @@ describe('BlockstreamApiClient E2E', () => {
       const transactions = result.value;
       expect(Array.isArray(transactions)).toBe(true);
       if (transactions.length > 0) {
-        const tx = transactions[0]!;
+        const txWithRaw = transactions[0]!;
+        expect(txWithRaw).toHaveProperty('raw');
+        expect(txWithRaw).toHaveProperty('normalized');
+
+        expect(txWithRaw.raw).toHaveProperty('txid');
+        expect(txWithRaw.raw).toHaveProperty('vin');
+        expect(txWithRaw.raw).toHaveProperty('vout');
+
+        const tx = txWithRaw.normalized;
         expect(tx).toBeDefined();
-        expect(tx.txid).toBeDefined();
-        expect(typeof tx.txid).toBe('string');
-        expect(Array.isArray(tx.vin)).toBe(true);
-        expect(Array.isArray(tx.vout)).toBe(true);
+        expect(tx.id).toBeDefined();
+        expect(typeof tx.id).toBe('string');
+        expect(tx.currency).toBe('BTC');
+        expect(tx.providerId).toBe('blockstream.info');
+        expect(Array.isArray(tx.inputs)).toBe(true);
+        expect(Array.isArray(tx.outputs)).toBe(true);
       }
     }
   }, 60000);

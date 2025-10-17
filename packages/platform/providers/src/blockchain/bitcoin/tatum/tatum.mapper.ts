@@ -29,9 +29,8 @@ export class TatumBitcoinTransactionMapper extends BaseRawDataMapper<TatumBitcoi
     _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<BitcoinTransaction, NormalizationError> {
-    const timestamp = rawData.time * 1000; // Convert from seconds to milliseconds
+    const timestamp = rawData.time * 1000;
 
-    // Extract structured inputs with addresses and values
     const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input, _index) => ({
       address: input.coin.address,
       txid: input.prevout.hash,
@@ -39,7 +38,6 @@ export class TatumBitcoinTransactionMapper extends BaseRawDataMapper<TatumBitcoi
       vout: input.prevout.index,
     }));
 
-    // Extract structured outputs with addresses and values
     const outputs: BitcoinTransactionOutput[] = rawData.outputs.map((output, index) => ({
       address: output.address,
       index,
@@ -56,7 +54,6 @@ export class TatumBitcoinTransactionMapper extends BaseRawDataMapper<TatumBitcoi
       timestamp,
     };
 
-    // Add optional fields
     if (rawData.blockNumber) {
       normalized.blockHeight = rawData.blockNumber;
     }

@@ -4,10 +4,12 @@ import { err, ok, type Result } from 'neverthrow';
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
-import type { SolanaSignature, SolanaTokenAccountsResponse } from '../types.js';
+import type { SolanaSignature, SolanaTokenAccountsResponse, SolanaTransaction } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
+import { SolanaRPCTransactionMapper } from './solana-rpc.mapper.ts';
 import type {
   SolanaRPCRawBalanceData,
   SolanaRPCRawTokenBalanceData,
@@ -35,8 +37,11 @@ import type {
   requiresApiKey: false,
 })
 export class SolanaRPCApiClient extends BaseApiClient {
+  private mapper: SolanaRPCTransactionMapper;
+
   constructor(config: ProviderConfig) {
     super(config);
+    this.mapper = new SolanaRPCTransactionMapper();
   }
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
@@ -119,7 +124,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<Result<SolanaRPCTransaction[], Error>> {
+  }): Promise<Result<TransactionWithRawData<SolanaTransaction>[], Error>> {
     const { address, since } = params;
 
     if (!isValidSolanaAddress(address)) {
@@ -154,7 +159,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    const transactions: SolanaRPCTransaction[] = [];
+    const rawTransactions: SolanaRPCTransaction[] = [];
     const signatures = signaturesResponse.result.slice(0, 25);
 
     this.logger.debug(`Retrieved signatures - Address: ${maskAddress(address)}, Count: ${signatures.length}`);
@@ -186,14 +191,34 @@ export class SolanaRPCApiClient extends BaseApiClient {
         txResponse?.result &&
         (!since || (txResponse.result.blockTime && txResponse.result.blockTime.getTime() >= since))
       ) {
-        transactions.push(txResponse.result);
+        rawTransactions.push(txResponse.result);
       }
     }
 
-    transactions.sort((a, b) => b.blockTime.getTime() - a.blockTime.getTime());
+    rawTransactions.sort((a, b) => b.blockTime.getTime() - a.blockTime.getTime());
+
+    const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
+    for (const rawTx of rawTransactions) {
+      const mapResult = this.mapper.map(
+        rawTx as never,
+        { providerId: 'solana-rpc', sourceAddress: address },
+        {} as never
+      );
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        normalized: mapResult.value,
+        raw: rawTx,
+      });
+    }
 
     this.logger.debug(
-      `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}`
+      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
     );
 
     return ok(transactions);

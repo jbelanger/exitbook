@@ -3,8 +3,11 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
+import type { EvmTransaction } from '../../types.ts';
 
+import { ThetaExplorerTransactionMapper } from './theta-explorer.mapper.ts';
 import type { ThetaTransaction, ThetaAccountTxResponse } from './theta-explorer.types.ts';
 
 @RegisterApiClient({
@@ -29,8 +32,11 @@ import type { ThetaTransaction, ThetaAccountTxResponse } from './theta-explorer.
   requiresApiKey: false,
 })
 export class ThetaExplorerApiClient extends BaseApiClient {
+  private mapper: ThetaExplorerTransactionMapper;
+
   constructor(config: ProviderConfig) {
     super(config);
+    this.mapper = new ThetaExplorerTransactionMapper();
   }
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
@@ -61,9 +67,7 @@ export class ThetaExplorerApiClient extends BaseApiClient {
   private async getRawAddressTransactions(
     address: string,
     _since?: number
-  ): Promise<Result<ThetaTransaction[], Error>> {
-    const allTransactions: ThetaTransaction[] = [];
-
+  ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
     const result = await this.getTransactions(address);
 
     if (result.isErr()) {
@@ -73,11 +77,37 @@ export class ThetaExplorerApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    const allTypeTxs = result.value;
-    allTransactions.push(...allTypeTxs);
+    const rawTransactions = result.value;
 
-    this.logger.debug(`Found ${allTransactions.length} total transactions for ${address} (${allTypeTxs.length})`);
-    return ok(allTransactions);
+    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
+      this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
+      return ok([]);
+    }
+
+    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
+    for (const rawTx of rawTransactions) {
+      const mapResult = this.mapper.map(
+        rawTx as never,
+        { providerId: 'theta-explorer', sourceAddress: address },
+        {} as never
+      );
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
+    }
+
+    this.logger.debug(
+      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
+    );
+    return ok(transactions);
   }
 
   private async getTransactions(address: string): Promise<Result<ThetaTransaction[], Error>> {

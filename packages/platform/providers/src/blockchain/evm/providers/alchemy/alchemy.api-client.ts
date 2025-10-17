@@ -3,9 +3,15 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
-import type { ProviderOperation, JsonRpcResponse } from '../../../../core/blockchain/types/index.ts';
+import type {
+  ProviderOperation,
+  JsonRpcResponse,
+  TransactionWithRawData,
+} from '../../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
+import type { EvmTransaction } from '../../types.ts';
 
+import { AlchemyTransactionMapper } from './alchemy.mapper.ts';
 import type {
   AlchemyAssetTransfer,
   AlchemyAssetTransferParams,
@@ -92,8 +98,11 @@ import type {
   },
 })
 export class AlchemyApiClient extends BaseApiClient {
+  private mapper: AlchemyTransactionMapper;
+
   constructor(config: ProviderConfig) {
     super(config);
+    this.mapper = new AlchemyTransactionMapper();
   }
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
@@ -245,7 +254,7 @@ export class AlchemyApiClient extends BaseApiClient {
   private async getRawAddressInternalTransactions(
     address: string,
     since?: number
-  ): Promise<Result<AlchemyAssetTransfer[], Error>> {
+  ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
     const result = await this.getAssetTransfers(address, since, ['internal']);
 
     if (result.isErr()) {
@@ -255,14 +264,39 @@ export class AlchemyApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    this.logger.debug(`Found ${result.value.length} raw internal transactions for ${address}`);
-    return ok(result.value);
+    const rawTransactions = result.value;
+
+    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
+      this.logger.debug(`No raw internal transactions found - Address: ${maskAddress(address)}`);
+      return ok([]);
+    }
+
+    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
+    for (const rawTx of rawTransactions) {
+      const mapResult = this.mapper.map(rawTx as never, { providerId: 'alchemy', sourceAddress: address }, {} as never);
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
+    }
+
+    this.logger.debug(
+      `Successfully retrieved and normalized internal transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
+    );
+    return ok(transactions);
   }
 
   private async getRawAddressTransactions(
     address: string,
     since?: number
-  ): Promise<Result<AlchemyAssetTransfer[], Error>> {
+  ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
     const result = await this.getAssetTransfers(address, since, ['external']);
 
     if (result.isErr()) {
@@ -272,8 +306,33 @@ export class AlchemyApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    this.logger.debug(`Found ${result.value.length} raw address transactions for ${address}`);
-    return ok(result.value);
+    const rawTransactions = result.value;
+
+    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
+      this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
+      return ok([]);
+    }
+
+    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
+    for (const rawTx of rawTransactions) {
+      const mapResult = this.mapper.map(rawTx as never, { providerId: 'alchemy', sourceAddress: address }, {} as never);
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
+    }
+
+    this.logger.debug(
+      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
+    );
+    return ok(transactions);
   }
 
   private async getRawTokenBalances(
@@ -302,7 +361,7 @@ export class AlchemyApiClient extends BaseApiClient {
     address: string,
     contractAddress?: string,
     since?: number
-  ): Promise<Result<AlchemyAssetTransfer[], Error>> {
+  ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
     const result = await this.getAssetTransfers(address, since, ['erc20', 'erc721', 'erc1155'], contractAddress);
 
     if (result.isErr()) {
@@ -312,7 +371,32 @@ export class AlchemyApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    this.logger.debug(`Found ${result.value.length} raw token transactions for ${address}`);
-    return ok(result.value);
+    const rawTransactions = result.value;
+
+    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
+      this.logger.debug(`No raw token transactions found - Address: ${maskAddress(address)}`);
+      return ok([]);
+    }
+
+    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
+    for (const rawTx of rawTransactions) {
+      const mapResult = this.mapper.map(rawTx as never, { providerId: 'alchemy', sourceAddress: address }, {} as never);
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
+    }
+
+    this.logger.debug(
+      `Successfully retrieved and normalized token transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
+    );
+    return ok(transactions);
   }
 }

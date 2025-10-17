@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import type { TransactionWithRawData } from '../../../../core/blockchain/index.ts';
 import { ProviderRegistry } from '../../../../core/blockchain/index.ts';
-import type { AddressInfo } from '../../types.js';
+import type { AddressInfo, BitcoinTransaction } from '../../types.js';
 import { BlockCypherApiClient } from '../blockcypher.api-client.js';
-import type { BlockCypherTransaction } from '../blockcypher.types.js';
 
 describe.skip('BlockCypherApiClient E2E', () => {
   const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockcypher');
@@ -45,9 +45,9 @@ describe.skip('BlockCypherApiClient E2E', () => {
   );
 
   it.skipIf(!process.env['BLOCKCYPHER_API_KEY'] || process.env['BLOCKCYPHER_API_KEY'] === 'YourApiKeyToken')(
-    'should get raw address transactions',
+    'should get normalized address transactions',
     async () => {
-      const result = await client.execute<BlockCypherTransaction[]>({
+      const result = await client.execute<TransactionWithRawData<BitcoinTransaction>[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
@@ -57,10 +57,20 @@ describe.skip('BlockCypherApiClient E2E', () => {
         const transactions = result.value;
         expect(Array.isArray(transactions)).toBe(true);
         if (transactions.length > 0) {
-          const tx = transactions[0]!;
+          const txWithRaw = transactions[0]!;
+          expect(txWithRaw).toHaveProperty('raw');
+          expect(txWithRaw).toHaveProperty('normalized');
+
+          expect(txWithRaw.raw).toHaveProperty('hash');
+          expect(txWithRaw.raw).toHaveProperty('inputs');
+          expect(txWithRaw.raw).toHaveProperty('outputs');
+
+          const tx = txWithRaw.normalized;
           expect(tx).toBeDefined();
-          expect(tx.hash).toBeDefined();
-          expect(typeof tx.hash).toBe('string');
+          expect(tx.id).toBeDefined();
+          expect(typeof tx.id).toBe('string');
+          expect(tx.currency).toBe('BTC');
+          expect(tx.providerId).toBe('blockcypher');
           expect(Array.isArray(tx.inputs)).toBe(true);
           expect(Array.isArray(tx.outputs)).toBe(true);
         }

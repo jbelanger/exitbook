@@ -4,9 +4,12 @@ import { err, ok, type Result } from 'neverthrow';
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
+import type { SolanaTransaction } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
+import { SolscanTransactionMapper } from './solscan.mapper.ts';
 import type { SolscanTransaction, SolscanResponse } from './solscan.types.js';
 
 export interface SolscanRawBalanceData {
@@ -35,8 +38,11 @@ export interface SolscanRawBalanceData {
   requiresApiKey: true,
 })
 export class SolscanApiClient extends BaseApiClient {
+  private mapper: SolscanTransactionMapper;
+
   constructor(config: ProviderConfig) {
     super(config);
+    this.mapper = new SolscanTransactionMapper();
 
     // Override HTTP client to add browser-like headers for Solscan
     const defaultHeaders: Record<string, string> = {
@@ -125,7 +131,7 @@ export class SolscanApiClient extends BaseApiClient {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<Result<SolscanTransaction[], Error>> {
+  }): Promise<Result<TransactionWithRawData<SolanaTransaction>[], Error>> {
     const { address, since } = params;
 
     if (!isValidSolanaAddress(address)) {
@@ -168,23 +174,23 @@ export class SolscanApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    let transactions: SolscanTransaction[] = [];
+    let rawTransactions: SolscanTransaction[] = [];
 
     const data = response.data;
     if (Array.isArray(data)) {
-      transactions = data;
+      rawTransactions = data;
     } else if (data && typeof data === 'object') {
       const maybeItems = (data as { items?: SolscanTransaction[] }).items;
       const maybeData = (data as { data?: SolscanTransaction[] }).data;
 
       if (Array.isArray(maybeItems)) {
-        transactions = maybeItems;
+        rawTransactions = maybeItems;
       } else if (Array.isArray(maybeData)) {
-        transactions = maybeData;
+        rawTransactions = maybeData;
       }
     }
 
-    if (transactions.length === 0) {
+    if (rawTransactions.length === 0) {
       this.logger.warn(
         `Unexpected Solscan payload shape, attempting legacy endpoint - Address: ${maskAddress(address)}`
       );
@@ -209,15 +215,33 @@ export class SolscanApiClient extends BaseApiClient {
         return ok([]);
       }
 
-      transactions = Array.isArray(legacyResponse.data) ? legacyResponse.data : [];
+      rawTransactions = Array.isArray(legacyResponse.data) ? legacyResponse.data : [];
     }
 
-    const filteredTransactions = since ? transactions.filter((tx) => tx.blockTime.getTime() >= since) : transactions;
+    const filteredRawTransactions = since
+      ? rawTransactions.filter((tx) => tx.blockTime.getTime() >= since)
+      : rawTransactions;
+
+    const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
+    for (const rawTx of filteredRawTransactions) {
+      const mapResult = this.mapper.map(rawTx as never, { providerId: 'solscan', sourceAddress: address }, {} as never);
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        normalized: mapResult.value,
+        raw: rawTx,
+      });
+    }
 
     this.logger.debug(
-      `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`
+      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
     );
 
-    return ok(filteredTransactions);
+    return ok(transactions);
   }
 }

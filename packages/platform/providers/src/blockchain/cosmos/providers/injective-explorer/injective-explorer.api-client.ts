@@ -3,11 +3,13 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
 import type { CosmosChainConfig } from '../../chain-config.interface.js';
 import { COSMOS_CHAINS } from '../../chain-registry.ts';
+import type { CosmosTransaction } from '../../types.js';
 
-import type { InjectiveExplorerTransaction } from './injective-explorer.types.js';
+import { InjectiveExplorerTransactionMapper } from './injective-explorer.mapper.ts';
 
 @RegisterApiClient({
   baseUrl: 'https://sentry.exchange.grpc-web.injective.network',
@@ -33,12 +35,14 @@ import type { InjectiveExplorerTransaction } from './injective-explorer.types.js
 })
 export class InjectiveExplorerApiClient extends BaseApiClient {
   private chainConfig: CosmosChainConfig;
+  private mapper: InjectiveExplorerTransactionMapper;
 
   constructor(config: ProviderConfig) {
     super(config);
 
     // Use provided chainConfig or default to Injective
     this.chainConfig = COSMOS_CHAINS['injective'] as CosmosChainConfig;
+    this.mapper = new InjectiveExplorerTransactionMapper();
 
     this.logger.debug(
       `Initialized InjectiveExplorerApiClient for chain: ${this.chainConfig.chainName} - BaseUrl: ${this.baseUrl}`
@@ -74,7 +78,7 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<Result<InjectiveExplorerTransaction[], Error>> {
+  }): Promise<Result<TransactionWithRawData<CosmosTransaction>[], Error>> {
     const { address, since } = params;
 
     if (!this.validateAddress(address)) {
@@ -100,11 +104,11 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    let transactions = response.data;
+    let rawTransactions = response.data;
 
     // Apply time filter if specified
     if (since) {
-      transactions = transactions.filter((tx) => {
+      rawTransactions = rawTransactions.filter((tx) => {
         if (
           typeof tx === 'object' &&
           tx !== null &&
@@ -119,11 +123,34 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
       });
     }
 
+    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
+      this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
+      return ok([]);
+    }
+
+    const transactions: TransactionWithRawData<CosmosTransaction>[] = [];
+    for (const rawTx of rawTransactions) {
+      const mapResult = this.mapper.map(rawTx as never, { providerId: 'injective-explorer', sourceAddress: address }, {
+        address,
+      } as never);
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.debug(`Skipping transaction - Address: ${maskAddress(address)}, Reason: ${errorMessage}`);
+        continue;
+      }
+
+      transactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
+    }
+
     this.logger.debug(
-      `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}`
+      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
     );
 
-    return ok(transactions as InjectiveExplorerTransaction[]);
+    return ok(transactions);
   }
 
   private validateAddress(address: string): boolean {

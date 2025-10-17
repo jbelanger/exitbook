@@ -1,9 +1,8 @@
-import { getErrorMessage, type RawTransactionMetadata } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { RawData, ImportSessionMetadata, StoredImportParams, ITransactionRepository } from '@exitbook/data';
 import { PartialImportError } from '@exitbook/exchanges';
 import type { ImportParams } from '@exitbook/import/app/ports/importers.ts';
-import type { IBlockchainNormalizer } from '@exitbook/providers';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, Result } from 'neverthrow';
@@ -30,8 +29,7 @@ export class TransactionIngestionService {
     private sessionErrorRepository: IImportSessionErrorRepository,
     private transactionRepository: ITransactionRepository,
     private importerFactory: IImporterFactory,
-    private processorFactory: IProcessorFactory,
-    private blockchainNormalizer: IBlockchainNormalizer
+    private processorFactory: IProcessorFactory
   ) {
     this.logger = getLogger('TransactionIngestionService');
   }
@@ -85,7 +83,6 @@ export class TransactionIngestionService {
     if (sourceType === 'exchange') {
       return this.importFromExchange(sourceId, params);
     } else {
-      // Cast to BlockchainImportParams for blockchain imports
       return this.importFromBlockchain(sourceId, params as ImportParams & { since?: number; until?: number });
     }
   }
@@ -101,7 +98,6 @@ export class TransactionIngestionService {
     this.logger.info(`Starting processing for ${sourceId} (${sourceType})`);
 
     try {
-      // Load raw data from storage
       const loadFilters: LoadRawDataFilters = {
         processingStatus: 'pending',
         sourceId: sourceId,
@@ -110,7 +106,6 @@ export class TransactionIngestionService {
 
       const rawDataItemsResult = await this.rawDataRepository.load(loadFilters);
 
-      // Handle Result type - fail fast if loading fails
       if (rawDataItemsResult.isErr()) {
         return err(rawDataItemsResult.error);
       }
@@ -123,7 +118,6 @@ export class TransactionIngestionService {
 
       this.logger.info(`Found ${rawDataItems.length} raw data items to process for ${sourceId}`);
 
-      // Fetch sessions and raw data separately
       const allSessionsResult = await this.sessionRepository.findBySource(sourceId);
 
       if (allSessionsResult.isErr()) {
@@ -135,10 +129,8 @@ export class TransactionIngestionService {
         `Found ${allSessions.length} total sessions for source: ${allSessions.map((s) => s.id).join(', ')}`
       );
 
-      // Get raw data items that match our filters (already loaded above)
       const rawDataBySessionId = new Map<number, RawData[]>();
 
-      // Group raw data by session ID
       for (const rawDataItem of rawDataItems) {
         if (rawDataItem.import_session_id) {
           const sessionRawData = rawDataBySessionId.get(rawDataItem.import_session_id) || [];
@@ -153,7 +145,6 @@ export class TransactionIngestionService {
           .join(', ')}`
       );
 
-      // Create sessions with raw data structure, filtering to only sessions that have pending raw data
       const sessionsToProcess = allSessions
         .filter((session) => rawDataBySessionId.has(session.id))
         .map((session) => ({
@@ -176,11 +167,9 @@ export class TransactionIngestionService {
 
       const allTransactions: (UniversalTransaction & { sessionId: number })[] = [];
 
-      // Process each session with its raw data and metadata
       for (const sessionData of sessionsToProcess) {
         const { rawDataItems: sessionRawItems, session } = sessionData;
 
-        // Filter to only pending items for this session
         const pendingItems = sessionRawItems.filter((item) => item.processing_status === 'pending');
 
         if (pendingItems.length === 0) {
@@ -188,8 +177,6 @@ export class TransactionIngestionService {
         }
 
         const normalizedRawDataItems: unknown[] = [];
-        const normalizationErrors: { error: string; itemId: number }[] = [];
-        const skippedItems: { itemId: number; reason: string }[] = [];
 
         const parsedImportParams =
           typeof session.import_params === 'string'
@@ -200,84 +187,24 @@ export class TransactionIngestionService {
             ? (JSON.parse(session.import_result_metadata) as Record<string, unknown>)
             : (session.import_result_metadata as Record<string, unknown>);
 
-        // Combine import params and result metadata into session metadata format
         const parsedSessionMetadata: ImportSessionMetadata = {
           ...parsedImportParams,
           ...parsedResultMetadata,
         };
 
-        if (sourceType === 'blockchain') {
-          const normalizer = this.blockchainNormalizer;
-          if (normalizer) {
-            for (const item of pendingItems) {
-              // Parse JSON strings from database
-              const parsedMetadata: RawTransactionMetadata =
-                typeof item.metadata === 'string'
-                  ? (JSON.parse(item.metadata) as RawTransactionMetadata)
-                  : (item.metadata as RawTransactionMetadata);
-              const parsedRawData: unknown =
-                typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
+        for (const item of pendingItems) {
+          let normalized_data: unknown =
+            typeof item.normalized_data === 'string' ? JSON.parse(item.normalized_data) : item.normalized_data;
 
-              const result = normalizer.normalize(parsedRawData, parsedMetadata, parsedSessionMetadata);
-
-              if (result.isOk()) {
-                normalizedRawDataItems.push(result.value);
-              } else {
-                const error = result.error;
-                if (error.type === 'skip') {
-                  // Safe skip - transaction is not an asset transfer or not relevant
-                  skippedItems.push({ itemId: item.id, reason: error.reason });
-                  this.logger.debug(`Skipped item ${item.id}: ${error.reason}`);
-                } else {
-                  // Actual error - normalization failed
-                  const errorMsg = `Normalization failed: ${error.message}`;
-                  normalizationErrors.push({ error: errorMsg, itemId: item.id });
-                  this.logger.error(`${errorMsg} for raw data item ${item.id} in session ${session.id}`);
-                }
-              }
-            }
+          if (!normalized_data || Object.keys(normalized_data as Record<string, never>).length === 0) {
+            normalized_data = typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
           }
-        } else {
-          for (const item of pendingItems) {
-            // raw_data and normalized_data are JSON strings that need parsing
-            let normalized_data: unknown =
-              typeof item.normalized_data === 'string' ? JSON.parse(item.normalized_data) : item.normalized_data;
-            if (!normalized_data || Object.keys(normalized_data as Record<string, never>).length === 0) {
-              normalized_data = typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
-            }
-            normalizedRawDataItems.push(normalized_data);
-          }
+
+          normalizedRawDataItems.push(normalized_data);
         }
 
-        // STRICT MODE: Fail if any raw data items could not be normalized (but skips are OK)
-        if (normalizationErrors.length > 0) {
-          this.logger.error(
-            `CRITICAL: ${normalizationErrors.length}/${pendingItems.length} items failed normalization in session ${session.id}:\n${normalizationErrors
-              .map((e, i) => `  ${i + 1}. Item ${e.itemId}: ${e.error}`)
-              .join('\n')}`
-          );
-
-          return err(
-            new Error(
-              `Cannot proceed: ${normalizationErrors.length}/${pendingItems.length} raw data items failed normalization in session ${session.id}. ` +
-                `This would corrupt portfolio calculations. Errors: ${normalizationErrors
-                  .map((e) => `Item ${e.itemId}: ${e.error}`)
-                  .join('; ')}`
-            )
-          );
-        }
-
-        // Log summary of skipped items if any
-        if (skippedItems.length > 0) {
-          this.logger.info(
-            `Skipped ${skippedItems.length}/${pendingItems.length} items in session ${session.id} (non-asset operations or irrelevant transactions)`
-          );
-        }
-
-        // Create processor with session-specific context
         const processor = await this.processorFactory.create(sourceId, sourceType, parsedSessionMetadata);
 
-        // Process this session's raw data
         const sessionTransactionsResult = await processor.process(normalizedRawDataItems, parsedSessionMetadata);
 
         if (sessionTransactionsResult.isErr()) {
@@ -300,7 +227,6 @@ export class TransactionIngestionService {
 
       const transactions = allTransactions;
 
-      // Save processed transactions to database
       const saveResults = await Promise.all(
         transactions.map((transaction) => this.transactionRepository.save(transaction, transaction.sessionId))
       );
@@ -514,25 +440,22 @@ export class TransactionIngestionService {
     const sourceType = 'exchange';
     this.logger.info(`Starting exchange import for ${sourceId}`);
 
-    // Look for any existing session for this exchange (simple sourceId + sourceType lookup)
-    const existingSessionsResult = await this.sessionRepository.findBySource(sourceId, 1);
+    const existingSessionsResult = await this.sessionRepository.findBySource(sourceId);
 
     if (existingSessionsResult.isErr()) {
       return err(existingSessionsResult.error);
     }
 
-    const existingSession = existingSessionsResult.value[0]; // Most recent session
+    const existingSession = existingSessionsResult.value[0];
 
     const startTime = Date.now();
     let sessionCreated = false;
     let importSessionId: number;
 
-    // Reuse existing session if it exists, otherwise create a new one
     if (existingSession) {
       importSessionId = existingSession.id;
       this.logger.info(`Resuming existing import session: ${importSessionId}`);
 
-      // Get latest cursor from this session for resumption
       const latestCursorResult = await this.rawDataRepository.getLatestCursor(importSessionId);
       if (latestCursorResult.isOk() && latestCursorResult.value) {
         const latestCursor = latestCursorResult.value;
@@ -559,20 +482,17 @@ export class TransactionIngestionService {
       }
       this.logger.info(`Importer for ${sourceId} created successfully`);
 
-      // Import raw data
       this.logger.info('Starting raw data import...');
       const importResultOrError = await importer.import(params);
 
       if (importResultOrError.isErr()) {
         const error = importResultOrError.error;
 
-        // Check if this is a PartialImportError with successful items
         if (error instanceof PartialImportError) {
           this.logger.warn(
             `Validation failed after ${error.successfulItems.length} successful items: ${error.message}`
           );
 
-          // Save successful items to database
           let savedCount = 0;
           if (error.successfulItems.length > 0) {
             const saveResult = await this.rawDataRepository.saveBatch(importSessionId, error.successfulItems);
@@ -585,7 +505,6 @@ export class TransactionIngestionService {
             }
           }
 
-          // Record the validation error to import_session_errors table
           const errorRecordResult = await this.sessionErrorRepository.create({
             errorDetails: {
               lastSuccessfulCursor: error.lastSuccessfulCursor,
@@ -601,7 +520,6 @@ export class TransactionIngestionService {
             this.logger.error(`Failed to record validation error: ${errorRecordResult.error.message}`);
           }
 
-          // Mark session as failed with partial success info
           const finalizeResult = await this.sessionRepository.finalize(
             importSessionId,
             'failed',
@@ -627,23 +545,19 @@ export class TransactionIngestionService {
           );
         }
 
-        // Other errors (network, auth, etc.)
         return err(error);
       }
 
       const importResult = importResultOrError.value;
       const rawData = importResult.rawTransactions;
 
-      // Save all raw data items to storage in a single transaction
       const savedCountResult = await this.rawDataRepository.saveBatch(importSessionId, rawData);
 
-      // Handle Result type - fail fast if save fails
       if (savedCountResult.isErr()) {
         return err(savedCountResult.error);
       }
       const savedCount = savedCountResult.value;
 
-      // Finalize session with success and import result metadata
       const finalizeResult = await this.sessionRepository.finalize(
         importSessionId,
         'completed',

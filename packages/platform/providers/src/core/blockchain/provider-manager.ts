@@ -132,7 +132,6 @@ export class BlockchainProviderManager {
     blockchain: string,
     operation: ProviderOperation
   ): Promise<Result<FailoverExecutionResult<T>, ProviderError>> {
-    // Check cache first
     if (operation.getCacheKey) {
       const cacheKey = operation.getCacheKey(operation);
       const cached = this.requestCache.get(cacheKey);
@@ -142,7 +141,6 @@ export class BlockchainProviderManager {
       }
     }
 
-    // Execute with failover logic
     const result = (await this.executeWithCircuitBreaker(blockchain, operation)) as unknown as Result<
       FailoverExecutionResult<T>,
       ProviderError

@@ -3,10 +3,13 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
 import type { EvmChainConfig } from '../../chain-config.interface.ts';
 import { getEvmChainConfig } from '../../chain-registry.ts';
+import type { EvmTransaction } from '../../types.ts';
 
+import { MoralisTransactionMapper, MoralisTokenTransferMapper } from './moralis.mapper.ts';
 import type {
   MoralisNativeBalance,
   MoralisTransaction,
@@ -57,9 +60,13 @@ const CHAIN_ID_MAP: Record<string, string> = {
 export class MoralisApiClient extends BaseApiClient {
   private readonly chainConfig: EvmChainConfig;
   private readonly moralisChainId: string;
+  private mapper: MoralisTransactionMapper;
+  private tokenTransferMapper: MoralisTokenTransferMapper;
 
   constructor(config: ProviderConfig) {
     super(config);
+    this.mapper = new MoralisTransactionMapper();
+    this.tokenTransferMapper = new MoralisTokenTransferMapper();
 
     // Get EVM chain config
     const evmChainConfig = getEvmChainConfig(config.blockchain);
@@ -154,8 +161,8 @@ export class MoralisApiClient extends BaseApiClient {
   private async getRawAddressTransactions(
     address: string,
     since?: number
-  ): Promise<Result<MoralisTransaction[], Error>> {
-    const transactions: MoralisTransaction[] = [];
+  ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
+    const rawTransactions: MoralisTransaction[] = [];
     let cursor: string | null | undefined;
     let pageCount = 0;
     const maxPages = 100; // Safety limit to prevent infinite loops
@@ -198,7 +205,7 @@ export class MoralisApiClient extends BaseApiClient {
         _nativeDecimals: this.chainConfig.nativeDecimals,
       })) as MoralisTransaction[];
 
-      transactions.push(...augmentedTransactions);
+      rawTransactions.push(...augmentedTransactions);
       cursor = response.cursor;
       pageCount++;
 
@@ -213,7 +220,30 @@ export class MoralisApiClient extends BaseApiClient {
       }
     } while (cursor);
 
-    this.logger.debug(`Found ${transactions.length} total raw address transactions for ${address}`);
+    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
+      this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
+      return ok([]);
+    }
+
+    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
+    for (const rawTx of rawTransactions) {
+      const mapResult = this.mapper.map(rawTx as never, { providerId: 'moralis', sourceAddress: address }, {} as never);
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
+    }
+
+    this.logger.debug(
+      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
+    );
     return ok(transactions);
   }
 
@@ -261,8 +291,8 @@ export class MoralisApiClient extends BaseApiClient {
     address: string,
     contractAddress?: string,
     since?: number
-  ): Promise<Result<MoralisTokenTransfer[], Error>> {
-    const transfers: MoralisTokenTransfer[] = [];
+  ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
+    const rawTransfers: MoralisTokenTransfer[] = [];
     let cursor: string | null | undefined;
     let pageCount = 0;
     const maxPages = 100; // Safety limit to prevent infinite loops
@@ -298,7 +328,7 @@ export class MoralisApiClient extends BaseApiClient {
 
       const response = result.value;
       const pageTransfers = response.result || [];
-      transfers.push(...pageTransfers);
+      rawTransfers.push(...pageTransfers);
       cursor = response.cursor;
       pageCount++;
 
@@ -313,7 +343,34 @@ export class MoralisApiClient extends BaseApiClient {
       }
     } while (cursor);
 
-    this.logger.debug(`Found ${transfers.length} total raw token transactions for ${address}`);
-    return ok(transfers);
+    if (!Array.isArray(rawTransfers) || rawTransfers.length === 0) {
+      this.logger.debug(`No raw token transactions found - Address: ${maskAddress(address)}`);
+      return ok([]);
+    }
+
+    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
+    for (const rawTx of rawTransfers) {
+      const mapResult = this.tokenTransferMapper.map(
+        rawTx as never,
+        { providerId: 'moralis', sourceAddress: address },
+        {} as never
+      );
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
+    }
+
+    this.logger.debug(
+      `Successfully retrieved and normalized token transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
+    );
+    return ok(transactions);
   }
 }

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
+import type { EvmTransaction } from '../../../types.ts';
 import { ThetaExplorerApiClient } from '../theta-explorer.api-client.ts';
-import type { ThetaTransaction } from '../theta-explorer.types.ts';
 
 describe('ThetaExplorerApiClient Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('theta', 'theta-explorer');
@@ -22,7 +23,7 @@ describe('ThetaExplorerApiClient Integration', () => {
 
   describe('Raw Address Transactions', () => {
     it('should fetch raw address transactions successfully', async () => {
-      const result = await provider.execute<ThetaTransaction[]>({
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
@@ -32,17 +33,19 @@ describe('ThetaExplorerApiClient Integration', () => {
         const transactions = result.value;
         expect(Array.isArray(transactions)).toBe(true);
         if (transactions.length > 0) {
-          expect(transactions[0]).toHaveProperty('hash');
-          expect(transactions[0]).toHaveProperty('block_height');
-          expect(transactions[0]).toHaveProperty('timestamp');
-          expect(transactions[0]).toHaveProperty('type');
-          expect(transactions[0]).toHaveProperty('data');
+          const firstTx = transactions[0]!;
+          expect(firstTx).toHaveProperty('raw');
+          expect(firstTx).toHaveProperty('normalized');
+          expect(firstTx.normalized).toHaveProperty('id');
+          expect(firstTx.normalized).toHaveProperty('blockHeight');
+          expect(firstTx.normalized).toHaveProperty('timestamp');
+          expect(firstTx.normalized.providerId).toBe('theta-explorer');
         }
       }
     }, 30000);
 
     it('should fetch both send and smart contract transactions', async () => {
-      const result = await provider.execute<ThetaTransaction[]>({
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
@@ -53,15 +56,16 @@ describe('ThetaExplorerApiClient Integration', () => {
         expect(Array.isArray(transactions)).toBe(true);
 
         if (transactions.length > 0) {
-          // Should contain type 2 (send) or type 7 (smart contract) transactions
-          const hasValidTypes = transactions.some((tx) => tx.type === 2 || tx.type === 7);
-          expect(hasValidTypes).toBe(true);
+          // Should have valid transaction types
+          const firstTx = transactions[0]!;
+          expect(firstTx.normalized.type).toBeDefined();
+          expect(['transfer', 'token_transfer', 'contract_call']).toContain(firstTx.normalized.type);
         }
       }
     }, 30000);
 
     it('should return transactions with valid structure', async () => {
-      const result = await provider.execute<ThetaTransaction[]>({
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
@@ -72,24 +76,19 @@ describe('ThetaExplorerApiClient Integration', () => {
         expect(Array.isArray(transactions)).toBe(true);
 
         if (transactions.length > 0) {
-          const tx = transactions[0]!;
+          const firstTx = transactions[0]!;
 
-          // Check hash format (should be 0x prefixed)
-          expect(tx.hash).toMatch(/^0x[a-fA-F0-9]+$/);
-
-          // Check block height is numeric string
-          expect(parseInt(tx.block_height)).toBeGreaterThan(0);
-
-          // Check type is valid
-          expect([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).toContain(tx.type);
+          expect(firstTx.normalized.id).toMatch(/^0x[a-fA-F0-9]+$/);
+          expect(firstTx.normalized.blockHeight).toBeGreaterThan(0);
+          expect(firstTx.normalized.providerId).toBe('theta-explorer');
         }
       }
     }, 30000);
   });
 
   describe('Transaction Types', () => {
-    it('should handle send transactions (type 2)', async () => {
-      const result = await provider.execute<ThetaTransaction[]>({
+    it('should handle send transactions', async () => {
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
@@ -97,19 +96,17 @@ describe('ThetaExplorerApiClient Integration', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const transactions = result.value;
-        const sendTx = transactions.find((tx) => tx.type === 2);
+        const sendTx = transactions.find((tx) => tx.normalized.type === 'transfer');
         if (sendTx) {
-          expect(sendTx.data).toBeDefined();
-          // Send transactions should have source/target or inputs/outputs
-          const hasSourceTarget = 'source' in sendTx.data || 'target' in sendTx.data;
-          const hasInputsOutputs = 'inputs' in sendTx.data || 'outputs' in sendTx.data;
-          expect(hasSourceTarget || hasInputsOutputs).toBe(true);
+          expect(sendTx.normalized).toHaveProperty('from');
+          expect(sendTx.normalized).toHaveProperty('to');
+          expect(sendTx.normalized).toHaveProperty('amount');
         }
       }
     }, 30000);
 
-    it('should handle smart contract transactions (type 7)', async () => {
-      const result = await provider.execute<ThetaTransaction[]>({
+    it('should handle smart contract transactions', async () => {
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
@@ -117,11 +114,10 @@ describe('ThetaExplorerApiClient Integration', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const transactions = result.value;
-        const contractTx = transactions.find((tx) => tx.type === 7);
+        const contractTx = transactions.find((tx) => tx.normalized.type === 'contract_call');
         if (contractTx) {
-          expect(contractTx.data).toBeDefined();
-          // Smart contract transactions should have from/to
-          expect('from' in contractTx.data || 'to' in contractTx.data).toBe(true);
+          expect(contractTx.normalized).toHaveProperty('from');
+          expect(contractTx.normalized).toHaveProperty('to');
         }
       }
     }, 30000);

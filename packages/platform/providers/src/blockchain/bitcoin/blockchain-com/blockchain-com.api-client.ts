@@ -2,12 +2,13 @@ import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
-import type { ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
+import type { ProviderConfig, ProviderOperation, TransactionWithRawData } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
 import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
-import type { AddressInfo } from '../types.js';
+import type { AddressInfo, BitcoinTransaction } from '../types.js';
 
-import type { BlockchainComAddressResponse, BlockchainComTransaction } from './blockchain-com.types.js';
+import { BlockchainComTransactionMapper } from './blockchain-com.mapper.ts';
+import type { BlockchainComAddressResponse } from './blockchain-com.types.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'BLOCKCHAIN_COM_API_KEY',
@@ -32,8 +33,11 @@ import type { BlockchainComAddressResponse, BlockchainComTransaction } from './b
   requiresApiKey: false,
 })
 export class BlockchainComApiClient extends BaseApiClient {
+  private mapper: BlockchainComTransactionMapper;
+
   constructor(config: ProviderConfig) {
     super(config);
+    this.mapper = new BlockchainComTransactionMapper();
 
     this.logger.debug(`Initialized BlockchainComApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
@@ -87,7 +91,6 @@ export class BlockchainComApiClient extends BaseApiClient {
 
     const addressInfo = result.value;
 
-    // Convert satoshis to BTC
     const balanceBTC = (addressInfo.final_balance / 100000000).toString();
 
     this.logger.debug(`Successfully retrieved raw address info - Address: ${maskAddress(address)}`);
@@ -104,7 +107,7 @@ export class BlockchainComApiClient extends BaseApiClient {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<Result<BlockchainComTransaction[], Error>> {
+  }): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
     const { address, since } = params;
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
@@ -125,27 +128,48 @@ export class BlockchainComApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    let filteredTransactions = addressData.txs;
+    let filteredRawTransactions = addressData.txs;
 
     // Filter by timestamp if 'since' is provided
     if (since) {
-      filteredTransactions = addressData.txs.filter((tx) => {
+      filteredRawTransactions = addressData.txs.filter((tx) => {
         const timestamp = tx.time * 1000; // Convert to milliseconds
         return timestamp >= since;
       });
 
       this.logger.debug(
-        `Filtered raw transactions by timestamp - OriginalCount: ${addressData.txs.length}, FilteredCount: ${filteredTransactions.length}`
+        `Filtered raw transactions by timestamp - OriginalCount: ${addressData.txs.length}, FilteredCount: ${filteredRawTransactions.length}`
       );
     }
 
     // Sort by timestamp (newest first)
-    filteredTransactions.sort((a, b) => b.time - a.time);
+    filteredRawTransactions.sort((a, b) => b.time - a.time);
+
+    // Normalize transactions immediately using mapper
+    const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
+    for (const rawTx of filteredRawTransactions) {
+      const mapResult = this.mapper.map(
+        rawTx as never,
+        { providerId: 'blockchain.com', sourceAddress: address },
+        {} as never
+      );
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
+    }
 
     this.logger.debug(
-      `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`
+      `Successfully retrieved and normalized address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}`
     );
 
-    return ok(filteredTransactions);
+    return ok(transactions);
   }
 }

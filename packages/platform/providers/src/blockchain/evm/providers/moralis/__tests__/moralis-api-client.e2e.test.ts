@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
+import type { EvmTransaction } from '../../../types.ts';
 import { MoralisApiClient } from '../moralis.api-client.ts';
-import type { MoralisNativeBalance, MoralisTokenBalance, MoralisTransaction } from '../moralis.types.ts';
+import type { MoralisNativeBalance, MoralisTokenBalance } from '../moralis.types.ts';
 
 describe('MoralisApiClient Integration - Multi-Chain', () => {
   describe('Ethereum', () => {
@@ -38,7 +40,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
 
     describe('Raw Address Transactions', () => {
       it('should fetch raw address transactions with augmented currency fields', async () => {
-        const result = await provider.execute<MoralisTransaction[]>({
+        const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
           address: testAddress,
           type: 'getRawAddressTransactions',
         });
@@ -49,22 +51,22 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
           expect(Array.isArray(transactions)).toBe(true);
           if (transactions.length > 0) {
             const firstTx = transactions[0]!;
-            expect(firstTx).toHaveProperty('hash');
-            expect(firstTx).toHaveProperty('from_address');
-            expect(firstTx).toHaveProperty('to_address');
-            expect(firstTx).toHaveProperty('block_number');
-            expect(firstTx).toHaveProperty('block_timestamp');
-            // Verify augmented fields
-            expect(firstTx._nativeCurrency).toBe('ETH');
-            expect(firstTx._nativeDecimals).toBe(18);
+            expect(firstTx).toHaveProperty('raw');
+            expect(firstTx).toHaveProperty('normalized');
+            expect(firstTx.normalized).toHaveProperty('id');
+            expect(firstTx.normalized).toHaveProperty('from');
+            expect(firstTx.normalized).toHaveProperty('to');
+            expect(firstTx.normalized).toHaveProperty('blockHeight');
+            expect(firstTx.normalized.currency).toBe('ETH');
+            expect(firstTx.normalized.providerId).toBe('moralis');
           }
         }
       }, 30000);
     });
 
     describe('Internal Transactions', () => {
-      it('should fetch internal transactions with augmented currency fields', async () => {
-        const result = await provider.execute<MoralisTransaction[]>({
+      it('should return empty array for internal transactions (included in main transactions)', async () => {
+        const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
           address: testAddress,
           type: 'getRawAddressInternalTransactions',
         });
@@ -73,12 +75,8 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         if (result.isOk()) {
           const transactions = result.value;
           expect(Array.isArray(transactions)).toBe(true);
-          if (transactions.length > 0) {
-            const firstTx = transactions[0]!;
-            // Verify augmented fields
-            expect(firstTx._nativeCurrency).toBe('ETH');
-            expect(firstTx._nativeDecimals).toBe(18);
-          }
+          // Moralis includes internal transactions in the main transaction call, so this should be empty
+          expect(transactions).toHaveLength(0);
         }
       }, 30000);
     });
@@ -125,7 +123,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
 
     describe('Raw Address Transactions', () => {
       it('should fetch raw address transactions with augmented currency fields', async () => {
-        const result = await provider.execute<MoralisTransaction[]>({
+        const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
           address: testAddress,
           type: 'getRawAddressTransactions',
         });
@@ -136,18 +134,19 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
           expect(Array.isArray(transactions)).toBe(true);
           if (transactions.length > 0) {
             const firstTx = transactions[0]!;
-            expect(firstTx).toHaveProperty('hash');
-            // Verify augmented fields for Avalanche
-            expect(firstTx._nativeCurrency).toBe('AVAX');
-            expect(firstTx._nativeDecimals).toBe(18);
+            expect(firstTx).toHaveProperty('raw');
+            expect(firstTx).toHaveProperty('normalized');
+            expect(firstTx.normalized).toHaveProperty('id');
+            expect(firstTx.normalized.currency).toBe('AVAX');
+            expect(firstTx.normalized.providerId).toBe('moralis');
           }
         }
       }, 30000);
     });
 
     describe('Internal Transactions', () => {
-      it('should fetch internal transactions with augmented currency fields', async () => {
-        const result = await provider.execute<MoralisTransaction[]>({
+      it('should return empty array for internal transactions (included in main transactions)', async () => {
+        const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
           address: testAddress,
           type: 'getRawAddressInternalTransactions',
         });
@@ -156,12 +155,8 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         if (result.isOk()) {
           const transactions = result.value;
           expect(Array.isArray(transactions)).toBe(true);
-          if (transactions.length > 0) {
-            const firstTx = transactions[0]!;
-            // Verify augmented fields for Avalanche
-            expect(firstTx._nativeCurrency).toBe('AVAX');
-            expect(firstTx._nativeDecimals).toBe(18);
-          }
+          // Moralis includes internal transactions in the main transaction call, so this should be empty
+          expect(transactions).toHaveLength(0);
         }
       }, 30000);
     });

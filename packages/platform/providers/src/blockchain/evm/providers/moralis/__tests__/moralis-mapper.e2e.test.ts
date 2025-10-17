@@ -2,6 +2,8 @@ import type { RawTransactionMetadata } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/data';
 
 import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
+import type { EvmTransaction } from '../../../types.ts';
 import { MoralisApiClient } from '../moralis.api-client.js';
 import { MoralisTransactionMapper } from '../moralis.mapper.js';
 import type { MoralisTransaction } from '../moralis.types.js';
@@ -18,7 +20,7 @@ describe('MoralisTransactionMapper E2E - Multi-Chain', () => {
 
     beforeAll(async () => {
       // Fetch data once to avoid hammering the API
-      const result = await apiClient.execute<MoralisTransaction[]>({
+      const result = await apiClient.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
@@ -28,7 +30,8 @@ describe('MoralisTransactionMapper E2E - Multi-Chain', () => {
         throw result.error;
       }
 
-      cachedTransactions = result.value;
+      // Extract raw transactions from the wrapped response
+      cachedTransactions = result.value.map((tx) => tx.raw as MoralisTransaction);
       console.log(`Fetched ${cachedTransactions.length} Ethereum transactions for testing`);
     }, 60000);
 
@@ -102,7 +105,7 @@ describe('MoralisTransactionMapper E2E - Multi-Chain', () => {
 
     beforeAll(async () => {
       // Fetch data once to avoid hammering the API
-      const result = await apiClient.execute<MoralisTransaction[]>({
+      const result = await apiClient.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
@@ -112,7 +115,8 @@ describe('MoralisTransactionMapper E2E - Multi-Chain', () => {
         throw result.error;
       }
 
-      cachedTransactions = result.value;
+      // Extract raw transactions from the wrapped response
+      cachedTransactions = result.value.map((tx) => tx.raw as MoralisTransaction);
       console.log(`Fetched ${cachedTransactions.length} Avalanche transactions for testing`);
     }, 60000);
 

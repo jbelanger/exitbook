@@ -30,7 +30,6 @@ vi.mock('@exitbook/shared-logger', () => ({
   })),
 }));
 
-// Mock environment variable
 vi.stubEnv('TATUM_API_KEY', 'test-api-key');
 
 describe('TatumBitcoinApiClient', () => {
@@ -129,7 +128,24 @@ describe('TatumBitcoinApiClient', () => {
       expect(mockHttpGet).toHaveBeenCalledWith(`/transaction/address/${mockAddress}?offset=0&pageSize=50`);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value).toEqual(mockTransactions);
+        expect(result.value).toHaveLength(1);
+        expect(result.value[0]?.normalized).toMatchObject({
+          currency: 'BTC',
+          id: '5cb4eef31430d6b33b79c4b28f469d23dd62ac8524d0a4741c0b8920f31af5c0',
+          providerId: 'tatum',
+          status: 'success',
+          timestamp: 1755706690000,
+          blockHeight: 910910,
+          blockId: '00000000000000000001b0990dc7c442d33d6845547570808d0b855ca0526421',
+        });
+        const tx = result.value[0];
+        expect(tx).toBeDefined();
+        expect(tx?.normalized.inputs).toBeDefined();
+        expect(tx?.normalized.inputs).toHaveLength(1);
+        expect(tx?.normalized.outputs).toBeDefined();
+        expect(tx?.normalized.outputs).toHaveLength(1);
+        expect(tx?.raw).toBeDefined();
+        expect(tx?.raw).toEqual(mockTransactions[0]);
       }
     });
 

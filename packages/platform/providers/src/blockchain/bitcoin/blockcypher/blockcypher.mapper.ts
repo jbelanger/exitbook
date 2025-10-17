@@ -27,7 +27,6 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
   ): Result<BitcoinTransaction, NormalizationError> {
     const timestamp = rawData.confirmed ? new Date(rawData.confirmed).getTime() : Date.now();
 
-    // Extract structured inputs with addresses and values
     const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input) => ({
       address: input.addresses && input.addresses.length > 0 ? input.addresses[0] : undefined,
       txid: input.prev_hash,
@@ -35,7 +34,6 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
       vout: input.output_index,
     }));
 
-    // Extract structured outputs with addresses and values
     const outputs: BitcoinTransactionOutput[] = rawData.outputs.map((output, index) => ({
       address: output.addresses && output.addresses.length > 0 ? output.addresses[0] : undefined,
       index,
@@ -52,7 +50,6 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
       timestamp,
     };
 
-    // Add optional fields
     if (rawData.block_height) {
       normalized.blockHeight = rawData.block_height;
     }

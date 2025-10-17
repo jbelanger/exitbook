@@ -23,12 +23,10 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
     _metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
   ): Result<SubstrateTransaction, NormalizationError> {
-    // Extract addresses from rich session context (similar to Bitcoin's approach)
     // Use derivedAddresses for SS58 variants, fallback to address for backward compatibility
     const addresses = sessionContext.derivedAddresses || (sessionContext.address ? [sessionContext.address] : []);
     const relevantAddresses = new Set(addresses);
 
-    // Get chain-specific info from augmented fields
     const nativeCurrency = rawData._nativeCurrency;
     const nativeDecimals = rawData._nativeDecimals;
 

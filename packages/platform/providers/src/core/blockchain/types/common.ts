@@ -10,3 +10,12 @@ export interface JsonRpcResponse<T = unknown> {
     message: string;
   };
 }
+
+/**
+ * Wrapper for a single transaction that includes both raw provider data and normalized data
+ * Used for debugging purposes to retain original provider responses
+ */
+export interface TransactionWithRawData<TNormalized = unknown> {
+  raw: unknown;
+  normalized: TNormalized;
+}

@@ -1,6 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
+import type { SubstrateTransaction } from '../../../types.ts';
 import { TaostatsApiClient } from '../taostats.api-client.ts';
 import type { TaostatsBalanceResponse, TaostatsTransactionAugmented } from '../taostats.types.ts';
 
@@ -50,8 +52,8 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
     });
 
     describe('Raw Address Transactions', () => {
-      it('should fetch raw address transactions with augmented currency fields', async () => {
-        const result = await provider.execute<TaostatsTransactionAugmented[]>({
+      it('should fetch raw address transactions with normalization', async () => {
+        const result = await provider.execute<TransactionWithRawData<SubstrateTransaction>[]>({
           address: testAddress,
           type: 'getRawAddressTransactions',
         });
@@ -65,26 +67,51 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
         expect(Array.isArray(transactions)).toBe(true);
         if (transactions.length > 0) {
           const firstTx = transactions[0]!;
-          // Verify raw API transaction structure
-          expect(firstTx).toHaveProperty('transaction_hash');
-          expect(firstTx).toHaveProperty('from');
-          expect(firstTx).toHaveProperty('to');
-          expect(firstTx).toHaveProperty('amount');
-          expect(firstTx).toHaveProperty('block_number');
-          expect(firstTx).toHaveProperty('timestamp');
-          expect(firstTx).toHaveProperty('extrinsic_id');
-          expect(typeof firstTx.transaction_hash).toBe('string');
-          expect(typeof firstTx.from).toBe('object');
-          expect(firstTx.from).toHaveProperty('ss58');
-          expect(firstTx.from).toHaveProperty('hex');
-          expect(typeof firstTx.to).toBe('object');
-          expect(firstTx.to).toHaveProperty('ss58');
-          expect(firstTx.to).toHaveProperty('hex');
-          expect(typeof firstTx.timestamp).toBe('string'); // ISO string
-          // Verify augmented fields
-          expect(firstTx._nativeCurrency).toBe('TAO');
-          expect(firstTx._nativeDecimals).toBe(9);
-          expect(firstTx._chainDisplayName).toBe('Bittensor Network');
+
+          expect(firstTx).toHaveProperty('raw');
+          expect(firstTx).toHaveProperty('normalized');
+
+          const rawData = firstTx.raw as TaostatsTransactionAugmented;
+
+          expect(rawData).toHaveProperty('transaction_hash');
+          expect(rawData).toHaveProperty('from');
+          expect(rawData).toHaveProperty('to');
+          expect(rawData).toHaveProperty('amount');
+          expect(rawData).toHaveProperty('block_number');
+          expect(rawData).toHaveProperty('timestamp');
+          expect(rawData).toHaveProperty('extrinsic_id');
+          expect(typeof rawData.transaction_hash).toBe('string');
+          expect(typeof rawData.from).toBe('object');
+          expect(rawData.from).toHaveProperty('ss58');
+          expect(rawData.from).toHaveProperty('hex');
+          expect(typeof rawData.to).toBe('object');
+          expect(rawData.to).toHaveProperty('ss58');
+          expect(rawData.to).toHaveProperty('hex');
+          expect(typeof rawData.timestamp).toBe('string'); // ISO string
+
+          expect(rawData._nativeCurrency).toBe('TAO');
+          expect(rawData._nativeDecimals).toBe(9);
+          expect(rawData._chainDisplayName).toBe('Bittensor Network');
+
+          const normalized = firstTx.normalized;
+          expect(normalized).toHaveProperty('id');
+          expect(normalized).toHaveProperty('from');
+          expect(normalized).toHaveProperty('to');
+          expect(normalized).toHaveProperty('amount');
+          expect(normalized).toHaveProperty('currency');
+          expect(normalized).toHaveProperty('timestamp');
+          expect(normalized).toHaveProperty('status');
+          expect(normalized).toHaveProperty('providerId');
+          expect(normalized).toHaveProperty('feeAmount');
+          expect(normalized).toHaveProperty('feeCurrency');
+
+          expect(normalized.currency).toBe('TAO');
+          expect(normalized.feeCurrency).toBe('TAO');
+          expect(normalized.providerId).toBe('taostats');
+          expect(normalized.chainName).toBe('bittensor');
+          expect(normalized.status).toBe('success');
+          expect(typeof normalized.amount).toBe('string');
+          expect(typeof normalized.timestamp).toBe('number');
         }
       }, 30000);
     });
@@ -94,7 +121,7 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
         // Use a timestamp from 1 year ago to ensure we capture existing transactions
         const sinceTimestamp = Date.now() - 2 * 365 * 24 * 60 * 60 * 1000; // 2 years ago
 
-        const result = await provider.execute<TaostatsTransactionAugmented[]>({
+        const result = await provider.execute<TransactionWithRawData<SubstrateTransaction>[]>({
           address: testAddress,
           type: 'getRawAddressTransactions',
           since: sinceTimestamp,
@@ -108,11 +135,9 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
         const transactions = result.value;
         expect(Array.isArray(transactions)).toBe(true);
         if (transactions.length > 0) {
-          // Verify all transactions are after the specified timestamp
           transactions.forEach((tx) => {
-            // Taostats returns ISO timestamp string
-            const txTimestamp = new Date(tx.timestamp).getTime();
-            expect(txTimestamp).toBeGreaterThanOrEqual(sinceTimestamp);
+            // Verify using normalized timestamp (already converted to number)
+            expect(tx.normalized.timestamp).toBeGreaterThanOrEqual(sinceTimestamp);
           });
         }
       }, 30000);

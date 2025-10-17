@@ -1,6 +1,12 @@
 import type { RawTransactionWithMetadata } from '@exitbook/core';
 import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
-import type { BitcoinWalletAddress, BlockchainProviderManager, ProviderError } from '@exitbook/providers';
+import type {
+  BitcoinTransaction,
+  BitcoinWalletAddress,
+  BlockchainProviderManager,
+  ProviderError,
+  TransactionWithRawData,
+} from '@exitbook/providers';
 import { BitcoinUtils } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import * as bitcoin from 'bitcoinjs-lib';
@@ -112,16 +118,17 @@ export class BitcoinTransactionImporter implements IImporter {
     });
 
     return result.map((response) => {
-      const rawTransactions = response.data as unknown[];
+      const transactionsWithRaw = response.data as TransactionWithRawData<BitcoinTransaction>[];
       const providerId = response.providerName;
 
-      // Wrap each transaction with provider provenance
-      return rawTransactions.map((rawData) => ({
+      // Wrap each transaction with provider provenance, keeping both raw and normalized data
+      return transactionsWithRaw.map((txWithRaw) => ({
         metadata: {
           providerId,
           sourceAddress: address,
         },
-        rawData,
+        normalizedData: txWithRaw.normalized,
+        rawData: txWithRaw.raw, // Keep original provider response for audit trail
       }));
     });
   }
@@ -154,10 +161,10 @@ export class BitcoinTransactionImporter implements IImporter {
 
       const rawTransactions = result.value;
 
-      // Add transactions to the unique set with address information
+      // Add transactions to the unique set (deduplication by transaction ID)
       for (const rawTx of rawTransactions) {
-        const txId = this.getTransactionId(rawTx.rawData);
-        uniqueTransactions.set(txId, rawTx);
+        const normalizedTx = rawTx.normalizedData as { id: string };
+        uniqueTransactions.set(normalizedTx.id, rawTx);
       }
 
       this.logger.debug(`Found ${rawTransactions.length} transactions for address ${address}`);
@@ -177,20 +184,5 @@ export class BitcoinTransactionImporter implements IImporter {
       this.providerManager,
       this.addressGap
     );
-  }
-
-  /**
-   * Get transaction ID from any Bitcoin transaction type
-   */
-  private getTransactionId(tx: unknown): string {
-    // Handle different transaction formats
-    if (typeof tx === 'object' && tx !== null) {
-      if ('txid' in tx && typeof (tx as { txid?: unknown }).txid === 'string') {
-        return (tx as { txid: string }).txid; // MempoolTransaction, BlockstreamTransaction
-      } else if ('hash' in tx && typeof (tx as { hash?: unknown }).hash === 'string') {
-        return (tx as { hash: string }).hash; // BlockCypherTransaction
-      }
-    }
-    return 'unknown';
   }
 }

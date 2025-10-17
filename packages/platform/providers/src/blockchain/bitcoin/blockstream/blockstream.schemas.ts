@@ -29,7 +29,7 @@ export const BlockstreamInputSchema = z.object({
   sequence: z.number(),
   txid: z.string().min(1, 'Input txid must not be empty'),
   vout: z.number().nonnegative(),
-  witness: z.array(z.string()),
+  witness: z.array(z.string()).optional(),
 });
 
 /**

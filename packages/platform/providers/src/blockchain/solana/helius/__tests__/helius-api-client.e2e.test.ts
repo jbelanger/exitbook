@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../core/blockchain/types/index.ts';
+import type { SolanaTransaction } from '../../types.ts';
+import { lamportsToSol } from '../../utils.ts';
 import { HeliusApiClient } from '../helius.api-client.ts';
 import type { HeliusTransaction } from '../helius.types.ts';
 
@@ -19,45 +22,11 @@ describe('HeliusApiClient Integration', () => {
     }, 30000);
   });
 
-  describe('Raw Address Transactions', () => {
-    it('should fetch raw address transactions successfully', async () => {
-      const result = await provider.execute<HeliusTransaction[]>({
+  describe('Address Transactions with Normalization', () => {
+    it('should fetch and normalize transactions successfully', async () => {
+      const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
-
-      const transactions = result.value;
-      expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0 && transactions[0]) {
-        expect(transactions[0]).toHaveProperty('slot');
-        expect(transactions[0]).toHaveProperty('blockTime');
-        expect(transactions[0]).toHaveProperty('meta');
-        expect(transactions[0]).toHaveProperty('transaction');
-        if (transactions[0].transaction) {
-          expect(transactions[0].transaction).toHaveProperty('signatures');
-          expect(transactions[0].transaction.signatures).toBeDefined();
-          expect(Array.isArray(transactions[0].transaction.signatures)).toBe(true);
-          if (transactions[0].transaction.signatures.length > 0) {
-            expect(transactions[0].transaction.signatures[0]).toBeDefined();
-            expect(typeof transactions[0].transaction.signatures[0]).toBe('string');
-          }
-          expect(transactions[0].transaction).toHaveProperty('message');
-          if (transactions[0].transaction.message) {
-            expect(transactions[0].transaction.message).toHaveProperty('accountKeys');
-          }
-        }
-      }
-    }, 30000);
-
-    it('should fetch raw address transactions with since parameter successfully', async () => {
-      const oneWeekAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
-      const result = await provider.execute<HeliusTransaction[]>({
-        address: testAddress,
-        type: 'getRawAddressTransactions',
-        since: oneWeekAgo,
       });
 
       expect(result.isOk()).toBe(true);
@@ -66,9 +35,132 @@ describe('HeliusApiClient Integration', () => {
       const transactions = result.value;
       expect(Array.isArray(transactions)).toBe(true);
       if (transactions.length > 0) {
-        expect(transactions[0]).toHaveProperty('blockTime');
-        expect(transactions[0]?.blockTime).toBeDefined();
+        const txData = transactions[0]!;
+
+        expect(txData).toHaveProperty('raw');
+        expect(txData).toHaveProperty('normalized');
+
+        const raw = txData.raw as HeliusTransaction;
+        expect(raw).toHaveProperty('slot');
+        expect(raw).toHaveProperty('blockTime');
+        expect(raw).toHaveProperty('meta');
+        expect(raw).toHaveProperty('transaction');
+        expect(raw.transaction).toHaveProperty('signatures');
+        expect(raw.transaction).toHaveProperty('message');
+
+        const normalized = txData.normalized;
+        expect(normalized.providerId).toBe('helius');
+        expect(typeof normalized.id).toBe('string');
+        expect(normalized.id.length).toBeGreaterThan(0);
+        expect(['success', 'failed']).toContain(normalized.status);
+        expect(typeof normalized.amount).toBe('string');
+        expect(typeof normalized.currency).toBe('string');
+        expect(normalized.slot).toBe(raw.slot);
+        expect(normalized.timestamp).toBeGreaterThan(0);
+
+        const expectedSignature = raw.transaction.signatures?.[0] ?? raw.signature;
+        expect(normalized.id).toBe(expectedSignature);
+        expect(normalized.blockHeight).toBe(raw.slot);
       }
+    }, 30000);
+
+    it('should include account balance changes in normalized transactions', async () => {
+      const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
+        address: testAddress,
+        type: 'getRawAddressTransactions',
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
+
+      const transactions = result.value;
+      const txWithBalanceChanges = transactions.find(
+        (tx) => tx.normalized.accountChanges && tx.normalized.accountChanges.length > 0
+      );
+
+      if (!txWithBalanceChanges) {
+        console.warn('No transactions with balance changes found, skipping test');
+        return;
+      }
+
+      const normalized = txWithBalanceChanges.normalized;
+      expect(Array.isArray(normalized.accountChanges)).toBe(true);
+      expect(normalized.accountChanges!.length).toBeGreaterThan(0);
+
+      const change = normalized.accountChanges![0]!;
+      expect(typeof change.account).toBe('string');
+      expect(typeof change.preBalance).toBe('string');
+      expect(typeof change.postBalance).toBe('string');
+    }, 30000);
+
+    it('should include token changes when present', async () => {
+      const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
+        address: testAddress,
+        type: 'getRawAddressTransactions',
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
+
+      const transactions = result.value;
+      const txWithTokenChanges = transactions.find(
+        (tx) => tx.normalized.tokenChanges && tx.normalized.tokenChanges.length > 0
+      );
+
+      if (!txWithTokenChanges) {
+        console.warn('No transactions with token changes found, skipping test');
+        return;
+      }
+
+      const normalized = txWithTokenChanges.normalized;
+      expect(Array.isArray(normalized.tokenChanges)).toBe(true);
+      expect(normalized.tokenChanges!.length).toBeGreaterThan(0);
+
+      const tokenChange = normalized.tokenChanges![0]!;
+      expect(typeof tokenChange.mint).toBe('string');
+      expect(typeof tokenChange.preAmount).toBe('string');
+      expect(typeof tokenChange.postAmount).toBe('string');
+      expect(typeof tokenChange.decimals).toBe('number');
+    }, 30000);
+
+    it('should convert fees from lamports to SOL', async () => {
+      const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
+        address: testAddress,
+        type: 'getRawAddressTransactions',
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
+
+      const transactions = result.value;
+      if (transactions.length > 0) {
+        const txData = transactions[0]!;
+        const raw = txData.raw as HeliusTransaction;
+        const normalized = txData.normalized;
+
+        expect(normalized.feeCurrency).toBe('SOL');
+        expect(normalized.feeAmount).toBe(lamportsToSol(raw.meta.fee).toString());
+      }
+    }, 30000);
+
+    it('should filter transactions by since parameter', async () => {
+      const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
+        address: testAddress,
+        since: oneWeekAgo,
+        type: 'getRawAddressTransactions',
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
+
+      const transactions = result.value;
+      expect(Array.isArray(transactions)).toBe(true);
+
+      // All returned transactions should be after the since timestamp
+      transactions.forEach((txData) => {
+        expect(txData.normalized.timestamp).toBeGreaterThanOrEqual(oneWeekAgo);
+      });
     }, 30000);
   });
 
@@ -191,7 +283,6 @@ describe('HeliusApiClient Integration', () => {
       const solanaConfig = ProviderRegistry.createDefaultConfig('solana', 'helius');
       const solanaProvider = new HeliusApiClient(solanaConfig);
 
-      // Check that the provider was created successfully
       expect(solanaProvider).toBeDefined();
       expect(solanaProvider.blockchain).toBe('solana');
     });
@@ -199,7 +290,6 @@ describe('HeliusApiClient Integration', () => {
     it('should initialize with correct configuration', () => {
       const heliusProvider = new HeliusApiClient(config);
 
-      // Check that the provider was created successfully
       expect(heliusProvider).toBeDefined();
       expect(heliusProvider.blockchain).toBe('solana');
     });
