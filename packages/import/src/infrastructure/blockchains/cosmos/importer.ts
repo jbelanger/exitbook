@@ -34,7 +34,6 @@ export class CosmosImporter implements IImporter {
       throw new Error(`Provider manager required for ${chainConfig.displayName} importer`);
     }
 
-    // Auto-register providers for this chain
     this.providerManager.autoRegisterFromConfig(chainConfig.chainName, options?.preferredProvider);
 
     this.logger.info(
@@ -86,7 +85,6 @@ export class CosmosImporter implements IImporter {
       const transactionsWithRaw = response.data as TransactionWithRawData<CosmosTransaction>[];
       const providerId = response.providerName;
 
-      // Wrap each transaction with provider provenance, keeping both raw and normalized data
       return transactionsWithRaw.map((txWithRaw) => ({
         metadata: {
           providerId,

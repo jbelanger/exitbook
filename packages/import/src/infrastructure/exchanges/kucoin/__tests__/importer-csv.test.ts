@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { KucoinCsvImporter } from '../importer-csv.ts';
 
-// Mock the file system
 vi.mock('node:fs/promises');
 
 describe('KucoinCsvImporter - Metadata', () => {
@@ -22,10 +21,8 @@ describe('KucoinCsvImporter - Metadata', () => {
   });
 
   test('sets importMethod as csv in result metadata', async () => {
-    // Mock a directory with a valid spot orders CSV
     mockReaddir.mockResolvedValue(['Spot Orders_Filled Orders.csv'] as unknown as Dirent<Buffer<ArrayBufferLike>>[]);
 
-    // Mock CSV content with valid headers and one row
     const csvContent = `UID,Account Type,Order ID,Order Time(UTC),Symbol,Side,Order Type,Order Price,Order Amount,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Fee Currency,Tax,Status
 user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1,42000.00,0.1,4200.00,4200.00,2024-01-01 10:01:00,0.42,USDT,,deal`;
 
@@ -46,10 +43,8 @@ user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00
   });
 
   test('does not include importMethod in individual transaction metadata', async () => {
-    // Mock a directory with a valid spot orders CSV
     mockReaddir.mockResolvedValue(['Spot Orders_Filled Orders.csv'] as unknown as Dirent<Buffer<ArrayBufferLike>>[]);
 
-    // Mock CSV content
     const csvContent = `UID,Account Type,Order ID,Order Time(UTC),Symbol,Side,Order Type,Order Price,Order Amount,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Fee Currency,Tax,Status
 user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1,42000.00,0.1,4200.00,4200.00,2024-01-01 10:01:00,0.42,USDT,,deal`;
 

@@ -155,7 +155,6 @@ describe('RawDataRepository', () => {
         .execute();
       expect(initialProcessed.length).toBeGreaterThan(0);
 
-      // Reset all
       const result = await repository.resetProcessingStatusAll();
 
       expect(result.isOk()).toBe(true);

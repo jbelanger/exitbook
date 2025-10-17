@@ -47,7 +47,6 @@ export class KucoinCsvImporter implements IImporter {
     const rawTransactions: RawTransactionWithMetadata[] = [];
 
     try {
-      // Process each directory in order
       for (const csvDirectory of params.csvDirectories) {
         this.logger.info(`Processing CSV directory: ${csvDirectory}`);
 
@@ -67,7 +66,6 @@ export class KucoinCsvImporter implements IImporter {
                 this.logger.info(`Processing trading CSV file: ${file}`);
                 const rawRows = await this.parseCsvFile<CsvSpotOrderRow>(filePath);
 
-                // Validate CSV data using Zod schemas
                 const validationResult = validateKuCoinSpotOrders(rawRows);
 
                 if (validationResult.invalid.length > 0) {
@@ -75,7 +73,6 @@ export class KucoinCsvImporter implements IImporter {
                     `${validationResult.invalid.length} invalid trading rows in ${file}. ` +
                       `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
                   );
-                  // Log first few validation errors for debugging
                   validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
                     const fieldErrors = errors.issues
                       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
@@ -102,7 +99,6 @@ export class KucoinCsvImporter implements IImporter {
                 this.logger.info(`Processing deposit CSV file: ${file}`);
                 const rawRows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
 
-                // Validate CSV data using Zod schemas
                 const validationResult = validateKuCoinDepositsWithdrawals(rawRows);
 
                 if (validationResult.invalid.length > 0) {
@@ -110,7 +106,6 @@ export class KucoinCsvImporter implements IImporter {
                     `${validationResult.invalid.length} invalid deposit rows in ${file}. ` +
                       `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
                   );
-                  // Log first few validation errors for debugging
                   validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
                     const fieldErrors = errors.issues
                       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
@@ -140,7 +135,6 @@ export class KucoinCsvImporter implements IImporter {
                 this.logger.info(`Processing withdrawal CSV file: ${file}`);
                 const rawRows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
 
-                // Validate CSV data using Zod schemas
                 const validationResult = validateKuCoinDepositsWithdrawals(rawRows);
 
                 if (validationResult.invalid.length > 0) {
@@ -148,7 +142,6 @@ export class KucoinCsvImporter implements IImporter {
                     `${validationResult.invalid.length} invalid withdrawal rows in ${file}. ` +
                       `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
                   );
-                  // Log first few validation errors for debugging
                   validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
                     const fieldErrors = errors.issues
                       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
@@ -178,7 +171,6 @@ export class KucoinCsvImporter implements IImporter {
                 this.logger.info(`Processing account history CSV file: ${file}`);
                 const rawRows = await this.parseCsvFile<CsvAccountHistoryRow>(filePath);
 
-                // Validate CSV data using Zod schemas
                 const validationResult = validateKuCoinAccountHistory(rawRows);
 
                 if (validationResult.invalid.length > 0) {
@@ -186,7 +178,6 @@ export class KucoinCsvImporter implements IImporter {
                     `${validationResult.invalid.length} invalid account history rows in ${file}. ` +
                       `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
                   );
-                  // Log first few validation errors for debugging
                   validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
                     const fieldErrors = errors.issues
                       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
@@ -226,7 +217,6 @@ export class KucoinCsvImporter implements IImporter {
                 this.logger.info(`Processing order-splitting CSV file: ${file}`);
                 const rawRows = await this.parseCsvFile<CsvOrderSplittingRow>(filePath);
 
-                // Validate CSV data using Zod schemas
                 const validationResult = validateKuCoinOrderSplitting(rawRows);
 
                 if (validationResult.invalid.length > 0) {
@@ -234,7 +224,6 @@ export class KucoinCsvImporter implements IImporter {
                     `${validationResult.invalid.length} invalid order-splitting rows in ${file}. ` +
                       `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
                   );
-                  // Log first few validation errors for debugging
                   validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
                     const fieldErrors = errors.issues
                       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
@@ -263,7 +252,6 @@ export class KucoinCsvImporter implements IImporter {
                 this.logger.info(`Processing trading bot CSV file: ${file}`);
                 const rawRows = await this.parseCsvFile<CsvTradingBotRow>(filePath);
 
-                // Validate CSV data using Zod schemas
                 const validationResult = validateKuCoinTradingBot(rawRows);
 
                 if (validationResult.invalid.length > 0) {
@@ -271,7 +259,6 @@ export class KucoinCsvImporter implements IImporter {
                     `${validationResult.invalid.length} invalid trading bot rows in ${file}. ` +
                       `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
                   );
-                  // Log first few validation errors for debugging
                   validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
                     const fieldErrors = errors.issues
                       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)

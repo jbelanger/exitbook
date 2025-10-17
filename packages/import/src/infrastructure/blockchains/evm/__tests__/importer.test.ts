@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from '
 
 import { EvmImporter } from '../importer.js';
 
-// Mock chain configs
 const ETHEREUM_CONFIG: EvmChainConfig = {
   chainId: 1,
   chainName: 'ethereum',
@@ -25,7 +24,6 @@ const AVALANCHE_CONFIG: EvmChainConfig = {
   nativeDecimals: 18,
 };
 
-// Mock transaction data
 const mockNormalTx = { hash: '0x123', from: '0xabc', to: '0xdef', value: '1000000000000000000' };
 const mockInternalTx = { hash: '0x123', from: '0xdef', to: '0xghi', value: '500000000000000000' };
 const mockTokenTx = {
@@ -44,7 +42,6 @@ describe('EvmImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   beforeEach(() => {
-    // Create a mock provider manager
     mockProviderManager = {
       autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
       executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
@@ -116,7 +113,6 @@ describe('EvmImporter', () => {
       const importer = createImporter();
       const address = '0x1234567890123456789012345678901234567890';
 
-      // Mock all three API calls to succeed
       mockProviderManager.executeWithFailover
         .mockResolvedValueOnce(
           ok({
@@ -203,7 +199,6 @@ describe('EvmImporter', () => {
       const importer = createImporter();
       const address = '0x1234567890123456789012345678901234567890';
 
-      // Mock normal and token to succeed, internal to fail
       mockProviderManager.executeWithFailover
         .mockResolvedValueOnce(
           ok({
@@ -229,7 +224,6 @@ describe('EvmImporter', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        // Should have normal and token, but not internal
         expect(result.value.rawTransactions).toHaveLength(2);
         expect(result.value.rawTransactions[0]!.metadata.transactionType).toBe('normal');
         expect(result.value.rawTransactions[1]!.metadata.transactionType).toBe('token');
@@ -240,7 +234,6 @@ describe('EvmImporter', () => {
       const importer = createImporter();
       const address = '0x1234567890123456789012345678901234567890';
 
-      // Mock normal and internal to succeed, token to fail
       mockProviderManager.executeWithFailover
         .mockResolvedValueOnce(
           ok({
@@ -266,7 +259,6 @@ describe('EvmImporter', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        // Should have normal and internal, but not token
         expect(result.value.rawTransactions).toHaveLength(2);
         expect(result.value.rawTransactions[0]!.metadata.transactionType).toBe('normal');
         expect(result.value.rawTransactions[1]!.metadata.transactionType).toBe('internal');
@@ -277,7 +269,6 @@ describe('EvmImporter', () => {
       const importer = createImporter();
       const address = '0x1234567890123456789012345678901234567890';
 
-      // Mock only normal to succeed
       mockProviderManager.executeWithFailover
         .mockResolvedValueOnce(
           ok({
@@ -304,7 +295,6 @@ describe('EvmImporter', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        // Should have only normal transactions
         expect(result.value.rawTransactions).toHaveLength(1);
         expect(result.value.rawTransactions[0]!.metadata.transactionType).toBe('normal');
       }
@@ -315,7 +305,6 @@ describe('EvmImporter', () => {
       const address = '0x1234567890123456789012345678901234567890';
       const since = 1234567890;
 
-      // Mock all three API calls to succeed
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
           data: [],
@@ -350,7 +339,6 @@ describe('EvmImporter', () => {
       const importer = createImporter();
       const address = '0x1234567890123456789012345678901234567890';
 
-      // Mock normal transactions to fail
       mockProviderManager.executeWithFailover
         .mockResolvedValueOnce(
           err(
@@ -397,7 +385,6 @@ describe('EvmImporter', () => {
       const importer = createImporter(AVALANCHE_CONFIG);
       const address = '0x1234567890123456789012345678901234567890';
 
-      // Mock all three API calls to succeed
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
           data: [mockNormalTx],
@@ -439,7 +426,6 @@ describe('EvmImporter', () => {
         { raw: { ...mockNormalTx, hash: '0x789' }, normalized: undefined },
       ];
 
-      // Mock with array of transactions
       mockProviderManager.executeWithFailover
         .mockResolvedValueOnce(
           ok({
@@ -486,21 +472,17 @@ describe('EvmImporter', () => {
 
       await importer.import({ address, since });
 
-      // Extract getCacheKey functions from the calls
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
 
-      // Test normal transactions cache key
       const normalCall = calls[0]![1];
       const normalCacheKey = normalCall.getCacheKey!(normalCall);
       expect(normalCacheKey).toBe('ethereum:normal-txs:0x1234567890123456789012345678901234567890:1234567890');
 
-      // Test internal transactions cache key
       const internalCall = calls[1]![1];
       const internalCacheKey = internalCall.getCacheKey!(internalCall);
       expect(internalCacheKey).toBe('ethereum:internal-txs:0x1234567890123456789012345678901234567890:1234567890');
 
-      // Test token transactions cache key
       const tokenCall = calls[2]![1];
       const tokenCacheKey = tokenCall.getCacheKey!(tokenCall);
       expect(tokenCacheKey).toBe('ethereum:token-txs:0x1234567890123456789012345678901234567890:1234567890');
@@ -519,7 +501,6 @@ describe('EvmImporter', () => {
 
       await importer.import({ address });
 
-      // Extract getCacheKey functions from the calls
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
 

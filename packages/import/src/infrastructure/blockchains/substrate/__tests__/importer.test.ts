@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from '
 
 import { SubstrateImporter } from '../importer.js';
 
-// Mock chain configs
 const POLKADOT_CONFIG: SubstrateChainConfig = {
   chainName: 'polkadot',
   displayName: 'Polkadot Relay Chain',
@@ -38,7 +37,6 @@ const KUSAMA_CONFIG: SubstrateChainConfig = {
   ss58Format: 2,
 };
 
-// Mock transaction data
 const mockSubstrateTx1 = {
   amount: '1000000000',
   blockHeight: 12345,
@@ -83,7 +81,6 @@ describe('SubstrateImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   beforeEach(() => {
-    // Create a mock provider manager
     mockProviderManager = {
       autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
       executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
@@ -170,7 +167,6 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock API call to succeed - provider returns TransactionWithRawData structure
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
           data: [
@@ -225,7 +221,6 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock API call to succeed with empty array
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
           data: [],
@@ -245,7 +240,6 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock API call to succeed with single transaction
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
           data: [{ raw: { original: 'data' }, normalized: mockSubstrateTx1 }],
@@ -268,7 +262,6 @@ describe('SubstrateImporter', () => {
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
       const since = 1609459200000;
 
-      // Mock API call to succeed
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
           data: [],
@@ -294,7 +287,6 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock API call with unexpected format - API clients should always return properly formatted arrays
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
           data: [],
@@ -314,7 +306,6 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock API call with properly formatted empty data
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
           data: [],
@@ -367,7 +358,6 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock API call to fail
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         err(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
@@ -527,7 +517,6 @@ describe('SubstrateImporter', () => {
       const polkadotAddress = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
       const bittensorAddress = '5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL';
 
-      // Mock Polkadot success
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
           data: [{ raw: { original: 'dot-data' }, normalized: { ...mockSubstrateTx1, chainName: 'polkadot' } }],
@@ -535,7 +524,6 @@ describe('SubstrateImporter', () => {
         } as FailoverExecutionResult<unknown>)
       );
 
-      // Mock Bittensor success
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
           data: [
@@ -576,7 +564,6 @@ describe('SubstrateImporter', () => {
 
       await importer.import({ address, since });
 
-      // Extract getCacheKey function from the call
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
 
@@ -688,7 +675,6 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock with specific provider name
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
           data: [{ raw: { original: 'data' }, normalized: mockSubstrateTx1 }],

@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from '
 
 import { CosmosImporter } from '../importer.js';
 
-// Mock chain configs
 const INJECTIVE_CONFIG: CosmosChainConfig = {
   bech32Prefix: 'inj',
   chainId: 'injective-1',
@@ -29,7 +28,6 @@ const OSMOSIS_CONFIG: CosmosChainConfig = {
   nativeDecimals: 6,
 };
 
-// Mock transaction data
 const mockCosmosTransaction = {
   amount: '1000000000000000000',
   blockHeight: 100,
@@ -64,7 +62,6 @@ describe('CosmosImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   beforeEach(() => {
-    // Create a mock provider manager
     mockProviderManager = {
       autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
       executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
@@ -136,7 +133,6 @@ describe('CosmosImporter', () => {
       const importer = createImporter();
       const address = 'inj1abc123def456ghi789';
 
-      // Mock API call to succeed - now returns TransactionWithRawData format
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
           data: [
@@ -182,7 +178,6 @@ describe('CosmosImporter', () => {
       const importer = createImporter(OSMOSIS_CONFIG);
       const address = 'osmo1abc123def456ghi789';
 
-      // Mock API call with IBC transaction - now returns TransactionWithRawData format
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
           data: [
@@ -209,7 +204,6 @@ describe('CosmosImporter', () => {
       const address = 'inj1abc123def456ghi789';
       const since = 1234567890;
 
-      // Mock API call to succeed
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
           data: [],
@@ -250,7 +244,6 @@ describe('CosmosImporter', () => {
         },
       ];
 
-      // Mock with array of transactions - now returns TransactionWithRawData format
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
           data: multipleTransactions,
@@ -294,7 +287,6 @@ describe('CosmosImporter', () => {
       const importer = createImporter();
       const address = 'inj1abc123def456ghi789';
 
-      // Mock API call to fail
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         err(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
@@ -339,7 +331,6 @@ describe('CosmosImporter', () => {
       const importer = createImporter(OSMOSIS_CONFIG);
       const address = 'osmo1abc123def456ghi789';
 
-      // Mock API call to succeed - now returns TransactionWithRawData format
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
           data: [
@@ -394,7 +385,6 @@ describe('CosmosImporter', () => {
 
       await importer.import({ address, since });
 
-      // Extract getCacheKey function from the call
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
 
@@ -416,7 +406,6 @@ describe('CosmosImporter', () => {
 
       await importer.import({ address });
 
-      // Extract getCacheKey function from the call
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
 

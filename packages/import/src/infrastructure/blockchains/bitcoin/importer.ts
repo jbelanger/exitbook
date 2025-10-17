@@ -37,7 +37,6 @@ export class BitcoinTransactionImporter implements IImporter {
     this.providerManager = blockchainProviderManager;
     this.addressGap = options?.addressGap || 20;
 
-    // Auto-register providers for bitcoin
     this.providerManager.autoRegisterFromConfig('bitcoin', options?.preferredProvider);
 
     this.logger.info(
@@ -55,7 +54,6 @@ export class BitcoinTransactionImporter implements IImporter {
 
     this.logger.info(`Starting Bitcoin transaction import for address: ${params.address.substring(0, 20)}...`);
 
-    // Initialize wallet for this address (handles both xpub and regular addresses)
     const wallet: BitcoinWalletAddress = {
       address: params.address,
       type: BitcoinUtils.getAddressType(params.address),
@@ -73,7 +71,6 @@ export class BitcoinTransactionImporter implements IImporter {
 
     this.walletAddresses.push(wallet);
 
-    // Fetch transactions based on wallet type
     const result = wallet.derivedAddresses
       ? await this.fetchFromXpubWallet(wallet.derivedAddresses, params.since)
       : await this.fetchRawTransactionsForAddress(params.address, params.since);
@@ -121,7 +118,6 @@ export class BitcoinTransactionImporter implements IImporter {
       const transactionsWithRaw = response.data as TransactionWithRawData<BitcoinTransaction>[];
       const providerId = response.providerName;
 
-      // Wrap each transaction with provider provenance, keeping both raw and normalized data
       return transactionsWithRaw.map((txWithRaw) => ({
         metadata: {
           providerId,
@@ -143,10 +139,8 @@ export class BitcoinTransactionImporter implements IImporter {
     const uniqueTransactions = new Map<string, RawTransactionWithMetadata>();
 
     for (const address of derivedAddresses) {
-      // Check cache first to see if this address has any transactions
       const cachedInfo = this.addressInfoCache.get(address);
 
-      // Skip addresses that we know are empty from gap scanning
       if (cachedInfo && cachedInfo.txCount === 0) {
         this.logger.debug(`Skipping address ${address} - no transactions in cache`);
         continue;
@@ -161,7 +155,6 @@ export class BitcoinTransactionImporter implements IImporter {
 
       const rawTransactions = result.value;
 
-      // Add transactions to the unique set (deduplication by transaction ID)
       for (const rawTx of rawTransactions) {
         const normalizedTx = rawTx.normalizedData as { id: string };
         uniqueTransactions.set(normalizedTx.id, rawTx);

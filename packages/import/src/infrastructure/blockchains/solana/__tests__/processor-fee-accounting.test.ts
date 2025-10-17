@@ -29,7 +29,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         currency: 'SOL',
         feeAmount: '5000', // 0.000005 SOL fee
         feeCurrency: 'SOL',
-        from: USER_ADDRESS, // User is sender
+        from: USER_ADDRESS,
         id: 'sig1abc',
         providerId: 'helius',
         slot: 100000,
@@ -79,7 +79,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         slot: 100001,
         status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS, // User is recipient
+        to: USER_ADDRESS,
       },
     ];
 
@@ -116,13 +116,13 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         currency: 'SOL',
         feeAmount: '5000', // 0.000005 SOL fee
         feeCurrency: 'SOL',
-        from: USER_ADDRESS, // User is sender
+        from: USER_ADDRESS,
         id: 'sig3ghi',
         providerId: 'helius',
         slot: 100002,
         status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS, // User is also recipient
+        to: USER_ADDRESS,
       },
     ];
 

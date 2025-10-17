@@ -34,7 +34,6 @@ export class EvmImporter implements IImporter {
 
     this.providerManager = blockchainProviderManager;
 
-    // Auto-register providers for this chain
     this.providerManager.autoRegisterFromConfig(chainConfig.chainName, options?.preferredProvider);
 
     this.logger.info(
@@ -134,7 +133,6 @@ export class EvmImporter implements IImporter {
     return result.map((response) => {
       const transactionsWithRawData = Array.isArray(response.data) ? response.data : [response.data];
 
-      // Extract raw and normalized data from TransactionWithRawData objects
       return transactionsWithRawData.map((txData: { normalized: unknown; raw: unknown }) => ({
         metadata: {
           providerId: response.providerName,
@@ -165,7 +163,6 @@ export class EvmImporter implements IImporter {
     return result.map((response) => {
       const transactionsWithRawData = Array.isArray(response.data) ? response.data : [response.data];
 
-      // Extract raw and normalized data from TransactionWithRawData objects
       return transactionsWithRawData.map((txData: { normalized: unknown; raw: unknown }) => ({
         metadata: {
           providerId: response.providerName,
@@ -196,7 +193,6 @@ export class EvmImporter implements IImporter {
     return result.map((response) => {
       const transactionsWithRawData = Array.isArray(response.data) ? response.data : [response.data];
 
-      // Extract raw and normalized data from TransactionWithRawData objects
       return transactionsWithRawData.map((txData: { normalized: unknown; raw: unknown }) => ({
         metadata: {
           providerId: response.providerName,

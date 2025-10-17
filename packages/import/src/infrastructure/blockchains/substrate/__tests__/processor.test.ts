@@ -48,7 +48,6 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Structured fields
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.movements.primary.asset).toBe('DOT');
@@ -95,7 +94,6 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Structured fields
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
     expect(transaction.movements.primary.asset).toBe('DOT');
@@ -184,7 +182,6 @@ describe('SubstrateProcessor - Staking Operations', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Structured fields
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('stake');
     expect(transaction.movements.primary.asset).toBe('DOT');
@@ -226,7 +223,6 @@ describe('SubstrateProcessor - Staking Operations', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Structured fields
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('unstake');
     expect(transaction.movements.primary.direction).toBe('in');
@@ -264,7 +260,6 @@ describe('SubstrateProcessor - Staking Operations', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Structured fields
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('unstake');
   });
@@ -337,7 +332,6 @@ describe('SubstrateProcessor - Staking Operations', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Structured fields
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('reward');
     expect(transaction.movements.primary.amount.amount.toString()).toBe('0.5');
@@ -378,7 +372,6 @@ describe('SubstrateProcessor - Governance Operations', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Structured fields
     expect(transaction.operation.category).toBe('governance');
     expect(transaction.operation.type).toBe('proposal');
     expect(transaction.movements.primary.direction).toBe('out');
@@ -416,7 +409,6 @@ describe('SubstrateProcessor - Governance Operations', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Structured fields
     expect(transaction.operation.category).toBe('governance');
     expect(transaction.operation.type).toBe('refund');
     expect(transaction.movements.primary.direction).toBe('in');
@@ -455,7 +447,6 @@ describe('SubstrateProcessor - Governance Operations', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Structured fields
     expect(transaction.operation.category).toBe('governance');
     expect(transaction.operation.type).toBe('vote');
     expect(transaction.movements.primary.direction).toBe('out');
@@ -671,7 +662,6 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Structured fields
     expect(transaction.movements.primary.asset).toBe('DOT');
     expect(transaction.movements.primary.amount.amount.toString()).toBe('1');
     expect(transaction.movements.inflows[0]?.asset).toBe('DOT');
@@ -711,7 +701,6 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Structured fields
     expect(transaction.movements.primary.asset).toBe('TAO');
     expect(transaction.movements.primary.amount.amount.toString()).toBe('1');
     expect(transaction.movements.inflows[0]?.asset).toBe('TAO');
@@ -751,7 +740,6 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Structured fields
     expect(transaction.movements.primary.amount.amount.toString()).toBe('12.3456789012');
     expect(transaction.fees.network?.amount.toString()).toBe('0'); // User received, sender paid fee
   });

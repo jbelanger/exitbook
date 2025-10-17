@@ -430,7 +430,6 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify bridge classification
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.metadata?.hasBridgeTransfer).toBe(true);
@@ -474,7 +473,6 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify bridge classification
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
     expect(transaction.metadata?.hasBridgeTransfer).toBe(true);
@@ -845,7 +843,6 @@ describe('CosmosProcessor - Classification Uncertainty', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Should have uncertainty note
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('classification_uncertain');
     expect(transaction.note?.message).toContain('Contract interaction');

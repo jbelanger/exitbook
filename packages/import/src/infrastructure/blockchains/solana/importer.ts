@@ -30,7 +30,6 @@ export class SolanaTransactionImporter implements IImporter {
       throw new Error('Provider manager required for Solana importer');
     }
 
-    // Auto-register providers for solana
     this.providerManager.autoRegisterFromConfig('solana', options?.preferredProvider);
 
     this.logger.info(
@@ -80,7 +79,6 @@ export class SolanaTransactionImporter implements IImporter {
       const transactionsWithRaw = response.data as TransactionWithRawData<SolanaTransaction>[];
       const providerId = response.providerName;
 
-      // Wrap each transaction with provider provenance, keeping both raw and normalized data
       return transactionsWithRaw.map((txWithRaw) => ({
         metadata: {
           providerId,

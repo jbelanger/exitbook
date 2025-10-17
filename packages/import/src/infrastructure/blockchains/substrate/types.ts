@@ -24,7 +24,6 @@ export interface SubstrateFundFlow {
   feeAmount: string;
   feeCurrency: string;
 
-  // Address information
   fromAddress: string;
   toAddress: string;
 
@@ -40,7 +39,6 @@ export interface SubstrateFundFlow {
   hasProxy: boolean; // Transaction uses proxy
   hasMultisig: boolean; // Transaction involves multisig
 
-  // Transaction complexity
   eventCount: number; // Number of events generated
   extrinsicCount: number; // Number of extrinsics in batch (for utility.batch)
 

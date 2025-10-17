@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from '
 
 import { SolanaTransactionImporter } from '../importer.js';
 
-// Mock transaction data
 const mockSolTx = {
   signature: 'sig123abc',
   slot: 100000,
@@ -37,7 +36,6 @@ describe('SolanaTransactionImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   beforeEach(() => {
-    // Create a mock provider manager
     mockProviderManager = {
       autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
       executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
@@ -99,7 +97,6 @@ describe('SolanaTransactionImporter', () => {
       const importer = createImporter();
       const address = 'user1111111111111111111111111111111111111111';
 
-      // Mock API call to succeed with TransactionWithRawData format
       const mockNormalizedSol = { id: 'sig123abc', amount: '1', currency: 'SOL' };
       const mockNormalizedToken = { id: 'sig456def', amount: '1', currency: 'USDC' };
 
@@ -157,7 +154,6 @@ describe('SolanaTransactionImporter', () => {
       const address = 'user1111111111111111111111111111111111111111';
       const since = 1234567890;
 
-      // Mock API call to succeed
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
           data: [],
@@ -237,7 +233,6 @@ describe('SolanaTransactionImporter', () => {
       const importer = createImporter();
       const address = 'user1111111111111111111111111111111111111111';
 
-      // Mock provider to fail
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         err(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
@@ -281,7 +276,6 @@ describe('SolanaTransactionImporter', () => {
 
       await importer.import({ address, since });
 
-      // Extract getCacheKey function from the call
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
 
@@ -303,7 +297,6 @@ describe('SolanaTransactionImporter', () => {
 
       await importer.import({ address });
 
-      // Extract getCacheKey function from the call
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
 

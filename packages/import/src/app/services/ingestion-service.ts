@@ -255,7 +255,6 @@ export class TransactionIngestionService {
 
       const savedCount = combinedResult.value.length;
 
-      // Mark all processed raw data items as processed - both those that generated transactions and those that were skipped
       const allProcessedItems = sessionsToProcess.flatMap((sessionData) =>
         sessionData.rawDataItems.filter((item) => item.processing_status === 'pending')
       );
@@ -263,12 +262,10 @@ export class TransactionIngestionService {
 
       const markAsProcessedResult = await this.rawDataRepository.markAsProcessed(sourceId, allRawDataIds);
 
-      // Handle Result type - fail fast if marking fails
       if (markAsProcessedResult.isErr()) {
         return err(markAsProcessedResult.error);
       }
 
-      // Log the processing results
       const skippedCount = allProcessedItems.length - transactions.length;
       if (skippedCount > 0) {
         this.logger.info(`${skippedCount} items were processed but skipped (likely non-standard operation types)`);
@@ -298,7 +295,6 @@ export class TransactionIngestionService {
     const sourceType = 'blockchain';
     this.logger.info(`Starting blockchain import for ${sourceId}`);
 
-    // Check for existing completed session with matching parameters
     const existingSessionResult = await this.sessionRepository.findCompletedWithMatchingParams(sourceId, sourceType, {
       address: params.address,
       csvDirectories: params.csvDirectories,
@@ -354,7 +350,6 @@ export class TransactionIngestionService {
       }
       this.logger.info(`Importer for ${sourceId} created successfully`);
 
-      // Import raw data
       this.logger.info('Starting raw data import...');
       const importResultOrError = await importer.import(params);
 
@@ -365,10 +360,8 @@ export class TransactionIngestionService {
       const importResult = importResultOrError.value;
       const rawData = importResult.rawTransactions;
 
-      // Save all raw data items to storage in a single transaction
       const savedCountResult = await this.rawDataRepository.saveBatch(importSessionId, rawData);
 
-      // Handle Result type - fail fast if save fails
       if (savedCountResult.isErr()) {
         return err(savedCountResult.error);
       }
@@ -404,7 +397,6 @@ export class TransactionIngestionService {
     } catch (error) {
       const originalError = error instanceof Error ? error : new Error(String(error));
 
-      // Update session with error if we created it
       if (sessionCreated && typeof importSessionId === 'number' && importSessionId > 0) {
         const finalizeResult = await this.sessionRepository.finalize(
           importSessionId,
@@ -525,7 +517,7 @@ export class TransactionIngestionService {
             'failed',
             startTime,
             savedCount,
-            1, // One item failed validation
+            1,
             error.message,
             {
               failedItem: error.failedItem,
@@ -582,7 +574,6 @@ export class TransactionIngestionService {
     } catch (error) {
       const originalError = error instanceof Error ? error : new Error(String(error));
 
-      // Update session with error if we created it
       if (sessionCreated && typeof importSessionId === 'number' && importSessionId > 0) {
         const finalizeResult = await this.sessionRepository.finalize(
           importSessionId,

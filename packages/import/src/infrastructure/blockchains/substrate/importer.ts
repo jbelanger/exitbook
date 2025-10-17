@@ -35,7 +35,6 @@ export class SubstrateImporter implements IImporter {
 
     this.providerManager = blockchainProviderManager;
 
-    // Auto-register providers for this chain
     this.providerManager.autoRegisterFromConfig(chainConfig.chainName, options?.preferredProvider);
 
     this.logger.info(
@@ -89,7 +88,6 @@ export class SubstrateImporter implements IImporter {
       const transactionsWithRaw = response.data as TransactionWithRawData<SubstrateTransaction>[];
       const providerId = response.providerName;
 
-      // Wrap each transaction with provider provenance, keeping both raw and normalized data
       return transactionsWithRaw.map((txWithRaw) => ({
         metadata: {
           providerId,

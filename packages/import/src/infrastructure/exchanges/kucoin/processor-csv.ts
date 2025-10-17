@@ -101,7 +101,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const platformFee = createMoney(totalFee.toString(), sellCurrency);
 
     return {
-      // Core fields
       id: `${withdrawal.UID}-${timestampMs}-convert-market-${sellCurrency}-${buyCurrency}`,
       datetime: timestamp,
       timestamp: timestampMs,
@@ -142,10 +141,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         type: 'swap',
       },
 
-      // Price information
       price: createMoney(sellAmount.toString(), sellCurrency),
 
-      // Minimal metadata
       metadata: {
         type: 'convert_market',
         depositFee,
@@ -166,7 +163,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const platformFee = createMoney(fee.toString(), row.Coin);
 
     return {
-      // Core fields
       id: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-deposit-${row.Amount}`,
       datetime: row['Time(UTC)'],
       timestamp,
@@ -202,7 +198,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         type: 'deposit',
       },
 
-      // Minimal metadata
       metadata: {
         address: row['Deposit Address'],
         hash: row.Hash,
@@ -231,7 +226,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const uniqueId = `${row['Order ID']}-${timestamp}-${filledAmount}`;
 
     return {
-      // Core fields
       id: uniqueId,
       datetime: row['Filled Time(UTC)'],
       timestamp,
@@ -278,10 +272,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         type: side, // 'buy' or 'sell'
       },
 
-      // Price information
       price: createMoney(filledVolume.toString(), quoteCurrency || 'unknown'),
 
-      // Minimal metadata
       metadata: {
         side,
         orderType: row['Order Type'],
@@ -312,7 +304,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const uniqueId = `${row['Order ID']}-${timestamp}-${filledAmount}`;
 
     return {
-      // Core fields
       id: uniqueId,
       datetime: row['Time Filled(UTC)'],
       timestamp,
@@ -359,10 +350,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         type: side, // 'buy' or 'sell'
       },
 
-      // Price information
       price: createMoney(filledVolume.toString(), quoteCurrency || 'unknown'),
 
-      // Minimal metadata
       metadata: {
         side,
         orderType: row['Order Type'],
@@ -389,7 +378,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const isBuy = side === 'buy';
 
     return {
-      // Core fields
       id: row['Order ID'],
       datetime: row['Filled Time(UTC)'],
       timestamp,
@@ -436,10 +424,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         type: side, // 'buy' or 'sell'
       },
 
-      // Price information
       price: createMoney(filledVolume.toString(), quoteCurrency || 'unknown'),
 
-      // Minimal metadata
       metadata: {
         side,
         orderType: row['Order Type'],
@@ -459,7 +445,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const platformFee = createMoney(fee.toString(), row.Coin);
 
     return {
-      // Core fields
       id: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-withdrawal-${row.Amount}`,
       datetime: row['Time(UTC)'],
       timestamp,
@@ -495,7 +480,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         type: 'withdrawal',
       },
 
-      // Minimal metadata
       metadata: {
         address: row['Withdrawal Address/Account'],
         hash: row.Hash,
@@ -560,7 +544,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
       convertGroups.get(timestamp)!.push(row);
     }
 
-    // Process each group of convert transactions
     for (const [timestamp, group] of convertGroups) {
       if (group.length === 2) {
         // Should be one deposit and one withdrawal

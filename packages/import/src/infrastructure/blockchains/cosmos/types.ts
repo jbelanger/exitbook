@@ -29,7 +29,6 @@ export interface CosmosFundFlow {
   feeAmount: string;
   feeCurrency: string;
 
-  // Address information
   fromAddress: string;
   toAddress: string;
 
