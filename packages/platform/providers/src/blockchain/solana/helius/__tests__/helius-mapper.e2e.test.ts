@@ -38,10 +38,17 @@ describe('HeliusTransactionMapper E2E', () => {
     try {
       for (const candidate of addressCandidates) {
         try {
-          const transactions = await apiClient.execute<HeliusTransaction[]>({
+          const result = await apiClient.execute<HeliusTransaction[]>({
             address: candidate,
             type: 'getRawAddressTransactions',
           });
+
+          if (result.isErr()) {
+            console.warn(`Candidate ${candidate} failed with error:`, result.error);
+            continue;
+          }
+
+          const transactions = result.value;
 
           if (transactions.length > 0) {
             testAddress = candidate;

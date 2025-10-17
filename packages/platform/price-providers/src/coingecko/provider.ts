@@ -2,7 +2,7 @@
  * CoinGecko price provider implementation
  */
 
-import { Currency, getErrorMessage, wrapError } from '@exitbook/core';
+import { Currency, wrapError } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/platform-http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -253,111 +253,111 @@ export class CoinGeckoProvider extends BasePriceProvider {
    * for symbols with multiple entries (e.g., BTC maps to Bitcoin, not batcat)
    */
   private async syncCoinList(): Promise<Result<number, Error>> {
-    try {
-      this.logger.info('Syncing coin list from CoinGecko');
+    this.logger.info('Syncing coin list from CoinGecko');
 
-      // 1. Ensure provider exists
-      const providerIdResult = await this.ensureProviderRegistered();
-      if (providerIdResult.isErr()) {
-        return err(providerIdResult.error);
+    // 1. Ensure provider exists
+    const providerIdResult = await this.ensureProviderRegistered();
+    if (providerIdResult.isErr()) {
+      return err(providerIdResult.error);
+    }
+    const providerId = providerIdResult.value;
+
+    // 2. Check if sync is needed
+    const needsSyncResult = await this.providerRepo.needsCoinListSync(providerId);
+    if (needsSyncResult.isErr()) {
+      return err(needsSyncResult.error);
+    }
+
+    if (!needsSyncResult.value) {
+      this.logger.debug('Coin list is up to date, skipping sync');
+      return ok(0);
+    }
+
+    // 3. Fetch top coins by market cap (this gives us the correct priorities)
+    // Markets endpoint returns coins sorted by market cap
+    this.logger.debug('Fetching top coins by market cap from CoinGecko API');
+    const allMarketCoins = [];
+
+    // Fetch multiple pages to get top coins by market cap
+    // Fetch 20 pages (5000 coins) to cover most assets users will encounter
+    // This uses about 20 API calls but only happens once per day
+    const maxPages = 20;
+    for (let page = 1; page <= maxPages; page++) {
+      const params = new URLSearchParams({
+        vs_currency: 'usd',
+        order: 'market_cap_desc',
+        per_page: '250',
+        page: page.toString(),
+        sparkline: 'false',
+      });
+
+      const httpResult = await this.httpClient.get<unknown>(`/coins/markets?${params.toString()}`, {
+        headers: {
+          'x-cg-demo-api-key': this.config.apiKey || '',
+        },
+      });
+      if (httpResult.isErr()) {
+        this.logger.warn({ page, error: httpResult.error }, 'Failed to fetch markets page');
+        break; // Stop on error but keep what we have
       }
-      const providerId = providerIdResult.value;
+      const rawMarketResponse = httpResult.value;
 
-      // 2. Check if sync is needed
-      const needsSyncResult = await this.providerRepo.needsCoinListSync(providerId);
-      if (needsSyncResult.isErr()) {
-        return err(needsSyncResult.error);
-      }
-
-      if (!needsSyncResult.value) {
-        this.logger.debug('Coin list is up to date, skipping sync');
-        return ok(0);
-      }
-
-      // 3. Fetch top coins by market cap (this gives us the correct priorities)
-      // Markets endpoint returns coins sorted by market cap
-      this.logger.debug('Fetching top coins by market cap from CoinGecko API');
-      const allMarketCoins = [];
-
-      // Fetch multiple pages to get top coins by market cap
-      // Fetch 20 pages (5000 coins) to cover most assets users will encounter
-      // This uses about 20 API calls but only happens once per day
-      const maxPages = 20;
-      for (let page = 1; page <= maxPages; page++) {
-        const params = new URLSearchParams({
-          vs_currency: 'usd',
-          order: 'market_cap_desc',
-          per_page: '250',
-          page: page.toString(),
-          sparkline: 'false',
-        });
-
-        const rawMarketResponse = await this.httpClient.get<unknown>(`/coins/markets?${params.toString()}`, {
-          headers: {
-            'x-cg-demo-api-key': this.config.apiKey || '',
-          },
-        });
-
-        const marketParseResult = CoinGeckoMarketsSchema.safeParse(rawMarketResponse);
-        if (!marketParseResult.success) {
-          this.logger.warn({ page, error: marketParseResult.error }, 'Failed to parse markets page');
-          break; // Stop on error but keep what we have
-        }
-
-        allMarketCoins.push(...marketParseResult.data);
-
-        // Log progress every 5 pages
-        if (page % 5 === 0 || page === maxPages) {
-          this.logger.info({ page, totalPages: maxPages, totalCoins: allMarketCoins.length }, 'Coin sync progress');
-        }
+      const marketParseResult = CoinGeckoMarketsSchema.safeParse(rawMarketResponse);
+      if (!marketParseResult.success) {
+        this.logger.warn({ page, error: marketParseResult.error }, 'Failed to parse markets page');
+        break; // Stop on error but keep what we have
       }
 
-      this.logger.info({ count: allMarketCoins.length }, 'Market coins fetched successfully');
+      allMarketCoins.push(...marketParseResult.data);
 
-      // 4. Build mappings prioritizing by market cap rank
-      const symbolMap = new Map<string, { coinId: string; marketCapRank: number; name: string }>();
+      // Log progress every 5 pages
+      if (page % 5 === 0 || page === maxPages) {
+        this.logger.info({ page, totalPages: maxPages, totalCoins: allMarketCoins.length }, 'Coin sync progress');
+      }
+    }
 
-      for (const coin of allMarketCoins) {
-        const symbol = Currency.create(coin.symbol).toString();
-        const marketCapRank = coin.market_cap_rank || 999999;
+    this.logger.info({ count: allMarketCoins.length }, 'Market coins fetched successfully');
 
-        // If symbol exists, keep the one with better (lower) market cap rank
-        if (symbolMap.has(symbol)) {
-          const existing = symbolMap.get(symbol)!;
-          if (marketCapRank < existing.marketCapRank) {
-            symbolMap.set(symbol, { coinId: coin.id, name: coin.name, marketCapRank });
-          }
-        } else {
+    // 4. Build mappings prioritizing by market cap rank
+    const symbolMap = new Map<string, { coinId: string; marketCapRank: number; name: string }>();
+
+    for (const coin of allMarketCoins) {
+      const symbol = Currency.create(coin.symbol).toString();
+      const marketCapRank = coin.market_cap_rank || 999999;
+
+      // If symbol exists, keep the one with better (lower) market cap rank
+      if (symbolMap.has(symbol)) {
+        const existing = symbolMap.get(symbol)!;
+        if (marketCapRank < existing.marketCapRank) {
           symbolMap.set(symbol, { coinId: coin.id, name: coin.name, marketCapRank });
         }
+      } else {
+        symbolMap.set(symbol, { coinId: coin.id, name: coin.name, marketCapRank });
       }
-
-      // 5. Convert Map to array for DB storage
-      const mappings = Array.from(symbolMap.entries()).map(([symbol, data]) => ({
-        coin_id: data.coinId,
-        coin_name: data.name,
-        symbol,
-        priority: data.marketCapRank,
-      }));
-
-      // 6. Store mappings in DB
-      const upsertResult = await this.providerRepo.upsertCoinMappings(providerId, mappings);
-      if (upsertResult.isErr()) {
-        return err(upsertResult.error);
-      }
-
-      // 7. Update sync timestamp
-      const updateResult = await this.providerRepo.updateProviderSync(providerId, mappings.length);
-      if (updateResult.isErr()) {
-        return err(updateResult.error);
-      }
-
-      this.logger.info({ count: mappings.length }, 'Coin list synced successfully');
-      return ok(mappings.length);
-    } catch (error) {
-      const message = getErrorMessage(error);
-      return err(new Error(`Coin list sync failed: ${message}`));
     }
+
+    // 5. Convert Map to array for DB storage
+    const mappings = Array.from(symbolMap.entries()).map(([symbol, data]) => ({
+      coin_id: data.coinId,
+      coin_name: data.name,
+      symbol,
+      priority: data.marketCapRank,
+    }));
+
+    // 6. Store mappings in DB
+    const upsertResult = await this.providerRepo.upsertCoinMappings(providerId, mappings);
+    if (upsertResult.isErr()) {
+      return err(upsertResult.error);
+    }
+
+    // 7. Update sync timestamp
+    const updateResult = await this.providerRepo.updateProviderSync(providerId, mappings.length);
+    if (updateResult.isErr()) {
+      return err(updateResult.error);
+    }
+
+    this.logger.info({ count: mappings.length }, 'Coin list synced successfully');
+    return ok(mappings.length);
   }
 
   /**
@@ -387,77 +387,80 @@ export class CoinGeckoProvider extends BasePriceProvider {
     timestamp: Date,
     currency: Currency
   ): Promise<Result<PriceData, Error>> {
-    try {
-      const now = new Date();
+    const now = new Date();
 
-      // Use simple price API for recent data (faster)
-      if (canUseSimplePrice(timestamp)) {
-        this.logger.debug({ coinId, asset }, 'Using simple price API');
+    // Use simple price API for recent data (faster)
+    if (canUseSimplePrice(timestamp)) {
+      this.logger.debug({ coinId, asset }, 'Using simple price API');
 
-        // Build query params
-        const params = new URLSearchParams({
-          ids: coinId,
-          vs_currencies: currency.toLowerCase(),
-        });
-
-        const rawResponse = await this.httpClient.get<unknown>(`/simple/price?${params.toString()}`, {
-          headers: {
-            'x-cg-demo-api-key': this.config.apiKey || '',
-          },
-        });
-
-        const parseResult = CoinGeckoSimplePriceResponseSchema.safeParse(rawResponse);
-        if (!parseResult.success) {
-          return err(new Error(`Invalid simple price response: ${parseResult.error.message}`));
-        }
-
-        // Transform using pure function
-        const priceDataResult = transformSimplePriceResponse(parseResult.data, coinId, asset, timestamp, currency, now);
-        if (priceDataResult.isErr()) {
-          return err(priceDataResult.error);
-        }
-        return ok(priceDataResult.value);
-      }
-
-      // Use historical API for older data
-      this.logger.debug({ coinId, asset, timestamp }, 'Using historical price API');
-
-      // Check if this is an intraday request (has specific time, not midnight UTC)
-      const isIntradayRequest =
-        timestamp.getUTCHours() !== 0 || timestamp.getUTCMinutes() !== 0 || timestamp.getUTCSeconds() !== 0;
-      if (isIntradayRequest) {
-        this.logger.warn(
-          { asset: asset.toString(), timestamp },
-          'CoinGecko historical API only provides daily prices - intraday granularity not available'
-        );
-      }
-
-      const date = formatCoinGeckoDate(timestamp);
+      // Build query params
       const params = new URLSearchParams({
-        date,
-        localization: 'false',
+        ids: coinId,
+        vs_currencies: currency.toLowerCase(),
       });
 
-      const rawResponse = await this.httpClient.get<unknown>(`/coins/${coinId}/history?${params.toString()}`, {
+      const httpResult = await this.httpClient.get<unknown>(`/simple/price?${params.toString()}`, {
         headers: {
           'x-cg-demo-api-key': this.config.apiKey || '',
         },
       });
+      if (httpResult.isErr()) {
+        return err(httpResult.error);
+      }
+      const rawResponse = httpResult.value;
 
-      const parseResult = CoinGeckoHistoricalPriceResponseSchema.safeParse(rawResponse);
+      const parseResult = CoinGeckoSimplePriceResponseSchema.safeParse(rawResponse);
       if (!parseResult.success) {
-        return err(new Error(`Invalid historical price response: ${parseResult.error.message}`));
+        return err(new Error(`Invalid simple price response: ${parseResult.error.message}`));
       }
 
       // Transform using pure function
-      const priceDataResult = transformHistoricalResponse(parseResult.data, asset, timestamp, currency, now);
+      const priceDataResult = transformSimplePriceResponse(parseResult.data, coinId, asset, timestamp, currency, now);
       if (priceDataResult.isErr()) {
         return err(priceDataResult.error);
       }
       return ok(priceDataResult.value);
-    } catch (error) {
-      const message = getErrorMessage(error);
-      return err(new Error(`API fetch failed: ${message}`));
     }
+
+    // Use historical API for older data
+    this.logger.debug({ coinId, asset, timestamp }, 'Using historical price API');
+
+    // Check if this is an intraday request (has specific time, not midnight UTC)
+    const isIntradayRequest =
+      timestamp.getUTCHours() !== 0 || timestamp.getUTCMinutes() !== 0 || timestamp.getUTCSeconds() !== 0;
+    if (isIntradayRequest) {
+      this.logger.warn(
+        { asset: asset.toString(), timestamp },
+        'CoinGecko historical API only provides daily prices - intraday granularity not available'
+      );
+    }
+
+    const date = formatCoinGeckoDate(timestamp);
+    const params = new URLSearchParams({
+      date,
+      localization: 'false',
+    });
+
+    const httpResult = await this.httpClient.get<unknown>(`/coins/${coinId}/history?${params.toString()}`, {
+      headers: {
+        'x-cg-demo-api-key': this.config.apiKey || '',
+      },
+    });
+    if (httpResult.isErr()) {
+      return err(httpResult.error);
+    }
+    const rawResponse = httpResult.value;
+
+    const parseResult = CoinGeckoHistoricalPriceResponseSchema.safeParse(rawResponse);
+    if (!parseResult.success) {
+      return err(new Error(`Invalid historical price response: ${parseResult.error.message}`));
+    }
+
+    // Transform using pure function
+    const priceDataResult = transformHistoricalResponse(parseResult.data, asset, timestamp, currency, now);
+    if (priceDataResult.isErr()) {
+      return err(priceDataResult.error);
+    }
+    return ok(priceDataResult.value);
   }
 }

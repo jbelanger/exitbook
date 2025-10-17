@@ -1,4 +1,5 @@
 import { getErrorMessage } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig } from '../../../core/blockchain/index.ts';
@@ -37,30 +38,23 @@ export class MempoolSpaceApiClient extends BaseApiClient {
     this.logger.debug(`Initialized MempoolSpaceApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<T> {
+  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
     );
 
-    try {
-      switch (operation.type) {
-        case 'getRawAddressTransactions':
-          return (await this.getRawAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          })) as T;
-        case 'getAddressBalances':
-          return (await this.getAddressBalances({
-            address: operation.address,
-          })) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Params: ${JSON.stringify(operation)}, Error: ${getErrorMessage(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
-      );
-      throw error;
+    switch (operation.type) {
+      case 'getRawAddressTransactions':
+        return (await this.getRawAddressTransactions({
+          address: operation.address,
+          since: operation.since,
+        })) as Result<T, Error>;
+      case 'getAddressBalances':
+        return (await this.getAddressBalances({
+          address: operation.address,
+        })) as Result<T, Error>;
+      default:
+        return err(new Error(`Unsupported operation: ${operation.type}`));
     }
   }
 
@@ -74,69 +68,76 @@ export class MempoolSpaceApiClient extends BaseApiClient {
   }
 
   /**
-   * Get raw address info for efficient gap scanning
+   * Get lightweight address info for efficient gap scanning
    */
-  private async getAddressBalances(params: { address: string }): Promise<AddressInfo> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<AddressInfo, Error>> {
     const { address } = params;
 
-    this.logger.debug(`Fetching raw address info - Address: ${maskAddress(address)}`);
+    this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
 
-    try {
-      const addressInfo = await this.httpClient.get<MempoolAddressInfo>(`/address/${address}`);
+    const result = await this.httpClient.get<MempoolAddressInfo>(`/address/${address}`);
 
-      // Calculate transaction count
-      const txCount = addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
-
-      // Calculate current balance: funded amount - spent amount
-      const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
-      const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
-      const totalBalanceSats = chainBalance + mempoolBalance;
-
-      // Convert satoshis to BTC
-      const balanceBTC = (totalBalanceSats / 100000000).toString();
-
-      this.logger.debug(`Successfully retrieved raw address info - Address: ${maskAddress(address)}`);
-
-      return {
-        balance: balanceBTC,
-        txCount,
-      };
-    } catch (error) {
+    if (result.isErr()) {
       this.logger.error(
-        `Failed to get raw address info - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
+        `Failed to get address info - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
       );
-      throw error;
+      return err(result.error);
     }
+
+    const addressInfo = result.value;
+
+    // Calculate transaction count
+    const txCount = addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
+
+    // Calculate current balance: funded amount - spent amount
+    const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
+    const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
+    const totalBalanceSats = chainBalance + mempoolBalance;
+
+    // Convert satoshis to BTC
+    const balanceBTC = (totalBalanceSats / 100000000).toString();
+
+    this.logger.debug(
+      `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, TxCount: ${txCount}, BalanceBTC: ${balanceBTC}`
+    );
+
+    return ok({
+      balance: balanceBTC,
+      txCount,
+    });
   }
 
   /**
    * Get raw transaction data without transformation for wallet-aware parsing
    */
-  private async getRawAddressTransactions(params: { address: string; since?: number | undefined }): Promise<unknown[]> {
+  private async getRawAddressTransactions(params: {
+    address: string;
+    since?: number | undefined;
+  }): Promise<Result<unknown[], Error>> {
     const { address } = params;
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    try {
-      // Get raw transaction list directly - mempool.space returns full transaction objects
-      // No need to check address info first as empty addresses will just return empty array
-      const rawTransactions = await this.httpClient.get<unknown[]>(`/address/${address}/txs`);
+    const result = await this.httpClient.get<unknown[]>(`/address/${address}/txs`);
 
-      if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-        this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
-        return [];
-      }
-
-      this.logger.debug(
-        `Retrieved raw transactions - Address: ${maskAddress(address)}, Count: ${rawTransactions.length}`
-      );
-
-      return rawTransactions;
-    } catch (error) {
+    if (result.isErr()) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
       );
-      throw error;
+      return err(result.error);
     }
+
+    const rawTransactions = result.value;
+
+    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
+      this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
+      return ok([]);
+    }
+
+    this.logger.debug(
+      `Successfully retrieved raw transactions - Address: ${maskAddress(address)}, Count: ${rawTransactions.length}`
+    );
+
+    return ok(rawTransactions);
   }
 }

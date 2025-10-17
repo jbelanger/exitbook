@@ -1,5 +1,6 @@
 import { getErrorMessage } from '@exitbook/core';
 import { ServiceError } from '@exitbook/platform-http';
+import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
@@ -48,46 +49,41 @@ export class SnowtraceApiClient extends BaseApiClient {
     super(config);
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<T> {
+  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
     );
 
-    try {
-      switch (operation.type) {
-        case 'getRawAddressTransactions':
-          return (await this.getRawAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          })) as T;
-        case 'getRawAddressInternalTransactions':
-          return (await this.getRawAddressInternalTransactions({
-            address: operation.address,
-            since: operation.since,
-          })) as T;
-        case 'getRawAddressBalance':
-          return (await this.getRawAddressBalance({
-            address: operation.address,
-          })) as T;
-        case 'getTokenTransactions':
-          return (await this.getTokenTransactions({
-            address: operation.address,
-            contractAddress: operation.contractAddress,
-            limit: operation.limit,
-            since: operation.since,
-            until: operation.until,
-          })) as T;
-        case 'getRawTokenBalances':
-          return (await this.getRawTokenBalances({
-            address: operation.address,
-            contractAddresses: operation.contractAddresses,
-          })) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(`Operation execution failed - Type: ${operation.type}, Error: ${getErrorMessage(error)}`);
-      throw error;
+    switch (operation.type) {
+      case 'getRawAddressTransactions':
+        return (await this.getRawAddressTransactions({
+          address: operation.address,
+          since: operation.since,
+        })) as Result<T, Error>;
+      case 'getRawAddressInternalTransactions':
+        return (await this.getRawAddressInternalTransactions({
+          address: operation.address,
+          since: operation.since,
+        })) as Result<T, Error>;
+      case 'getRawAddressBalance':
+        return (await this.getRawAddressBalance({
+          address: operation.address,
+        })) as Result<T, Error>;
+      case 'getTokenTransactions':
+        return (await this.getTokenTransactions({
+          address: operation.address,
+          contractAddress: operation.contractAddress,
+          limit: operation.limit,
+          since: operation.since,
+          until: operation.until,
+        })) as Result<T, Error>;
+      case 'getRawTokenBalances':
+        return (await this.getRawTokenBalances({
+          address: operation.address,
+          contractAddresses: operation.contractAddresses,
+        })) as Result<T, Error>;
+      default:
+        return err(new Error(`Unsupported operation: ${operation.type}`));
     }
   }
 
@@ -110,7 +106,10 @@ export class SnowtraceApiClient extends BaseApiClient {
     };
   }
 
-  private async getInternalTransactions(address: string, since?: number): Promise<SnowtraceInternalTransaction[]> {
+  private async getInternalTransactions(
+    address: string,
+    since?: number
+  ): Promise<Result<SnowtraceInternalTransaction[], Error>> {
     const allTransactions: SnowtraceInternalTransaction[] = [];
     let page = 1;
 
@@ -138,38 +137,41 @@ export class SnowtraceApiClient extends BaseApiClient {
         params.append('apikey', this.apiKey);
       }
 
-      try {
-        const response = await this.httpClient.get(`?${params.toString()}`);
-        const res = response as SnowtraceApiResponse<unknown>;
-        if (res.status !== '1') {
-          // If no results found or error, break the loop
-          if (res.message === 'No transactions found') {
-            break;
-          }
+      const result = await this.httpClient.get(`?${params.toString()}`);
 
-          this.logger.debug(`No internal transactions found - Message: ${res.message}`);
-          break;
-        }
-
-        const transactions = (res.result as SnowtraceInternalTransaction[]) || [];
-        allTransactions.push(...transactions);
-
-        // If we got less than the max offset, we've reached the end
-        if (transactions.length < maxOffset) {
-          break;
-        }
-
-        page++;
-      } catch (_error) {
-        this.logger.warn(`Failed to fetch internal transactions page ${page}`);
+      if (result.isErr()) {
+        this.logger.warn(
+          `Failed to fetch internal transactions page ${page} - Error: ${getErrorMessage(result.error)}`
+        );
         break;
       }
+
+      const res = result.value as SnowtraceApiResponse<unknown>;
+      if (res.status !== '1') {
+        // If no results found or error, break the loop
+        if (res.message === 'No transactions found') {
+          break;
+        }
+
+        this.logger.debug(`No internal transactions found - Message: ${res.message}`);
+        break;
+      }
+
+      const transactions = (res.result as SnowtraceInternalTransaction[]) || [];
+      allTransactions.push(...transactions);
+
+      // If we got less than the max offset, we've reached the end
+      if (transactions.length < maxOffset) {
+        break;
+      }
+
+      page++;
     }
 
-    return allTransactions;
+    return ok(allTransactions);
   }
 
-  private async getNormalTransactions(address: string, since?: number): Promise<SnowtraceTransaction[]> {
+  private async getNormalTransactions(address: string, since?: number): Promise<Result<SnowtraceTransaction[], Error>> {
     const allTransactions: SnowtraceTransaction[] = [];
     let page = 1;
 
@@ -197,18 +199,24 @@ export class SnowtraceApiClient extends BaseApiClient {
         params.append('apikey', this.apiKey);
       }
 
-      const response = await this.httpClient.get(`?${params.toString()}`);
-      const res = response as SnowtraceApiResponse<unknown>;
+      const result = await this.httpClient.get(`?${params.toString()}`);
+
+      if (result.isErr()) {
+        this.logger.error(`Failed to fetch normal transactions page ${page} - Error: ${getErrorMessage(result.error)}`);
+        return err(result.error);
+      }
+
+      const res = result.value as SnowtraceApiResponse<unknown>;
 
       if (res.status !== '1') {
         if (res.message === 'NOTOK' && res.message.includes('Invalid API Key')) {
-          throw new ServiceError('Invalid Snowtrace API key', this.name, 'getNormalTransactions');
+          return err(new ServiceError('Invalid Snowtrace API key', this.name, 'getNormalTransactions'));
         }
         // If no results found, break the loop
         if (res.message === 'No transactions found') {
           break;
         }
-        throw new ServiceError(`Snowtrace API error: ${res.message}`, this.name, 'getNormalTransactions');
+        return err(new ServiceError(`Snowtrace API error: ${res.message}`, this.name, 'getNormalTransactions'));
       }
 
       const transactions = (res.result as SnowtraceTransaction[]) || [];
@@ -222,115 +230,114 @@ export class SnowtraceApiClient extends BaseApiClient {
       page++;
     }
 
-    return allTransactions;
+    return ok(allTransactions);
   }
 
-  private async getRawAddressBalance(params: { address: string }): Promise<SnowtraceBalanceResponse> {
+  private async getRawAddressBalance(params: { address: string }): Promise<Result<SnowtraceBalanceResponse, Error>> {
     const { address } = params;
 
     if (!this.isValidAvalancheAddress(address)) {
-      throw new Error(`Invalid Avalanche address: ${address}`);
+      return err(new Error(`Invalid Avalanche address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
-    try {
-      const params = new URLSearchParams({
-        action: 'balance',
-        address: address,
-        module: 'account',
-        tag: 'latest',
-      });
+    const urlParams = new URLSearchParams({
+      action: 'balance',
+      address: address,
+      module: 'account',
+      tag: 'latest',
+    });
 
-      if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
-        params.append('apikey', this.apiKey);
-      }
-
-      const response = await this.httpClient.get(`?${params.toString()}`);
-      const res = response as SnowtraceApiResponse<unknown>;
-
-      if (res.status !== '1') {
-        throw new ServiceError(`Failed to fetch AVAX balance: ${res.message}`, this.name, 'getRawAddressBalance');
-      }
-
-      this.logger.debug(`Retrieved raw balance for ${maskAddress(address)}: ${String(res.result)} wei`);
-
-      return {
-        message: res.message,
-        result: typeof res.result === 'string' ? res.result : String(res.result),
-        status: res.status,
-      } as SnowtraceBalanceResponse;
-    } catch (error) {
-      this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
-      );
-      throw error;
+    if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
+      urlParams.append('apikey', this.apiKey);
     }
+
+    const result = await this.httpClient.get(`?${urlParams.toString()}`);
+
+    if (result.isErr()) {
+      this.logger.error(
+        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
+      );
+      return err(result.error);
+    }
+
+    const res = result.value as SnowtraceApiResponse<unknown>;
+
+    if (res.status !== '1') {
+      return err(new ServiceError(`Failed to fetch AVAX balance: ${res.message}`, this.name, 'getRawAddressBalance'));
+    }
+
+    this.logger.debug(`Retrieved raw balance for ${maskAddress(address)}: ${String(res.result)} wei`);
+
+    return ok({
+      message: res.message,
+      result: typeof res.result === 'string' ? res.result : String(res.result),
+      status: res.status,
+    } as SnowtraceBalanceResponse);
   }
 
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<SnowtraceTransaction[]> {
+  }): Promise<Result<SnowtraceTransaction[], Error>> {
     const { address, since } = params;
 
     if (!this.isValidAvalancheAddress(address)) {
-      throw new Error(`Invalid Avalanche address: ${address}`);
+      return err(new Error(`Invalid Avalanche address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    try {
-      const normalTransactions = await this.getNormalTransactions(address, since);
+    const result = await this.getNormalTransactions(address, since);
 
-      this.logger.debug(`Retrieved ${normalTransactions.length} raw transactions for ${maskAddress(address)}`);
-
-      return normalTransactions;
-    } catch (error) {
+    if (result.isErr()) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
       );
-      throw error;
+      return err(result.error);
     }
+
+    this.logger.debug(`Retrieved ${result.value.length} raw transactions for ${maskAddress(address)}`);
+
+    return ok(result.value);
   }
 
   private async getRawAddressInternalTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<SnowtraceInternalTransaction[]> {
+  }): Promise<Result<SnowtraceInternalTransaction[], Error>> {
     const { address, since } = params;
 
     if (!this.isValidAvalancheAddress(address)) {
-      throw new Error(`Invalid Avalanche address: ${address}`);
+      return err(new Error(`Invalid Avalanche address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw address internal transactions - Address: ${maskAddress(address)}`);
 
-    try {
-      const internalTransactions = await this.getInternalTransactions(address, since);
+    const result = await this.getInternalTransactions(address, since);
 
-      this.logger.debug(
-        `Retrieved ${internalTransactions.length} raw internal transactions for ${maskAddress(address)}`
-      );
-
-      return internalTransactions;
-    } catch (error) {
+    if (result.isErr()) {
       this.logger.error(
         `Failed to get raw address internal transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(
-          error
+          result.error
         )}`
       );
-      throw error;
+      return err(result.error);
     }
+
+    this.logger.debug(`Retrieved ${result.value.length} raw internal transactions for ${maskAddress(address)}`);
+
+    return ok(result.value);
   }
 
   private async getRawTokenBalances(_params: {
     address: string;
     contractAddresses?: string[] | undefined;
-  }): Promise<[]> {
+  }): Promise<Result<[], Error>> {
     // Snowtrace doesn't have a direct "get all token balances" endpoint
     this.logger.debug('Token balance fetching not implemented for Snowtrace - use specific contract addresses');
-    return Promise.resolve([]);
+    return Promise.resolve(ok([]));
   }
 
   private async getTokenTransactions(params: {
@@ -339,7 +346,7 @@ export class SnowtraceApiClient extends BaseApiClient {
     limit?: number | undefined;
     since?: number | undefined;
     until?: number | undefined;
-  }): Promise<SnowtraceTokenTransfer[]> {
+  }): Promise<Result<SnowtraceTokenTransfer[], Error>> {
     const { address, contractAddress, since } = params;
     return this.getTokenTransfers(address, since, contractAddress);
   }
@@ -348,7 +355,7 @@ export class SnowtraceApiClient extends BaseApiClient {
     address: string,
     since?: number,
     contractAddress?: string
-  ): Promise<SnowtraceTokenTransfer[]> {
+  ): Promise<Result<SnowtraceTokenTransfer[], Error>> {
     const allTransactions: SnowtraceTokenTransfer[] = [];
     let page = 1;
 
@@ -380,35 +387,36 @@ export class SnowtraceApiClient extends BaseApiClient {
         params.append('apikey', this.apiKey);
       }
 
-      try {
-        const response = await this.httpClient.get(`?${params.toString()}`);
-        const res = response as SnowtraceApiResponse<unknown>;
+      const result = await this.httpClient.get(`?${params.toString()}`);
 
-        if (res.status !== '1') {
-          // If no results found or error, break the loop
-          if (res.message === 'No transactions found') {
-            break;
-          }
-          this.logger.debug(`No token transfers found - Message: ${res.message}`);
-          break;
-        }
-
-        const transactions = (res.result as SnowtraceTokenTransfer[]) || [];
-        allTransactions.push(...transactions);
-
-        // If we got less than the max offset, we've reached the end
-        if (transactions.length < maxOffset) {
-          break;
-        }
-
-        page++;
-      } catch (_error) {
-        this.logger.warn(`Failed to fetch token transfers page ${page}`);
+      if (result.isErr()) {
+        this.logger.warn(`Failed to fetch token transfers page ${page} - Error: ${getErrorMessage(result.error)}`);
         break;
       }
+
+      const res = result.value as SnowtraceApiResponse<unknown>;
+
+      if (res.status !== '1') {
+        // If no results found or error, break the loop
+        if (res.message === 'No transactions found') {
+          break;
+        }
+        this.logger.debug(`No token transfers found - Message: ${res.message}`);
+        break;
+      }
+
+      const transactions = (res.result as SnowtraceTokenTransfer[]) || [];
+      allTransactions.push(...transactions);
+
+      // If we got less than the max offset, we've reached the end
+      if (transactions.length < maxOffset) {
+        break;
+      }
+
+      page++;
     }
 
-    return allTransactions;
+    return ok(allTransactions);
   }
 
   // Avalanche address validation

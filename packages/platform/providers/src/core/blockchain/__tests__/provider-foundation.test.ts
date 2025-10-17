@@ -49,23 +49,23 @@ class MockProvider implements IBlockchainProvider {
     };
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<T> {
+  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     if (this.responseDelay > 0) {
       await new Promise((resolve) => setTimeout(resolve, this.responseDelay));
     }
 
     if (this.shouldFail) {
-      throw new Error(`${this.name} provider failed`);
+      return err(new Error(`${this.name} provider failed`));
     }
 
     // Mock response based on operation type
     switch (operation.type) {
       case 'getAddressTransactions':
-        return { address: operation.address, transactions: [] } as T;
+        return ok({ address: operation.address, transactions: [] } as T);
       case 'getAddressBalances':
-        return { balance: 100, currency: 'ETH' } as T;
+        return ok({ balance: 100, currency: 'ETH' } as T);
       default:
-        return { success: true } as T;
+        return ok({ success: true } as T);
     }
   }
 

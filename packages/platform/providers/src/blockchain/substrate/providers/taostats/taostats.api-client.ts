@@ -1,4 +1,5 @@
 import { getErrorMessage } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
@@ -65,22 +66,23 @@ export class TaostatsApiClient extends BaseApiClient {
     );
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<T> {
-    this.logger.debug(`Executing operation: ${operation.type}`);
+  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+    );
 
     switch (operation.type) {
-      case 'getRawAddressTransactions': {
-        const { address, since } = operation;
-        this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-        return this.getRawAddressTransactions(address, since) as Promise<T>;
-      }
-      case 'getRawAddressBalance': {
-        const { address } = operation;
-        this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
-        return this.getRawAddressBalance(address) as Promise<T>;
-      }
+      case 'getRawAddressTransactions':
+        return (await this.getRawAddressTransactions({
+          address: operation.address,
+          since: operation.since,
+        })) as Result<T, Error>;
+      case 'getRawAddressBalance':
+        return (await this.getRawAddressBalance({
+          address: operation.address,
+        })) as Result<T, Error>;
       default:
-        throw new Error(`Unsupported operation: ${operation.type}`);
+        return err(new Error(`Unsupported operation: ${operation.type}`));
     }
   }
 
@@ -93,94 +95,110 @@ export class TaostatsApiClient extends BaseApiClient {
     };
   }
 
-  private async getRawAddressBalance(address: string): Promise<TaostatsBalanceResponse> {
+  private async getRawAddressBalance(params: { address: string }): Promise<Result<TaostatsBalanceResponse, Error>> {
+    const { address } = params;
+
     // Validate address format
     if (!isValidSS58Address(address)) {
-      throw new Error(`Invalid SS58 address for ${this.blockchain}: ${address}`);
+      return err(new Error(`Invalid SS58 address for ${this.blockchain}: ${address}`));
     }
 
-    try {
-      const response = await this.httpClient.get<TaostatsBalanceResponse>(
-        `/account/latest/v1?network=finney&address=${address}`
-      );
+    this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
-      const balance = response.data?.[0]?.balance_total || '0';
-      this.logger.debug(`Found raw balance for ${maskAddress(address)}: ${balance}`);
+    const result = await this.httpClient.get<TaostatsBalanceResponse>(
+      `/account/latest/v1?network=finney&address=${address}`
+    );
 
-      return response;
-    } catch (error) {
+    if (result.isErr()) {
       this.logger.error(
-        `Failed to fetch raw address balance for ${maskAddress(address)} - Error: ${getErrorMessage(error)}`
+        `Failed to fetch raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
       );
-      throw error;
+      return err(result.error);
     }
+
+    const response = result.value;
+    const balance = response.data?.[0]?.balance_total || '0';
+    this.logger.debug(`Found raw balance for ${maskAddress(address)}: ${balance}`);
+
+    return ok(response);
   }
 
-  private async getRawAddressTransactions(address: string, since?: number): Promise<TaostatsTransactionAugmented[]> {
+  private async getRawAddressTransactions(params: {
+    address: string;
+    since?: number | undefined;
+  }): Promise<Result<TaostatsTransactionAugmented[], Error>> {
+    const { address, since } = params;
+
     // Validate address format
     if (!isValidSS58Address(address)) {
-      throw new Error(`Invalid SS58 address for ${this.blockchain}: ${address}`);
+      return err(new Error(`Invalid SS58 address for ${this.blockchain}: ${address}`));
     }
 
-    try {
-      const transactions: TaostatsTransactionAugmented[] = [];
-      let offset = 0;
-      const maxPages = 100; // Safety limit to prevent infinite loops
-      const limit = 100;
-      let hasMorePages = true;
+    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-      do {
-        // Build query parameters
-        const params = new URLSearchParams({
-          network: 'finney',
-          address: address,
-          limit: limit.toString(),
-          offset: offset.toString(),
-        });
+    const transactions: TaostatsTransactionAugmented[] = [];
+    let offset = 0;
+    const maxPages = 100; // Safety limit to prevent infinite loops
+    const limit = 100;
+    let hasMorePages = true;
 
-        if (since) {
-          // Taostats expects ISO timestamp
-          const sinceDate = new Date(since).toISOString();
-          params.append('after', sinceDate);
-        }
+    while (hasMorePages && Math.floor(offset / limit) < maxPages) {
+      // Build query parameters
+      const params = new URLSearchParams({
+        network: 'finney',
+        address: address,
+        limit: limit.toString(),
+        offset: offset.toString(),
+      });
 
-        const endpoint = `/transfer/v1?${params.toString()}`;
-        const response = await this.httpClient.get<{ data?: TaostatsTransactionRaw[] }>(endpoint);
+      if (since) {
+        // Taostats expects ISO timestamp
+        const sinceDate = new Date(since).toISOString();
+        params.append('after', sinceDate);
+      }
 
-        const pageTransactions = response.data || [];
+      const endpoint = `/transfer/v1?${params.toString()}`;
+      const result = await this.httpClient.get<{ data?: TaostatsTransactionRaw[] }>(endpoint);
 
-        // Augment transactions with chain config data (no normalization - that's the mapper's job)
-        const augmentedTransactions = pageTransactions.map((tx) => ({
-          ...tx,
-          _nativeCurrency: this.chainConfig.nativeCurrency,
-          _nativeDecimals: this.chainConfig.nativeDecimals,
-          _chainDisplayName: this.chainConfig.displayName,
-        })) as TaostatsTransactionAugmented[];
-
-        transactions.push(...augmentedTransactions);
-        offset += limit;
-
-        // Check if there are more pages
-        hasMorePages = pageTransactions.length === limit;
-
-        this.logger.debug(
-          `Fetched page ${Math.floor(offset / limit)}: ${pageTransactions.length} transactions${hasMorePages ? ' (more pages available)' : ' (last page)'}`
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
         );
+        return err(result.error);
+      }
 
-        // Safety check to prevent infinite pagination
-        if (Math.floor(offset / limit) >= maxPages) {
-          this.logger.warn(`Reached maximum page limit (${maxPages}), stopping pagination`);
-          break;
-        }
-      } while (hasMorePages);
+      const response = result.value;
+      const pageTransactions = response.data || [];
 
-      this.logger.debug(`Found ${transactions.length} total raw address transactions for ${maskAddress(address)}`);
-      return transactions;
-    } catch (error) {
-      this.logger.error(
-        `Failed to fetch raw address transactions for ${maskAddress(address)} - Error: ${getErrorMessage(error)}`
+      // Augment transactions with chain config data (no normalization - that's the mapper's job)
+      const augmentedTransactions = pageTransactions.map((tx) => ({
+        ...tx,
+        _nativeCurrency: this.chainConfig.nativeCurrency,
+        _nativeDecimals: this.chainConfig.nativeDecimals,
+        _chainDisplayName: this.chainConfig.displayName,
+      })) as TaostatsTransactionAugmented[];
+
+      transactions.push(...augmentedTransactions);
+      offset += limit;
+
+      // Check if there are more pages
+      hasMorePages = pageTransactions.length === limit;
+
+      this.logger.debug(
+        `Fetched page ${Math.floor(offset / limit)}: ${pageTransactions.length} transactions${hasMorePages ? ' (more pages available)' : ' (last page)'}`
       );
-      throw error;
+
+      // Safety check to prevent infinite pagination
+      if (Math.floor(offset / limit) >= maxPages) {
+        this.logger.warn(`Reached maximum page limit (${maxPages}), stopping pagination`);
+        break;
+      }
     }
+
+    this.logger.debug(
+      `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, PagesProcessed: ${Math.floor(offset / limit)}`
+    );
+
+    return ok(transactions);
   }
 }

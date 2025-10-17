@@ -1,4 +1,5 @@
 import { getErrorMessage } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
@@ -38,35 +39,28 @@ export class SolanaRPCApiClient extends BaseApiClient {
     super(config);
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<T> {
+  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
     );
 
-    try {
-      switch (operation.type) {
-        case 'getRawAddressTransactions':
-          return (await this.getRawAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          })) as T;
-        case 'getRawAddressBalance':
-          return (await this.getRawAddressBalance({
-            address: operation.address,
-          })) as T;
-        case 'getRawTokenBalances':
-          return (await this.getRawTokenBalances({
-            address: operation.address,
-            contractAddresses: operation.contractAddresses,
-          })) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${getErrorMessage(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
-      );
-      throw error;
+    switch (operation.type) {
+      case 'getRawAddressTransactions':
+        return (await this.getRawAddressTransactions({
+          address: operation.address,
+          since: operation.since,
+        })) as Result<T, Error>;
+      case 'getRawAddressBalance':
+        return (await this.getRawAddressBalance({
+          address: operation.address,
+        })) as Result<T, Error>;
+      case 'getRawTokenBalances':
+        return (await this.getRawTokenBalances({
+          address: operation.address,
+          contractAddresses: operation.contractAddresses,
+        })) as Result<T, Error>;
+      default:
+        return err(new Error(`Unsupported operation: ${operation.type}`));
     }
   }
 
@@ -86,165 +80,170 @@ export class SolanaRPCApiClient extends BaseApiClient {
     };
   }
 
-  private async getRawAddressBalance(params: { address: string }): Promise<SolanaRPCRawBalanceData> {
+  private async getRawAddressBalance(params: { address: string }): Promise<Result<SolanaRPCRawBalanceData, Error>> {
     const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
+      return err(new Error(`Invalid Solana address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<{ value: number }>>('/', {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'getBalance',
-        params: [address],
-      });
+    const result = await this.httpClient.post<JsonRpcResponse<{ value: number }>>('/', {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'getBalance',
+      params: [address],
+    });
 
-      if (!response?.result || response.result.value === undefined) {
-        throw new Error('Failed to fetch balance from Solana RPC');
-      }
-
-      this.logger.debug(
-        `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, Lamports: ${response.result.value}`
-      );
-
-      return { lamports: response.result.value };
-    } catch (error) {
+    if (result.isErr()) {
       this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
+        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
       );
-      throw error;
+      return err(result.error);
     }
+
+    const response = result.value;
+
+    if (!response?.result || response.result.value === undefined) {
+      return err(new Error('Failed to fetch balance from Solana RPC'));
+    }
+
+    this.logger.debug(
+      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, Lamports: ${response.result.value}`
+    );
+
+    return ok({ lamports: response.result.value });
   }
 
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<SolanaRPCTransaction[]> {
+  }): Promise<Result<SolanaRPCTransaction[], Error>> {
     const { address, since } = params;
 
     if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
+      return err(new Error(`Invalid Solana address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    try {
-      // Get signatures for address
-      const signaturesResponse = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>('/', {
+    const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>('/', {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'getSignaturesForAddress',
+      params: [
+        address,
+        {
+          limit: 50,
+        },
+      ],
+    });
+
+    if (signaturesResult.isErr()) {
+      this.logger.error(
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(signaturesResult.error)}`
+      );
+      return err(signaturesResult.error);
+    }
+
+    const signaturesResponse = signaturesResult.value;
+
+    if (!signaturesResponse?.result) {
+      this.logger.debug(`No signatures found - Address: ${maskAddress(address)}`);
+      return ok([]);
+    }
+
+    const transactions: SolanaRPCTransaction[] = [];
+    const signatures = signaturesResponse.result.slice(0, 25);
+
+    this.logger.debug(`Retrieved signatures - Address: ${maskAddress(address)}, Count: ${signatures.length}`);
+
+    for (const sig of signatures) {
+      const txResult = await this.httpClient.post<JsonRpcResponse<SolanaRPCTransaction>>('/', {
         id: 1,
         jsonrpc: '2.0',
-        method: 'getSignaturesForAddress',
+        method: 'getTransaction',
         params: [
-          address,
+          sig.signature,
           {
-            limit: 50, // Conservative limit for public RPC
+            encoding: 'json',
+            maxSupportedTransactionVersion: 0,
           },
         ],
       });
 
-      if (!signaturesResponse?.result) {
-        this.logger.debug(`No signatures found - Address: ${maskAddress(address)}`);
-        return [];
+      if (txResult.isErr()) {
+        this.logger.debug(
+          `Failed to fetch transaction details - Signature: ${sig.signature}, Error: ${getErrorMessage(txResult.error)}`
+        );
+        continue;
       }
 
-      const transactions: SolanaRPCTransaction[] = [];
-      const signatures = signaturesResponse.result.slice(0, 25); // Limit for performance
+      const txResponse = txResult.value;
 
-      this.logger.debug(`Retrieved signatures - Address: ${maskAddress(address)}, Count: ${signatures.length}`);
-
-      // Fetch transaction details
-      for (const sig of signatures) {
-        try {
-          const txResponse = await this.httpClient.post<JsonRpcResponse<SolanaRPCTransaction>>('/', {
-            id: 1,
-            jsonrpc: '2.0',
-            method: 'getTransaction',
-            params: [
-              sig.signature,
-              {
-                encoding: 'json',
-                maxSupportedTransactionVersion: 0,
-              },
-            ],
-          });
-
-          if (
-            txResponse?.result &&
-            (!since || (txResponse.result.blockTime && txResponse.result.blockTime.getTime() >= since))
-          ) {
-            transactions.push(txResponse.result);
-          }
-        } catch (error) {
-          this.logger.debug(
-            `Failed to fetch transaction details - Signature: ${sig.signature}, Error: ${getErrorMessage(error)}`
-          );
-        }
+      if (
+        txResponse?.result &&
+        (!since || (txResponse.result.blockTime && txResponse.result.blockTime.getTime() >= since))
+      ) {
+        transactions.push(txResponse.result);
       }
-
-      // Sort by timestamp (newest first)
-      transactions.sort((a, b) => b.blockTime.getTime() - a.blockTime.getTime());
-
-      this.logger.debug(
-        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}`
-      );
-
-      return transactions;
-    } catch (error) {
-      this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
-      );
-      throw error;
     }
+
+    transactions.sort((a, b) => b.blockTime.getTime() - a.blockTime.getTime());
+
+    this.logger.debug(
+      `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}`
+    );
+
+    return ok(transactions);
   }
 
   private async getRawTokenBalances(params: {
     address: string;
     contractAddresses?: string[] | undefined;
-  }): Promise<SolanaRPCRawTokenBalanceData> {
+  }): Promise<Result<SolanaRPCRawTokenBalanceData, Error>> {
     const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
+      return err(new Error(`Invalid Solana address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
 
-    try {
-      // Get all token accounts owned by the address
-      const tokenAccountsResponse = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>('/', {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'getTokenAccountsByOwner',
-        params: [
-          address,
-          {
-            programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', // SPL Token Program ID
-          },
-          {
-            encoding: 'jsonParsed',
-          },
-        ],
-      });
+    const result = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>('/', {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'getTokenAccountsByOwner',
+      params: [
+        address,
+        {
+          programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+        },
+        {
+          encoding: 'jsonParsed',
+        },
+      ],
+    });
 
-      if (!tokenAccountsResponse?.result) {
-        this.logger.debug(`No raw token accounts found - Address: ${maskAddress(address)}`);
-        return { tokenAccounts: { value: [] } };
-      }
-
-      this.logger.debug(
-        `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountsResponse.result.value.length}`
-      );
-
-      return { tokenAccounts: tokenAccountsResponse.result };
-    } catch (error) {
+    if (result.isErr()) {
       this.logger.error(
-        `Failed to get raw token balances - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
+        `Failed to get raw token balances - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
       );
-      throw error;
+      return err(result.error);
     }
+
+    const tokenAccountsResponse = result.value;
+
+    if (!tokenAccountsResponse?.result) {
+      this.logger.debug(`No raw token accounts found - Address: ${maskAddress(address)}`);
+      return ok({ tokenAccounts: { value: [] } });
+    }
+
+    this.logger.debug(
+      `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountsResponse.result.value.length}`
+    );
+
+    return ok({ tokenAccounts: tokenAccountsResponse.result });
   }
 }

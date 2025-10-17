@@ -21,71 +21,87 @@ describe('AlchemyApiClient Integration', () => {
 
   describe('Raw Address Transactions', () => {
     it('should fetch raw address transactions successfully', async () => {
-      const transactions = await provider.execute<AlchemyAssetTransfer[]>({
+      const result = await provider.execute<AlchemyAssetTransfer[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
-      expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0) {
-        expect(transactions[0]).toHaveProperty('hash');
-        expect(transactions[0]).toHaveProperty('from');
-        expect(transactions[0]).toHaveProperty('to');
-        expect(transactions[0]).toHaveProperty('blockNum');
-        expect(transactions[0]).toHaveProperty('category');
-        // Should only fetch external transactions
-        expect(transactions[0]!.category).toBe('external');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        expect(Array.isArray(transactions)).toBe(true);
+        if (transactions.length > 0) {
+          expect(transactions[0]).toHaveProperty('hash');
+          expect(transactions[0]).toHaveProperty('from');
+          expect(transactions[0]).toHaveProperty('to');
+          expect(transactions[0]).toHaveProperty('blockNum');
+          expect(transactions[0]).toHaveProperty('category');
+          // Should only fetch external transactions
+          expect(transactions[0]!.category).toBe('external');
+        }
       }
     }, 30000);
 
     it('should fetch raw internal transactions successfully', async () => {
-      const transactions = await provider.execute<AlchemyAssetTransfer[]>({
+      const result = await provider.execute<AlchemyAssetTransfer[]>({
         address: testAddress,
         type: 'getRawAddressInternalTransactions',
       });
 
-      expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0) {
-        expect(transactions[0]).toHaveProperty('hash');
-        expect(transactions[0]).toHaveProperty('from');
-        expect(transactions[0]).toHaveProperty('to');
-        expect(transactions[0]).toHaveProperty('blockNum');
-        expect(transactions[0]).toHaveProperty('category');
-        // Should only fetch internal transactions
-        expect(transactions[0]!.category).toBe('internal');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        expect(Array.isArray(transactions)).toBe(true);
+        if (transactions.length > 0) {
+          expect(transactions[0]).toHaveProperty('hash');
+          expect(transactions[0]).toHaveProperty('from');
+          expect(transactions[0]).toHaveProperty('to');
+          expect(transactions[0]).toHaveProperty('blockNum');
+          expect(transactions[0]).toHaveProperty('category');
+          // Should only fetch internal transactions
+          expect(transactions[0]!.category).toBe('internal');
+        }
       }
     }, 30000);
   });
 
   describe('Token Transactions', () => {
     it('should fetch token transactions successfully', async () => {
-      const transactions = await provider.execute<AlchemyAssetTransfer[]>({
+      const result = await provider.execute<AlchemyAssetTransfer[]>({
         address: testAddress,
         type: 'getTokenTransactions',
       });
 
-      expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0) {
-        expect(transactions[0]).toHaveProperty('hash');
-        expect(transactions[0]).toHaveProperty('category');
-        // Should be token-related category
-        const category = transactions[0]!.category;
-        expect(['erc1155', 'erc20', 'erc721', 'token'].includes(category)).toBe(true);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        expect(Array.isArray(transactions)).toBe(true);
+        if (transactions.length > 0) {
+          expect(transactions[0]).toHaveProperty('hash');
+          expect(transactions[0]).toHaveProperty('category');
+          // Should be token-related category
+          const category = transactions[0]!.category;
+          expect(['erc1155', 'erc20', 'erc721', 'token'].includes(category)).toBe(true);
+        }
       }
     }, 30000);
   });
 
   describe('Token Balances', () => {
     it('should fetch raw token balances successfully', async () => {
-      const balances = await provider.execute<AlchemyTokenBalance[]>({
+      const result = await provider.execute<AlchemyTokenBalance[]>({
         address: testAddress,
         type: 'getRawTokenBalances',
       });
 
-      expect(Array.isArray(balances)).toBe(true);
-      if (balances.length > 0) {
-        expect(balances[0]).toHaveProperty('contractAddress');
-        expect(balances[0]).toHaveProperty('tokenBalance');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const balances = result.value;
+        expect(Array.isArray(balances)).toBe(true);
+        if (balances.length > 0) {
+          expect(balances[0]).toHaveProperty('contractAddress');
+          expect(balances[0]).toHaveProperty('tokenBalance');
+        }
       }
     }, 30000);
   });

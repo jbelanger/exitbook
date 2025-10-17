@@ -1,4 +1,5 @@
 import { getErrorMessage } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
@@ -34,33 +35,28 @@ export class ThetaScanApiClient extends BaseApiClient {
     super(config);
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<T> {
+  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
     );
 
-    try {
-      switch (operation.type) {
-        case 'getRawAddressTransactions':
-          return (await this.getRawAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          })) as T;
-        case 'getRawAddressBalance':
-          return (await this.getRawAddressBalance({
-            address: operation.address,
-          })) as T;
-        case 'getRawTokenBalances':
-          return (await this.getRawTokenBalances({
-            address: operation.address,
-            contractAddresses: operation.contractAddresses,
-          })) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(`Operation execution failed - Type: ${operation.type}, Error: ${getErrorMessage(error)}`);
-      throw error;
+    switch (operation.type) {
+      case 'getRawAddressTransactions':
+        return (await this.getRawAddressTransactions({
+          address: operation.address,
+          since: operation.since,
+        })) as Result<T, Error>;
+      case 'getRawAddressBalance':
+        return (await this.getRawAddressBalance({
+          address: operation.address,
+        })) as Result<T, Error>;
+      case 'getRawTokenBalances':
+        return (await this.getRawTokenBalances({
+          address: operation.address,
+          contractAddresses: operation.contractAddresses,
+        })) as Result<T, Error>;
+      default:
+        return err(new Error(`Unsupported operation: ${operation.type}`));
     }
   }
 
@@ -74,7 +70,7 @@ export class ThetaScanApiClient extends BaseApiClient {
     };
   }
 
-  private async getNormalTransactions(address: string, since?: number): Promise<ThetaScanTransaction[]> {
+  private async getNormalTransactions(address: string, since?: number): Promise<Result<ThetaScanTransaction[], Error>> {
     const params = new URLSearchParams({
       address: address,
     });
@@ -90,87 +86,87 @@ export class ThetaScanApiClient extends BaseApiClient {
     const url = `/transactions/?${params.toString()}`;
     this.logger.info(`ThetaScan API Request: ${this.baseUrl}${url}`);
 
-    try {
-      const response = await this.httpClient.get(url);
+    const result = await this.httpClient.get(url);
 
-      // ThetaScan returns a direct array of transactions
-      const transactions = response as ThetaScanTransaction[];
-
-      this.logger.info(`Fetched ${Array.isArray(transactions) ? transactions.length : 0} transactions from ThetaScan`);
-
-      return Array.isArray(transactions) ? transactions : [];
-    } catch (error) {
+    if (result.isErr()) {
       this.logger.error(
-        `Failed to fetch transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
+        `Failed to fetch transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
       );
-      throw error;
+      return err(result.error);
     }
+
+    // ThetaScan returns a direct array of transactions
+    const transactions = result.value as ThetaScanTransaction[];
+
+    this.logger.info(`Fetched ${Array.isArray(transactions) ? transactions.length : 0} transactions from ThetaScan`);
+
+    return ok(Array.isArray(transactions) ? transactions : []);
   }
 
-  private async getRawAddressBalance(params: { address: string }): Promise<ThetaScanBalanceResponse> {
+  private async getRawAddressBalance(params: { address: string }): Promise<Result<ThetaScanBalanceResponse, Error>> {
     const { address } = params;
 
     if (!this.isValidEthAddress(address)) {
-      throw new Error(`Invalid Theta address: ${address}`);
+      return err(new Error(`Invalid Theta address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
-    try {
-      const params = new URLSearchParams({
-        address: address,
-      });
+    const urlParams = new URLSearchParams({
+      address: address,
+    });
 
-      const response = await this.httpClient.get(`/balance/?${params.toString()}`);
+    const result = await this.httpClient.get(`/balance/?${urlParams.toString()}`);
 
-      // Assuming ThetaScan returns balance in a format similar to their docs
-      const balanceData = response as ThetaScanBalanceResponse;
-
-      this.logger.debug(`Retrieved balance for ${maskAddress(address)}`);
-
-      return balanceData;
-    } catch (error) {
+    if (result.isErr()) {
       this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
+        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
       );
-      throw error;
+      return err(result.error);
     }
+
+    // Assuming ThetaScan returns balance in a format similar to their docs
+    const balanceData = result.value as ThetaScanBalanceResponse;
+
+    this.logger.debug(`Retrieved balance for ${maskAddress(address)}`);
+
+    return ok(balanceData);
   }
 
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<ThetaScanTransaction[]> {
+  }): Promise<Result<ThetaScanTransaction[], Error>> {
     const { address, since } = params;
 
     if (!this.isValidEthAddress(address)) {
-      throw new Error(`Invalid Theta address: ${address}`);
+      return err(new Error(`Invalid Theta address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    try {
-      const normalTransactions = await this.getNormalTransactions(address, since);
+    const result = await this.getNormalTransactions(address, since);
 
-      this.logger.debug(`Retrieved ${normalTransactions.length} raw transactions for ${maskAddress(address)}`);
-
-      return normalTransactions;
-    } catch (error) {
+    if (result.isErr()) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
       );
-      throw error;
+      return err(result.error);
     }
+
+    this.logger.debug(`Retrieved ${result.value.length} raw transactions for ${maskAddress(address)}`);
+
+    return ok(result.value);
   }
 
   private async getRawTokenBalances(params: {
     address: string;
     contractAddresses?: string[] | undefined;
-  }): Promise<ThetaScanTokenBalance[]> {
+  }): Promise<Result<ThetaScanTokenBalance[], Error>> {
     const { address, contractAddresses } = params;
 
     if (!this.isValidEthAddress(address)) {
-      throw new Error(`Invalid Theta address: ${address}`);
+      return err(new Error(`Invalid Theta address: ${address}`));
     }
 
     this.logger.debug(`Fetching token balances - Address: ${maskAddress(address)}`);
@@ -178,42 +174,37 @@ export class ThetaScanApiClient extends BaseApiClient {
     // If no contract addresses specified, we can't fetch balances (ThetaScan requires contract address)
     if (!contractAddresses || contractAddresses.length === 0) {
       this.logger.debug('No contract addresses provided, skipping token balance fetch');
-      return [];
+      return ok([]);
     }
 
-    try {
-      const balances: ThetaScanTokenBalance[] = [];
+    const balances: ThetaScanTokenBalance[] = [];
 
-      // Fetch balance for each contract
-      for (const contractAddress of contractAddresses) {
-        const params = new URLSearchParams({
-          address: address,
-          contract: contractAddress,
-        });
+    // Fetch balance for each contract
+    for (const contractAddress of contractAddresses) {
+      const urlParams = new URLSearchParams({
+        address: address,
+        contract: contractAddress,
+      });
 
-        try {
-          const response = await this.httpClient.get(`/contract/?${params.toString()}`);
-          const balanceData = response as ThetaScanTokenBalance;
+      const result = await this.httpClient.get(`/contract/?${urlParams.toString()}`);
 
-          if (balanceData) {
-            balances.push(balanceData);
-          }
-        } catch (error) {
-          this.logger.warn(
-            `Failed to fetch balance for contract ${contractAddress} - Error: ${getErrorMessage(error)}`
-          );
-          // Continue with other contracts
-        }
+      if (result.isErr()) {
+        this.logger.warn(
+          `Failed to fetch balance for contract ${contractAddress} - Error: ${getErrorMessage(result.error)}`
+        );
+        // Continue with other contracts
+        continue;
       }
 
-      this.logger.debug(`Retrieved ${balances.length} token balances for ${maskAddress(address)}`);
-      return balances;
-    } catch (error) {
-      this.logger.error(
-        `Failed to get token balances - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
-      );
-      throw error;
+      const balanceData = result.value as ThetaScanTokenBalance;
+
+      if (balanceData) {
+        balances.push(balanceData);
+      }
     }
+
+    this.logger.debug(`Retrieved ${balances.length} token balances for ${maskAddress(address)}`);
+    return ok(balances);
   }
 
   // Theta uses Ethereum-style addresses

@@ -17,10 +17,16 @@ describe('ThetaScanTransactionMapper E2E', () => {
 
   beforeAll(async () => {
     // Fetch data once to avoid hammering the API
-    cachedTransactions = await apiClient.execute<ThetaScanTransaction[]>({
+    const result = await apiClient.execute<ThetaScanTransaction[]>({
       address: testAddress,
       type: 'getRawAddressTransactions',
     });
+
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    cachedTransactions = result.value;
   }, 60000);
 
   it('should map real transaction data from API', () => {

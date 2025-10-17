@@ -22,84 +22,104 @@ describe('ThetaScanApiClient Integration', () => {
 
   describe('Raw Address Transactions', () => {
     it('should fetch raw address transactions successfully', async () => {
-      const transactions = await provider.execute<ThetaScanTransaction[]>({
+      const result = await provider.execute<ThetaScanTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
-      expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0) {
-        expect(transactions[0]).toHaveProperty('hash');
-        expect(transactions[0]).toHaveProperty('sending_address');
-        expect(transactions[0]).toHaveProperty('recieving_address');
-        expect(transactions[0]).toHaveProperty('block');
-        expect(transactions[0]).toHaveProperty('timestamp');
-        expect(transactions[0]).toHaveProperty('theta');
-        expect(transactions[0]).toHaveProperty('tfuel');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        expect(Array.isArray(transactions)).toBe(true);
+        if (transactions.length > 0) {
+          expect(transactions[0]).toHaveProperty('hash');
+          expect(transactions[0]).toHaveProperty('sending_address');
+          expect(transactions[0]).toHaveProperty('recieving_address');
+          expect(transactions[0]).toHaveProperty('block');
+          expect(transactions[0]).toHaveProperty('timestamp');
+          expect(transactions[0]).toHaveProperty('theta');
+          expect(transactions[0]).toHaveProperty('tfuel');
+        }
       }
     }, 30000);
 
     it('should fetch transactions with since parameter', async () => {
       const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
-      const transactions = await provider.execute<ThetaScanTransaction[]>({
+      const result = await provider.execute<ThetaScanTransaction[]>({
         address: testAddress,
         since: oneYearAgo,
         type: 'getRawAddressTransactions',
       });
 
-      expect(Array.isArray(transactions)).toBe(true);
-      // All transactions should be after the since date
-      if (transactions.length > 0) {
-        transactions.forEach((tx) => {
-          const txTimestamp = tx.timestamp.getTime(); // Get timestamp in milliseconds
-          expect(txTimestamp).toBeGreaterThanOrEqual(oneYearAgo);
-        });
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        expect(Array.isArray(transactions)).toBe(true);
+        // All transactions should be after the since date
+        if (transactions.length > 0) {
+          transactions.forEach((tx) => {
+            const txTimestamp = tx.timestamp.getTime(); // Get timestamp in milliseconds
+            expect(txTimestamp).toBeGreaterThanOrEqual(oneYearAgo);
+          });
+        }
       }
     }, 30000);
   });
 
   describe('Address Balance', () => {
     it('should fetch raw address balance successfully', async () => {
-      const balance = await provider.execute<ThetaScanBalanceResponse>({
+      const result = await provider.execute<ThetaScanBalanceResponse>({
         address: testAddress,
         type: 'getRawAddressBalance',
       });
 
-      expect(balance).toBeDefined();
-      // Balance response should have theta, theta_staked, tfuel, and tfuel_staked
-      expect(balance).toHaveProperty('theta');
-      expect(balance).toHaveProperty('theta_staked');
-      expect(balance).toHaveProperty('tfuel');
-      expect(balance).toHaveProperty('tfuel_staked');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const balance = result.value;
+        expect(balance).toBeDefined();
+        // Balance response should have theta, theta_staked, tfuel, and tfuel_staked
+        expect(balance).toHaveProperty('theta');
+        expect(balance).toHaveProperty('theta_staked');
+        expect(balance).toHaveProperty('tfuel');
+        expect(balance).toHaveProperty('tfuel_staked');
+      }
     }, 30000);
   });
 
   describe('Token Balances', () => {
     it('should return empty array when no contract addresses provided', async () => {
-      const balances = await provider.execute<ThetaScanTokenBalance[]>({
+      const result = await provider.execute<ThetaScanTokenBalance[]>({
         address: testAddress,
         type: 'getRawTokenBalances',
       });
 
-      expect(Array.isArray(balances)).toBe(true);
-      expect(balances.length).toBe(0);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const balances = result.value;
+        expect(Array.isArray(balances)).toBe(true);
+        expect(balances.length).toBe(0);
+      }
     }, 30000);
 
     it('should handle token balances with contract addresses', async () => {
       // Example Theta token contract - replace with actual contract if known
       const contractAddresses = ['0x4dc08b15ea0e10b96c41aec22fab934ba15c983e'];
 
-      const balances = await provider.execute<ThetaScanTokenBalance[]>({
+      const result = await provider.execute<ThetaScanTokenBalance[]>({
         address: testAddress,
         contractAddresses,
         type: 'getRawTokenBalances',
       });
 
-      expect(Array.isArray(balances)).toBe(true);
-      // May or may not have balances depending on the address
-      if (balances.length > 0) {
-        expect(balances[0]).toHaveProperty('address');
-        expect(balances[0]).toHaveProperty('contract');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const balances = result.value;
+        expect(Array.isArray(balances)).toBe(true);
+        // May or may not have balances depending on the address
+        if (balances.length > 0) {
+          expect(balances[0]).toHaveProperty('address');
+          expect(balances[0]).toHaveProperty('contract');
+        }
       }
     }, 30000);
   });
@@ -108,24 +128,31 @@ describe('ThetaScanApiClient Integration', () => {
     it('should reject invalid Theta addresses', async () => {
       const invalidAddress = 'invalid-address';
 
-      await expect(
-        provider.execute<ThetaScanTransaction[]>({
-          address: invalidAddress,
-          type: 'getRawAddressTransactions',
-        })
-      ).rejects.toThrow('Invalid Theta address');
+      const result = await provider.execute<ThetaScanTransaction[]>({
+        address: invalidAddress,
+        type: 'getRawAddressTransactions',
+      });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Invalid Theta address');
+      }
     });
 
     it('should accept valid Ethereum-style addresses', async () => {
       const validAddress = '0x0000000000000000000000000000000000000000';
 
       // Should not throw
-      const transactions = await provider.execute<ThetaScanTransaction[]>({
+      const result = await provider.execute<ThetaScanTransaction[]>({
         address: validAddress,
         type: 'getRawAddressTransactions',
       });
 
-      expect(Array.isArray(transactions)).toBe(true);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        expect(Array.isArray(transactions)).toBe(true);
+      }
     }, 30000);
   });
 });

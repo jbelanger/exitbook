@@ -399,6 +399,12 @@ export class BlockchainProviderManager {
       try {
         // Execute operation - rate limiting handled by provider's HttpClient
         const result = await provider.execute<T>(operation, {});
+
+        // Unwrap Result type - throw error to trigger failover
+        if (result.isErr()) {
+          throw result.error;
+        }
+
         const responseTime = Date.now() - startTime;
 
         // Record success - update circuit state
@@ -407,7 +413,7 @@ export class BlockchainProviderManager {
         this.updateHealthMetrics(provider.name, true, responseTime);
 
         return ok({
-          data: result as T,
+          data: result.value,
           providerName: provider.name,
         });
       } catch (error) {

@@ -1,13 +1,14 @@
 import { getLogger } from '@exitbook/shared-logger';
+import { err, ok, type Result } from 'neverthrow';
 
 import * as HttpUtils from './core/http-utils.ts';
 import * as RateLimitCore from './core/rate-limit.ts';
 import type { HttpEffects, RateLimitState } from './core/types.ts';
 import { createInitialRateLimitState } from './core/types.ts';
-import type { RateLimitConfig } from './types.ts';
+import type { HttpRequestOptions, RateLimitConfig } from './types.ts';
 import { RateLimitError, ServiceError } from './types.ts';
 
-export interface HttpClientConfig {
+export interface HttpClientV2Config {
   baseUrl: string;
   defaultHeaders?: Record<string, string> | undefined;
   providerName: string;
@@ -16,22 +17,15 @@ export interface HttpClientConfig {
   timeout?: number | undefined;
 }
 
-export interface HttpRequestOptions {
-  body?: string | Buffer | Uint8Array | object | undefined;
-  headers?: Record<string, string> | undefined;
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | undefined;
-  timeout?: number | undefined;
-}
-
 export class HttpClient {
-  private readonly config: HttpClientConfig;
+  private readonly config: HttpClientV2Config;
   private readonly logger: ReturnType<typeof getLogger>;
   private readonly effects: HttpEffects;
 
   // Mutable state (only place side effects live)
   private rateLimitState: RateLimitState;
 
-  constructor(config: HttpClientConfig, effects?: Partial<HttpEffects>) {
+  constructor(config: HttpClientV2Config, effects?: Partial<HttpEffects>) {
     this.config = {
       defaultHeaders: {
         Accept: 'application/json',
@@ -42,7 +36,7 @@ export class HttpClient {
       ...config,
     };
 
-    this.logger = getLogger(`HttpClient:${config.providerName}`);
+    this.logger = getLogger(`HttpClientV2:${config.providerName}`);
 
     // Initialize effects with production defaults
     this.effects = {
@@ -70,7 +64,10 @@ export class HttpClient {
   /**
    * Convenience method for GET requests
    */
-  async get<T = unknown>(endpoint: string, options: Omit<HttpRequestOptions, 'method'> = {}): Promise<T> {
+  async get<T = unknown>(
+    endpoint: string,
+    options: Omit<HttpRequestOptions, 'method'> = {}
+  ): Promise<Result<T, Error>> {
     return this.request<T>(endpoint, { ...options, method: 'GET' });
   }
 
@@ -103,7 +100,7 @@ export class HttpClient {
     endpoint: string,
     body?: unknown,
     options: Omit<HttpRequestOptions, 'method' | 'body'> = {}
-  ): Promise<T> {
+  ): Promise<Result<T, Error>> {
     return this.request<T>(endpoint, {
       ...options,
       body: body as string | Buffer | Uint8Array | object | undefined,
@@ -114,14 +111,17 @@ export class HttpClient {
   /**
    * Make an HTTP request with rate limiting, retries, and error handling
    */
-  async request<T = unknown>(endpoint: string, options: HttpRequestOptions = {}): Promise<T> {
+  async request<T = unknown>(endpoint: string, options: HttpRequestOptions = {}): Promise<Result<T, Error>> {
     const url = HttpUtils.buildUrl(this.config.baseUrl, endpoint);
     const method = options.method || 'GET';
     const timeout = options.timeout || this.config.timeout!;
-    let lastError: Error;
+    let lastError: Error | undefined;
 
     // Wait for rate limit permission before making request
-    await this.waitForRateLimit();
+    const rateLimitResult = await this.waitForRateLimit();
+    if (rateLimitResult.isErr()) {
+      return err(rateLimitResult.error);
+    }
 
     for (let attempt = 1; attempt <= this.config.retries!; attempt++) {
       try {
@@ -201,16 +201,16 @@ export class HttpClient {
         }
 
         const data = (await response.json()) as T;
-        return data;
+        return ok(data);
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
         if (error instanceof RateLimitError || error instanceof ServiceError) {
-          throw error;
+          return err(lastError);
         }
 
         if (lastError.message.includes('HTTP 4')) {
-          throw lastError;
+          return err(lastError);
         }
 
         if (error instanceof Error && error.name === 'AbortError') {
@@ -230,13 +230,13 @@ export class HttpClient {
       }
     }
 
-    throw lastError!;
+    return err(lastError ?? new Error('Request failed with unknown error'));
   }
 
   /**
    * Wait for rate limit permission (delegates to pure functions)
    */
-  private async waitForRateLimit(): Promise<void> {
+  private async waitForRateLimit(): Promise<Result<void, Error>> {
     const now = this.effects.now();
 
     // Refill tokens and check if we can proceed
@@ -251,7 +251,7 @@ export class HttpClient {
     if (canProceed) {
       // Consume token and record timestamp
       this.rateLimitState = RateLimitCore.consumeToken(this.rateLimitState, now);
-      return;
+      return ok();
     }
 
     // Calculate wait time

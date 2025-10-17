@@ -28,30 +28,42 @@ describe('SubscanApiClient Integration', () => {
         type: 'getRawAddressBalance',
       });
 
-      expect(result).toHaveProperty('code');
-      expect(result).toHaveProperty('data');
-      expect(result.code).toBe(0);
-      expect(result.data).toBeDefined();
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const response = result.value;
+      expect(response).toHaveProperty('code');
+      expect(response).toHaveProperty('data');
+      expect(response.code).toBe(0);
+      expect(response.data).toBeDefined();
 
       // Regular addresses should have balance/reserved fields
-      if (result.data?.balance !== undefined || result.data?.reserved !== undefined) {
-        expect(result.data).toHaveProperty('balance');
-        expect(typeof result.data.balance).toBe('string');
+      if (response.data?.balance !== undefined || response.data?.reserved !== undefined) {
+        expect(response.data).toHaveProperty('balance');
+        expect(typeof response.data.balance).toBe('string');
       } else {
         // Special addresses (like treasury) may just have an account hex string
-        expect(result.data).toHaveProperty('account');
-        expect(typeof result.data?.account).toBe('string');
+        expect(response.data).toHaveProperty('account');
+        expect(typeof response.data?.account).toBe('string');
       }
     }, 30000);
   });
 
   describe('Raw Address Transactions', () => {
     it('should fetch raw address transactions successfully', async () => {
-      const transactions = await provider.execute<SubscanTransferAugmented[]>({
+      const result = await provider.execute<SubscanTransferAugmented[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const transactions = result.value;
       expect(Array.isArray(transactions)).toBe(true);
       if (transactions.length > 0) {
         const firstTx = transactions[0];
@@ -78,12 +90,18 @@ describe('SubscanApiClient Integration', () => {
       // but after older transactions to test client-side filtering works
       const july2023 = new Date('2023-07-01').getTime();
 
-      const transactions = await provider.execute<SubscanTransferAugmented[]>({
+      const result = await provider.execute<SubscanTransferAugmented[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
         since: july2023,
       });
 
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      const transactions = result.value;
       expect(Array.isArray(transactions)).toBe(true);
       expect(transactions.length).toBeGreaterThan(0);
 

@@ -1,4 +1,5 @@
 import { getErrorMessage } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
@@ -86,39 +87,39 @@ export class MoralisApiClient extends BaseApiClient {
     );
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<T> {
+  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {
       case 'getRawAddressTransactions': {
         const { address, since } = operation;
         this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-        return this.getRawAddressTransactions(address, since) as Promise<T>;
+        return (await this.getRawAddressTransactions(address, since)) as Result<T, Error>;
       }
       case 'getRawAddressInternalTransactions': {
         const { address, since } = operation;
         this.logger.debug(`Fetching raw address internal transactions - Address: ${maskAddress(address)}`);
-        return this.getRawAddressInternalTransactions(address, since) as Promise<T>;
+        return (await this.getRawAddressInternalTransactions(address, since)) as Result<T, Error>;
       }
       case 'getRawAddressBalance': {
         const { address } = operation;
         this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
-        return this.getRawAddressBalance(address) as Promise<T>;
+        return (await this.getRawAddressBalance(address)) as Result<T, Error>;
       }
       case 'getTokenTransactions': {
         const { address, contractAddress, since } = operation;
         this.logger.debug(
           `Fetching token transactions - Address: ${maskAddress(address)}, Contract: ${contractAddress || 'all'}`
         );
-        return this.getTokenTransactions(address, contractAddress, since) as Promise<T>;
+        return (await this.getTokenTransactions(address, contractAddress, since)) as Result<T, Error>;
       }
       case 'getRawTokenBalances': {
         const { address, contractAddresses } = operation;
         this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
-        return this.getRawTokenBalances(address, contractAddresses) as Promise<T>;
+        return (await this.getRawTokenBalances(address, contractAddresses)) as Result<T, Error>;
       }
       default:
-        throw new Error(`Unsupported operation: ${operation.type}`);
+        return err(new Error(`Unsupported operation: ${operation.type}`));
     }
   }
 
@@ -132,171 +133,187 @@ export class MoralisApiClient extends BaseApiClient {
     };
   }
 
-  private async getRawAddressBalance(address: string): Promise<MoralisNativeBalance> {
-    try {
+  private async getRawAddressBalance(address: string): Promise<Result<MoralisNativeBalance, Error>> {
+    const params = new URLSearchParams({
+      chain: this.moralisChainId,
+    });
+
+    const endpoint = `/${address}/balance?${params.toString()}`;
+    const result = await this.httpClient.get<MoralisNativeBalance>(endpoint);
+
+    if (result.isErr()) {
+      this.logger.error(`Failed to fetch raw address balance for ${address} - Error: ${getErrorMessage(result.error)}`);
+      return err(result.error);
+    }
+
+    const response = result.value;
+    this.logger.debug(`Found raw native balance for ${address}: ${response.balance}`);
+    return ok(response);
+  }
+
+  private async getRawAddressTransactions(
+    address: string,
+    since?: number
+  ): Promise<Result<MoralisTransaction[], Error>> {
+    const transactions: MoralisTransaction[] = [];
+    let cursor: string | null | undefined;
+    let pageCount = 0;
+    const maxPages = 100; // Safety limit to prevent infinite loops
+
+    do {
       const params = new URLSearchParams({
         chain: this.moralisChainId,
+        limit: '100',
       });
 
-      const endpoint = `/${address}/balance?${params.toString()}`;
-      const response: MoralisNativeBalance = await this.httpClient.get(endpoint);
+      if (since) {
+        const sinceDate = new Date(since).toISOString();
+        params.append('from_date', sinceDate);
+      }
 
-      this.logger.debug(`Found raw native balance for ${address}: ${response.balance}`);
-      return response;
-    } catch (error) {
-      this.logger.error(`Failed to fetch raw address balance for ${address} - Error: ${getErrorMessage(error)}`);
-      throw error;
-    }
-  }
+      if (cursor) {
+        params.append('cursor', cursor);
+      }
 
-  private async getRawAddressTransactions(address: string, since?: number): Promise<MoralisTransaction[]> {
-    try {
-      const transactions: MoralisTransaction[] = [];
-      let cursor: string | null | undefined;
-      let pageCount = 0;
-      const maxPages = 100; // Safety limit to prevent infinite loops
+      // Include internal transactions in the same call for efficiency
+      params.append('include', 'internal_transactions');
 
-      do {
-        const params = new URLSearchParams({
-          chain: this.moralisChainId,
-          limit: '100',
-        });
+      const endpoint = `/${address}?${params.toString()}`;
+      const result = await this.httpClient.get<MoralisTransactionResponse>(endpoint);
 
-        if (since) {
-          const sinceDate = new Date(since).toISOString();
-          params.append('from_date', sinceDate);
-        }
-
-        if (cursor) {
-          params.append('cursor', cursor);
-        }
-
-        // Include internal transactions in the same call for efficiency
-        params.append('include', 'internal_transactions');
-
-        const endpoint = `/${address}?${params.toString()}`;
-        const response = await this.httpClient.get<MoralisTransactionResponse>(endpoint);
-
-        const pageTransactions = response.result || [];
-
-        // Augment transactions with native currency from chain config
-        const augmentedTransactions = pageTransactions.map((tx) => ({
-          ...tx,
-          _nativeCurrency: this.chainConfig.nativeCurrency,
-          _nativeDecimals: this.chainConfig.nativeDecimals,
-        })) as MoralisTransaction[];
-
-        transactions.push(...augmentedTransactions);
-        cursor = response.cursor;
-        pageCount++;
-
-        this.logger.debug(
-          `Fetched page ${pageCount}: ${pageTransactions.length} transactions${cursor ? ' (more pages available)' : ' (last page)'}`
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch raw address transactions for ${address} - Error: ${getErrorMessage(result.error)}`
         );
+        return err(result.error);
+      }
 
-        // Safety check to prevent infinite pagination
-        if (pageCount >= maxPages) {
-          this.logger.warn(`Reached maximum page limit (${maxPages}), stopping pagination`);
-          break;
-        }
-      } while (cursor);
+      const response = result.value;
+      const pageTransactions = response.result || [];
 
-      this.logger.debug(`Found ${transactions.length} total raw address transactions for ${address}`);
-      return transactions;
-    } catch (error) {
-      this.logger.error(`Failed to fetch raw address transactions for ${address} - Error: ${getErrorMessage(error)}`);
-      throw error;
-    }
+      // Augment transactions with native currency from chain config
+      const augmentedTransactions = pageTransactions.map((tx) => ({
+        ...tx,
+        _nativeCurrency: this.chainConfig.nativeCurrency,
+        _nativeDecimals: this.chainConfig.nativeDecimals,
+      })) as MoralisTransaction[];
+
+      transactions.push(...augmentedTransactions);
+      cursor = response.cursor;
+      pageCount++;
+
+      this.logger.debug(
+        `Fetched page ${pageCount}: ${pageTransactions.length} transactions${cursor ? ' (more pages available)' : ' (last page)'}`
+      );
+
+      // Safety check to prevent infinite pagination
+      if (pageCount >= maxPages) {
+        this.logger.warn(`Reached maximum page limit (${maxPages}), stopping pagination`);
+        break;
+      }
+    } while (cursor);
+
+    this.logger.debug(`Found ${transactions.length} total raw address transactions for ${address}`);
+    return ok(transactions);
   }
 
-  private getRawAddressInternalTransactions(address: string, _since?: number): Promise<MoralisTransaction[]> {
+  private getRawAddressInternalTransactions(
+    address: string,
+    _since?: number
+  ): Promise<Result<MoralisTransaction[], Error>> {
     // Moralis includes internal transactions automatically when fetching regular transactions
     // with the 'include=internal_transactions' parameter. To avoid duplicate API calls,
     // internal transactions should be fetched via getRawAddressTransactions instead.
     this.logger.info(
       `Moralis internal transactions are included in getRawAddressTransactions call - returning empty array to avoid duplicate fetching for ${maskAddress(address)}`
     );
-    return Promise.resolve([]);
+    return Promise.resolve(ok([]));
   }
 
-  private async getRawTokenBalances(address: string, contractAddresses?: string[]): Promise<MoralisTokenBalance[]> {
-    try {
-      const params = new URLSearchParams({
-        chain: this.moralisChainId,
+  private async getRawTokenBalances(
+    address: string,
+    contractAddresses?: string[]
+  ): Promise<Result<MoralisTokenBalance[], Error>> {
+    const params = new URLSearchParams({
+      chain: this.moralisChainId,
+    });
+
+    if (contractAddresses) {
+      contractAddresses.forEach((contract) => {
+        params.append('token_addresses[]', contract);
       });
-
-      if (contractAddresses) {
-        contractAddresses.forEach((contract) => {
-          params.append('token_addresses[]', contract);
-        });
-      }
-
-      const endpoint = `/${address}/erc20?${params.toString()}`;
-      const response = await this.httpClient.get<MoralisTokenBalance[]>(endpoint);
-
-      const balances = response || [];
-      this.logger.debug(`Found ${balances.length} raw token balances for ${address}`);
-      return balances;
-    } catch (error) {
-      this.logger.error(`Failed to fetch raw token balances for ${address} - Error: ${getErrorMessage(error)}`);
-      throw error;
     }
+
+    const endpoint = `/${address}/erc20?${params.toString()}`;
+    const result = await this.httpClient.get<MoralisTokenBalance[]>(endpoint);
+
+    if (result.isErr()) {
+      this.logger.error(`Failed to fetch raw token balances for ${address} - Error: ${getErrorMessage(result.error)}`);
+      return err(result.error);
+    }
+
+    const balances = result.value || [];
+    this.logger.debug(`Found ${balances.length} raw token balances for ${address}`);
+    return ok(balances);
   }
 
   private async getTokenTransactions(
     address: string,
     contractAddress?: string,
     since?: number
-  ): Promise<MoralisTokenTransfer[]> {
-    try {
-      const transfers: MoralisTokenTransfer[] = [];
-      let cursor: string | null | undefined;
-      let pageCount = 0;
-      const maxPages = 100; // Safety limit to prevent infinite loops
+  ): Promise<Result<MoralisTokenTransfer[], Error>> {
+    const transfers: MoralisTokenTransfer[] = [];
+    let cursor: string | null | undefined;
+    let pageCount = 0;
+    const maxPages = 100; // Safety limit to prevent infinite loops
 
-      do {
-        const params = new URLSearchParams({
-          chain: this.moralisChainId,
-          limit: '100',
-        });
+    do {
+      const params = new URLSearchParams({
+        chain: this.moralisChainId,
+        limit: '100',
+      });
 
-        if (since) {
-          const sinceDate = new Date(since).toISOString();
-          params.append('from_date', sinceDate);
-        }
+      if (since) {
+        const sinceDate = new Date(since).toISOString();
+        params.append('from_date', sinceDate);
+      }
 
-        if (contractAddress) {
-          params.append('contract_addresses[]', contractAddress);
-        }
+      if (contractAddress) {
+        params.append('contract_addresses[]', contractAddress);
+      }
 
-        if (cursor) {
-          params.append('cursor', cursor);
-        }
+      if (cursor) {
+        params.append('cursor', cursor);
+      }
 
-        const endpoint = `/${address}/erc20/transfers?${params.toString()}`;
-        const response = await this.httpClient.get<MoralisTokenTransferResponse>(endpoint);
+      const endpoint = `/${address}/erc20/transfers?${params.toString()}`;
+      const result = await this.httpClient.get<MoralisTokenTransferResponse>(endpoint);
 
-        const pageTransfers = response.result || [];
-        transfers.push(...pageTransfers);
-        cursor = response.cursor;
-        pageCount++;
-
-        this.logger.debug(
-          `Fetched page ${pageCount}: ${pageTransfers.length} token transfers${cursor ? ' (more pages available)' : ' (last page)'}`
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch raw token transactions for ${address} - Error: ${getErrorMessage(result.error)}`
         );
+        return err(result.error);
+      }
 
-        // Safety check to prevent infinite pagination
-        if (pageCount >= maxPages) {
-          this.logger.warn(`Reached maximum page limit (${maxPages}), stopping pagination`);
-          break;
-        }
-      } while (cursor);
+      const response = result.value;
+      const pageTransfers = response.result || [];
+      transfers.push(...pageTransfers);
+      cursor = response.cursor;
+      pageCount++;
 
-      this.logger.debug(`Found ${transfers.length} total raw token transactions for ${address}`);
-      return transfers;
-    } catch (error) {
-      this.logger.error(`Failed to fetch raw token transactions for ${address} - Error: ${getErrorMessage(error)}`);
-      throw error;
-    }
+      this.logger.debug(
+        `Fetched page ${pageCount}: ${pageTransfers.length} token transfers${cursor ? ' (more pages available)' : ' (last page)'}`
+      );
+
+      // Safety check to prevent infinite pagination
+      if (pageCount >= maxPages) {
+        this.logger.warn(`Reached maximum page limit (${maxPages}), stopping pagination`);
+        break;
+      }
+    } while (cursor);
+
+    this.logger.debug(`Found ${transfers.length} total raw token transactions for ${address}`);
+    return ok(transfers);
   }
 }

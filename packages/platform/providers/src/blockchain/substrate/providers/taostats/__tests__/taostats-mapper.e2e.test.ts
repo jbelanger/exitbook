@@ -19,10 +19,14 @@ describe('TaostatsTransactionMapper E2E - Bittensor', () => {
 
     beforeAll(async () => {
       // Fetch data once to avoid hammering the API
-      cachedTransactions = await apiClient.execute<TaostatsTransactionAugmented[]>({
+      const result = await apiClient.execute<TaostatsTransactionAugmented[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
+      if (result.isErr()) {
+        throw result.error;
+      }
+      cachedTransactions = result.value;
     }, 60000);
 
     it('should map real Bittensor transaction data from API', () => {

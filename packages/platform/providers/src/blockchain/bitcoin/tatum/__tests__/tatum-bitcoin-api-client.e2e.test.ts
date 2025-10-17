@@ -30,10 +30,14 @@ describe('TatumBitcoinApiClient E2E', () => {
         type: 'getAddressBalances',
       });
 
-      expect(result).toHaveProperty('txCount');
-      expect(result).toHaveProperty('balance');
-      expect(typeof result.txCount).toBe('number');
-      expect(typeof result.balance).toBe('string');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const addressInfo = result.value;
+        expect(addressInfo).toHaveProperty('txCount');
+        expect(addressInfo).toHaveProperty('balance');
+        expect(typeof addressInfo.txCount).toBe('number');
+        expect(typeof addressInfo.balance).toBe('string');
+      }
     },
     30000
   );
@@ -41,17 +45,21 @@ describe('TatumBitcoinApiClient E2E', () => {
   it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should fetch raw address transactions successfully',
     async () => {
-      const transactions = await provider.execute<TatumBitcoinTransaction[]>({
+      const result = await provider.execute<TatumBitcoinTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
-      expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0) {
-        expect(transactions[0]).toHaveProperty('hash');
-        expect(transactions[0]).toHaveProperty('inputs');
-        expect(transactions[0]).toHaveProperty('outputs');
-        expect(transactions[0]).toHaveProperty('time');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        expect(Array.isArray(transactions)).toBe(true);
+        if (transactions.length > 0) {
+          expect(transactions[0]).toHaveProperty('hash');
+          expect(transactions[0]).toHaveProperty('inputs');
+          expect(transactions[0]).toHaveProperty('outputs');
+          expect(transactions[0]).toHaveProperty('time');
+        }
       }
     },
     30000
