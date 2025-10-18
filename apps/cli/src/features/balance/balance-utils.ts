@@ -144,11 +144,12 @@ export function buildSourceParams(
 /**
  * Convert Record<string, Decimal> to Record<string, string>.
  * Pure function for decimal-to-string conversion.
+ * Uses toFixed() to avoid scientific notation for very small/large numbers.
  */
 export function decimalRecordToStringRecord(record: Record<string, Decimal>): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(record)) {
-    result[key] = value.toString();
+    result[key] = value.toFixed();
   }
   return result;
 }
