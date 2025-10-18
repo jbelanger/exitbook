@@ -132,6 +132,12 @@ export class BlockchainProviderManager {
     blockchain: string,
     operation: ProviderOperation
   ): Promise<Result<FailoverExecutionResult<T>, ProviderError>> {
+    // Auto-register providers for this blockchain if not already registered
+    const existingProviders = this.providers.get(blockchain);
+    if (!existingProviders || existingProviders.length === 0) {
+      this.autoRegisterFromConfig(blockchain);
+    }
+
     if (operation.getCacheKey) {
       const cacheKey = operation.getCacheKey(operation);
       const cached = this.requestCache.get(cacheKey);

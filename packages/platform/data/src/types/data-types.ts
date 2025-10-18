@@ -73,3 +73,46 @@ export interface ImportSessionMetadata {
   // Additional provider-specific metadata
   [key: string]: unknown;
 }
+
+/**
+ * Source parameters identifying the wallet/account
+ */
+export type SourceParams =
+  | {
+      exchange: string;
+    }
+  | {
+      address: string;
+      blockchain: string;
+    };
+
+/**
+ * Balance discrepancy details
+ */
+export interface BalanceDiscrepancy {
+  asset: string;
+  calculated: string;
+  difference: string;
+  live: string;
+}
+
+/**
+ * Balance verification result
+ */
+export interface BalanceVerification {
+  calculated_balance: Record<string, string>;
+  discrepancies?: BalanceDiscrepancy[] | undefined;
+  live_balance?: Record<string, string> | undefined;
+  status: 'match' | 'mismatch' | 'unavailable';
+  suggestions?: string[] | undefined;
+  verified_at: string;
+}
+
+/**
+ * Verification metadata stored in session
+ */
+export interface VerificationMetadata {
+  current_balance: Record<string, string>;
+  last_verification: BalanceVerification;
+  source_params: SourceParams;
+}

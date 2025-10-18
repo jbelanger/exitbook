@@ -159,7 +159,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async getTransactions(sourceId?: string, since?: number) {
+  async getTransactions(sourceId?: string, since?: number, sessionId?: number) {
     try {
       let query = this.db.selectFrom('transactions').selectAll();
 
@@ -174,6 +174,10 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         query = query.where('created_at', '>=', sinceDate as unknown as string);
       }
 
+      if (sessionId !== undefined) {
+        query = query.where('import_session_id', '=', sessionId);
+      }
+
       // Order by creation time descending
       query = query.orderBy('created_at', 'desc');
 
@@ -185,14 +189,19 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async findByAddress(address: string) {
+  async findByAddress(address: string, sourceId?: string) {
     try {
-      const transactions = await this.db
+      let query = this.db
         .selectFrom('transactions')
         .selectAll()
-        .where((eb) => eb.or([eb('from_address', '=', address), eb('to_address', '=', address)]))
-        .orderBy('transaction_datetime', 'desc')
-        .execute();
+        .where((eb) => eb.or([eb('from_address', '=', address), eb('to_address', '=', address)]));
+
+      // Filter by blockchain/exchange if specified (critical for EVM addresses shared across chains)
+      if (sourceId) {
+        query = query.where('source_id', '=', sourceId);
+      }
+
+      const transactions = await query.orderBy('transaction_datetime', 'desc').execute();
 
       return ok(transactions);
     } catch (error) {

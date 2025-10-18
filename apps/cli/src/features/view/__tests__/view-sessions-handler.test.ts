@@ -41,6 +41,8 @@ describe('ViewSessionsHandler', () => {
     error_details: null,
     import_params: {},
     import_result_metadata: {},
+    last_balance_check_at: null,
+    verification_metadata: null,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: null,
     ...overrides,

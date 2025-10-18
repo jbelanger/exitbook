@@ -1,4 +1,5 @@
-import { TransactionRepository, type KyselyDB } from '@exitbook/data';
+import type { KyselyDB } from '@exitbook/data';
+import { TransactionRepository } from '@exitbook/data';
 import {
   ImporterFactory,
   ImportSessionErrorRepository,
@@ -7,12 +8,7 @@ import {
   RawDataRepository,
   TransactionIngestionService,
 } from '@exitbook/import';
-import {
-  BlockchainProviderManager,
-  initializeProviders,
-  loadExplorerConfig,
-  type BlockchainExplorersConfig,
-} from '@exitbook/providers';
+import { BlockchainProviderManager, loadExplorerConfig, type BlockchainExplorersConfig } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -21,9 +17,6 @@ import { validateProcessParams } from './process-utils.ts';
 
 // Re-export for convenience
 export type { ProcessHandlerParams };
-
-// Initialize all providers at startup
-initializeProviders();
 
 const logger = getLogger('ProcessHandler');
 
@@ -45,6 +38,8 @@ export interface ProcessResult {
 export class ProcessHandler {
   private providerManager: BlockchainProviderManager;
   private ingestionService: TransactionIngestionService;
+  private transactionRepository: TransactionRepository;
+  private sessionRepository: ImportSessionRepository;
 
   constructor(
     private database: KyselyDB,
@@ -54,9 +49,9 @@ export class ProcessHandler {
     const config = explorerConfig || loadExplorerConfig();
 
     // Initialize services
-    const transactionRepository = new TransactionRepository(this.database);
+    this.transactionRepository = new TransactionRepository(this.database);
     const rawDataRepository = new RawDataRepository(this.database);
-    const sessionRepository = new ImportSessionRepository(this.database);
+    this.sessionRepository = new ImportSessionRepository(this.database);
     const sessionErrorRepository = new ImportSessionErrorRepository(this.database);
     this.providerManager = new BlockchainProviderManager(config);
     const importerFactory = new ImporterFactory(this.providerManager);
@@ -64,9 +59,9 @@ export class ProcessHandler {
 
     this.ingestionService = new TransactionIngestionService(
       rawDataRepository,
-      sessionRepository,
+      this.sessionRepository,
       sessionErrorRepository,
-      transactionRepository,
+      this.transactionRepository,
       importerFactory,
       processorFactory
     );

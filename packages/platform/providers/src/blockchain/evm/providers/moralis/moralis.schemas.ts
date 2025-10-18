@@ -93,3 +93,11 @@ export const MoralisTokenBalanceSchema = z.object({
 export const MoralisNativeBalanceSchema = z.object({
   balance: z.string().regex(/^\d+$/, 'Balance must be numeric string'),
 });
+
+// Type exports (inferred from schemas)
+export type MoralisTransaction = z.infer<typeof MoralisTransactionSchema>;
+export type MoralisTokenTransfer = z.infer<typeof MoralisTokenTransferSchema>;
+export type MoralisTokenBalance = z.infer<typeof MoralisTokenBalanceSchema>;
+export type MoralisNativeBalance = z.infer<typeof MoralisNativeBalanceSchema>;
+export type MoralisTransactionResponse = z.infer<typeof MoralisTransactionResponseSchema>;
+export type MoralisTokenTransferResponse = z.infer<typeof MoralisTokenTransferResponseSchema>;

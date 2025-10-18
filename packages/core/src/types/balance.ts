@@ -3,9 +3,5 @@
  */
 export interface BlockchainBalanceSnapshot {
   total: string; // total balance as decimal string
-}
-
-export interface BlockchainTokenBalanceSnapshot {
-  token: string; // token identifier (e.g., contract address or token ID)
-  total: string; // total balance as decimal string
+  asset: string; // native currency symbol (e.g., "BTC", "ETH", "SOL") or token identifier (e.g., contract address or token ID)
 }

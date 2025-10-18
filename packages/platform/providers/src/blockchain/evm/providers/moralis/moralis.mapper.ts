@@ -8,8 +8,12 @@ import type { NormalizationError } from '../../../../core/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.ts';
 import type { EvmTransaction } from '../../types.ts';
 
-import { MoralisTransactionSchema, MoralisTokenTransferSchema } from './moralis.schemas.ts';
-import type { MoralisTransaction, MoralisTokenTransfer } from './moralis.types.ts';
+import {
+  MoralisTransactionSchema,
+  MoralisTokenTransferSchema,
+  type MoralisTransaction,
+  type MoralisTokenTransfer,
+} from './moralis.schemas.ts';
 
 export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransaction, EvmTransaction> {
   protected readonly inputSchema = MoralisTransactionSchema;

@@ -5,6 +5,7 @@ import { initializeProviders } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { Command } from 'commander';
 
+import { registerBalanceCommand } from './features/balance/balance.ts';
 import { registerBenchmarkRateLimitCommand } from './features/benchmark-rate-limit/benchmark-rate-limit.ts';
 import { registerClearCommand } from './features/clear/clear.ts';
 import { registerExportCommand } from './features/export/export.ts';
@@ -13,7 +14,6 @@ import { registerLinkCommand } from './features/link/link.ts';
 import { registerListBlockchainsCommand } from './features/list-blockchains/list-blockchains.ts';
 import { registerPricesCommand } from './features/prices/prices.ts';
 import { registerProcessCommand } from './features/process/process.ts';
-import { registerVerifyCommand } from './features/verify/verify.ts';
 import { registerViewCommand } from './features/view/view.ts';
 
 // Initialize all providers at startup
@@ -40,8 +40,8 @@ async function main() {
   // Clear command
   registerClearCommand(program);
 
-  // Verify command - refactored with @clack/prompts (Phase 3)
-  registerVerifyCommand(program);
+  // Balance command - fetch live balances from exchanges/blockchains
+  registerBalanceCommand(program);
 
   // Export command - refactored with @clack/prompts (Phase 3)
   registerExportCommand(program);

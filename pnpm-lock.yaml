@@ -75,15 +75,15 @@ importers:
       '@exitbook/accounting':
         specifier: workspace:*
         version: link:../../packages/accounting
-      '@exitbook/balance':
-        specifier: workspace:*
-        version: link:../../packages/balance
       '@exitbook/core':
         specifier: workspace:*
         version: link:../../packages/core
       '@exitbook/data':
         specifier: workspace:*
         version: link:../../packages/platform/data
+      '@exitbook/exchanges':
+        specifier: workspace:*
+        version: link:../../packages/platform/exchanges
       '@exitbook/import':
         specifier: workspace:*
         version: link:../../packages/import
@@ -158,34 +158,6 @@ importers:
       vitest:
         specifier: ^3.0.5
         version: 3.2.4(@types/node@24.7.2)(@vitest/ui@3.2.4)(jiti@2.6.1)(tsx@4.20.6)(yaml@2.8.1)
-
-  packages/balance:
-    dependencies:
-      '@exitbook/core':
-        specifier: workspace:*
-        version: link:../core
-      '@exitbook/data':
-        specifier: workspace:*
-        version: link:../platform/data
-      '@exitbook/shared-logger':
-        specifier: workspace:*
-        version: link:../platform/logger
-      decimal.js:
-        specifier: ^10.6.0
-        version: 10.6.0
-    devDependencies:
-      '@types/node':
-        specifier: ^24.7.2
-        version: 24.7.2
-      tsconfig:
-        specifier: workspace:*
-        version: link:../shared/tsconfig
-      tsx:
-        specifier: ^4.20.4
-        version: 4.20.6
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
 
   packages/core:
     dependencies:

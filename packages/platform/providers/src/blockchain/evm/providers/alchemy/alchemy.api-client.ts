@@ -1,4 +1,4 @@
-import { getErrorMessage, type BlockchainTokenBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig } from '../../../../core/blockchain/index.ts';
@@ -337,7 +337,7 @@ export class AlchemyApiClient extends BaseApiClient {
   private async getAddressTokenBalances(
     address: string,
     contractAddresses?: string[]
-  ): Promise<Result<BlockchainTokenBalanceSnapshot[], Error>> {
+  ): Promise<Result<BlockchainBalanceSnapshot[], Error>> {
     const result = await this.httpClient.post<JsonRpcResponse<AlchemyTokenBalancesResponse>>(`/${this.apiKey}`, {
       id: 1,
       jsonrpc: '2.0',
@@ -353,8 +353,8 @@ export class AlchemyApiClient extends BaseApiClient {
     const response = result.value;
     const rawBalances = response.result?.tokenBalances || [];
 
-    // Convert to BlockchainTokenBalanceSnapshot format
-    const balances: BlockchainTokenBalanceSnapshot[] = rawBalances
+    // Convert to BlockchainBalanceSnapshot format
+    const balances: BlockchainBalanceSnapshot[] = rawBalances
       .filter((balance) => !balance.error)
       .map((balance) => {
         // Convert hex balance to decimal string (in smallest units)
@@ -362,7 +362,7 @@ export class AlchemyApiClient extends BaseApiClient {
         const balanceDecimal = BigInt(balance.tokenBalance).toString();
 
         return {
-          token: balance.contractAddress,
+          asset: balance.contractAddress,
           total: balanceDecimal,
         };
       });

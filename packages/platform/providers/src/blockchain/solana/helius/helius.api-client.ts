@@ -1,4 +1,4 @@
-import { getErrorMessage, type BlockchainBalanceSnapshot, type BlockchainTokenBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -302,7 +302,7 @@ export class HeliusApiClient extends BaseApiClient {
       `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceSOL}`
     );
 
-    return ok({ total: balanceSOL });
+    return ok({ total: balanceSOL, asset: 'SOL' });
   }
 
   private async getAddressTransactions(params: {
@@ -364,7 +364,7 @@ export class HeliusApiClient extends BaseApiClient {
   private async getAddressTokenBalances(params: {
     address: string;
     contractAddresses?: string[] | undefined;
-  }): Promise<Result<BlockchainTokenBalanceSnapshot[], Error>> {
+  }): Promise<Result<BlockchainBalanceSnapshot[], Error>> {
     const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
@@ -402,11 +402,11 @@ export class HeliusApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    // Convert to BlockchainTokenBalanceSnapshot format
-    const balances: BlockchainTokenBalanceSnapshot[] = tokenAccountsResponse.result.value.map((account) => {
+    // Convert to BlockchainBalanceSnapshot format
+    const balances: BlockchainBalanceSnapshot[] = tokenAccountsResponse.result.value.map((account) => {
       const tokenInfo = account.account.data.parsed.info;
       return {
-        token: tokenInfo.mint,
+        asset: tokenInfo.mint,
         total: tokenInfo.tokenAmount.uiAmountString,
       };
     });
