@@ -141,7 +141,7 @@ export class ThetaScanApiClient extends BaseApiClient {
 
     return ok({
       total,
-      symbol: 'TFUEL',
+      asset: 'TFUEL',
     });
   }
 
@@ -248,7 +248,7 @@ export class ThetaScanApiClient extends BaseApiClient {
         }
 
         balances.push({
-          symbol: balanceData.contract_address,
+          asset: balanceData.contract_address,
           total: balanceDecimal,
         });
       }

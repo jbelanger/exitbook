@@ -218,7 +218,7 @@ describe('TatumBitcoinApiClient', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toEqual({
-          symbol: 'BTC',
+          asset: 'BTC',
           total: '40', // (5000000000 - 1000000000) / 100000000
         });
       }
@@ -277,7 +277,7 @@ describe('TatumBitcoinApiClient', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toEqual({
-          symbol: 'BTC',
+          asset: 'BTC',
           total: '40', // (5000000000 - 1000000000) / 100000000
         });
       }

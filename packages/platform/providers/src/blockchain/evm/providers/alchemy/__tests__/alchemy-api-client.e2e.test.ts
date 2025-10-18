@@ -104,12 +104,12 @@ describe('AlchemyApiClient Integration', () => {
         expect(Array.isArray(balances)).toBe(true);
         if (balances.length > 0) {
           const firstBalance = balances[0]!;
-          expect(firstBalance).toHaveProperty('symbol');
+          expect(firstBalance).toHaveProperty('asset');
           expect(firstBalance).toHaveProperty('total');
-          expect(typeof firstBalance.symbol).toBe('string');
+          expect(typeof firstBalance.asset).toBe('string');
           expect(typeof firstBalance.total).toBe('string');
           // Token should be a contract address (0x...)
-          expect(firstBalance.symbol).toMatch(/^0x[a-fA-F0-9]{40}$/);
+          expect(firstBalance.asset).toMatch(/^0x[a-fA-F0-9]{40}$/);
           // Total should be a numeric string
           expect(Number(firstBalance.total)).not.toBeNaN();
         }
@@ -127,7 +127,7 @@ describe('AlchemyApiClient Integration', () => {
         const balances = result.value;
         // All returned balances should be valid (no error property)
         for (const balance of balances) {
-          expect(balance).toHaveProperty('symbol');
+          expect(balance).toHaveProperty('asset');
           expect(balance).toHaveProperty('total');
         }
       }
@@ -149,7 +149,7 @@ describe('AlchemyApiClient Integration', () => {
         expect(Array.isArray(balances)).toBe(true);
         // Should only return balance for the specified contract
         for (const balance of balances) {
-          expect(balance.symbol.toLowerCase()).toBe(usdcContract.toLowerCase());
+          expect(balance.asset.toLowerCase()).toBe(usdcContract.toLowerCase());
         }
       }
     }, 30000);

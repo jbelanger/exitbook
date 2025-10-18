@@ -1,4 +1,4 @@
-import { initializeDatabase } from '@exitbook/data';
+import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import type { BalanceVerificationResult } from '@exitbook/import';
 import type { Command } from 'commander';
 
@@ -90,15 +90,15 @@ async function executeBalanceCommand(options: ExtendedBalanceCommandOptions): Pr
 
     if (result.isErr()) {
       output.error('balance', result.error, ExitCodes.GENERAL_ERROR);
-      handler.destroy();
       return;
     }
 
     handleBalanceSuccess(output, result.value, params.sourceName, params.sourceType, params.address);
-    handler.destroy();
   } catch (error) {
-    handler.destroy();
     output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+  } finally {
+    handler.destroy();
+    await closeDatabase(database);
   }
 }
 

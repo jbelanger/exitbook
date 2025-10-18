@@ -74,7 +74,7 @@ export async function fetchBlockchainBalance(
 
     // Use the currency from the provider's response
     const balances: Record<string, string> = {
-      [data.symbol]: data.total,
+      [data.asset]: data.total,
     };
 
     return ok({

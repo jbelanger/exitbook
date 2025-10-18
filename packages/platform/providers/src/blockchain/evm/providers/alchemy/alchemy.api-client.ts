@@ -362,7 +362,7 @@ export class AlchemyApiClient extends BaseApiClient {
         const balanceDecimal = BigInt(balance.tokenBalance).toString();
 
         return {
-          symbol: balance.contractAddress,
+          asset: balance.contractAddress,
           total: balanceDecimal,
         };
       });

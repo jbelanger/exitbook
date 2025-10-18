@@ -302,7 +302,7 @@ export class HeliusApiClient extends BaseApiClient {
       `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceSOL}`
     );
 
-    return ok({ total: balanceSOL, symbol: 'SOL' });
+    return ok({ total: balanceSOL, asset: 'SOL' });
   }
 
   private async getAddressTransactions(params: {
@@ -406,7 +406,7 @@ export class HeliusApiClient extends BaseApiClient {
     const balances: BlockchainBalanceSnapshot[] = tokenAccountsResponse.result.value.map((account) => {
       const tokenInfo = account.account.data.parsed.info;
       return {
-        symbol: tokenInfo.mint,
+        asset: tokenInfo.mint,
         total: tokenInfo.tokenAmount.uiAmountString,
       };
     });

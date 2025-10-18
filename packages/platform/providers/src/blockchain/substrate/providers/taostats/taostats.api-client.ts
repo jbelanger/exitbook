@@ -134,7 +134,7 @@ export class TaostatsApiClient extends BaseApiClient {
       `Found raw balance for ${maskAddress(address)}: ${balanceDecimal} ${this.chainConfig.nativeCurrency}`
     );
 
-    return ok({ total: balanceDecimal, symbol: this.chainConfig.nativeCurrency });
+    return ok({ total: balanceDecimal, asset: this.chainConfig.nativeCurrency });
   }
 
   private async getAddressTransactions(params: {

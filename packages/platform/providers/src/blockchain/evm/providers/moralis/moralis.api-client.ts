@@ -162,7 +162,7 @@ export class MoralisApiClient extends BaseApiClient {
       .toString();
 
     this.logger.debug(`Found raw native balance for ${address}: ${balanceDecimal}`);
-    return ok({ total: balanceDecimal, symbol: this.chainConfig.nativeCurrency });
+    return ok({ total: balanceDecimal, asset: this.chainConfig.nativeCurrency });
   }
 
   private async getAddressTransactions(
@@ -297,7 +297,7 @@ export class MoralisApiClient extends BaseApiClient {
       const balanceDecimal = new Decimal(balance.balance).div(new Decimal(10).pow(balance.decimals)).toString();
 
       return {
-        symbol: balance.token_address,
+        asset: balance.token_address,
         total: balanceDecimal,
       };
     });

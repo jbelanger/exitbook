@@ -117,7 +117,7 @@ describe('ThetaScanApiClient Integration', () => {
         expect(Array.isArray(balances)).toBe(true);
         // May or may not have balances depending on the address
         if (balances.length > 0 && balances[0]) {
-          expect(balances[0]).toHaveProperty('symbol');
+          expect(balances[0]).toHaveProperty('asset');
           expect(balances[0]).toHaveProperty('total');
           expect(typeof balances[0].total).toBe('string');
         }

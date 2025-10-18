@@ -159,8 +159,13 @@ export class BalanceHandler {
         return matchingSession.completed_at ? new Date(matchingSession.completed_at).getTime() : undefined;
       }
 
-      // For exchanges, use the most recent completed session
-      const mostRecentSession = completedSessions[0];
+      // For exchanges, sort by completed_at desc to ensure we get the most recent
+      const sortedSessions = completedSessions.sort((a, b) => {
+        const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+        const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+        return bTime - aTime;
+      });
+      const mostRecentSession = sortedSessions[0];
       return mostRecentSession?.completed_at ? new Date(mostRecentSession.completed_at).getTime() : undefined;
     } catch (error) {
       logger.warn(`Error fetching last import timestamp: ${error instanceof Error ? error.message : String(error)}`);
@@ -307,7 +312,7 @@ export class BalanceHandler {
       }
 
       // For blockchain: find session matching the specific address
-      // For exchange: use the first (should only be one)
+      // For exchange: filter to completed sessions and use the most recent
       let targetSession: (typeof sessions)[0] | undefined;
       if (params.sourceType === 'blockchain' && params.address) {
         const normalizedAddress = params.address.toLowerCase();
@@ -320,7 +325,15 @@ export class BalanceHandler {
           return err(new Error(`No import session found for ${params.sourceName} with address ${params.address}`));
         }
       } else {
-        targetSession = sessions[0];
+        // For exchanges, filter to completed sessions and sort by completed_at desc
+        const completedSessions = sessions
+          .filter((session) => session.status === 'completed')
+          .sort((a, b) => {
+            const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+            const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+            return bTime - aTime;
+          });
+        targetSession = completedSessions[0];
       }
 
       // Ensure we found a session
@@ -345,7 +358,7 @@ export class BalanceHandler {
         source_params: sourceParams,
         current_balance: calculatedBalancesStr,
         last_verification: {
-          status: status === 'success' ? 'match' : status === 'warning' ? 'unavailable' : 'mismatch',
+          status: status === 'success' ? 'match' : 'mismatch',
           verified_at: new Date().toISOString(),
           calculated_balance: calculatedBalancesStr,
           live_balance: liveBalances,
