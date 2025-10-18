@@ -1,4 +1,4 @@
-import { getErrorMessage, type BlockchainBalanceSnapshot, type BlockchainTokenBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -141,6 +141,7 @@ export class ThetaScanApiClient extends BaseApiClient {
 
     return ok({
       total,
+      symbol: 'TFUEL',
     });
   }
 
@@ -197,7 +198,7 @@ export class ThetaScanApiClient extends BaseApiClient {
   private async getAddressTokenBalances(params: {
     address: string;
     contractAddresses?: string[] | undefined;
-  }): Promise<Result<BlockchainTokenBalanceSnapshot[], Error>> {
+  }): Promise<Result<BlockchainBalanceSnapshot[], Error>> {
     const { address, contractAddresses } = params;
 
     if (!this.isValidEthAddress(address)) {
@@ -212,7 +213,7 @@ export class ThetaScanApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    const balances: BlockchainTokenBalanceSnapshot[] = [];
+    const balances: BlockchainBalanceSnapshot[] = [];
 
     // Fetch balance for each contract
     for (const contractAddress of contractAddresses) {
@@ -234,7 +235,7 @@ export class ThetaScanApiClient extends BaseApiClient {
       const balanceData = result.value as ThetaScanTokenBalance;
 
       if (balanceData) {
-        // Convert to BlockchainTokenBalanceSnapshot format
+        // Convert to BlockchainBalanceSnapshot format
         let balanceDecimal: string;
         if (balanceData.token_decimals !== undefined) {
           // Convert from smallest units to decimal
@@ -247,7 +248,7 @@ export class ThetaScanApiClient extends BaseApiClient {
         }
 
         balances.push({
-          token: balanceData.contract_address,
+          symbol: balanceData.contract_address,
           total: balanceDecimal,
         });
       }

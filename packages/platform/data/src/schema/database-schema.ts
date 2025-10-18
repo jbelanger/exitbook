@@ -38,6 +38,10 @@ export interface ImportSessionsTable {
   transactions_imported: number;
 
   updated_at: DateTime | null;
+
+  // Balance verification
+  last_balance_check_at: DateTime | null;
+  verification_metadata: JSONString | null;
 }
 
 /**

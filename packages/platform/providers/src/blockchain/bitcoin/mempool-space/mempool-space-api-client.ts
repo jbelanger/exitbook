@@ -134,6 +134,7 @@ export class MempoolSpaceApiClient extends BaseApiClient {
 
     return ok({
       total: balanceBTC,
+      symbol: 'BTC',
     });
   }
 

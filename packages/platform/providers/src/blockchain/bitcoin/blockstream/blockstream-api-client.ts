@@ -136,6 +136,7 @@ export class BlockstreamApiClient extends BaseApiClient {
 
     return ok({
       total: balanceBTC,
+      symbol: 'BTC',
     });
   }
 

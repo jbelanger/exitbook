@@ -130,7 +130,7 @@ export class SolscanApiClient extends BaseApiClient {
       `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceSOL}`
     );
 
-    return ok({ total: balanceSOL });
+    return ok({ total: balanceSOL, symbol: 'SOL' });
   }
 
   private async getAddressTransactions(params: {

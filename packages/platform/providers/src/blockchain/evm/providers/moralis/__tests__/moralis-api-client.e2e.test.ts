@@ -1,4 +1,4 @@
-import type { BlockchainBalanceSnapshot, BlockchainTokenBalanceSnapshot } from '@exitbook/core';
+import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
@@ -87,7 +87,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         // Use a different address with fewer tokens to avoid Moralis's 2000 token limit
         const smallerAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4';
 
-        const result = await provider.execute<BlockchainTokenBalanceSnapshot[]>({
+        const result = await provider.execute<BlockchainBalanceSnapshot[]>({
           address: smallerAddress,
           type: 'getAddressTokenBalances',
         });
@@ -98,12 +98,12 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
           expect(Array.isArray(balances)).toBe(true);
           if (balances.length > 0) {
             const firstBalance = balances[0]!;
-            expect(firstBalance).toHaveProperty('token');
+            expect(firstBalance).toHaveProperty('symbol');
             expect(firstBalance).toHaveProperty('total');
-            expect(typeof firstBalance.token).toBe('string');
+            expect(typeof firstBalance.symbol).toBe('string');
             expect(typeof firstBalance.total).toBe('string');
             // Token should be a contract address (0x...)
-            expect(firstBalance.token).toMatch(/^0x[a-fA-F0-9]{40}$/);
+            expect(firstBalance.symbol).toMatch(/^0x[a-fA-F0-9]{40}$/);
             // Total should be a numeric string (converted from smallest units to decimal)
             expect(Number(firstBalance.total)).not.toBeNaN();
           }
@@ -113,7 +113,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
       it('should convert balances from smallest units to decimal', async () => {
         const smallerAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4';
 
-        const result = await provider.execute<BlockchainTokenBalanceSnapshot[]>({
+        const result = await provider.execute<BlockchainBalanceSnapshot[]>({
           address: smallerAddress,
           type: 'getAddressTokenBalances',
         });

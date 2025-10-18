@@ -355,6 +355,7 @@ export class RoutescanApiClient extends BaseApiClient {
 
     return ok({
       total: balanceDecimal,
+      symbol: this.chainConfig.nativeCurrency,
     });
   }
 

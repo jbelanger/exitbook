@@ -128,6 +128,7 @@ export class BlockchainComApiClient extends BaseApiClient {
 
     return ok({
       total: balanceBTC,
+      symbol: 'BTC',
     });
   }
 

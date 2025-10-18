@@ -1,4 +1,4 @@
-import type { BlockchainBalanceSnapshot, BlockchainTokenBalanceSnapshot } from '@exitbook/core';
+import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
@@ -88,7 +88,7 @@ describe('ThetaScanApiClient Integration', () => {
 
   describe('Token Balances', () => {
     it('should return empty array when no contract addresses provided', async () => {
-      const result = await provider.execute<BlockchainTokenBalanceSnapshot[]>({
+      const result = await provider.execute<BlockchainBalanceSnapshot[]>({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -105,7 +105,7 @@ describe('ThetaScanApiClient Integration', () => {
       // Example Theta token contract - replace with actual contract if known
       const contractAddresses = ['0x4dc08b15ea0e10b96c41aec22fab934ba15c983e'];
 
-      const result = await provider.execute<BlockchainTokenBalanceSnapshot[]>({
+      const result = await provider.execute<BlockchainBalanceSnapshot[]>({
         address: testAddress,
         contractAddresses,
         type: 'getAddressTokenBalances',
@@ -117,7 +117,7 @@ describe('ThetaScanApiClient Integration', () => {
         expect(Array.isArray(balances)).toBe(true);
         // May or may not have balances depending on the address
         if (balances.length > 0 && balances[0]) {
-          expect(balances[0]).toHaveProperty('token');
+          expect(balances[0]).toHaveProperty('symbol');
           expect(balances[0]).toHaveProperty('total');
           expect(typeof balances[0].total).toBe('string');
         }

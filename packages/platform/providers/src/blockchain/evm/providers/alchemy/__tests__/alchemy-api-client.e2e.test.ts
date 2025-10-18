@@ -1,4 +1,4 @@
-import type { BlockchainTokenBalanceSnapshot } from '@exitbook/core';
+import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
@@ -93,7 +93,7 @@ describe('AlchemyApiClient Integration', () => {
 
   describe('Token Balances', () => {
     it('should fetch token balances in normalized format', async () => {
-      const result = await provider.execute<BlockchainTokenBalanceSnapshot[]>({
+      const result = await provider.execute<BlockchainBalanceSnapshot[]>({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -104,12 +104,12 @@ describe('AlchemyApiClient Integration', () => {
         expect(Array.isArray(balances)).toBe(true);
         if (balances.length > 0) {
           const firstBalance = balances[0]!;
-          expect(firstBalance).toHaveProperty('token');
+          expect(firstBalance).toHaveProperty('symbol');
           expect(firstBalance).toHaveProperty('total');
-          expect(typeof firstBalance.token).toBe('string');
+          expect(typeof firstBalance.symbol).toBe('string');
           expect(typeof firstBalance.total).toBe('string');
           // Token should be a contract address (0x...)
-          expect(firstBalance.token).toMatch(/^0x[a-fA-F0-9]{40}$/);
+          expect(firstBalance.symbol).toMatch(/^0x[a-fA-F0-9]{40}$/);
           // Total should be a numeric string
           expect(Number(firstBalance.total)).not.toBeNaN();
         }
@@ -117,7 +117,7 @@ describe('AlchemyApiClient Integration', () => {
     }, 30000);
 
     it('should filter out balances with errors', async () => {
-      const result = await provider.execute<BlockchainTokenBalanceSnapshot[]>({
+      const result = await provider.execute<BlockchainBalanceSnapshot[]>({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -127,7 +127,7 @@ describe('AlchemyApiClient Integration', () => {
         const balances = result.value;
         // All returned balances should be valid (no error property)
         for (const balance of balances) {
-          expect(balance).toHaveProperty('token');
+          expect(balance).toHaveProperty('symbol');
           expect(balance).toHaveProperty('total');
         }
       }
@@ -137,7 +137,7 @@ describe('AlchemyApiClient Integration', () => {
       // USDC contract address on Ethereum
       const usdcContract = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 
-      const result = await provider.execute<BlockchainTokenBalanceSnapshot[]>({
+      const result = await provider.execute<BlockchainBalanceSnapshot[]>({
         address: testAddress,
         contractAddresses: [usdcContract],
         type: 'getAddressTokenBalances',
@@ -149,7 +149,7 @@ describe('AlchemyApiClient Integration', () => {
         expect(Array.isArray(balances)).toBe(true);
         // Should only return balance for the specified contract
         for (const balance of balances) {
-          expect(balance.token.toLowerCase()).toBe(usdcContract.toLowerCase());
+          expect(balance.symbol.toLowerCase()).toBe(usdcContract.toLowerCase());
         }
       }
     }, 30000);

@@ -1,4 +1,4 @@
-import type { BlockchainBalanceSnapshot, BlockchainTokenBalanceSnapshot } from '@exitbook/core';
+import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../core/blockchain/index.ts';
@@ -188,7 +188,7 @@ describe('HeliusApiClient Integration', () => {
 
   describe('Token Balances', () => {
     it('should fetch token balances in normalized format', async () => {
-      const result = await provider.execute<BlockchainTokenBalanceSnapshot[]>({
+      const result = await provider.execute<BlockchainBalanceSnapshot[]>({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -201,12 +201,12 @@ describe('HeliusApiClient Integration', () => {
 
       if (balances.length > 0) {
         const firstBalance = balances[0]!;
-        expect(firstBalance).toHaveProperty('token');
+        expect(firstBalance).toHaveProperty('symbol');
         expect(firstBalance).toHaveProperty('total');
-        expect(typeof firstBalance.token).toBe('string');
+        expect(typeof firstBalance.symbol).toBe('string');
         expect(typeof firstBalance.total).toBe('string');
         // Token should be a mint address (base58 encoded)
-        expect(firstBalance.token.length).toBeGreaterThan(32);
+        expect(firstBalance.symbol.length).toBeGreaterThan(32);
         // Total should be a numeric string (in UI amount format)
         const numericTotal = Number(firstBalance.total);
         expect(numericTotal).not.toBeNaN();
@@ -215,7 +215,7 @@ describe('HeliusApiClient Integration', () => {
     }, 30000);
 
     it('should return token balances with UI amount strings', async () => {
-      const result = await provider.execute<BlockchainTokenBalanceSnapshot[]>({
+      const result = await provider.execute<BlockchainBalanceSnapshot[]>({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });

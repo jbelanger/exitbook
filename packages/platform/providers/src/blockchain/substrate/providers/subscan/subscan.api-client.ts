@@ -239,7 +239,7 @@ export class SubscanApiClient extends BaseApiClient {
       `Found raw balance for ${maskAddress(address)}: ${balanceDecimal} ${this.chainConfig.nativeCurrency}`
     );
 
-    return ok({ total: balanceDecimal });
+    return ok({ total: balanceDecimal, symbol: this.chainConfig.nativeCurrency });
   }
 
   private async getAddressTransactions(params: {
