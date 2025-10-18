@@ -1,4 +1,4 @@
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, type BlockchainTokenBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig } from '../../../../core/blockchain/index.ts';
@@ -16,7 +16,6 @@ import type {
   AlchemyAssetTransfer,
   AlchemyAssetTransferParams,
   AlchemyAssetTransfersResponse,
-  AlchemyTokenBalance,
   AlchemyTokenBalancesResponse,
 } from './alchemy.types.ts';
 
@@ -338,11 +337,11 @@ export class AlchemyApiClient extends BaseApiClient {
   private async getAddressTokenBalances(
     address: string,
     contractAddresses?: string[]
-  ): Promise<Result<AlchemyTokenBalance[], Error>> {
+  ): Promise<Result<BlockchainTokenBalanceSnapshot[], Error>> {
     const result = await this.httpClient.post<JsonRpcResponse<AlchemyTokenBalancesResponse>>(`/${this.apiKey}`, {
       id: 1,
       jsonrpc: '2.0',
-      method: 'alchemy_getAddressTokenBalances',
+      method: 'alchemy_getTokenBalances',
       params: [address, contractAddresses || 'DEFAULT_TOKENS'],
     });
 
@@ -352,9 +351,24 @@ export class AlchemyApiClient extends BaseApiClient {
     }
 
     const response = result.value;
-    const tokenBalances = response.result?.tokenBalances || [];
-    this.logger.debug(`Found ${tokenBalances.length} raw token balances for ${address}`);
-    return ok(tokenBalances);
+    const rawBalances = response.result?.tokenBalances || [];
+
+    // Convert to BlockchainTokenBalanceSnapshot format
+    const balances: BlockchainTokenBalanceSnapshot[] = rawBalances
+      .filter((balance) => !balance.error)
+      .map((balance) => {
+        // Convert hex balance to decimal string (in smallest units)
+        // Note: Without decimals info, we return balance in smallest units
+        const balanceDecimal = BigInt(balance.tokenBalance).toString();
+
+        return {
+          token: balance.contractAddress,
+          total: balanceDecimal,
+        };
+      });
+
+    this.logger.debug(`Found ${balances.length} raw token balances for ${address}`);
+    return ok(balances);
   }
 
   private async getAddressTokenTransactions(

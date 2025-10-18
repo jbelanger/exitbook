@@ -1,4 +1,4 @@
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot, type BlockchainTokenBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
@@ -109,7 +109,7 @@ export class ThetaScanApiClient extends BaseApiClient {
     return ok(Array.isArray(transactions) ? transactions : []);
   }
 
-  private async getAddressBalances(params: { address: string }): Promise<Result<ThetaScanBalanceResponse, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
     const { address } = params;
 
     if (!this.isValidEthAddress(address)) {
@@ -131,12 +131,25 @@ export class ThetaScanApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    // Assuming ThetaScan returns balance in a format similar to their docs
     const balanceData = result.value as ThetaScanBalanceResponse;
 
-    this.logger.debug(`Retrieved balance for ${maskAddress(address)}`);
+    this.logger.debug(`Retrieved balance for ${maskAddress(address)}: ${balanceData.theta} THETA`);
 
-    return ok(balanceData);
+    // ThetaScan API may return numbers instead of strings, ensure conversion
+    let total: string;
+    if (typeof balanceData.theta === 'number') {
+      total = balanceData.theta.toString();
+    } else if (typeof balanceData.theta === 'string') {
+      total = balanceData.theta;
+    } else {
+      // fallback for unexpected types
+      this.logger.warn(`Unexpected theta balance type: ${typeof balanceData.theta}`);
+      total = '';
+    }
+
+    return ok({
+      total,
+    });
   }
 
   private async getAddressTransactions(params: {
@@ -192,7 +205,7 @@ export class ThetaScanApiClient extends BaseApiClient {
   private async getAddressTokenBalances(params: {
     address: string;
     contractAddresses?: string[] | undefined;
-  }): Promise<Result<ThetaScanTokenBalance[], Error>> {
+  }): Promise<Result<BlockchainTokenBalanceSnapshot[], Error>> {
     const { address, contractAddresses } = params;
 
     if (!this.isValidEthAddress(address)) {
@@ -207,7 +220,7 @@ export class ThetaScanApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    const balances: ThetaScanTokenBalance[] = [];
+    const balances: BlockchainTokenBalanceSnapshot[] = [];
 
     // Fetch balance for each contract
     for (const contractAddress of contractAddresses) {
@@ -229,7 +242,28 @@ export class ThetaScanApiClient extends BaseApiClient {
       const balanceData = result.value as ThetaScanTokenBalance;
 
       if (balanceData) {
-        balances.push(balanceData);
+        // Convert to BlockchainTokenBalanceSnapshot format
+        let balanceDecimal: string;
+        if (balanceData.token_decimals !== undefined) {
+          // Convert from smallest units to decimal
+          balanceDecimal = (Number(balanceData.balance) / 10 ** balanceData.token_decimals).toString();
+        } else {
+          // No decimals available, keep in smallest units
+          // ThetaScan API may return numbers instead of strings, ensure conversion
+          if (typeof balanceData.balance === 'number') {
+            balanceDecimal = balanceData.balance.toString();
+          } else if (typeof balanceData.balance === 'string') {
+            balanceDecimal = balanceData.balance;
+          } else {
+            this.logger.warn(`Unexpected balance type for contract ${contractAddress}: ${typeof balanceData.balance}`);
+            balanceDecimal = '';
+          }
+        }
+
+        balances.push({
+          token: balanceData.contract_address,
+          total: balanceDecimal,
+        });
       }
     }
 

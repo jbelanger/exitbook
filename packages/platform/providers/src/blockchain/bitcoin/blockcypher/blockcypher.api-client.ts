@@ -13,7 +13,7 @@
  * Use BlockCypher as emergency fallback or for addresses with few transactions only.
  */
 
-import { getErrorMessage, hasStringProperty } from '@exitbook/core';
+import { getErrorMessage, hasStringProperty, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
@@ -203,9 +203,7 @@ export class BlockCypherApiClient extends BaseApiClient {
   /**
    * Get raw address info
    */
-  private async getAddressBalances(params: {
-    address: string;
-  }): Promise<Result<{ balance: string; txCount: number }, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
     const { address } = params;
 
     this.logger.debug(`Fetching raw address info - Address: ${maskAddress(address)}`);
@@ -221,17 +219,14 @@ export class BlockCypherApiClient extends BaseApiClient {
 
     const addressInfo = result.value;
 
-    const txCount = addressInfo.final_n_tx;
-
     const balanceBTC = (addressInfo.final_balance / 100000000).toString();
 
     this.logger.debug(
-      `Successfully retrieved raw address info - Address: ${maskAddress(address)}, TxCount: ${txCount}, Balance: ${addressInfo.final_balance}`
+      `Successfully retrieved raw address info - Address: ${maskAddress(address)}, Balance: ${addressInfo.final_balance}`
     );
 
     return ok({
-      balance: balanceBTC,
-      txCount,
+      total: balanceBTC,
     });
   }
 

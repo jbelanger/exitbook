@@ -1,4 +1,4 @@
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
@@ -106,9 +106,7 @@ export class BlockchainComApiClient extends BaseApiClient {
   /**
    * Get raw address info for efficient gap scanning
    */
-  private async getAddressBalances(params: {
-    address: string;
-  }): Promise<Result<{ balance: string; txCount: number }, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
     const { address } = params;
 
     this.logger.debug(`Fetching raw address info - Address: ${maskAddress(address)}`);
@@ -129,8 +127,7 @@ export class BlockchainComApiClient extends BaseApiClient {
     this.logger.debug(`Successfully retrieved raw address info - Address: ${maskAddress(address)}`);
 
     return ok({
-      balance: balanceBTC,
-      txCount: addressInfo.n_tx,
+      total: balanceBTC,
     });
   }
 

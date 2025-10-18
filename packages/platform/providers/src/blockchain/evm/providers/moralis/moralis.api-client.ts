@@ -1,4 +1,4 @@
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot, type BlockchainTokenBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
@@ -140,7 +140,7 @@ export class MoralisApiClient extends BaseApiClient {
     };
   }
 
-  private async getAddressBalances(address: string): Promise<Result<MoralisNativeBalance, Error>> {
+  private async getAddressBalances(address: string): Promise<Result<BlockchainBalanceSnapshot, Error>> {
     const params = new URLSearchParams({
       chain: this.moralisChainId,
     });
@@ -154,8 +154,13 @@ export class MoralisApiClient extends BaseApiClient {
     }
 
     const response = result.value;
-    this.logger.debug(`Found raw native balance for ${address}: ${response.balance}`);
-    return ok(response);
+
+    // Convert from wei to decimal
+    const balanceWei = BigInt(response.balance);
+    const balanceDecimal = (Number(balanceWei) / 10 ** this.chainConfig.nativeDecimals).toString();
+
+    this.logger.debug(`Found raw native balance for ${address}: ${balanceDecimal}`);
+    return ok({ total: balanceDecimal });
   }
 
   private async getAddressTransactions(
@@ -263,7 +268,7 @@ export class MoralisApiClient extends BaseApiClient {
   private async getAddressTokenBalances(
     address: string,
     contractAddresses?: string[]
-  ): Promise<Result<MoralisTokenBalance[], Error>> {
+  ): Promise<Result<BlockchainTokenBalanceSnapshot[], Error>> {
     const params = new URLSearchParams({
       chain: this.moralisChainId,
     });
@@ -282,7 +287,19 @@ export class MoralisApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    const balances = result.value || [];
+    const rawBalances = result.value || [];
+
+    // Convert to BlockchainTokenBalanceSnapshot format
+    const balances: BlockchainTokenBalanceSnapshot[] = rawBalances.map((balance) => {
+      // Convert from smallest units to decimal string
+      const balanceDecimal = (Number(balance.balance) / 10 ** balance.decimals).toString();
+
+      return {
+        token: balance.token_address,
+        total: balanceDecimal,
+      };
+    });
+
     this.logger.debug(`Found ${balances.length} raw token balances for ${address}`);
     return ok(balances);
   }

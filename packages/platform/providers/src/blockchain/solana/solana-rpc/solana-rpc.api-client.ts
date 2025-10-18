@@ -1,4 +1,4 @@
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot, type BlockchainTokenBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
@@ -10,11 +10,7 @@ import type { SolanaSignature, SolanaTokenAccountsResponse, SolanaTransaction } 
 import { isValidSolanaAddress } from '../utils.js';
 
 import { SolanaRPCTransactionMapper } from './solana-rpc.mapper.ts';
-import type {
-  SolanaRPCRawBalanceData,
-  SolanaRPCRawTokenBalanceData,
-  SolanaRPCTransaction,
-} from './solana-rpc.types.ts';
+import type { SolanaRPCTransaction } from './solana-rpc.types.ts';
 
 @RegisterApiClient({
   baseUrl: 'https://api.mainnet-beta.solana.com',
@@ -85,7 +81,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
     };
   }
 
-  private async getAddressBalances(params: { address: string }): Promise<Result<SolanaRPCRawBalanceData, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
     const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
@@ -114,11 +110,14 @@ export class SolanaRPCApiClient extends BaseApiClient {
       return err(new Error('Failed to fetch balance from Solana RPC'));
     }
 
+    // Convert from lamports to SOL (1 SOL = 10^9 lamports)
+    const balanceSOL = (response.result.value / 1e9).toString();
+
     this.logger.debug(
-      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, Lamports: ${response.result.value}`
+      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceSOL}`
     );
 
-    return ok({ lamports: response.result.value });
+    return ok({ total: balanceSOL });
   }
 
   private async getAddressTransactions(params: {
@@ -223,7 +222,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
   private async getAddressTokenBalances(params: {
     address: string;
     contractAddresses?: string[] | undefined;
-  }): Promise<Result<SolanaRPCRawTokenBalanceData, Error>> {
+  }): Promise<Result<BlockchainTokenBalanceSnapshot[], Error>> {
     const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
@@ -258,13 +257,22 @@ export class SolanaRPCApiClient extends BaseApiClient {
 
     if (!tokenAccountsResponse?.result) {
       this.logger.debug(`No raw token accounts found - Address: ${maskAddress(address)}`);
-      return ok({ tokenAccounts: { value: [] } });
+      return ok([]);
     }
 
+    // Convert to BlockchainTokenBalanceSnapshot format
+    const balances: BlockchainTokenBalanceSnapshot[] = tokenAccountsResponse.result.value.map((account) => {
+      const tokenInfo = account.account.data.parsed.info;
+      return {
+        token: tokenInfo.mint,
+        total: tokenInfo.tokenAmount.uiAmountString,
+      };
+    });
+
     this.logger.debug(
-      `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountsResponse.result.value.length}`
+      `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${balances.length}`
     );
 
-    return ok({ tokenAccounts: tokenAccountsResponse.result });
+    return ok(balances);
   }
 }

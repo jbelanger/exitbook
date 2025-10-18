@@ -1,10 +1,11 @@
+import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
 import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
 import type { SubstrateTransaction } from '../../../types.ts';
 import { SubscanApiClient } from '../subscan.api-client.ts';
-import type { SubscanAccountResponse, SubscanTransferAugmented } from '../subscan.types.ts';
+import type { SubscanTransferAugmented } from '../subscan.types.ts';
 
 describe('SubscanApiClient Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('polkadot', 'subscan');
@@ -25,7 +26,7 @@ describe('SubscanApiClient Integration', () => {
 
   describe('Raw Address Balance', () => {
     it('should fetch raw address balance successfully', async () => {
-      const result = await provider.execute<SubscanAccountResponse>({
+      const result = await provider.execute<BlockchainBalanceSnapshot>({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -35,21 +36,13 @@ describe('SubscanApiClient Integration', () => {
         throw result.error;
       }
 
-      const response = result.value;
-      expect(response).toHaveProperty('code');
-      expect(response).toHaveProperty('data');
-      expect(response.code).toBe(0);
-      expect(response.data).toBeDefined();
+      const balance = result.value;
+      expect(balance).toHaveProperty('total');
+      expect(typeof balance.total).toBe('string');
 
-      // Regular addresses should have balance/reserved fields
-      if (response.data?.balance !== undefined || response.data?.reserved !== undefined) {
-        expect(response.data).toHaveProperty('balance');
-        expect(typeof response.data.balance).toBe('string');
-      } else {
-        // Special addresses (like treasury) may just have an account hex string
-        expect(response.data).toHaveProperty('account');
-        expect(typeof response.data?.account).toBe('string');
-      }
+      // Balance should be a valid decimal number string
+      expect(() => parseFloat(balance.total)).not.toThrow();
+      expect(parseFloat(balance.total)).toBeGreaterThanOrEqual(0);
     }, 30000);
   });
 

@@ -8,23 +8,36 @@ import type { NormalizationError } from '../../../../core/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 
-import { SnowtraceAnyTransactionSchema } from './snowtrace.schemas.js';
-import type { SnowtraceInternalTransaction, SnowtraceTransaction, SnowtraceTokenTransfer } from './snowtrace.types.js';
+import { RoutescanAnyTransactionSchema } from './routescan.schemas.js';
+import type { RoutescanInternalTransaction, RoutescanTransaction, RoutescanTokenTransfer } from './routescan.types.js';
 
-export class SnowtraceTransactionMapper extends BaseRawDataMapper<
-  SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
+/**
+ * Metadata required for mapping Routescan transactions
+ */
+export interface RoutescanMapperContext {
+  nativeCurrency: string;
+}
+
+export class RoutescanTransactionMapper extends BaseRawDataMapper<
+  RoutescanTransaction | RoutescanInternalTransaction | RoutescanTokenTransfer,
   EvmTransaction
 > {
-  protected readonly inputSchema = SnowtraceAnyTransactionSchema;
+  protected readonly inputSchema = RoutescanAnyTransactionSchema;
   protected readonly outputSchema = EvmTransactionSchema;
 
+  private readonly nativeCurrency: string;
+
+  constructor(context: RoutescanMapperContext) {
+    super();
+    this.nativeCurrency = context.nativeCurrency;
+  }
+
   protected mapInternal(
-    rawData: SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
+    rawData: RoutescanTransaction | RoutescanInternalTransaction | RoutescanTokenTransfer,
     _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<EvmTransaction, NormalizationError> {
-    // Type discrimination handled by SnowtraceAnyTransactionSchema discriminated union
-    // Token transfers have tokenSymbol, internal transactions have traceId, normal transactions have nonce
+    // Type discrimination: token transfers have tokenSymbol, internal transactions have traceId, normal transactions have nonce
 
     if ('tokenSymbol' in rawData) {
       return this.transformTokenTransfer(rawData);
@@ -38,17 +51,17 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
   }
 
   private transformInternalTransaction(
-    rawData: SnowtraceInternalTransaction
+    rawData: RoutescanInternalTransaction
   ): Result<EvmTransaction, NormalizationError> {
     const timestamp = rawData.timeStamp.getTime();
 
     return ok({
       amount: rawData.value,
       blockHeight: parseInt(rawData.blockNumber),
-      currency: 'AVAX',
+      currency: this.nativeCurrency,
       from: rawData.from,
       id: rawData.hash,
-      providerId: 'snowtrace',
+      providerId: 'routescan',
       status: rawData.isError === '0' ? 'success' : 'failed',
       timestamp,
       to: rawData.to,
@@ -57,19 +70,19 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
     });
   }
 
-  private transformNormalTransaction(rawData: SnowtraceTransaction): Result<EvmTransaction, NormalizationError> {
+  private transformNormalTransaction(rawData: RoutescanTransaction): Result<EvmTransaction, NormalizationError> {
     const timestamp = rawData.timeStamp.getTime();
 
     const transaction: EvmTransaction = {
       amount: rawData.value,
       blockHeight: parseInt(rawData.blockNumber),
       blockId: rawData.blockHash,
-      currency: 'AVAX',
+      currency: this.nativeCurrency,
       from: rawData.from,
       gasPrice: rawData.gasPrice,
       gasUsed: rawData.gasUsed,
       id: rawData.hash,
-      providerId: 'snowtrace',
+      providerId: 'routescan',
       status: rawData.txreceipt_status === '1' ? 'success' : 'failed',
       timestamp,
       to: rawData.to,
@@ -90,13 +103,13 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
       const gasUsed = BigInt(rawData.gasUsed);
       const gasPrice = BigInt(rawData.gasPrice);
       transaction.feeAmount = (gasUsed * gasPrice).toString();
-      transaction.feeCurrency = 'AVAX';
+      transaction.feeCurrency = this.nativeCurrency;
     }
 
     return ok(transaction);
   }
 
-  private transformTokenTransfer(rawData: SnowtraceTokenTransfer): Result<EvmTransaction, NormalizationError> {
+  private transformTokenTransfer(rawData: RoutescanTokenTransfer): Result<EvmTransaction, NormalizationError> {
     const timestamp = rawData.timeStamp.getTime();
 
     const transaction: EvmTransaction = {
@@ -108,14 +121,14 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
       gasPrice: rawData.gasPrice,
       gasUsed: rawData.gasUsed,
       id: rawData.hash,
-      providerId: 'snowtrace',
+      providerId: 'routescan',
       status: 'success',
       timestamp,
       to: rawData.to,
       tokenAddress: rawData.contractAddress,
       tokenDecimals: parseInt(rawData.tokenDecimal),
       tokenSymbol: rawData.tokenSymbol,
-      tokenType: 'erc20', // Assume ERC-20 for Snowtrace token transfers
+      tokenType: 'erc20', // Assume ERC-20 for Routescan token transfers
       type: 'token_transfer',
     };
 
@@ -124,7 +137,7 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
       const gasUsed = BigInt(rawData.gasUsed);
       const gasPrice = BigInt(rawData.gasPrice);
       transaction.feeAmount = (gasUsed * gasPrice).toString();
-      transaction.feeCurrency = 'AVAX';
+      transaction.feeCurrency = this.nativeCurrency;
     }
 
     return ok(transaction);

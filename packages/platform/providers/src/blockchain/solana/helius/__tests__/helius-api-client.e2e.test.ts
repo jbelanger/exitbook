@@ -1,3 +1,4 @@
+import type { BlockchainBalanceSnapshot, BlockchainTokenBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../core/blockchain/index.ts';
@@ -166,8 +167,8 @@ describe('HeliusApiClient Integration', () => {
   });
 
   describe('Address Balance', () => {
-    it('should fetch raw address balance successfully', async () => {
-      const result = await provider.execute<{ lamports: number }>({
+    it('should fetch address balance in normalized format', async () => {
+      const result = await provider.execute<BlockchainBalanceSnapshot>({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -176,15 +177,18 @@ describe('HeliusApiClient Integration', () => {
       if (result.isErr()) return;
 
       const balance = result.value;
-      expect(balance).toHaveProperty('lamports');
-      expect(typeof balance.lamports).toBe('number');
-      expect(balance.lamports).toBeGreaterThanOrEqual(0);
+      expect(balance).toHaveProperty('total');
+      expect(typeof balance.total).toBe('string');
+      // Total should be in SOL (converted from lamports)
+      const numericBalance = Number(balance.total);
+      expect(numericBalance).not.toBeNaN();
+      expect(numericBalance).toBeGreaterThanOrEqual(0);
     }, 30000);
   });
 
   describe('Token Balances', () => {
-    it('should fetch raw token balances successfully', async () => {
-      const result = await provider.execute<{ tokenAccounts: { value: unknown[] } }>({
+    it('should fetch token balances in normalized format', async () => {
+      const result = await provider.execute<BlockchainTokenBalanceSnapshot[]>({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -192,36 +196,42 @@ describe('HeliusApiClient Integration', () => {
       expect(result.isOk()).toBe(true);
       if (result.isErr()) return;
 
-      const tokenBalances = result.value;
-      expect(tokenBalances).toHaveProperty('tokenAccounts');
-      expect(tokenBalances.tokenAccounts).toHaveProperty('value');
-      expect(Array.isArray(tokenBalances.tokenAccounts.value)).toBe(true);
+      const balances = result.value;
+      expect(Array.isArray(balances)).toBe(true);
 
-      if (tokenBalances.tokenAccounts.value.length > 0) {
-        const tokenAccount = tokenBalances.tokenAccounts.value[0];
-        expect(tokenAccount).toHaveProperty('pubkey');
-        expect(tokenAccount).toHaveProperty('account');
-        if (
-          typeof tokenAccount === 'object' &&
-          tokenAccount !== null &&
-          'account' in tokenAccount &&
-          typeof (tokenAccount as { account?: unknown }).account === 'object' &&
-          (tokenAccount as { account?: unknown }).account !== null
-        ) {
-          const account = (tokenAccount as { account?: unknown }).account as { data?: unknown };
-          expect(account).toHaveProperty('data');
-          if (account.data) {
-            expect(account.data as { parsed?: unknown }).toHaveProperty('parsed');
-            const parsed = (account.data as { parsed?: unknown }).parsed;
-            if (parsed) {
-              expect(parsed as { info?: unknown }).toHaveProperty('info');
-              const info = (parsed as { info?: unknown }).info;
-              if (info) {
-                expect(info as { mint?: unknown }).toHaveProperty('mint');
-                expect(info as { tokenAmount?: unknown }).toHaveProperty('tokenAmount');
-              }
-            }
-          }
+      if (balances.length > 0) {
+        const firstBalance = balances[0]!;
+        expect(firstBalance).toHaveProperty('token');
+        expect(firstBalance).toHaveProperty('total');
+        expect(typeof firstBalance.token).toBe('string');
+        expect(typeof firstBalance.total).toBe('string');
+        // Token should be a mint address (base58 encoded)
+        expect(firstBalance.token.length).toBeGreaterThan(32);
+        // Total should be a numeric string (in UI amount format)
+        const numericTotal = Number(firstBalance.total);
+        expect(numericTotal).not.toBeNaN();
+        expect(numericTotal).toBeGreaterThanOrEqual(0);
+      }
+    }, 30000);
+
+    it('should return token balances with UI amount strings', async () => {
+      const result = await provider.execute<BlockchainTokenBalanceSnapshot[]>({
+        address: testAddress,
+        type: 'getAddressTokenBalances',
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
+
+      const balances = result.value;
+
+      if (balances.length > 0) {
+        // All balances should have human-readable amounts (not raw token amounts)
+        for (const balance of balances) {
+          const numericValue = Number(balance.total);
+          expect(numericValue).not.toBeNaN();
+          // Should be a reasonable value (not raw lamports/smallest units)
+          expect(balance.total).not.toMatch(/^[0-9]{15,}$/); // Not a huge integer
         }
       }
     }, 30000);
