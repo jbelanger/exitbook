@@ -1,4 +1,6 @@
+import type { ImportSession, SourceParams, StoredImportParams } from '@exitbook/data';
 import type { ExchangeCredentials } from '@exitbook/exchanges';
+import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 /**
@@ -94,4 +96,70 @@ export function validateBalanceParams(params: BalanceHandlerParams): Result<void
   }
 
   return ok();
+}
+
+/**
+ * Get exchange credentials from environment variables.
+ * Pure function that reads from process.env.
+ */
+export function getExchangeCredentialsFromEnv(exchangeName: string): Result<ExchangeCredentials, Error> {
+  const upperName = exchangeName.toUpperCase();
+  const apiKey = process.env[`${upperName}_API_KEY`];
+  const apiSecret = process.env[`${upperName}_SECRET`];
+  const apiPassphrase = process.env[`${upperName}_PASSPHRASE`];
+
+  if (!apiKey || !apiSecret) {
+    return err(new Error(`Missing ${upperName}_API_KEY or ${upperName}_SECRET in environment`));
+  }
+
+  const credentials: ExchangeCredentials = {
+    apiKey,
+    secret: apiSecret,
+  };
+
+  if (apiPassphrase) {
+    credentials.passphrase = apiPassphrase;
+  }
+
+  return ok(credentials);
+}
+
+/**
+ * Build source params for storage.
+ * Pure function that constructs SourceParams from session data.
+ */
+export function buildSourceParams(
+  session: ImportSession,
+  sourceType: 'exchange' | 'blockchain',
+  address?: string
+): SourceParams {
+  if (sourceType === 'exchange') {
+    return { exchange: session.source_id };
+  } else {
+    const effectiveAddress = address || parseImportParams(session.import_params).address || 'unknown';
+    return { address: effectiveAddress, blockchain: session.source_id };
+  }
+}
+
+/**
+ * Convert Record<string, Decimal> to Record<string, string>.
+ * Pure function for decimal-to-string conversion.
+ */
+export function decimalRecordToStringRecord(record: Record<string, Decimal>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(record)) {
+    result[key] = value.toString();
+  }
+  return result;
+}
+
+/**
+ * Parse import_params from database (which can be string or unknown) into StoredImportParams.
+ * Pure function that handles JSON parsing and type casting.
+ */
+export function parseImportParams(importParams: unknown): StoredImportParams {
+  if (typeof importParams === 'string') {
+    return JSON.parse(importParams) as StoredImportParams;
+  }
+  return importParams as StoredImportParams;
 }

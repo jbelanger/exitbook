@@ -1,6 +1,6 @@
-import type { KyselyDB, SourceParams, StoredImportParams, VerificationMetadata } from '@exitbook/data';
+import type { KyselyDB, VerificationMetadata } from '@exitbook/data';
 import { TransactionRepository } from '@exitbook/data';
-import { createExchangeClient, type ExchangeCredentials } from '@exitbook/exchanges';
+import { createExchangeClient } from '@exitbook/exchanges';
 import {
   calculateBalances,
   compareBalances,
@@ -9,6 +9,7 @@ import {
   fetchBlockchainBalance,
   fetchExchangeBalance,
   ImportSessionRepository,
+  type BalanceComparison,
   type BalanceVerificationResult,
   type UnifiedBalanceSnapshot,
 } from '@exitbook/import';
@@ -18,7 +19,13 @@ import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { BalanceHandlerParams } from './balance-utils.ts';
-import { validateBalanceParams } from './balance-utils.ts';
+import {
+  buildSourceParams,
+  decimalRecordToStringRecord,
+  getExchangeCredentialsFromEnv,
+  parseImportParams,
+  validateBalanceParams,
+} from './balance-utils.ts';
 
 // Re-export for convenience
 export type { BalanceHandlerParams };
@@ -148,7 +155,7 @@ export class BalanceHandler {
       if (params.sourceType === 'blockchain' && params.address) {
         const normalizedAddress = params.address.toLowerCase();
         const matchingSession = completedSessions.find((session) => {
-          const importParams = this.parseImportParams(session.import_params);
+          const importParams = parseImportParams(session.import_params);
           return importParams.address?.toLowerCase() === normalizedAddress;
         });
 
@@ -221,7 +228,7 @@ export class BalanceHandler {
     let credentials = params.credentials;
 
     if (!credentials) {
-      const envCredentials = this.getExchangeCredentialsFromEnv(params.sourceName);
+      const envCredentials = getExchangeCredentialsFromEnv(params.sourceName);
       if (envCredentials.isErr()) {
         return err(
           new Error(
@@ -262,32 +269,6 @@ export class BalanceHandler {
   }
 
   /**
-   * Get exchange credentials from environment variables.
-   * Returns ExchangeCredentials (Record<string, string>).
-   */
-  private getExchangeCredentialsFromEnv(exchangeName: string): Result<ExchangeCredentials, Error> {
-    const upperName = exchangeName.toUpperCase();
-    const apiKey = process.env[`${upperName}_API_KEY`];
-    const apiSecret = process.env[`${upperName}_SECRET`];
-    const apiPassphrase = process.env[`${upperName}_PASSPHRASE`];
-
-    if (!apiKey || !apiSecret) {
-      return err(new Error(`Missing ${upperName}_API_KEY or ${upperName}_SECRET in environment`));
-    }
-
-    const credentials: ExchangeCredentials = {
-      apiKey,
-      secret: apiSecret,
-    };
-
-    if (apiPassphrase) {
-      credentials.passphrase = apiPassphrase;
-    }
-
-    return ok(credentials);
-  }
-
-  /**
    * Persist verification results to the session matching source/address.
    * Finds THE session (not "most recent") that matches the exact source and address/exchange.
    */
@@ -295,7 +276,7 @@ export class BalanceHandler {
     params: BalanceHandlerParams,
     calculatedBalances: Record<string, Decimal>,
     liveBalances: Record<string, string>,
-    comparisons: import('@exitbook/import').BalanceComparison[],
+    comparisons: BalanceComparison[],
     status: 'success' | 'warning' | 'failed',
     suggestion?: string
   ): Promise<Result<void, Error>> {
@@ -317,7 +298,7 @@ export class BalanceHandler {
       if (params.sourceType === 'blockchain' && params.address) {
         const normalizedAddress = params.address.toLowerCase();
         targetSession = sessions.find((session: (typeof sessions)[0]) => {
-          const importParams = this.parseImportParams(session.import_params);
+          const importParams = parseImportParams(session.import_params);
           return importParams.address?.toLowerCase() === normalizedAddress;
         });
 
@@ -342,8 +323,8 @@ export class BalanceHandler {
       }
 
       // Build verification metadata
-      const calculatedBalancesStr = this.decimalRecordToStringRecord(calculatedBalances);
-      const sourceParams = this.buildSourceParams(targetSession, params.sourceType, params.address);
+      const calculatedBalancesStr = decimalRecordToStringRecord(calculatedBalances);
+      const sourceParams = buildSourceParams(targetSession, params.sourceType, params.address);
 
       const discrepancies = comparisons
         .filter((c) => c.status !== 'match')
@@ -382,42 +363,5 @@ export class BalanceHandler {
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
-  }
-
-  /**
-   * Build source params for storage.
-   */
-  private buildSourceParams(
-    session: import('@exitbook/data').ImportSession,
-    sourceType: 'exchange' | 'blockchain',
-    address?: string
-  ): SourceParams {
-    if (sourceType === 'exchange') {
-      return { exchange: session.source_id };
-    } else {
-      const effectiveAddress = address || this.parseImportParams(session.import_params).address || 'unknown';
-      return { address: effectiveAddress, blockchain: session.source_id };
-    }
-  }
-
-  /**
-   * Convert Record<string, Decimal> to Record<string, string>.
-   */
-  private decimalRecordToStringRecord(record: Record<string, Decimal>): Record<string, string> {
-    const result: Record<string, string> = {};
-    for (const [key, value] of Object.entries(record)) {
-      result[key] = value.toString();
-    }
-    return result;
-  }
-
-  /**
-   * Parse import_params from database (which can be string or unknown) into StoredImportParams.
-   */
-  private parseImportParams(importParams: unknown): StoredImportParams {
-    if (typeof importParams === 'string') {
-      return JSON.parse(importParams) as StoredImportParams;
-    }
-    return importParams as StoredImportParams;
   }
 }
