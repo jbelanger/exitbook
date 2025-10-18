@@ -94,11 +94,14 @@ export class BalanceHandler {
       const lastImportTimestamp = await this.getLastImportTimestamp(params);
 
       // 5. Create verification result
+      // Check if we have any transactions (empty calculated balances means no transactions)
+      const hasTransactions = Object.keys(calculatedBalances).length > 0;
       const verificationResult = createVerificationResult(
         params.sourceName,
         params.sourceType,
         comparisons,
-        lastImportTimestamp
+        lastImportTimestamp,
+        hasTransactions
       );
 
       // 6. Persist verification results to the session matching this source/address

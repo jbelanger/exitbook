@@ -68,7 +68,8 @@ export function createVerificationResult(
   sourceId: string,
   sourceType: 'exchange' | 'blockchain',
   comparisons: BalanceComparison[],
-  lastImportTimestamp?: number
+  lastImportTimestamp?: number,
+  hasTransactions = true
 ): BalanceVerificationResult {
   const summary = {
     totalCurrencies: comparisons.length,
@@ -78,9 +79,9 @@ export function createVerificationResult(
   };
 
   // Determine overall status
-  // If no import timestamp exists (no data imported yet), treat mismatches as warnings
+  // If no transactions exist in DB, treat mismatches as warnings (not failures)
   let status: 'success' | 'warning' | 'failed';
-  if (summary.mismatches > 0 && lastImportTimestamp !== undefined) {
+  if (summary.mismatches > 0 && hasTransactions) {
     status = 'failed';
   } else if (summary.warnings > 0 || summary.mismatches > 0) {
     status = 'warning';
@@ -91,7 +92,9 @@ export function createVerificationResult(
   // Generate suggestion if there are mismatches
   let suggestion: string | undefined;
   if (summary.mismatches > 0) {
-    if (lastImportTimestamp) {
+    if (!hasTransactions) {
+      suggestion = 'No transactions imported yet. Run import to fetch transaction history.';
+    } else if (lastImportTimestamp) {
       const daysSinceImport = (Date.now() - lastImportTimestamp) / (1000 * 60 * 60 * 24);
 
       if (daysSinceImport > 7) {
