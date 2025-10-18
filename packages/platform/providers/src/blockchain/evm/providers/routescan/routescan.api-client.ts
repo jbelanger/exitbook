@@ -1,5 +1,6 @@
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { ServiceError } from '@exitbook/platform-http';
+import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../../core/blockchain/base/api-client.ts';
@@ -7,27 +8,76 @@ import type { ProviderConfig, ProviderOperation } from '../../../../core/blockch
 import { RegisterApiClient } from '../../../../core/blockchain/index.ts';
 import type { TransactionWithRawData } from '../../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
+import type { EvmChainConfig } from '../../chain-config.interface.ts';
+import { getEvmChainConfig } from '../../chain-registry.ts';
 import type { EvmTransaction } from '../../types.ts';
 
-import { SnowtraceTransactionMapper } from './snowtrace.mapper.ts';
+import { RoutescanTransactionMapper } from './routescan.mapper.ts';
 import type {
-  SnowtraceApiResponse,
-  SnowtraceInternalTransaction,
-  SnowtraceTransaction,
-  SnowtraceBalanceResponse,
-  SnowtraceTokenTransfer,
-} from './snowtrace.types.ts';
+  RoutescanApiResponse,
+  RoutescanInternalTransaction,
+  RoutescanTransaction,
+  RoutescanTokenTransfer,
+} from './routescan.types.ts';
+
+/**
+ * Maps blockchain names to Routescan chain IDs for free chains
+ */
+const CHAIN_ID_MAP: Record<string, number> = {
+  animalia: 8787,
+  arbitrum: 42161,
+  avalanche: 43114,
+  beam: 4337,
+  'berachain-mainnet': 80094,
+  blockticity: 28530,
+  boba: 288,
+  'boba-bnb': 56288,
+  botanix: 3637,
+  bsc: 56,
+  chiliz: 88888,
+  corgnet: 42069,
+  corn: 21000000,
+  delaunch: 96786,
+  dexalot: 432204,
+  dfk: 53935,
+  ethereum: 1,
+  feature: 33311,
+  'fifa-blockchain': 13322,
+  flare: 14,
+  growth: 61587,
+  gunz: 43419,
+  henesys: 68414,
+  innovo: 10036,
+  'lamina1-identity': 10850,
+  lamina1: 10849,
+  lucid: 62521,
+  mantle: 5000,
+  mitosis: 124816,
+  numine: 8021,
+  numbers: 10507,
+  optimism: 10,
+  plasma: 9745,
+  plyr: 16180,
+  polynomial: 8008,
+  pulsechain: 369,
+  qchain: 12150,
+  songbird: 19,
+  space: 8227,
+  superseed: 5330,
+  tiltyard: 710420,
+  titan: 84358,
+  tradex: 21024,
+  zeroone: 27827,
+};
 
 @RegisterApiClient({
-  apiKeyEnvVar: 'SNOWTRACE_API_KEY',
-  baseUrl: 'https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan/api',
-  blockchain: 'avalanche',
+  baseUrl: 'https://api.routescan.io/v2/network/mainnet/evm/1/etherscan/api',
+  blockchain: 'ethereum',
   capabilities: {
     supportedOperations: [
       'getAddressBalances',
       'getAddressInternalTransactions',
       'getAddressTransactions',
-      'getAddressTokenBalances',
       'getAddressTokenTransactions',
     ],
   },
@@ -41,18 +91,47 @@ import type {
     retries: 3,
     timeout: 10000,
   },
-  description: 'Avalanche blockchain explorer API with comprehensive transaction and balance data',
-  displayName: 'Snowtrace API',
-  name: 'snowtrace',
+  description: 'Multi-chain EVM blockchain explorer API with Etherscan-compatible interface',
+  displayName: 'Routescan',
+  name: 'routescan',
   requiresApiKey: false,
-  supportedChains: ['avalanche'],
+  supportedChains: Object.keys(CHAIN_ID_MAP),
 })
-export class SnowtraceApiClient extends BaseApiClient {
-  private mapper: SnowtraceTransactionMapper;
+export class RoutescanApiClient extends BaseApiClient {
+  private readonly chainConfig: EvmChainConfig;
+  private readonly routescanChainId: number;
+  private mapper: RoutescanTransactionMapper;
 
   constructor(config: ProviderConfig) {
     super(config);
-    this.mapper = new SnowtraceTransactionMapper();
+
+    // Get chain config
+    const chainConfig = getEvmChainConfig(config.blockchain);
+    if (!chainConfig) {
+      throw new Error(`Unsupported blockchain for Routescan provider: ${config.blockchain}`);
+    }
+    this.chainConfig = chainConfig;
+
+    // Map to Routescan chain ID
+    const routescanChainId = CHAIN_ID_MAP[config.blockchain];
+    if (!routescanChainId) {
+      throw new Error(`No Routescan chain ID mapping for blockchain: ${config.blockchain}`);
+    }
+    this.routescanChainId = routescanChainId;
+
+    // Override base URL with chain-specific URL
+    this.reinitializeHttpClient({
+      baseUrl: `https://api.routescan.io/v2/network/mainnet/evm/${this.routescanChainId}/etherscan/api`,
+    });
+
+    // Initialize mapper with native currency
+    this.mapper = new RoutescanTransactionMapper({
+      nativeCurrency: this.chainConfig.nativeCurrency,
+    });
+
+    this.logger.debug(
+      `Initialized RoutescanApiClient for ${config.blockchain} - ChainId: ${this.routescanChainId}, BaseUrl: ${this.baseUrl}, NativeCurrency: ${this.chainConfig.nativeCurrency}`
+    );
   }
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
@@ -83,11 +162,6 @@ export class SnowtraceApiClient extends BaseApiClient {
           since: operation.since,
           until: operation.until,
         })) as Result<T, Error>;
-      case 'getAddressTokenBalances':
-        return (await this.getAddressTokenBalances({
-          address: operation.address,
-          contractAddresses: operation.contractAddresses,
-        })) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
     }
@@ -106,17 +180,16 @@ export class SnowtraceApiClient extends BaseApiClient {
     return {
       endpoint: `?${params.toString()}`,
       validate: (response: unknown) => {
-        const data = response as SnowtraceApiResponse<unknown>;
+        const data = response as RoutescanApiResponse<unknown>;
         return !!(data && data.status === '1');
       },
     };
   }
 
   private async fetchAddressInternalTransactions(
-    address: string,
-    since?: number
-  ): Promise<Result<SnowtraceInternalTransaction[], Error>> {
-    const allTransactions: SnowtraceInternalTransaction[] = [];
+    address: string
+  ): Promise<Result<RoutescanInternalTransaction[], Error>> {
+    const allTransactions: RoutescanInternalTransaction[] = [];
     let page = 1;
 
     while (true) {
@@ -135,10 +208,6 @@ export class SnowtraceApiClient extends BaseApiClient {
         startblock: '0',
       });
 
-      if (since) {
-        params.set('startblock', Math.floor(since / 1000).toString());
-      }
-
       if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
         params.append('apikey', this.apiKey);
       }
@@ -146,24 +215,24 @@ export class SnowtraceApiClient extends BaseApiClient {
       const result = await this.httpClient.get(`?${params.toString()}`);
 
       if (result.isErr()) {
-        this.logger.warn(
+        this.logger.error(
           `Failed to fetch internal transactions page ${page} - Error: ${getErrorMessage(result.error)}`
         );
-        break;
+        return err(result.error);
       }
 
-      const res = result.value as SnowtraceApiResponse<unknown>;
+      const res = result.value as RoutescanApiResponse<unknown>;
       if (res.status !== '1') {
-        // If no results found or error, break the loop
+        // If no results found, break the loop
         if (res.message === 'No transactions found') {
           break;
         }
-
-        this.logger.debug(`No internal transactions found - Message: ${res.message}`);
-        break;
+        return err(
+          new ServiceError(`Routescan API error: ${res.message}`, this.name, 'fetchAddressInternalTransactions')
+        );
       }
 
-      const transactions = (res.result as SnowtraceInternalTransaction[]) || [];
+      const transactions = (res.result as RoutescanInternalTransaction[]) || [];
       allTransactions.push(...transactions);
 
       // If we got less than the max offset, we've reached the end
@@ -177,8 +246,8 @@ export class SnowtraceApiClient extends BaseApiClient {
     return ok(allTransactions);
   }
 
-  private async getNormalTransactions(address: string, since?: number): Promise<Result<SnowtraceTransaction[], Error>> {
-    const allTransactions: SnowtraceTransaction[] = [];
+  private async getNormalTransactions(address: string): Promise<Result<RoutescanTransaction[], Error>> {
+    const allTransactions: RoutescanTransaction[] = [];
     let page = 1;
 
     while (true) {
@@ -197,10 +266,6 @@ export class SnowtraceApiClient extends BaseApiClient {
         startblock: '0',
       });
 
-      if (since) {
-        params.set('startblock', Math.floor(since / 1000).toString());
-      }
-
       if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
         params.append('apikey', this.apiKey);
       }
@@ -212,20 +277,20 @@ export class SnowtraceApiClient extends BaseApiClient {
         return err(result.error);
       }
 
-      const res = result.value as SnowtraceApiResponse<unknown>;
+      const res = result.value as RoutescanApiResponse<unknown>;
 
       if (res.status !== '1') {
         if (res.message === 'NOTOK' && res.message.includes('Invalid API Key')) {
-          return err(new ServiceError('Invalid Snowtrace API key', this.name, 'getNormalTransactions'));
+          return err(new ServiceError('Invalid Routescan API key', this.name, 'getNormalTransactions'));
         }
         // If no results found, break the loop
         if (res.message === 'No transactions found') {
           break;
         }
-        return err(new ServiceError(`Snowtrace API error: ${res.message}`, this.name, 'getNormalTransactions'));
+        return err(new ServiceError(`Routescan API error: ${res.message}`, this.name, 'getNormalTransactions'));
       }
 
-      const transactions = (res.result as SnowtraceTransaction[]) || [];
+      const transactions = (res.result as RoutescanTransaction[]) || [];
       allTransactions.push(...transactions);
 
       // If we got less than the max offset, we've reached the end
@@ -239,11 +304,11 @@ export class SnowtraceApiClient extends BaseApiClient {
     return ok(allTransactions);
   }
 
-  private async getAddressBalances(params: { address: string }): Promise<Result<SnowtraceBalanceResponse, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
     const { address } = params;
 
-    if (!this.isValidAvalancheAddress(address)) {
-      return err(new Error(`Invalid Avalanche address: ${address}`));
+    if (!this.isValidEvmAddress(address)) {
+      return err(new Error(`Invalid EVM address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
@@ -268,34 +333,44 @@ export class SnowtraceApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    const res = result.value as SnowtraceApiResponse<unknown>;
+    const res = result.value as RoutescanApiResponse<unknown>;
 
     if (res.status !== '1') {
-      return err(new ServiceError(`Failed to fetch AVAX balance: ${res.message}`, this.name, 'getAddressBalances'));
+      return err(
+        new ServiceError(
+          `Failed to fetch ${this.chainConfig.nativeCurrency} balance: ${res.message}`,
+          this.name,
+          'getAddressBalances'
+        )
+      );
     }
 
-    this.logger.debug(`Retrieved raw balance for ${maskAddress(address)}: ${String(res.result)} wei`);
+    // Convert from wei to native currency (18 decimals for most EVM chains)
+    const balanceWei = typeof res.result === 'string' ? res.result : String(res.result);
+    const balanceDecimal = new Decimal(balanceWei).div(new Decimal(10).pow(this.chainConfig.nativeDecimals)).toString();
+
+    this.logger.debug(
+      `Retrieved raw balance for ${maskAddress(address)}: ${balanceDecimal} ${this.chainConfig.nativeCurrency}`
+    );
 
     return ok({
-      message: res.message,
-      result: typeof res.result === 'string' ? res.result : String(res.result),
-      status: res.status,
-    } as SnowtraceBalanceResponse);
+      total: balanceDecimal,
+    });
   }
 
   private async getAddressTransactions(params: {
     address: string;
     since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const { address, since } = params;
+    const { address } = params;
 
-    if (!this.isValidAvalancheAddress(address)) {
-      return err(new Error(`Invalid Avalanche address: ${address}`));
+    if (!this.isValidEvmAddress(address)) {
+      return err(new Error(`Invalid EVM address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    const result = await this.getNormalTransactions(address, since);
+    const result = await this.getNormalTransactions(address);
 
     if (result.isErr()) {
       this.logger.error(
@@ -311,15 +386,15 @@ export class SnowtraceApiClient extends BaseApiClient {
     address: string;
     since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const { address, since } = params;
+    const { address } = params;
 
-    if (!this.isValidAvalancheAddress(address)) {
-      return err(new Error(`Invalid Avalanche address: ${address}`));
+    if (!this.isValidEvmAddress(address)) {
+      return err(new Error(`Invalid EVM address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw address internal transactions - Address: ${maskAddress(address)}`);
 
-    const result = await this.fetchAddressInternalTransactions(address, since);
+    const result = await this.fetchAddressInternalTransactions(address);
 
     if (result.isErr()) {
       this.logger.error(
@@ -333,15 +408,6 @@ export class SnowtraceApiClient extends BaseApiClient {
     return this.normalizeTransactions(result.value, address, 'internal transactions');
   }
 
-  private async getAddressTokenBalances(_params: {
-    address: string;
-    contractAddresses?: string[] | undefined;
-  }): Promise<Result<[], Error>> {
-    // Snowtrace doesn't have a direct "get all token balances" endpoint
-    this.logger.debug('Token balance fetching not implemented for Snowtrace - use specific contract addresses');
-    return Promise.resolve(ok([]));
-  }
-
   private async getAddressTokenTransactions(params: {
     address: string;
     contractAddress?: string | undefined;
@@ -349,8 +415,8 @@ export class SnowtraceApiClient extends BaseApiClient {
     since?: number | undefined;
     until?: number | undefined;
   }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const { address, contractAddress, since } = params;
-    const result = await this.getTokenTransfers(address, since, contractAddress);
+    const { address, contractAddress } = params;
+    const result = await this.getTokenTransfers(address, contractAddress);
 
     if (result.isErr()) {
       return err(result.error);
@@ -361,10 +427,9 @@ export class SnowtraceApiClient extends BaseApiClient {
 
   private async getTokenTransfers(
     address: string,
-    since?: number,
     contractAddress?: string
-  ): Promise<Result<SnowtraceTokenTransfer[], Error>> {
-    const allTransactions: SnowtraceTokenTransfer[] = [];
+  ): Promise<Result<RoutescanTokenTransfer[], Error>> {
+    const allTransactions: RoutescanTokenTransfer[] = [];
     let page = 1;
 
     while (true) {
@@ -383,10 +448,6 @@ export class SnowtraceApiClient extends BaseApiClient {
         startblock: '0',
       });
 
-      if (since) {
-        params.set('startblock', Math.floor(since / 1000).toString());
-      }
-
       if (contractAddress) {
         params.append('contractaddress', contractAddress);
       }
@@ -398,22 +459,21 @@ export class SnowtraceApiClient extends BaseApiClient {
       const result = await this.httpClient.get(`?${params.toString()}`);
 
       if (result.isErr()) {
-        this.logger.warn(`Failed to fetch token transfers page ${page} - Error: ${getErrorMessage(result.error)}`);
-        break;
+        this.logger.error(`Failed to fetch token transfers page ${page} - Error: ${getErrorMessage(result.error)}`);
+        return err(result.error);
       }
 
-      const res = result.value as SnowtraceApiResponse<unknown>;
+      const res = result.value as RoutescanApiResponse<unknown>;
 
       if (res.status !== '1') {
-        // If no results found or error, break the loop
+        // If no results found, break the loop
         if (res.message === 'No transactions found') {
           break;
         }
-        this.logger.debug(`No token transfers found - Message: ${res.message}`);
-        break;
+        return err(new ServiceError(`Routescan API error: ${res.message}`, this.name, 'getTokenTransfers'));
       }
 
-      const transactions = (res.result as SnowtraceTokenTransfer[]) || [];
+      const transactions = (res.result as RoutescanTokenTransfer[]) || [];
       allTransactions.push(...transactions);
 
       // If we got less than the max offset, we've reached the end
@@ -427,15 +487,14 @@ export class SnowtraceApiClient extends BaseApiClient {
     return ok(allTransactions);
   }
 
-  // Avalanche address validation
-  private isValidAvalancheAddress(address: string): boolean {
-    // Avalanche C-Chain uses Ethereum-style addresses but they are case-sensitive
+  private isValidEvmAddress(address: string): boolean {
+    // EVM addresses are 42 characters (0x + 40 hex characters)
     const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
     return ethAddressRegex.test(address);
   }
 
   private normalizeTransactions(
-    rawTransactions: (SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer)[],
+    rawTransactions: (RoutescanTransaction | RoutescanInternalTransaction | RoutescanTokenTransfer)[],
     address: string,
     transactionType: string
   ): Result<TransactionWithRawData<EvmTransaction>[], Error> {
@@ -446,7 +505,7 @@ export class SnowtraceApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, { providerId: 'snowtrace', sourceAddress: address }, {});
+      const mapResult = this.mapper.map(rawTx, { providerId: 'routescan', sourceAddress: address }, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

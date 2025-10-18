@@ -1,4 +1,5 @@
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
@@ -196,7 +197,7 @@ export class SubscanApiClient extends BaseApiClient {
     };
   }
 
-  private async getAddressBalances(params: { address: string }): Promise<Result<SubscanAccountResponse, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
     const { address } = params;
 
     // Validate address format
@@ -228,20 +229,17 @@ export class SubscanApiClient extends BaseApiClient {
       return err(error);
     }
 
-    // Log balance info if available, otherwise log account hex
-    if (response.data?.balance !== undefined || response.data?.reserved !== undefined) {
-      this.logger.debug(
-        `Found raw balance for ${maskAddress(address)}: ${response.data?.balance || '0'} (reserved: ${response.data?.reserved || '0'})`
-      );
-    } else if (response.data?.account) {
-      this.logger.debug(
-        `Found raw account data for ${maskAddress(address)}: ${response.data.account.substring(0, 16)}...`
-      );
-    } else {
-      this.logger.debug(`Found raw account data for ${maskAddress(address)}: no balance data available`);
-    }
+    // Convert from smallest unit to main unit
+    const balanceSmallest = response.data?.balance || '0';
+    const balanceDecimal = new Decimal(balanceSmallest)
+      .div(new Decimal(10).pow(this.chainConfig.nativeDecimals))
+      .toString();
 
-    return ok(response);
+    this.logger.debug(
+      `Found raw balance for ${maskAddress(address)}: ${balanceDecimal} ${this.chainConfig.nativeCurrency}`
+    );
+
+    return ok({ total: balanceDecimal });
   }
 
   private async getAddressTransactions(params: {

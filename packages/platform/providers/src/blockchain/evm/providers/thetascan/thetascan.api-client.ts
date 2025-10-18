@@ -1,4 +1,5 @@
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot, type BlockchainTokenBalanceSnapshot } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
@@ -109,7 +110,7 @@ export class ThetaScanApiClient extends BaseApiClient {
     return ok(Array.isArray(transactions) ? transactions : []);
   }
 
-  private async getAddressBalances(params: { address: string }): Promise<Result<ThetaScanBalanceResponse, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
     const { address } = params;
 
     if (!this.isValidEthAddress(address)) {
@@ -131,12 +132,16 @@ export class ThetaScanApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    // Assuming ThetaScan returns balance in a format similar to their docs
     const balanceData = result.value as ThetaScanBalanceResponse;
 
-    this.logger.debug(`Retrieved balance for ${maskAddress(address)}`);
+    this.logger.debug(`Retrieved balance for ${maskAddress(address)}: ${balanceData.theta} THETA`);
 
-    return ok(balanceData);
+    // ThetaScan API may return numbers instead of strings, ensure conversion
+    const total = String(balanceData.theta || '0');
+
+    return ok({
+      total,
+    });
   }
 
   private async getAddressTransactions(params: {
@@ -192,7 +197,7 @@ export class ThetaScanApiClient extends BaseApiClient {
   private async getAddressTokenBalances(params: {
     address: string;
     contractAddresses?: string[] | undefined;
-  }): Promise<Result<ThetaScanTokenBalance[], Error>> {
+  }): Promise<Result<BlockchainTokenBalanceSnapshot[], Error>> {
     const { address, contractAddresses } = params;
 
     if (!this.isValidEthAddress(address)) {
@@ -207,7 +212,7 @@ export class ThetaScanApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    const balances: ThetaScanTokenBalance[] = [];
+    const balances: BlockchainTokenBalanceSnapshot[] = [];
 
     // Fetch balance for each contract
     for (const contractAddress of contractAddresses) {
@@ -229,7 +234,22 @@ export class ThetaScanApiClient extends BaseApiClient {
       const balanceData = result.value as ThetaScanTokenBalance;
 
       if (balanceData) {
-        balances.push(balanceData);
+        // Convert to BlockchainTokenBalanceSnapshot format
+        let balanceDecimal: string;
+        if (balanceData.token_decimals !== undefined) {
+          // Convert from smallest units to decimal
+          balanceDecimal = new Decimal(balanceData.balance || 0)
+            .div(new Decimal(10).pow(balanceData.token_decimals))
+            .toString();
+        } else {
+          // No decimals available, keep in smallest units
+          balanceDecimal = String(balanceData.balance || '0');
+        }
+
+        balances.push({
+          token: balanceData.contract_address,
+          total: balanceDecimal,
+        });
       }
     }
 

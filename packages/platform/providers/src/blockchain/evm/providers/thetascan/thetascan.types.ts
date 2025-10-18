@@ -17,15 +17,15 @@ export interface ThetaScanTransaction {
 }
 
 export interface ThetaScanBalanceResponse {
-  theta: string;
-  theta_staked: string;
-  tfuel: string;
-  tfuel_staked: string;
+  theta: string | number;
+  theta_staked: string | number;
+  tfuel: string | number;
+  tfuel_staked: string | number;
 }
 
 export interface ThetaScanTokenBalance {
   contract_address: string;
-  balance: string;
+  balance: string | number;
   token_name?: string;
   token_symbol?: string;
   token_decimals?: number;

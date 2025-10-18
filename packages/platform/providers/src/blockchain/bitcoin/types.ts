@@ -21,12 +21,6 @@ export interface SmartDetectionResult {
   hdNode: HDKey;
 }
 
-// Lightweight address info for efficient gap scanning
-export interface AddressInfo {
-  balance: string; // in BTC
-  txCount: number;
-}
-
 /**
  * Normalized Bitcoin transaction with structured input/output data
  * for sophisticated fund flow analysis in the processor

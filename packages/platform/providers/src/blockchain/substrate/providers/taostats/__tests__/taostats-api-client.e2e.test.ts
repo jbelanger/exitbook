@@ -1,10 +1,11 @@
+import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
 import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
 import type { SubstrateTransaction } from '../../../types.ts';
 import { TaostatsApiClient } from '../taostats.api-client.ts';
-import type { TaostatsBalanceResponse, TaostatsTransactionAugmented } from '../taostats.types.ts';
+import type { TaostatsTransactionAugmented } from '../taostats.types.ts';
 
 describe('TaostatsApiClient Integration - Bittensor', () => {
   describe('Bittensor', () => {
@@ -27,9 +28,9 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
       }, 30000);
     });
 
-    describe('Raw Address Balance', () => {
-      it('should fetch raw address balance successfully', async () => {
-        const result = await provider.execute<TaostatsBalanceResponse>({
+    describe('Address Balance', () => {
+      it('should fetch address balance successfully', async () => {
+        const result = await provider.execute<BlockchainBalanceSnapshot>({
           address: testAddress,
           type: 'getAddressBalances',
         });
@@ -39,15 +40,13 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
           throw result.error;
         }
 
-        const response = result.value;
-        expect(response).toHaveProperty('data');
-        expect(Array.isArray(response.data)).toBe(true);
-        expect(response.data!.length).toBeGreaterThan(0);
-
-        const accountData = response.data![0]!;
-        expect(accountData).toHaveProperty('balance_total');
-        expect(typeof accountData.balance_total).toBe('string');
-        expect(accountData.balance_total).toMatch(/^\d+$/);
+        const balance = result.value;
+        expect(balance).toBeDefined();
+        expect(balance).toHaveProperty('total');
+        expect(typeof balance.total).toBe('string');
+        const totalNum = parseFloat(balance.total);
+        expect(totalNum).not.toBeNaN();
+        expect(totalNum).toBeGreaterThan(0);
       }, 30000);
     });
 

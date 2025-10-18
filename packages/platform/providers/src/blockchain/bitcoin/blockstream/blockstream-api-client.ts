@@ -1,4 +1,4 @@
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
@@ -108,9 +108,7 @@ export class BlockstreamApiClient extends BaseApiClient {
   /**
    * Get lightweight address info for efficient gap scanning
    */
-  private async getAddressBalances(params: {
-    address: string;
-  }): Promise<Result<{ balance: string; txCount: number }, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
     const { address } = params;
 
     this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
@@ -126,8 +124,6 @@ export class BlockstreamApiClient extends BaseApiClient {
 
     const addressInfo = result.value;
 
-    const txCount = addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
-
     const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
     const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
     const totalBalanceSats = chainBalance + mempoolBalance;
@@ -135,12 +131,11 @@ export class BlockstreamApiClient extends BaseApiClient {
     const balanceBTC = (totalBalanceSats / 100000000).toString();
 
     this.logger.debug(
-      `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, TxCount: ${txCount}, BalanceBTC: ${balanceBTC}`
+      `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, BalanceBTC: ${balanceBTC}`
     );
 
     return ok({
-      balance: balanceBTC,
-      txCount,
+      total: balanceBTC,
     });
   }
 

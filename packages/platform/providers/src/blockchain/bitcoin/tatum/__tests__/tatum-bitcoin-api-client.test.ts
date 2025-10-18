@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { ProviderRegistry } from '../../../../core/blockchain/index.ts';
-import type { AddressInfo } from '../../types.js';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
 import type { TatumBitcoinTransaction, TatumBitcoinBalance } from '../tatum.types.js';
 
@@ -219,8 +218,7 @@ describe('TatumBitcoinApiClient', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toEqual({
-          balance: '40', // (5000000000 - 1000000000) / 100000000
-          txCount: 0,
+          total: '40', // (5000000000 - 1000000000) / 100000000
         });
       }
     });
@@ -275,14 +273,11 @@ describe('TatumBitcoinApiClient', () => {
         type: 'getAddressBalances',
       });
 
-      const expectedInfo: AddressInfo = {
-        balance: '40', // (5000000000 - 1000000000) / 100000000
-        txCount: 0,
-      };
-
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value).toEqual(expectedInfo);
+        expect(result.value).toEqual({
+          total: '40', // (5000000000 - 1000000000) / 100000000
+        });
       }
     });
 

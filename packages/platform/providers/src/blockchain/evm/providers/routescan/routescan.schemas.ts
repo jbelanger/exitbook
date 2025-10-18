@@ -1,17 +1,17 @@
 /**
- * Zod validation schemas for Avalanche (Snowtrace) transaction data formats
+ * Zod validation schemas for Routescan (Etherscan-compatible) transaction data formats
  *
  * These schemas validate the structure and content of transaction data
- * from Avalanche C-Chain Snowtrace API before processing.
+ * from Routescan API before processing.
  */
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../../core/blockchain/utils/zod-utils.js';
 
 /**
- * Schema for Snowtrace normal transaction structure
+ * Schema for Routescan normal transaction structure
  */
-export const SnowtraceTransactionSchema = z.object({
+export const RoutescanTransactionSchema = z.object({
   blockHash: z.string().min(1, 'Block hash must not be empty'),
   blockNumber: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
   confirmations: z.string().regex(/^\d+$/, 'Confirmations must be numeric string'),
@@ -34,9 +34,9 @@ export const SnowtraceTransactionSchema = z.object({
 });
 
 /**
- * Schema for Snowtrace internal transaction structure
+ * Schema for Routescan internal transaction structure
  */
-export const SnowtraceInternalTransactionSchema = z.object({
+export const RoutescanInternalTransactionSchema = z.object({
   blockNumber: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
   contractAddress: z.string(),
   errCode: z.string(),
@@ -54,9 +54,9 @@ export const SnowtraceInternalTransactionSchema = z.object({
 });
 
 /**
- * Schema for Snowtrace token transfer structure
+ * Schema for Routescan token transfer structure
  */
-export const SnowtraceTokenTransferSchema = z.object({
+export const RoutescanTokenTransferSchema = z.object({
   blockHash: z.string().min(1, 'Block hash must not be empty'),
   blockNumber: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
   confirmations: z.string().regex(/^\d+$/, 'Confirmations must be numeric string'),
@@ -79,35 +79,35 @@ export const SnowtraceTokenTransferSchema = z.object({
 });
 
 /**
- * Schema for Snowtrace API response wrapper
+ * Schema for Routescan API response wrapper
  */
-export const SnowtraceApiResponseSchema = z.object({
+export const RoutescanApiResponseSchema = z.object({
   message: z.string().min(1, 'Message must not be empty'),
   result: z.array(z.any()), // Can be various transaction types
   status: z.string().min(1, 'Status must not be empty'),
 });
 
 /**
- * Schema for Snowtrace balance response
+ * Schema for Routescan balance response
  */
-export const SnowtraceBalanceResponseSchema = z.object({
+export const RoutescanBalanceResponseSchema = z.object({
   message: z.string().min(1, 'Message must not be empty'),
   result: z.string().min(1, 'Balance result must not be empty'),
   status: z.string().min(1, 'Status must not be empty'),
 });
 
 /**
- * Schema for Snowtrace balance structure
+ * Schema for Routescan balance structure
  */
-export const SnowtraceBalanceSchema = z.object({
+export const RoutescanBalanceSchema = z.object({
   account: z.string().min(1, 'Account address must not be empty'),
   balance: z.string().regex(/^\d+$/, 'Balance must be numeric string'),
 });
 
 /**
- * Schema for Snowtrace token balance structure
+ * Schema for Routescan token balance structure
  */
-export const SnowtraceTokenBalanceSchema = z.object({
+export const RoutescanTokenBalanceSchema = z.object({
   TokenAddress: z.string().min(1, 'Token address must not be empty'),
   TokenDivisor: z.string().regex(/^\d+$/, 'Token divisor must be numeric string'),
   TokenName: z.string().min(1, 'Token name must not be empty'),
@@ -116,28 +116,11 @@ export const SnowtraceTokenBalanceSchema = z.object({
 });
 
 /**
- * Schema for Avalanche atomic transaction structure
- */
-export const AtomicTransactionSchema = z.object({
-  amount: z.string().regex(/^\d+$/, 'Amount must be numeric string'),
-  asset: z.string().min(1, 'Asset must not be empty'),
-  destinationChain: z.enum(['P', 'X', 'C'], { message: 'Destination chain must be P, X, or C' }),
-  fee: z.string().regex(/^\d+$/, 'Fee must be numeric string'),
-  id: z.string().min(1, 'Transaction ID must not be empty'),
-  sourceChain: z.enum(['P', 'X', 'C'], { message: 'Source chain must be P, X, or C' }),
-  status: z.enum(['accepted', 'processing', 'rejected'], {
-    message: 'Status must be accepted, processing, or rejected',
-  }),
-  timestamp: timestampToDate,
-  type: z.enum(['import', 'export'], { message: 'Type must be import or export' }),
-});
-
-/**
- * Union schema that can validate any of the three Snowtrace transaction types
+ * Union schema that can validate any of the three Routescan transaction types
  * Order matters: most specific schemas (with more required fields) should come first
  */
-export const SnowtraceAnyTransactionSchema = z.union([
-  SnowtraceTokenTransferSchema, // Most specific - has token fields
-  SnowtraceInternalTransactionSchema, // Medium specificity - has internal transaction fields
-  SnowtraceTransactionSchema, // Least specific - basic transaction fields
+export const RoutescanAnyTransactionSchema = z.union([
+  RoutescanTokenTransferSchema, // Most specific - has token fields
+  RoutescanInternalTransactionSchema, // Medium specificity - has internal transaction fields
+  RoutescanTransactionSchema, // Least specific - basic transaction fields
 ]);

@@ -3,6 +3,6 @@
 
 import './providers/alchemy/alchemy.api-client.js';
 import './providers/moralis/moralis.api-client.js';
-import './providers/snowtrace/snowtrace.api-client.js';
+import './providers/routescan/routescan.api-client.js';
 import './providers/thetascan/thetascan.api-client.js';
 import './providers/theta-explorer/theta-explorer.api-client.js';

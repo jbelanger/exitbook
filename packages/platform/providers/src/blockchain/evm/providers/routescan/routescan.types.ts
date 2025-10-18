@@ -1,6 +1,6 @@
-// Avalanche C-Chain specific types and interfaces
+// Routescan (Etherscan-compatible) API types
 
-export interface SnowtraceTransaction {
+export interface RoutescanTransaction {
   blockHash: string;
   blockNumber: string;
   confirmations: string;
@@ -22,7 +22,7 @@ export interface SnowtraceTransaction {
   value: string;
 }
 
-export interface SnowtraceInternalTransaction {
+export interface RoutescanInternalTransaction {
   blockNumber: string;
   contractAddress: string;
   errCode: string;
@@ -39,7 +39,7 @@ export interface SnowtraceInternalTransaction {
   value: string;
 }
 
-export interface SnowtraceTokenTransfer {
+export interface RoutescanTokenTransfer {
   blockHash: string;
   blockNumber: string;
   confirmations: string;
@@ -61,24 +61,24 @@ export interface SnowtraceTokenTransfer {
   value: string;
 }
 
-export interface SnowtraceApiResponse<T> {
+export interface RoutescanApiResponse<T> {
   message: string;
   result: T[];
   status: string;
 }
 
-export interface SnowtraceBalanceResponse {
+export interface RoutescanBalanceResponse {
   message: string;
   result: string;
   status: string;
 }
 
-export interface SnowtraceBalance {
+export interface RoutescanBalance {
   account: string;
   balance: string;
 }
 
-export interface SnowtraceTokenBalance {
+export interface RoutescanTokenBalance {
   TokenAddress: string;
   TokenDivisor: string;
   TokenName: string;

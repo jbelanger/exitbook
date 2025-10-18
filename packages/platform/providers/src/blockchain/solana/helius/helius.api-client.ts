@@ -1,4 +1,5 @@
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot, type BlockchainTokenBalanceSnapshot } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
@@ -265,7 +266,7 @@ export class HeliusApiClient extends BaseApiClient {
     return ok(transactions);
   }
 
-  private async getAddressBalances(params: { address: string }): Promise<Result<SolanaRawBalanceData, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
     const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
@@ -294,11 +295,14 @@ export class HeliusApiClient extends BaseApiClient {
       return err(new Error('Failed to fetch balance from Helius RPC'));
     }
 
+    // Convert from lamports to SOL (1 SOL = 10^9 lamports)
+    const balanceSOL = new Decimal(response.result.value).div(new Decimal(10).pow(9)).toString();
+
     this.logger.debug(
-      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, Lamports: ${response.result.value}`
+      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceSOL}`
     );
 
-    return ok({ lamports: response.result.value });
+    return ok({ total: balanceSOL });
   }
 
   private async getAddressTransactions(params: {
@@ -360,7 +364,7 @@ export class HeliusApiClient extends BaseApiClient {
   private async getAddressTokenBalances(params: {
     address: string;
     contractAddresses?: string[] | undefined;
-  }): Promise<Result<SolanaRawTokenBalanceData, Error>> {
+  }): Promise<Result<BlockchainTokenBalanceSnapshot[], Error>> {
     const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
@@ -395,14 +399,23 @@ export class HeliusApiClient extends BaseApiClient {
 
     if (!tokenAccountsResponse?.result) {
       this.logger.debug(`No raw token accounts found - Address: ${maskAddress(address)}`);
-      return ok({ tokenAccounts: { value: [] } });
+      return ok([]);
     }
 
+    // Convert to BlockchainTokenBalanceSnapshot format
+    const balances: BlockchainTokenBalanceSnapshot[] = tokenAccountsResponse.result.value.map((account) => {
+      const tokenInfo = account.account.data.parsed.info;
+      return {
+        token: tokenInfo.mint,
+        total: tokenInfo.tokenAmount.uiAmountString,
+      };
+    });
+
     this.logger.debug(
-      `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountsResponse.result.value.length}`
+      `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${balances.length}`
     );
 
-    return ok({ tokenAccounts: tokenAccountsResponse.result });
+    return ok(balances);
   }
 
   private async getTokenAccountsOwnedByAddress(address: string): Promise<Result<string[], Error>> {

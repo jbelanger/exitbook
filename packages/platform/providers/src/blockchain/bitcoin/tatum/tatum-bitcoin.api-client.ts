@@ -1,4 +1,4 @@
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
@@ -101,7 +101,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
   /**
    * Get lightweight address info for efficient gap scanning
    */
-  async getAddressBalances(address: string): Promise<Result<{ balance: string; txCount: number }, Error>> {
+  async getAddressBalances(address: string): Promise<Result<BlockchainBalanceSnapshot, Error>> {
     this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
 
     // Get balance data
@@ -116,34 +116,18 @@ export class TatumBitcoinApiClient extends BaseApiClient {
 
     const balanceData = balanceResult.value;
 
-    // Get transaction count
-    const txResult = await this.makeRequest<TatumBitcoinTransaction[]>(`/transaction/address/${address}`, {
-      offset: 0,
-      pageSize: 0,
-    });
-
-    if (txResult.isErr()) {
-      this.logger.error(
-        `Failed to get transaction count - Address: ${maskAddress(address)}, Error: ${getErrorMessage(txResult.error)}`
-      );
-      return err(txResult.error);
-    }
-
-    const txCount = Array.isArray(txResult.value) ? txResult.value.length : 0;
-
-    // Calculate balance in BTC (satoshis to BTC)
-    const incomingSats = BigInt(balanceData.incoming);
-    const outgoingSats = BigInt(balanceData.outgoing);
+    // Tatum API returns satoshi values as strings - convert to BTC
+    const incomingSats = parseFloat(balanceData.incoming);
+    const outgoingSats = parseFloat(balanceData.outgoing);
     const balanceSats = incomingSats - outgoingSats;
-    const balanceBTC = (Number(balanceSats) / 100000000).toString();
+    const balanceBTC = (balanceSats / 100000000).toString();
 
     this.logger.debug(
-      `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, TxCount: ${txCount}, BalanceBTC: ${balanceBTC}`
+      `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, BalanceBTC: ${balanceBTC}`
     );
 
     return ok({
-      balance: balanceBTC,
-      txCount,
+      total: balanceBTC,
     });
   }
 

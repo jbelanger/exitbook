@@ -1,4 +1,5 @@
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
@@ -102,7 +103,7 @@ export class TaostatsApiClient extends BaseApiClient {
     };
   }
 
-  private async getAddressBalances(params: { address: string }): Promise<Result<TaostatsBalanceResponse, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
     const { address } = params;
 
     // Validate address format
@@ -124,10 +125,16 @@ export class TaostatsApiClient extends BaseApiClient {
     }
 
     const response = result.value;
-    const balance = response.data?.[0]?.balance_total || '0';
-    this.logger.debug(`Found raw balance for ${maskAddress(address)}: ${balance}`);
+    const balanceRao = response.data?.[0]?.balance_total || '0';
 
-    return ok(response);
+    // Convert from smallest unit (rao) to main unit (TAO)
+    const balanceDecimal = new Decimal(balanceRao).div(new Decimal(10).pow(this.chainConfig.nativeDecimals)).toString();
+
+    this.logger.debug(
+      `Found raw balance for ${maskAddress(address)}: ${balanceDecimal} ${this.chainConfig.nativeCurrency}`
+    );
+
+    return ok({ total: balanceDecimal });
   }
 
   private async getAddressTransactions(params: {

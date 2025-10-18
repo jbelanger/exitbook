@@ -1,10 +1,10 @@
+import type { BlockchainBalanceSnapshot, BlockchainTokenBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
 import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
 import type { EvmTransaction } from '../../../types.ts';
 import { MoralisApiClient } from '../moralis.api-client.ts';
-import type { MoralisNativeBalance, MoralisTokenBalance } from '../moralis.types.ts';
 
 describe('MoralisApiClient Integration - Multi-Chain', () => {
   describe('Ethereum', () => {
@@ -23,8 +23,8 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
     });
 
     describe('Raw Address Balance', () => {
-      it('should fetch raw address balance successfully', async () => {
-        const result = await provider.execute<MoralisNativeBalance>({
+      it('should fetch address balance successfully', async () => {
+        const result = await provider.execute<BlockchainBalanceSnapshot>({
           address: testAddress,
           type: 'getAddressBalances',
         });
@@ -32,8 +32,9 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           const balance = result.value;
-          expect(balance).toHaveProperty('balance');
-          expect(typeof balance.balance).toBe('string');
+          expect(balance).toHaveProperty('total');
+          expect(typeof balance.total).toBe('string');
+          expect(Number(balance.total)).not.toBeNaN();
         }
       }, 30000);
     });
@@ -82,11 +83,11 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
     });
 
     describe('Token Balances', () => {
-      it('should fetch raw token balances successfully', async () => {
+      it('should fetch token balances in normalized format', async () => {
         // Use a different address with fewer tokens to avoid Moralis's 2000 token limit
         const smallerAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4';
 
-        const result = await provider.execute<MoralisTokenBalance[]>({
+        const result = await provider.execute<BlockchainTokenBalanceSnapshot[]>({
           address: smallerAddress,
           type: 'getAddressTokenBalances',
         });
@@ -96,10 +97,38 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
           const balances = result.value;
           expect(Array.isArray(balances)).toBe(true);
           if (balances.length > 0) {
-            expect(balances[0]).toHaveProperty('token_address');
-            expect(balances[0]).toHaveProperty('balance');
-            expect(balances[0]).toHaveProperty('symbol');
-            expect(balances[0]).toHaveProperty('decimals');
+            const firstBalance = balances[0]!;
+            expect(firstBalance).toHaveProperty('token');
+            expect(firstBalance).toHaveProperty('total');
+            expect(typeof firstBalance.token).toBe('string');
+            expect(typeof firstBalance.total).toBe('string');
+            // Token should be a contract address (0x...)
+            expect(firstBalance.token).toMatch(/^0x[a-fA-F0-9]{40}$/);
+            // Total should be a numeric string (converted from smallest units to decimal)
+            expect(Number(firstBalance.total)).not.toBeNaN();
+          }
+        }
+      }, 30000);
+
+      it('should convert balances from smallest units to decimal', async () => {
+        const smallerAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4';
+
+        const result = await provider.execute<BlockchainTokenBalanceSnapshot[]>({
+          address: smallerAddress,
+          type: 'getAddressTokenBalances',
+        });
+
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          const balances = result.value;
+          if (balances.length > 0) {
+            // All balances should be decimal strings (not hex or raw smallest units)
+            for (const balance of balances) {
+              const numericValue = Number(balance.total);
+              expect(numericValue).not.toBeNaN();
+              // Should be a reasonable decimal value (not in smallest units like 1000000000000000000)
+              expect(numericValue).toBeLessThan(1e15);
+            }
           }
         }
       }, 30000);

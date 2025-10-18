@@ -41,6 +41,13 @@
     "nativeDecimals": 18,
     "explorerUrls": ["https://snowtrace.io"]
   },
+  "beam": {
+    "chainId": 4337,
+    "chainName": "beam",
+    "nativeCurrency": "BEAM",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://4337.routescan.io/"]
+  },
   "bsc": {
     "chainId": 56,
     "chainName": "bsc",
@@ -593,5 +600,215 @@
     "nativeCurrency": "KCS",
     "nativeDecimals": 18,
     "explorerUrls": ["https://explorer.kcc.io"]
+  },
+  "pulsechain": {
+    "chainId": 369,
+    "chainName": "pulsechain",
+    "nativeCurrency": "PLS",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://scan.pulsechain.com"]
+  },
+  "numine": {
+    "chainId": 8021,
+    "chainName": "numine",
+    "nativeCurrency": "NUMINE",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "space": {
+    "chainId": 8227,
+    "chainName": "space",
+    "nativeCurrency": "SPACE",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "animalia": {
+    "chainId": 8787,
+    "chainName": "animalia",
+    "nativeCurrency": "ANIM",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "innovo": {
+    "chainId": 10036,
+    "chainName": "innovo",
+    "nativeCurrency": "INNOVO",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "numbers": {
+    "chainId": 10507,
+    "chainName": "numbers",
+    "nativeCurrency": "NUM",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "lamina1": {
+    "chainId": 10849,
+    "chainName": "lamina1",
+    "nativeCurrency": "L1",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "lamina1-identity": {
+    "chainId": 10850,
+    "chainName": "lamina1-identity",
+    "nativeCurrency": "L1ID",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "qchain": {
+    "chainId": 12150,
+    "chainName": "qchain",
+    "nativeCurrency": "QDT",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "fifa-blockchain": {
+    "chainId": 13322,
+    "chainName": "fifa-blockchain",
+    "nativeCurrency": "FIFA",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "plyr": {
+    "chainId": 16180,
+    "chainName": "plyr",
+    "nativeCurrency": "PLYR",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "tradex": {
+    "chainId": 21024,
+    "chainName": "tradex",
+    "nativeCurrency": "TDX",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "zeroone": {
+    "chainId": 27827,
+    "chainName": "zeroone",
+    "nativeCurrency": "ZERO",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "blockticity": {
+    "chainId": 28530,
+    "chainName": "blockticity",
+    "nativeCurrency": "BLKT",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "feature": {
+    "chainId": 33311,
+    "chainName": "feature",
+    "nativeCurrency": "FEAT",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "corgnet": {
+    "chainId": 42069,
+    "chainName": "corgnet",
+    "nativeCurrency": "CORG",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "gunz": {
+    "chainId": 43419,
+    "chainName": "gunz",
+    "nativeCurrency": "GUNZ",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "dfk": {
+    "chainId": 53935,
+    "chainName": "dfk",
+    "nativeCurrency": "JEWEL",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "boba-bnb": {
+    "chainId": 56288,
+    "chainName": "boba-bnb",
+    "nativeCurrency": "BOBA",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "growth": {
+    "chainId": 61587,
+    "chainName": "growth",
+    "nativeCurrency": "GROW",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "lucid": {
+    "chainId": 62521,
+    "chainName": "lucid",
+    "nativeCurrency": "LUC",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "henesys": {
+    "chainId": 68414,
+    "chainName": "henesys",
+    "nativeCurrency": "HEN",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "berachain-mainnet": {
+    "chainId": 80094,
+    "chainName": "berachain-mainnet",
+    "nativeCurrency": "BERA",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "titan": {
+    "chainId": 84358,
+    "chainName": "titan",
+    "nativeCurrency": "TIT",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "chiliz": {
+    "chainId": 88888,
+    "chainName": "chiliz",
+    "nativeCurrency": "CHZ",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "delaunch": {
+    "chainId": 96786,
+    "chainName": "delaunch",
+    "nativeCurrency": "DEL",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "mitosis": {
+    "chainId": 124816,
+    "chainName": "mitosis",
+    "nativeCurrency": "MITO",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "dexalot": {
+    "chainId": 432204,
+    "chainName": "dexalot",
+    "nativeCurrency": "ALOT",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "tiltyard": {
+    "chainId": 710420,
+    "chainName": "tiltyard",
+    "nativeCurrency": "TILT",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "corn": {
+    "chainId": 21000000,
+    "chainName": "corn",
+    "nativeCurrency": "CORN",
+    "nativeDecimals": 18,
+    "explorerUrls": []
   }
 }

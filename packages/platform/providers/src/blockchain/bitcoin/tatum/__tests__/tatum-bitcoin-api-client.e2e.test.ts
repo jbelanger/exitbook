@@ -1,8 +1,9 @@
+import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { TransactionWithRawData } from '../../../../core/blockchain/index.ts';
 import { ProviderRegistry } from '../../../../core/blockchain/index.ts';
-import type { AddressInfo, BitcoinTransaction } from '../../types.ts';
+import type { BitcoinTransaction } from '../../types.ts';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.ts';
 
 describe('TatumBitcoinApiClient E2E', () => {
@@ -24,20 +25,19 @@ describe('TatumBitcoinApiClient E2E', () => {
   );
 
   it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
-    'should fetch address info successfully',
+    'should fetch address balance successfully',
     async () => {
-      const result = await provider.execute<AddressInfo>({
+      const result = await provider.execute<BlockchainBalanceSnapshot>({
         address: testAddress,
         type: 'getAddressBalances',
       });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const addressInfo = result.value;
-        expect(addressInfo).toHaveProperty('txCount');
-        expect(addressInfo).toHaveProperty('balance');
-        expect(typeof addressInfo.txCount).toBe('number');
-        expect(typeof addressInfo.balance).toBe('string');
+        const balance = result.value;
+        expect(balance).toBeDefined();
+        expect(balance).toHaveProperty('total');
+        expect(typeof balance.total).toBe('string');
       }
     },
     30000
