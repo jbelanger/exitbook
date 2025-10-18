@@ -1,8 +1,9 @@
+import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { TransactionWithRawData } from '../../../../core/blockchain/index.ts';
 import { ProviderRegistry } from '../../../../core/blockchain/index.ts';
-import type { AddressInfo, BitcoinTransaction } from '../../types.js';
+import type { BitcoinTransaction } from '../../types.js';
 import { BlockCypherApiClient } from '../blockcypher.api-client.js';
 
 describe.skip('BlockCypherApiClient E2E', () => {
@@ -24,22 +25,20 @@ describe.skip('BlockCypherApiClient E2E', () => {
   );
 
   it.skipIf(!process.env['BLOCKCYPHER_API_KEY'] || process.env['BLOCKCYPHER_API_KEY'] === 'YourApiKeyToken')(
-    'should get address info for known address',
+    'should get address balance for known address',
     async () => {
-      const result = await client.execute<AddressInfo>({
+      const result = await client.execute<BlockchainBalanceSnapshot>({
         address: testAddress,
         type: 'getAddressBalances',
       });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const addressInfo = result.value;
-        expect(addressInfo).toBeDefined();
-        expect(addressInfo).toHaveProperty('balance');
-        expect(addressInfo).toHaveProperty('txCount');
-        expect(typeof addressInfo.balance).toBe('string');
-        expect(typeof addressInfo.txCount).toBe('number');
-        expect(addressInfo.txCount).toBeGreaterThan(0);
+        const balance = result.value;
+        expect(balance).toBeDefined();
+        expect(balance).toHaveProperty('total');
+        expect(typeof balance.total).toBe('string');
+        expect(parseFloat(balance.total)).toBeGreaterThan(0);
       }
     },
     60000

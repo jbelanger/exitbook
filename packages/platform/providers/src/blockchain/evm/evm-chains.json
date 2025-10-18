@@ -41,6 +41,13 @@
     "nativeDecimals": 18,
     "explorerUrls": ["https://snowtrace.io"]
   },
+  "beam": {
+    "chainId": 4337,
+    "chainName": "beam",
+    "nativeCurrency": "BEAM",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://4337.routescan.io/"]
+  },
   "bsc": {
     "chainId": 56,
     "chainName": "bsc",

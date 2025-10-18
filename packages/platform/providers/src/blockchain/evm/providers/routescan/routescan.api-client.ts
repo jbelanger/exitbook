@@ -1,4 +1,4 @@
-import { getErrorMessage, type BlockchainBalanceSnapshot, type BlockchainTokenBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { ServiceError } from '@exitbook/platform-http';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -78,7 +78,6 @@ const CHAIN_ID_MAP: Record<string, number> = {
       'getAddressBalances',
       'getAddressInternalTransactions',
       'getAddressTransactions',
-      'getAddressTokenBalances',
       'getAddressTokenTransactions',
     ],
   },
@@ -163,11 +162,6 @@ export class RoutescanApiClient extends BaseApiClient {
           since: operation.since,
           until: operation.until,
         })) as Result<T, Error>;
-      case 'getAddressTokenBalances':
-        return (await this.getAddressTokenBalances({
-          address: operation.address,
-          contractAddresses: operation.contractAddresses,
-        })) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
     }
@@ -193,8 +187,7 @@ export class RoutescanApiClient extends BaseApiClient {
   }
 
   private async fetchAddressInternalTransactions(
-    address: string,
-    since?: number
+    address: string
   ): Promise<Result<RoutescanInternalTransaction[], Error>> {
     const allTransactions: RoutescanInternalTransaction[] = [];
     let page = 1;
@@ -214,10 +207,6 @@ export class RoutescanApiClient extends BaseApiClient {
         sort: 'asc',
         startblock: '0',
       });
-
-      if (since) {
-        params.set('startblock', Math.floor(since / 1000).toString());
-      }
 
       if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
         params.append('apikey', this.apiKey);
@@ -257,7 +246,7 @@ export class RoutescanApiClient extends BaseApiClient {
     return ok(allTransactions);
   }
 
-  private async getNormalTransactions(address: string, since?: number): Promise<Result<RoutescanTransaction[], Error>> {
+  private async getNormalTransactions(address: string): Promise<Result<RoutescanTransaction[], Error>> {
     const allTransactions: RoutescanTransaction[] = [];
     let page = 1;
 
@@ -276,10 +265,6 @@ export class RoutescanApiClient extends BaseApiClient {
         sort: 'asc',
         startblock: '0',
       });
-
-      if (since) {
-        params.set('startblock', Math.floor(since / 1000).toString());
-      }
 
       if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
         params.append('apikey', this.apiKey);
@@ -377,7 +362,7 @@ export class RoutescanApiClient extends BaseApiClient {
     address: string;
     since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const { address, since } = params;
+    const { address } = params;
 
     if (!this.isValidEvmAddress(address)) {
       return err(new Error(`Invalid EVM address: ${address}`));
@@ -385,7 +370,7 @@ export class RoutescanApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    const result = await this.getNormalTransactions(address, since);
+    const result = await this.getNormalTransactions(address);
 
     if (result.isErr()) {
       this.logger.error(
@@ -401,7 +386,7 @@ export class RoutescanApiClient extends BaseApiClient {
     address: string;
     since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const { address, since } = params;
+    const { address } = params;
 
     if (!this.isValidEvmAddress(address)) {
       return err(new Error(`Invalid EVM address: ${address}`));
@@ -409,7 +394,7 @@ export class RoutescanApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address internal transactions - Address: ${maskAddress(address)}`);
 
-    const result = await this.fetchAddressInternalTransactions(address, since);
+    const result = await this.fetchAddressInternalTransactions(address);
 
     if (result.isErr()) {
       this.logger.error(
@@ -423,15 +408,6 @@ export class RoutescanApiClient extends BaseApiClient {
     return this.normalizeTransactions(result.value, address, 'internal transactions');
   }
 
-  private async getAddressTokenBalances(_params: {
-    address: string;
-    contractAddresses?: string[] | undefined;
-  }): Promise<Result<BlockchainTokenBalanceSnapshot[], Error>> {
-    // Routescan doesn't have a direct "get all token balances" endpoint
-    this.logger.debug('Token balance fetching not implemented for Routescan - use specific contract addresses');
-    return Promise.resolve(ok([]));
-  }
-
   private async getAddressTokenTransactions(params: {
     address: string;
     contractAddress?: string | undefined;
@@ -439,8 +415,8 @@ export class RoutescanApiClient extends BaseApiClient {
     since?: number | undefined;
     until?: number | undefined;
   }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const { address, contractAddress, since } = params;
-    const result = await this.getTokenTransfers(address, since, contractAddress);
+    const { address, contractAddress } = params;
+    const result = await this.getTokenTransfers(address, contractAddress);
 
     if (result.isErr()) {
       return err(result.error);
@@ -451,7 +427,6 @@ export class RoutescanApiClient extends BaseApiClient {
 
   private async getTokenTransfers(
     address: string,
-    since?: number,
     contractAddress?: string
   ): Promise<Result<RoutescanTokenTransfer[], Error>> {
     const allTransactions: RoutescanTokenTransfer[] = [];
@@ -472,10 +447,6 @@ export class RoutescanApiClient extends BaseApiClient {
         sort: 'asc',
         startblock: '0',
       });
-
-      if (since) {
-        params.set('startblock', Math.floor(since / 1000).toString());
-      }
 
       if (contractAddress) {
         params.append('contractaddress', contractAddress);
