@@ -1,4 +1,5 @@
 import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
@@ -229,8 +230,10 @@ export class SubscanApiClient extends BaseApiClient {
     }
 
     // Convert from smallest unit to main unit
-    const balanceSmallest = BigInt(response.data?.balance || '0');
-    const balanceDecimal = (Number(balanceSmallest) / 10 ** this.chainConfig.nativeDecimals).toString();
+    const balanceSmallest = response.data?.balance || '0';
+    const balanceDecimal = new Decimal(balanceSmallest)
+      .div(new Decimal(10).pow(this.chainConfig.nativeDecimals))
+      .toString();
 
     this.logger.debug(
       `Found raw balance for ${maskAddress(address)}: ${balanceDecimal} ${this.chainConfig.nativeCurrency}`

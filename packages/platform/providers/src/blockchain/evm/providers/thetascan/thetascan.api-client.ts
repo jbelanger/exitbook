@@ -1,4 +1,5 @@
 import { getErrorMessage, type BlockchainBalanceSnapshot, type BlockchainTokenBalanceSnapshot } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
@@ -136,16 +137,7 @@ export class ThetaScanApiClient extends BaseApiClient {
     this.logger.debug(`Retrieved balance for ${maskAddress(address)}: ${balanceData.theta} THETA`);
 
     // ThetaScan API may return numbers instead of strings, ensure conversion
-    let total: string;
-    if (typeof balanceData.theta === 'number') {
-      total = balanceData.theta.toString();
-    } else if (typeof balanceData.theta === 'string') {
-      total = balanceData.theta;
-    } else {
-      // fallback for unexpected types
-      this.logger.warn(`Unexpected theta balance type: ${typeof balanceData.theta}`);
-      total = '';
-    }
+    const total = String(balanceData.theta || '0');
 
     return ok({
       total,
@@ -246,18 +238,12 @@ export class ThetaScanApiClient extends BaseApiClient {
         let balanceDecimal: string;
         if (balanceData.token_decimals !== undefined) {
           // Convert from smallest units to decimal
-          balanceDecimal = (Number(balanceData.balance) / 10 ** balanceData.token_decimals).toString();
+          balanceDecimal = new Decimal(balanceData.balance || 0)
+            .div(new Decimal(10).pow(balanceData.token_decimals))
+            .toString();
         } else {
           // No decimals available, keep in smallest units
-          // ThetaScan API may return numbers instead of strings, ensure conversion
-          if (typeof balanceData.balance === 'number') {
-            balanceDecimal = balanceData.balance.toString();
-          } else if (typeof balanceData.balance === 'string') {
-            balanceDecimal = balanceData.balance;
-          } else {
-            this.logger.warn(`Unexpected balance type for contract ${contractAddress}: ${typeof balanceData.balance}`);
-            balanceDecimal = '';
-          }
+          balanceDecimal = String(balanceData.balance || '0');
         }
 
         balances.push({

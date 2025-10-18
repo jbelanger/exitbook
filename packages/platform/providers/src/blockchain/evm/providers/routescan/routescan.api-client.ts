@@ -1,5 +1,6 @@
 import { getErrorMessage, type BlockchainBalanceSnapshot, type BlockchainTokenBalanceSnapshot } from '@exitbook/core';
 import { ServiceError } from '@exitbook/platform-http';
+import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../../core/blockchain/base/api-client.ts';
@@ -360,8 +361,8 @@ export class RoutescanApiClient extends BaseApiClient {
     }
 
     // Convert from wei to native currency (18 decimals for most EVM chains)
-    const balanceWei = BigInt(typeof res.result === 'string' ? res.result : String(res.result));
-    const balanceDecimal = (Number(balanceWei) / 10 ** this.chainConfig.nativeDecimals).toString();
+    const balanceWei = typeof res.result === 'string' ? res.result : String(res.result);
+    const balanceDecimal = new Decimal(balanceWei).div(new Decimal(10).pow(this.chainConfig.nativeDecimals)).toString();
 
     this.logger.debug(
       `Retrieved raw balance for ${maskAddress(address)}: ${balanceDecimal} ${this.chainConfig.nativeCurrency}`

@@ -1,4 +1,5 @@
 import { getErrorMessage, type BlockchainBalanceSnapshot, type BlockchainTokenBalanceSnapshot } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
@@ -156,8 +157,9 @@ export class MoralisApiClient extends BaseApiClient {
     const response = result.value;
 
     // Convert from wei to decimal
-    const balanceWei = BigInt(response.balance);
-    const balanceDecimal = (Number(balanceWei) / 10 ** this.chainConfig.nativeDecimals).toString();
+    const balanceDecimal = new Decimal(response.balance)
+      .div(new Decimal(10).pow(this.chainConfig.nativeDecimals))
+      .toString();
 
     this.logger.debug(`Found raw native balance for ${address}: ${balanceDecimal}`);
     return ok({ total: balanceDecimal });
@@ -292,7 +294,7 @@ export class MoralisApiClient extends BaseApiClient {
     // Convert to BlockchainTokenBalanceSnapshot format
     const balances: BlockchainTokenBalanceSnapshot[] = rawBalances.map((balance) => {
       // Convert from smallest units to decimal string
-      const balanceDecimal = (Number(balance.balance) / 10 ** balance.decimals).toString();
+      const balanceDecimal = new Decimal(balance.balance).div(new Decimal(10).pow(balance.decimals)).toString();
 
       return {
         token: balance.token_address,

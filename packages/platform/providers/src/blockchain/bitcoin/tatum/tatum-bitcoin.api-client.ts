@@ -116,10 +116,11 @@ export class TatumBitcoinApiClient extends BaseApiClient {
 
     const balanceData = balanceResult.value;
 
-    // Tatum API returns BTC values as decimal strings, not satoshis
-    const incomingBTC = parseFloat(balanceData.incoming);
-    const outgoingBTC = parseFloat(balanceData.outgoing);
-    const balanceBTC = (incomingBTC - outgoingBTC).toString();
+    // Tatum API returns satoshi values as strings - convert to BTC
+    const incomingSats = parseFloat(balanceData.incoming);
+    const outgoingSats = parseFloat(balanceData.outgoing);
+    const balanceSats = incomingSats - outgoingSats;
+    const balanceBTC = (balanceSats / 100000000).toString();
 
     this.logger.debug(
       `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, BalanceBTC: ${balanceBTC}`
