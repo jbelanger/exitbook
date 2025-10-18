@@ -138,5 +138,11 @@ function handleBalanceSuccess(
   };
 
   output.success('balance', resultData);
-  process.exit(verificationResult.status === 'success' ? 0 : 1);
+  // Map status to distinct exit codes: success=0, failed=1, warning=2
+  const statusExitCodeMap: Record<string, number> = {
+    success: 0,
+    failed: 1,
+    warning: 2,
+  };
+  process.exit(statusExitCodeMap[verificationResult.status] ?? 1);
 }
