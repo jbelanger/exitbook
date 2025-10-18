@@ -215,21 +215,21 @@ export class RoutescanApiClient extends BaseApiClient {
       const result = await this.httpClient.get(`?${params.toString()}`);
 
       if (result.isErr()) {
-        this.logger.warn(
+        this.logger.error(
           `Failed to fetch internal transactions page ${page} - Error: ${getErrorMessage(result.error)}`
         );
-        break;
+        return err(result.error);
       }
 
       const res = result.value as RoutescanApiResponse<unknown>;
       if (res.status !== '1') {
-        // If no results found or error, break the loop
+        // If no results found, break the loop
         if (res.message === 'No transactions found') {
           break;
         }
-
-        this.logger.debug(`No internal transactions found - Message: ${res.message}`);
-        break;
+        return err(
+          new ServiceError(`Routescan API error: ${res.message}`, this.name, 'fetchAddressInternalTransactions')
+        );
       }
 
       const transactions = (res.result as RoutescanInternalTransaction[]) || [];
@@ -459,19 +459,18 @@ export class RoutescanApiClient extends BaseApiClient {
       const result = await this.httpClient.get(`?${params.toString()}`);
 
       if (result.isErr()) {
-        this.logger.warn(`Failed to fetch token transfers page ${page} - Error: ${getErrorMessage(result.error)}`);
-        break;
+        this.logger.error(`Failed to fetch token transfers page ${page} - Error: ${getErrorMessage(result.error)}`);
+        return err(result.error);
       }
 
       const res = result.value as RoutescanApiResponse<unknown>;
 
       if (res.status !== '1') {
-        // If no results found or error, break the loop
+        // If no results found, break the loop
         if (res.message === 'No transactions found') {
           break;
         }
-        this.logger.debug(`No token transfers found - Message: ${res.message}`);
-        break;
+        return err(new ServiceError(`Routescan API error: ${res.message}`, this.name, 'getTokenTransfers'));
       }
 
       const transactions = (res.result as RoutescanTokenTransfer[]) || [];

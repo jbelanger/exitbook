@@ -43,10 +43,6 @@ export interface MoralisNativeBalance {
   balance: string;
 }
 
-export interface MoralisDateToBlockResponse {
-  block: number;
-}
-
 export interface MoralisTransactionResponse {
   cursor?: string | null;
   page: number;
