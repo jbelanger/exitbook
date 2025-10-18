@@ -78,10 +78,11 @@ export function createVerificationResult(
   };
 
   // Determine overall status
+  // If no import timestamp exists (no data imported yet), treat mismatches as warnings
   let status: 'success' | 'warning' | 'failed';
-  if (summary.mismatches > 0) {
+  if (summary.mismatches > 0 && lastImportTimestamp !== undefined) {
     status = 'failed';
-  } else if (summary.warnings > 0) {
+  } else if (summary.warnings > 0 || summary.mismatches > 0) {
     status = 'warning';
   } else {
     status = 'success';
@@ -89,15 +90,19 @@ export function createVerificationResult(
 
   // Generate suggestion if there are mismatches
   let suggestion: string | undefined;
-  if (summary.mismatches > 0 && lastImportTimestamp) {
-    const daysSinceImport = (Date.now() - lastImportTimestamp) / (1000 * 60 * 60 * 24);
+  if (summary.mismatches > 0) {
+    if (lastImportTimestamp) {
+      const daysSinceImport = (Date.now() - lastImportTimestamp) / (1000 * 60 * 60 * 24);
 
-    if (daysSinceImport > 7) {
-      const daysRounded = Math.floor(daysSinceImport);
-      suggestion = `Last import was ${daysRounded} days ago. Run import again to fetch recent transactions.`;
+      if (daysSinceImport > 7) {
+        const daysRounded = Math.floor(daysSinceImport);
+        suggestion = `Last import was ${daysRounded} days ago. Run import again to fetch recent transactions.`;
+      } else {
+        suggestion =
+          'Balance mismatch detected. You may have missing transactions. Try running import again to ensure all transactions are captured.';
+      }
     } else {
-      suggestion =
-        'Balance mismatch detected. You may have missing transactions. Try running import again to ensure all transactions are captured.';
+      suggestion = 'No transactions imported yet. Run import to fetch transaction history.';
     }
   }
 

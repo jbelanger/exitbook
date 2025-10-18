@@ -5,7 +5,7 @@ import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
-import { convertBalancesToDecimals, fetchBlockchainBalance, fetchExchangeBalance } from './balance-utils.ts';
+import { convertBalancesToDecimals, fetchBlockchainBalance, fetchExchangeBalance } from '../balance-utils.ts';
 
 describe('fetchExchangeBalance', () => {
   it('should fetch and return exchange balance successfully', async () => {
