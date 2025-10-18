@@ -18,7 +18,7 @@ import type {
   MoralisTokenBalance,
   MoralisTokenTransfer,
   MoralisTokenTransferResponse,
-} from './moralis.types.ts';
+} from './moralis.schemas.ts';
 
 /**
  * Maps EVM chain names to Moralis-specific chain identifiers
