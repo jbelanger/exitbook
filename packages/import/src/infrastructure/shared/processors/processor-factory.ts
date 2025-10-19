@@ -160,8 +160,10 @@ export class ProcessorFactory implements IProcessorFactory {
   ): Promise<ITransactionProcessor> {
     switch (sourceId.toLowerCase()) {
       case 'kraken':
-      case 'coinbase':
         return await this.createDefaultExchangeProcessor(sourceId);
+
+      case 'coinbase':
+        return await this.createCoinbaseProcessor();
 
       case 'kucoin':
         return await this.createKuCoinProcessor(metadata);
@@ -193,6 +195,34 @@ export class ProcessorFactory implements IProcessorFactory {
     // Dynamic import to avoid circular dependencies
     const { DefaultExchangeProcessor } = await import('../../exchanges/shared/default-exchange-processor.ts');
     return new DefaultExchangeProcessor(sourceId);
+  }
+
+  /**
+   * Create Coinbase processor.
+   *
+   * Coinbase requires a specialized processor because their ledger semantics differ from
+   * other exchanges:
+   *
+   * - For WITHDRAWALS: The fee is INCLUDED in the amount field, not separate.
+   *   Example: Withdraw 17.42 UNI with 0.164 fee
+   *     - Coinbase reports: amount=17.58425517, fee=0.16425517
+   *     - The 17.584 is the TOTAL deducted from balance
+   *     - The 0.164 fee is already part of the 17.584
+   *     - Only 17.42 actually left to external address
+   *
+   * - For TRADES: The fee is separate (like other exchanges)
+   *
+   * The CoinbaseProcessor handles this by:
+   * - Processing individual ledger entries (no correlation needed)
+   * - For withdrawals: recording outflow as (amount - fee), fee separately
+   * - For trades: recording full amount as inflow/outflow, fee separately
+   *
+   * DefaultExchangeProcessor assumes fees are ALWAYS separate deductions, which causes
+   * double-counting of withdrawal fees for Coinbase.
+   */
+  private async createCoinbaseProcessor(): Promise<ITransactionProcessor> {
+    const { CoinbaseProcessor } = await import('../../exchanges/coinbase/processor.ts');
+    return new CoinbaseProcessor();
   }
 
   /**
