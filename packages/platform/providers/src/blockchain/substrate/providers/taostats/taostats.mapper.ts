@@ -1,6 +1,5 @@
-import type { RawTransactionMetadata } from '@exitbook/core';
+import { parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
@@ -54,12 +53,12 @@ export class TaostatsTransactionMapper extends BaseRawDataMapper<TaostatsTransac
     }
 
     // Parse amount (in rao, smallest unit) - Zod already validated it's numeric
-    const amountRao = new Decimal(rawData.amount);
-    const divisor = new Decimal(10).pow(nativeDecimals);
+    const amountRao = parseDecimal(rawData.amount);
+    const divisor = parseDecimal('10').pow(nativeDecimals);
     const amountTao = amountRao.dividedBy(divisor);
 
     // Parse fee if available - Zod already validated it's numeric
-    const feeRao = new Decimal(rawData.fee || '0');
+    const feeRao = parseDecimal(rawData.fee || '0');
     const feeTao = feeRao.dividedBy(divisor);
 
     // Parse timestamp (ISO string to milliseconds) - Zod already validated format

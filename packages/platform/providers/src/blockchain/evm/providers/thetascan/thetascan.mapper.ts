@@ -1,7 +1,7 @@
 import type { RawTransactionMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
@@ -40,7 +40,7 @@ export class ThetaScanTransactionMapper extends BaseRawDataMapper<ThetaScanTrans
     } else {
       // Zero-value transaction, default to TFUEL
       currency = 'TFUEL';
-      amount = new Decimal(0);
+      amount = parseDecimal('0');
     }
 
     // Theta blockchain has TWO native currencies: THETA and TFUEL
@@ -53,14 +53,14 @@ export class ThetaScanTransactionMapper extends BaseRawDataMapper<ThetaScanTrans
 
     // Calculate fee in wei
     const THETA_DECIMALS = 18;
-    const feeInWei = new Decimal(rawData.fee_tfuel).mul(new Decimal(10).pow(THETA_DECIMALS));
+    const feeInWei = parseDecimal(rawData.fee_tfuel.toString()).mul(parseDecimal('10').pow(THETA_DECIMALS));
 
     // Amount handling:
     // - THETA transfers are mapped as token_transfer, so amounts should be normalized (not wei)
     // - TFUEL transfers are mapped as native transfer, so amounts should be in wei
     const amountFormatted = isThetaTransfer
       ? amount.toString()
-      : amount.mul(new Decimal(10).pow(THETA_DECIMALS)).toFixed(0);
+      : amount.mul(parseDecimal('10').pow(THETA_DECIMALS)).toFixed(0);
 
     const transaction: EvmTransaction = {
       amount: amountFormatted,

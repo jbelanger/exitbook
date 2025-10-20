@@ -1,6 +1,5 @@
-import type { RawTransactionMetadata } from '@exitbook/core';
+import { parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
@@ -91,11 +90,11 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
 
       // Subscan returns amount in human-readable format (already divided by decimals)
       // but returns fee in raw blockchain units (needs to be divided)
-      const amount = new Decimal(transfer.amount || '0');
+      const amount = parseDecimal(transfer.amount || '0');
       // Amount is already in main unit from Subscan API
 
-      const fee = new Decimal(transfer.fee || '0');
-      const divisor = new Decimal(10).pow(nativeDecimals);
+      const fee = parseDecimal(transfer.fee || '0');
+      const divisor = parseDecimal('10').pow(nativeDecimals);
       const feeInMainUnit = fee.dividedBy(divisor);
 
       return {

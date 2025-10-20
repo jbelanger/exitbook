@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- db requires explicit null */
+import { parseDecimal } from '@exitbook/core';
 import type { StoredTransaction, TransactionRepository } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -45,7 +45,7 @@ describe('ViewTransactionsHandler', () => {
     note_message: null,
     note_metadata: null,
     raw_normalized_data: {},
-    movements_inflows: [{ asset: 'BTC', amount: new Decimal('1.0') }],
+    movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
     movements_outflows: [],
     fees_network: null,
     fees_platform: null,
@@ -66,12 +66,12 @@ describe('ViewTransactionsHandler', () => {
       const mockTransactions: StoredTransaction[] = [
         createMockTransaction({
           id: 1,
-          movements_inflows: [{ asset: 'BTC', amount: new Decimal('1.0') }],
+          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
           movements_outflows: [],
         }),
         createMockTransaction({
           id: 2,
-          movements_inflows: [{ asset: 'ETH', amount: new Decimal('10.0') }],
+          movements_inflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
           movements_outflows: [],
         }),
       ];
@@ -134,11 +134,11 @@ describe('ViewTransactionsHandler', () => {
     it('should filter by asset', async () => {
       const mockTransactions: StoredTransaction[] = [
         createMockTransaction({
-          movements_inflows: [{ asset: 'BTC', amount: new Decimal('1.0') }],
+          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
           movements_outflows: [],
         }),
         createMockTransaction({
-          movements_inflows: [{ asset: 'ETH', amount: new Decimal('10.0') }],
+          movements_inflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
           movements_outflows: [],
         }),
       ];
@@ -207,21 +207,21 @@ describe('ViewTransactionsHandler', () => {
         createMockTransaction({
           id: 1,
           transaction_datetime: '2024-01-15T00:00:00Z',
-          movements_inflows: [{ asset: 'BTC', amount: new Decimal('1.0') }],
+          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
           movements_outflows: [],
           operation_type: 'buy',
         }),
         createMockTransaction({
           id: 2,
           transaction_datetime: '2024-02-01T00:00:00Z',
-          movements_inflows: [{ asset: 'BTC', amount: new Decimal('0.5') }],
+          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('0.5') }],
           movements_outflows: [],
           operation_type: 'sell',
         }),
         createMockTransaction({
           id: 3,
           transaction_datetime: '2024-01-20T00:00:00Z',
-          movements_inflows: [{ asset: 'ETH', amount: new Decimal('10.0') }],
+          movements_inflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
           movements_outflows: [],
           operation_type: 'buy',
         }),
@@ -247,7 +247,7 @@ describe('ViewTransactionsHandler', () => {
     it('should return empty array when no transactions match filters', async () => {
       const mockTransactions: StoredTransaction[] = [
         createMockTransaction({
-          movements_inflows: [{ asset: 'BTC', amount: new Decimal('1.0') }],
+          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
           movements_outflows: [],
         }),
       ];

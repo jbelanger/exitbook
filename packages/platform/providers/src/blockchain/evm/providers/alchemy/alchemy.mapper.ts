@@ -1,7 +1,7 @@
 import type { RawTransactionMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
@@ -47,7 +47,7 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
 
       // For NFTs, amount is typically 1 or the specified quantity
       if (rawData.category === 'erc721') {
-        amount = new Decimal(1);
+        amount = parseDecimal('1');
       } else if (
         rawData.category === 'erc1155' &&
         Array.isArray(rawData.erc1155Metadata) &&

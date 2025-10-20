@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-null -- db requires explicit null */
 import { DEFAULT_MATCHING_CONFIG, type TransactionLink } from '@exitbook/accounting';
+import { parseDecimal } from '@exitbook/core';
 import type { KyselyDB, StoredTransaction } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -84,8 +84,8 @@ describe('LinkHandler', () => {
     transaction_status: 'confirmed',
     from_address: null,
     to_address: 'bc1q...',
-    movements_inflows: operationType === 'withdrawal' ? [] : [{ asset: 'BTC', amount: new Decimal('1.0') }],
-    movements_outflows: operationType === 'withdrawal' ? [{ asset: 'BTC', amount: new Decimal('1.0') }] : [],
+    movements_inflows: operationType === 'withdrawal' ? [] : [{ asset: 'BTC', amount: parseDecimal('1.0') }],
+    movements_outflows: operationType === 'withdrawal' ? [{ asset: 'BTC', amount: parseDecimal('1.0') }] : [],
     fees_total: null,
     fees_network: null,
     fees_platform: null,
@@ -110,10 +110,10 @@ describe('LinkHandler', () => {
     sourceTransactionId: sourceId,
     targetTransactionId: targetId,
     linkType: 'exchange_to_blockchain',
-    confidenceScore: new Decimal(confidence),
+    confidenceScore: parseDecimal(confidence),
     matchCriteria: {
       assetMatch: true,
-      amountSimilarity: new Decimal('0.99'),
+      amountSimilarity: parseDecimal('0.99'),
       timingValid: true,
       timingHours: 1,
       addressMatch: true,
@@ -130,8 +130,8 @@ describe('LinkHandler', () => {
     it('should use correct minAmountSimilarity (0.95) independent of minConfidenceScore', async () => {
       const params: LinkHandlerParams = {
         dryRun: false,
-        minConfidenceScore: new Decimal('0.7'), // Different from minAmountSimilarity
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'), // Different from minAmountSimilarity
+        autoConfirmThreshold: parseDecimal('0.95'),
       };
 
       const transactions = [
@@ -174,8 +174,8 @@ describe('LinkHandler', () => {
     it('should successfully link transactions and save to database', async () => {
       const params: LinkHandlerParams = {
         dryRun: false,
-        minConfidenceScore: new Decimal('0.7'),
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
       };
 
       const transactions = [
@@ -218,8 +218,8 @@ describe('LinkHandler', () => {
     it('should find suggested links but not auto-confirm', async () => {
       const params: LinkHandlerParams = {
         dryRun: false,
-        minConfidenceScore: new Decimal('0.7'),
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
       };
 
       const transactions = [
@@ -256,8 +256,8 @@ describe('LinkHandler', () => {
     it('should not save links in dry-run mode', async () => {
       const params: LinkHandlerParams = {
         dryRun: true,
-        minConfidenceScore: new Decimal('0.7'),
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
       };
 
       const transactions = [
@@ -292,8 +292,8 @@ describe('LinkHandler', () => {
     it('should handle no transactions gracefully', async () => {
       const params: LinkHandlerParams = {
         dryRun: false,
-        minConfidenceScore: new Decimal('0.7'),
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
       };
 
       mockTransactionRepository.getTransactions.mockResolvedValue(ok([]));
@@ -314,8 +314,8 @@ describe('LinkHandler', () => {
     it('should handle unmatched transactions', async () => {
       const params: LinkHandlerParams = {
         dryRun: false,
-        minConfidenceScore: new Decimal('0.7'),
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
       };
 
       const transactions = [
@@ -349,8 +349,8 @@ describe('LinkHandler', () => {
     it('should return error if parameter validation fails', async () => {
       const params: LinkHandlerParams = {
         dryRun: false,
-        minConfidenceScore: new Decimal('1.5'), // Invalid
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('1.5'), // Invalid
+        autoConfirmThreshold: parseDecimal('0.95'),
       };
 
       const result = await handler.execute(params);
@@ -364,8 +364,8 @@ describe('LinkHandler', () => {
     it('should return error if fetching transactions fails', async () => {
       const params: LinkHandlerParams = {
         dryRun: false,
-        minConfidenceScore: new Decimal('0.7'),
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
       };
 
       mockTransactionRepository.getTransactions.mockResolvedValue(err(new Error('Database error')));
@@ -381,8 +381,8 @@ describe('LinkHandler', () => {
     it('should return error if linking service fails', async () => {
       const params: LinkHandlerParams = {
         dryRun: false,
-        minConfidenceScore: new Decimal('0.7'),
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
       };
 
       const transactions = [createMockTransaction(1, 'exchange', 'withdrawal')];
@@ -401,8 +401,8 @@ describe('LinkHandler', () => {
     it('should return error if saving links fails', async () => {
       const params: LinkHandlerParams = {
         dryRun: false,
-        minConfidenceScore: new Decimal('0.7'),
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
       };
 
       const transactions = [
@@ -434,8 +434,8 @@ describe('LinkHandler', () => {
     it('should handle exceptions gracefully', async () => {
       const params: LinkHandlerParams = {
         dryRun: false,
-        minConfidenceScore: new Decimal('0.7'),
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
       };
 
       mockTransactionRepository.getTransactions.mockRejectedValue(new Error('Unexpected error'));

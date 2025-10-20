@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import { parseDecimal } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
 import { CanadaRules } from '../canada-rules.ts';
@@ -23,21 +23,21 @@ describe('CanadaRules', () => {
 
   describe('calculateTaxableGain', () => {
     test('should return 50% of gain (inclusion rate)', () => {
-      const gain = new Decimal('10000');
+      const gain = parseDecimal('10000');
       const taxableGain = rules.calculateTaxableGain(gain, 365);
 
       expect(taxableGain.toString()).toBe('5000');
     });
 
     test('should return 50% of loss', () => {
-      const loss = new Decimal('-5000');
+      const loss = parseDecimal('-5000');
       const taxableLoss = rules.calculateTaxableGain(loss, 100);
 
       expect(taxableLoss.toString()).toBe('-2500');
     });
 
     test('should apply inclusion rate regardless of holding period', () => {
-      const gain = new Decimal('1000');
+      const gain = parseDecimal('1000');
 
       // Short holding period
       expect(rules.calculateTaxableGain(gain, 1).toString()).toBe('500');
@@ -47,7 +47,7 @@ describe('CanadaRules', () => {
     });
 
     test('should handle decimal precision correctly', () => {
-      const gain = new Decimal('12345.678');
+      const gain = parseDecimal('12345.678');
       const taxableGain = rules.calculateTaxableGain(gain, 100);
 
       expect(taxableGain.toString()).toBe('6172.839');

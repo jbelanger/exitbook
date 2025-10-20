@@ -1,3 +1,4 @@
+import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -43,7 +44,7 @@ describe('schemas', () => {
     it('should validate complete match criteria', () => {
       const criteria = {
         assetMatch: true,
-        amountSimilarity: new Decimal('0.95'),
+        amountSimilarity: parseDecimal('0.95'),
         timingValid: true,
         timingHours: 1.5,
         addressMatch: true,
@@ -61,7 +62,7 @@ describe('schemas', () => {
     it('should validate criteria without optional addressMatch', () => {
       const criteria = {
         assetMatch: false,
-        amountSimilarity: new Decimal('0.85'),
+        amountSimilarity: parseDecimal('0.85'),
         timingValid: true,
         timingHours: 2.0,
       };
@@ -89,7 +90,7 @@ describe('schemas', () => {
       expect(() =>
         MatchCriteriaSchema.parse({
           assetMatch: 'yes', // should be boolean
-          amountSimilarity: new Decimal('0.95'),
+          amountSimilarity: parseDecimal('0.95'),
           timingValid: true,
           timingHours: 1.5,
         })
@@ -98,7 +99,7 @@ describe('schemas', () => {
       expect(() =>
         MatchCriteriaSchema.parse({
           assetMatch: true,
-          amountSimilarity: new Decimal('0.95'),
+          amountSimilarity: parseDecimal('0.95'),
           // missing required fields
         })
       ).toThrow();
@@ -112,10 +113,10 @@ describe('schemas', () => {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         linkType: 'exchange_to_blockchain',
-        confidenceScore: new Decimal('0.95'),
+        confidenceScore: parseDecimal('0.95'),
         matchCriteria: {
           assetMatch: true,
-          amountSimilarity: new Decimal('1.0'),
+          amountSimilarity: parseDecimal('1.0'),
           timingValid: true,
           timingHours: 1.5,
           addressMatch: true,
@@ -173,7 +174,7 @@ describe('schemas', () => {
           sourceTransactionId: 'not-a-number',
           targetTransactionId: 2,
           linkType: 'exchange_to_blockchain',
-          confidenceScore: new Decimal('0.95'),
+          confidenceScore: parseDecimal('0.95'),
           matchCriteria: {},
           status: 'confirmed',
           createdAt: new Date(),
@@ -192,7 +193,7 @@ describe('schemas', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         asset: 'BTC',
-        amount: new Decimal('1.5'),
+        amount: parseDecimal('1.5'),
         direction: 'out',
         fromAddress: 'addr123',
         toAddress: 'addr456',
@@ -235,7 +236,7 @@ describe('schemas', () => {
         sourceType: 'exchange',
         timestamp: new Date(),
         asset: 'ETH',
-        amount: new Decimal('0.5'),
+        amount: parseDecimal('0.5'),
         direction: 'neutral',
       };
 
@@ -251,7 +252,7 @@ describe('schemas', () => {
           sourceType: 'exchange',
           timestamp: new Date(),
           asset: 'BTC',
-          amount: new Decimal('1.0'),
+          amount: parseDecimal('1.0'),
           direction: 'invalid',
         })
       ).toThrow();
@@ -265,7 +266,7 @@ describe('schemas', () => {
           sourceType: 'wallet',
           timestamp: new Date(),
           asset: 'BTC',
-          amount: new Decimal('1.0'),
+          amount: parseDecimal('1.0'),
           direction: 'in',
         })
       ).toThrow();
@@ -279,7 +280,7 @@ describe('schemas', () => {
       sourceType: 'exchange' as const,
       timestamp: new Date(),
       asset: 'BTC',
-      amount: new Decimal('1.0'),
+      amount: parseDecimal('1.0'),
       direction: 'out' as const,
       ...overrides,
     });
@@ -288,10 +289,10 @@ describe('schemas', () => {
       const match = {
         sourceTransaction: createMockCandidate({ id: 1, direction: 'out' as const }),
         targetTransaction: createMockCandidate({ id: 2, direction: 'in' as const }),
-        confidenceScore: new Decimal('0.95'),
+        confidenceScore: parseDecimal('0.95'),
         matchCriteria: {
           assetMatch: true,
-          amountSimilarity: new Decimal('1.0'),
+          amountSimilarity: parseDecimal('1.0'),
           timingValid: true,
           timingHours: 1.0,
           addressMatch: true,
@@ -331,9 +332,9 @@ describe('schemas', () => {
     it('should validate complete matching config', () => {
       const config = {
         maxTimingWindowHours: 24,
-        minAmountSimilarity: new Decimal('0.95'),
-        minConfidenceScore: new Decimal('0.7'),
-        autoConfirmThreshold: new Decimal('0.95'),
+        minAmountSimilarity: parseDecimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
       };
 
       const result = MatchingConfigSchema.parse(config);
@@ -362,9 +363,9 @@ describe('schemas', () => {
       expect(() =>
         MatchingConfigSchema.parse({
           maxTimingWindowHours: -1,
-          minAmountSimilarity: new Decimal('0.95'),
-          minConfidenceScore: new Decimal('0.7'),
-          autoConfirmThreshold: new Decimal('0.95'),
+          minAmountSimilarity: parseDecimal('0.95'),
+          minConfidenceScore: parseDecimal('0.7'),
+          autoConfirmThreshold: parseDecimal('0.95'),
         })
       ).toThrow();
     });
@@ -373,9 +374,9 @@ describe('schemas', () => {
       expect(() =>
         MatchingConfigSchema.parse({
           maxTimingWindowHours: 0,
-          minAmountSimilarity: new Decimal('0.95'),
-          minConfidenceScore: new Decimal('0.7'),
-          autoConfirmThreshold: new Decimal('0.95'),
+          minAmountSimilarity: parseDecimal('0.95'),
+          minConfidenceScore: parseDecimal('0.7'),
+          autoConfirmThreshold: parseDecimal('0.95'),
         })
       ).toThrow();
     });
@@ -384,7 +385,7 @@ describe('schemas', () => {
       expect(() =>
         MatchingConfigSchema.parse({
           maxTimingWindowHours: 24,
-          minAmountSimilarity: new Decimal('0.95'),
+          minAmountSimilarity: parseDecimal('0.95'),
           // missing fields
         })
       ).toThrow();
@@ -398,17 +399,17 @@ describe('schemas', () => {
       sourceType: 'exchange' as const,
       timestamp: new Date(),
       asset: 'BTC',
-      amount: new Decimal('1.0'),
+      amount: parseDecimal('1.0'),
       direction: 'out' as const,
     });
 
     const createMockMatch = (sourceId: number, targetId: number) => ({
       sourceTransaction: createMockCandidate(sourceId),
       targetTransaction: createMockCandidate(targetId),
-      confidenceScore: new Decimal('0.85'),
+      confidenceScore: parseDecimal('0.85'),
       matchCriteria: {
         assetMatch: true,
-        amountSimilarity: new Decimal('0.95'),
+        amountSimilarity: parseDecimal('0.95'),
         timingValid: true,
         timingHours: 1.5,
       },
@@ -420,10 +421,10 @@ describe('schemas', () => {
       sourceTransactionId: sourceId,
       targetTransactionId: targetId,
       linkType: 'exchange_to_blockchain' as const,
-      confidenceScore: new Decimal('0.95'),
+      confidenceScore: parseDecimal('0.95'),
       matchCriteria: {
         assetMatch: true,
-        amountSimilarity: new Decimal('1.0'),
+        amountSimilarity: parseDecimal('1.0'),
         timingValid: true,
         timingHours: 1.0,
       },
@@ -515,12 +516,12 @@ describe('schemas', () => {
     });
 
     it('should keep Decimal as Decimal', () => {
-      const decimalValue = new Decimal('0.95');
+      const decimalValue = parseDecimal('0.95');
       const config = {
         maxTimingWindowHours: 24,
         minAmountSimilarity: decimalValue,
-        minConfidenceScore: new Decimal('0.7'),
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
       };
 
       const result = MatchingConfigSchema.parse(config);

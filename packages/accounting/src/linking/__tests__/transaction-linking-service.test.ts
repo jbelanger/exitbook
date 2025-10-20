@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-null -- db requires null*/
+import { parseDecimal } from '@exitbook/core';
 import type { StoredTransaction } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
-import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_MATCHING_CONFIG } from '../matching-utils.js';
@@ -43,10 +43,10 @@ function createTransaction(params: {
     note_message: null,
     note_metadata: null,
     movements_inflows: params.inflows
-      ? params.inflows.map((m) => ({ asset: m.asset, amount: new Decimal(m.amount) }))
+      ? params.inflows.map((m) => ({ asset: m.asset, amount: parseDecimal(m.amount) }))
       : [],
     movements_outflows: params.outflows
-      ? params.outflows.map((m) => ({ asset: m.asset, amount: new Decimal(m.amount) }))
+      ? params.outflows.map((m) => ({ asset: m.asset, amount: parseDecimal(m.amount) }))
       : [],
     fees_network: null,
     fees_platform: null,
@@ -108,7 +108,7 @@ describe('TransactionLinkingService', () => {
         expect(link?.linkType).toBe('exchange_to_blockchain');
         expect(link?.status).toBe('confirmed');
         expect(link?.reviewedBy).toBe('auto');
-        expect(link?.confidenceScore.greaterThanOrEqualTo(new Decimal('0.95'))).toBe(true);
+        expect(link?.confidenceScore.greaterThanOrEqualTo(parseDecimal('0.95'))).toBe(true);
       }
     });
 
@@ -151,7 +151,7 @@ describe('TransactionLinkingService', () => {
         expect(match?.sourceTransaction.id).toBe(1);
         expect(match?.targetTransaction.id).toBe(2);
         expect(match?.linkType).toBe('exchange_to_blockchain');
-        expect(match?.confidenceScore.lessThan(new Decimal('0.95'))).toBe(true);
+        expect(match?.confidenceScore.lessThan(parseDecimal('0.95'))).toBe(true);
       }
     });
 
@@ -572,7 +572,7 @@ describe('TransactionLinkingService', () => {
     it('should auto-confirm matches above threshold', () => {
       const service = new TransactionLinkingService(logger, {
         ...DEFAULT_MATCHING_CONFIG,
-        autoConfirmThreshold: new Decimal('0.9'),
+        autoConfirmThreshold: parseDecimal('0.9'),
       });
 
       const transactions: StoredTransaction[] = [
@@ -610,14 +610,14 @@ describe('TransactionLinkingService', () => {
         const link = confirmedLinks[0];
         expect(link?.status).toBe('confirmed');
         expect(link?.reviewedBy).toBe('auto');
-        expect(link?.confidenceScore.greaterThanOrEqualTo(new Decimal('0.9'))).toBe(true);
+        expect(link?.confidenceScore.greaterThanOrEqualTo(parseDecimal('0.9'))).toBe(true);
       }
     });
 
     it('should suggest matches below threshold', () => {
       const service = new TransactionLinkingService(logger, {
         ...DEFAULT_MATCHING_CONFIG,
-        autoConfirmThreshold: new Decimal('0.99'), // Very high threshold
+        autoConfirmThreshold: parseDecimal('0.99'), // Very high threshold
       });
 
       const transactions: StoredTransaction[] = [
@@ -652,7 +652,7 @@ describe('TransactionLinkingService', () => {
         expect(suggestedLinks).toHaveLength(1);
 
         const match = suggestedLinks[0];
-        expect(match?.confidenceScore.lessThan(new Decimal('0.99'))).toBe(true);
+        expect(match?.confidenceScore.lessThan(parseDecimal('0.99'))).toBe(true);
       }
     });
   });

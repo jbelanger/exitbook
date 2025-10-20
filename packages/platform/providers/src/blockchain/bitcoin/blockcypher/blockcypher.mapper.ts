@@ -1,6 +1,5 @@
-import type { RawTransactionMetadata } from '@exitbook/core';
+import { parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { ok, type Result } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
@@ -55,7 +54,7 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
       normalized.blockId = rawData.block_hash;
     }
     if (rawData.fees > 0) {
-      const btcFee = new Decimal(rawData.fees).div(100000000).toString();
+      const btcFee = parseDecimal(rawData.fees.toString()).div(100000000).toString();
       normalized.feeAmount = btcFee;
       normalized.feeCurrency = 'BTC';
     }

@@ -1,4 +1,5 @@
-import { Decimal } from 'decimal.js';
+import { parseDecimal } from '@exitbook/core';
+import type { Decimal } from 'decimal.js';
 
 import type { BalanceComparison, BalanceVerificationResult } from './balance-verifier.types.ts';
 
@@ -17,8 +18,8 @@ export function compareBalances(
   const allCurrencies = new Set([...Object.keys(calculated), ...Object.keys(live)]);
 
   for (const currency of allCurrencies) {
-    const calcBalance = calculated[currency] || new Decimal(0);
-    const liveBalance = live[currency] || new Decimal(0);
+    const calcBalance = calculated[currency] || parseDecimal('0');
+    const liveBalance = live[currency] || parseDecimal('0');
 
     const difference = calcBalance.minus(liveBalance);
     const absDifference = difference.abs();
@@ -54,8 +55,8 @@ export function compareBalances(
 
   // Sort by absolute calculated balance (largest first)
   return comparisons.sort((a, b) => {
-    const absA = new Decimal(a.calculatedBalance).abs();
-    const absB = new Decimal(b.calculatedBalance).abs();
+    const absA = parseDecimal(a.calculatedBalance).abs();
+    const absB = parseDecimal(b.calculatedBalance).abs();
     return absB.comparedTo(absA);
   });
 }

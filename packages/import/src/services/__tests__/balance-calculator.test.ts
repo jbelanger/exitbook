@@ -1,7 +1,6 @@
 /* eslint-disable unicorn/no-null -- Acceptable for tests */
-import { createMoney } from '@exitbook/core';
+import { createMoney, parseDecimal } from '@exitbook/core';
 import type { StoredTransaction } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import { calculateBalances } from '../balance-calculator.ts';
@@ -59,7 +58,7 @@ describe('calculateBalances', () => {
       movements_inflows: [
         {
           asset: 'BTC',
-          amount: new Decimal('1.5'),
+          amount: parseDecimal('1.5'),
         },
       ],
     });
@@ -78,7 +77,7 @@ describe('calculateBalances', () => {
       movements_outflows: [
         {
           asset: 'ETH',
-          amount: new Decimal('2.0'),
+          amount: parseDecimal('2.0'),
         },
       ],
     });
@@ -100,7 +99,7 @@ describe('calculateBalances', () => {
       movements_outflows: [
         {
           asset: 'BTC',
-          amount: new Decimal('0.5'),
+          amount: parseDecimal('0.5'),
         },
       ],
       fees_network: createMoney('0.0001', 'BTC'),
@@ -120,13 +119,13 @@ describe('calculateBalances', () => {
       movements_inflows: [
         {
           asset: 'BTC',
-          amount: new Decimal('1.0'),
+          amount: parseDecimal('1.0'),
         },
       ],
       movements_outflows: [
         {
           asset: 'USDT',
-          amount: new Decimal('50000'),
+          amount: parseDecimal('50000'),
         },
       ],
       fees_platform: createMoney('0.001', 'BTC'),
@@ -151,7 +150,7 @@ describe('calculateBalances', () => {
       movements_outflows: [
         {
           asset: 'ETH',
-          amount: new Decimal('5.0'),
+          amount: parseDecimal('5.0'),
         },
       ],
       fees_network: createMoney('0.005', 'ETH'),
@@ -175,7 +174,7 @@ describe('calculateBalances', () => {
         movements_inflows: [
           {
             asset: 'BTC',
-            amount: new Decimal('1.0'),
+            amount: parseDecimal('1.0'),
           },
         ],
       }),
@@ -188,7 +187,7 @@ describe('calculateBalances', () => {
         movements_inflows: [
           {
             asset: 'BTC',
-            amount: new Decimal('0.5'),
+            amount: parseDecimal('0.5'),
           },
         ],
       }),
@@ -201,7 +200,7 @@ describe('calculateBalances', () => {
         movements_outflows: [
           {
             asset: 'BTC',
-            amount: new Decimal('0.3'),
+            amount: parseDecimal('0.3'),
           },
         ],
         fees_platform: createMoney('0.001', 'BTC'),
@@ -222,13 +221,13 @@ describe('calculateBalances', () => {
       movements_inflows: [
         {
           asset: 'BTC',
-          amount: new Decimal('0.5'),
+          amount: parseDecimal('0.5'),
         },
       ],
       movements_outflows: [
         {
           asset: 'USDT',
-          amount: new Decimal('25000'),
+          amount: parseDecimal('25000'),
         },
       ],
       fees_platform: createMoney('10', 'USDT'),
@@ -265,7 +264,7 @@ describe('calculateBalances', () => {
       movements_inflows: [
         {
           asset: 'BTC',
-          amount: new Decimal('0.00000001'),
+          amount: parseDecimal('0.00000001'),
         },
       ],
     });
@@ -284,7 +283,7 @@ describe('calculateBalances', () => {
       movements_inflows: [
         {
           asset: 'SHIB',
-          amount: new Decimal('1000000000000'),
+          amount: parseDecimal('1000000000000'),
         },
       ],
     });
@@ -303,11 +302,11 @@ describe('calculateBalances', () => {
       movements_inflows: [
         {
           asset: 'ETH',
-          amount: new Decimal('1.0'),
+          amount: parseDecimal('1.0'),
         },
         {
           asset: 'ETH',
-          amount: new Decimal('2.5'),
+          amount: parseDecimal('2.5'),
         },
       ],
     });
@@ -329,7 +328,7 @@ describe('calculateBalances', () => {
         movements_inflows: [
           {
             asset: 'BTC',
-            amount: new Decimal('1.0'),
+            amount: parseDecimal('1.0'),
           },
         ],
       }),
@@ -342,7 +341,7 @@ describe('calculateBalances', () => {
         movements_outflows: [
           {
             asset: 'BTC',
-            amount: new Decimal('0.999'),
+            amount: parseDecimal('0.999'),
           },
         ],
         fees_platform: createMoney('0.001', 'BTC'),

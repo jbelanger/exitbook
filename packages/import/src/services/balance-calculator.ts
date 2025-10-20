@@ -1,5 +1,6 @@
+import { parseDecimal } from '@exitbook/core';
 import type { StoredTransaction } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 
 /**
  * Calculate balances for all currencies from a set of transactions.
@@ -23,7 +24,7 @@ function processTransactionForBalance(transaction: StoredTransaction, balances: 
   // Initialize balance for any assets we encounter
   const ensureBalance = (asset: string) => {
     if (!balances[asset]) {
-      balances[asset] = new Decimal(0);
+      balances[asset] = parseDecimal('0');
     }
   };
 

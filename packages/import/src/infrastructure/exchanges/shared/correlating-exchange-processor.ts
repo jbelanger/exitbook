@@ -1,6 +1,6 @@
 import type { UniversalTransaction } from '@exitbook/core';
 import { createMoney, parseDecimal } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
@@ -78,15 +78,15 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
 
         movements: {
           inflows: fundFlow.inflows.map((inflow) => ({
-            amount: new Decimal(inflow.amount),
+            amount: parseDecimal(inflow.amount),
             asset: inflow.asset,
           })),
           outflows: fundFlow.outflows.map((outflow) => ({
-            amount: new Decimal(outflow.amount),
+            amount: parseDecimal(outflow.amount),
             asset: outflow.asset,
           })),
           primary: {
-            amount: new Decimal(fundFlow.primary.amount),
+            amount: parseDecimal(fundFlow.primary.amount),
             asset: fundFlow.primary.asset,
             direction: this.determinePrimaryDirection(fundFlow),
           },
@@ -328,7 +328,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     const largestInflow = consolidatedInflows
       .sort((a, b) => {
         try {
-          return new Decimal(b.amount).comparedTo(new Decimal(a.amount));
+          return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
         } catch {
           return 0;
         }
@@ -344,7 +344,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
       const largestOutflow = consolidatedOutflows
         .sort((a, b) => {
           try {
-            return new Decimal(b.amount).comparedTo(new Decimal(a.amount));
+            return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
           } catch {
             return 0;
           }
@@ -397,9 +397,9 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     for (const movement of movements) {
       const existing = assetMap.get(movement.asset);
       if (existing) {
-        assetMap.set(movement.asset, existing.plus(new Decimal(movement.amount)));
+        assetMap.set(movement.asset, existing.plus(parseDecimal(movement.amount)));
       } else {
-        assetMap.set(movement.asset, new Decimal(movement.amount));
+        assetMap.set(movement.asset, parseDecimal(movement.amount));
       }
     }
 
@@ -418,9 +418,9 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     for (const fee of fees) {
       const existing = feeMap.get(fee.currency);
       if (existing) {
-        feeMap.set(fee.currency, existing.plus(new Decimal(fee.amount)));
+        feeMap.set(fee.currency, existing.plus(parseDecimal(fee.amount)));
       } else {
-        feeMap.set(fee.currency, new Decimal(fee.amount));
+        feeMap.set(fee.currency, parseDecimal(fee.amount));
       }
     }
 

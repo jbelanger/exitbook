@@ -1,6 +1,5 @@
-import type { RawTransactionMetadata } from '@exitbook/core';
+import { parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
@@ -28,18 +27,18 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
     const nativeDecimals = rawData._nativeDecimals || 18;
 
     // Parse value - Zod already validated it's numeric
-    const valueWei = new Decimal(rawData.value);
+    const valueWei = parseDecimal(rawData.value);
 
     // Convert to native currency units
-    const valueNative = valueWei.dividedBy(new Decimal(10).pow(nativeDecimals));
+    const valueNative = valueWei.dividedBy(parseDecimal('10').pow(nativeDecimals));
     const timestamp = new Date(rawData.block_timestamp).getTime();
 
     // Calculate gas fee - Zod already validated they're numeric
-    const gasUsed = new Decimal(rawData.receipt_gas_used || '0');
-    const gasPrice = new Decimal(rawData.gas_price || '0');
+    const gasUsed = parseDecimal(rawData.receipt_gas_used || '0');
+    const gasPrice = parseDecimal(rawData.gas_price || '0');
 
     const feeWei = gasUsed.mul(gasPrice);
-    const feeNative = feeWei.dividedBy(new Decimal(10).pow(nativeDecimals));
+    const feeNative = feeWei.dividedBy(parseDecimal('10').pow(nativeDecimals));
 
     const transaction: EvmTransaction = {
       amount: valueNative.toString(),
@@ -88,8 +87,8 @@ export class MoralisTokenTransferMapper extends BaseRawDataMapper<MoralisTokenTr
     const tokenDecimals = parseInt(rawData.token_decimals);
 
     // Convert token value to decimal representation
-    const valueRaw = new Decimal(rawData.value);
-    const valueDecimal = valueRaw.dividedBy(new Decimal(10).pow(tokenDecimals));
+    const valueRaw = parseDecimal(rawData.value);
+    const valueDecimal = valueRaw.dividedBy(parseDecimal('10').pow(tokenDecimals));
 
     const transaction: EvmTransaction = {
       amount: valueDecimal.toString(),

@@ -1,9 +1,9 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
 import type { Currency, AssetMovement, Money, UniversalTransaction } from '@exitbook/core';
-import { dbStringToMoney, moneyToDbString, wrapError } from '@exitbook/core';
+import { dbStringToMoney, moneyToDbString, parseDecimal, wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 import type { Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
@@ -411,7 +411,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       fees_total: this.parseFee(row.fees_total as string | null),
       movements_inflows: this.parseMovements(row.movements_inflows as string | null),
       movements_outflows: this.parseMovements(row.movements_outflows as string | null),
-    } as StoredTransaction;
+    };
   }
 
   /**
@@ -430,7 +430,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       return parsed.map((movement) => ({
         asset: movement.asset,
-        amount: new Decimal(movement.amount),
+        amount: parseDecimal(movement.amount.toString()),
       }));
     } catch (error) {
       this.logger.warn({ error, jsonString }, 'Failed to parse movements JSON');

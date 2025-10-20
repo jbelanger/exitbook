@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import { parseDecimal } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
 import { USRules } from '../us-rules.ts';
@@ -33,35 +33,35 @@ describe('USRules', () => {
 
   describe('calculateTaxableGain', () => {
     test('should return 100% of gain (no inclusion rate)', () => {
-      const gain = new Decimal('10000');
+      const gain = parseDecimal('10000');
       const taxableGain = rules.calculateTaxableGain(gain, 365);
 
       expect(taxableGain.toString()).toBe('10000');
     });
 
     test('should return 100% of loss', () => {
-      const loss = new Decimal('-5000');
+      const loss = parseDecimal('-5000');
       const taxableLoss = rules.calculateTaxableGain(loss, 100);
 
       expect(taxableLoss.toString()).toBe('-5000');
     });
 
     test('should return 100% regardless of holding period (short-term)', () => {
-      const gain = new Decimal('1000');
+      const gain = parseDecimal('1000');
       const taxableGain = rules.calculateTaxableGain(gain, 100);
 
       expect(taxableGain.toString()).toBe('1000');
     });
 
     test('should return 100% regardless of holding period (long-term)', () => {
-      const gain = new Decimal('1000');
+      const gain = parseDecimal('1000');
       const taxableGain = rules.calculateTaxableGain(gain, 730);
 
       expect(taxableGain.toString()).toBe('1000');
     });
 
     test('should preserve decimal precision', () => {
-      const gain = new Decimal('12345.6789');
+      const gain = parseDecimal('12345.6789');
       const taxableGain = rules.calculateTaxableGain(gain, 365);
 
       expect(taxableGain.toString()).toBe('12345.6789');

@@ -1,6 +1,8 @@
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 
 import type { AssetMovement, MovementDirection } from '../types/universal-transaction.js';
+
+import { parseDecimal } from './decimal-utils.ts';
 
 /**
  * Result of computing primary movement from inflows/outflows
@@ -77,8 +79,8 @@ export function computePrimaryMovement(inflows: AssetMovement[], outflows: Asset
   const largestInflow = findLargestMovement(inflows);
   const largestOutflow = findLargestMovement(outflows);
 
-  const inflowValue = new Decimal(largestInflow.amount);
-  const outflowValue = new Decimal(largestOutflow.amount);
+  const inflowValue = parseDecimal(largestInflow.amount);
+  const outflowValue = parseDecimal(largestOutflow.amount);
 
   // Compare by absolute value to determine which is primary
   if (inflowValue.greaterThanOrEqualTo(outflowValue)) {
@@ -109,10 +111,10 @@ function findLargestMovement(movements: AssetMovement[]): AssetMovement {
   }
 
   let largest = movements[0]!;
-  let largestAmount = new Decimal(largest.amount);
+  let largestAmount = parseDecimal(largest.amount);
 
   for (let i = 1; i < movements.length; i++) {
-    const currentAmount = new Decimal(movements[i]!.amount);
+    const currentAmount = parseDecimal(movements[i]!.amount);
     if (currentAmount.greaterThan(largestAmount)) {
       largest = movements[i]!;
       largestAmount = currentAmount;

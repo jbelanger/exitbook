@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- null required for db */
+import { parseDecimal } from '@exitbook/core';
 import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { TransactionLink } from '../../linking/types.js';
@@ -62,10 +62,10 @@ describe('TransactionLinkRepository', () => {
     sourceTransactionId: 1,
     targetTransactionId: 2,
     linkType: 'exchange_to_blockchain',
-    confidenceScore: new Decimal('0.95'),
+    confidenceScore: parseDecimal('0.95'),
     matchCriteria: {
       assetMatch: true,
-      amountSimilarity: new Decimal('1.0'),
+      amountSimilarity: parseDecimal('1.0'),
       timingValid: true,
       timingHours: 1.5,
       addressMatch: true,

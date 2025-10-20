@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- db requires explicit null */
+import { parseDecimal } from '@exitbook/core';
 import type { KyselyDB, StoredTransaction } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
@@ -54,7 +54,7 @@ describe('ExportHandler', () => {
     transaction_status: 'confirmed',
     from_address: null,
     to_address: null,
-    movements_inflows: [{ asset, amount: new Decimal('1.0') }],
+    movements_inflows: [{ asset, amount: parseDecimal('1.0') }],
     movements_outflows: [],
     fees_total: null,
     fees_network: null,

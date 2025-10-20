@@ -2,7 +2,8 @@
 // Handles user input for manual price entry
 
 import * as p from '@clack/prompts';
-import { Decimal } from 'decimal.js';
+import { parseDecimal } from '@exitbook/core';
+import type { Decimal } from 'decimal.js';
 
 import { handleCancellation, isCancelled } from '../shared/prompts.ts';
 
@@ -63,7 +64,7 @@ export async function promptManualPrice(
         return 'Please enter a price';
       }
       try {
-        const decimal = new Decimal(value);
+        const decimal = parseDecimal(value);
         if (decimal.lte(0)) {
           return 'Price must be greater than 0';
         }
@@ -108,7 +109,7 @@ export async function promptManualPrice(
   }
 
   return {
-    price: new Decimal(priceValue),
+    price: parseDecimal(priceValue),
     currency: currency.toUpperCase(),
     source: source || 'manual',
   };

@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- acceptable for tests */
+import { parseDecimal } from '@exitbook/core';
 import type { ImportSession } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -404,9 +404,9 @@ describe('buildSourceParams', () => {
 describe('decimalRecordToStringRecord', () => {
   it('should convert Decimal values to strings', () => {
     const input = {
-      BTC: new Decimal('1.23456789'),
-      ETH: new Decimal('10.5'),
-      USDT: new Decimal('1000'),
+      BTC: parseDecimal('1.23456789'),
+      ETH: parseDecimal('10.5'),
+      USDT: parseDecimal('1000'),
     };
 
     const result = decimalRecordToStringRecord(input);
@@ -426,8 +426,8 @@ describe('decimalRecordToStringRecord', () => {
 
   it('should handle zero values', () => {
     const input = {
-      BTC: new Decimal('0'),
-      ETH: new Decimal('0.0'),
+      BTC: parseDecimal('0'),
+      ETH: parseDecimal('0.0'),
     };
 
     const result = decimalRecordToStringRecord(input);
@@ -440,7 +440,7 @@ describe('decimalRecordToStringRecord', () => {
 
   it('should handle very small decimal values', () => {
     const input = {
-      BTC: new Decimal('0.00000001'),
+      BTC: parseDecimal('0.00000001'),
     };
 
     const result = decimalRecordToStringRecord(input);
@@ -452,8 +452,8 @@ describe('decimalRecordToStringRecord', () => {
 
   it('should handle very large decimal values without scientific notation', () => {
     const input = {
-      SHIB: new Decimal('1000000000000'),
-      WEI: new Decimal('999999999999999999'),
+      SHIB: parseDecimal('1000000000000'),
+      WEI: parseDecimal('999999999999999999'),
     };
 
     const result = decimalRecordToStringRecord(input);

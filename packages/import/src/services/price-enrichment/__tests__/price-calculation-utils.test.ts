@@ -1,6 +1,5 @@
 import type { AssetMovement, PriceAtTxTime } from '@exitbook/core';
-import { Currency } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -15,14 +14,14 @@ describe('extractTradeMovements', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: new Decimal('1'),
+        amount: parseDecimal('1'),
       },
     ];
 
     const outflows: AssetMovement[] = [
       {
         asset: 'USDT',
-        amount: new Decimal('50000'),
+        amount: parseDecimal('50000'),
       },
     ];
 
@@ -40,18 +39,18 @@ describe('extractTradeMovements', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: new Decimal('1'),
+        amount: parseDecimal('1'),
       },
       {
         asset: 'ETH',
-        amount: new Decimal('10'),
+        amount: parseDecimal('10'),
       },
     ];
 
     const outflows: AssetMovement[] = [
       {
         asset: 'USDT',
-        amount: new Decimal('50000'),
+        amount: parseDecimal('50000'),
       },
     ];
 
@@ -68,11 +67,11 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'BTC',
-        amount: new Decimal('1'),
+        amount: parseDecimal('1'),
       },
       outflow: {
         asset: 'USDT',
-        amount: new Decimal('50000'),
+        amount: parseDecimal('50000'),
       },
       timestamp: 1234567890000,
     };
@@ -93,11 +92,11 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'USD',
-        amount: new Decimal('6000'),
+        amount: parseDecimal('6000'),
       },
       outflow: {
         asset: 'ETH',
-        amount: new Decimal('2'),
+        amount: parseDecimal('2'),
       },
       timestamp: 1234567890000,
     };
@@ -116,11 +115,11 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'USDC',
-        amount: new Decimal('999.5'),
+        amount: parseDecimal('999.5'),
       },
       outflow: {
         asset: 'USDT',
-        amount: new Decimal('1000'),
+        amount: parseDecimal('1000'),
       },
       timestamp: 1234567890000,
     };
@@ -146,11 +145,11 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'ETH',
-        amount: new Decimal('20'),
+        amount: parseDecimal('20'),
       },
       outflow: {
         asset: 'BTC',
-        amount: new Decimal('1'),
+        amount: parseDecimal('1'),
       },
       timestamp: 1234567890000,
     };
@@ -165,11 +164,11 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'BTC',
-        amount: new Decimal('0.5'),
+        amount: parseDecimal('0.5'),
       },
       outflow: {
         asset: 'USDT',
-        amount: new Decimal('25000'),
+        amount: parseDecimal('25000'),
       },
       timestamp: 1234567890000,
     };
@@ -190,19 +189,19 @@ describe('findClosestPrice', () => {
     const baseTimestamp = 1234567890000;
     priceIndex.set('BTC', [
       {
-        price: { amount: new Decimal('48000'), currency: Currency.create('USDT') },
+        price: { amount: parseDecimal('48000'), currency: Currency.create('USDT') },
         source: 'exchange-execution',
         fetchedAt: new Date(baseTimestamp),
         granularity: 'exact',
       },
       {
-        price: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+        price: { amount: parseDecimal('50000'), currency: Currency.create('USDT') },
         source: 'exchange-execution',
         fetchedAt: new Date(baseTimestamp + 300000), // +5 min
         granularity: 'exact',
       },
       {
-        price: { amount: new Decimal('52000'), currency: Currency.create('USDT') },
+        price: { amount: parseDecimal('52000'), currency: Currency.create('USDT') },
         source: 'exchange-execution',
         fetchedAt: new Date(baseTimestamp + 600000), // +10 min
         granularity: 'exact',
@@ -225,7 +224,7 @@ describe('findClosestPrice', () => {
     const baseTimestamp = 1234567890000;
     priceIndex.set('BTC', [
       {
-        price: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+        price: { amount: parseDecimal('50000'), currency: Currency.create('USDT') },
         source: 'exchange-execution',
         fetchedAt: new Date(baseTimestamp),
         granularity: 'exact',
@@ -245,7 +244,7 @@ describe('findClosestPrice', () => {
 
     priceIndex.set('BTC', [
       {
-        price: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+        price: { amount: parseDecimal('50000'), currency: Currency.create('USDT') },
         source: 'exchange-execution',
         fetchedAt: new Date(1234567890000),
         granularity: 'exact',
@@ -266,11 +265,11 @@ describe('inferPriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'ETH',
-        amount: new Decimal('20'),
+        amount: parseDecimal('20'),
       },
       outflow: {
         asset: 'BTC',
-        amount: new Decimal('1'),
+        amount: parseDecimal('1'),
       },
       timestamp: 1234567890000,
     };
@@ -278,7 +277,7 @@ describe('inferPriceFromTrade', () => {
     const priceIndex = new Map<string, PriceAtTxTime[]>();
     priceIndex.set('BTC', [
       {
-        price: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+        price: { amount: parseDecimal('50000'), currency: Currency.create('USDT') },
         source: 'exchange-execution',
         fetchedAt: new Date(1234567890000),
         granularity: 'exact',
@@ -302,11 +301,11 @@ describe('inferPriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'SOL',
-        amount: new Decimal('500'),
+        amount: parseDecimal('500'),
       },
       outflow: {
         asset: 'ETH',
-        amount: new Decimal('10'),
+        amount: parseDecimal('10'),
       },
       timestamp: 1234567890000,
     };
@@ -314,7 +313,7 @@ describe('inferPriceFromTrade', () => {
     const priceIndex = new Map<string, PriceAtTxTime[]>();
     priceIndex.set('ETH', [
       {
-        price: { amount: new Decimal('2500'), currency: Currency.create('USDT') },
+        price: { amount: parseDecimal('2500'), currency: Currency.create('USDT') },
         source: 'exchange-execution',
         fetchedAt: new Date(1234567890000),
         granularity: 'exact',
@@ -334,11 +333,11 @@ describe('inferPriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'ETH',
-        amount: new Decimal('20'),
+        amount: parseDecimal('20'),
       },
       outflow: {
         asset: 'BTC',
-        amount: new Decimal('1'),
+        amount: parseDecimal('1'),
       },
       timestamp: 1234567890000,
     };
@@ -352,7 +351,7 @@ describe('inferPriceFromTrade', () => {
 
   it('should return empty array if both movements already have prices', () => {
     const existingPrice: PriceAtTxTime = {
-      price: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+      price: { amount: parseDecimal('50000'), currency: Currency.create('USDT') },
       source: 'exchange-execution',
       fetchedAt: new Date(1234567890000),
       granularity: 'exact',
@@ -361,12 +360,12 @@ describe('inferPriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'ETH',
-        amount: new Decimal('20'),
+        amount: parseDecimal('20'),
         priceAtTxTime: existingPrice,
       },
       outflow: {
         asset: 'BTC',
-        amount: new Decimal('1'),
+        amount: parseDecimal('1'),
         priceAtTxTime: existingPrice,
       },
       timestamp: 1234567890000,
@@ -384,11 +383,11 @@ describe('inferPriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'ETH',
-        amount: new Decimal('20'),
+        amount: parseDecimal('20'),
       },
       outflow: {
         asset: 'BTC',
-        amount: new Decimal('1'),
+        amount: parseDecimal('1'),
       },
       timestamp: 1234567890000,
     };
@@ -396,7 +395,7 @@ describe('inferPriceFromTrade', () => {
     const priceIndex = new Map<string, PriceAtTxTime[]>();
     priceIndex.set('BTC', [
       {
-        price: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+        price: { amount: parseDecimal('50000'), currency: Currency.create('USDT') },
         source: 'exchange-execution',
         fetchedAt: new Date(1234567890000 - 7200000), // -2 hours
         granularity: 'exact',

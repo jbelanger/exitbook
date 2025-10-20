@@ -103,9 +103,9 @@ import Decimal from 'decimal.js';
 
 const customConfig = {
   maxTimingWindowHours: 72, // 3 days instead of default 48 hours
-  minAmountSimilarity: new Decimal('0.90'), // Allow up to 10% difference
-  minConfidenceScore: new Decimal('0.65'), // Lower threshold
-  autoConfirmThreshold: new Decimal('0.98'), // Higher auto-confirm threshold
+  minAmountSimilarity: parseDecimal('0.90'), // Allow up to 10% difference
+  minConfidenceScore: parseDecimal('0.65'), // Lower threshold
+  autoConfirmThreshold: parseDecimal('0.98'), // Higher auto-confirm threshold
 };
 
 const linkingService = new TransactionLinkingService(logger, customConfig);

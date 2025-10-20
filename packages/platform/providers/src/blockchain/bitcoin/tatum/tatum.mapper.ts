@@ -1,6 +1,5 @@
-import type { RawTransactionMetadata } from '@exitbook/core';
+import { parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
@@ -59,7 +58,7 @@ export class TatumBitcoinTransactionMapper extends BaseRawDataMapper<TatumBitcoi
       normalized.blockId = rawData.block;
     }
     if (rawData.fee > 0) {
-      const btcFee = new Decimal(rawData.fee).div(100000000).toString();
+      const btcFee = parseDecimal(rawData.fee.toString()).div(100000000).toString();
       normalized.feeAmount = btcFee;
       normalized.feeCurrency = 'BTC';
     }

@@ -2,9 +2,8 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 /* eslint-disable @typescript-eslint/no-explicit-any -- Acceptable for test mocks */
 /* eslint-disable unicorn/no-null -- nulls needed by db */
-import type { AssetMovement } from '@exitbook/core';
+import { parseDecimal, type AssetMovement } from '@exitbook/core';
 import type { StoredTransaction, TransactionRepository } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { ok, err } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -74,13 +73,13 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'BTC',
-            amount: new Decimal('1'),
+            amount: parseDecimal('1'),
           },
         ],
         [
           {
             asset: 'USDT',
-            amount: new Decimal('50000'),
+            amount: parseDecimal('50000'),
           },
         ]
       );
@@ -129,13 +128,13 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'BTC',
-            amount: new Decimal('1'),
+            amount: parseDecimal('1'),
           },
         ],
         [
           {
             asset: 'USDT',
-            amount: new Decimal('50000'),
+            amount: parseDecimal('50000'),
           },
         ]
       );
@@ -149,13 +148,13 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'ETH',
-            amount: new Decimal('20'),
+            amount: parseDecimal('20'),
           },
         ],
         [
           {
             asset: 'BTC',
-            amount: new Decimal('1'),
+            amount: parseDecimal('1'),
           },
         ]
       );
@@ -216,13 +215,13 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'BTC',
-            amount: new Decimal('1'),
+            amount: parseDecimal('1'),
           },
         ],
         [
           {
             asset: 'USDT',
-            amount: new Decimal('50000'),
+            amount: parseDecimal('50000'),
           },
         ]
       );
@@ -236,7 +235,7 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'BTC',
-            amount: new Decimal('0.5'),
+            amount: parseDecimal('0.5'),
           },
         ],
         [] // No outflow
@@ -286,13 +285,13 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'BTC',
-            amount: new Decimal('1'),
+            amount: parseDecimal('1'),
           },
         ],
         [
           {
             asset: 'USDT',
-            amount: new Decimal('50000'),
+            amount: parseDecimal('50000'),
           },
         ]
       );
@@ -306,13 +305,13 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'BTC',
-            amount: new Decimal('1'),
+            amount: parseDecimal('1'),
           },
         ],
         [
           {
             asset: 'USDT',
-            amount: new Decimal('50100'),
+            amount: parseDecimal('50100'),
           },
         ]
       );
@@ -356,13 +355,13 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'BTC',
-            amount: new Decimal('0.5'),
+            amount: parseDecimal('0.5'),
           },
         ],
         [
           {
             asset: 'USDT',
-            amount: new Decimal('25000'),
+            amount: parseDecimal('25000'),
           },
         ]
       );
@@ -409,13 +408,13 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'SOL',
-            amount: new Decimal('100'),
+            amount: parseDecimal('100'),
           },
         ],
         [
           {
             asset: 'ETH',
-            amount: new Decimal('2'),
+            amount: parseDecimal('2'),
           },
         ]
       );
@@ -455,13 +454,13 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'BTC',
-            amount: new Decimal('1'),
+            amount: parseDecimal('1'),
           },
         ],
         [
           {
             asset: 'USDT',
-            amount: new Decimal('50000'),
+            amount: parseDecimal('50000'),
           },
         ]
       );
@@ -475,13 +474,13 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'SOL',
-            amount: new Decimal('100'),
+            amount: parseDecimal('100'),
           },
         ],
         [
           {
             asset: 'ADA',
-            amount: new Decimal('1000'),
+            amount: parseDecimal('1000'),
           },
         ]
       );
@@ -582,13 +581,13 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'BTC',
-            amount: new Decimal('1'),
+            amount: parseDecimal('1'),
           },
         ],
         [
           {
             asset: 'USDT',
-            amount: new Decimal('50000'),
+            amount: parseDecimal('50000'),
           },
         ]
       );
@@ -602,13 +601,13 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'ETH',
-            amount: new Decimal('20'),
+            amount: parseDecimal('20'),
           },
         ],
         [
           {
             asset: 'USDT',
-            amount: new Decimal('60000'),
+            amount: parseDecimal('60000'),
           },
         ]
       );
@@ -679,13 +678,13 @@ describe('PriceEnrichmentService', () => {
             [
               {
                 asset: `COIN${i}`,
-                amount: new Decimal('1'),
+                amount: parseDecimal('1'),
               },
             ],
             [
               {
                 asset: i === 0 ? 'USDT' : `COIN${i - 1}`,
-                amount: new Decimal('100'),
+                amount: parseDecimal('100'),
               },
             ]
           )

@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { LinkCommandOptions } from '../link-utils.ts';
@@ -9,8 +9,8 @@ describe('link-utils', () => {
     it('should accept valid parameters', () => {
       const result = validateLinkParams({
         dryRun: false,
-        minConfidenceScore: new Decimal('0.7'),
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('0.95'),
       });
       expect(result.isOk()).toBe(true);
     });
@@ -18,8 +18,8 @@ describe('link-utils', () => {
     it('should accept parameters where autoConfirmThreshold equals minConfidenceScore', () => {
       const result = validateLinkParams({
         dryRun: false,
-        minConfidenceScore: new Decimal('0.8'),
-        autoConfirmThreshold: new Decimal('0.8'),
+        minConfidenceScore: parseDecimal('0.8'),
+        autoConfirmThreshold: parseDecimal('0.8'),
       });
       expect(result.isOk()).toBe(true);
     });
@@ -27,8 +27,8 @@ describe('link-utils', () => {
     it('should accept minimum valid confidence score (0)', () => {
       const result = validateLinkParams({
         dryRun: true,
-        minConfidenceScore: new Decimal('0'),
-        autoConfirmThreshold: new Decimal('0.5'),
+        minConfidenceScore: parseDecimal('0'),
+        autoConfirmThreshold: parseDecimal('0.5'),
       });
       expect(result.isOk()).toBe(true);
     });
@@ -36,8 +36,8 @@ describe('link-utils', () => {
     it('should accept maximum valid confidence score (1)', () => {
       const result = validateLinkParams({
         dryRun: true,
-        minConfidenceScore: new Decimal('0.9'),
-        autoConfirmThreshold: new Decimal('1'),
+        minConfidenceScore: parseDecimal('0.9'),
+        autoConfirmThreshold: parseDecimal('1'),
       });
       expect(result.isOk()).toBe(true);
     });
@@ -45,8 +45,8 @@ describe('link-utils', () => {
     it('should reject minConfidenceScore below 0', () => {
       const result = validateLinkParams({
         dryRun: false,
-        minConfidenceScore: new Decimal('-0.1'),
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('-0.1'),
+        autoConfirmThreshold: parseDecimal('0.95'),
       });
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr().message).toContain('minConfidenceScore must be between 0 and 1');
@@ -55,8 +55,8 @@ describe('link-utils', () => {
     it('should reject minConfidenceScore above 1', () => {
       const result = validateLinkParams({
         dryRun: false,
-        minConfidenceScore: new Decimal('1.1'),
-        autoConfirmThreshold: new Decimal('0.95'),
+        minConfidenceScore: parseDecimal('1.1'),
+        autoConfirmThreshold: parseDecimal('0.95'),
       });
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr().message).toContain('minConfidenceScore must be between 0 and 1');
@@ -65,8 +65,8 @@ describe('link-utils', () => {
     it('should reject autoConfirmThreshold below 0', () => {
       const result = validateLinkParams({
         dryRun: false,
-        minConfidenceScore: new Decimal('0.7'),
-        autoConfirmThreshold: new Decimal('-0.1'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('-0.1'),
       });
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr().message).toContain('autoConfirmThreshold must be between 0 and 1');
@@ -75,8 +75,8 @@ describe('link-utils', () => {
     it('should reject autoConfirmThreshold above 1', () => {
       const result = validateLinkParams({
         dryRun: false,
-        minConfidenceScore: new Decimal('0.7'),
-        autoConfirmThreshold: new Decimal('1.5'),
+        minConfidenceScore: parseDecimal('0.7'),
+        autoConfirmThreshold: parseDecimal('1.5'),
       });
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr().message).toContain('autoConfirmThreshold must be between 0 and 1');
@@ -85,8 +85,8 @@ describe('link-utils', () => {
     it('should reject autoConfirmThreshold less than minConfidenceScore', () => {
       const result = validateLinkParams({
         dryRun: false,
-        minConfidenceScore: new Decimal('0.8'),
-        autoConfirmThreshold: new Decimal('0.7'),
+        minConfidenceScore: parseDecimal('0.8'),
+        autoConfirmThreshold: parseDecimal('0.7'),
       });
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr().message).toContain('autoConfirmThreshold must be >= minConfidenceScore');

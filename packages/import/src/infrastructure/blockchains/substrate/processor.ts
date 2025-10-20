@@ -1,9 +1,8 @@
-import { createMoney } from '@exitbook/core';
+import { createMoney, parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { SubstrateTransaction, SubstrateFundFlow, SubstrateChainConfig } from '@exitbook/providers';
 import { derivePolkadotAddressVariants } from '@exitbook/providers';
-import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
@@ -64,15 +63,15 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
           // NEW: Structured fields
           movements: {
             inflows: fundFlow.inflows.map((i) => ({
-              amount: new Decimal(i.amount),
+              amount: parseDecimal(i.amount),
               asset: i.asset,
             })),
             outflows: fundFlow.outflows.map((o) => ({
-              amount: new Decimal(o.amount),
+              amount: parseDecimal(o.amount),
               asset: o.asset,
             })),
             primary: {
-              amount: new Decimal(fundFlow.primary.amount),
+              amount: parseDecimal(fundFlow.primary.amount),
               asset: fundFlow.primary.asset,
               direction,
             },
@@ -194,7 +193,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     const inflows: { amount: string; asset: string }[] = [];
     const outflows: { amount: string; asset: string }[] = [];
 
-    const amount = new Decimal(transaction.amount);
+    const amount = parseDecimal(transaction.amount);
     const normalizedAmount = this.normalizeAmount(transaction.amount);
     const currency = transaction.currency;
 
@@ -292,7 +291,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     };
   } {
     const { inflows, outflows } = fundFlow;
-    const amount = new Decimal(fundFlow.primary.amount || '0').abs();
+    const amount = parseDecimal(fundFlow.primary.amount || '0').abs();
     const isZeroAmount = amount.isZero();
 
     // Pattern 1: Staking operations (9/10 confident)
@@ -535,7 +534,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     }
 
     try {
-      return new Decimal(amountPlanck).dividedBy(new Decimal(10).pow(this.chainConfig.nativeDecimals)).toString();
+      return parseDecimal(amountPlanck).dividedBy(parseDecimal('10').pow(this.chainConfig.nativeDecimals)).toString();
     } catch (error) {
       this.logger.warn(`Unable to normalize amount: ${String(error)}`);
       return '0';

@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- db requires explicit null */
+import { parseDecimal } from '@exitbook/core';
 import type { StoredTransaction } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { describe, it, expect } from 'vitest';
 
 import {
@@ -231,7 +231,7 @@ describe('export-utils', () => {
         transaction_status: 'confirmed',
         from_address: null,
         to_address: null,
-        movements_inflows: [{ asset: 'BTC', amount: new Decimal('1.5') }],
+        movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
         movements_outflows: [],
         fees_total: null,
         fees_network: null,
@@ -275,7 +275,7 @@ describe('export-utils', () => {
           transaction_status: 'confirmed',
           from_address: null,
           to_address: null,
-          movements_inflows: [{ asset: 'BTC', amount: new Decimal('1.5') }],
+          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
           movements_outflows: [],
           fees_total: null,
           fees_network: null,
@@ -309,7 +309,7 @@ describe('export-utils', () => {
           from_address: null,
           to_address: null,
           movements_inflows: [],
-          movements_outflows: [{ asset: 'ETH', amount: new Decimal('10.0') }],
+          movements_outflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
           fees_total: null,
           fees_network: null,
           fees_platform: null,
@@ -353,7 +353,7 @@ describe('export-utils', () => {
         transaction_status: 'confirmed',
         from_address: null,
         to_address: null,
-        movements_inflows: [{ asset: 'BTC', amount: new Decimal('1.5') }],
+        movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
         movements_outflows: [],
         fees_total: null,
         fees_network: null,
@@ -400,7 +400,7 @@ describe('export-utils', () => {
         transaction_status: 'confirmed',
         from_address: null,
         to_address: null,
-        movements_inflows: [{ asset: 'BTC', amount: new Decimal('1.5') }],
+        movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
         movements_outflows: [],
         fees_total: null,
         fees_network: null,
@@ -461,7 +461,7 @@ describe('export-utils', () => {
           transaction_status: 'confirmed',
           from_address: null,
           to_address: null,
-          movements_inflows: [{ asset: 'BTC', amount: new Decimal('1.5') }],
+          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
           movements_outflows: [],
           fees_total: null,
           fees_network: null,
@@ -495,7 +495,7 @@ describe('export-utils', () => {
           from_address: null,
           to_address: null,
           movements_inflows: [],
-          movements_outflows: [{ asset: 'ETH', amount: new Decimal('10.0') }],
+          movements_outflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
           fees_total: null,
           fees_network: null,
           fees_platform: null,
@@ -538,7 +538,7 @@ describe('export-utils', () => {
         transaction_status: 'confirmed',
         from_address: null,
         to_address: null,
-        movements_inflows: [{ asset: 'BTC', amount: new Decimal('1.5') }],
+        movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
         movements_outflows: [],
         fees_total: null,
         fees_network: null,
@@ -591,7 +591,7 @@ describe('export-utils', () => {
         transaction_status: 'confirmed',
         from_address: null,
         to_address: null,
-        movements_inflows: [{ asset: 'BTC', amount: new Decimal('1.5') }],
+        movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
         movements_outflows: [],
         fees_total: null,
         fees_network: null,

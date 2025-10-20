@@ -1,6 +1,5 @@
 import type { AssetMovement, PriceAtTxTime } from '@exitbook/core';
-import { Currency } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { Currency, parseDecimal } from '@exitbook/core';
 
 /**
  * Detected trade pattern with both sides of the trade
@@ -74,7 +73,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
   // Outflow is fiat/stablecoin - calculate price of inflow
   if (outflowIsFiatOrStable) {
-    const price = new Decimal(outflow.amount.toString()).dividedBy(new Decimal(inflow.amount.toString()));
+    const price = parseDecimal(outflow.amount.toString()).dividedBy(parseDecimal(inflow.amount.toString()));
 
     results.push({
       asset: inflow.asset,
@@ -89,7 +88,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
   // Inflow is fiat/stablecoin - calculate price of outflow
   if (inflowIsFiatOrStable) {
-    const price = new Decimal(inflow.amount.toString()).dividedBy(new Decimal(outflow.amount.toString()));
+    const price = parseDecimal(inflow.amount.toString()).dividedBy(parseDecimal(outflow.amount.toString()));
 
     results.push({
       asset: outflow.asset,
@@ -168,8 +167,8 @@ export function inferPriceFromTrade(
   // If we know inflow price, calculate outflow price
   if (inflowPrice && !outflowPrice) {
     // outflowPrice = inflowPrice * (inflow.amount / outflow.amount)
-    const ratio = new Decimal(inflow.amount.toString()).dividedBy(new Decimal(outflow.amount.toString()));
-    const derivedPrice = new Decimal(inflowPrice.price.amount.toString()).times(ratio);
+    const ratio = parseDecimal(inflow.amount.toString()).dividedBy(parseDecimal(outflow.amount.toString()));
+    const derivedPrice = parseDecimal(inflowPrice.price.amount.toString()).times(ratio);
 
     results.push({
       asset: outflow.asset,
@@ -185,8 +184,8 @@ export function inferPriceFromTrade(
   // If we know outflow price, calculate inflow price
   if (outflowPrice && !inflowPrice) {
     // inflowPrice = outflowPrice * (outflow.amount / inflow.amount)
-    const ratio = new Decimal(outflow.amount.toString()).dividedBy(new Decimal(inflow.amount.toString()));
-    const derivedPrice = new Decimal(outflowPrice.price.amount.toString()).times(ratio);
+    const ratio = parseDecimal(outflow.amount.toString()).dividedBy(parseDecimal(inflow.amount.toString()));
+    const derivedPrice = parseDecimal(outflowPrice.price.amount.toString()).times(ratio);
 
     results.push({
       asset: inflow.asset,

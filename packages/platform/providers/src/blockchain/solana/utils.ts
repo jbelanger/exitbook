@@ -1,4 +1,5 @@
-import { Decimal } from 'decimal.js';
+import { parseDecimal } from '@exitbook/core';
+import type { Decimal } from 'decimal.js';
 
 /**
  * Solana address validation
@@ -13,7 +14,7 @@ export function isValidSolanaAddress(address: string): boolean {
  * Convert lamports to SOL
  */
 export function lamportsToSol(lamports: number | string): Decimal {
-  return new Decimal(lamports).dividedBy(new Decimal(10).pow(9));
+  return parseDecimal(lamports.toString()).dividedBy(parseDecimal('10').pow(9));
 }
 
 /**
@@ -22,7 +23,7 @@ export function lamportsToSol(lamports: number | string): Decimal {
  * @public
  */
 export function solToLamports(sol: number | string): Decimal {
-  return new Decimal(sol).mul(new Decimal(10).pow(9));
+  return parseDecimal(sol.toString()).mul(parseDecimal('10').pow(9));
 }
 
 /**
