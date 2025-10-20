@@ -91,7 +91,6 @@ export interface TransactionsTable {
   transaction_datetime: DateTime;
   from_address: string | null;
   to_address: string | null;
-  verified: boolean;
 
   // Optional price data (for trades)
   price: DecimalString | null;

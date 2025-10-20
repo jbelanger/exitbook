@@ -99,7 +99,6 @@ describe('LinkHandler', () => {
     blockchain_block_height: null,
     blockchain_transaction_hash: null,
     blockchain_is_confirmed: null,
-    verified: false,
     created_at: '2024-01-01T12:00:00Z',
     updated_at: '2024-01-01T12:00:00Z',
   });

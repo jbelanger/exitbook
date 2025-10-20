@@ -85,7 +85,6 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('to_address', 'text')
     .addColumn('price', 'text')
     .addColumn('price_currency', 'text')
-    .addColumn('verified', 'boolean', (col) => col.notNull().defaultTo(false))
     .addColumn('note_type', 'text')
     .addColumn('note_severity', 'text')
     .addColumn('note_message', 'text')

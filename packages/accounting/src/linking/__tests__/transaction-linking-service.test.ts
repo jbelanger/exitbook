@@ -34,7 +34,6 @@ function createTransaction(params: {
     transaction_datetime: params.datetime,
     from_address: params.fromAddress ?? null,
     to_address: params.toAddress ?? null,
-    verified: true,
     price: null,
     price_currency: null,
     note_type: null,

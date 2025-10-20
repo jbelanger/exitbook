@@ -74,7 +74,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             ? new Date(transaction.datetime).toISOString()
             : new Date().toISOString(),
           transaction_status: transaction.status,
-          verified: Boolean(transaction.metadata?.verified),
 
           // Structured movements
           movements_inflows: transaction.movements?.inflows
@@ -113,7 +112,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             transaction_datetime: (eb) => eb.ref('excluded.transaction_datetime'),
             transaction_status: (eb) => eb.ref('excluded.transaction_status'),
             updated_at: new Date().toISOString(),
-            verified: (eb) => eb.ref('excluded.verified'),
 
             // Structured movements
             movements_inflows: (eb) => eb.ref('excluded.movements_inflows'),

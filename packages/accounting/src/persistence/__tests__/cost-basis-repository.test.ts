@@ -86,7 +86,6 @@ describe('CostBasisRepository', () => {
           external_id: `tx-${i}`,
           transaction_status: 'success' as const,
           transaction_datetime: new Date().toISOString(),
-          verified: false,
           raw_normalized_data: '{}',
           movements_inflows: isInflow ? JSON.stringify([{ asset: 'BTC', amount: '1.0' }]) : null,
           movements_outflows: isInflow ? null : JSON.stringify([{ asset: 'BTC', amount: '1.0' }]),

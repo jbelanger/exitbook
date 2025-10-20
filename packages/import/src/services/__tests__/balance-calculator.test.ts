@@ -17,7 +17,6 @@ function createTestTransaction(overrides: Partial<StoredTransaction>): StoredTra
     transaction_datetime: '2024-01-01T00:00:00Z',
     from_address: null,
     to_address: null,
-    verified: false,
     price: null,
     price_currency: null,
     note_type: null,

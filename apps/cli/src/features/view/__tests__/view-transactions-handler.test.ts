@@ -36,7 +36,6 @@ describe('ViewTransactionsHandler', () => {
     transaction_datetime: '2024-01-01T00:00:00Z',
     from_address: null,
     to_address: null,
-    verified: true,
     price: '50000.00',
     price_currency: 'USD',
     note_type: null,

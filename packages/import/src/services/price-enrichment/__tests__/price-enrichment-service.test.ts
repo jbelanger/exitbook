@@ -28,7 +28,6 @@ function createMockTransaction(
     transaction_datetime: datetime,
     from_address: null,
     to_address: null,
-    verified: false,
     price: null,
     price_currency: null,
     note_type: null,

@@ -246,7 +246,6 @@ describe('export-utils', () => {
         blockchain_block_height: null,
         blockchain_transaction_hash: null,
         blockchain_is_confirmed: null,
-        verified: false,
         created_at: '2024-01-01T12:00:00Z',
         updated_at: '2024-01-01T12:00:00Z',
       };
@@ -289,7 +288,6 @@ describe('export-utils', () => {
           blockchain_block_height: null,
           blockchain_transaction_hash: null,
           blockchain_is_confirmed: null,
-          verified: false,
           created_at: '2024-01-01T12:00:00Z',
           updated_at: '2024-01-01T12:00:00Z',
         },
@@ -321,7 +319,6 @@ describe('export-utils', () => {
           blockchain_block_height: null,
           blockchain_transaction_hash: null,
           blockchain_is_confirmed: null,
-          verified: false,
           created_at: '2024-01-02T12:00:00Z',
           updated_at: '2024-01-02T12:00:00Z',
         },
@@ -365,7 +362,6 @@ describe('export-utils', () => {
         blockchain_block_height: null,
         blockchain_transaction_hash: null,
         blockchain_is_confirmed: null,
-        verified: false,
         created_at: '2024-01-01T12:00:00Z',
         updated_at: '2024-01-01T12:00:00Z',
       };
@@ -411,7 +407,6 @@ describe('export-utils', () => {
         blockchain_block_height: null,
         blockchain_transaction_hash: null,
         blockchain_is_confirmed: null,
-        verified: false,
         created_at: '2024-01-01T12:00:00Z',
         updated_at: '2024-01-01T12:00:00Z',
       };
@@ -471,7 +466,6 @@ describe('export-utils', () => {
           blockchain_block_height: null,
           blockchain_transaction_hash: null,
           blockchain_is_confirmed: null,
-          verified: false,
           created_at: '2024-01-01T12:00:00Z',
           updated_at: '2024-01-01T12:00:00Z',
         },
@@ -503,7 +497,6 @@ describe('export-utils', () => {
           blockchain_block_height: null,
           blockchain_transaction_hash: null,
           blockchain_is_confirmed: null,
-          verified: false,
           created_at: '2024-01-02T12:00:00Z',
           updated_at: '2024-01-02T12:00:00Z',
         },
@@ -546,7 +539,6 @@ describe('export-utils', () => {
         blockchain_block_height: 800000,
         blockchain_transaction_hash: '0xabc123',
         blockchain_is_confirmed: true,
-        verified: false,
         created_at: '2024-01-01T12:00:00Z',
         updated_at: '2024-01-01T12:00:00Z',
       };
@@ -598,7 +590,6 @@ describe('export-utils', () => {
         blockchain_block_height: null,
         blockchain_transaction_hash: null,
         blockchain_is_confirmed: null,
-        verified: false,
         created_at: '2024-01-01T12:00:00Z',
         updated_at: '2024-01-01T12:00:00Z',
       };

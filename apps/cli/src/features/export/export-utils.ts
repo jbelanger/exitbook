@@ -225,7 +225,6 @@ export function convertToJSON(transactions: StoredTransaction[]): string {
         transaction_hash: tx.blockchain_transaction_hash,
         is_confirmed: tx.blockchain_is_confirmed,
       },
-      verified: tx.verified,
       created_at: tx.created_at,
     };
   });
