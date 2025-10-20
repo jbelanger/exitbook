@@ -50,12 +50,11 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         // Determine transaction type based on fund flow
         const transactionType = this.determineTransactionTypeFromFundFlow(fundFlow, sessionMetadata);
 
-        // Only include fees if user initiated the transaction (they paid the fee)
-        // For incoming-only transactions (deposits, received transfers), the sender paid the fee
-        // User paid fee if they have ANY outflows (spent UTXOs from their wallet)
-        // In Bitcoin's UTXO model, you only pay fees when spending your own inputs
+        // Store actual network fees for reporting
+        // For consistency with account-based blockchains, we record fees separately
+        // and subtract them from outflows to avoid double-counting
         const userPaidFee = fundFlow.isOutgoing && parseFloat(fundFlow.walletInput) > 0;
-
+        const feeAmount = parseFloat(normalizedTx.feeAmount || '0');
         const networkFee = userPaidFee
           ? createMoney(normalizedTx.feeAmount || '0', normalizedTx.feeCurrency || 'BTC')
           : createMoney('0', 'BTC');
@@ -70,23 +69,32 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
           to: fundFlow.toAddress,
 
           // Structured movements from UTXO analysis
+          // For consistency with account-based blockchains:
+          // - Outflows = amount sent (walletInput - fee - walletOutput)
+          // - Inflows = amount received (walletOutput)
+          // - Fees = recorded separately (not included in movements)
+          // This ensures balance = inflows - outflows - fees (consistent across all blockchain types)
           movements: {
-            outflows: fundFlow.isOutgoing
-              ? [
-                  {
-                    asset: 'BTC',
-                    amount: parseDecimal(fundFlow.walletInput),
-                  },
-                ]
-              : [],
-            inflows: fundFlow.isIncoming
-              ? [
-                  {
-                    asset: 'BTC',
-                    amount: parseDecimal(fundFlow.walletOutput),
-                  },
-                ]
-              : [],
+            outflows:
+              parseFloat(fundFlow.walletInput) > 0
+                ? [
+                    {
+                      asset: 'BTC',
+                      // Subtract fee from outflow to avoid double-counting
+                      // walletInput already includes the fee, so we remove it here
+                      amount: parseDecimal((parseFloat(fundFlow.walletInput) - feeAmount).toString()),
+                    },
+                  ]
+                : [],
+            inflows:
+              parseFloat(fundFlow.walletOutput) > 0
+                ? [
+                    {
+                      asset: 'BTC',
+                      amount: parseDecimal(fundFlow.walletOutput),
+                    },
+                  ]
+                : [],
             primary: {
               asset: 'BTC',
               amount: parseDecimal(fundFlow.netAmount),
