@@ -357,13 +357,11 @@ export class AlchemyApiClient extends BaseApiClient {
     const balances: BlockchainBalanceSnapshot[] = rawBalances
       .filter((balance) => !balance.error)
       .map((balance) => {
-        // Convert hex balance to decimal string (in smallest units)
+        // Schema already converts hex/numeric to decimal string (in smallest units)
         // Note: Without decimals info, we return balance in smallest units
-        const balanceDecimal = BigInt(balance.tokenBalance).toString();
-
         return {
           asset: balance.contractAddress,
-          total: balanceDecimal,
+          total: balance.tokenBalance,
         };
       });
 

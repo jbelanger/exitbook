@@ -25,7 +25,7 @@ function moneyToDbString(money: { amount: Decimal | number; currency: Currency }
   if (typeof money.amount === 'number') {
     return String(money.amount);
   }
-  return money.amount.toString();
+  return money.amount.toFixed();
 }
 
 /**

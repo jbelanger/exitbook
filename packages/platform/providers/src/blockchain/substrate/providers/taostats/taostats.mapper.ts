@@ -69,12 +69,12 @@ export class TaostatsTransactionMapper extends BaseRawDataMapper<TaostatsTransac
     // Note: Taostats only provides basic transfer data, no module/call/events information
     // The processor will handle classification based on available fields
     const transaction: SubstrateTransaction = {
-      amount: amountTao.toString(),
+      amount: amountTao.toFixed(),
       blockHeight: rawData.block_number,
       chainName: chainConfig.chainName, // Use chain config for consistency
       currency: nativeCurrency,
       extrinsicIndex: rawData.extrinsic_id,
-      feeAmount: feeTao.toString(),
+      feeAmount: feeTao.toFixed(),
       feeCurrency: nativeCurrency,
       from: fromAddress,
       id: rawData.transaction_hash,

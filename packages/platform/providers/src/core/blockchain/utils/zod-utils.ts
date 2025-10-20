@@ -1,3 +1,4 @@
+import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
 /**
@@ -6,7 +7,7 @@ import { z } from 'zod';
 
 /**
  * Schema that accepts hex strings (0x...), numeric strings, or numbers
- * and transforms them to numeric decimal strings.
+ * and transforms them to numeric decimal strings without scientific notation.
  *
  * Examples:
  * - "0x12" -> "18"
@@ -15,6 +16,8 @@ import { z } from 'zod';
  * - null -> null
  *
  * This is useful for blockchain APIs that return numeric values in different formats.
+ * Uses Decimal.js for conversion to maintain precision for any decimal values.
+ * Uses toFixed() to avoid scientific notation (e.g., "1e-8" becomes "0.00000001").
  */
 export const hexOrNumericToNumeric = z
   .union([
@@ -25,17 +28,13 @@ export const hexOrNumericToNumeric = z
   ])
   .transform((val) => {
     if (val === null || val === undefined) return;
-    if (typeof val === 'number') return String(val);
-    if (val.startsWith('0x')) {
-      return BigInt(val).toString(); // Convert hex to decimal string
-    }
-    return val; // Already numeric string
+    return new Decimal(val).toFixed();
   })
   .optional();
 
 /**
  * Schema that accepts hex strings (0x...), numeric strings, or numbers (required version)
- * and transforms them to numeric decimal strings.
+ * and transforms them to numeric decimal strings without scientific notation.
  *
  * Examples:
  * - "0x12" -> "18"
@@ -43,6 +42,8 @@ export const hexOrNumericToNumeric = z
  * - 18 -> "18"
  *
  * Use this when the field is required (not optional).
+ * Uses Decimal.js for conversion to maintain precision for any decimal values.
+ * Uses toFixed() to avoid scientific notation (e.g., "1e-8" becomes "0.00000001").
  */
 export const hexOrNumericToNumericRequired = z
   .union([
@@ -51,11 +52,7 @@ export const hexOrNumericToNumericRequired = z
     z.number().nonnegative(),
   ])
   .transform((val) => {
-    if (typeof val === 'number') return String(val);
-    if (val.startsWith('0x')) {
-      return BigInt(val).toString(); // Convert hex to decimal string
-    }
-    return val; // Already numeric string
+    return new Decimal(val).toFixed();
   });
 
 /**

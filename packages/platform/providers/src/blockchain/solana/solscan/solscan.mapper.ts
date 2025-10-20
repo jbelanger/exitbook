@@ -1,5 +1,6 @@
 import { isErrorWithMessage, type RawTransactionMetadata } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/data';
+import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
@@ -124,23 +125,23 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransacti
       // Skip first account (fee payer) and find largest balance change
       const largestSolChange = accountChanges.slice(1).reduce((largest, change) => {
         if (!largest) return change;
-        const changeAmount = Math.abs(parseFloat(change.postBalance) - parseFloat(change.preBalance));
-        const largestAmount = Math.abs(parseFloat(largest.postBalance) - parseFloat(largest.preBalance));
-        return changeAmount > largestAmount ? change : largest;
+        const changeAmount = new Decimal(change.postBalance).minus(change.preBalance).abs();
+        const largestAmount = new Decimal(largest.postBalance).minus(largest.preBalance).abs();
+        return changeAmount.greaterThan(largestAmount) ? change : largest;
       }, accountChanges[1] ?? accountChanges[0]);
 
       if (largestSolChange) {
-        const solAmount = Math.abs(parseFloat(largestSolChange.postBalance) - parseFloat(largestSolChange.preBalance));
+        const solAmount = new Decimal(largestSolChange.postBalance).minus(largestSolChange.preBalance).abs();
         return {
-          primaryAmount: solAmount.toString(),
+          primaryAmount: solAmount.toFixed(),
           primaryCurrency: 'SOL',
         };
       }
     } else if (accountChanges.length === 1 && accountChanges[0]) {
       // Only one account change (probably fee-only transaction)
-      const solAmount = Math.abs(parseFloat(accountChanges[0].postBalance) - parseFloat(accountChanges[0].preBalance));
+      const solAmount = new Decimal(accountChanges[0].postBalance).minus(accountChanges[0].preBalance).abs();
       return {
-        primaryAmount: solAmount.toString(),
+        primaryAmount: solAmount.toFixed(),
         primaryCurrency: 'SOL',
       };
     }

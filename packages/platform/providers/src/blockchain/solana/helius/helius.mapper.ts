@@ -1,5 +1,6 @@
 import { isErrorWithMessage, type RawTransactionMetadata } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/data';
+import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
@@ -186,16 +187,14 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
     // If there are token changes, prioritize the largest token transfer
     if (tokenChanges.length > 0) {
       const largestTokenChange = tokenChanges.reduce((largest, change) => {
-        const changeAmount = Math.abs(parseFloat(change.postAmount) - parseFloat(change.preAmount));
-        const largestAmount = Math.abs(parseFloat(largest.postAmount) - parseFloat(largest.preAmount));
-        return changeAmount > largestAmount ? change : largest;
+        const changeAmount = new Decimal(change.postAmount).minus(change.preAmount).abs();
+        const largestAmount = new Decimal(largest.postAmount).minus(largest.preAmount).abs();
+        return changeAmount.greaterThan(largestAmount) ? change : largest;
       });
 
-      const tokenAmount = Math.abs(
-        parseFloat(largestTokenChange.postAmount) - parseFloat(largestTokenChange.preAmount)
-      );
+      const tokenAmount = new Decimal(largestTokenChange.postAmount).minus(largestTokenChange.preAmount).abs();
       return {
-        primaryAmount: tokenAmount.toString(),
+        primaryAmount: tokenAmount.toFixed(),
         primaryCurrency: largestTokenChange.symbol || largestTokenChange.mint,
       };
     }
@@ -206,15 +205,15 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
       const largestSolChange = accountChanges.slice(1).reduce((largest, change) => {
         // If largest is undefined, use current change as initial value
         if (!largest) return change;
-        const changeAmount = Math.abs(parseFloat(change.postBalance) - parseFloat(change.preBalance));
-        const largestAmount = Math.abs(parseFloat(largest.postBalance) - parseFloat(largest.preBalance));
-        return changeAmount > largestAmount ? change : largest;
+        const changeAmount = new Decimal(change.postBalance).minus(change.preBalance).abs();
+        const largestAmount = new Decimal(largest.postBalance).minus(largest.preBalance).abs();
+        return changeAmount.greaterThan(largestAmount) ? change : largest;
       }, accountChanges[1]);
 
       if (largestSolChange) {
-        const solAmount = Math.abs(parseFloat(largestSolChange.postBalance) - parseFloat(largestSolChange.preBalance));
+        const solAmount = new Decimal(largestSolChange.postBalance).minus(largestSolChange.preBalance).abs();
         return {
-          primaryAmount: solAmount.toString(),
+          primaryAmount: solAmount.toFixed(),
           primaryCurrency: 'SOL',
         };
       }

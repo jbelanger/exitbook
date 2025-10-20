@@ -128,7 +128,7 @@ export class TaostatsApiClient extends BaseApiClient {
     const balanceRao = response.data?.[0]?.balance_total || '0';
 
     // Convert from smallest unit (rao) to main unit (TAO)
-    const balanceDecimal = new Decimal(balanceRao).div(new Decimal(10).pow(this.chainConfig.nativeDecimals)).toString();
+    const balanceDecimal = new Decimal(balanceRao).div(new Decimal(10).pow(this.chainConfig.nativeDecimals)).toFixed();
 
     this.logger.debug(
       `Found raw balance for ${maskAddress(address)}: ${balanceDecimal} ${this.chainConfig.nativeCurrency}`

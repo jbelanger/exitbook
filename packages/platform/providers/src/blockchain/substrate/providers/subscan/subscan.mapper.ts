@@ -100,7 +100,7 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
 
       return {
         // Value information
-        amount: amount.toString(),
+        amount: amount.toFixed(),
         // Block context
         blockHeight: transfer.block_num,
         blockId: transfer.hash, // Use transaction hash as block identifier
@@ -112,7 +112,7 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
         // Substrate-specific information
         extrinsicIndex: transfer.extrinsic_index,
         // Fee information
-        feeAmount: feeInMainUnit.toString(),
+        feeAmount: feeInMainUnit.toFixed(),
 
         feeCurrency: nativeCurrency,
         // Transaction flow data

@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-import { hexOrNumericToNumeric, timestampToDate } from '../../../../core/blockchain/utils/zod-utils.ts';
+import {
+  hexOrNumericToNumeric,
+  hexOrNumericToNumericRequired,
+  timestampToDate,
+} from '../../../../core/blockchain/utils/zod-utils.ts';
 
 /**
  * Schema for Alchemy raw contract structure
@@ -66,7 +70,7 @@ export const AlchemyAssetTransfersResponseSchema = z.object({
 export const AlchemyTokenBalanceSchema = z.object({
   contractAddress: z.string().min(1, 'Contract address must not be empty'),
   error: z.string().optional(),
-  tokenBalance: z.string().min(1, 'Token balance must not be empty'),
+  tokenBalance: hexOrNumericToNumericRequired,
 });
 
 /**

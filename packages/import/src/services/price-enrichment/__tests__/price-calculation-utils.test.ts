@@ -82,7 +82,7 @@ describe('calculatePriceFromTrade', () => {
     expect(result).toHaveLength(1);
     expect(result[0]).toBeDefined();
     expect(result[0]!.asset).toBe('BTC');
-    expect(result[0]!.priceAtTxTime.price.amount.toString()).toBe('50000');
+    expect(result[0]!.priceAtTxTime.price.amount.toFixed()).toBe('50000');
     expect(result[0]!.priceAtTxTime.price.currency.toString()).toBe('USDT');
     expect(result[0]!.priceAtTxTime.source).toBe('exchange-execution');
     expect(result[0]!.priceAtTxTime.granularity).toBe('exact');
@@ -106,7 +106,7 @@ describe('calculatePriceFromTrade', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]!.asset).toBe('ETH');
-    expect(result[0]!.priceAtTxTime.price.amount.toString()).toBe('3000');
+    expect(result[0]!.priceAtTxTime.price.amount.toFixed()).toBe('3000');
     expect(result[0]!.priceAtTxTime.price.currency.toString()).toBe('USD');
     expect(result[0]!.priceAtTxTime.source).toBe('exchange-execution');
   });
@@ -132,12 +132,12 @@ describe('calculatePriceFromTrade', () => {
     // USDC price in USDT
     expect(result[0]!.asset).toBe('USDC');
     // 1000 / 999.5 = 1.0005002501250625...
-    expect(result[0]!.priceAtTxTime.price.amount.toString()).toMatch(/^1\.00050025012506253126563281/);
+    expect(result[0]!.priceAtTxTime.price.amount.toFixed()).toMatch(/^1\.00050025012506253126563281/);
     expect(result[0]!.priceAtTxTime.price.currency.toString()).toBe('USDT');
 
     // USDT price in USDC
     expect(result[1]!.asset).toBe('USDT');
-    expect(result[1]!.priceAtTxTime.price.amount.toString()).toBe('0.9995');
+    expect(result[1]!.priceAtTxTime.price.amount.toFixed()).toBe('0.9995');
     expect(result[1]!.priceAtTxTime.price.currency.toString()).toBe('USDC');
   });
 
@@ -178,7 +178,7 @@ describe('calculatePriceFromTrade', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]!.asset).toBe('BTC');
-    expect(result[0]!.priceAtTxTime.price.amount.toString()).toBe('50000');
+    expect(result[0]!.priceAtTxTime.price.amount.toFixed()).toBe('50000');
     expect(result[0]!.priceAtTxTime.price.currency.toString()).toBe('USDT');
   });
 });
@@ -290,7 +290,7 @@ describe('inferPriceFromTrade', () => {
     expect(result).toHaveLength(1);
     expect(result[0]).toBeDefined();
     expect(result[0]!.asset).toBe('ETH');
-    expect(result[0]!.priceAtTxTime.price.amount.toString()).toBe('2500');
+    expect(result[0]!.priceAtTxTime.price.amount.toFixed()).toBe('2500');
     expect(result[0]!.priceAtTxTime.price.currency.toString()).toBe('USDT');
     expect(result[0]!.priceAtTxTime.source).toBe('derived-trade');
   });
@@ -325,7 +325,7 @@ describe('inferPriceFromTrade', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]!.asset).toBe('SOL');
-    expect(result[0]!.priceAtTxTime.price.amount.toString()).toBe('50');
+    expect(result[0]!.priceAtTxTime.price.amount.toFixed()).toBe('50');
     expect(result[0]!.priceAtTxTime.price.currency.toString()).toBe('USDT');
     expect(result[0]!.priceAtTxTime.source).toBe('derived-trade');
   });

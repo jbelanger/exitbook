@@ -38,14 +38,9 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
 
     if (isTokenTransfer) {
       // For token transfers, use rawContract.value if available
+      // Schema already converts hex to decimal string, so we can parse directly
       const rawValue = rawData.rawContract?.value || rawData.value;
-
-      // Handle hex string values (common for ERC20 transfers)
-      if (typeof rawValue === 'string' && rawValue.startsWith('0x')) {
-        amount = new Decimal(BigInt(rawValue).toString());
-      } else {
-        amount = parseDecimal(String(rawValue || 0));
-      }
+      amount = parseDecimal(String(rawValue || 0));
 
       currency = rawData.asset || 'UNKNOWN';
       tokenType = rawData.category as EvmTransaction['tokenType'];
