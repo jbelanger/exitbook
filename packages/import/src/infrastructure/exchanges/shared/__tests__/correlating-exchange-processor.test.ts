@@ -1,0 +1,377 @@
+import type { ExchangeLedgerEntry } from '@exitbook/exchanges';
+import { describe, expect, test } from 'vitest';
+
+import { CorrelatingExchangeProcessor } from '../correlating-exchange-processor.ts';
+import { byCorrelationId, noGrouping, type RawTransactionWithMetadata } from '../strategies/grouping.ts';
+import { standardAmounts } from '../strategies/interpretation.ts';
+
+function createEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
+  return {
+    amount: '0',
+    asset: 'USD',
+    correlationId: 'REF001',
+    id: 'ENTRY001',
+    timestamp: 1704067200000,
+    type: 'test',
+    status: 'ok',
+    ...overrides,
+  };
+}
+
+function wrapEntry(entry: ExchangeLedgerEntry): RawTransactionWithMetadata {
+  return {
+    raw: entry,
+    normalized: entry,
+    externalId: entry.id,
+    cursor: {},
+  };
+}
+
+describe('CorrelatingExchangeProcessor - Strategy Composition', () => {
+  test('uses grouping strategy to organize entries', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries = [
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-100', asset: 'USD' })),
+      wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.001', asset: 'BTC' })),
+      wrapEntry(createEntry({ id: 'E3', correlationId: 'DEP001', amount: '500', asset: 'EUR' })),
+    ];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const transactions = result.value;
+    expect(transactions).toHaveLength(2);
+
+    const swap = transactions.find((t) => t.id === 'E1');
+    const deposit = transactions.find((t) => t.id === 'E3');
+
+    expect(swap).toBeDefined();
+    expect(deposit).toBeDefined();
+
+    expect(swap?.metadata?.correlatedEntryCount).toBe(2);
+    expect(deposit?.metadata?.correlatedEntryCount).toBe(1);
+  });
+
+  test('noGrouping strategy creates individual transactions', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', noGrouping, standardAmounts);
+
+    const entries = [
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-100', asset: 'USD' })),
+      wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.001', asset: 'BTC' })),
+    ];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const transactions = result.value;
+    expect(transactions).toHaveLength(2);
+
+    transactions.forEach((t) => {
+      expect(t.metadata?.correlatedEntryCount).toBe(1);
+    });
+  });
+});
+
+describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
+  test('consolidates multiple entries of same asset', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries = [
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'MULTI001', amount: '-100', asset: 'USD' })),
+      wrapEntry(createEntry({ id: 'E2', correlationId: 'MULTI001', amount: '-50', asset: 'USD' })),
+      wrapEntry(createEntry({ id: 'E3', correlationId: 'MULTI001', amount: '0.002', asset: 'BTC' })),
+    ];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.movements.outflows).toHaveLength(1);
+    expect(transaction.movements.outflows[0]?.asset).toBe('USD');
+    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('150');
+
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.movements.inflows[0]?.asset).toBe('BTC');
+  });
+
+  test('consolidates fees across correlated entries', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries = [
+      wrapEntry(
+        createEntry({
+          id: 'E1',
+          correlationId: 'SWAP001',
+          amount: '-100',
+          asset: 'USD',
+          fee: '1.50',
+          feeCurrency: 'USD',
+        })
+      ),
+      wrapEntry(
+        createEntry({
+          id: 'E2',
+          correlationId: 'SWAP001',
+          amount: '0.001',
+          asset: 'BTC',
+          fee: '1.00',
+          feeCurrency: 'USD',
+        })
+      ),
+    ];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.fees.platform?.amount.toString()).toBe('2.5');
+    expect(transaction.fees.platform?.currency.toString()).toBe('USD');
+  });
+
+  test('selects largest inflow as primary movement', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries = [
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-1000', asset: 'USD' })),
+      wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.025', asset: 'BTC' })),
+    ];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction?.movements.primary.asset).toBe('BTC');
+    expect(transaction?.movements.primary.amount.amount.toString()).toBe('0.025');
+    expect(transaction?.movements.primary.direction).toBe('in');
+  });
+
+  test('selects largest outflow as primary when no inflows', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries = [wrapEntry(createEntry({ id: 'E1', correlationId: 'WITH001', amount: '-500', asset: 'USD' }))];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction?.movements.primary.asset).toBe('USD');
+    expect(transaction?.movements.primary.amount.amount.toString()).toBe('500');
+    expect(transaction?.movements.primary.direction).toBe('out');
+  });
+});
+
+describe('CorrelatingExchangeProcessor - Operation Classification', () => {
+  test('classifies swap (different assets)', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries = [
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-100', asset: 'USD' })),
+      wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.001', asset: 'BTC' })),
+    ];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction?.operation.category).toBe('trade');
+    expect(transaction?.operation.type).toBe('swap');
+  });
+
+  test('classifies deposit (inflow only)', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries = [wrapEntry(createEntry({ id: 'E1', correlationId: 'DEP001', amount: '700', asset: 'CAD' }))];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction?.operation.category).toBe('transfer');
+    expect(transaction?.operation.type).toBe('deposit');
+  });
+
+  test('classifies withdrawal (outflow only)', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries = [wrapEntry(createEntry({ id: 'E1', correlationId: 'WITH001', amount: '-385.155', asset: 'CAD' }))];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction?.operation.category).toBe('transfer');
+    expect(transaction?.operation.type).toBe('withdrawal');
+  });
+
+  test('classifies self-transfer (same asset in and out)', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries = [
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'TRANS001', amount: '-100', asset: 'USDT' })),
+      wrapEntry(createEntry({ id: 'E2', correlationId: 'TRANS001', amount: '100', asset: 'USDT' })),
+    ];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction?.operation.category).toBe('transfer');
+    expect(transaction?.operation.type).toBe('transfer');
+    expect(transaction?.movements.primary.direction).toBe('neutral');
+  });
+
+  test('adds uncertainty note for complex multi-asset transactions', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries = [
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'COMPLEX001', amount: '-100', asset: 'USD' })),
+      wrapEntry(createEntry({ id: 'E2', correlationId: 'COMPLEX001', amount: '-50', asset: 'EUR' })),
+      wrapEntry(createEntry({ id: 'E3', correlationId: 'COMPLEX001', amount: '0.001', asset: 'BTC' })),
+      wrapEntry(createEntry({ id: 'E4', correlationId: 'COMPLEX001', amount: '0.01', asset: 'ETH' })),
+    ];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction?.note).toBeDefined();
+    expect(transaction?.note?.type).toBe('classification_uncertain');
+    expect(transaction?.note?.severity).toBe('info');
+    expect(transaction?.movements.inflows).toHaveLength(2);
+    expect(transaction?.movements.outflows).toHaveLength(2);
+  });
+});
+
+describe('CorrelatingExchangeProcessor - Error Handling', () => {
+  test('returns error when empty entry group is provided', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries: RawTransactionWithMetadata[] = [];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value).toHaveLength(0);
+  });
+
+  test('skips entries without valid id in grouping', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const validEntry = wrapEntry(createEntry({ id: 'E1', correlationId: 'REF001', amount: '100', asset: 'USD' }));
+    const invalidEntry = {
+      normalized: createEntry({ id: '', correlationId: 'REF002', amount: '50', asset: 'EUR' }),
+      raw: {},
+      externalId: 'E2',
+      cursor: {},
+    };
+
+    const entries = [validEntry, invalidEntry] as RawTransactionWithMetadata[];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value).toHaveLength(1);
+    expect(result.value[0]?.id).toBe('E1');
+  });
+});
+
+describe('CorrelatingExchangeProcessor - Metadata', () => {
+  test('includes correlation metadata in transaction', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries = [
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-100', asset: 'USD' })),
+      wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.001', asset: 'BTC' })),
+    ];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    const metadata = transaction?.metadata as {
+      correlatedEntryCount?: number;
+      correlationId?: string;
+      ledgerEntries?: string[];
+    };
+
+    expect(metadata?.correlatedEntryCount).toBe(2);
+    expect(metadata?.correlationId).toBe('SWAP001');
+    expect(metadata?.ledgerEntries).toEqual(['E1', 'E2']);
+  });
+
+  test('sets source correctly', async () => {
+    const processor = new CorrelatingExchangeProcessor('kraken', byCorrelationId, standardAmounts);
+
+    const entries = [wrapEntry(createEntry({ id: 'E1', amount: '100', asset: 'USD' }))];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value[0]?.source).toBe('kraken');
+  });
+
+  test('preserves entry timestamp', async () => {
+    const timestamp = 1704153600000;
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries = [wrapEntry(createEntry({ id: 'E1', timestamp, amount: '100', asset: 'USD' }))];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value[0]?.timestamp).toBe(timestamp);
+    expect(result.value[0]?.datetime).toBe(new Date(timestamp).toISOString());
+  });
+
+  test('preserves entry status', async () => {
+    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
+
+    const entries = [wrapEntry(createEntry({ id: 'E1', amount: '100', asset: 'USD', status: 'pending' }))];
+
+    const result = await processor.process(entries, {});
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value[0]?.status).toBe('pending');
+  });
+});

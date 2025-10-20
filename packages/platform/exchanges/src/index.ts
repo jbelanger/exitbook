@@ -14,6 +14,8 @@ export type { BalanceSnapshot, ExchangeCredentials, IExchangeClient } from './co
 
 // Coinbase
 export { createCoinbaseClient } from './coinbase/client.ts';
+export { CoinbaseLedgerEntrySchema } from './coinbase/schemas.ts';
+export type { CoinbaseLedgerEntry } from './coinbase/client.ts';
 
 // Kraken
 export { createKrakenClient } from './kraken/client.ts';

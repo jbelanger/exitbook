@@ -44,9 +44,9 @@ export function compareBalances(
 
     comparisons.push({
       currency,
-      calculatedBalance: calcBalance.toString(),
-      liveBalance: liveBalance.toString(),
-      difference: difference.toString(),
+      calculatedBalance: calcBalance.toFixed(),
+      liveBalance: liveBalance.toFixed(),
+      difference: difference.toFixed(),
       percentageDiff,
       status,
     });
