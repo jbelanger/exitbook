@@ -51,7 +51,7 @@ describe('ExportHandler', () => {
     operation_category: 'trade',
     operation_type: 'buy',
     transaction_datetime: '2024-01-01T12:00:00Z',
-    transaction_status: 'confirmed',
+    transaction_status: 'success',
     from_address: null,
     to_address: null,
     movements_inflows: [{ asset, amount: parseDecimal('1.0') }],

@@ -81,7 +81,7 @@ describe('LinkHandler', () => {
     operation_category: 'transfer',
     operation_type: operationType as 'withdrawal' | 'deposit',
     transaction_datetime: '2024-01-01T12:00:00Z',
-    transaction_status: 'confirmed',
+    transaction_status: 'success',
     from_address: null,
     to_address: 'bc1q...',
     movements_inflows: operationType === 'withdrawal' ? [] : [{ asset: 'BTC', amount: parseDecimal('1.0') }],

@@ -31,7 +31,7 @@ function createTransaction(params: {
     source_id: params.sourceId,
     source_type: params.sourceType,
     external_id: params.externalId,
-    transaction_status: 'confirmed',
+    transaction_status: 'success',
     transaction_datetime: params.datetime,
     from_address: params.fromAddress ?? null,
     to_address: params.toAddress ?? null,

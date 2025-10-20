@@ -73,7 +73,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           transaction_datetime: transaction.datetime
             ? new Date(transaction.datetime).toISOString()
             : new Date().toISOString(),
-          transaction_status: (transaction.status as 'pending' | 'confirmed' | 'failed' | 'cancelled') || 'confirmed',
+          transaction_status: transaction.status,
           verified: Boolean(transaction.metadata?.verified),
 
           // Structured movements

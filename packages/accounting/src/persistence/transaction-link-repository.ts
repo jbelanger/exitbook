@@ -39,9 +39,9 @@ export class TransactionLinkRepository {
           match_criteria_json: this.serializeToJson(link.matchCriteria) ?? '{}',
           status: link.status,
           reviewed_by: link.reviewedBy ?? null,
-          reviewed_at: link.reviewedAt ? this.dateToTimestamp(link.reviewedAt) : null,
-          created_at: this.dateToTimestamp(link.createdAt),
-          updated_at: this.dateToTimestamp(link.updatedAt),
+          reviewed_at: link.reviewedAt ? link.reviewedAt.toISOString() : null,
+          created_at: link.createdAt.toISOString(),
+          updated_at: link.updatedAt.toISOString(),
           metadata_json: this.serializeToJson(link.metadata) ?? null,
         })
         .execute();
@@ -76,9 +76,9 @@ export class TransactionLinkRepository {
         match_criteria_json: this.serializeToJson(link.matchCriteria) ?? '{}',
         status: link.status,
         reviewed_by: link.reviewedBy ?? null,
-        reviewed_at: link.reviewedAt ? this.dateToTimestamp(link.reviewedAt) : null,
-        created_at: this.dateToTimestamp(link.createdAt),
-        updated_at: this.dateToTimestamp(link.updatedAt),
+        reviewed_at: link.reviewedAt ? link.reviewedAt.toISOString() : null,
+        created_at: link.createdAt.toISOString(),
+        updated_at: link.updatedAt.toISOString(),
         metadata_json: this.serializeToJson(link.metadata) ?? null,
       }));
 
@@ -192,7 +192,7 @@ export class TransactionLinkRepository {
     reviewedBy: string
   ): Promise<Result<boolean, Error>> {
     try {
-      const now = this.dateToTimestamp(new Date());
+      const now = new Date().toISOString();
 
       const result = await this.db
         .updateTable('transaction_links')
@@ -332,12 +332,5 @@ export class TransactionLinkRepository {
       this.logger.warn({ data, error }, 'Failed to serialize data to JSON');
       return undefined;
     }
-  }
-
-  /**
-   * Helper method to convert Date to Unix timestamp
-   */
-  private dateToTimestamp(date: Date): number {
-    return Math.floor(date.getTime() / 1000);
   }
 }

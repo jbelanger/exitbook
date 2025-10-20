@@ -49,7 +49,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('external_id', 'text')
     .addColumn('cursor', 'text')
     .addColumn('raw_data', 'text', (col) => col.notNull())
-    .addColumn('normalized_data', 'text')
+    .addColumn('normalized_data', 'text', (col) => col.notNull())
     .addColumn('processing_status', 'text', (col) => col.notNull().defaultTo('pending'))
     .addColumn('processed_at', 'text')
     .addColumn('processing_error', 'text')
@@ -144,9 +144,9 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('match_criteria_json', 'text', (col) => col.notNull())
     .addColumn('status', 'text', (col) => col.notNull())
     .addColumn('reviewed_by', 'text')
-    .addColumn('reviewed_at', 'integer')
-    .addColumn('created_at', 'integer', (col) => col.notNull())
-    .addColumn('updated_at', 'integer', (col) => col.notNull())
+    .addColumn('reviewed_at', 'text')
+    .addColumn('created_at', 'text', (col) => col.notNull())
+    .addColumn('updated_at', 'text', (col) => col.notNull())
     .addColumn('metadata_json', 'text')
     .execute();
 
@@ -169,10 +169,10 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
   await db.schema
     .createTable('cost_basis_calculations')
     .addColumn('id', 'text', (col) => col.primaryKey())
-    .addColumn('calculation_date', 'integer', (col) => col.notNull())
+    .addColumn('calculation_date', 'text', (col) => col.notNull())
     .addColumn('config_json', 'text', (col) => col.notNull())
-    .addColumn('start_date', 'integer')
-    .addColumn('end_date', 'integer')
+    .addColumn('start_date', 'text')
+    .addColumn('end_date', 'text')
     .addColumn('total_proceeds', 'text', (col) => col.notNull())
     .addColumn('total_cost_basis', 'text', (col) => col.notNull())
     .addColumn('total_gain_loss', 'text', (col) => col.notNull())
@@ -183,8 +183,8 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('disposals_processed', 'integer', (col) => col.notNull())
     .addColumn('status', 'text', (col) => col.notNull())
     .addColumn('error_message', 'text')
-    .addColumn('created_at', 'integer', (col) => col.notNull())
-    .addColumn('completed_at', 'integer')
+    .addColumn('created_at', 'text', (col) => col.notNull())
+    .addColumn('completed_at', 'text')
     .addColumn('metadata_json', 'text')
     .execute();
 
@@ -198,12 +198,12 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('quantity', 'text', (col) => col.notNull())
     .addColumn('cost_basis_per_unit', 'text', (col) => col.notNull())
     .addColumn('total_cost_basis', 'text', (col) => col.notNull())
-    .addColumn('acquisition_date', 'integer', (col) => col.notNull())
+    .addColumn('acquisition_date', 'text', (col) => col.notNull())
     .addColumn('method', 'text', (col) => col.notNull())
     .addColumn('remaining_quantity', 'text', (col) => col.notNull())
     .addColumn('status', 'text', (col) => col.notNull())
-    .addColumn('created_at', 'integer', (col) => col.notNull())
-    .addColumn('updated_at', 'integer', (col) => col.notNull())
+    .addColumn('created_at', 'text', (col) => col.notNull())
+    .addColumn('updated_at', 'text', (col) => col.notNull())
     .addColumn('metadata_json', 'text')
     .execute();
 
@@ -226,10 +226,10 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('cost_basis_per_unit', 'text', (col) => col.notNull())
     .addColumn('total_cost_basis', 'text', (col) => col.notNull())
     .addColumn('gain_loss', 'text', (col) => col.notNull())
-    .addColumn('disposal_date', 'integer', (col) => col.notNull())
+    .addColumn('disposal_date', 'text', (col) => col.notNull())
     .addColumn('holding_period_days', 'integer', (col) => col.notNull())
     .addColumn('tax_treatment_category', 'text')
-    .addColumn('created_at', 'integer', (col) => col.notNull())
+    .addColumn('created_at', 'text', (col) => col.notNull())
     .addColumn('metadata_json', 'text')
     .execute();
 

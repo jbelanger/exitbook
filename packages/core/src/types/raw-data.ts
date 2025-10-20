@@ -4,7 +4,7 @@ export interface RawTransactionWithMetadata {
   // New fields for exchange validation and auto-incremental imports
   externalId?: string | undefined; // Unique transaction ID from source
   cursor?: Record<string, number> | undefined; // Cursor for resuming imports (e.g., { trade: 1704067200000 })
-  normalizedData?: unknown; // Standardized transaction data after validation and mapping - Required for exchange
+  normalizedData: unknown; // Standardized transaction data after validation and mapping (mandatory - normalization happens during import)
 }
 
 export interface RawTransactionMetadata {

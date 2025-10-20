@@ -25,7 +25,7 @@ function createMockTransaction(
     source_id: sourceId,
     source_type: sourceType,
     external_id: `tx-${id}`,
-    transaction_status: 'confirmed',
+    transaction_status: 'success',
     transaction_datetime: datetime,
     from_address: null,
     to_address: null,

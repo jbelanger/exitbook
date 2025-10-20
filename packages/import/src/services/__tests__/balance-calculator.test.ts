@@ -14,7 +14,7 @@ function createTestTransaction(overrides: Partial<StoredTransaction>): StoredTra
     source_id: 'test',
     source_type: 'exchange',
     external_id: 'test-tx',
-    transaction_status: 'confirmed',
+    transaction_status: 'success',
     transaction_datetime: '2024-01-01T00:00:00Z',
     from_address: null,
     to_address: null,

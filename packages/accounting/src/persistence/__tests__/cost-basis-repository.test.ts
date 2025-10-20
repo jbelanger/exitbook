@@ -84,7 +84,7 @@ describe('CostBasisRepository', () => {
           source_id: i <= 3 ? 'kraken' : 'ethereum',
           source_type: 'exchange' as const,
           external_id: `tx-${i}`,
-          transaction_status: 'confirmed' as const,
+          transaction_status: 'success' as const,
           transaction_datetime: new Date().toISOString(),
           verified: false,
           raw_normalized_data: '{}',

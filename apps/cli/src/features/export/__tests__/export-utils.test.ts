@@ -228,7 +228,7 @@ describe('export-utils', () => {
         operation_category: 'trade',
         operation_type: 'buy',
         transaction_datetime: '2024-01-01T12:00:00Z',
-        transaction_status: 'confirmed',
+        transaction_status: 'success',
         from_address: null,
         to_address: null,
         movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
@@ -257,7 +257,7 @@ describe('export-utils', () => {
       expect(result).toContain('id,source,operation_category');
       expect(result).toContain('1,kraken,trade,buy');
       expect(result).toContain('BTC,1.5,in');
-      expect(result).toContain('50000,USD,confirmed');
+      expect(result).toContain('50000,USD,success');
     });
 
     it('should convert multiple transactions to CSV', () => {
@@ -272,7 +272,7 @@ describe('export-utils', () => {
           operation_category: 'trade',
           operation_type: 'buy',
           transaction_datetime: '2024-01-01T12:00:00Z',
-          transaction_status: 'confirmed',
+          transaction_status: 'success',
           from_address: null,
           to_address: null,
           movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
@@ -305,7 +305,7 @@ describe('export-utils', () => {
           operation_category: 'trade',
           operation_type: 'sell',
           transaction_datetime: '2024-01-02T12:00:00Z',
-          transaction_status: 'confirmed',
+          transaction_status: 'success',
           from_address: null,
           to_address: null,
           movements_inflows: [],
@@ -350,7 +350,7 @@ describe('export-utils', () => {
         operation_category: 'trade',
         operation_type: 'buy',
         transaction_datetime: '2024-01-01T12:00:00Z',
-        transaction_status: 'confirmed',
+        transaction_status: 'success',
         from_address: null,
         to_address: null,
         movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
@@ -397,7 +397,7 @@ describe('export-utils', () => {
         operation_category: 'trade',
         operation_type: 'buy',
         transaction_datetime: '2024-01-01T12:00:00Z',
-        transaction_status: 'confirmed',
+        transaction_status: 'success',
         from_address: null,
         to_address: null,
         movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
@@ -458,7 +458,7 @@ describe('export-utils', () => {
           operation_category: 'trade',
           operation_type: 'buy',
           transaction_datetime: '2024-01-01T12:00:00Z',
-          transaction_status: 'confirmed',
+          transaction_status: 'success',
           from_address: null,
           to_address: null,
           movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
@@ -491,7 +491,7 @@ describe('export-utils', () => {
           operation_category: 'trade',
           operation_type: 'sell',
           transaction_datetime: '2024-01-02T12:00:00Z',
-          transaction_status: 'confirmed',
+          transaction_status: 'success',
           from_address: null,
           to_address: null,
           movements_inflows: [],
@@ -535,7 +535,7 @@ describe('export-utils', () => {
         operation_category: 'transfer',
         operation_type: 'transfer',
         transaction_datetime: '2024-01-01T12:00:00Z',
-        transaction_status: 'confirmed',
+        transaction_status: 'success',
         from_address: null,
         to_address: null,
         movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
@@ -588,7 +588,7 @@ describe('export-utils', () => {
         operation_category: 'trade',
         operation_type: 'buy',
         transaction_datetime: '2024-01-01T12:00:00Z',
-        transaction_status: 'confirmed',
+        transaction_status: 'success',
         from_address: null,
         to_address: null,
         movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],

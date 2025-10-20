@@ -198,28 +198,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async getRecordsNeedingValidation(importSessionId: number): Promise<Result<RawData[], Error>> {
-    try {
-      const rows = await this.db
-        .selectFrom('external_transaction_data')
-        .selectAll()
-        .where('import_session_id', '=', importSessionId)
-        .where('normalized_data', 'is', null)
-        .execute();
-
-      return ok(rows);
-    } catch (error) {
-      return wrapError(error, 'Failed to get records needing validation');
-    }
-  }
-
   async getValidRecords(importSessionId: number): Promise<Result<RawData[], Error>> {
     try {
       const rows = await this.db
         .selectFrom('external_transaction_data')
         .selectAll()
         .where('import_session_id', '=', importSessionId)
-        .where('normalized_data', 'is not', null)
         .where('processing_status', '=', 'pending')
         .execute();
 

@@ -62,7 +62,7 @@ export interface ExternalTransactionDataTable {
 
   // Data storage
   raw_data: JSONString; // Raw data from source
-  normalized_data: JSONString; // Normalized data
+  normalized_data: JSONString; // Normalized data (mandatory - normalization happens during import)
 
   // Processing status
   processing_status: 'pending' | 'processed' | 'failed' | 'skipped';
@@ -86,7 +86,9 @@ export interface TransactionsTable {
   external_id: string | null; // hash, transaction ID, etc.
 
   // Transaction metadata
-  transaction_status: 'pending' | 'confirmed' | 'failed' | 'cancelled';
+  // Unified status supporting both blockchain ('success', 'pending', 'failed')
+  // and exchange ('open', 'closed', 'canceled', 'ok', 'pending', 'failed') statuses
+  transaction_status: 'pending' | 'success' | 'failed' | 'open' | 'closed' | 'canceled' | 'ok';
   transaction_datetime: DateTime;
   from_address: string | null;
   to_address: string | null;
@@ -188,10 +190,10 @@ export interface ImportSessionErrorsTable {
  */
 export interface CostBasisCalculationsTable {
   id: string; // UUID
-  calculation_date: number; // Unix timestamp
+  calculation_date: DateTime;
   config_json: JSONString; // CostBasisConfig
-  start_date: number | null; // Unix timestamp
-  end_date: number | null; // Unix timestamp
+  start_date: DateTime | null;
+  end_date: DateTime | null;
   total_proceeds: DecimalString;
   total_cost_basis: DecimalString;
   total_gain_loss: DecimalString;
@@ -202,8 +204,8 @@ export interface CostBasisCalculationsTable {
   disposals_processed: number;
   status: 'pending' | 'completed' | 'failed';
   error_message: string | null;
-  created_at: number; // Unix timestamp
-  completed_at: number | null; // Unix timestamp
+  created_at: DateTime;
+  completed_at: DateTime | null;
   metadata_json: JSONString | null;
 }
 
@@ -218,12 +220,12 @@ export interface AcquisitionLotsTable {
   quantity: DecimalString;
   cost_basis_per_unit: DecimalString;
   total_cost_basis: DecimalString;
-  acquisition_date: number; // Unix timestamp
+  acquisition_date: DateTime;
   method: 'fifo' | 'lifo' | 'specific-id' | 'average-cost';
   remaining_quantity: DecimalString;
   status: 'open' | 'partially_disposed' | 'fully_disposed';
-  created_at: number; // Unix timestamp
-  updated_at: number; // Unix timestamp
+  created_at: DateTime;
+  updated_at: DateTime;
   metadata_json: JSONString | null;
 }
 
@@ -240,10 +242,10 @@ export interface LotDisposalsTable {
   cost_basis_per_unit: DecimalString;
   total_cost_basis: DecimalString;
   gain_loss: DecimalString;
-  disposal_date: number; // Unix timestamp
+  disposal_date: DateTime;
   holding_period_days: number;
   tax_treatment_category: string | null; // null (Canada), 'short_term'/'long_term' (US)
-  created_at: number; // Unix timestamp
+  created_at: DateTime;
   metadata_json: JSONString | null;
 }
 
@@ -260,9 +262,9 @@ export interface TransactionLinksTable {
   match_criteria_json: JSONString; // MatchCriteria
   status: 'suggested' | 'confirmed' | 'rejected';
   reviewed_by: string | null;
-  reviewed_at: number | null; // Unix timestamp
-  created_at: number; // Unix timestamp
-  updated_at: number; // Unix timestamp
+  reviewed_at: DateTime | null;
+  created_at: DateTime;
+  updated_at: DateTime;
   metadata_json: JSONString | null;
 }
 

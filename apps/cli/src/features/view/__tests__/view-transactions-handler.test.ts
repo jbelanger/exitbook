@@ -33,7 +33,7 @@ describe('ViewTransactionsHandler', () => {
     source_id: 'kraken',
     source_type: 'exchange',
     external_id: 'ext-123',
-    transaction_status: 'confirmed',
+    transaction_status: 'success',
     transaction_datetime: '2024-01-01T00:00:00Z',
     from_address: null,
     to_address: null,

@@ -56,7 +56,7 @@ describe('TransactionRepository - delete methods', () => {
           source_id: i <= 3 ? 'kraken' : 'ethereum',
           source_type: i <= 3 ? ('exchange' as const) : ('blockchain' as const),
           external_id: `tx-${i}`,
-          transaction_status: 'confirmed' as const,
+          transaction_status: 'success' as const,
           transaction_datetime: new Date().toISOString(),
           from_address: undefined,
           to_address: undefined,
