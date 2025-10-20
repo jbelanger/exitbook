@@ -1,6 +1,7 @@
 import type { UniversalTransaction } from '@exitbook/core';
-import type { StoredTransaction } from '@exitbook/data';
 import type { Result } from 'neverthrow';
+
+import type { StoredTransaction } from '../types/data-types.js';
 
 /**
  * Port interface for transaction repository operations.

@@ -83,14 +83,6 @@ export function createDatabase(dbPath?: string): Kysely<DatabaseSchema> {
     dialect: new SqliteDialect({
       database: wrappedDb,
     }),
-    // log(event) {
-    //   if (event.level === 'query') {
-    //     logger.debug({ sql: event.query.sql, parameters: event.query.parameters }, 'SQL Query');
-    //   }
-    //   if (event.level === 'error') {
-    //     logger.error({ error: event.error, sql: event.query.sql, parameters: event.query.parameters }, 'SQL Error');
-    //   }
-    // },
   });
 
   return kysely;
@@ -106,8 +98,11 @@ export async function clearDatabase(db: Kysely<DatabaseSchema>): Promise<void> {
 
     // Drop tables in correct order (respecting foreign key constraints)
     const tablesToDrop = [
-      'balance_verifications',
-      'balance_snapshots',
+      'lot_disposals',
+      'acquisition_lots',
+      'cost_basis_calculations',
+      'transaction_links',
+      'import_session_errors',
       'transactions',
       'external_transaction_data',
       'import_sessions',

@@ -9,6 +9,7 @@ export { calculateBalances } from './services/balance-calculator.ts';
 export {
   fetchExchangeBalance,
   fetchBlockchainBalance,
+  fetchBitcoinXpubBalance,
   convertBalancesToDecimals,
   type UnifiedBalanceSnapshot,
 } from './services/balance-utils.ts';

@@ -37,91 +37,6 @@ export abstract class BaseRepository {
   }
 
   /**
-   * Utility to build dynamic WHERE clauses
-   * Returns an object with conditions array and parameters array
-   */
-  protected buildWhereConditions(filters: Record<string, unknown>): {
-    conditions: string[];
-    hasConditions: boolean;
-  } {
-    const conditions: string[] = [];
-
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        conditions.push(`${key} = ?`);
-      }
-    });
-
-    return {
-      conditions,
-      hasConditions: conditions.length > 0,
-    };
-  }
-
-  /**
-   * Helper method for bulk insert operations with conflict resolution
-   * Note: Simplified generic version - in practice you'd want better typing per table
-   */
-  protected async bulkInsert<T extends keyof DatabaseSchema>(
-    table: T,
-    data: Record<string, unknown>[],
-    onConflict: 'ignore' | 'replace' = 'ignore'
-  ): Promise<number> {
-    if (data.length === 0) {
-      this.logger.debug(`No data to insert into ${String(table)}`);
-      return 0;
-    }
-
-    return this.withTransaction(async (trx) => {
-      let inserted = 0;
-
-      for (const item of data) {
-        try {
-          const query = trx.insertInto(table);
-          let finalQuery = query.values(item as never);
-
-          if (onConflict === 'ignore') {
-            finalQuery = finalQuery.onConflict((oc) => oc.doNothing());
-          } else if (onConflict === 'replace') {
-            finalQuery = finalQuery.onConflict((oc) => oc.doUpdateSet(item as never));
-          }
-
-          const result = await finalQuery.execute();
-          if (result.length > 0) {
-            inserted++;
-          }
-        } catch (error) {
-          this.logger.warn(
-            {
-              error,
-              item,
-            },
-            `Failed to insert item into ${String(table)}`
-          );
-          // Continue with other items instead of failing the entire batch
-        }
-      }
-
-      this.logger.debug(`Bulk insert completed: ${inserted}/${data.length} items inserted into ${String(table)}`);
-      return inserted;
-    });
-  }
-
-  /**
-   * Helper method to handle JSON field parsing safely
-   */
-  protected parseJsonField<T>(jsonString: string | undefined, fallback: T): T {
-    if (!jsonString) return fallback;
-
-    try {
-      return JSON.parse(jsonString) as T;
-    } catch (error) {
-      this.logger.warn({ error, jsonString }, 'Failed to parse JSON field');
-      return fallback;
-    }
-  }
-
-  /**
    * Helper method to serialize data to JSON string safely
    * Handles Decimal objects by converting them to fixed-point notation
    */
@@ -160,59 +75,9 @@ export abstract class BaseRepository {
   }
 
   /**
-   * Helper method for pagination queries
-   * Note: This is a simplified version - in practice you'd want proper typing
-   */
-  protected applyPagination<QB extends { limit(n: number): QB; offset(n: number): QB }>(
-    query: QB,
-    limit?: number,
-    offset?: number
-  ): QB {
-    let paginatedQuery = query;
-
-    if (limit !== undefined && limit > 0) {
-      paginatedQuery = paginatedQuery.limit(limit);
-    }
-
-    if (offset !== undefined && offset > 0) {
-      paginatedQuery = paginatedQuery.offset(offset);
-    }
-
-    return paginatedQuery;
-  }
-
-  /**
-   * Helper method to get current Unix timestamp
-   */
-  protected getCurrentTimestamp(): number {
-    return Math.floor(Date.now() / 1000);
-  }
-
-  /**
    * Helper method to get current ISO datetime string for database operations
    */
   protected getCurrentDateTimeForDB(): string {
     return new Date().toISOString();
-  }
-
-  /**
-   * Helper method to convert Unix timestamp to Date
-   */
-  protected timestampToDate(timestamp: number): Date {
-    return new Date(timestamp * 1000);
-  }
-
-  /**
-   * Helper method to convert Date to Unix timestamp
-   */
-  protected dateToTimestamp(date: Date): number {
-    return Math.floor(date.getTime() / 1000);
-  }
-
-  /**
-   * Helper method to convert Date to ISO string for database DateTime fields
-   */
-  protected dateToISO(date: Date): string {
-    return date.toISOString();
   }
 }

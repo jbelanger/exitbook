@@ -1,16 +1,16 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
 import type { Currency, AssetMovement, Money, UniversalTransaction } from '@exitbook/core';
 import { dbStringToMoney, moneyToDbString, parseDecimal, wrapError } from '@exitbook/core';
-import type { KyselyDB } from '@exitbook/data';
-import { BaseRepository } from '@exitbook/data';
 import type { Decimal } from 'decimal.js';
 import type { Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
 import type { TransactionsTable } from '../schema/database-schema.js';
+import type { KyselyDB } from '../storage/database.js';
 import type { StoredTransaction } from '../types/data-types.js';
 
+import { BaseRepository } from './base-repository.js';
 import type { ITransactionRepository } from './transaction-repository.interface.ts';
 
 /**
@@ -266,40 +266,34 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       const results = await query.execute();
 
-      // Filter transactions that have movements without priceAtTxTime
-      const transactionsNeedingPrices = results.filter((tx) => {
-        const inflows = tx.movements_inflows ? (JSON.parse(tx.movements_inflows as string) as unknown[]) : [];
-        const outflows = tx.movements_outflows ? (JSON.parse(tx.movements_outflows as string) as unknown[]) : [];
+      // Parse movements once, then filter for those needing prices
+      const parsedTransactions = results.map((tx) => ({
+        id: tx.id,
+        movementsInflows: tx.movements_inflows ? (JSON.parse(tx.movements_inflows as string) as AssetMovement[]) : [],
+        movementsOutflows: tx.movements_outflows
+          ? (JSON.parse(tx.movements_outflows as string) as AssetMovement[])
+          : [],
+        transactionDatetime: tx.transaction_datetime,
+      }));
 
-        const allMovements = [...inflows, ...outflows];
+      // Filter transactions that have movements without priceAtTxTime
+      const transactionsNeedingPrices = parsedTransactions.filter((tx) => {
+        const allMovements = [...tx.movementsInflows, ...tx.movementsOutflows];
 
         // Check if any movement is missing priceAtTxTime
-        const hasMovementsNeedingPrice = allMovements.some((movement: unknown) => {
-          const m = movement as { asset: string; priceAtTxTime?: unknown };
-
+        return allMovements.some((movement) => {
           // If asset filter is provided, only check movements matching the filter
           if (assetFilter && assetFilter.length > 0) {
-            if (!assetFilter.includes(m.asset)) {
+            if (!assetFilter.includes(movement.asset)) {
               return false;
             }
           }
 
-          return !m.priceAtTxTime;
+          return !movement.priceAtTxTime;
         });
-
-        return hasMovementsNeedingPrice;
       });
 
-      return ok(
-        transactionsNeedingPrices.map((tx) => ({
-          id: tx.id,
-          movementsInflows: tx.movements_inflows ? (JSON.parse(tx.movements_inflows as string) as AssetMovement[]) : [],
-          movementsOutflows: tx.movements_outflows
-            ? (JSON.parse(tx.movements_outflows as string) as AssetMovement[])
-            : [],
-          transactionDatetime: tx.transaction_datetime,
-        }))
-      );
+      return ok(transactionsNeedingPrices);
     } catch (error) {
       return wrapError(error, 'Failed to find transactions needing prices');
     }

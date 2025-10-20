@@ -6,6 +6,7 @@ import {
   compareBalances,
   convertBalancesToDecimals,
   createVerificationResult,
+  fetchBitcoinXpubBalance,
   fetchBlockchainBalance,
   fetchExchangeBalance,
   ImportSessionRepository,
@@ -13,7 +14,12 @@ import {
   type BalanceVerificationResult,
   type UnifiedBalanceSnapshot,
 } from '@exitbook/import';
-import { BlockchainProviderManager, loadExplorerConfig, type BlockchainExplorersConfig } from '@exitbook/providers';
+import {
+  BitcoinUtils,
+  BlockchainProviderManager,
+  loadExplorerConfig,
+  type BlockchainExplorersConfig,
+} from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -133,6 +139,58 @@ export class BalanceHandler {
   }
 
   /**
+   * Get derived addresses from session metadata for Bitcoin xpub addresses.
+   * Returns the list of derived addresses stored during import.
+   */
+  private async getDerivedAddressesFromSession(params: BalanceHandlerParams): Promise<Result<string[], Error>> {
+    try {
+      const sessionsResult = await this.sessionRepository.findBySource(params.sourceName);
+
+      if (sessionsResult.isErr()) {
+        return err(sessionsResult.error);
+      }
+
+      const sessions = sessionsResult.value;
+      if (sessions.length === 0) {
+        return err(new Error(`No import session found for ${params.sourceName}`));
+      }
+
+      // Find session matching this specific address
+      const normalizedAddress = params.address?.toLowerCase();
+      const matchingSession = sessions.find((session) => {
+        const importParams = parseImportParams(session.import_params);
+        return importParams.address?.toLowerCase() === normalizedAddress;
+      });
+
+      if (!matchingSession) {
+        return err(new Error(`No import session found for address ${params.address}`));
+      }
+
+      // Extract derived addresses from import_result_metadata (not import_params)
+      // The derivedAddresses are stored by the importer in the metadata field of ImportRunResult
+      const resultMetadata = matchingSession.import_result_metadata
+        ? typeof matchingSession.import_result_metadata === 'string'
+          ? (JSON.parse(matchingSession.import_result_metadata) as Record<string, unknown>)
+          : (matchingSession.import_result_metadata as Record<string, unknown>)
+        : {};
+
+      const derivedAddresses = resultMetadata.derivedAddresses;
+
+      if (!Array.isArray(derivedAddresses) || derivedAddresses.length === 0) {
+        return err(
+          new Error(
+            `No derived addresses found in session metadata for ${params.address}. Was this imported as an xpub?`
+          )
+        );
+      }
+
+      return ok(derivedAddresses);
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  /**
    * Get the timestamp of the most recent completed import for the source.
    * Returns undefined if no completed imports found.
    */
@@ -186,6 +244,7 @@ export class BalanceHandler {
   /**
    * Calculate balances from transactions in the database.
    * For blockchain: filter by address AND blockchain (critical for EVM addresses shared across chains)
+   * For Bitcoin xpub: fetch transactions for ALL derived addresses
    * For exchange: filter by source_id
    */
   private async calculateBalancesFromTransactions(
@@ -195,7 +254,43 @@ export class BalanceHandler {
       let transactionsResult;
 
       if (params.sourceType === 'blockchain' && params.address) {
-        // For blockchain, fetch transactions by address AND blockchain
+        // Special handling for Bitcoin xpub addresses
+        if (params.sourceName === 'bitcoin' && BitcoinUtils.isXpub(params.address)) {
+          logger.info('Detected Bitcoin xpub address, calculating balance from all derived addresses');
+
+          // Get derived addresses from session metadata
+          const derivedAddressesResult = await this.getDerivedAddressesFromSession(params);
+          if (derivedAddressesResult.isErr()) {
+            return err(derivedAddressesResult.error);
+          }
+
+          const derivedAddresses = derivedAddressesResult.value;
+          logger.info(`Fetching transactions for ${derivedAddresses.length} derived addresses`);
+
+          // Fetch transactions for all derived addresses
+          const allTransactions = [];
+          for (const address of derivedAddresses) {
+            const result = await this.transactionRepository.findByAddress(address, params.sourceName);
+            if (result.isOk()) {
+              allTransactions.push(...result.value);
+            }
+          }
+
+          // Deduplicate transactions by ID (same transaction might appear in multiple addresses)
+          const uniqueTransactions = Array.from(new Map(allTransactions.map((tx) => [tx.id, tx])).values());
+
+          logger.info(`Found ${uniqueTransactions.length} unique transactions across all derived addresses`);
+
+          if (uniqueTransactions.length === 0) {
+            logger.warn(`No transactions found for xpub ${params.address} - calculated balance will be empty`);
+            return ok({});
+          }
+
+          const calculatedBalances = calculateBalances(uniqueTransactions);
+          return ok(calculatedBalances);
+        }
+
+        // For regular blockchain addresses, fetch transactions by address AND blockchain
         // This prevents cross-chain aggregation (e.g., Ethereum + Polygon with same 0x address)
         transactionsResult = await this.transactionRepository.findByAddress(params.address, params.sourceName);
       } else {
@@ -256,12 +351,31 @@ export class BalanceHandler {
 
   /**
    * Fetch balance from a blockchain.
+   * For Bitcoin xpub addresses, fetches balances from all derived addresses and sums them.
    */
   private async fetchBlockchainBalance(params: BalanceHandlerParams): Promise<Result<UnifiedBalanceSnapshot, Error>> {
     if (!params.address) {
       return err(new Error('Address is required for blockchain balance fetch'));
     }
 
+    // Special handling for Bitcoin xpub addresses
+    if (params.sourceName === 'bitcoin' && BitcoinUtils.isXpub(params.address)) {
+      logger.info('Detected Bitcoin xpub address, fetching derived addresses from session');
+
+      // Get derived addresses from session metadata
+      const derivedAddressesResult = await this.getDerivedAddressesFromSession(params);
+      if (derivedAddressesResult.isErr()) {
+        return err(derivedAddressesResult.error);
+      }
+
+      const derivedAddresses = derivedAddressesResult.value;
+      logger.info(`Fetching balances for ${derivedAddresses.length} derived addresses`);
+
+      // Fetch and sum balances from all derived addresses
+      return fetchBitcoinXpubBalance(this.providerManager, params.address, derivedAddresses);
+    }
+
+    // Standard single-address balance fetch
     const result = await fetchBlockchainBalance(this.providerManager, params.sourceName, params.address);
 
     if (result.isErr()) {

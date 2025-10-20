@@ -200,22 +200,27 @@ export class TransactionIngestionService {
             normalized_data = typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
           }
 
-          const raw_data: unknown = typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
+          // For exchanges: package both raw and normalized data (supports strategy pattern)
+          // Raw contains CCXT-specific fields, normalized contains common ExchangeLedgerEntry fields
+          // For blockchains: just use normalized data (already in final provider-specific format)
+          if (sourceType === 'exchange') {
+            const raw_data: unknown = typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
 
-          // Package both raw and normalized data for processor (supports strategy pattern)
-          // For exchanges: raw contains CCXT-specific fields, normalized contains common ExchangeLedgerEntry fields
-          // This allows processors to access exchange-specific context while working with validated data
-          const dataPackage = {
-            raw: raw_data,
-            normalized: normalized_data,
-            externalId: item.external_id || '',
-            cursor:
-              typeof item.cursor === 'string'
-                ? (JSON.parse(item.cursor) as Record<string, unknown>)
-                : (item.cursor as Record<string, unknown>) || {},
-          };
+            const dataPackage = {
+              raw: raw_data,
+              normalized: normalized_data,
+              externalId: item.external_id || '',
+              cursor:
+                typeof item.cursor === 'string'
+                  ? (JSON.parse(item.cursor) as Record<string, unknown>)
+                  : (item.cursor as Record<string, unknown>) || {},
+            };
 
-          normalizedRawDataItems.push(dataPackage);
+            normalizedRawDataItems.push(dataPackage);
+          } else {
+            // Blockchain: pass normalized data directly
+            normalizedRawDataItems.push(normalized_data);
+          }
         }
 
         const processor = await this.processorFactory.create(sourceId, sourceType, parsedSessionMetadata);

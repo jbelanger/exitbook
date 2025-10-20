@@ -89,6 +89,54 @@ export async function fetchBlockchainBalance(
 }
 
 /**
+ * Fetch balance from multiple Bitcoin addresses (for xpub derived addresses).
+ * Fetches balance for each address and sums them up.
+ */
+export async function fetchBitcoinXpubBalance(
+  providerManager: BlockchainProviderManager,
+  xpubAddress: string,
+  derivedAddresses: string[]
+): Promise<Result<UnifiedBalanceSnapshot, Error>> {
+  try {
+    // Fetch balance for each derived address
+    const balanceResults = await Promise.all(
+      derivedAddresses.map((address) =>
+        providerManager.executeWithFailover<BlockchainBalanceSnapshot>('bitcoin', {
+          type: 'getAddressBalances',
+          address,
+        })
+      )
+    );
+
+    // Sum up all balances
+    let totalBalance = parseDecimal('0');
+    let asset = 'BTC'; // Default to BTC
+
+    for (const result of balanceResults) {
+      if (result.isErr()) {
+        // Log error but continue with other addresses
+        continue;
+      }
+
+      const { data } = result.value;
+      asset = data.asset; // Use the asset from provider response
+      totalBalance = totalBalance.plus(parseDecimal(data.total));
+    }
+
+    return ok({
+      balances: {
+        [asset]: totalBalance.toFixed(),
+      },
+      timestamp: Date.now(),
+      sourceType: 'blockchain',
+      sourceId: `bitcoin:${xpubAddress}`,
+    });
+  } catch (error) {
+    return wrapError(error, `Failed to fetch Bitcoin xpub balance for ${xpubAddress}`);
+  }
+}
+
+/**
  * Convert balances from Record<string, string> to Record<string, Decimal>.
  * Pure function with no side effects.
  */
