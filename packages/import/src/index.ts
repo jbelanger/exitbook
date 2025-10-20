@@ -4,6 +4,17 @@ export {
   type PriceEnrichmentConfig,
 } from './services/price-enrichment/price-enrichment-service.ts';
 
+// Balance services
+export { calculateBalances } from './services/balance-calculator.ts';
+export {
+  fetchExchangeBalance,
+  fetchBlockchainBalance,
+  convertBalancesToDecimals,
+  type UnifiedBalanceSnapshot,
+} from './services/balance-utils.ts';
+export { compareBalances, createVerificationResult, generateVerificationReport } from './services/balance-verifier.ts';
+export type { BalanceComparison, BalanceVerificationResult } from './services/balance-verifier.types.ts';
+
 export type { ImportResult } from './app/ports/importers.ts';
 export type { LoadRawDataFilters } from './app/ports/raw-data-repository.ts';
 export type { IRawDataRepository } from './app/ports/raw-data-repository.ts';

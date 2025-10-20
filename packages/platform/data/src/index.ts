@@ -19,4 +19,8 @@ export type {
   ImportSessionMetadata,
   StoredImportParams,
   ImportSessionError,
+  SourceParams,
+  BalanceDiscrepancy,
+  BalanceVerification,
+  VerificationMetadata,
 } from './types/data-types.ts';

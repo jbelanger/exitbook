@@ -1,4 +1,10 @@
-import type { ImportSession, ImportSessionQuery, ImportSessionUpdate, StoredImportParams } from '@exitbook/data';
+import type {
+  ImportSession,
+  ImportSessionQuery,
+  ImportSessionUpdate,
+  StoredImportParams,
+  VerificationMetadata,
+} from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
 /**
@@ -73,4 +79,12 @@ export interface IImportSessionRepository {
       since?: number | undefined;
     }
   ): Promise<Result<ImportSession | undefined, Error>>;
+
+  /**
+   * Update verification metadata for a session.
+   */
+  updateVerificationMetadata(
+    sessionId: number,
+    verificationMetadata: VerificationMetadata
+  ): Promise<Result<void, Error>>;
 }

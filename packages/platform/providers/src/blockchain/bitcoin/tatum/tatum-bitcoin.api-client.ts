@@ -128,6 +128,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
 
     return ok({
       total: balanceBTC,
+      asset: 'BTC',
     });
   }
 

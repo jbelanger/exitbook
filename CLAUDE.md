@@ -40,14 +40,15 @@ pnpm run dev import --blockchain bitcoin --address bc1q... --since 2023-01-01 --
 # Process raw data into normalized transactions
 pnpm run dev process --exchange kraken --session <id>
 
+# Check live balances (from exchange API or blockchain)
+pnpm run dev balance --exchange kraken --api-key YOUR_KEY --api-secret YOUR_SECRET
+pnpm run dev balance --blockchain bitcoin --address bc1q...
+
 # Derive prices from transaction history (fiat/stable trades)
 pnpm run dev prices derive
 
 # Fetch remaining prices from external providers
 pnpm run dev prices fetch
-
-# Verify balances
-pnpm run dev verify --exchange kraken --report
 
 # Export transactions
 pnpm run dev export --exchange kraken --format csv --output ./reports/kraken.csv
@@ -67,9 +68,8 @@ pnpm run dev list-blockchains
 ### Monorepo Structure (pnpm workspaces)
 
 - **apps/cli/** - Commander-based CLI (`exitbook-cli`)
-- **packages/import/** - Importers, processors, blockchain/exchange adapters
+- **packages/import/** - Importers, processors, blockchain/exchange adapters, balance fetching
 - **packages/data/** - Kysely/SQLite storage, repositories, migrations
-- **packages/balance/** - Balance calculation and verification services
 - **packages/core/** - Domain types, Zod schemas, shared utilities
 - **packages/shared-logger/** - Pino structured logging
 - **packages/shared-utils/** - HTTP client, config, retry logic
@@ -99,11 +99,13 @@ The system follows a two-phase data flow with normalization integrated into impo
 - Return `Result<StoredTransaction[], Error>`
 - Upsert into `transactions` table (keyed by `external_id`)
 
-**Phase 3: Verify (Balance Reconciliation)**
+**Balance Checking (Separate Command)**
 
-- Balance calculation services aggregate inflows/outflows by currency
-- Compare calculated vs. live balances (live lookups not yet implemented)
-- Generate verification reports
+- Use `balance` command to fetch current live balances from exchanges or blockchains
+- For exchanges: requires API credentials (flags or `.env`)
+- For blockchains: requires wallet address
+- Returns unified balance snapshot with timestamp
+- Independent of import/process pipeline for flexibility
 
 ### Blockchain Provider System
 
@@ -237,6 +239,7 @@ logger.debug({ metadata }, 'debug message');
 
 ## Code Requirements
 
+- **No Technical Debt:** Stop and report architectural issues immediately before implementing. Fix foundational problems first rather than building on a weak base
 - Use `exactOptionalPropertyTypes` - add `| undefined` to optional properties
 - Add new tables/fields to initial migration (`001_initial_schema.ts`) - database is dropped during development, not versioned incrementally
 - Remove all legacy code paths and backward compatibility when refactoring - clean breaks only

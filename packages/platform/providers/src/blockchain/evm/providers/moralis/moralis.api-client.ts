@@ -1,4 +1,4 @@
-import { getErrorMessage, type BlockchainBalanceSnapshot, type BlockchainTokenBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -18,7 +18,7 @@ import type {
   MoralisTokenBalance,
   MoralisTokenTransfer,
   MoralisTokenTransferResponse,
-} from './moralis.types.ts';
+} from './moralis.schemas.ts';
 
 /**
  * Maps EVM chain names to Moralis-specific chain identifiers
@@ -162,7 +162,7 @@ export class MoralisApiClient extends BaseApiClient {
       .toString();
 
     this.logger.debug(`Found raw native balance for ${address}: ${balanceDecimal}`);
-    return ok({ total: balanceDecimal });
+    return ok({ total: balanceDecimal, asset: this.chainConfig.nativeCurrency });
   }
 
   private async getAddressTransactions(
@@ -270,7 +270,7 @@ export class MoralisApiClient extends BaseApiClient {
   private async getAddressTokenBalances(
     address: string,
     contractAddresses?: string[]
-  ): Promise<Result<BlockchainTokenBalanceSnapshot[], Error>> {
+  ): Promise<Result<BlockchainBalanceSnapshot[], Error>> {
     const params = new URLSearchParams({
       chain: this.moralisChainId,
     });
@@ -291,13 +291,13 @@ export class MoralisApiClient extends BaseApiClient {
 
     const rawBalances = result.value || [];
 
-    // Convert to BlockchainTokenBalanceSnapshot format
-    const balances: BlockchainTokenBalanceSnapshot[] = rawBalances.map((balance) => {
+    // Convert to BlockchainBalanceSnapshot format
+    const balances: BlockchainBalanceSnapshot[] = rawBalances.map((balance) => {
       // Convert from smallest units to decimal string
       const balanceDecimal = new Decimal(balance.balance).div(new Decimal(10).pow(balance.decimals)).toString();
 
       return {
-        token: balance.token_address,
+        asset: balance.token_address,
         total: balanceDecimal,
       };
     });

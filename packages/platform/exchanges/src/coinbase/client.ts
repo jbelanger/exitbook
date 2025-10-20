@@ -223,6 +223,32 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                           : `-${amountStr}`
                         : amountStr;
 
+                    // Extract fee information
+                    // For advanced_trade_fill: CCXT doesn't map commission to fee, so extract it manually
+                    // For other types: use CCXT's normalized fee field
+                    let feeAmount: string | undefined;
+                    let feeCurrency: string | undefined;
+
+                    if (validatedData.type === 'advanced_trade_fill' && rawInfo.advanced_trade_fill?.commission) {
+                      // Commission is paid in the quote currency (second part of product_id)
+                      // e.g., "BTC-USDC" -> commission paid in USDC
+                      if (rawInfo.advanced_trade_fill.product_id) {
+                        const parts = rawInfo.advanced_trade_fill.product_id.split('-');
+                        feeCurrency = parts[1]; // Quote currency
+
+                        // Only include fee on the entry that matches the fee currency
+                        // This avoids duplicates - each fill creates 2 entries (base + quote)
+                        // but we only want to record the fee once (on the quote currency side)
+                        if (validatedData.currency === feeCurrency) {
+                          feeAmount = rawInfo.advanced_trade_fill.commission;
+                        }
+                      }
+                    } else {
+                      // Use CCXT's normalized fee for other transaction types
+                      feeAmount = validatedData.fee?.cost.toString();
+                      feeCurrency = validatedData.fee?.currency;
+                    }
+
                     const normalizedData: ExchangeLedgerEntry = {
                       id: validatedData.id,
                       correlationId,
@@ -230,8 +256,8 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                       type: validatedData.type,
                       asset: validatedData.currency,
                       amount: signedAmount,
-                      fee: validatedData.fee?.cost.toString(),
-                      feeCurrency: validatedData.fee?.currency,
+                      fee: feeAmount,
+                      feeCurrency,
                       status: mapCoinbaseStatus(validatedData.status),
                     };
 

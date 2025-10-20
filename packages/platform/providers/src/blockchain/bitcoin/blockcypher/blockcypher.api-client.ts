@@ -227,6 +227,7 @@ export class BlockCypherApiClient extends BaseApiClient {
 
     return ok({
       total: balanceBTC,
+      asset: 'BTC',
     });
   }
 

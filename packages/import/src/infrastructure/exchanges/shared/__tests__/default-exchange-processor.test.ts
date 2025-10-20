@@ -2,6 +2,7 @@ import type { ExchangeLedgerEntry } from '@exitbook/exchanges';
 import { describe, expect, test } from 'vitest';
 
 import { DefaultExchangeProcessor } from '../default-exchange-processor.ts';
+import type { RawTransactionWithMetadata } from '../strategies/grouping.ts';
 
 /**
  * Test implementation of BaseExchangeProcessor
@@ -41,6 +42,15 @@ function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedge
   };
 }
 
+function wrapEntry(entry: ExchangeLedgerEntry): RawTransactionWithMetadata {
+  return {
+    raw: entry,
+    normalized: entry,
+    externalId: entry.id,
+    cursor: {},
+  };
+}
+
 describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
   test('groups entries by correlation ID', async () => {
     const processor = new TestExchangeProcessor();
@@ -51,7 +61,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ id: 'E3', correlationId: 'REF002', amount: '50', asset: 'USD' }),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries.map(wrapEntry), {});
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -96,7 +106,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       }),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries.map(wrapEntry), {});
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -135,7 +145,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       }),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries.map(wrapEntry), {});
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -168,7 +178,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       }),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries.map(wrapEntry), {});
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -206,7 +216,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       }),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries.map(wrapEntry), {});
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -232,7 +242,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ amount: '0.001', asset: 'BTC', correlationId: 'SWAP001', id: 'E3' }),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries.map(wrapEntry), {});
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -271,7 +281,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       }),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries.map(wrapEntry), {});
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -294,7 +304,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ amount: '0.01', asset: 'ETH', correlationId: 'COMPLEX001', id: 'E4' }),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries.map(wrapEntry), {});
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -319,7 +329,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ amount: '100', asset: 'USD', correlationId: 'ZERO001', id: 'E2' }),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries.map(wrapEntry), {});
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -341,7 +351,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ amount: '0', asset: 'USD', correlationId: 'BAD001', id: 'E2' }),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries.map(wrapEntry), {});
 
     expect(result.isOk()).toBe(true);
   });
@@ -353,7 +363,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ amount: '100', asset: 'USD', correlationId: 'STATUS001', id: 'E1', status: 'pending' }),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries.map(wrapEntry), {});
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -379,7 +389,7 @@ describe('BaseExchangeProcessor - Edge Cases', () => {
       },
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries.map(wrapEntry), {});
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -397,7 +407,7 @@ describe('BaseExchangeProcessor - Edge Cases', () => {
       createTestEntry({ amount: '0.001', asset: 'BTC', correlationId: 'PRIMARY001', id: 'SECONDARY_ID' }),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries.map(wrapEntry), {});
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

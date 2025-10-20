@@ -1,6 +1,12 @@
 import { wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
-import type { ImportSession, ImportSessionQuery, ImportSessionUpdate, StoredImportParams } from '@exitbook/data';
+import type {
+  ImportSession,
+  ImportSessionQuery,
+  ImportSessionUpdate,
+  StoredImportParams,
+  VerificationMetadata,
+} from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { IImportSessionRepository } from '@exitbook/import/app/ports/import-session-repository.interface.ts';
 import type { Result } from 'neverthrow';
@@ -247,6 +253,29 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
       return ok(undefined);
     } catch (error) {
       return wrapError(error, 'Failed to find completed session with matching params');
+    }
+  }
+
+  async updateVerificationMetadata(
+    sessionId: number,
+    verificationMetadata: VerificationMetadata
+  ): Promise<Result<void, Error>> {
+    try {
+      const currentTimestamp = this.getCurrentDateTimeForDB();
+
+      await this.db
+        .updateTable('import_sessions')
+        .set({
+          last_balance_check_at: currentTimestamp,
+          updated_at: currentTimestamp,
+          verification_metadata: this.serializeToJson(verificationMetadata),
+        })
+        .where('id', '=', sessionId)
+        .execute();
+
+      return ok();
+    } catch (error) {
+      return wrapError(error, 'Failed to update verification metadata');
     }
   }
 }
