@@ -80,7 +80,6 @@ export interface TransactionsTable {
   // Core identification
   id: Generated<number>;
   import_session_id: number; // FK to import_sessions.id
-  wallet_address_id: number | null; // FK to wallet_addresses.id
   source_id: string;
   source_type: 'exchange' | 'blockchain';
   external_id: string | null; // hash, transaction ID, etc.
@@ -143,26 +142,6 @@ export interface TransactionsTable {
 
   // Timestamps
   created_at: DateTime;
-  updated_at: DateTime | null;
-}
-
-/**
- * Wallet addresses - store user's wallet addresses for tracking and consolidation
- */
-export interface WalletAddressesTable {
-  // Address information
-  address: string;
-
-  address_type: 'personal' | 'exchange' | 'contract' | 'unknown';
-  blockchain: string;
-
-  created_at: DateTime;
-  id: Generated<number>;
-  is_active: boolean;
-
-  // User-defined metadata
-  label: string | null;
-  notes: string | null;
   updated_at: DateTime | null;
 }
 
@@ -280,5 +259,4 @@ export interface DatabaseSchema {
   lot_disposals: LotDisposalsTable;
   transaction_links: TransactionLinksTable;
   transactions: TransactionsTable;
-  wallet_addresses: WalletAddressesTable;
 }

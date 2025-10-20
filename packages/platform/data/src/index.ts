@@ -10,9 +10,6 @@ export type { DatabaseSchema, TransactionLinksTable } from './schema/database-sc
 export type {
   RawData,
   StoredTransaction,
-  WalletAddress,
-  WalletAddressUpdate,
-  NewWalletAddress,
   ImportSession,
   ImportSessionQuery,
   ImportSessionUpdate,

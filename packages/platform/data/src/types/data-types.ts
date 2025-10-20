@@ -7,7 +7,6 @@ import type {
   ImportSessionErrorsTable,
   ImportSessionsTable,
   TransactionsTable,
-  WalletAddressesTable,
 } from '../schema/database-schema.ts';
 
 // Raw transaction type from database (with JSON strings)
@@ -28,10 +27,6 @@ export type StoredTransaction = Omit<
 
 export type NewTransaction = Insertable<TransactionsTable>;
 export type TransactionUpdate = Updateable<TransactionsTable>;
-
-export type WalletAddress = Selectable<WalletAddressesTable>;
-export type NewWalletAddress = Insertable<WalletAddressesTable>;
-export type WalletAddressUpdate = Updateable<WalletAddressesTable>;
 
 export type ImportSession = Selectable<ImportSessionsTable>;
 export type NewImportSession = Insertable<ImportSessionsTable>;

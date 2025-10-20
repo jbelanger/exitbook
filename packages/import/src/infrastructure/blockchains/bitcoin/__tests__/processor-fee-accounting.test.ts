@@ -210,10 +210,14 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     expect(transaction.fees.total.amount.toString()).toBe('0.00015');
     // Input: 3.00015 BTC, Output to user: 2.0 BTC, Output to external: 1.0 BTC
     // walletInput = 3.00015, walletOutput = 2.0 → outgoing (withdrawal)
-    // Since isOutgoing=true and isIncoming=false, only outflows are recorded
+    // Outflows: walletInput - fee = 3.0 BTC (amount actually spent from wallet)
+    // Inflows: walletOutput = 2.0 BTC (change received back)
+    // Net effect: 2.0 - 3.0 - 0.00015 = -1.00015 BTC (sent 1.0 + fee 0.00015)
     expect(transaction.operation.type).toBe('withdrawal');
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.inflows).toHaveLength(0);
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('3');
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('2');
   });
 
   test('deducts fee for multi-input transaction from user wallet', async () => {

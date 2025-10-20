@@ -29,7 +29,6 @@ describe('ViewTransactionsHandler', () => {
   const createMockTransaction = (overrides: Partial<StoredTransaction> = {}): StoredTransaction => ({
     id: 1,
     import_session_id: 1,
-    wallet_address_id: null,
     source_id: 'kraken',
     source_type: 'exchange',
     external_id: 'ext-123',

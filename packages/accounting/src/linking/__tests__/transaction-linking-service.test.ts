@@ -27,7 +27,6 @@ function createTransaction(params: {
   return {
     id: params.id,
     import_session_id: 1,
-    wallet_address_id: null,
     source_id: params.sourceId,
     source_type: params.sourceType,
     external_id: params.externalId,

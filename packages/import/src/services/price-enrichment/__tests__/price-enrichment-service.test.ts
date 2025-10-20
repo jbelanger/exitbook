@@ -21,7 +21,6 @@ function createMockTransaction(
   return {
     id,
     import_session_id: 1,
-    wallet_address_id: null,
     source_id: sourceId,
     source_type: sourceType,
     external_id: `tx-${id}`,

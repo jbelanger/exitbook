@@ -10,7 +10,6 @@ function createTestTransaction(overrides: Partial<StoredTransaction>): StoredTra
   return {
     id: 1,
     import_session_id: 1,
-    wallet_address_id: null,
     source_id: 'test',
     source_type: 'exchange',
     external_id: 'test-tx',

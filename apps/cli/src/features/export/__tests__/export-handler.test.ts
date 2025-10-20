@@ -47,7 +47,6 @@ describe('ExportHandler', () => {
     source_id: source,
     source_type: 'exchange',
     import_session_id: 123,
-    wallet_address_id: null,
     operation_category: 'trade',
     operation_type: 'buy',
     transaction_datetime: '2024-01-01T12:00:00Z',

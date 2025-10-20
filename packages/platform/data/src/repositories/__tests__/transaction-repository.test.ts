@@ -52,7 +52,6 @@ describe('TransactionRepository - delete methods', () => {
         .values({
           id: i,
           import_session_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
-          wallet_address_id: undefined,
           source_id: i <= 3 ? 'kraken' : 'ethereum',
           source_type: i <= 3 ? ('exchange' as const) : ('blockchain' as const),
           external_id: `tx-${i}`,

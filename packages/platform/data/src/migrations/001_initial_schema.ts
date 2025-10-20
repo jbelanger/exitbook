@@ -3,20 +3,6 @@ import { sql, type Kysely } from 'kysely';
 import type { KyselyDB } from '../storage/database.ts';
 
 export async function up(db: Kysely<KyselyDB>): Promise<void> {
-  // Create wallet_addresses table
-  await db.schema
-    .createTable('wallet_addresses')
-    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('address', 'text', (col) => col.notNull())
-    .addColumn('blockchain', 'text', (col) => col.notNull())
-    .addColumn('address_type', 'text', (col) => col.notNull().defaultTo('unknown'))
-    .addColumn('label', 'text')
-    .addColumn('notes', 'text')
-    .addColumn('is_active', 'boolean', (col) => col.notNull().defaultTo(true))
-    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
-    .addColumn('updated_at', 'text')
-    .execute();
-
   // Create import_sessions table
   await db.schema
     .createTable('import_sessions')
@@ -90,7 +76,6 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .createTable('transactions')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('import_session_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
-    .addColumn('wallet_address_id', 'integer', (col) => col.references('wallet_addresses.id'))
     .addColumn('source_id', 'text', (col) => col.notNull())
     .addColumn('source_type', 'text', (col) => col.notNull())
     .addColumn('external_id', 'text')
@@ -255,5 +240,4 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('import_session_errors').execute();
   await db.schema.dropTable('external_transaction_data').execute();
   await db.schema.dropTable('import_sessions').execute();
-  await db.schema.dropTable('wallet_addresses').execute();
 }
