@@ -50,11 +50,11 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields
     expect(transaction.movements.primary.asset).toBe('SOL');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('1');
+    expect(transaction.movements.primary.amount.toString()).toBe('1');
     expect(transaction.movements.primary.direction).toBe('in');
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('SOL');
-    expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('1');
+    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1');
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
@@ -97,12 +97,12 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields
     expect(transaction.movements.primary.asset).toBe('SOL');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('2');
+    expect(transaction.movements.primary.amount.toString()).toBe('2');
     expect(transaction.movements.primary.direction).toBe('out');
     expect(transaction.movements.inflows).toHaveLength(0);
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('SOL');
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('2');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('2');
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
   });
@@ -195,7 +195,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields - amounts are not normalized from token decimals
     expect(transaction.movements.primary.asset).toBe('USDC');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('1000000');
+    expect(transaction.movements.primary.amount.toString()).toBe('1000000');
     expect(transaction.movements.primary.direction).toBe('in');
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.outflows).toHaveLength(0);
@@ -248,7 +248,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields - amounts are not normalized from token decimals
     expect(transaction.movements.primary.asset).toBe('USDC');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('5000000');
+    expect(transaction.movements.primary.amount.toString()).toBe('5000000');
     expect(transaction.movements.primary.direction).toBe('out');
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.inflows).toHaveLength(0);
@@ -287,7 +287,7 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
     if (!transaction) return;
 
     // Check structured fields
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('0');
+    expect(transaction.movements.primary.amount.toString()).toBe('0');
     expect(transaction.movements.primary.direction).toBe('neutral');
     expect(transaction.operation.category).toBe('fee');
     expect(transaction.operation.type).toBe('fee');
@@ -429,11 +429,11 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
     // Verify both assets tracked - amounts are not normalized from token decimals
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('USDC');
-    expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('1000000000');
+    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1000000000');
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('SOL');
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('0.5');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('0.5');
 
     // Primary should be the largest (USDC)
     expect(transaction.movements.primary.asset).toBe('USDC');
@@ -705,10 +705,10 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
     const usdtInflow = transaction.movements.inflows.find((i) => i.asset === 'USDT');
 
     expect(usdcInflow).toBeDefined();
-    expect(usdcInflow?.amount.amount.toString()).toBe('1000000000');
+    expect(usdcInflow?.amount.toString()).toBe('1000000000');
 
     expect(usdtInflow).toBeDefined();
-    expect(usdtInflow?.amount.amount.toString()).toBe('500000000000');
+    expect(usdtInflow?.amount.toString()).toBe('500000000000');
 
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('classification_uncertain');
@@ -775,10 +775,10 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
     const solInflow = transaction.movements.inflows.find((i) => i.asset === 'SOL');
 
     expect(usdcInflow).toBeDefined();
-    expect(usdcInflow?.amount.amount.toString()).toBe('2000000');
+    expect(usdcInflow?.amount.toString()).toBe('2000000');
 
     expect(solInflow).toBeDefined();
-    expect(solInflow?.amount.amount.toString()).toBe('1');
+    expect(solInflow?.amount.toString()).toBe('1');
   });
 });
 

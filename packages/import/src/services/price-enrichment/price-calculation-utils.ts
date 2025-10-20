@@ -74,7 +74,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
   // Outflow is fiat/stablecoin - calculate price of inflow
   if (outflowIsFiatOrStable) {
-    const price = new Decimal(outflow.amount.amount.toString()).dividedBy(new Decimal(inflow.amount.amount.toString()));
+    const price = new Decimal(outflow.amount.toString()).dividedBy(new Decimal(inflow.amount.toString()));
 
     results.push({
       asset: inflow.asset,
@@ -89,7 +89,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
   // Inflow is fiat/stablecoin - calculate price of outflow
   if (inflowIsFiatOrStable) {
-    const price = new Decimal(inflow.amount.amount.toString()).dividedBy(new Decimal(outflow.amount.amount.toString()));
+    const price = new Decimal(inflow.amount.toString()).dividedBy(new Decimal(outflow.amount.toString()));
 
     results.push({
       asset: outflow.asset,
@@ -168,7 +168,7 @@ export function inferPriceFromTrade(
   // If we know inflow price, calculate outflow price
   if (inflowPrice && !outflowPrice) {
     // outflowPrice = inflowPrice * (inflow.amount / outflow.amount)
-    const ratio = new Decimal(inflow.amount.amount.toString()).dividedBy(new Decimal(outflow.amount.amount.toString()));
+    const ratio = new Decimal(inflow.amount.toString()).dividedBy(new Decimal(outflow.amount.toString()));
     const derivedPrice = new Decimal(inflowPrice.price.amount.toString()).times(ratio);
 
     results.push({
@@ -185,7 +185,7 @@ export function inferPriceFromTrade(
   // If we know outflow price, calculate inflow price
   if (outflowPrice && !inflowPrice) {
     // inflowPrice = outflowPrice * (outflow.amount / inflow.amount)
-    const ratio = new Decimal(outflow.amount.amount.toString()).dividedBy(new Decimal(inflow.amount.amount.toString()));
+    const ratio = new Decimal(outflow.amount.toString()).dividedBy(new Decimal(inflow.amount.toString()));
     const derivedPrice = new Decimal(outflowPrice.price.amount.toString()).times(ratio);
 
     results.push({

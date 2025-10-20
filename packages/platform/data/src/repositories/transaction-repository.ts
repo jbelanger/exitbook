@@ -1,12 +1,15 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
-import type { Currency, AssetMovement, UniversalTransaction } from '@exitbook/core';
-import { wrapError } from '@exitbook/core';
-import type { StoredTransaction as _StoredTransaction } from '@exitbook/data';
+import type { Currency, AssetMovement, Money, UniversalTransaction } from '@exitbook/core';
+import { dbStringToMoney, moneyToDbString, wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
-import type { Decimal } from 'decimal.js';
+import { Decimal } from 'decimal.js';
+import type { Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
+
+import type { TransactionsTable } from '../schema/database-schema.js';
+import type { StoredTransaction } from '../types/data-types.js';
 
 import type { ITransactionRepository } from './transaction-repository.interface.ts';
 
@@ -18,14 +21,6 @@ export interface TransactionNeedingPrice {
   transactionDatetime: string;
   movementsInflows: AssetMovement[];
   movementsOutflows: AssetMovement[];
-}
-
-// Local utility function to convert Money type to database string
-function moneyToDbString(money: { amount: Decimal | number; currency: Currency }): string {
-  if (typeof money.amount === 'number') {
-    return String(money.amount);
-  }
-  return money.amount.toFixed();
 }
 
 /**
@@ -88,12 +83,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           movements_outflows: transaction.movements?.outflows
             ? this.serializeToJson(transaction.movements.outflows)
             : undefined,
-          movements_primary_asset: transaction.movements?.primary.asset,
-          movements_primary_amount: transaction.movements?.primary.amount
-            ? moneyToDbString(transaction.movements.primary.amount)
-            : undefined,
-          movements_primary_currency: transaction.movements?.primary.amount?.currency.toString(),
-          movements_primary_direction: transaction.movements?.primary.direction,
 
           // Structured fees
           fees_network: transaction.fees?.network ? this.serializeToJson(transaction.fees.network) : undefined,
@@ -129,10 +118,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             // Structured movements
             movements_inflows: (eb) => eb.ref('excluded.movements_inflows'),
             movements_outflows: (eb) => eb.ref('excluded.movements_outflows'),
-            movements_primary_asset: (eb) => eb.ref('excluded.movements_primary_asset'),
-            movements_primary_amount: (eb) => eb.ref('excluded.movements_primary_amount'),
-            movements_primary_currency: (eb) => eb.ref('excluded.movements_primary_currency'),
-            movements_primary_direction: (eb) => eb.ref('excluded.movements_primary_direction'),
 
             // Structured fees
             fees_network: (eb) => eb.ref('excluded.fees_network'),
@@ -181,7 +166,8 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       // Order by creation time descending
       query = query.orderBy('created_at', 'desc');
 
-      const transactions = await query.execute();
+      const rows = await query.execute();
+      const transactions = rows.map((row) => this.deserializeTransaction(row));
 
       return ok(transactions);
     } catch (error) {
@@ -201,7 +187,8 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         query = query.where('source_id', '=', sourceId);
       }
 
-      const transactions = await query.orderBy('transaction_datetime', 'desc').execute();
+      const rows = await query.orderBy('transaction_datetime', 'desc').execute();
+      const transactions = rows.map((row) => this.deserializeTransaction(row));
 
       return ok(transactions);
     } catch (error) {
@@ -211,13 +198,15 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   async findRecent(address: string, limit: number) {
     try {
-      const transactions = await this.db
+      const rows = await this.db
         .selectFrom('transactions')
         .selectAll()
         .where((eb) => eb.or([eb('from_address', '=', address), eb('to_address', '=', address)]))
         .orderBy('transaction_datetime', 'desc')
         .limit(limit)
         .execute();
+
+      const transactions = rows.map((row) => this.deserializeTransaction(row));
 
       return ok(transactions);
     } catch (error) {
@@ -227,7 +216,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   async findByDateRange(address: string, from: Date, to: Date) {
     try {
-      const transactions = await this.db
+      const rows = await this.db
         .selectFrom('transactions')
         .selectAll()
         .where((eb) =>
@@ -239,6 +228,8 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         )
         .orderBy('transaction_datetime', 'desc')
         .execute();
+
+      const transactions = rows.map((row) => this.deserializeTransaction(row));
 
       return ok(transactions);
     } catch (error) {
@@ -406,6 +397,66 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       return ok(Number(result.numDeletedRows));
     } catch (error) {
       return wrapError(error, 'Failed to delete all transactions');
+    }
+  }
+
+  /**
+   * Deserialize a raw database row into a StoredTransaction with typed movements and fees
+   */
+  private deserializeTransaction(row: Selectable<TransactionsTable>): StoredTransaction {
+    return {
+      ...row,
+      fees_network: this.parseFee(row.fees_network as string | null),
+      fees_platform: this.parseFee(row.fees_platform as string | null),
+      fees_total: this.parseFee(row.fees_total as string | null),
+      movements_inflows: this.parseMovements(row.movements_inflows as string | null),
+      movements_outflows: this.parseMovements(row.movements_outflows as string | null),
+    } as StoredTransaction;
+  }
+
+  /**
+   * Parse movements from JSON string stored in database
+   */
+  private parseMovements(jsonString: string | null): AssetMovement[] {
+    if (!jsonString) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(jsonString) as {
+        amount: string | number;
+        asset: string;
+      }[];
+
+      return parsed.map((movement) => ({
+        asset: movement.asset,
+        amount: new Decimal(movement.amount),
+      }));
+    } catch (error) {
+      this.logger.warn({ error, jsonString }, 'Failed to parse movements JSON');
+      return [];
+    }
+  }
+
+  /**
+   * Parse fee from JSON string stored in database
+   * Fees are stored as Money objects: { amount: string, currency: string }
+   */
+  private parseFee(jsonString: string | null): Money | null {
+    if (!jsonString) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(jsonString) as {
+        amount: string | number;
+        currency: string;
+      };
+
+      return dbStringToMoney(String(parsed.amount), parsed.currency) ?? null;
+    } catch (error) {
+      this.logger.warn({ error, jsonString }, 'Failed to parse fee JSON');
+      return null;
     }
   }
 }

@@ -1,6 +1,6 @@
+import { computePrimaryMovement } from '@exitbook/core';
 import type { StoredTransaction } from '@exitbook/data';
 import type { getLogger } from '@exitbook/shared-logger';
-import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -89,8 +89,11 @@ export class TransactionLinkingService {
     const candidates: TransactionCandidate[] = [];
 
     for (const tx of transactions) {
-      // Skip if no primary movement data
-      if (!tx.movements_primary_asset || !tx.movements_primary_amount || !tx.movements_primary_direction) {
+      // Compute primary movement from already-deserialized movements
+      const primary = computePrimaryMovement(tx.movements_inflows, tx.movements_outflows);
+
+      // Skip if no primary movement
+      if (!primary) {
         continue;
       }
 
@@ -100,9 +103,9 @@ export class TransactionLinkingService {
         sourceType: tx.source_type,
         externalId: tx.external_id ?? undefined,
         timestamp: new Date(tx.transaction_datetime),
-        asset: tx.movements_primary_asset,
-        amount: new Decimal(tx.movements_primary_amount),
-        direction: tx.movements_primary_direction,
+        asset: primary.asset,
+        amount: primary.amount,
+        direction: primary.direction,
         fromAddress: tx.from_address ?? undefined,
         toAddress: tx.to_address ?? undefined,
       };

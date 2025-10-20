@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-null -- null required for db */
 import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -44,9 +45,8 @@ describe('TransactionLinkRepository', () => {
           transaction_datetime: new Date().toISOString(),
           verified: false,
           raw_normalized_data: '{}',
-          movements_primary_asset: 'BTC',
-          movements_primary_amount: '1.0',
-          movements_primary_direction: 'out' as const,
+          movements_inflows: null,
+          movements_outflows: JSON.stringify([{ asset: 'BTC', amount: '1.0' }]),
           created_at: new Date().toISOString(),
         })
         .execute();
@@ -368,9 +368,8 @@ describe('TransactionLinkRepository', () => {
           transaction_datetime: new Date().toISOString(),
           verified: false,
           raw_normalized_data: '{}',
-          movements_primary_asset: 'ETH',
-          movements_primary_amount: '1.0',
-          movements_primary_direction: 'in' as const,
+          movements_inflows: JSON.stringify([{ asset: 'ETH', amount: '1.0' }]),
+          movements_outflows: null,
           created_at: new Date().toISOString(),
         })
         .execute();

@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-null -- null required for db */
 import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -74,6 +75,7 @@ describe('CostBasisRepository', () => {
 
     // Create test transactions with different sources
     for (let i = 1; i <= 5; i++) {
+      const isInflow = i % 2 === 0;
       await db
         .insertInto('transactions')
         .values({
@@ -86,9 +88,8 @@ describe('CostBasisRepository', () => {
           transaction_datetime: new Date().toISOString(),
           verified: false,
           raw_normalized_data: '{}',
-          movements_primary_asset: 'BTC',
-          movements_primary_amount: '1.0',
-          movements_primary_direction: i % 2 === 0 ? 'in' : 'out',
+          movements_inflows: isInflow ? JSON.stringify([{ asset: 'BTC', amount: '1.0' }]) : null,
+          movements_outflows: isInflow ? null : JSON.stringify([{ asset: 'BTC', amount: '1.0' }]),
           created_at: new Date().toISOString(),
         })
         .execute();

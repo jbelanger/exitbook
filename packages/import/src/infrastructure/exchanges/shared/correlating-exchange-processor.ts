@@ -78,15 +78,15 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
 
         movements: {
           inflows: fundFlow.inflows.map((inflow) => ({
-            amount: createMoney(inflow.amount, inflow.asset),
+            amount: new Decimal(inflow.amount),
             asset: inflow.asset,
           })),
           outflows: fundFlow.outflows.map((outflow) => ({
-            amount: createMoney(outflow.amount, outflow.asset),
+            amount: new Decimal(outflow.amount),
             asset: outflow.asset,
           })),
           primary: {
-            amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
+            amount: new Decimal(fundFlow.primary.amount),
             asset: fundFlow.primary.asset,
             direction: this.determinePrimaryDirection(fundFlow),
           },

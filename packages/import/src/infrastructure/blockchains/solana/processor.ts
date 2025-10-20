@@ -2,6 +2,7 @@ import { createMoney } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { SolanaTransaction } from '@exitbook/providers';
+import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
@@ -81,15 +82,15 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
           // Structured movements from fund flow analysis
           movements: {
             inflows: fundFlow.inflows.map((inflow) => ({
-              amount: createMoney(inflow.amount, inflow.asset),
+              amount: new Decimal(inflow.amount),
               asset: inflow.asset,
             })),
             outflows: fundFlow.outflows.map((outflow) => ({
-              amount: createMoney(outflow.amount, outflow.asset),
+              amount: new Decimal(outflow.amount),
               asset: outflow.asset,
             })),
             primary: {
-              amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
+              amount: new Decimal(fundFlow.primary.amount),
               asset: fundFlow.primary.asset,
               direction: (() => {
                 const hasInflow = fundFlow.inflows.some((i) => i.asset === fundFlow.primary.asset);

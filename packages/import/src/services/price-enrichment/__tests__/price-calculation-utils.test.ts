@@ -15,14 +15,14 @@ describe('extractTradeMovements', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+        amount: new Decimal('1'),
       },
     ];
 
     const outflows: AssetMovement[] = [
       {
         asset: 'USDT',
-        amount: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+        amount: new Decimal('50000'),
       },
     ];
 
@@ -40,18 +40,18 @@ describe('extractTradeMovements', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+        amount: new Decimal('1'),
       },
       {
         asset: 'ETH',
-        amount: { amount: new Decimal('10'), currency: Currency.create('ETH') },
+        amount: new Decimal('10'),
       },
     ];
 
     const outflows: AssetMovement[] = [
       {
         asset: 'USDT',
-        amount: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+        amount: new Decimal('50000'),
       },
     ];
 
@@ -68,11 +68,11 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'BTC',
-        amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+        amount: new Decimal('1'),
       },
       outflow: {
         asset: 'USDT',
-        amount: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+        amount: new Decimal('50000'),
       },
       timestamp: 1234567890000,
     };
@@ -93,11 +93,11 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'USD',
-        amount: { amount: new Decimal('6000'), currency: Currency.create('USD') },
+        amount: new Decimal('6000'),
       },
       outflow: {
         asset: 'ETH',
-        amount: { amount: new Decimal('2'), currency: Currency.create('ETH') },
+        amount: new Decimal('2'),
       },
       timestamp: 1234567890000,
     };
@@ -116,11 +116,11 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'USDC',
-        amount: { amount: new Decimal('999.5'), currency: Currency.create('USDC') },
+        amount: new Decimal('999.5'),
       },
       outflow: {
         asset: 'USDT',
-        amount: { amount: new Decimal('1000'), currency: Currency.create('USDT') },
+        amount: new Decimal('1000'),
       },
       timestamp: 1234567890000,
     };
@@ -146,11 +146,11 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'ETH',
-        amount: { amount: new Decimal('20'), currency: Currency.create('ETH') },
+        amount: new Decimal('20'),
       },
       outflow: {
         asset: 'BTC',
-        amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+        amount: new Decimal('1'),
       },
       timestamp: 1234567890000,
     };
@@ -165,11 +165,11 @@ describe('calculatePriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'BTC',
-        amount: { amount: new Decimal('0.5'), currency: Currency.create('BTC') },
+        amount: new Decimal('0.5'),
       },
       outflow: {
         asset: 'USDT',
-        amount: { amount: new Decimal('25000'), currency: Currency.create('USDT') },
+        amount: new Decimal('25000'),
       },
       timestamp: 1234567890000,
     };
@@ -266,11 +266,11 @@ describe('inferPriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'ETH',
-        amount: { amount: new Decimal('20'), currency: Currency.create('ETH') },
+        amount: new Decimal('20'),
       },
       outflow: {
         asset: 'BTC',
-        amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+        amount: new Decimal('1'),
       },
       timestamp: 1234567890000,
     };
@@ -302,11 +302,11 @@ describe('inferPriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'SOL',
-        amount: { amount: new Decimal('500'), currency: Currency.create('SOL') },
+        amount: new Decimal('500'),
       },
       outflow: {
         asset: 'ETH',
-        amount: { amount: new Decimal('10'), currency: Currency.create('ETH') },
+        amount: new Decimal('10'),
       },
       timestamp: 1234567890000,
     };
@@ -334,11 +334,11 @@ describe('inferPriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'ETH',
-        amount: { amount: new Decimal('20'), currency: Currency.create('ETH') },
+        amount: new Decimal('20'),
       },
       outflow: {
         asset: 'BTC',
-        amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+        amount: new Decimal('1'),
       },
       timestamp: 1234567890000,
     };
@@ -361,12 +361,12 @@ describe('inferPriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'ETH',
-        amount: { amount: new Decimal('20'), currency: Currency.create('ETH') },
+        amount: new Decimal('20'),
         priceAtTxTime: existingPrice,
       },
       outflow: {
         asset: 'BTC',
-        amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+        amount: new Decimal('1'),
         priceAtTxTime: existingPrice,
       },
       timestamp: 1234567890000,
@@ -384,11 +384,11 @@ describe('inferPriceFromTrade', () => {
     const trade = {
       inflow: {
         asset: 'ETH',
-        amount: { amount: new Decimal('20'), currency: Currency.create('ETH') },
+        amount: new Decimal('20'),
       },
       outflow: {
         asset: 'BTC',
-        amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+        amount: new Decimal('1'),
       },
       timestamp: 1234567890000,
     };

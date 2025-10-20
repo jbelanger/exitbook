@@ -47,8 +47,6 @@ describe('TransactionRepository - delete methods', () => {
 
     // Create test transactions with different sources
     for (let i = 1; i <= 5; i++) {
-      const primaryDirection = i % 2 === 0 ? ('in' as const) : ('out' as const);
-
       await db
         .insertInto('transactions')
         .values({
@@ -72,10 +70,6 @@ describe('TransactionRepository - delete methods', () => {
           raw_normalized_data: '{}',
           movements_inflows: undefined,
           movements_outflows: undefined,
-          movements_primary_asset: 'BTC',
-          movements_primary_amount: '1.0',
-          movements_primary_currency: undefined,
-          movements_primary_direction: primaryDirection,
           fees_network: undefined,
           fees_platform: undefined,
           fees_total: undefined,

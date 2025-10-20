@@ -106,12 +106,8 @@ export interface TransactionsTable {
   raw_normalized_data: JSONString; // Keep for debugging/audit
 
   // Structured movements
-  movements_inflows: JSONString | null; // Array<{asset: string, amount: Money}>
-  movements_outflows: JSONString | null; // Array<{asset: string, amount: Money}>
-  movements_primary_asset: string | null;
-  movements_primary_amount: DecimalString | null;
-  movements_primary_currency: string | null;
-  movements_primary_direction: 'in' | 'out' | 'neutral' | null;
+  movements_inflows: JSONString | null; // Array<{asset: string, amount: Decimal}>
+  movements_outflows: JSONString | null; // Array<{asset: string, amount: Decimal}>
 
   // Structured fees
   fees_network: JSONString | null; // Money type

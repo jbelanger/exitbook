@@ -51,10 +51,10 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.movements.primary.asset).toBe('DOT');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('1.5');
+    expect(transaction.movements.primary.amount.toString()).toBe('1.5');
     expect(transaction.movements.primary.direction).toBe('in');
     expect(transaction.movements.inflows.length).toBe(1);
-    expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('1.5');
+    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1.5');
     expect(transaction.movements.outflows.length).toBe(0);
     expect(transaction.fees.network?.amount.toString()).toBe('0'); // User received, sender paid fee
     expect(transaction.blockchain?.name).toBe('polkadot');
@@ -97,10 +97,10 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
     expect(transaction.movements.primary.asset).toBe('DOT');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('2.5');
+    expect(transaction.movements.primary.amount.toString()).toBe('2.5');
     expect(transaction.movements.primary.direction).toBe('out');
     expect(transaction.movements.outflows.length).toBe(1);
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('2.5');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('2.5');
     expect(transaction.movements.inflows.length).toBe(0);
     expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
     expect(transaction.from).toBe(USER_ADDRESS);
@@ -143,8 +143,8 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
     expect(transaction.movements.primary.direction).toBe('neutral');
     expect(transaction.movements.inflows.length).toBe(1);
     expect(transaction.movements.outflows.length).toBe(1);
-    expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('1');
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('1');
+    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('1');
     expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
     expect(transaction.from).toBe(USER_ADDRESS);
     expect(transaction.to).toBe(USER_ADDRESS);
@@ -185,7 +185,7 @@ describe('SubstrateProcessor - Staking Operations', () => {
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('stake');
     expect(transaction.movements.primary.asset).toBe('DOT');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('10');
+    expect(transaction.movements.primary.amount.toString()).toBe('10');
     expect(transaction.movements.primary.direction).toBe('out');
     expect(transaction.movements.outflows.length).toBe(1);
     expect(transaction.movements.inflows.length).toBe(0);
@@ -334,7 +334,7 @@ describe('SubstrateProcessor - Staking Operations', () => {
 
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('reward');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('0.5');
+    expect(transaction.movements.primary.amount.toString()).toBe('0.5');
     expect(transaction.movements.primary.direction).toBe('in');
     expect(transaction.movements.inflows.length).toBe(1);
     expect(transaction.movements.outflows.length).toBe(0);
@@ -493,7 +493,7 @@ describe('SubstrateProcessor - Utility Operations', () => {
     expect(transaction.operation.type).toBe('transfer');
     expect(transaction.movements.primary.direction).toBe('out');
     expect(transaction.movements.outflows.length).toBe(1);
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('3');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('3');
     expect(transaction.movements.inflows.length).toBe(0);
     expect(transaction.fees.network?.amount.toString()).toBe('0.0256');
     expect(transaction.note).toBeDefined();
@@ -577,7 +577,7 @@ describe('SubstrateProcessor - Proxy Operations', () => {
     expect(transaction.operation.type).toBe('transfer');
     expect(transaction.movements.primary.direction).toBe('out');
     expect(transaction.movements.outflows.length).toBe(1);
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('1');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('1');
     expect(transaction.movements.inflows.length).toBe(0);
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('proxy_operation');
@@ -622,7 +622,7 @@ describe('SubstrateProcessor - Multisig Operations', () => {
     expect(transaction.operation.type).toBe('transfer');
     expect(transaction.movements.primary.direction).toBe('out');
     expect(transaction.movements.outflows.length).toBe(1);
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('1');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('1');
     expect(transaction.movements.inflows.length).toBe(0);
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('multisig_operation');
@@ -663,7 +663,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     if (!transaction) return;
 
     expect(transaction.movements.primary.asset).toBe('DOT');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('1');
+    expect(transaction.movements.primary.amount.toString()).toBe('1');
     expect(transaction.movements.inflows[0]?.asset).toBe('DOT');
     expect(transaction.fees.network?.currency.toString()).toBe('DOT');
     expect(transaction.fees.network?.amount.toString()).toBe('0'); // User received, sender paid fee
@@ -702,7 +702,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     if (!transaction) return;
 
     expect(transaction.movements.primary.asset).toBe('TAO');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('1');
+    expect(transaction.movements.primary.amount.toString()).toBe('1');
     expect(transaction.movements.inflows[0]?.asset).toBe('TAO');
     expect(transaction.fees.network?.currency.toString()).toBe('TAO');
     expect(transaction.fees.network?.amount.toString()).toBe('0'); // User received, sender paid fee
@@ -740,7 +740,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('12.3456789012');
+    expect(transaction.movements.primary.amount.toString()).toBe('12.3456789012');
     expect(transaction.fees.network?.amount.toString()).toBe('0'); // User received, sender paid fee
   });
 });
@@ -779,7 +779,7 @@ describe('SubstrateProcessor - Transaction Type Classification', () => {
     // Structured fields - fee-only transactions
     expect(transaction.operation.category).toBe('fee');
     expect(transaction.operation.type).toBe('fee');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('0');
+    expect(transaction.movements.primary.amount.toString()).toBe('0');
     expect(transaction.movements.inflows.length).toBe(0);
     expect(transaction.movements.outflows.length).toBe(0);
     expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
@@ -1102,21 +1102,21 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
     // First transaction: bond (stake)
     expect(result.value[0]?.operation.category).toBe('staking');
     expect(result.value[0]?.operation.type).toBe('stake');
-    expect(result.value[0]?.movements.primary.amount.amount.toString()).toBe('10');
+    expect(result.value[0]?.movements.primary.amount.toString()).toBe('10');
     expect(result.value[0]?.movements.primary.direction).toBe('out');
     expect(result.value[0]?.metadata?.events).toHaveLength(2);
 
     // Second transaction: nominate (stake with no amount)
     expect(result.value[1]?.operation.category).toBe('staking');
     expect(result.value[1]?.operation.type).toBe('stake');
-    expect(result.value[1]?.movements.primary.amount.amount.toString()).toBe('0');
+    expect(result.value[1]?.movements.primary.amount.toString()).toBe('0');
     expect(result.value[1]?.note).toBeDefined();
     expect(result.value[1]?.note?.type).toBe('staking_operation');
 
     // Third transaction: reward
     expect(result.value[2]?.operation.category).toBe('staking');
     expect(result.value[2]?.operation.type).toBe('reward');
-    expect(result.value[2]?.movements.primary.amount.amount.toString()).toBe('0.5');
+    expect(result.value[2]?.movements.primary.amount.toString()).toBe('0.5');
     expect(result.value[2]?.movements.primary.direction).toBe('in');
     expect(result.value[2]?.metadata?.events).toHaveLength(2);
   });
@@ -1161,7 +1161,7 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
     expect(transaction.movements.primary.direction).toBe('out');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('3');
+    expect(transaction.movements.primary.amount.toString()).toBe('3');
     expect(transaction.movements.outflows.length).toBe(1);
     expect(transaction.movements.inflows.length).toBe(0);
     expect(transaction.note).toBeDefined();

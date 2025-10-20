@@ -116,10 +116,8 @@ describe('extractAssetsNeedingPrices', () => {
     const tx: TransactionNeedingPrice = {
       id: 1,
       transactionDatetime: '2024-01-15T12:00:00.000Z',
-      movementsInflows: [{ asset: 'BTC', amount: { amount: parseDecimal('1'), currency: Currency.create('BTC') } }],
-      movementsOutflows: [
-        { asset: 'USD', amount: { amount: parseDecimal('50000'), currency: Currency.create('USD') } },
-      ],
+      movementsInflows: [{ asset: 'BTC', amount: parseDecimal('1') }],
+      movementsOutflows: [{ asset: 'USD', amount: parseDecimal('50000') }],
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -139,7 +137,7 @@ describe('extractAssetsNeedingPrices', () => {
       movementsInflows: [
         {
           asset: 'BTC',
-          amount: { amount: parseDecimal('1'), currency: Currency.create('BTC') },
+          amount: parseDecimal('1'),
           priceAtTxTime: {
             price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
             source: 'coingecko',
@@ -147,7 +145,7 @@ describe('extractAssetsNeedingPrices', () => {
           },
         },
       ],
-      movementsOutflows: [{ asset: 'ETH', amount: { amount: parseDecimal('10'), currency: Currency.create('ETH') } }],
+      movementsOutflows: [{ asset: 'ETH', amount: parseDecimal('10') }],
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -180,8 +178,8 @@ describe('extractAssetsNeedingPrices', () => {
     const tx: TransactionNeedingPrice = {
       id: 1,
       transactionDatetime: '2024-01-15T12:00:00.000Z',
-      movementsInflows: [{ asset: 'BTC', amount: { amount: parseDecimal('1'), currency: Currency.create('BTC') } }],
-      movementsOutflows: [{ asset: 'BTC', amount: { amount: parseDecimal('0.5'), currency: Currency.create('BTC') } }],
+      movementsInflows: [{ asset: 'BTC', amount: parseDecimal('1') }],
+      movementsOutflows: [{ asset: 'BTC', amount: parseDecimal('0.5') }],
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -198,14 +196,14 @@ describe('extractAssetsNeedingPrices', () => {
       id: 1,
       transactionDatetime: '2024-01-15T12:00:00.000Z',
       movementsInflows: [
-        { asset: 'BTC', amount: { amount: parseDecimal('1'), currency: Currency.create('BTC') } },
-        { asset: 'ETH', amount: { amount: parseDecimal('10'), currency: Currency.create('ETH') } },
+        { asset: 'BTC', amount: parseDecimal('1') },
+        { asset: 'ETH', amount: parseDecimal('10') },
       ],
       movementsOutflows: [
-        { asset: 'USD', amount: { amount: parseDecimal('50000'), currency: Currency.create('USD') } },
-        { asset: 'EUR', amount: { amount: parseDecimal('45000'), currency: Currency.create('EUR') } },
-        { asset: 'CAD', amount: { amount: parseDecimal('65000'), currency: Currency.create('CAD') } },
-        { asset: 'GBP', amount: { amount: parseDecimal('40000'), currency: Currency.create('GBP') } },
+        { asset: 'USD', amount: parseDecimal('50000') },
+        { asset: 'EUR', amount: parseDecimal('45000') },
+        { asset: 'CAD', amount: parseDecimal('65000') },
+        { asset: 'GBP', amount: parseDecimal('40000') },
       ],
     };
 
@@ -227,8 +225,8 @@ describe('extractAssetsNeedingPrices', () => {
     const tx: TransactionNeedingPrice = {
       id: 1,
       transactionDatetime: '2024-01-15T12:00:00.000Z',
-      movementsInflows: [{ asset: 'USD', amount: { amount: parseDecimal('1000'), currency: Currency.create('USD') } }],
-      movementsOutflows: [{ asset: 'EUR', amount: { amount: parseDecimal('900'), currency: Currency.create('EUR') } }],
+      movementsInflows: [{ asset: 'USD', amount: parseDecimal('1000') }],
+      movementsOutflows: [{ asset: 'EUR', amount: parseDecimal('900') }],
     };
 
     const result = extractAssetsNeedingPrices(tx);

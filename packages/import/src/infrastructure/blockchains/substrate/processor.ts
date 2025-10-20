@@ -64,15 +64,15 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
           // NEW: Structured fields
           movements: {
             inflows: fundFlow.inflows.map((i) => ({
-              amount: createMoney(i.amount, i.asset),
+              amount: new Decimal(i.amount),
               asset: i.asset,
             })),
             outflows: fundFlow.outflows.map((o) => ({
-              amount: createMoney(o.amount, o.asset),
+              amount: new Decimal(o.amount),
               asset: o.asset,
             })),
             primary: {
-              amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
+              amount: new Decimal(fundFlow.primary.amount),
               asset: fundFlow.primary.asset,
               direction,
             },
