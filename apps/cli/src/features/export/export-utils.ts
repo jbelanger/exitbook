@@ -1,6 +1,7 @@
 // Pure utility functions for export command
 // All functions are pure - no side effects
 
+import { computePrimaryMovement } from '@exitbook/core';
 import type { StoredTransaction } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -146,6 +147,9 @@ export function convertToCSV(transactions: StoredTransaction[]): string {
   const csvLines = [headers.join(',')];
 
   for (const tx of transactions) {
+    // Compute primary movement from inflows/outflows
+    const primary = computePrimaryMovement(tx.movements_inflows, tx.movements_outflows);
+
     // Format datetime properly
     const datetime =
       tx.transaction_datetime || (tx.transaction_datetime ? new Date(tx.transaction_datetime).toISOString() : '');
@@ -157,9 +161,9 @@ export function convertToCSV(transactions: StoredTransaction[]): string {
       tx.operation_type || '',
       tx.transaction_datetime || '',
       datetime,
-      tx.movements_primary_asset || '',
-      tx.movements_primary_amount || '',
-      tx.movements_primary_direction || '',
+      primary?.asset || '',
+      primary?.amount.toFixed() || '',
+      primary?.direction || '',
       tx.fees_total || '',
       tx.price || '',
       tx.price_currency || '',
@@ -168,7 +172,6 @@ export function convertToCSV(transactions: StoredTransaction[]): string {
 
     // Escape values that contain commas
     const escapedValues = values.map((value) => {
-      // eslint-disable-next-line @typescript-eslint/no-base-to-string -- Proper check done
       const stringValue = typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value);
       return stringValue.includes(',') ? `"${stringValue}"` : stringValue;
     });
@@ -186,6 +189,9 @@ export function convertToJSON(transactions: StoredTransaction[]): string {
   if (transactions.length === 0) return '[]';
 
   const processedTransactions = transactions.map((tx) => {
+    // Compute primary movement from inflows/outflows
+    const primary = computePrimaryMovement(tx.movements_inflows, tx.movements_outflows);
+
     return {
       id: tx.id,
       source_id: tx.source_id,
@@ -196,11 +202,13 @@ export function convertToJSON(transactions: StoredTransaction[]): string {
         type: tx.operation_type,
       },
       movements: {
-        primary: {
-          asset: tx.movements_primary_asset,
-          amount: tx.movements_primary_amount,
-          direction: tx.movements_primary_direction,
-        },
+        primary: primary
+          ? {
+              asset: primary.asset,
+              amount: primary.amount.toFixed(),
+              direction: primary.direction,
+            }
+          : undefined,
         inflows: tx.movements_inflows,
         outflows: tx.movements_outflows,
       },

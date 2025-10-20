@@ -98,7 +98,7 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('USD');
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('150');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('150');
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('BTC');
@@ -158,7 +158,7 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
 
     const [transaction] = result.value;
     expect(transaction?.movements.primary.asset).toBe('BTC');
-    expect(transaction?.movements.primary.amount.amount.toString()).toBe('0.025');
+    expect(transaction?.movements.primary.amount.toString()).toBe('0.025');
     expect(transaction?.movements.primary.direction).toBe('in');
   });
 
@@ -174,7 +174,7 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
 
     const [transaction] = result.value;
     expect(transaction?.movements.primary.asset).toBe('USD');
-    expect(transaction?.movements.primary.amount.amount.toString()).toBe('500');
+    expect(transaction?.movements.primary.amount.toString()).toBe('500');
     expect(transaction?.movements.primary.direction).toBe('out');
   });
 });

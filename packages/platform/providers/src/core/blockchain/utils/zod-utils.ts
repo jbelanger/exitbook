@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import { parseDecimal } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -28,7 +28,7 @@ export const hexOrNumericToNumeric = z
   ])
   .transform((val) => {
     if (val === null || val === undefined) return;
-    return new Decimal(val).toFixed();
+    return parseDecimal(val.toString()).toFixed();
   })
   .optional();
 
@@ -52,7 +52,7 @@ export const hexOrNumericToNumericRequired = z
     z.number().nonnegative(),
   ])
   .transform((val) => {
-    return new Decimal(val).toFixed();
+    return parseDecimal(val.toString()).toFixed();
   });
 
 /**

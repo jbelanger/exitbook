@@ -1,6 +1,6 @@
-import { stringToDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { StoredTransaction } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 
 /**
  * Calculate balances for all currencies from a set of transactions.
@@ -24,56 +24,41 @@ function processTransactionForBalance(transaction: StoredTransaction, balances: 
   // Initialize balance for any assets we encounter
   const ensureBalance = (asset: string) => {
     if (!balances[asset]) {
-      balances[asset] = new Decimal(0);
-    }
-  };
-
-  // Helper to parse JSON strings from database
-  const parseJSON = <T>(jsonString: unknown): T | undefined => {
-    if (!jsonString || typeof jsonString !== 'string') return undefined;
-    try {
-      return JSON.parse(jsonString) as T;
-    } catch {
-      return undefined;
+      balances[asset] = parseDecimal('0');
     }
   };
 
   // Process inflows (what user gained)
-  const inflows = parseJSON<{ amount: { amount: string; currency: string }; asset: string }[]>(
-    transaction.movements_inflows
-  );
-  if (inflows) {
+  // Movements are already deserialized by the repository with Decimal amounts
+  const inflows = transaction.movements_inflows;
+  if (inflows && Array.isArray(inflows) && inflows.length > 0) {
     for (const inflow of inflows) {
       ensureBalance(inflow.asset);
-      const amount = stringToDecimal(inflow.amount.amount);
-      balances[inflow.asset] = balances[inflow.asset]!.plus(amount);
+      balances[inflow.asset] = balances[inflow.asset]!.plus(inflow.amount);
     }
   }
 
   // Process outflows (what user lost)
-  const outflows = parseJSON<{ amount: { amount: string; currency: string }; asset: string }[]>(
-    transaction.movements_outflows
-  );
-  if (outflows) {
+  // Movements are already deserialized by the repository with Decimal amounts
+  const outflows = transaction.movements_outflows;
+  if (outflows && Array.isArray(outflows) && outflows.length > 0) {
     for (const outflow of outflows) {
       ensureBalance(outflow.asset);
-      const amount = stringToDecimal(outflow.amount.amount);
-      balances[outflow.asset] = balances[outflow.asset]!.minus(amount);
+      balances[outflow.asset] = balances[outflow.asset]!.minus(outflow.amount);
     }
   }
 
   // Process fees (always a cost)
-  const networkFee = parseJSON<{ amount: string; currency: string }>(transaction.fees_network);
-  if (networkFee) {
-    ensureBalance(networkFee.currency);
-    const amount = stringToDecimal(networkFee.amount);
-    balances[networkFee.currency] = balances[networkFee.currency]!.minus(amount);
+  // Fees are now deserialized by the repository as Money objects with Decimal amounts
+  if (transaction.fees_network) {
+    const currency = transaction.fees_network.currency.toString();
+    ensureBalance(currency);
+    balances[currency] = balances[currency]!.minus(transaction.fees_network.amount);
   }
 
-  const platformFee = parseJSON<{ amount: string; currency: string }>(transaction.fees_platform);
-  if (platformFee) {
-    ensureBalance(platformFee.currency);
-    const amount = stringToDecimal(platformFee.amount);
-    balances[platformFee.currency] = balances[platformFee.currency]!.minus(amount);
+  if (transaction.fees_platform) {
+    const currency = transaction.fees_platform.currency.toString();
+    ensureBalance(currency);
+    balances[currency] = balances[currency]!.minus(transaction.fees_platform.amount);
   }
 }

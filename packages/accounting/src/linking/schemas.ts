@@ -1,3 +1,4 @@
+import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
@@ -7,7 +8,7 @@ import { z } from 'zod';
 const DecimalSchema = z
   .string()
   .or(z.instanceof(Decimal))
-  .transform((val) => (typeof val === 'string' ? new Decimal(val) : val));
+  .transform((val) => (typeof val === 'string' ? parseDecimal(val) : val));
 
 /**
  * Link type schema

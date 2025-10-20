@@ -1,3 +1,4 @@
+import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
 import type { LinkType, MatchCriteria, MatchingConfig, PotentialMatch, TransactionCandidate } from './types.js';
@@ -7,9 +8,9 @@ import type { LinkType, MatchCriteria, MatchingConfig, PotentialMatch, Transacti
  */
 export const DEFAULT_MATCHING_CONFIG: MatchingConfig = {
   maxTimingWindowHours: 48,
-  minAmountSimilarity: new Decimal('0.95'),
-  minConfidenceScore: new Decimal('0.7'),
-  autoConfirmThreshold: new Decimal('0.95'),
+  minAmountSimilarity: parseDecimal('0.95'),
+  minConfidenceScore: parseDecimal('0.7'),
+  autoConfirmThreshold: parseDecimal('0.95'),
 };
 
 /**
@@ -22,7 +23,7 @@ export const DEFAULT_MATCHING_CONFIG: MatchingConfig = {
  */
 export function calculateAmountSimilarity(sourceAmount: Decimal, targetAmount: Decimal): Decimal {
   if (sourceAmount.isZero() || targetAmount.isZero()) {
-    return new Decimal(0);
+    return parseDecimal('0');
   }
 
   // Target should be <= source (accounting for fees)
@@ -33,17 +34,17 @@ export function calculateAmountSimilarity(sourceAmount: Decimal, targetAmount: D
 
     // Allow up to 0.1% difference for rounding
     if (percentDiff.lessThanOrEqualTo(0.001)) {
-      return new Decimal(0.99);
+      return parseDecimal('0.99');
     }
 
-    return new Decimal(0); // Target shouldn't be larger than source
+    return parseDecimal('0'); // Target shouldn't be larger than source
   }
 
   // Calculate similarity as target/source (higher is better)
   const similarity = targetAmount.dividedBy(sourceAmount);
 
   // Clamp to [0, 1]
-  return Decimal.min(Decimal.max(similarity, new Decimal(0)), new Decimal(1));
+  return Decimal.min(Decimal.max(similarity, parseDecimal('0')), parseDecimal('1'));
 }
 
 /**
@@ -137,26 +138,26 @@ export function checkAddressMatch(
  * @returns Confidence score from 0 to 1
  */
 export function calculateConfidenceScore(criteria: MatchCriteria): Decimal {
-  let score = new Decimal(0);
+  let score = parseDecimal('0');
 
   // Asset match is mandatory (30% weight)
   if (criteria.assetMatch) {
-    score = score.plus(0.3);
+    score = score.plus(parseDecimal('0.3'));
   } else {
-    return new Decimal(0); // No match if assets don't match
+    return parseDecimal('0'); // No match if assets don't match
   }
 
   // Amount similarity (40% weight)
-  const amountWeight = criteria.amountSimilarity.times(0.4);
+  const amountWeight = criteria.amountSimilarity.times(parseDecimal('0.4'));
   score = score.plus(amountWeight);
 
   // Timing validity (20% weight)
   if (criteria.timingValid) {
-    score = score.plus(0.2);
+    score = score.plus(parseDecimal('0.2'));
 
     // Bonus for very close timing (within 1 hour = extra 5%)
     if (criteria.timingHours <= 1) {
-      score = score.plus(0.05);
+      score = score.plus(parseDecimal('0.05'));
     }
   }
 
@@ -165,11 +166,11 @@ export function calculateConfidenceScore(criteria: MatchCriteria): Decimal {
     score = score.plus(0.1);
   } else if (criteria.addressMatch === false) {
     // Addresses don't match - significant penalty
-    return new Decimal(0);
+    return parseDecimal('0');
   }
 
   // Clamp to [0, 1]
-  return Decimal.min(Decimal.max(score, new Decimal(0)), new Decimal(1));
+  return Decimal.min(Decimal.max(score, parseDecimal('0')), parseDecimal('1'));
 }
 
 /**

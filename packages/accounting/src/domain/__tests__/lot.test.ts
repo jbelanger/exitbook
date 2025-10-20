@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import { parseDecimal } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
 import { createAcquisitionLot, disposeLot, updateLotStatus } from '../lot.ts';
@@ -10,10 +10,10 @@ describe('createAcquisitionLot', () => {
       acquisitionTransactionId: 1,
       asset: 'BTC',
       calculationId: 'calc-123',
-      costBasisPerUnit: new Decimal('50000'),
+      costBasisPerUnit: parseDecimal('50000'),
       id: 'lot-123',
       method: 'fifo' as const,
-      quantity: new Decimal('2'),
+      quantity: parseDecimal('2'),
       transactionDate: new Date('2024-01-01T00:00:00Z'),
     };
 
@@ -37,10 +37,10 @@ describe('createAcquisitionLot', () => {
       acquisitionTransactionId: 1,
       asset: 'ETH',
       calculationId: 'calc-123',
-      costBasisPerUnit: new Decimal('3000.50'),
+      costBasisPerUnit: parseDecimal('3000.50'),
       id: 'lot-123',
       method: 'fifo',
-      quantity: new Decimal('10.5'),
+      quantity: parseDecimal('10.5'),
       transactionDate: new Date('2024-01-01'),
     });
 
@@ -55,14 +55,14 @@ describe('updateLotStatus', () => {
       acquisitionTransactionId: 1,
       asset: 'BTC',
       calculationId: 'calc-123',
-      costBasisPerUnit: new Decimal('50000'),
+      costBasisPerUnit: parseDecimal('50000'),
       createdAt: new Date(),
       id: 'lot-123',
       method: 'fifo',
-      quantity: new Decimal('2'),
-      remainingQuantity: new Decimal('2'),
+      quantity: parseDecimal('2'),
+      remainingQuantity: parseDecimal('2'),
       status: 'open',
-      totalCostBasis: new Decimal('100000'),
+      totalCostBasis: parseDecimal('100000'),
       updatedAt: new Date(),
     };
 
@@ -75,14 +75,14 @@ describe('updateLotStatus', () => {
       acquisitionTransactionId: 1,
       asset: 'BTC',
       calculationId: 'calc-123',
-      costBasisPerUnit: new Decimal('50000'),
+      costBasisPerUnit: parseDecimal('50000'),
       createdAt: new Date(),
       id: 'lot-123',
       method: 'fifo',
-      quantity: new Decimal('2'),
-      remainingQuantity: new Decimal('0.5'),
+      quantity: parseDecimal('2'),
+      remainingQuantity: parseDecimal('0.5'),
       status: 'open',
-      totalCostBasis: new Decimal('100000'),
+      totalCostBasis: parseDecimal('100000'),
       updatedAt: new Date(),
     };
 
@@ -95,14 +95,14 @@ describe('updateLotStatus', () => {
       acquisitionTransactionId: 1,
       asset: 'BTC',
       calculationId: 'calc-123',
-      costBasisPerUnit: new Decimal('50000'),
+      costBasisPerUnit: parseDecimal('50000'),
       createdAt: new Date(),
       id: 'lot-123',
       method: 'fifo',
-      quantity: new Decimal('2'),
-      remainingQuantity: new Decimal('0'),
+      quantity: parseDecimal('2'),
+      remainingQuantity: parseDecimal('0'),
       status: 'open',
-      totalCostBasis: new Decimal('100000'),
+      totalCostBasis: parseDecimal('100000'),
       updatedAt: new Date(),
     };
 
@@ -117,18 +117,18 @@ describe('disposeLot', () => {
       acquisitionTransactionId: 1,
       asset: 'BTC',
       calculationId: 'calc-123',
-      costBasisPerUnit: new Decimal('50000'),
+      costBasisPerUnit: parseDecimal('50000'),
       createdAt: new Date(),
       id: 'lot-123',
       method: 'fifo',
-      quantity: new Decimal('2'),
-      remainingQuantity: new Decimal('2'),
+      quantity: parseDecimal('2'),
+      remainingQuantity: parseDecimal('2'),
       status: 'open',
-      totalCostBasis: new Decimal('100000'),
+      totalCostBasis: parseDecimal('100000'),
       updatedAt: new Date(),
     };
 
-    const result = disposeLot(lot, new Decimal('1'));
+    const result = disposeLot(lot, parseDecimal('1'));
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -146,18 +146,18 @@ describe('disposeLot', () => {
       acquisitionTransactionId: 1,
       asset: 'BTC',
       calculationId: 'calc-123',
-      costBasisPerUnit: new Decimal('50000'),
+      costBasisPerUnit: parseDecimal('50000'),
       createdAt: new Date(),
       id: 'lot-123',
       method: 'fifo',
-      quantity: new Decimal('2'),
-      remainingQuantity: new Decimal('2'),
+      quantity: parseDecimal('2'),
+      remainingQuantity: parseDecimal('2'),
       status: 'open',
-      totalCostBasis: new Decimal('100000'),
+      totalCostBasis: parseDecimal('100000'),
       updatedAt: new Date(),
     };
 
-    const result = disposeLot(lot, new Decimal('2'));
+    const result = disposeLot(lot, parseDecimal('2'));
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -173,18 +173,18 @@ describe('disposeLot', () => {
       acquisitionTransactionId: 1,
       asset: 'BTC',
       calculationId: 'calc-123',
-      costBasisPerUnit: new Decimal('50000'),
+      costBasisPerUnit: parseDecimal('50000'),
       createdAt: new Date(),
       id: 'lot-123',
       method: 'fifo',
-      quantity: new Decimal('2'),
-      remainingQuantity: new Decimal('1'),
+      quantity: parseDecimal('2'),
+      remainingQuantity: parseDecimal('1'),
       status: 'partially_disposed',
-      totalCostBasis: new Decimal('100000'),
+      totalCostBasis: parseDecimal('100000'),
       updatedAt: new Date(),
     };
 
-    const result = disposeLot(lot, new Decimal('1.5'));
+    const result = disposeLot(lot, parseDecimal('1.5'));
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -199,18 +199,18 @@ describe('disposeLot', () => {
       acquisitionTransactionId: 1,
       asset: 'BTC',
       calculationId: 'calc-123',
-      costBasisPerUnit: new Decimal('50000'),
+      costBasisPerUnit: parseDecimal('50000'),
       createdAt: new Date(),
       id: 'lot-123',
       method: 'fifo',
-      quantity: new Decimal('0.123456789'),
-      remainingQuantity: new Decimal('0.123456789'),
+      quantity: parseDecimal('0.123456789'),
+      remainingQuantity: parseDecimal('0.123456789'),
       status: 'open',
-      totalCostBasis: new Decimal('6172.83945'),
+      totalCostBasis: parseDecimal('6172.83945'),
       updatedAt: new Date(),
     };
 
-    const result = disposeLot(lot, new Decimal('0.023456789'));
+    const result = disposeLot(lot, parseDecimal('0.023456789'));
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {

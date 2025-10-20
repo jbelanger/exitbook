@@ -1,3 +1,5 @@
+import type { Decimal } from 'decimal.js';
+
 import type { Money } from '../value-objects/money.ts';
 
 export type TransactionStatus = 'pending' | 'open' | 'closed' | 'canceled' | 'failed' | 'ok';
@@ -81,7 +83,7 @@ export interface AssetMovement {
   /**
    * Amount of the asset moved
    */
-  amount: Money;
+  amount: Decimal;
 
   /**
    * Price of the asset at transaction time (optional, populated by price providers)

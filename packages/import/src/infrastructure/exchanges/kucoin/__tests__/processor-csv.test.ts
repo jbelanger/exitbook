@@ -55,11 +55,11 @@ describe('KucoinProcessor (CSV) - Spot Order Handling', () => {
     // Verify movements: buy means we spent USDT (outflow) and received BTC (inflow)
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('USDT');
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('4200');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('4200');
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('BTC');
-    expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('0.1');
+    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('0.1');
 
     // Verify primary movement (base currency)
     expect(transaction.movements.primary.asset).toBe('BTC');
@@ -108,11 +108,11 @@ describe('KucoinProcessor (CSV) - Spot Order Handling', () => {
     // Verify movements: sell means we spent ETH (outflow) and received USDT (inflow)
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('ETH');
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('1');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('1');
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('USDT');
-    expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('2200');
+    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('2200');
   });
 });
 
@@ -192,7 +192,7 @@ describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
     // Verify net amount (gross - fee)
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('BTC');
-    expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('0.9995');
+    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('0.9995');
 
     expect(transaction.fees.platform?.amount.toString()).toBe('0.0005');
     expect(transaction.fees.platform?.currency.toString()).toBe('BTC');
@@ -234,7 +234,7 @@ describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('ETH');
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('2');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('2');
 
     expect(transaction.fees.platform?.amount.toString()).toBe('0.01');
   });
@@ -285,11 +285,11 @@ describe('KucoinProcessor (CSV) - Account History Handling', () => {
     // Verify movements: swapped USDT for BTC
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('USDT');
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('4200');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('4200');
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('BTC');
-    expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('0.1');
+    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('0.1');
 
     // Verify primary movement is what we bought
     expect(transaction.movements.primary.asset).toBe('BTC');

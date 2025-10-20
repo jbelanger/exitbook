@@ -1,8 +1,8 @@
 import type { UniversalTransaction } from '@exitbook/core';
-import { createMoney } from '@exitbook/core';
+import { createMoney, parseDecimal } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/providers';
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
@@ -86,15 +86,15 @@ export class CosmosProcessor extends BaseTransactionProcessor {
           // Structured movements from fund flow analysis
           movements: {
             inflows: fundFlow.inflows.map((inflow) => ({
-              amount: createMoney(inflow.amount, inflow.asset),
+              amount: parseDecimal(inflow.amount),
               asset: inflow.asset,
             })),
             outflows: fundFlow.outflows.map((outflow) => ({
-              amount: createMoney(outflow.amount, outflow.asset),
+              amount: parseDecimal(outflow.amount),
               asset: outflow.asset,
             })),
             primary: {
-              amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
+              amount: parseDecimal(fundFlow.primary.amount),
               asset: fundFlow.primary.asset,
               direction: (() => {
                 const hasInflow = fundFlow.inflows.some((i) => i.asset === fundFlow.primary.asset);
@@ -526,14 +526,14 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
   private isZero(value: string): boolean {
     try {
-      return new Decimal(value || '0').isZero();
+      return parseDecimal(value || '0').isZero();
     } catch {
       return true;
     }
   }
 
   private toDecimal(value: string): Decimal {
-    return new Decimal(value || '0');
+    return parseDecimal(value || '0');
   }
 
   /**

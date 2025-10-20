@@ -1,5 +1,4 @@
-import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
@@ -128,7 +127,9 @@ export class TaostatsApiClient extends BaseApiClient {
     const balanceRao = response.data?.[0]?.balance_total || '0';
 
     // Convert from smallest unit (rao) to main unit (TAO)
-    const balanceDecimal = new Decimal(balanceRao).div(new Decimal(10).pow(this.chainConfig.nativeDecimals)).toFixed();
+    const balanceDecimal = parseDecimal(balanceRao)
+      .div(parseDecimal('10').pow(this.chainConfig.nativeDecimals))
+      .toFixed();
 
     this.logger.debug(
       `Found raw balance for ${maskAddress(address)}: ${balanceDecimal} ${this.chainConfig.nativeCurrency}`

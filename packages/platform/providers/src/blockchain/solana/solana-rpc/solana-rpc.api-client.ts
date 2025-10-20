@@ -1,5 +1,4 @@
-import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
@@ -112,7 +111,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
     }
 
     // Convert from lamports to SOL (1 SOL = 10^9 lamports)
-    const balanceSOL = new Decimal(response.result.value).div(new Decimal(10).pow(9)).toString();
+    const balanceSOL = parseDecimal(response.result.value.toString()).div(parseDecimal('10').pow(9)).toString();
 
     this.logger.debug(
       `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceSOL}`

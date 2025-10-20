@@ -1,4 +1,5 @@
 /* eslint-disable unicorn/no-null -- Acceptable for tests */
+import { createMoney, parseDecimal } from '@exitbook/core';
 import type { StoredTransaction } from '@exitbook/data';
 import { describe, expect, it } from 'vitest';
 
@@ -25,12 +26,8 @@ function createTestTransaction(overrides: Partial<StoredTransaction>): StoredTra
     note_message: null,
     note_metadata: null,
     raw_normalized_data: null,
-    movements_inflows: null,
-    movements_outflows: null,
-    movements_primary_asset: null,
-    movements_primary_amount: null,
-    movements_primary_currency: null,
-    movements_primary_direction: null,
+    movements_inflows: [],
+    movements_outflows: [],
     fees_network: null,
     fees_platform: null,
     fees_total: null,
@@ -58,12 +55,12 @@ describe('calculateBalances', () => {
       id: 1,
       source_id: 'kraken',
       external_id: 'tx1',
-      movements_inflows: JSON.stringify([
+      movements_inflows: [
         {
           asset: 'BTC',
-          amount: { amount: '1.5', currency: 'BTC' },
+          amount: parseDecimal('1.5'),
         },
-      ]),
+      ],
     });
 
     const result = calculateBalances([transaction]);
@@ -77,12 +74,12 @@ describe('calculateBalances', () => {
       id: 2,
       source_id: 'kraken',
       external_id: 'tx2',
-      movements_outflows: JSON.stringify([
+      movements_outflows: [
         {
           asset: 'ETH',
-          amount: { amount: '2.0', currency: 'ETH' },
+          amount: parseDecimal('2.0'),
         },
-      ]),
+      ],
     });
 
     const result = calculateBalances([transaction]);
@@ -99,16 +96,13 @@ describe('calculateBalances', () => {
       external_id: 'tx3',
       from_address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
       to_address: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
-      movements_outflows: JSON.stringify([
+      movements_outflows: [
         {
           asset: 'BTC',
-          amount: { amount: '0.5', currency: 'BTC' },
+          amount: parseDecimal('0.5'),
         },
-      ]),
-      fees_network: JSON.stringify({
-        amount: '0.0001',
-        currency: 'BTC',
-      }),
+      ],
+      fees_network: createMoney('0.0001', 'BTC'),
     });
 
     const result = calculateBalances([transaction]);
@@ -122,22 +116,19 @@ describe('calculateBalances', () => {
       id: 4,
       source_id: 'kraken',
       external_id: 'tx4',
-      movements_inflows: JSON.stringify([
+      movements_inflows: [
         {
           asset: 'BTC',
-          amount: { amount: '1.0', currency: 'BTC' },
+          amount: parseDecimal('1.0'),
         },
-      ]),
-      movements_outflows: JSON.stringify([
+      ],
+      movements_outflows: [
         {
           asset: 'USDT',
-          amount: { amount: '50000', currency: 'USDT' },
+          amount: parseDecimal('50000'),
         },
-      ]),
-      fees_platform: JSON.stringify({
-        amount: '0.001',
-        currency: 'BTC',
-      }),
+      ],
+      fees_platform: createMoney('0.001', 'BTC'),
     });
 
     const result = calculateBalances([transaction]);
@@ -156,20 +147,14 @@ describe('calculateBalances', () => {
       external_id: 'tx5',
       from_address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
       to_address: '0x123456789abcdef123456789abcdef123456789a',
-      movements_outflows: JSON.stringify([
+      movements_outflows: [
         {
           asset: 'ETH',
-          amount: { amount: '5.0', currency: 'ETH' },
+          amount: parseDecimal('5.0'),
         },
-      ]),
-      fees_network: JSON.stringify({
-        amount: '0.005',
-        currency: 'ETH',
-      }),
-      fees_platform: JSON.stringify({
-        amount: '0.001',
-        currency: 'ETH',
-      }),
+      ],
+      fees_network: createMoney('0.005', 'ETH'),
+      fees_platform: createMoney('0.001', 'ETH'),
     });
 
     const result = calculateBalances([transaction]);
@@ -186,12 +171,12 @@ describe('calculateBalances', () => {
         external_id: 'tx6',
         transaction_datetime: '2024-01-01T00:00:00Z',
         created_at: '2024-01-01T00:00:00Z',
-        movements_inflows: JSON.stringify([
+        movements_inflows: [
           {
             asset: 'BTC',
-            amount: { amount: '1.0', currency: 'BTC' },
+            amount: parseDecimal('1.0'),
           },
-        ]),
+        ],
       }),
       createTestTransaction({
         id: 7,
@@ -199,12 +184,12 @@ describe('calculateBalances', () => {
         external_id: 'tx7',
         transaction_datetime: '2024-01-02T00:00:00Z',
         created_at: '2024-01-02T00:00:00Z',
-        movements_inflows: JSON.stringify([
+        movements_inflows: [
           {
             asset: 'BTC',
-            amount: { amount: '0.5', currency: 'BTC' },
+            amount: parseDecimal('0.5'),
           },
-        ]),
+        ],
       }),
       createTestTransaction({
         id: 8,
@@ -212,16 +197,13 @@ describe('calculateBalances', () => {
         external_id: 'tx8',
         transaction_datetime: '2024-01-03T00:00:00Z',
         created_at: '2024-01-03T00:00:00Z',
-        movements_outflows: JSON.stringify([
+        movements_outflows: [
           {
             asset: 'BTC',
-            amount: { amount: '0.3', currency: 'BTC' },
+            amount: parseDecimal('0.3'),
           },
-        ]),
-        fees_platform: JSON.stringify({
-          amount: '0.001',
-          currency: 'BTC',
-        }),
+        ],
+        fees_platform: createMoney('0.001', 'BTC'),
       }),
     ];
 
@@ -236,22 +218,19 @@ describe('calculateBalances', () => {
       id: 9,
       source_id: 'kraken',
       external_id: 'tx9',
-      movements_inflows: JSON.stringify([
+      movements_inflows: [
         {
           asset: 'BTC',
-          amount: { amount: '0.5', currency: 'BTC' },
+          amount: parseDecimal('0.5'),
         },
-      ]),
-      movements_outflows: JSON.stringify([
+      ],
+      movements_outflows: [
         {
           asset: 'USDT',
-          amount: { amount: '25000', currency: 'USDT' },
+          amount: parseDecimal('25000'),
         },
-      ]),
-      fees_platform: JSON.stringify({
-        amount: '10',
-        currency: 'USDT',
-      }),
+      ],
+      fees_platform: createMoney('10', 'USDT'),
     });
 
     const result = calculateBalances([transaction]);
@@ -274,19 +253,6 @@ describe('calculateBalances', () => {
     expect(result).toEqual({});
   });
 
-  it('should handle invalid JSON in movement fields gracefully', () => {
-    const transaction = createTestTransaction({
-      id: 11,
-      source_id: 'kraken',
-      external_id: 'tx11',
-      movements_inflows: 'invalid-json',
-    });
-
-    const result = calculateBalances([transaction]);
-
-    expect(result).toEqual({});
-  });
-
   it('should handle very small decimal amounts', () => {
     const transaction = createTestTransaction({
       id: 12,
@@ -295,12 +261,12 @@ describe('calculateBalances', () => {
       external_id: 'tx12',
       from_address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
       to_address: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
-      movements_inflows: JSON.stringify([
+      movements_inflows: [
         {
           asset: 'BTC',
-          amount: { amount: '0.00000001', currency: 'BTC' },
+          amount: parseDecimal('0.00000001'),
         },
-      ]),
+      ],
     });
 
     const result = calculateBalances([transaction]);
@@ -314,12 +280,12 @@ describe('calculateBalances', () => {
       id: 13,
       source_id: 'kraken',
       external_id: 'tx13',
-      movements_inflows: JSON.stringify([
+      movements_inflows: [
         {
           asset: 'SHIB',
-          amount: { amount: '1000000000000', currency: 'SHIB' },
+          amount: parseDecimal('1000000000000'),
         },
-      ]),
+      ],
     });
 
     const result = calculateBalances([transaction]);
@@ -333,16 +299,16 @@ describe('calculateBalances', () => {
       id: 14,
       source_id: 'kraken',
       external_id: 'tx14',
-      movements_inflows: JSON.stringify([
+      movements_inflows: [
         {
           asset: 'ETH',
-          amount: { amount: '1.0', currency: 'ETH' },
+          amount: parseDecimal('1.0'),
         },
         {
           asset: 'ETH',
-          amount: { amount: '2.5', currency: 'ETH' },
+          amount: parseDecimal('2.5'),
         },
-      ]),
+      ],
     });
 
     const result = calculateBalances([transaction]);
@@ -359,12 +325,12 @@ describe('calculateBalances', () => {
         external_id: 'tx15',
         transaction_datetime: '2024-01-01T00:00:00Z',
         created_at: '2024-01-01T00:00:00Z',
-        movements_inflows: JSON.stringify([
+        movements_inflows: [
           {
             asset: 'BTC',
-            amount: { amount: '1.0', currency: 'BTC' },
+            amount: parseDecimal('1.0'),
           },
-        ]),
+        ],
       }),
       createTestTransaction({
         id: 16,
@@ -372,16 +338,13 @@ describe('calculateBalances', () => {
         external_id: 'tx16',
         transaction_datetime: '2024-01-02T00:00:00Z',
         created_at: '2024-01-02T00:00:00Z',
-        movements_outflows: JSON.stringify([
+        movements_outflows: [
           {
             asset: 'BTC',
-            amount: { amount: '0.999', currency: 'BTC' },
+            amount: parseDecimal('0.999'),
           },
-        ]),
-        fees_platform: JSON.stringify({
-          amount: '0.001',
-          currency: 'BTC',
-        }),
+        ],
+        fees_platform: createMoney('0.001', 'BTC'),
       }),
     ];
 

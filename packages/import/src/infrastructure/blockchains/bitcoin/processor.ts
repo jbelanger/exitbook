@@ -1,4 +1,4 @@
-import { createMoney } from '@exitbook/core';
+import { createMoney, parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { BitcoinTransaction } from '@exitbook/providers';
 import { type Result, err, ok } from 'neverthrow';
@@ -75,7 +75,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
               ? [
                   {
                     asset: 'BTC',
-                    amount: createMoney(fundFlow.walletInput, 'BTC'),
+                    amount: parseDecimal(fundFlow.walletInput),
                   },
                 ]
               : [],
@@ -83,13 +83,13 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
               ? [
                   {
                     asset: 'BTC',
-                    amount: createMoney(fundFlow.walletOutput, 'BTC'),
+                    amount: parseDecimal(fundFlow.walletOutput),
                   },
                 ]
               : [],
             primary: {
               asset: 'BTC',
-              amount: createMoney(fundFlow.netAmount, 'BTC'),
+              amount: parseDecimal(fundFlow.netAmount),
               direction: fundFlow.isIncoming ? 'in' : fundFlow.isOutgoing ? 'out' : 'neutral',
             },
           },

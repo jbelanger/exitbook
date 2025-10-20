@@ -1,7 +1,7 @@
 import type { RawTransactionMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 import { type Result, ok, err } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
@@ -62,7 +62,7 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
           amount = sourceTfuel;
         } else {
           currency = 'TFUEL';
-          amount = new Decimal(0);
+          amount = parseDecimal('0');
         }
       }
     }
@@ -85,7 +85,7 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
         amount = tfuelWei;
       } else {
         currency = 'TFUEL';
-        amount = new Decimal(0);
+        amount = parseDecimal('0');
       }
     }
     // Other transaction types - skip for now
@@ -110,7 +110,7 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
     // - THETA transfers are mapped as token_transfer, so amounts should be normalized (not wei)
     // - TFUEL transfers are mapped as native transfer, so amounts should stay in wei
     const amountFormatted = isThetaTransfer
-      ? amount.dividedBy(new Decimal(10).pow(THETA_DECIMALS)).toString()
+      ? amount.dividedBy(parseDecimal('10').pow(THETA_DECIMALS)).toString()
       : amount.toFixed(0); // Use toFixed(0) to avoid scientific notation
 
     const transaction: EvmTransaction = {

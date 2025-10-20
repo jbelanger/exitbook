@@ -1,4 +1,5 @@
 // Database schema types for data persistence
+import type { AssetMovement, Money } from '@exitbook/core';
 import type { Selectable, Insertable, Updateable } from 'kysely';
 
 import type {
@@ -9,8 +10,22 @@ import type {
   WalletAddressesTable,
 } from '../schema/database-schema.ts';
 
+// Raw transaction type from database (with JSON strings)
+type RawStoredTransaction = Selectable<TransactionsTable>;
+
 // Transaction types using Kysely schema
-export type StoredTransaction = Selectable<TransactionsTable>;
+// StoredTransaction has movements and fees deserialized from JSON strings to typed objects
+export type StoredTransaction = Omit<
+  RawStoredTransaction,
+  'movements_inflows' | 'movements_outflows' | 'fees_network' | 'fees_platform' | 'fees_total'
+> & {
+  fees_network: Money | null;
+  fees_platform: Money | null;
+  fees_total: Money | null;
+  movements_inflows: AssetMovement[];
+  movements_outflows: AssetMovement[];
+};
+
 export type NewTransaction = Insertable<TransactionsTable>;
 export type TransactionUpdate = Updateable<TransactionsTable>;
 

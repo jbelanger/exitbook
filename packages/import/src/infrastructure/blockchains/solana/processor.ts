@@ -1,4 +1,4 @@
-import { createMoney } from '@exitbook/core';
+import { createMoney, parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { SolanaTransaction } from '@exitbook/providers';
@@ -81,15 +81,15 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
           // Structured movements from fund flow analysis
           movements: {
             inflows: fundFlow.inflows.map((inflow) => ({
-              amount: createMoney(inflow.amount, inflow.asset),
+              amount: parseDecimal(inflow.amount),
               asset: inflow.asset,
             })),
             outflows: fundFlow.outflows.map((outflow) => ({
-              amount: createMoney(outflow.amount, outflow.asset),
+              amount: parseDecimal(outflow.amount),
               asset: outflow.asset,
             })),
             primary: {
-              amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
+              amount: parseDecimal(fundFlow.primary.amount),
               asset: fundFlow.primary.asset,
               direction: (() => {
                 const hasInflow = fundFlow.inflows.some((i) => i.asset === fundFlow.primary.asset);

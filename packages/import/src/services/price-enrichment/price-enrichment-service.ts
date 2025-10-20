@@ -186,9 +186,7 @@ export class PriceEnrichmentService {
         }
 
         // Check if transaction has any prices to update
-        const inflows = this.parseMovements(tx.movements_inflows as string | null);
-        const outflows = this.parseMovements(tx.movements_outflows as string | null);
-        const hasPrices = [...inflows, ...outflows].some((m) => m.priceAtTxTime);
+        const hasPrices = [...tx.movements_inflows, ...tx.movements_outflows].some((m) => m.priceAtTxTime);
 
         if (!hasPrices) {
           skippedCount++;
@@ -219,11 +217,9 @@ export class PriceEnrichmentService {
     const priceIndex = new Map<string, PriceAtTxTime[]>();
 
     for (const tx of transactions) {
-      const inflows = this.parseMovements(tx.movements_inflows as string | null);
-      const outflows = this.parseMovements(tx.movements_outflows as string | null);
       const timestamp = new Date(tx.transaction_datetime).getTime();
 
-      const trade = extractTradeMovements(inflows, outflows, timestamp);
+      const trade = extractTradeMovements(tx.movements_inflows, tx.movements_outflows, timestamp);
       if (!trade) {
         continue;
       }
@@ -252,17 +248,15 @@ export class PriceEnrichmentService {
     priceIndex: Map<string, PriceAtTxTime[]>
   ): StoredTransaction[] {
     // Track which transactions have been enriched with new movements
-    const enrichedMovements = new Map<number, { inflows: string; outflows: string }>();
+    const enrichedMovements = new Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>();
 
     // Pass 0: Apply exchange-execution prices from fiat/stable trades to their source movements
     // This ensures these movements retain their 'exchange-execution' source instead of being
     // overwritten later with 'derived-history' from Pass N+1 temporal proximity
     for (const tx of transactions) {
-      const inflows = this.parseMovements(tx.movements_inflows as string | null);
-      const outflows = this.parseMovements(tx.movements_outflows as string | null);
       const timestamp = new Date(tx.transaction_datetime).getTime();
 
-      const trade = extractTradeMovements(inflows, outflows, timestamp);
+      const trade = extractTradeMovements(tx.movements_inflows, tx.movements_outflows, timestamp);
       if (!trade) {
         continue;
       }
@@ -270,12 +264,12 @@ export class PriceEnrichmentService {
       const prices = calculatePriceFromTrade(trade);
 
       if (prices.length > 0) {
-        const updatedInflows = this.enrichMovements(inflows, prices);
-        const updatedOutflows = this.enrichMovements(outflows, prices);
+        const updatedInflows = this.enrichMovements(tx.movements_inflows, prices);
+        const updatedOutflows = this.enrichMovements(tx.movements_outflows, prices);
 
         enrichedMovements.set(tx.id, {
-          inflows: JSON.stringify(updatedInflows),
-          outflows: JSON.stringify(updatedOutflows),
+          inflows: updatedInflows,
+          outflows: updatedOutflows,
         });
       }
     }
@@ -298,11 +292,8 @@ export class PriceEnrichmentService {
       for (const tx of transactions) {
         // Use enriched movements if available, otherwise use original
         const enriched = enrichedMovements.get(tx.id);
-        const currentInflows = (enriched?.inflows ?? tx.movements_inflows) as string | null;
-        const currentOutflows = (enriched?.outflows ?? tx.movements_outflows) as string | null;
-
-        const inflows = this.parseMovements(currentInflows);
-        const outflows = this.parseMovements(currentOutflows);
+        const inflows = enriched ? enriched.inflows : tx.movements_inflows;
+        const outflows = enriched ? enriched.outflows : tx.movements_outflows;
         const timestamp = new Date(tx.transaction_datetime).getTime();
 
         const trade = extractTradeMovements(inflows, outflows, timestamp);
@@ -330,8 +321,8 @@ export class PriceEnrichmentService {
           const updatedOutflows = this.enrichMovements(outflows, inferredPrices);
 
           enrichedMovements.set(tx.id, {
-            inflows: JSON.stringify(updatedInflows),
-            outflows: JSON.stringify(updatedOutflows),
+            inflows: updatedInflows,
+            outflows: updatedOutflows,
           });
         }
       }
@@ -342,11 +333,8 @@ export class PriceEnrichmentService {
     // Pass N+1: Fill remaining gaps using temporal proximity
     for (const tx of transactions) {
       const enriched = enrichedMovements.get(tx.id);
-      const currentInflows = (enriched?.inflows ?? tx.movements_inflows) as string | null;
-      const currentOutflows = (enriched?.outflows ?? tx.movements_outflows) as string | null;
-
-      const inflows = this.parseMovements(currentInflows);
-      const outflows = this.parseMovements(currentOutflows);
+      const inflows = enriched ? enriched.inflows : tx.movements_inflows;
+      const outflows = enriched ? enriched.outflows : tx.movements_outflows;
       const timestamp = new Date(tx.transaction_datetime).getTime();
 
       const allMovements = [...inflows, ...outflows];
@@ -371,8 +359,8 @@ export class PriceEnrichmentService {
         const updatedOutflows = this.enrichMovements(outflows, proximityPrices);
 
         enrichedMovements.set(tx.id, {
-          inflows: JSON.stringify(updatedInflows),
-          outflows: JSON.stringify(updatedOutflows),
+          inflows: updatedInflows,
+          outflows: updatedOutflows,
         });
       }
     }
@@ -409,8 +397,8 @@ export class PriceEnrichmentService {
           continue;
         }
 
-        const inflows = this.parseMovements(tx.movements_inflows as string | null);
-        const outflows = this.parseMovements(tx.movements_outflows as string | null);
+        const inflows = tx.movements_inflows;
+        const outflows = tx.movements_outflows;
         const timestamp = new Date(tx.transaction_datetime).getTime();
 
         const trade = extractTradeMovements(inflows, outflows, timestamp);
@@ -424,8 +412,8 @@ export class PriceEnrichmentService {
         if (prices.length > 0) {
           const updateResult = await this.updateTransactionPrices({
             ...tx,
-            movements_inflows: JSON.stringify(this.enrichMovements(inflows, prices)),
-            movements_outflows: JSON.stringify(this.enrichMovements(outflows, prices)),
+            movements_inflows: this.enrichMovements(inflows, prices),
+            movements_outflows: this.enrichMovements(outflows, prices),
           });
 
           if (updateResult.isOk()) {
@@ -445,8 +433,8 @@ export class PriceEnrichmentService {
    */
   private async updateTransactionPrices(tx: StoredTransaction): Promise<Result<void, Error>> {
     try {
-      const inflows = this.parseMovements(tx.movements_inflows as string | null);
-      const outflows = this.parseMovements(tx.movements_outflows as string | null);
+      const inflows = tx.movements_inflows;
+      const outflows = tx.movements_outflows;
 
       // Collect all price data for update
       const priceData: {
@@ -494,21 +482,6 @@ export class PriceEnrichmentService {
     }
 
     return grouped;
-  }
-
-  /**
-   * Parse movements from JSON string
-   */
-  private parseMovements(movementsJson: string | null): AssetMovement[] {
-    if (!movementsJson) {
-      return [];
-    }
-
-    try {
-      return JSON.parse(movementsJson) as AssetMovement[];
-    } catch {
-      return [];
-    }
   }
 
   /**

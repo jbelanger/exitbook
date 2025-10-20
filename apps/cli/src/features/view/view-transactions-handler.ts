@@ -1,5 +1,6 @@
 // Handler for view transactions command
 
+import { computePrimaryMovement } from '@exitbook/core';
 import type { StoredTransaction } from '@exitbook/data';
 import type { TransactionRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
@@ -65,7 +66,10 @@ export class ViewTransactionsHandler {
 
     // Filter by asset
     if (params.asset) {
-      filtered = filtered.filter((tx) => tx.movements_primary_asset === params.asset);
+      filtered = filtered.filter((tx) => {
+        const primary = computePrimaryMovement(tx.movements_inflows, tx.movements_outflows);
+        return primary?.asset === params.asset;
+      });
     }
 
     // Filter by operation type
@@ -85,6 +89,9 @@ export class ViewTransactionsHandler {
    * Format transaction for display.
    */
   private formatTransaction(tx: StoredTransaction) {
+    // Compute primary movement from inflows/outflows
+    const primary = computePrimaryMovement(tx.movements_inflows, tx.movements_outflows);
+
     return {
       id: tx.id,
       source_id: tx.source_id,
@@ -93,9 +100,9 @@ export class ViewTransactionsHandler {
       transaction_datetime: tx.transaction_datetime,
       operation_category: tx.operation_category,
       operation_type: tx.operation_type,
-      movements_primary_asset: tx.movements_primary_asset,
-      movements_primary_amount: tx.movements_primary_amount,
-      movements_primary_direction: tx.movements_primary_direction,
+      movements_primary_asset: primary?.asset ?? undefined,
+      movements_primary_amount: primary?.amount.toFixed() ?? undefined,
+      movements_primary_direction: primary?.direction ?? undefined,
       price: tx.price,
       price_currency: tx.price_currency,
       from_address: tx.from_address,

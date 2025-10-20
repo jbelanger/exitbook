@@ -1,4 +1,5 @@
 /* eslint-disable unicorn/no-null -- db requires explicit null */
+import { parseDecimal } from '@exitbook/core';
 import type { StoredTransaction, TransactionRepository } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
@@ -44,12 +45,8 @@ describe('ViewTransactionsHandler', () => {
     note_message: null,
     note_metadata: null,
     raw_normalized_data: {},
-    movements_inflows: null,
-    movements_outflows: null,
-    movements_primary_asset: 'BTC',
-    movements_primary_amount: '1.0',
-    movements_primary_currency: null,
-    movements_primary_direction: 'in',
+    movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
+    movements_outflows: [],
     fees_network: null,
     fees_platform: null,
     fees_total: null,
@@ -67,8 +64,16 @@ describe('ViewTransactionsHandler', () => {
   describe('execute', () => {
     it('should return formatted transactions successfully', async () => {
       const mockTransactions: StoredTransaction[] = [
-        createMockTransaction({ id: 1, movements_primary_asset: 'BTC' }),
-        createMockTransaction({ id: 2, movements_primary_asset: 'ETH' }),
+        createMockTransaction({
+          id: 1,
+          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
+          movements_outflows: [],
+        }),
+        createMockTransaction({
+          id: 2,
+          movements_inflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
+          movements_outflows: [],
+        }),
       ];
 
       mockGetTransactions.mockResolvedValue(ok(mockTransactions));
@@ -128,8 +133,14 @@ describe('ViewTransactionsHandler', () => {
 
     it('should filter by asset', async () => {
       const mockTransactions: StoredTransaction[] = [
-        createMockTransaction({ movements_primary_asset: 'BTC' }),
-        createMockTransaction({ movements_primary_asset: 'ETH' }),
+        createMockTransaction({
+          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
+          movements_outflows: [],
+        }),
+        createMockTransaction({
+          movements_inflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
+          movements_outflows: [],
+        }),
       ];
       mockGetTransactions.mockResolvedValue(ok(mockTransactions));
 
@@ -196,19 +207,22 @@ describe('ViewTransactionsHandler', () => {
         createMockTransaction({
           id: 1,
           transaction_datetime: '2024-01-15T00:00:00Z',
-          movements_primary_asset: 'BTC',
+          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
+          movements_outflows: [],
           operation_type: 'buy',
         }),
         createMockTransaction({
           id: 2,
           transaction_datetime: '2024-02-01T00:00:00Z',
-          movements_primary_asset: 'BTC',
+          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('0.5') }],
+          movements_outflows: [],
           operation_type: 'sell',
         }),
         createMockTransaction({
           id: 3,
           transaction_datetime: '2024-01-20T00:00:00Z',
-          movements_primary_asset: 'ETH',
+          movements_inflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
+          movements_outflows: [],
           operation_type: 'buy',
         }),
       ];
@@ -231,7 +245,12 @@ describe('ViewTransactionsHandler', () => {
     });
 
     it('should return empty array when no transactions match filters', async () => {
-      const mockTransactions: StoredTransaction[] = [createMockTransaction({ movements_primary_asset: 'BTC' })];
+      const mockTransactions: StoredTransaction[] = [
+        createMockTransaction({
+          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
+          movements_outflows: [],
+        }),
+      ];
       mockGetTransactions.mockResolvedValue(ok(mockTransactions));
 
       const params: ViewTransactionsParams = { asset: 'ETH' };
@@ -281,9 +300,8 @@ describe('ViewTransactionsHandler', () => {
           external_id: null,
           operation_category: null,
           operation_type: null,
-          movements_primary_asset: null,
-          movements_primary_amount: null,
-          movements_primary_direction: null,
+          movements_inflows: [],
+          movements_outflows: [],
           price: null,
           price_currency: null,
           from_address: null,
@@ -300,6 +318,10 @@ describe('ViewTransactionsHandler', () => {
       const value = result._unsafeUnwrap();
       expect(value.transactions[0]!.external_id).toBeNull();
       expect(value.transactions[0]!.price).toBeNull();
+      // When movements are empty, primary movement is computed as undefined
+      expect(value.transactions[0]!.movements_primary_asset).toBeUndefined();
+      expect(value.transactions[0]!.movements_primary_amount).toBeUndefined();
+      expect(value.transactions[0]!.movements_primary_direction).toBeUndefined();
     });
 
     it('should handle date range filtering', async () => {

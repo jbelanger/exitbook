@@ -1,8 +1,8 @@
 import type { UniversalTransaction } from '@exitbook/core';
-import { createMoney } from '@exitbook/core';
+import { createMoney, parseDecimal } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
@@ -101,15 +101,15 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
         // Structured movements from fund flow analysis
         movements: {
           inflows: fundFlow.inflows.map((inflow) => ({
-            amount: createMoney(inflow.amount, inflow.asset),
+            amount: parseDecimal(inflow.amount),
             asset: inflow.asset,
           })),
           outflows: fundFlow.outflows.map((outflow) => ({
-            amount: createMoney(outflow.amount, outflow.asset),
+            amount: parseDecimal(outflow.amount),
             asset: outflow.asset,
           })),
           primary: {
-            amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
+            amount: parseDecimal(fundFlow.primary.amount),
             asset: fundFlow.primary.asset,
             direction: (() => {
               const hasInflow = fundFlow.inflows.some((i) => i.asset === fundFlow.primary.asset);
@@ -424,10 +424,10 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       for (const movement of movements) {
         const existing = assetMap.get(movement.asset);
         if (existing) {
-          existing.amount = existing.amount.plus(new Decimal(movement.amount));
+          existing.amount = existing.amount.plus(parseDecimal(movement.amount));
         } else {
           const entry: { amount: Decimal; tokenAddress?: string; tokenDecimals?: number } = {
-            amount: new Decimal(movement.amount),
+            amount: parseDecimal(movement.amount),
           };
           if (movement.tokenAddress !== undefined) {
             entry.tokenAddress = movement.tokenAddress;
@@ -470,7 +470,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     const largestInflow = consolidatedInflows
       .sort((a, b) => {
         try {
-          return new Decimal(b.amount).comparedTo(new Decimal(a.amount));
+          return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
         } catch {
           return 0;
         }
@@ -489,7 +489,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       const largestOutflow = consolidatedOutflows
         .sort((a, b) => {
           try {
-            return new Decimal(b.amount).comparedTo(new Decimal(a.amount));
+            return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
           } catch {
             return 0;
           }
@@ -515,14 +515,14 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       }
 
       try {
-        return acc.plus(new Decimal(tx.feeAmount));
+        return acc.plus(parseDecimal(tx.feeAmount));
       } catch (error) {
         this.logger.warn(`Unable to parse fee amount for transaction ${tx.id}: ${String(error)}`);
         return acc;
       }
-    }, new Decimal(0));
+    }, parseDecimal('0'));
 
-    const feeAmount = totalFeeWei.dividedBy(new Decimal(10).pow(this.chainConfig.nativeDecimals)).toString();
+    const feeAmount = totalFeeWei.dividedBy(parseDecimal('10').pow(this.chainConfig.nativeDecimals)).toString();
 
     // Track uncertainty for complex transactions
     let classificationUncertainty: string | undefined;
@@ -557,7 +557,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     operation: { category: 'trade' | 'transfer' | 'fee'; type: 'swap' | 'deposit' | 'withdrawal' | 'transfer' | 'fee' };
   } {
     const { inflows, outflows } = fundFlow;
-    const amount = new Decimal(fundFlow.primary.amount || '0').abs();
+    const amount = parseDecimal(fundFlow.primary.amount || '0').abs();
     const isDustOrZero = amount.isZero() || amount.lessThan(EvmTransactionProcessor.DUST_THRESHOLD);
 
     // Pattern 1: Contract interaction with zero/dust value
@@ -763,7 +763,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     }
 
     try {
-      return new Decimal(amountWei).dividedBy(new Decimal(10).pow(this.chainConfig.nativeDecimals)).toString();
+      return parseDecimal(amountWei).dividedBy(parseDecimal('10').pow(this.chainConfig.nativeDecimals)).toString();
     } catch (error) {
       this.logger.warn(`Unable to normalize native amount: ${String(error)}`);
       return '0';
@@ -772,7 +772,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
   private isZero(value: string): boolean {
     try {
-      return new Decimal(value || '0').isZero();
+      return parseDecimal(value || '0').isZero();
     } catch {
       return true;
     }

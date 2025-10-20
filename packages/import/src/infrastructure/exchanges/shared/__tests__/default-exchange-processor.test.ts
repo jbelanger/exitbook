@@ -120,11 +120,11 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('BTC');
-    expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('0.025');
+    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('0.025');
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('USD');
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('1000');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('1000');
 
     expect(transaction.movements.primary.asset).toBe('BTC');
     expect(transaction.movements.primary.direction).toBe('in');
@@ -159,7 +159,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('CAD');
-    expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('700');
+    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('700');
 
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.movements.primary.direction).toBe('in');
@@ -192,7 +192,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('CAD');
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('385.155');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('385.155');
 
     expect(transaction.movements.inflows).toHaveLength(0);
     expect(transaction.movements.primary.direction).toBe('out');
@@ -253,7 +253,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('USD');
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('150');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('150');
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('BTC');

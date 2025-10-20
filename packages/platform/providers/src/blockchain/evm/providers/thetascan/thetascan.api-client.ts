@@ -1,5 +1,4 @@
-import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
@@ -239,8 +238,8 @@ export class ThetaScanApiClient extends BaseApiClient {
         let balanceDecimal: string;
         if (balanceData.token_decimals !== undefined) {
           // Convert from smallest units to decimal
-          balanceDecimal = new Decimal(balanceData.balance || 0)
-            .div(new Decimal(10).pow(balanceData.token_decimals))
+          balanceDecimal = parseDecimal(balanceData.balance?.toString() || '0')
+            .div(parseDecimal('10').pow(balanceData.token_decimals))
             .toString();
         } else {
           // No decimals available, keep in smallest units

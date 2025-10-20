@@ -1,3 +1,4 @@
+import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
 import { MoneySchema } from './index.ts';
@@ -53,7 +54,15 @@ export const MovementDirectionSchema = z.enum(['in', 'out', 'neutral']);
 // Asset movement schema
 export const AssetMovementSchema = z.object({
   asset: z.string().min(1, 'Asset must not be empty'),
-  amount: MoneySchema,
+  amount: z.instanceof(Decimal, { message: 'Expected Decimal instance' }),
+  priceAtTxTime: z
+    .object({
+      price: MoneySchema,
+      source: z.string(),
+      fetchedAt: z.date(),
+      granularity: z.enum(['exact', 'minute', 'hour', 'day']).optional(),
+    })
+    .optional(),
 });
 
 // Transaction note schema
@@ -81,7 +90,7 @@ export const UniversalTransactionSchema = z.object({
     outflows: z.array(AssetMovementSchema),
     primary: z.object({
       asset: z.string().min(1, 'Primary asset must not be empty'),
-      amount: MoneySchema,
+      amount: z.instanceof(Decimal, { message: 'Expected Decimal instance' }),
       direction: MovementDirectionSchema,
     }),
   }),

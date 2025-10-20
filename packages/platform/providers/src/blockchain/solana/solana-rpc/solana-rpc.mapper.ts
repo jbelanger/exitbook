@@ -1,6 +1,5 @@
-import { isErrorWithMessage, type RawTransactionMetadata } from '@exitbook/core';
+import { isErrorWithMessage, parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
@@ -182,12 +181,12 @@ export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCTrans
     // If there are token changes, prioritize the largest token transfer
     if (tokenChanges.length > 0) {
       const largestTokenChange = tokenChanges.reduce((largest, change) => {
-        const changeAmount = new Decimal(change.postAmount).minus(change.preAmount).abs();
-        const largestAmount = new Decimal(largest.postAmount).minus(largest.preAmount).abs();
+        const changeAmount = parseDecimal(change.postAmount).minus(change.preAmount).abs();
+        const largestAmount = parseDecimal(largest.postAmount).minus(largest.preAmount).abs();
         return changeAmount.greaterThan(largestAmount) ? change : largest;
       });
 
-      const tokenAmount = new Decimal(largestTokenChange.postAmount).minus(largestTokenChange.preAmount).abs();
+      const tokenAmount = parseDecimal(largestTokenChange.postAmount).minus(largestTokenChange.preAmount).abs();
       return {
         primaryAmount: tokenAmount.toFixed(),
         primaryCurrency: largestTokenChange.symbol || largestTokenChange.mint,
@@ -200,13 +199,13 @@ export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCTrans
       const remainingChanges = accountChanges.slice(1);
       if (remainingChanges.length > 0) {
         const largestSolChange = remainingChanges.reduce((largest, change) => {
-          const changeAmount = new Decimal(change.postBalance).minus(change.preBalance).abs();
-          const largestAmount = new Decimal(largest.postBalance).minus(largest.preBalance).abs();
+          const changeAmount = parseDecimal(change.postBalance).minus(change.preBalance).abs();
+          const largestAmount = parseDecimal(largest.postBalance).minus(largest.preBalance).abs();
           return changeAmount.greaterThan(largestAmount) ? change : largest;
         });
 
         if (largestSolChange) {
-          const solAmount = new Decimal(largestSolChange.postBalance).minus(largestSolChange.preBalance).abs();
+          const solAmount = parseDecimal(largestSolChange.postBalance).minus(largestSolChange.preBalance).abs();
           return {
             primaryAmount: solAmount.toFixed(),
             primaryCurrency: 'SOL',

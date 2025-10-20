@@ -1,6 +1,5 @@
-import { isErrorWithMessage, type RawTransactionMetadata } from '@exitbook/core';
+import { isErrorWithMessage, parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
@@ -125,13 +124,13 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransacti
       // Skip first account (fee payer) and find largest balance change
       const largestSolChange = accountChanges.slice(1).reduce((largest, change) => {
         if (!largest) return change;
-        const changeAmount = new Decimal(change.postBalance).minus(change.preBalance).abs();
-        const largestAmount = new Decimal(largest.postBalance).minus(largest.preBalance).abs();
+        const changeAmount = parseDecimal(change.postBalance).minus(change.preBalance).abs();
+        const largestAmount = parseDecimal(largest.postBalance).minus(largest.preBalance).abs();
         return changeAmount.greaterThan(largestAmount) ? change : largest;
       }, accountChanges[1] ?? accountChanges[0]);
 
       if (largestSolChange) {
-        const solAmount = new Decimal(largestSolChange.postBalance).minus(largestSolChange.preBalance).abs();
+        const solAmount = parseDecimal(largestSolChange.postBalance).minus(largestSolChange.preBalance).abs();
         return {
           primaryAmount: solAmount.toFixed(),
           primaryCurrency: 'SOL',
@@ -139,7 +138,7 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransacti
       }
     } else if (accountChanges.length === 1 && accountChanges[0]) {
       // Only one account change (probably fee-only transaction)
-      const solAmount = new Decimal(accountChanges[0].postBalance).minus(accountChanges[0].preBalance).abs();
+      const solAmount = parseDecimal(accountChanges[0].postBalance).minus(accountChanges[0].preBalance).abs();
       return {
         primaryAmount: solAmount.toFixed(),
         primaryCurrency: 'SOL',

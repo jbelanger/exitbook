@@ -1,7 +1,8 @@
 // Pure utility functions for link command
 // All functions are pure - no side effects
 
-import { Decimal } from 'decimal.js';
+import { parseDecimal } from '@exitbook/core';
+import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -56,8 +57,8 @@ export function validateLinkParams(params: LinkHandlerParams): Result<void, Erro
  * Validates inputs and constructs LinkHandlerParams.
  */
 export function buildLinkParamsFromFlags(options: LinkCommandOptions): Result<LinkHandlerParams, Error> {
-  const minConfidenceScore = new Decimal(options.minConfidence ?? 0.7);
-  const autoConfirmThreshold = new Decimal(options.autoConfirmThreshold ?? 0.95);
+  const minConfidenceScore = parseDecimal(options.minConfidence?.toString() ?? '0.7');
+  const autoConfirmThreshold = parseDecimal(options.autoConfirmThreshold?.toString() ?? '0.95');
 
   const params: LinkHandlerParams = {
     dryRun: options.dryRun ?? false,

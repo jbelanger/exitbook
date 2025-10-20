@@ -1,8 +1,8 @@
 import type { BlockchainBalanceSnapshot } from '@exitbook/core';
-import { wrapError } from '@exitbook/core';
+import { parseDecimal, wrapError } from '@exitbook/core';
 import type { IExchangeClient } from '@exitbook/exchanges';
 import type { BlockchainProviderManager } from '@exitbook/providers';
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -97,10 +97,10 @@ export function convertBalancesToDecimals(balances: Record<string, string>): Rec
 
   for (const [currency, amount] of Object.entries(balances)) {
     try {
-      decimalBalances[currency] = new Decimal(amount);
+      decimalBalances[currency] = parseDecimal(amount);
     } catch {
       // Default to zero on parse failure
-      decimalBalances[currency] = new Decimal(0);
+      decimalBalances[currency] = parseDecimal('0');
     }
   }
 

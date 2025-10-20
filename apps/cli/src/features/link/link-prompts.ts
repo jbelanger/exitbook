@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts';
-import { Decimal } from 'decimal.js';
+import { parseDecimal } from '@exitbook/core';
 
 import { handleCancellation, isCancelled } from '../shared/prompts.ts';
 
@@ -36,7 +36,7 @@ export async function promptForLinkParams(): Promise<LinkHandlerParams> {
     handleCancellation();
   }
 
-  const minConfidenceScore = new Decimal(minConfidenceInput || '0.7');
+  const minConfidenceScore = parseDecimal(minConfidenceInput || '0.7');
 
   // Ask for auto-confirm threshold
   const autoConfirmInput = await p.text({
@@ -59,7 +59,7 @@ export async function promptForLinkParams(): Promise<LinkHandlerParams> {
     handleCancellation();
   }
 
-  const autoConfirmThreshold = new Decimal(autoConfirmInput || '0.95');
+  const autoConfirmThreshold = parseDecimal(autoConfirmInput || '0.95');
 
   return {
     dryRun,

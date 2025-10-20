@@ -109,10 +109,6 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     // Structured movements
     .addColumn('movements_inflows', 'text')
     .addColumn('movements_outflows', 'text')
-    .addColumn('movements_primary_asset', 'text')
-    .addColumn('movements_primary_amount', 'text')
-    .addColumn('movements_primary_currency', 'text')
-    .addColumn('movements_primary_direction', 'text')
     // Structured fees
     .addColumn('fees_network', 'text')
     .addColumn('fees_platform', 'text')

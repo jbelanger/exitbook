@@ -98,16 +98,16 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
 
     // Check structured fields
     expect(transaction.movements.primary.asset).toBe('USDC'); // Prefers token over native
-    expect(transaction.movements.primary.amount.currency.toString()).toBe('USDC');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('2500000');
+    expect(transaction.movements.primary.asset.toString()).toBe('USDC');
+    expect(transaction.movements.primary.amount.toString()).toBe('2500000');
     expect(transaction.movements.primary.direction).toBe('in');
 
     // NEW: Should track ALL assets (ETH and USDC), consolidated
     expect(transaction.movements.inflows).toHaveLength(2);
     const usdcInflow = transaction.movements.inflows.find((i) => i.asset === 'USDC');
     const ethInflow = transaction.movements.inflows.find((i) => i.asset === 'ETH');
-    expect(usdcInflow?.amount.amount.toString()).toBe('2500000');
-    expect(ethInflow?.amount.amount.toString()).toBe('1.5'); // 1 ETH + 0.5 ETH consolidated
+    expect(usdcInflow?.amount.toString()).toBe('2500000');
+    expect(ethInflow?.amount.toString()).toBe('1.5'); // 1 ETH + 0.5 ETH consolidated
     expect(transaction.movements.outflows).toHaveLength(0);
     // User received all funds (no outflows), so they didn't pay the fee
     expect(transaction.fees.network?.amount.toString()).toBe('0');
@@ -540,11 +540,11 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields
     expect(transaction.movements.primary.asset).toBe('ETH');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('1.5');
+    expect(transaction.movements.primary.amount.toString()).toBe('1.5');
     expect(transaction.movements.primary.direction).toBe('in');
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('ETH');
-    expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('1.5');
+    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1.5');
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
@@ -582,12 +582,12 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields
     expect(transaction.movements.primary.asset).toBe('ETH');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('2');
+    expect(transaction.movements.primary.amount.toString()).toBe('2');
     expect(transaction.movements.primary.direction).toBe('out');
     expect(transaction.movements.inflows).toHaveLength(0);
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('ETH');
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('2');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('2');
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
   });
@@ -623,7 +623,7 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields - self-transfer shows both in and out
     expect(transaction.movements.primary.asset).toBe('ETH');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('0.5');
+    expect(transaction.movements.primary.amount.toString()).toBe('0.5');
     expect(transaction.movements.primary.direction).toBe('neutral'); // Net zero for same asset
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.outflows).toHaveLength(1);
@@ -663,7 +663,7 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields
     expect(transaction.movements.primary.asset).toBe('USDC');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('1000000000');
+    expect(transaction.movements.primary.amount.toString()).toBe('1000000000');
     expect(transaction.movements.primary.direction).toBe('in');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.metadata?.tokenAddress).toBe('0xusdc000000000000000000000000000000000000');
@@ -701,7 +701,7 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields
     expect(transaction.movements.primary.asset).toBe('USDC');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('5000000000');
+    expect(transaction.movements.primary.amount.toString()).toBe('5000000000');
     expect(transaction.movements.primary.direction).toBe('out');
     expect(transaction.operation.type).toBe('withdrawal');
   });
@@ -737,7 +737,7 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     if (!transaction) return;
 
     // Check structured fields
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('0');
+    expect(transaction.movements.primary.amount.toString()).toBe('0');
     expect(transaction.movements.primary.direction).toBe('neutral');
     expect(transaction.operation.category).toBe('fee');
     expect(transaction.operation.type).toBe('fee');
@@ -1038,7 +1038,7 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
     if (!transaction) return;
 
     // Check structured fields
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('0.123456789012345678');
+    expect(transaction.movements.primary.amount.toString()).toBe('0.123456789012345678');
   });
 });
 
@@ -1238,7 +1238,7 @@ describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
 
     // Check structured fields - should use token_transfer as primary
     expect(transaction.movements.primary.asset).toBe('USDC');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('2500000');
+    expect(transaction.movements.primary.amount.toString()).toBe('2500000');
   });
 
   test('uses internal transaction when no token transfer exists', async () => {
@@ -1282,7 +1282,7 @@ describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
 
     // Check structured fields - should use internal transaction for fund flow
     expect(transaction.movements.primary.asset).toBe('ETH');
-    expect(transaction.movements.primary.amount.amount.toString()).toBe('0.5');
+    expect(transaction.movements.primary.amount.toString()).toBe('0.5');
     expect(transaction.movements.primary.direction).toBe('in');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.metadata?.hasInternalTransactions).toBe(true);
@@ -1338,11 +1338,11 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
     // Verify both assets tracked
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('USDC');
-    expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('1000000000');
+    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1000000000');
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('ETH');
-    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('0.5');
+    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('0.5');
 
     // Primary should be largest (USDC)
     expect(transaction.movements.primary.asset).toBe('USDC');

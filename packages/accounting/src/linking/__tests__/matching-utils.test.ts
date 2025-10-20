@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -18,36 +18,36 @@ import type { TransactionCandidate } from '../types.js';
 describe('matching-utils', () => {
   describe('calculateAmountSimilarity', () => {
     it('should return 1 for exact match', () => {
-      const source = new Decimal('1.5');
-      const target = new Decimal('1.5');
+      const source = parseDecimal('1.5');
+      const target = parseDecimal('1.5');
       const similarity = calculateAmountSimilarity(source, target);
       expect(similarity.toString()).toBe('1');
     });
 
     it('should calculate similarity when target is less than source (fees)', () => {
-      const source = new Decimal('1.0');
-      const target = new Decimal('0.95'); // 5% fee
+      const source = parseDecimal('1.0');
+      const target = parseDecimal('0.95'); // 5% fee
       const similarity = calculateAmountSimilarity(source, target);
       expect(similarity.toString()).toBe('0.95');
     });
 
     it('should return 0 when target is significantly larger than source', () => {
-      const source = new Decimal('1.0');
-      const target = new Decimal('1.5'); // 50% larger (impossible)
+      const source = parseDecimal('1.0');
+      const target = parseDecimal('1.5'); // 50% larger (impossible)
       const similarity = calculateAmountSimilarity(source, target);
       expect(similarity.toString()).toBe('0');
     });
 
     it('should allow small rounding differences', () => {
-      const source = new Decimal('1.0');
-      const target = new Decimal('1.0005'); // 0.05% difference (rounding)
+      const source = parseDecimal('1.0');
+      const target = parseDecimal('1.0005'); // 0.05% difference (rounding)
       const similarity = calculateAmountSimilarity(source, target);
       expect(similarity.toNumber()).toBeGreaterThan(0.98); // Very high similarity
     });
 
     it('should return 0 when amounts are zero', () => {
-      const source = new Decimal('0');
-      const target = new Decimal('1.0');
+      const source = parseDecimal('0');
+      const target = parseDecimal('1.0');
       const similarity = calculateAmountSimilarity(source, target);
       expect(similarity.toString()).toBe('0');
     });
@@ -125,7 +125,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date(),
         asset: 'BTC',
-        amount: new Decimal('1.0'),
+        amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
         toAddress: 'bc1qxyz123',
@@ -138,7 +138,7 @@ describe('matching-utils', () => {
         externalId: 'txabc',
         timestamp: new Date(),
         asset: 'BTC',
-        amount: new Decimal('0.99'),
+        amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qxyz123',
         toAddress: undefined,
@@ -156,7 +156,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date(),
         asset: 'BTC',
-        amount: new Decimal('1.0'),
+        amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
         toAddress: 'bc1qxyz123',
@@ -169,7 +169,7 @@ describe('matching-utils', () => {
         externalId: 'txabc',
         timestamp: new Date(),
         asset: 'BTC',
-        amount: new Decimal('0.99'),
+        amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qdifferent',
         toAddress: undefined,
@@ -187,7 +187,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date(),
         asset: 'BTC',
-        amount: new Decimal('1.0'),
+        amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
         toAddress: undefined,
@@ -200,7 +200,7 @@ describe('matching-utils', () => {
         externalId: 'txabc',
         timestamp: new Date(),
         asset: 'BTC',
-        amount: new Decimal('0.99'),
+        amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: undefined,
         toAddress: undefined,
@@ -218,7 +218,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date(),
         asset: 'BTC',
-        amount: new Decimal('1.0'),
+        amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
         toAddress: 'BC1QXYZ123',
@@ -231,7 +231,7 @@ describe('matching-utils', () => {
         externalId: 'txabc',
         timestamp: new Date(),
         asset: 'BTC',
-        amount: new Decimal('0.99'),
+        amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qxyz123',
         toAddress: undefined,
@@ -246,7 +246,7 @@ describe('matching-utils', () => {
     it('should return 0 when assets do not match', () => {
       const criteria = {
         assetMatch: false,
-        amountSimilarity: new Decimal('1.0'),
+        amountSimilarity: parseDecimal('1.0'),
         timingValid: true,
         timingHours: 1,
       };
@@ -258,7 +258,7 @@ describe('matching-utils', () => {
     it('should calculate high confidence for perfect match', () => {
       const criteria = {
         assetMatch: true,
-        amountSimilarity: new Decimal('1.0'),
+        amountSimilarity: parseDecimal('1.0'),
         timingValid: true,
         timingHours: 0.5, // Very close timing
         addressMatch: true,
@@ -271,7 +271,7 @@ describe('matching-utils', () => {
     it('should penalize low amount similarity', () => {
       const criteria = {
         assetMatch: true,
-        amountSimilarity: new Decimal('0.5'), // Only 50% match
+        amountSimilarity: parseDecimal('0.5'), // Only 50% match
         timingValid: true,
         timingHours: 5, // More than 1 hour (no bonus)
       };
@@ -283,7 +283,7 @@ describe('matching-utils', () => {
     it('should return 0 when addresses do not match', () => {
       const criteria = {
         assetMatch: true,
-        amountSimilarity: new Decimal('1.0'),
+        amountSimilarity: parseDecimal('1.0'),
         timingValid: true,
         timingHours: 1,
         addressMatch: false, // Addresses explicitly do not match
@@ -296,14 +296,14 @@ describe('matching-utils', () => {
     it('should bonus for very close timing', () => {
       const criteria1 = {
         assetMatch: true,
-        amountSimilarity: new Decimal('1.0'),
+        amountSimilarity: parseDecimal('1.0'),
         timingValid: true,
         timingHours: 0.5, // Within 1 hour
       };
 
       const criteria2 = {
         assetMatch: true,
-        amountSimilarity: new Decimal('1.0'),
+        amountSimilarity: parseDecimal('1.0'),
         timingValid: true,
         timingHours: 5, // More than 1 hour
       };
@@ -324,7 +324,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         asset: 'BTC',
-        amount: new Decimal('1.0'),
+        amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
         toAddress: 'bc1qxyz123',
@@ -337,7 +337,7 @@ describe('matching-utils', () => {
         externalId: 'txabc',
         timestamp: new Date('2024-01-01T13:00:00Z'),
         asset: 'BTC',
-        amount: new Decimal('0.99'),
+        amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qxyz123',
         toAddress: undefined,
@@ -362,7 +362,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         asset: 'BTC',
-        amount: new Decimal('1.0'),
+        amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
         toAddress: 'bc1qxyz123',
@@ -376,7 +376,7 @@ describe('matching-utils', () => {
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           asset: 'BTC',
-          amount: new Decimal('0.99'),
+          amount: parseDecimal('0.99'),
           direction: 'in',
           fromAddress: 'bc1qxyz123',
           toAddress: undefined,
@@ -388,7 +388,7 @@ describe('matching-utils', () => {
           externalId: 'txdef',
           timestamp: new Date('2024-01-01T14:00:00Z'),
           asset: 'ETH', // Different asset
-          amount: new Decimal('0.99'),
+          amount: parseDecimal('0.99'),
           direction: 'in',
           fromAddress: undefined,
           toAddress: undefined,
@@ -410,7 +410,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         asset: 'BTC',
-        amount: new Decimal('1.0'),
+        amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
         toAddress: undefined,
@@ -424,7 +424,7 @@ describe('matching-utils', () => {
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           asset: 'BTC',
-          amount: new Decimal('0.3'), // Very different amount
+          amount: parseDecimal('0.3'), // Very different amount
           direction: 'in',
           fromAddress: undefined,
           toAddress: undefined,
@@ -445,7 +445,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         asset: 'BTC',
-        amount: new Decimal('1.0'),
+        amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
         toAddress: undefined,
@@ -459,7 +459,7 @@ describe('matching-utils', () => {
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T20:00:00Z'),
           asset: 'BTC',
-          amount: new Decimal('0.95'), // Good match but later
+          amount: parseDecimal('0.95'), // Good match but later
           direction: 'in',
           fromAddress: undefined,
           toAddress: undefined,
@@ -471,7 +471,7 @@ describe('matching-utils', () => {
           externalId: 'txdef',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           asset: 'BTC',
-          amount: new Decimal('0.99'), // Better match, sooner
+          amount: parseDecimal('0.99'), // Better match, sooner
           direction: 'in',
           fromAddress: undefined,
           toAddress: undefined,
@@ -492,10 +492,10 @@ describe('matching-utils', () => {
       const match = {
         sourceTransaction: {} as TransactionCandidate,
         targetTransaction: {} as TransactionCandidate,
-        confidenceScore: new Decimal('0.96'), // Above threshold
+        confidenceScore: parseDecimal('0.96'), // Above threshold
         matchCriteria: {
           assetMatch: true,
-          amountSimilarity: new Decimal('1.0'),
+          amountSimilarity: parseDecimal('1.0'),
           timingValid: true,
           timingHours: 1,
         },
@@ -510,10 +510,10 @@ describe('matching-utils', () => {
       const match = {
         sourceTransaction: {} as TransactionCandidate,
         targetTransaction: {} as TransactionCandidate,
-        confidenceScore: new Decimal('0.85'), // Below threshold
+        confidenceScore: parseDecimal('0.85'), // Below threshold
         matchCriteria: {
           assetMatch: true,
-          amountSimilarity: new Decimal('0.9'),
+          amountSimilarity: parseDecimal('0.9'),
           timingValid: true,
           timingHours: 10,
         },
@@ -534,7 +534,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T14:00:00Z'), // Withdrawal at 14:00
         asset: 'BTC',
-        amount: new Decimal('1.0'),
+        amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
         toAddress: undefined,
@@ -548,7 +548,7 @@ describe('matching-utils', () => {
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T12:00:00Z'), // Deposit at 12:00 (BEFORE withdrawal)
           asset: 'BTC',
-          amount: new Decimal('1.0'), // Perfect amount match
+          amount: parseDecimal('1.0'), // Perfect amount match
           direction: 'in',
           fromAddress: undefined,
           toAddress: undefined,
@@ -569,7 +569,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         asset: 'BTC',
-        amount: new Decimal('1.0'),
+        amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
         toAddress: undefined,
@@ -583,7 +583,7 @@ describe('matching-utils', () => {
           externalId: 'txabc',
           timestamp: new Date('2024-01-04T12:00:00Z'), // 72 hours later (outside 48h window)
           asset: 'BTC',
-          amount: new Decimal('1.0'),
+          amount: parseDecimal('1.0'),
           direction: 'in',
           fromAddress: undefined,
           toAddress: undefined,
@@ -606,7 +606,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         asset: 'BTC',
-        amount: new Decimal('1.0'),
+        amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
         toAddress: undefined,
@@ -620,7 +620,7 @@ describe('matching-utils', () => {
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           asset: 'BTC',
-          amount: new Decimal('0.90'), // 90% similarity (below 95% threshold)
+          amount: parseDecimal('0.90'), // 90% similarity (below 95% threshold)
           direction: 'in',
           fromAddress: undefined,
           toAddress: undefined,
@@ -641,7 +641,7 @@ describe('matching-utils', () => {
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
         asset: 'BTC',
-        amount: new Decimal('1.0'),
+        amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
         toAddress: undefined,
@@ -655,7 +655,7 @@ describe('matching-utils', () => {
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           asset: 'BTC',
-          amount: new Decimal('0.95'), // Exactly 95% (meets threshold)
+          amount: parseDecimal('0.95'), // Exactly 95% (meets threshold)
           direction: 'in',
           fromAddress: undefined,
           toAddress: undefined,

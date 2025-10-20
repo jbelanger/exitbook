@@ -1,4 +1,5 @@
 import { type Logger, getLogger } from '@exitbook/shared-logger';
+import { Decimal } from 'decimal.js';
 import type { Transaction } from 'kysely';
 
 import type { DatabaseSchema } from '../schema/database-schema.js';
@@ -122,26 +123,34 @@ export abstract class BaseRepository {
 
   /**
    * Helper method to serialize data to JSON string safely
-   * Handles Decimal objects by converting them to strings
+   * Handles Decimal objects by converting them to fixed-point notation
    */
   protected serializeToJson(data: unknown): string | undefined {
     if (data === undefined || data === null) return undefined;
 
     try {
       return JSON.stringify(data, (_key, value: unknown) => {
-        // Convert Decimal objects to strings for proper serialization
+        // Check if value is a Decimal instance using instanceof
+        if (value instanceof Decimal) {
+          // Use toFixed() to get consistent decimal representation
+          // This preserves precision while avoiding scientific notation
+          return value.toFixed();
+        }
+
+        // Fallback: Check for Decimal-like objects (duck typing)
+        // This handles cases where Decimal comes from different module instances
         if (
           value &&
           typeof value === 'object' &&
           'd' in value &&
           'e' in value &&
           's' in value &&
-          'toString' in value &&
-          typeof value.toString === 'function'
+          'toFixed' in value &&
+          typeof value.toFixed === 'function'
         ) {
-          // This is likely a Decimal.js object (has d, e, s properties and toString method)
-          return (value as { toString: () => string }).toString();
+          return (value as { toFixed: () => string }).toFixed();
         }
+
         return value as string | number | boolean | null | object;
       });
     } catch (error) {

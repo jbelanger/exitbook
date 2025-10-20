@@ -2,22 +2,21 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 /* eslint-disable @typescript-eslint/no-explicit-any -- Acceptable for test mocks */
 /* eslint-disable unicorn/no-null -- nulls needed by db */
-import { Currency } from '@exitbook/core';
+import { parseDecimal, type AssetMovement } from '@exitbook/core';
 import type { StoredTransaction, TransactionRepository } from '@exitbook/data';
-import { Decimal } from 'decimal.js';
 import { ok, err } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { PriceEnrichmentService } from '../price-enrichment-service.ts';
 
-// Helper to create a mock StoredTransaction
+// Helper to create a mock StoredTransaction with typed movements
 function createMockTransaction(
   id: number,
   sourceType: 'exchange' | 'blockchain',
   sourceId: string,
   datetime: string,
-  inflowsJson: string | null,
-  outflowsJson: string | null
+  inflows: AssetMovement[],
+  outflows: AssetMovement[]
 ): StoredTransaction {
   return {
     id,
@@ -38,12 +37,8 @@ function createMockTransaction(
     note_message: null,
     note_metadata: null,
     raw_normalized_data: '{}',
-    movements_inflows: inflowsJson,
-    movements_outflows: outflowsJson,
-    movements_primary_asset: null,
-    movements_primary_amount: null,
-    movements_primary_currency: null,
-    movements_primary_direction: null,
+    movements_inflows: inflows,
+    movements_outflows: outflows,
     fees_network: null,
     fees_platform: null,
     fees_total: null,
@@ -55,7 +50,7 @@ function createMockTransaction(
     blockchain_is_confirmed: null,
     created_at: datetime,
     updated_at: null,
-  } as StoredTransaction;
+  };
 }
 
 describe('PriceEnrichmentService', () => {
@@ -75,18 +70,18 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         '2024-01-01T10:00:00Z',
-        JSON.stringify([
+        [
           {
             asset: 'BTC',
-            amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+            amount: parseDecimal('1'),
           },
-        ]),
-        JSON.stringify([
+        ],
+        [
           {
             asset: 'USDT',
-            amount: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+            amount: parseDecimal('50000'),
           },
-        ])
+        ]
       );
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1]) as any);
@@ -130,18 +125,18 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         baseTime.toISOString(),
-        JSON.stringify([
+        [
           {
             asset: 'BTC',
-            amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+            amount: parseDecimal('1'),
           },
-        ]),
-        JSON.stringify([
+        ],
+        [
           {
             asset: 'USDT',
-            amount: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+            amount: parseDecimal('50000'),
           },
-        ])
+        ]
       );
 
       // Transaction 2: Swap 1 BTC for 20 ETH (should infer ETH price from BTC)
@@ -150,18 +145,18 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         new Date(baseTime.getTime() + 300000).toISOString(), // +5 min
-        JSON.stringify([
+        [
           {
             asset: 'ETH',
-            amount: { amount: new Decimal('20'), currency: Currency.create('ETH') },
+            amount: parseDecimal('20'),
           },
-        ]),
-        JSON.stringify([
+        ],
+        [
           {
             asset: 'BTC',
-            amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+            amount: parseDecimal('1'),
           },
-        ])
+        ]
       );
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1, tx2]) as any);
@@ -217,18 +212,18 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         baseTime.toISOString(),
-        JSON.stringify([
+        [
           {
             asset: 'BTC',
-            amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+            amount: parseDecimal('1'),
           },
-        ]),
-        JSON.stringify([
+        ],
+        [
           {
             asset: 'USDT',
-            amount: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+            amount: parseDecimal('50000'),
           },
-        ])
+        ]
       );
 
       // Transaction 2: Receive 0.5 BTC (no trade, just inflow - should use temporal proximity)
@@ -237,13 +232,13 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         new Date(baseTime.getTime() + 600000).toISOString(), // +10 min
-        JSON.stringify([
+        [
           {
             asset: 'BTC',
-            amount: { amount: new Decimal('0.5'), currency: Currency.create('BTC') },
+            amount: parseDecimal('0.5'),
           },
-        ]),
-        null // No outflow
+        ],
+        [] // No outflow
       );
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx2]) as any); // Only tx2 needs prices
@@ -287,18 +282,18 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         baseTime.toISOString(),
-        JSON.stringify([
+        [
           {
             asset: 'BTC',
-            amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+            amount: parseDecimal('1'),
           },
-        ]),
-        JSON.stringify([
+        ],
+        [
           {
             asset: 'USDT',
-            amount: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+            amount: parseDecimal('50000'),
           },
-        ])
+        ]
       );
 
       // KuCoin: BTC = 50,100 USDT (different price!)
@@ -307,18 +302,18 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kucoin',
         baseTime.toISOString(),
-        JSON.stringify([
+        [
           {
             asset: 'BTC',
-            amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+            amount: parseDecimal('1'),
           },
-        ]),
-        JSON.stringify([
+        ],
+        [
           {
             asset: 'USDT',
-            amount: { amount: new Decimal('50100'), currency: Currency.create('USDT') },
+            amount: parseDecimal('50100'),
           },
-        ])
+        ]
       );
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1, tx2]) as any);
@@ -357,18 +352,18 @@ describe('PriceEnrichmentService', () => {
         'blockchain',
         'ethereum',
         '2024-01-01T10:00:00Z',
-        JSON.stringify([
+        [
           {
             asset: 'BTC',
-            amount: { amount: new Decimal('0.5'), currency: Currency.create('BTC') },
+            amount: parseDecimal('0.5'),
           },
-        ]),
-        JSON.stringify([
+        ],
+        [
           {
             asset: 'USDT',
-            amount: { amount: new Decimal('25000'), currency: Currency.create('USDT') },
+            amount: parseDecimal('25000'),
           },
-        ])
+        ]
       );
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1]) as any);
@@ -410,18 +405,18 @@ describe('PriceEnrichmentService', () => {
         'blockchain',
         'ethereum',
         '2024-01-01T10:00:00Z',
-        JSON.stringify([
+        [
           {
             asset: 'SOL',
-            amount: { amount: new Decimal('100'), currency: Currency.create('SOL') },
+            amount: parseDecimal('100'),
           },
-        ]),
-        JSON.stringify([
+        ],
+        [
           {
             asset: 'ETH',
-            amount: { amount: new Decimal('2'), currency: Currency.create('ETH') },
+            amount: parseDecimal('2'),
           },
-        ])
+        ]
       );
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1]) as any);
@@ -456,18 +451,18 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         '2024-01-01T10:00:00Z',
-        JSON.stringify([
+        [
           {
             asset: 'BTC',
-            amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+            amount: parseDecimal('1'),
           },
-        ]),
-        JSON.stringify([
+        ],
+        [
           {
             asset: 'USDT',
-            amount: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+            amount: parseDecimal('50000'),
           },
-        ])
+        ]
       );
 
       // Transaction 2: Cannot be enriched (crypto-crypto, no price history)
@@ -476,18 +471,18 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         '2024-01-01T11:00:00Z',
-        JSON.stringify([
+        [
           {
             asset: 'SOL',
-            amount: { amount: new Decimal('100'), currency: Currency.create('SOL') },
+            amount: parseDecimal('100'),
           },
-        ]),
-        JSON.stringify([
+        ],
+        [
           {
             asset: 'ADA',
-            amount: { amount: new Decimal('1000'), currency: Currency.create('ADA') },
+            amount: parseDecimal('1000'),
           },
-        ])
+        ]
       );
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1, tx2]) as any);
@@ -557,16 +552,7 @@ describe('PriceEnrichmentService', () => {
       const service = new PriceEnrichmentService(mockRepo);
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
-        ok([
-          createMockTransaction(
-            1,
-            'exchange',
-            'kraken',
-            '2024-01-01T10:00:00Z',
-            JSON.stringify([]),
-            JSON.stringify([])
-          ),
-        ]) as any
+        ok([createMockTransaction(1, 'exchange', 'kraken', '2024-01-01T10:00:00Z', [], [])]) as any
       );
 
       vi.mocked(mockRepo.getTransactions).mockResolvedValue(err(new Error('Failed to fetch transactions')));
@@ -592,18 +578,18 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         '2024-01-01T10:00:00Z',
-        JSON.stringify([
+        [
           {
             asset: 'BTC',
-            amount: { amount: new Decimal('1'), currency: Currency.create('BTC') },
+            amount: parseDecimal('1'),
           },
-        ]),
-        JSON.stringify([
+        ],
+        [
           {
             asset: 'USDT',
-            amount: { amount: new Decimal('50000'), currency: Currency.create('USDT') },
+            amount: parseDecimal('50000'),
           },
-        ])
+        ]
       );
 
       // KuCoin transaction (will fail)
@@ -612,18 +598,18 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kucoin',
         '2024-01-01T10:00:00Z',
-        JSON.stringify([
+        [
           {
             asset: 'ETH',
-            amount: { amount: new Decimal('20'), currency: Currency.create('ETH') },
+            amount: parseDecimal('20'),
           },
-        ]),
-        JSON.stringify([
+        ],
+        [
           {
             asset: 'USDT',
-            amount: { amount: new Decimal('60000'), currency: Currency.create('USDT') },
+            amount: parseDecimal('60000'),
           },
-        ])
+        ]
       );
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1, tx2]) as any);
@@ -641,36 +627,6 @@ describe('PriceEnrichmentService', () => {
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().transactionsUpdated).toBe(1); // Only kraken succeeded
     });
-
-    it('should handle malformed movement JSON gracefully', async () => {
-      const mockRepo = {
-        findTransactionsNeedingPrices: vi.fn(),
-        getTransactions: vi.fn(),
-        updateMovementsWithPrices: vi.fn(),
-      } as unknown as TransactionRepository;
-
-      const service = new PriceEnrichmentService(mockRepo);
-
-      // Transaction with invalid JSON
-      const tx1 = createMockTransaction(
-        1,
-        'exchange',
-        'kraken',
-        '2024-01-01T10:00:00Z',
-        'invalid json',
-        'also invalid'
-      );
-
-      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1]) as any);
-
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1]) as any);
-
-      const result = await service.enrichPrices();
-
-      // Should not crash, just skip the transaction
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().transactionsUpdated).toBe(0);
-    });
   });
 
   describe('Edge Cases', () => {
@@ -683,7 +639,7 @@ describe('PriceEnrichmentService', () => {
 
       const service = new PriceEnrichmentService(mockRepo);
 
-      const tx1 = createMockTransaction(1, 'exchange', 'kraken', '2024-01-01T10:00:00Z', null, null);
+      const tx1 = createMockTransaction(1, 'exchange', 'kraken', '2024-01-01T10:00:00Z', [], []);
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1]) as any);
 
@@ -719,18 +675,18 @@ describe('PriceEnrichmentService', () => {
             'exchange',
             'kraken',
             new Date(baseTime.getTime() + i * 60000).toISOString(),
-            JSON.stringify([
+            [
               {
                 asset: `COIN${i}`,
-                amount: { amount: new Decimal('1'), currency: Currency.create(`COIN${i}`) },
+                amount: parseDecimal('1'),
               },
-            ]),
-            JSON.stringify([
+            ],
+            [
               {
                 asset: i === 0 ? 'USDT' : `COIN${i - 1}`,
-                amount: { amount: new Decimal('100'), currency: Currency.create(i === 0 ? 'USDT' : `COIN${i - 1}`) },
+                amount: parseDecimal('100'),
               },
-            ])
+            ]
           )
         );
       }
