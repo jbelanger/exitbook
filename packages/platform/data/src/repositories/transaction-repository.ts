@@ -4,7 +4,7 @@ import { AssetMovementSchema, dbStringToMoney, MoneySchema, moneyToDbString, wra
 import type { Decimal } from 'decimal.js';
 import type { Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 
@@ -170,7 +170,16 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       query = query.orderBy('created_at', 'desc');
 
       const rows = await query.execute();
-      const transactions = rows.map((row) => this.toUniversalTransaction(row));
+
+      // Convert rows to domain models, failing fast on any parse errors
+      const transactions: UniversalTransaction[] = [];
+      for (const row of rows) {
+        const result = this.toUniversalTransaction(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        transactions.push(result.value);
+      }
 
       return ok(transactions);
     } catch (error) {
@@ -191,7 +200,16 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       }
 
       const rows = await query.orderBy('transaction_datetime', 'desc').execute();
-      const transactions = rows.map((row) => this.toUniversalTransaction(row));
+
+      // Convert rows to domain models, failing fast on any parse errors
+      const transactions: UniversalTransaction[] = [];
+      for (const row of rows) {
+        const result = this.toUniversalTransaction(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        transactions.push(result.value);
+      }
 
       return ok(transactions);
     } catch (error) {
@@ -343,7 +361,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   /**
    * Convert database row to UniversalTransaction domain model
    */
-  private toUniversalTransaction(row: Selectable<TransactionsTable>): UniversalTransaction {
+  private toUniversalTransaction(row: Selectable<TransactionsTable>): Result<UniversalTransaction, Error> {
     // Parse timestamp from datetime
     const datetime = row.transaction_datetime;
     const timestamp = new Date(datetime).getTime();
@@ -357,7 +375,10 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     const platform = this.parseFee(row.fees_platform as string | null);
 
     // Parse metadata from raw_normalized_data if present
-    const metadata = this.parseJson<Record<string, unknown>>(row.raw_normalized_data);
+    const metadataResult = this.parseJson<Record<string, unknown>>(row.raw_normalized_data);
+    if (metadataResult.isErr()) {
+      return err(metadataResult.error);
+    }
 
     const status: TransactionStatus = row.transaction_status;
 
@@ -384,7 +405,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         type: row.operation_type ?? 'transfer',
       },
       price: row.price ? (dbStringToMoney(row.price, row.price_currency ?? 'USD') ?? undefined) : undefined,
-      metadata,
+      metadata: metadataResult.value,
     };
 
     // Add blockchain data if present
@@ -399,15 +420,20 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
     // Add note if present
     if (row.note_type) {
+      const noteMetadataResult = this.parseJson<Record<string, unknown>>(row.note_metadata);
+      if (noteMetadataResult.isErr()) {
+        return err(noteMetadataResult.error);
+      }
+
       transaction.note = {
         type: row.note_type,
         message: row.note_message ?? '',
         severity: row.note_severity ?? undefined,
-        metadata: this.parseJson<Record<string, unknown>>(row.note_metadata),
+        metadata: noteMetadataResult.value,
       };
     }
 
-    return transaction;
+    return ok(transaction);
   }
 
   /**

@@ -103,7 +103,18 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       }
 
       const rows = await query.execute();
-      return ok(rows.map((row) => this.toDataSource(row)));
+
+      // Convert rows to domain models, failing fast on any parse errors
+      const dataSources: DataSource[] = [];
+      for (const row of rows) {
+        const result = this.toDataSource(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        dataSources.push(result.value);
+      }
+
+      return ok(dataSources);
     } catch (error) {
       return wrapError(error, 'Failed to find import sessions');
     }
@@ -113,7 +124,17 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
     try {
       const row = await this.db.selectFrom('data_sources').selectAll().where('id', '=', sessionId).executeTakeFirst();
 
-      return ok(row ? this.toDataSource(row) : undefined);
+      if (!row) {
+        // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined when not found
+        return ok(undefined);
+      }
+
+      const result = this.toDataSource(row);
+      if (result.isErr()) {
+        return err(result.error);
+      }
+
+      return ok(result.value);
     } catch (error) {
       return wrapError(error, 'Failed to find data source  by ID');
     }
@@ -267,24 +288,32 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
    * Convert database row to DataSource domain model
    * Handles JSON parsing and camelCase conversion
    */
-  private toDataSource(row: StoredDataSource): DataSource {
+  private toDataSource(row: StoredDataSource): Result<DataSource, Error> {
     // Parse and validate JSON fields using schemas
-    const importParams: DataImportParams = this.parseWithSchema(
-      row.import_params,
-      DataImportParamsSchema,
-      {} as DataImportParams
-    );
+    const importParamsResult = this.parseWithSchema(row.import_params, DataImportParamsSchema);
+    if (importParamsResult.isErr()) {
+      return err(importParamsResult.error);
+    }
+    if (importParamsResult.value === undefined) {
+      return err(new Error('import_params is required but was undefined'));
+    }
 
-    const importResultMetadata: Record<string, unknown> = this.parseJson(row.import_result_metadata, {});
+    const importResultMetadataResult = this.parseJson<Record<string, unknown>>(row.import_result_metadata);
+    if (importResultMetadataResult.isErr()) {
+      return err(importResultMetadataResult.error);
+    }
 
-    const errorDetails: unknown = this.parseJson(row.error_details);
+    const errorDetailsResult = this.parseJson<unknown>(row.error_details);
+    if (errorDetailsResult.isErr()) {
+      return err(errorDetailsResult.error);
+    }
 
-    const verificationMetadata: VerificationMetadata | undefined = this.parseWithSchema(
-      row.verification_metadata,
-      VerificationMetadataSchema
-    );
+    const verificationMetadataResult = this.parseWithSchema(row.verification_metadata, VerificationMetadataSchema);
+    if (verificationMetadataResult.isErr()) {
+      return err(verificationMetadataResult.error);
+    }
 
-    return {
+    return ok({
       id: row.id,
       sourceId: row.source_id,
       sourceType: row.source_type,
@@ -295,11 +324,11 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
       durationMs: row.duration_ms ?? undefined,
       errorMessage: row.error_message ?? undefined,
-      errorDetails,
-      importParams,
-      importResultMetadata,
+      errorDetails: errorDetailsResult.value,
+      importParams: importParamsResult.value,
+      importResultMetadata: importResultMetadataResult.value ?? {},
       lastBalanceCheckAt: row.last_balance_check_at ? new Date(row.last_balance_check_at) : undefined,
-      verificationMetadata,
-    };
+      verificationMetadata: verificationMetadataResult.value,
+    });
   }
 }

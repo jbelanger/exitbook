@@ -1,6 +1,7 @@
 import { type Logger, getLogger } from '@exitbook/shared-logger';
 import { Decimal } from 'decimal.js';
 import type { Transaction } from 'kysely';
+import { err, ok, type Result } from 'neverthrow';
 import type { z } from 'zod';
 
 import type { DatabaseSchema } from '../schema/database-schema.js';
@@ -84,13 +85,12 @@ export abstract class BaseRepository {
 
   /**
    * Parse JSON with Zod schema validation
-   * Returns fallback value if parsing or validation fails
+   * Returns Result with parsed value or error
    */
-  protected parseWithSchema<T>(value: unknown, schema: z.ZodSchema<T>, fallback: T): T;
-  protected parseWithSchema<T>(value: unknown, schema: z.ZodSchema<T>): T | undefined;
-  protected parseWithSchema<T>(value: unknown, schema: z.ZodSchema<T>, fallback?: T): T | undefined {
+  protected parseWithSchema<T>(value: unknown, schema: z.ZodSchema<T>): Result<T | undefined, Error> {
     if (!value) {
-      return fallback;
+      // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined for clarity
+      return ok(undefined);
     }
 
     try {
@@ -99,33 +99,33 @@ export abstract class BaseRepository {
 
       if (!result.success) {
         this.logger.warn({ error: result.error, value }, 'Failed to validate with schema');
-        return fallback;
+        return err(new Error(`Schema validation failed: ${result.error.message}`));
       }
 
-      return result.data;
+      return ok(result.data);
     } catch (error) {
       this.logger.warn({ error, value }, 'Failed to parse JSON');
-      return fallback;
+      return err(new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}`));
     }
   }
 
   /**
    * Parse JSON without schema validation
-   * Returns fallback value if parsing fails (defaults to undefined)
+   * Returns Result with parsed value or error
    * Use this for arbitrary objects where schema validation isn't needed
    */
-  protected parseJson<T = unknown>(value: unknown, fallback: T): T;
-  protected parseJson<T = unknown>(value: unknown): T | undefined;
-  protected parseJson<T = unknown>(value: unknown, fallback?: T): T | undefined {
+  protected parseJson<T = unknown>(value: unknown): Result<T | undefined, Error> {
     if (!value) {
-      return fallback;
+      // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined for clarity
+      return ok(undefined);
     }
 
     try {
-      return typeof value === 'string' ? (JSON.parse(value) as T) : (value as T);
+      const parsed = typeof value === 'string' ? (JSON.parse(value) as T) : (value as T);
+      return ok(parsed);
     } catch (error) {
       this.logger.warn({ error, value }, 'Failed to parse JSON');
-      return fallback;
+      return err(new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}`));
     }
   }
 }

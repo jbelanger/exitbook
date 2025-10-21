@@ -49,7 +49,17 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
       const rows = await query.execute();
 
-      return ok(rows.map((row) => this.toExternalTransactionData(row)));
+      // Convert rows to domain models, failing fast on any parse errors
+      const transactions: ExternalTransactionData[] = [];
+      for (const row of rows) {
+        const result = this.toExternalTransactionData(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        transactions.push(result.value);
+      }
+
+      return ok(transactions);
     } catch (error) {
       return wrapError(error, 'Failed to load raw data');
     }
@@ -178,9 +188,13 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       for (const row of rows) {
         if (!row.cursor) continue;
 
-        const cursor = this.parseJson<Record<string, unknown>>(row.cursor, {});
+        const cursorResult = this.parseJson<Record<string, unknown>>(row.cursor);
+        if (cursorResult.isErr()) {
+          return err(cursorResult.error);
+        }
 
-        if (typeof cursor === 'object' && cursor !== null) {
+        const cursor = cursorResult.value;
+        if (cursor && typeof cursor === 'object') {
           for (const [operationType, timestamp] of Object.entries(cursor)) {
             if (typeof timestamp === 'number') {
               mergedCursor[operationType] = Math.max(mergedCursor[operationType] || 0, timestamp);
@@ -204,7 +218,17 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .where('processing_status', '=', 'pending')
         .execute();
 
-      return ok(rows.map((row) => this.toExternalTransactionData(row)));
+      // Convert rows to domain models, failing fast on any parse errors
+      const transactions: ExternalTransactionData[] = [];
+      for (const row of rows) {
+        const result = this.toExternalTransactionData(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        transactions.push(result.value);
+      }
+
+      return ok(transactions);
     } catch (error) {
       return wrapError(error, 'Failed to get valid records');
     }
@@ -279,20 +303,39 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
    * Convert database row to ExternalTransactionData domain model
    * Handles JSON parsing and camelCase conversion
    */
-  private toExternalTransactionData(row: StoredRawData): ExternalTransactionData {
-    return {
+  private toExternalTransactionData(row: StoredRawData): Result<ExternalTransactionData, Error> {
+    const cursorResult = this.parseJson<Record<string, unknown>>(row.cursor);
+    const rawDataResult = this.parseJson<unknown>(row.raw_data);
+    const normalizedDataResult = this.parseJson<unknown>(row.normalized_data);
+    const metadataResult = this.parseJson<unknown>(row.metadata);
+
+    // Fail fast on any parse errors
+    if (cursorResult.isErr()) {
+      return err(cursorResult.error);
+    }
+    if (rawDataResult.isErr()) {
+      return err(rawDataResult.error);
+    }
+    if (normalizedDataResult.isErr()) {
+      return err(normalizedDataResult.error);
+    }
+    if (metadataResult.isErr()) {
+      return err(metadataResult.error);
+    }
+
+    return ok({
       id: row.id,
       dataSourceId: row.data_source_id,
       providerId: row.provider_id ?? undefined,
       externalId: row.external_id ?? undefined,
-      cursor: this.parseJson<Record<string, unknown>>(row.cursor),
-      rawData: this.parseJson<unknown>(row.raw_data),
-      normalizedData: this.parseJson<unknown>(row.normalized_data),
+      cursor: cursorResult.value,
+      rawData: rawDataResult.value,
+      normalizedData: normalizedDataResult.value,
       processingStatus: row.processing_status,
       processedAt: row.processed_at ? new Date(row.processed_at) : undefined,
       processingError: row.processing_error ?? undefined,
-      metadata: this.parseJson<unknown>(row.metadata),
+      metadata: metadataResult.value,
       createdAt: new Date(row.created_at),
-    };
+    });
   }
 }

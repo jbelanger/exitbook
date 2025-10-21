@@ -3,10 +3,10 @@ import { DecimalSchema, wrapError } from '@exitbook/core';
 import type { KyselyDB, TransactionLinksTable } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { Selectable } from 'kysely';
-import { ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 
 import { MatchCriteriaSchema } from '../linking/schemas.js';
-import type { MatchCriteria, TransactionLink } from '../linking/types.js';
+import type { TransactionLink } from '../linking/types.js';
 
 export type StoredTransactionLink = Selectable<TransactionLinksTable>;
 
@@ -99,7 +99,16 @@ export class TransactionLinkRepository extends BaseRepository {
     try {
       const row = await this.db.selectFrom('transaction_links').selectAll().where('id', '=', id).executeTakeFirst();
 
-      return ok(row ? this.toTransactionLink(row) : null);
+      if (!row) {
+        return ok(null);
+      }
+
+      const result = this.toTransactionLink(row);
+      if (result.isErr()) {
+        return err(result.error);
+      }
+
+      return ok(result.value);
     } catch (error) {
       this.logger.error({ error, id }, 'Failed to find transaction link by ID');
       return wrapError(error, 'Failed to find transaction link');
@@ -120,7 +129,17 @@ export class TransactionLinkRepository extends BaseRepository {
         .where('source_transaction_id', '=', sourceTransactionId)
         .execute();
 
-      return ok(rows.map((row) => this.toTransactionLink(row)));
+      // Convert rows to domain models, failing fast on any parse errors
+      const links: TransactionLink[] = [];
+      for (const row of rows) {
+        const result = this.toTransactionLink(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        links.push(result.value);
+      }
+
+      return ok(links);
     } catch (error) {
       this.logger.error({ error, sourceTransactionId }, 'Failed to find links by source transaction');
       return wrapError(error, 'Failed to find links by source transaction');
@@ -141,7 +160,17 @@ export class TransactionLinkRepository extends BaseRepository {
         .where('target_transaction_id', '=', targetTransactionId)
         .execute();
 
-      return ok(rows.map((row) => this.toTransactionLink(row)));
+      // Convert rows to domain models, failing fast on any parse errors
+      const links: TransactionLink[] = [];
+      for (const row of rows) {
+        const result = this.toTransactionLink(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        links.push(result.value);
+      }
+
+      return ok(links);
     } catch (error) {
       this.logger.error({ error, targetTransactionId }, 'Failed to find links by target transaction');
       return wrapError(error, 'Failed to find links by target transaction');
@@ -163,7 +192,18 @@ export class TransactionLinkRepository extends BaseRepository {
       }
 
       const rows = await query.execute();
-      return ok(rows.map((row) => this.toTransactionLink(row)));
+
+      // Convert rows to domain models, failing fast on any parse errors
+      const links: TransactionLink[] = [];
+      for (const row of rows) {
+        const result = this.toTransactionLink(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        links.push(result.value);
+      }
+
+      return ok(links);
     } catch (error) {
       this.logger.error({ error, status }, 'Failed to find transaction links');
       return wrapError(error, 'Failed to find transaction links');
@@ -295,25 +335,34 @@ export class TransactionLinkRepository extends BaseRepository {
    * Convert database row to TransactionLink domain model
    * Uses Zod schema for validation and automatic Decimal transformation
    */
-  private toTransactionLink(row: StoredTransactionLink): TransactionLink {
+  private toTransactionLink(row: StoredTransactionLink): Result<TransactionLink, Error> {
     // Parse and validate matchCriteria with schema (handles Decimal rehydration automatically)
-    const matchCriteria = this.parseWithSchema(row.match_criteria_json, MatchCriteriaSchema, {} as MatchCriteria);
+    const matchCriteriaResult = this.parseWithSchema(row.match_criteria_json, MatchCriteriaSchema);
+    if (matchCriteriaResult.isErr()) {
+      return err(matchCriteriaResult.error);
+    }
+    if (matchCriteriaResult.value === undefined) {
+      return err(new Error('match_criteria_json is required but was undefined'));
+    }
 
-    const metadata = this.parseJson<Record<string, unknown>>(row.metadata_json);
+    const metadataResult = this.parseJson<Record<string, unknown>>(row.metadata_json);
+    if (metadataResult.isErr()) {
+      return err(metadataResult.error);
+    }
 
-    return {
+    return ok({
       id: row.id,
       sourceTransactionId: row.source_transaction_id,
       targetTransactionId: row.target_transaction_id,
       linkType: row.link_type,
       confidenceScore: DecimalSchema.parse(row.confidence_score),
-      matchCriteria,
+      matchCriteria: matchCriteriaResult.value,
       status: row.status,
       reviewedBy: row.reviewed_by ?? undefined,
       reviewedAt: row.reviewed_at ? new Date(row.reviewed_at) : undefined,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
-      metadata,
-    };
+      metadata: metadataResult.value,
+    });
   }
 }
