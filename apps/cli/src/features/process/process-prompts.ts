@@ -32,7 +32,7 @@ export async function promptForProcessParams(): Promise<ProcessHandlerParams> {
 
   if (useFilters) {
     // Session ID filter
-    const useSessionFilter = await promptConfirm('Filter by import session?', false);
+    const useSessionFilter = await promptConfirm('Filter by data source ?', false);
     if (useSessionFilter) {
       const sessionId = await p.text({
         message: 'Import session ID:',

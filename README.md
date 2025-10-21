@@ -368,7 +368,7 @@ pnpm dev -- process --blockchain <chain> [--session <id>]
 
 - `--exchange <name>` - Exchange to process
 - `--blockchain <chain>` - Blockchain to process
-- `--session <id>` - Process specific import session only
+- `--session <id>` - Process specific data source only
 - `--since <date>` - Process only records after this date
 
 **Examples:**
@@ -594,7 +594,7 @@ pnpm dev -- status
 **What it does**
 
 - Boots the database at `data/transactions.db` (dropping and recreating tables when `--clear-db` is used).
-- Creates an `import_sessions` row that captures the source, provider, and raw parameters.
+- Creates an `data_sources` row that captures the source, provider, and raw parameters.
 - Invokes the selected importer to pull data (reading CSV rows or calling blockchain providers) and writes each payload into `external_transaction_data`.
 - Prints the number of raw records saved plus the session ID. When `--process` is supplied, the command immediately normalizes the new raw data into the universal schema and persists it to `transactions`.
 
@@ -671,7 +671,7 @@ The provider manager will rotate across all enabled providers for the chain, app
 - Successful runs emit:
   - `Import completed: <count> items imported`
   - `Session ID: <id>`
-- Raw data lives in `external_transaction_data`, normalized transactions in `transactions`, and both rows reference the same `import_session_id`.
+- Raw data lives in `external_transaction_data`, normalized transactions in `transactions`, and both rows reference the same `data_source_id`.
 - The CLI logs to stdout using Pino. When something fails, rerun with `DEBUG=*` or inspect the offending session in the database to diagnose retries.
 
 ### `process`
@@ -684,7 +684,7 @@ pnpm dev -- process --blockchain <chain> [options]
 **What it does**
 
 - Loads all raw entries in `external_transaction_data` that belong to the source and are still marked `processing_status = 'pending'`.
-- Groups raw data by `import_session_id`, hydrates session metadata, and runs the appropriate processor (`KrakenProcessor`, `BitcoinTransactionProcessor`, etc.).
+- Groups raw data by `data_source_id`, hydrates session metadata, and runs the appropriate processor (`KrakenProcessor`, `BitcoinTransactionProcessor`, etc.).
 - For blockchain sources, reuses the normalizer to convert provider payloads into a common structure before processing.
 - Inserts or upserts each resulting universal transaction into `transactions` (keyed by `external_id`) and marks the raw records as processed.
 - Aborts with a non-zero exit if any normalization or persistence errors occur to avoid partial state.
@@ -692,7 +692,7 @@ pnpm dev -- process --blockchain <chain> [options]
 **Options**
 
 - `--exchange <name>` / `--blockchain <chain>` – Required selector matching whichever importer produced the raw data.
-- `--session <id>` – Restrict processing to a single import session. Helpful for retrying a past run without touching newer data.
+- `--session <id>` – Restrict processing to a single data source . Helpful for retrying a past run without touching newer data.
 - `--since <date>` – Only pick raw records created at or after the supplied date/timestamp. This is useful when batching multiple imports (the value is converted to Unix seconds internally).
 - `--all` – Reserved for future use; currently ignored.
 - `--clear-db` – Drops and recreates the schema before running. Use only when starting from scratch because it deletes all data.
@@ -912,7 +912,7 @@ The CLI automatically uses the correct dates for your jurisdiction. Override wit
 
 ExitBook uses SQLite with three main tables:
 
-**`import_sessions`**
+**`data_sources`**
 
 - Tracks each import run
 - Fields: `id`, `source_type`, `source_id`, `status`, `metadata`

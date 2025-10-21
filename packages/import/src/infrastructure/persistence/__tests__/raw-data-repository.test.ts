@@ -14,7 +14,7 @@ describe('RawDataRepository', () => {
 
     // Create mock import sessions
     await db
-      .insertInto('import_sessions')
+      .insertInto('data_sources')
       .values([
         {
           id: 1,
@@ -24,8 +24,6 @@ describe('RawDataRepository', () => {
           status: 'completed',
           import_params: '{}',
           import_result_metadata: '{}',
-          transactions_imported: 5,
-          transactions_failed: 0,
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
         },
@@ -37,8 +35,6 @@ describe('RawDataRepository', () => {
           status: 'completed',
           import_params: '{}',
           import_result_metadata: '{}',
-          transactions_imported: 3,
-          transactions_failed: 0,
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
         },
@@ -50,7 +46,7 @@ describe('RawDataRepository', () => {
       await db
         .insertInto('external_transaction_data')
         .values({
-          import_session_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
+          data_source_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
           provider_id: undefined,
           external_id: `ext-${i}`,
           cursor: undefined,
@@ -76,11 +72,7 @@ describe('RawDataRepository', () => {
       const initialProcessed = await db
         .selectFrom('external_transaction_data')
         .where('processing_status', '=', 'processed')
-        .where(
-          'import_session_id',
-          'in',
-          db.selectFrom('import_sessions').select('id').where('source_id', '=', 'kraken')
-        )
+        .where('data_source_id', 'in', db.selectFrom('data_sources').select('id').where('source_id', '=', 'kraken'))
         .selectAll()
         .execute();
       expect(initialProcessed.length).toBeGreaterThan(0);
@@ -96,11 +88,7 @@ describe('RawDataRepository', () => {
       // Verify all kraken records are now pending
       const krakenRecords = await db
         .selectFrom('external_transaction_data')
-        .where(
-          'import_session_id',
-          'in',
-          db.selectFrom('import_sessions').select('id').where('source_id', '=', 'kraken')
-        )
+        .where('data_source_id', 'in', db.selectFrom('data_sources').select('id').where('source_id', '=', 'kraken'))
         .selectAll()
         .execute();
 
@@ -113,11 +101,7 @@ describe('RawDataRepository', () => {
       const ethereumProcessed = await db
         .selectFrom('external_transaction_data')
         .where('processing_status', '=', 'processed')
-        .where(
-          'import_session_id',
-          'in',
-          db.selectFrom('import_sessions').select('id').where('source_id', '=', 'ethereum')
-        )
+        .where('data_source_id', 'in', db.selectFrom('data_sources').select('id').where('source_id', '=', 'ethereum'))
         .selectAll()
         .execute();
       expect(ethereumProcessed.length).toBeGreaterThan(0);
@@ -212,7 +196,7 @@ describe('RawDataRepository', () => {
       // Verify only ethereum records remain
       const remainingRecords = await db.selectFrom('external_transaction_data').selectAll().execute();
       expect(remainingRecords).toHaveLength(2);
-      expect(remainingRecords.every((r) => r.import_session_id === 2)).toBe(true);
+      expect(remainingRecords.every((r) => r.data_source_id === 2)).toBe(true);
     });
 
     it('should return 0 when no records match the source', async () => {

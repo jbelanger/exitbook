@@ -1,53 +1,50 @@
 import { wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import type {
-  ImportSession,
+  DataSource,
   ImportSessionQuery,
-  ImportSessionUpdate,
-  StoredImportParams,
+  DataSourceUpdate,
+  DataImportParams,
   VerificationMetadata,
 } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
-import type { IImportSessionRepository } from '@exitbook/import/app/ports/import-session-repository.interface.ts';
 import type { Result } from 'neverthrow';
 import { ok, err } from 'neverthrow';
 
+import type { IDataSourceRepository } from '../../app/ports/data-source-repository.interface.ts';
+
 /**
- * Kysely-based repository for import session database operations.
- * Handles storage and retrieval of ImportSession entities using type-safe queries.
+ * Kysely-based repository for data source  database operations.
+ * Handles storage and retrieval of DataSource entities using type-safe queries.
  */
-export class ImportSessionRepository extends BaseRepository implements IImportSessionRepository {
+export class DataSourceRepository extends BaseRepository implements IDataSourceRepository {
   constructor(db: KyselyDB) {
-    super(db, 'ImportSessionRepository');
+    super(db, 'DataSourceRepository');
   }
 
   async create(
     sourceId: string,
     sourceType: 'exchange' | 'blockchain',
-    providerId?: string,
-    importParams?: StoredImportParams
+    importParams?: DataImportParams
   ): Promise<Result<number, Error>> {
     try {
       const result = await this.db
-        .insertInto('import_sessions')
+        .insertInto('data_sources')
         .values({
           created_at: this.getCurrentDateTimeForDB(),
           import_params: this.serializeToJson(importParams ?? {}) ?? '{}',
           import_result_metadata: this.serializeToJson({}) ?? '{}',
-          provider_id: providerId,
           source_id: sourceId,
           source_type: sourceType,
           started_at: this.getCurrentDateTimeForDB(),
           status: 'started',
-          transactions_failed: 0,
-          transactions_imported: 0,
         })
         .returning('id')
         .executeTakeFirstOrThrow();
 
       return ok(result.id);
     } catch (error) {
-      return wrapError(error, 'Failed to create import session');
+      return wrapError(error, 'Failed to create data source ');
     }
   }
 
@@ -55,8 +52,6 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
     sessionId: number,
     status: 'completed' | 'failed' | 'cancelled',
     startTime: number,
-    transactionsImported = 0,
-    transactionsFailed = 0,
     errorMessage?: string,
     errorDetails?: unknown,
     importResultMetadata?: Record<string, unknown>
@@ -66,7 +61,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
       const currentTimestamp = this.getCurrentDateTimeForDB();
 
       await this.db
-        .updateTable('import_sessions')
+        .updateTable('data_sources')
         .set({
           completed_at: currentTimestamp as unknown as string,
           duration_ms: durationMs,
@@ -74,25 +69,23 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
           error_message: errorMessage,
           import_result_metadata: this.serializeToJson(importResultMetadata ?? {}),
           status,
-          transactions_failed: transactionsFailed,
-          transactions_imported: transactionsImported,
           updated_at: currentTimestamp,
         })
         .where('id', '=', sessionId)
         .execute();
       return ok();
     } catch (error) {
-      return wrapError(error, 'Failed to finalize import session');
+      return wrapError(error, 'Failed to finalize data source ');
     }
   }
 
-  async findActive(): Promise<Result<ImportSession[], Error>> {
+  async findActive(): Promise<Result<DataSource[], Error>> {
     return this.findAll({ status: 'started' });
   }
 
-  async findAll(filters?: ImportSessionQuery): Promise<Result<ImportSession[], Error>> {
+  async findAll(filters?: ImportSessionQuery): Promise<Result<DataSource[], Error>> {
     try {
-      let query = this.db.selectFrom('import_sessions').selectAll();
+      let query = this.db.selectFrom('data_sources').selectAll();
 
       if (filters?.sourceId) {
         query = query.where('source_id', '=', filters.sourceId);
@@ -119,35 +112,31 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
       }
 
       const rows = await query.execute();
-      return ok(rows as ImportSession[]);
+      return ok(rows as DataSource[]);
     } catch (error) {
       return wrapError(error, 'Failed to find import sessions');
     }
   }
 
-  async findById(sessionId: number): Promise<Result<ImportSession | undefined, Error>> {
+  async findById(sessionId: number): Promise<Result<DataSource | undefined, Error>> {
     try {
-      const row = await this.db
-        .selectFrom('import_sessions')
-        .selectAll()
-        .where('id', '=', sessionId)
-        .executeTakeFirst();
+      const row = await this.db.selectFrom('data_sources').selectAll().where('id', '=', sessionId).executeTakeFirst();
 
       return ok(row ? row : undefined);
     } catch (error) {
-      return wrapError(error, 'Failed to find import session by ID');
+      return wrapError(error, 'Failed to find data source  by ID');
     }
   }
 
-  async findBySource(sourceId: string, limit?: number): Promise<Result<ImportSession[], Error>> {
+  async findBySource(sourceId: string, limit?: number): Promise<Result<DataSource[], Error>> {
     return this.findAll({ limit, sourceId });
   }
 
-  async findRecent(limit = 10): Promise<Result<ImportSession[], Error>> {
+  async findRecent(limit = 10): Promise<Result<DataSource[], Error>> {
     return this.findAll({ limit });
   }
 
-  async update(sessionId: number, updates: ImportSessionUpdate): Promise<Result<void, Error>> {
+  async update(sessionId: number, updates: DataSourceUpdate): Promise<Result<void, Error>> {
     try {
       const currentTimestamp = this.getCurrentDateTimeForDB();
       const updateData: Record<string, unknown> = {
@@ -170,14 +159,6 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
         updateData.error_details = this.serializeToJson(updates.error_details);
       }
 
-      if (updates.transactions_imported !== undefined) {
-        updateData.transactions_imported = updates.transactions_imported;
-      }
-
-      if (updates.transactions_failed !== undefined) {
-        updateData.transactions_failed = updates.transactions_failed;
-      }
-
       if (updates.import_params !== undefined) {
         updateData.import_params =
           typeof updates.import_params === 'string'
@@ -198,11 +179,11 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
         return ok();
       }
 
-      await this.db.updateTable('import_sessions').set(updates).where('id', '=', sessionId).execute();
+      await this.db.updateTable('data_sources').set(updates).where('id', '=', sessionId).execute();
 
       return ok();
     } catch (error) {
-      return wrapError(error, 'Failed to update import session');
+      return wrapError(error, 'Failed to update data source ');
     }
   }
 
@@ -215,7 +196,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
       providerId?: string;
       since?: number;
     }
-  ): Promise<Result<ImportSession | undefined, Error>> {
+  ): Promise<Result<DataSource | undefined, Error>> {
     try {
       // Find all completed sessions for this source
       const sessionsResult = await this.findAll({
@@ -232,10 +213,10 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
 
       // Find a session with matching import parameters
       for (const session of sessions) {
-        const storedParams: StoredImportParams =
+        const storedParams: DataImportParams =
           typeof session.import_params === 'string'
-            ? (JSON.parse(session.import_params) as StoredImportParams)
-            : (session.import_params as StoredImportParams);
+            ? (JSON.parse(session.import_params) as DataImportParams)
+            : (session.import_params as DataImportParams);
 
         // Compare relevant parameters
         const addressMatches = params.address === storedParams.address;
@@ -264,7 +245,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
       const currentTimestamp = this.getCurrentDateTimeForDB();
 
       await this.db
-        .updateTable('import_sessions')
+        .updateTable('data_sources')
         .set({
           last_balance_check_at: currentTimestamp,
           updated_at: currentTimestamp,
@@ -276,6 +257,24 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
       return ok();
     } catch (error) {
       return wrapError(error, 'Failed to update verification metadata');
+    }
+  }
+
+  async deleteBySource(sourceId: string): Promise<Result<void, Error>> {
+    try {
+      await this.db.deleteFrom('data_sources').where('source_id', '=', sourceId).execute();
+      return ok();
+    } catch (error) {
+      return wrapError(error, 'Failed to delete data sources by source ID');
+    }
+  }
+
+  async deleteAll(): Promise<Result<void, Error>> {
+    try {
+      await this.db.deleteFrom('data_sources').execute();
+      return ok();
+    } catch (error) {
+      return wrapError(error, 'Failed to delete all data sources');
     }
   }
 }

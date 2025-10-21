@@ -45,15 +45,16 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     // Create handler to preview deletion
     const { initializeDatabase, closeDatabase, TransactionRepository: TxRepo } = await import('@exitbook/data');
     const { TransactionLinkRepository: TLRepo, CostBasisRepository: CBRepo } = await import('@exitbook/accounting');
-    const { RawDataRepository: RDRepo } = await import('@exitbook/import');
+    const { RawDataRepository: RDRepo, DataSourceRepository: DSRepo } = await import('@exitbook/import');
 
     const database = await initializeDatabase(false);
     const txRepo = new TxRepo(database);
     const tlRepo = new TLRepo(database);
     const cbRepo = new CBRepo(database);
     const rdRepo = new RDRepo(database);
+    const dsRepo = new DSRepo(database);
 
-    const handler = new ClearHandler(database, txRepo, tlRepo, cbRepo, rdRepo);
+    const handler = new ClearHandler(database, txRepo, tlRepo, cbRepo, rdRepo, dsRepo);
 
     const previewResult = await handler.previewDeletion(params);
     handler.destroy();
@@ -128,15 +129,23 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
       TransactionRepository,
     } = await import('@exitbook/data');
     const { TransactionLinkRepository, CostBasisRepository } = await import('@exitbook/accounting');
-    const { RawDataRepository } = await import('@exitbook/import');
+    const { RawDataRepository, DataSourceRepository } = await import('@exitbook/import');
 
     const db = await initDb();
     const transactionRepo = new TransactionRepository(db);
     const transactionLinkRepo = new TransactionLinkRepository(db);
     const costBasisRepo = new CostBasisRepository(db);
     const rawDataRepo = new RawDataRepository(db);
+    const dataSourceRepo = new DataSourceRepository(db);
 
-    const clearHandler = new ClearHandler(db, transactionRepo, transactionLinkRepo, costBasisRepo, rawDataRepo);
+    const clearHandler = new ClearHandler(
+      db,
+      transactionRepo,
+      transactionLinkRepo,
+      costBasisRepo,
+      rawDataRepo,
+      dataSourceRepo
+    );
 
     const result = await clearHandler.execute(params);
     clearHandler.destroy();

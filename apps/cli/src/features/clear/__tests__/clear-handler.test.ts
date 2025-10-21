@@ -1,6 +1,6 @@
 import type { CostBasisRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import type { KyselyDB, TransactionRepository } from '@exitbook/data';
-import type { RawDataRepository } from '@exitbook/import';
+import type { DataSourceRepository, RawDataRepository } from '@exitbook/import';
 import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -13,6 +13,7 @@ describe('ClearHandler', () => {
   let mockTransactionLinkRepo: TransactionLinkRepository;
   let mockCostBasisRepo: CostBasisRepository;
   let mockRawDataRepo: RawDataRepository;
+  let mockDataSourceRepo: DataSourceRepository;
   let handler: ClearHandler;
   let mockSelectFrom: Mock;
   let mockDeleteFrom: Mock;
@@ -31,6 +32,8 @@ describe('ClearHandler', () => {
   let mockDeleteRawDataBySource: Mock;
   let mockResetProcessingStatusAll: Mock;
   let mockResetProcessingStatusBySource: Mock;
+  let mockDeleteAllDataSources: Mock;
+  let mockDeleteDataSourcesBySource: Mock;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -58,6 +61,8 @@ describe('ClearHandler', () => {
     mockDeleteRawDataBySource = vi.fn().mockResolvedValue(ok(100));
     mockResetProcessingStatusAll = vi.fn().mockResolvedValue(ok(100));
     mockResetProcessingStatusBySource = vi.fn().mockResolvedValue(ok(100));
+    mockDeleteAllDataSources = vi.fn().mockResolvedValue(ok());
+    mockDeleteDataSourcesBySource = vi.fn().mockResolvedValue(ok());
 
     // Mock repositories with successful responses
     mockTransactionRepo = {
@@ -85,12 +90,18 @@ describe('ClearHandler', () => {
       resetProcessingStatusBySource: mockResetProcessingStatusBySource,
     } as unknown as RawDataRepository;
 
+    mockDataSourceRepo = {
+      deleteAll: mockDeleteAllDataSources,
+      deleteBySource: mockDeleteDataSourcesBySource,
+    } as unknown as DataSourceRepository;
+
     handler = new ClearHandler(
       mockDatabase,
       mockTransactionRepo,
       mockTransactionLinkRepo,
       mockCostBasisRepo,
-      mockRawDataRepo
+      mockRawDataRepo,
+      mockDataSourceRepo
     );
   });
 
@@ -161,13 +172,6 @@ describe('ClearHandler', () => {
         includeRaw: true,
       };
 
-      const mockDeleteQuery = {
-        execute: vi.fn().mockResolvedValue({}),
-        where: vi.fn().mockReturnThis(),
-      };
-
-      mockDeleteFrom.mockReturnValue(mockDeleteQuery);
-
       const result = await handler.execute(params);
 
       expect(result.isOk()).toBe(true);
@@ -176,9 +180,7 @@ describe('ClearHandler', () => {
       expect(mockDeleteAllRawData).toHaveBeenCalled();
       expect(mockResetProcessingStatusAll).not.toHaveBeenCalled();
 
-      // Verify import_session_errors and import_sessions were deleted via DB
-      expect(mockDeleteFrom).toHaveBeenCalledWith('import_session_errors');
-      expect(mockDeleteFrom).toHaveBeenCalledWith('import_sessions');
+      expect(mockDeleteAllDataSources).toHaveBeenCalled();
     });
 
     it('should execute clear for specific source', async () => {

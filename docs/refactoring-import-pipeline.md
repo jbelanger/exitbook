@@ -609,7 +609,7 @@ async importFromSource(address: string, mode: 'incremental' | 'reindex') {
 ```typescript
 export interface ExternalTransactionDataTable {
   id: Generated<number>;
-  import_session_id: number;
+  data_source_id: number;
 
   // NEW: Store normalized data alongside raw
   normalized_data: JSONString; // ✨ NEW
@@ -625,10 +625,10 @@ export interface ExternalTransactionDataTable {
 }
 ```
 
-#### Update: `import_sessions` table
+#### Update: `data_sources` table
 
 ```typescript
-export interface ImportSessionsTable {
+export interface DataSourcesTable {
   // ... existing fields ...
 
   // NEW: Track pagination cursor for resumable imports
@@ -874,7 +874,7 @@ if (countResult.isOk()) {
 
 **Storage:**
 
-- `import_sessions.expected_total_count` stores the initial count (nullable)
+- `data_sources.expected_total_count` stores the initial count (nullable)
 - Logs include progress info derived from `totalImported / expectedTotalCount`
 
 **Benefits:**
@@ -1311,8 +1311,8 @@ async processRawDataToTransactions(
 
 1. ✅ Add `normalized_data` column to `external_transaction_data` table
 2. ✅ Add `dedup_key` column (unique index) to `external_transaction_data` table
-3. ✅ Add `pagination_cursor` column to `import_sessions` table
-4. ✅ Add `expected_total_count` column to `import_sessions` table (for progress tracking)
+3. ✅ Add `pagination_cursor` column to `data_sources` table
+4. ✅ Add `expected_total_count` column to `data_sources` table (for progress tracking)
 5. ✅ Create `CursorType` enum in `packages/import/src/app/ports/importers.ts`
 6. ✅ Create `PaginationCursor` type with semantic/opaque distinction
 7. ✅ Create `NormalizedRawPair` interface with `dedupKey` field
@@ -1323,8 +1323,8 @@ async processRawDataToTransactions(
 12. ✅ Create `PaginatedProviderResponse<T>` in provider types
 13. ✅ **REMOVE `since` from `ProviderOperationParams`** - Mark as `_internalSince` for provider use only
 14. ✅ Update `ProviderOperationParams` to include typed `cursor`, `limit`, and new `getTransactionCount` operation
-15. ✅ Update `ImportSessionRepository.create()` to accept `expectedTotalCount` parameter
-16. ✅ Add `ImportSessionRepository.getLastSuccessful()` method to retrieve last cursor for resume
+15. ✅ Update `DataSourceRepository.create()` to accept `expectedTotalCount` parameter
+16. ✅ Add `DataSourceRepository.getLastSuccessful()` method to retrieve last cursor for resume
 
 **Files Modified:**
 
@@ -1339,7 +1339,7 @@ async processRawDataToTransactions(
 
 1. ✅ Update `RawDataRepository.saveBatch()` to accept `{ normalized, raw, metadata, dedupKey }`
 2. ✅ Add deduplication logic using `dedupKey` in saveBatch (upsert on conflict)
-3. ✅ Add `ImportSessionRepository.updateCursor()` method
+3. ✅ Add `DataSourceRepository.updateCursor()` method
 4. ✅ Update `RawDataRepository.load()` to return `normalized_data` field
 
 **Files Modified:**
@@ -1802,7 +1802,7 @@ This refactoring addresses fundamental architectural issues in the import pipeli
    - New `getTransactionCount` operation for providers that support it
    - Mempool.space (Bitcoin) and Subscan (Substrate) provide upfront counts
    - Display: `"150/500 (30%)"` when available, `"150 imported so far..."` otherwise
-   - Stored in `import_sessions.expected_total_count` for session-level visibility
+   - Stored in `data_sources.expected_total_count` for session-level visibility
 
 **Benefits:**
 

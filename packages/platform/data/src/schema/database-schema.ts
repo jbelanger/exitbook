@@ -11,32 +11,30 @@ export type DateTime = ColumnType<string, string | Date, string>; // ISO 8601 st
 export type JSONString = ColumnType<unknown, string, string>;
 
 /**
- * Import sessions table - tracks import session metadata and execution details
+ * Import sessions table - tracks data source  metadata and execution details
  */
-export interface ImportSessionsTable {
+export interface DataSourcesTable {
   completed_at: DateTime | null;
   created_at: DateTime;
   duration_ms: number | null;
-  error_details: JSONString | null;
+
   // Error handling
+  error_details: JSONString | null;
   error_message: string | null;
 
   id: Generated<number>;
   // Import parameters and results
   import_params: JSONString;
   import_result_metadata: JSONString;
-  provider_id: string | null;
 
   // Session identification
   source_id: string;
   source_type: 'exchange' | 'blockchain';
-  started_at: DateTime;
+
   // Status and metrics
   status: 'started' | 'completed' | 'failed' | 'cancelled';
 
-  transactions_failed: number;
-  transactions_imported: number;
-
+  started_at: DateTime;
   updated_at: DateTime | null;
 
   // Balance verification
@@ -52,7 +50,7 @@ export interface ExternalTransactionDataTable {
 
   id: Generated<number>;
   // Foreign key relationship
-  import_session_id: number; // FK to import_sessions.id
+  data_source_id: number; // FK to data_sources.id
 
   provider_id: string | null;
 
@@ -62,7 +60,7 @@ export interface ExternalTransactionDataTable {
 
   // Data storage
   raw_data: JSONString; // Raw data from source
-  normalized_data: JSONString; // Normalized data (mandatory - normalization happens during import)
+  normalized_data: JSONString; // Normalized data
 
   // Processing status
   processing_status: 'pending' | 'processed' | 'failed' | 'skipped';
@@ -79,7 +77,7 @@ export interface ExternalTransactionDataTable {
 export interface TransactionsTable {
   // Core identification
   id: Generated<number>;
-  import_session_id: number; // FK to import_sessions.id
+  data_source_id: number; // FK to data_sources.id
   source_id: string;
   source_type: 'exchange' | 'blockchain';
   external_id: string | null; // hash, transaction ID, etc.
@@ -142,25 +140,6 @@ export interface TransactionsTable {
   // Timestamps
   created_at: DateTime;
   updated_at: DateTime | null;
-}
-
-/**
- * Import session errors - tracks validation and processing errors
- */
-export interface ImportSessionErrorsTable {
-  created_at: DateTime;
-  error_details: JSONString | null;
-  // Error information
-  error_message: string;
-  error_type: 'validation' | 'fetch' | 'processing';
-  // Failed item data
-  failed_item_data: JSONString | null;
-
-  id: Generated<number>;
-  // Foreign key relationship
-  import_session_id: number; // FK to import_sessions.id
-
-  occurred_at: DateTime;
 }
 
 /**
@@ -253,8 +232,7 @@ export interface DatabaseSchema {
   acquisition_lots: AcquisitionLotsTable;
   cost_basis_calculations: CostBasisCalculationsTable;
   external_transaction_data: ExternalTransactionDataTable;
-  import_session_errors: ImportSessionErrorsTable;
-  import_sessions: ImportSessionsTable;
+  data_sources: DataSourcesTable;
   lot_disposals: LotDisposalsTable;
   transaction_links: TransactionLinksTable;
   transactions: TransactionsTable;

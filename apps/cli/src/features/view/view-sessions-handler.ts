@@ -1,7 +1,7 @@
 // Handler for view sessions command
 
-import type { ImportSession } from '@exitbook/data';
-import type { ImportSessionRepository } from '@exitbook/import';
+import type { DataSource } from '@exitbook/data';
+import type { DataSourceRepository } from '@exitbook/import';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -11,7 +11,7 @@ import type { ViewSessionsParams, ViewSessionsResult } from './view-sessions-uti
  * Handler for viewing import sessions.
  */
 export class ViewSessionsHandler {
-  constructor(private readonly sessionRepo: ImportSessionRepository) {}
+  constructor(private readonly sessionRepo: DataSourceRepository) {}
 
   /**
    * Execute the view sessions command.
@@ -46,15 +46,12 @@ export class ViewSessionsHandler {
   /**
    * Format session for display.
    */
-  private formatSession(session: ImportSession) {
+  private formatSession(session: DataSource) {
     return {
       id: session.id,
       source_id: session.source_id,
       source_type: session.source_type,
-      provider_id: session.provider_id ?? undefined,
       status: session.status,
-      transactions_imported: session.transactions_imported,
-      transactions_failed: session.transactions_failed,
       started_at: session.started_at,
       completed_at: session.completed_at ?? undefined,
       duration_ms: session.duration_ms ?? undefined,

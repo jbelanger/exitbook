@@ -2,12 +2,7 @@
 import type { AssetMovement, Money } from '@exitbook/core';
 import type { Selectable, Insertable, Updateable } from 'kysely';
 
-import type {
-  ExternalTransactionDataTable,
-  ImportSessionErrorsTable,
-  ImportSessionsTable,
-  TransactionsTable,
-} from '../schema/database-schema.ts';
+import type { ExternalTransactionDataTable, DataSourcesTable, TransactionsTable } from '../schema/database-schema.ts';
 
 // Raw transaction type from database (with JSON strings)
 type RawStoredTransaction = Selectable<TransactionsTable>;
@@ -28,17 +23,13 @@ export type StoredTransaction = Omit<
 export type NewTransaction = Insertable<TransactionsTable>;
 export type TransactionUpdate = Updateable<TransactionsTable>;
 
-export type ImportSession = Selectable<ImportSessionsTable>;
-export type NewImportSession = Insertable<ImportSessionsTable>;
-export type ImportSessionUpdate = Updateable<ImportSessionsTable>;
+export type DataSource = Selectable<DataSourcesTable>;
+export type NewDataSource = Insertable<DataSourcesTable>;
+export type DataSourceUpdate = Updateable<DataSourcesTable>;
 
 export type RawData = Selectable<ExternalTransactionDataTable>;
 export type NewRawData = Insertable<ExternalTransactionDataTable>;
 export type RawDataUpdate = Updateable<ExternalTransactionDataTable>;
-
-export type ImportSessionError = Selectable<ImportSessionErrorsTable>;
-export type NewImportSessionError = Insertable<ImportSessionErrorsTable>;
-export type ImportSessionErrorUpdate = Updateable<ImportSessionErrorsTable>;
 
 export interface ImportSessionQuery {
   limit?: number | undefined;
@@ -54,7 +45,7 @@ export interface ImportSessionQuery {
 /**
  * Import parameters that can be stored in session metadata
  */
-export interface StoredImportParams {
+export interface DataImportParams {
   address?: string | undefined;
   csvDirectories?: string[] | undefined;
   exchangeCredentials?: Record<string, unknown> | undefined;
@@ -78,7 +69,7 @@ export interface ImportSessionMetadata {
   importedAt?: number | undefined;
 
   // Import parameters used for this session
-  importParams?: StoredImportParams | undefined;
+  importParams?: DataImportParams | undefined;
 
   // Additional provider-specific metadata
   [key: string]: unknown;

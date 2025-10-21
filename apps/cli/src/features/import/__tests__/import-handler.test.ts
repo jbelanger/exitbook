@@ -18,7 +18,7 @@ vi.mock('@exitbook/providers', () => ({
 vi.mock('@exitbook/import', () => ({
   ImporterFactory: vi.fn(),
   ImportSessionErrorRepository: vi.fn(),
-  ImportSessionRepository: vi.fn(),
+  DataSourceRepository: vi.fn(),
   ProcessorFactory: vi.fn(),
   RawDataRepository: vi.fn(),
   TransactionIngestionService: vi.fn(),

@@ -46,7 +46,7 @@ describe('ExportHandler', () => {
     external_id: `ext-${id}`,
     source_id: source,
     source_type: 'exchange',
-    import_session_id: 123,
+    data_source_id: 123,
     operation_category: 'trade',
     operation_type: 'buy',
     transaction_datetime: '2024-01-01T12:00:00Z',

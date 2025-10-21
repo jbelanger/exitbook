@@ -14,7 +14,7 @@ describe('TransactionRepository - delete methods', () => {
 
     // Create mock import sessions for different sources
     await db
-      .insertInto('import_sessions')
+      .insertInto('data_sources')
       .values([
         {
           id: 1,
@@ -24,8 +24,6 @@ describe('TransactionRepository - delete methods', () => {
           status: 'completed',
           import_params: '{}',
           import_result_metadata: '{}',
-          transactions_imported: 3,
-          transactions_failed: 0,
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
         },
@@ -37,8 +35,6 @@ describe('TransactionRepository - delete methods', () => {
           status: 'completed',
           import_params: '{}',
           import_result_metadata: '{}',
-          transactions_imported: 2,
-          transactions_failed: 0,
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
         },
@@ -51,7 +47,7 @@ describe('TransactionRepository - delete methods', () => {
         .insertInto('transactions')
         .values({
           id: i,
-          import_session_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
+          data_source_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
           source_id: i <= 3 ? 'kraken' : 'ethereum',
           source_type: i <= 3 ? ('exchange' as const) : ('blockchain' as const),
           external_id: `tx-${i}`,

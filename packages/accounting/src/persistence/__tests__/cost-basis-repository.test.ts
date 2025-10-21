@@ -15,7 +15,7 @@ describe('CostBasisRepository', () => {
 
     // Create mock import sessions for foreign key constraints
     await db
-      .insertInto('import_sessions')
+      .insertInto('data_sources')
       .values([
         {
           id: 1,
@@ -80,7 +80,7 @@ describe('CostBasisRepository', () => {
         .insertInto('transactions')
         .values({
           id: i,
-          import_session_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
+          data_source_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
           source_id: i <= 3 ? 'kraken' : 'ethereum',
           source_type: 'exchange' as const,
           external_id: `tx-${i}`,

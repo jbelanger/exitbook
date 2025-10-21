@@ -26,7 +26,7 @@ function createTransaction(params: {
 }): StoredTransaction {
   return {
     id: params.id,
-    import_session_id: 1,
+    data_source_id: 1,
     source_id: params.sourceId,
     source_type: params.sourceType,
     external_id: params.externalId,

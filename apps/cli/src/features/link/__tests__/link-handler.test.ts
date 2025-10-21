@@ -76,7 +76,7 @@ describe('LinkHandler', () => {
     external_id: `ext-${id}`,
     source_id: 'test-source',
     source_type: sourceType as 'exchange' | 'blockchain',
-    import_session_id: 123,
+    data_source_id: 123,
     operation_category: 'transfer',
     operation_type: operationType as 'withdrawal' | 'deposit',
     transaction_datetime: '2024-01-01T12:00:00Z',

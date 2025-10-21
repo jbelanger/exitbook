@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- acceptable for tests */
 import { parseDecimal } from '@exitbook/core';
-import type { ImportSession } from '@exitbook/data';
+import type { DataSource } from '@exitbook/data';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -284,7 +284,7 @@ describe('getExchangeCredentialsFromEnv', () => {
 
 describe('buildSourceParams', () => {
   it('should build source params for exchange', () => {
-    const session: ImportSession = {
+    const session: DataSource = {
       id: 123,
       source_id: 'kraken',
       source_type: 'exchange',
@@ -295,12 +295,9 @@ describe('buildSourceParams', () => {
       started_at: '2024-01-01T00:00:00Z',
       completed_at: '2024-01-01T01:00:00Z',
       updated_at: null,
-      transactions_imported: 100,
-      transactions_failed: 0,
       duration_ms: 60000,
       error_message: null,
       error_details: null,
-      provider_id: null,
       last_balance_check_at: null,
       verification_metadata: null,
     };
@@ -311,7 +308,7 @@ describe('buildSourceParams', () => {
   });
 
   it('should build source params for blockchain with address', () => {
-    const session: ImportSession = {
+    const session: DataSource = {
       id: 456,
       source_id: 'bitcoin',
       source_type: 'blockchain',
@@ -322,12 +319,9 @@ describe('buildSourceParams', () => {
       started_at: '2024-01-01T00:00:00Z',
       completed_at: '2024-01-01T01:00:00Z',
       updated_at: null,
-      transactions_imported: 50,
-      transactions_failed: 0,
       duration_ms: 45000,
       error_message: null,
       error_details: null,
-      provider_id: 'blockstream',
       last_balance_check_at: null,
       verification_metadata: null,
     };
@@ -341,7 +335,7 @@ describe('buildSourceParams', () => {
   });
 
   it('should use address from params when session import_params lacks it', () => {
-    const session: ImportSession = {
+    const session: DataSource = {
       id: 789,
       source_id: 'ethereum',
       source_type: 'blockchain',
@@ -352,12 +346,9 @@ describe('buildSourceParams', () => {
       started_at: '2024-01-01T00:00:00Z',
       completed_at: '2024-01-01T01:00:00Z',
       updated_at: null,
-      transactions_imported: 75,
-      transactions_failed: 0,
       duration_ms: 90000,
       error_message: null,
       error_details: null,
-      provider_id: 'alchemy',
       last_balance_check_at: null,
       verification_metadata: null,
     };
@@ -371,7 +362,7 @@ describe('buildSourceParams', () => {
   });
 
   it('should use "unknown" when no address is available', () => {
-    const session: ImportSession = {
+    const session: DataSource = {
       id: 101,
       source_id: 'solana',
       source_type: 'blockchain',
@@ -382,12 +373,9 @@ describe('buildSourceParams', () => {
       started_at: '2024-01-01T00:00:00Z',
       completed_at: '2024-01-01T01:00:00Z',
       updated_at: null,
-      transactions_imported: 25,
-      transactions_failed: 0,
       duration_ms: 30000,
       error_message: null,
       error_details: null,
-      provider_id: 'helius',
       last_balance_check_at: null,
       verification_metadata: null,
     };

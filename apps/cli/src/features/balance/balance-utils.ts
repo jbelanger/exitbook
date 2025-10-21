@@ -1,4 +1,4 @@
-import type { ImportSession, SourceParams, StoredImportParams } from '@exitbook/data';
+import type { DataImportParams, DataSource, SourceParams } from '@exitbook/data';
 import type { ExchangeCredentials } from '@exitbook/exchanges';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -129,7 +129,7 @@ export function getExchangeCredentialsFromEnv(exchangeName: string): Result<Exch
  * Pure function that constructs SourceParams from session data.
  */
 export function buildSourceParams(
-  session: ImportSession,
+  session: DataSource,
   sourceType: 'exchange' | 'blockchain',
   address?: string
 ): SourceParams {
@@ -158,9 +158,9 @@ export function decimalRecordToStringRecord(record: Record<string, Decimal>): Re
  * Parse import_params from database (which can be string or unknown) into StoredImportParams.
  * Pure function that handles JSON parsing and type casting.
  */
-export function parseImportParams(importParams: unknown): StoredImportParams {
+export function parseImportParams(importParams: unknown): DataImportParams {
   if (typeof importParams === 'string') {
-    return JSON.parse(importParams) as StoredImportParams;
+    return JSON.parse(importParams) as DataImportParams;
   }
-  return importParams as StoredImportParams;
+  return importParams as DataImportParams;
 }

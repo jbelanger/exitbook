@@ -20,7 +20,7 @@ function createMockTransaction(
 ): StoredTransaction {
   return {
     id,
-    import_session_id: 1,
+    data_source_id: 1,
     source_id: sourceId,
     source_type: sourceType,
     external_id: `tx-${id}`,

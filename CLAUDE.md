@@ -175,13 +175,13 @@ Multi-provider architecture with intelligent failover:
 
 **Key Tables:**
 
-- `import_sessions` - Tracks each import run with provider, status, metadata
+- `data_sources` - Tracks each import run with provider, status, metadata
 - `external_transaction_data` - Stores raw API/CSV payloads with `processing_status`
 - `transactions` - Normalized universal transaction records
 
 **Repositories:**
 
-- `ImportSessionRepository` - Manages import sessions
+- `DataSourceRepository` - Manages import sessions
 - `RawDataRepository` - Stores raw API responses
 - `TransactionRepository` - Stores processed transactions with deduplication
 

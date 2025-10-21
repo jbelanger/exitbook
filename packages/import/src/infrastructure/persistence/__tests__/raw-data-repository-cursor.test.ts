@@ -14,9 +14,9 @@ describe('RawDataRepository - Cursor Management', () => {
     await runMigrations(db);
     repository = new RawDataRepository(db);
 
-    // Create a test import session
+    // Create a test data source
     const insertResult = await db
-      .insertInto('import_sessions')
+      .insertInto('data_sources')
       .values({
         created_at: new Date().toISOString(),
         import_params: '{}',
@@ -25,15 +25,13 @@ describe('RawDataRepository - Cursor Management', () => {
         source_type: 'exchange',
         started_at: new Date().toISOString(),
         status: 'started',
-        transactions_failed: 0,
-        transactions_imported: 0,
       })
       .returningAll()
       .executeTakeFirstOrThrow();
 
     // Verify session was created
     if (!insertResult) {
-      throw new Error('Failed to create test import session');
+      throw new Error('Failed to create test data source ');
     }
   });
 
@@ -52,7 +50,7 @@ describe('RawDataRepository - Cursor Management', () => {
           created_at: new Date().toISOString(),
           cursor: JSON.stringify({ trade: 1704067200000 }),
           external_id: 'tx1',
-          import_session_id: 1,
+          data_source_id: 1,
           processing_status: 'pending',
           raw_data: '{}',
           normalized_data: '{}',
@@ -75,7 +73,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ trade: 1704067200000 }),
             external_id: 'tx1',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -84,7 +82,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ trade: 1704070800000 }),
             external_id: 'tx2',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -93,7 +91,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ trade: 1704074400000 }),
             external_id: 'tx3',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -118,7 +116,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ trade: 1704067200000 }),
             external_id: 'tx1',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -127,7 +125,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ deposit: 1704070800000 }),
             external_id: 'tx2',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -136,7 +134,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ withdrawal: 1704074400000 }),
             external_id: 'tx3',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -145,7 +143,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ order: 1704078000000 }),
             external_id: 'tx4',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -172,7 +170,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ trade: 1704067200000 }),
             external_id: 'tx1',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -181,7 +179,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ deposit: 1704070800000, trade: 1704068000000 }),
             external_id: 'tx2',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -190,7 +188,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ deposit: 1704071600000, withdrawal: 1704074400000 }),
             external_id: 'tx3',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -199,7 +197,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ order: 1704078000000, trade: 1704075000000 }),
             external_id: 'tx4',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -226,7 +224,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ trade: 1704067200000 }),
             external_id: 'tx1',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -235,7 +233,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: undefined,
             external_id: 'tx2',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -244,7 +242,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ deposit: 1704070800000 }),
             external_id: 'tx3',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -261,10 +259,10 @@ describe('RawDataRepository - Cursor Management', () => {
       });
     });
 
-    test('should filter by import session ID', async () => {
+    test('should filter by data source  ID', async () => {
       // Create second session
       await db
-        .insertInto('import_sessions')
+        .insertInto('data_sources')
         .values({
           created_at: new Date().toISOString(),
           import_params: '{}',
@@ -273,8 +271,6 @@ describe('RawDataRepository - Cursor Management', () => {
           source_type: 'exchange',
           started_at: new Date().toISOString(),
           status: 'started',
-          transactions_failed: 0,
-          transactions_imported: 0,
         })
         .execute();
 
@@ -285,7 +281,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ trade: 1704067200000 }),
             external_id: 'tx1',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -294,7 +290,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ trade: 1704999999999 }),
             external_id: 'tx2',
-            import_session_id: 2,
+            data_source_id: 2,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -319,7 +315,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: 'invalid json',
             external_id: 'tx1',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
@@ -328,7 +324,7 @@ describe('RawDataRepository - Cursor Management', () => {
             created_at: new Date().toISOString(),
             cursor: JSON.stringify({ trade: 1704067200000 }),
             external_id: 'tx2',
-            import_session_id: 1,
+            data_source_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',

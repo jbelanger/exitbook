@@ -102,10 +102,9 @@ export async function clearDatabase(db: Kysely<DatabaseSchema>): Promise<void> {
       'acquisition_lots',
       'cost_basis_calculations',
       'transaction_links',
-      'import_session_errors',
       'transactions',
       'external_transaction_data',
-      'import_sessions',
+      'data_sources',
     ];
 
     for (const table of tablesToDrop) {

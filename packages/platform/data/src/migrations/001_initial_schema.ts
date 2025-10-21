@@ -3,9 +3,9 @@ import { sql, type Kysely } from 'kysely';
 import type { KyselyDB } from '../storage/database.ts';
 
 export async function up(db: Kysely<KyselyDB>): Promise<void> {
-  // Create import_sessions table
+  // Create data_sources table
   await db.schema
-    .createTable('import_sessions')
+    .createTable('data_sources')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('source_id', 'text', (col) => col.notNull())
     .addColumn('source_type', 'text', (col) => col.notNull())
@@ -30,7 +30,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
   await db.schema
     .createTable('external_transaction_data')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('import_session_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
+    .addColumn('data_source_id', 'integer', (col) => col.notNull().references('data_sources.id'))
     .addColumn('provider_id', 'text')
     .addColumn('external_id', 'text')
     .addColumn('cursor', 'text')
@@ -43,39 +43,19 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .execute();
 
-  // Create unique index on (import_session_id, external_id) to prevent duplicates
+  // Create unique index on (data_source_id, external_id) to prevent duplicates
   await db.schema
     .createIndex('idx_external_tx_session_external_id')
     .on('external_transaction_data')
-    .columns(['import_session_id', 'external_id'])
+    .columns(['data_source_id', 'external_id'])
     .unique()
-    .execute();
-
-  // Create import_session_errors table
-  await db.schema
-    .createTable('import_session_errors')
-    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('import_session_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
-    .addColumn('error_type', 'text', (col) => col.notNull())
-    .addColumn('error_message', 'text', (col) => col.notNull())
-    .addColumn('error_details', 'text')
-    .addColumn('failed_item_data', 'text')
-    .addColumn('occurred_at', 'text', (col) => col.notNull())
-    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
-    .execute();
-
-  // Create index on import_session_id for faster lookups
-  await db.schema
-    .createIndex('idx_import_session_errors_session_id')
-    .on('import_session_errors')
-    .column('import_session_id')
     .execute();
 
   // Create transactions table
   await db.schema
     .createTable('transactions')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('import_session_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
+    .addColumn('data_source_id', 'integer', (col) => col.notNull().references('data_sources.id'))
     .addColumn('source_id', 'text', (col) => col.notNull())
     .addColumn('source_type', 'text', (col) => col.notNull())
     .addColumn('external_id', 'text')
@@ -236,7 +216,6 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('transaction_links').execute();
   // Drop transaction-related tables
   await db.schema.dropTable('transactions').execute();
-  await db.schema.dropTable('import_session_errors').execute();
   await db.schema.dropTable('external_transaction_data').execute();
-  await db.schema.dropTable('import_sessions').execute();
+  await db.schema.dropTable('data_sources').execute();
 }

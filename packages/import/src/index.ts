@@ -19,11 +19,9 @@ export type { BalanceComparison, BalanceVerificationResult } from './services/ba
 export type { ImportResult } from './app/ports/importers.ts';
 export type { LoadRawDataFilters } from './app/ports/raw-data-repository.ts';
 export type { IRawDataRepository } from './app/ports/raw-data-repository.ts';
-export type { IImportSessionErrorRepository } from './app/ports/import-session-error-repository.interface.ts';
 
 export { RawDataRepository } from './infrastructure/persistence/raw-data-repository.ts';
-export { ImportSessionRepository } from './infrastructure/persistence/import-session-repository.ts';
-export { ImportSessionErrorRepository } from './infrastructure/persistence/import-session-error-repository.ts';
+export { DataSourceRepository } from './infrastructure/persistence/data-source-repository.ts';
 
 export { ImporterFactory } from './infrastructure/shared/importers/importer-factory.ts';
 export { ProcessorFactory } from './infrastructure/shared/processors/processor-factory.ts';

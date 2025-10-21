@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- db requires explicit null */
-import type { ImportSession } from '@exitbook/data';
-import type { ImportSessionRepository } from '@exitbook/import';
+import type { DataSource } from '@exitbook/data';
+import type { DataSourceRepository } from '@exitbook/import';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -8,7 +8,7 @@ import { ViewSessionsHandler } from '../view-sessions-handler.ts';
 import type { ViewSessionsParams } from '../view-sessions-utils.ts';
 
 describe('ViewSessionsHandler', () => {
-  let mockSessionRepo: ImportSessionRepository;
+  let mockSessionRepo: DataSourceRepository;
   let handler: ViewSessionsHandler;
   let mockFindAll: Mock;
 
@@ -21,19 +21,16 @@ describe('ViewSessionsHandler', () => {
     // Mock repository
     mockSessionRepo = {
       findAll: mockFindAll,
-    } as unknown as ImportSessionRepository;
+    } as unknown as DataSourceRepository;
 
     handler = new ViewSessionsHandler(mockSessionRepo);
   });
 
-  const createMockSession = (overrides: Partial<ImportSession> = {}): ImportSession => ({
+  const createMockSession = (overrides: Partial<DataSource> = {}): DataSource => ({
     id: 1,
     source_id: 'kraken',
     source_type: 'exchange',
-    provider_id: null,
     status: 'completed',
-    transactions_imported: 10,
-    transactions_failed: 0,
     started_at: '2024-01-01T00:00:00Z',
     completed_at: '2024-01-01T00:01:00Z',
     duration_ms: 60000,
@@ -50,17 +47,15 @@ describe('ViewSessionsHandler', () => {
 
   describe('execute', () => {
     it('should return formatted sessions successfully', async () => {
-      const mockSessions: ImportSession[] = [
+      const mockSessions: DataSource[] = [
         createMockSession({ id: 1, source_id: 'kraken' }),
         createMockSession({
           id: 2,
           source_id: 'bitcoin',
           source_type: 'blockchain',
-          provider_id: 'blockstream',
           started_at: '2024-01-02T00:00:00Z',
           completed_at: '2024-01-02T00:05:00Z',
           duration_ms: 300000,
-          transactions_imported: 5,
           created_at: '2024-01-02T00:00:00Z',
         }),
       ];
@@ -81,8 +76,6 @@ describe('ViewSessionsHandler', () => {
         source_type: 'exchange',
         provider_id: undefined,
         status: 'completed',
-        transactions_imported: 10,
-        transactions_failed: 0,
         started_at: '2024-01-01T00:00:00Z',
         completed_at: '2024-01-01T00:01:00Z',
         duration_ms: 60000,
@@ -91,7 +84,7 @@ describe('ViewSessionsHandler', () => {
     });
 
     it('should filter sessions by source', async () => {
-      const mockSessions: ImportSession[] = [createMockSession({ source_id: 'kraken' })];
+      const mockSessions: DataSource[] = [createMockSession({ source_id: 'kraken' })];
 
       mockFindAll.mockResolvedValue(ok(mockSessions));
 
@@ -107,11 +100,9 @@ describe('ViewSessionsHandler', () => {
     });
 
     it('should filter sessions by status', async () => {
-      const mockSessions: ImportSession[] = [
+      const mockSessions: DataSource[] = [
         createMockSession({
           status: 'failed',
-          transactions_imported: 0,
-          transactions_failed: 5,
           error_message: 'Connection timeout',
         }),
       ];
@@ -133,7 +124,7 @@ describe('ViewSessionsHandler', () => {
     });
 
     it('should limit number of sessions', async () => {
-      const mockSessions: ImportSession[] = [createMockSession()];
+      const mockSessions: DataSource[] = [createMockSession()];
 
       mockFindAll.mockResolvedValue(ok(mockSessions));
 
@@ -172,11 +163,9 @@ describe('ViewSessionsHandler', () => {
     });
 
     it('should handle sessions with all optional fields null', async () => {
-      const mockSessions: ImportSession[] = [
+      const mockSessions: DataSource[] = [
         createMockSession({
-          provider_id: null,
           status: 'started',
-          transactions_imported: 0,
           completed_at: null,
           duration_ms: null,
           error_message: null,
@@ -196,7 +185,7 @@ describe('ViewSessionsHandler', () => {
     });
 
     it('should handle combined filters', async () => {
-      const mockSessions: ImportSession[] = [];
+      const mockSessions: DataSource[] = [];
       mockFindAll.mockResolvedValue(ok(mockSessions));
 
       const params: ViewSessionsParams = {

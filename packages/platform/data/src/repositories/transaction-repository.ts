@@ -54,7 +54,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           external_id: (transaction.metadata?.hash ||
             transaction.source + '-' + (transaction.id || 'unknown')) as string,
           from_address: transaction.from,
-          import_session_id: importSessionId,
+          data_source_id: importSessionId,
           note_message: transaction.note?.message,
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
           note_severity: transaction.note?.severity,
@@ -158,7 +158,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       }
 
       if (sessionId !== undefined) {
-        query = query.where('import_session_id', '=', sessionId);
+        query = query.where('data_source_id', '=', sessionId);
       }
 
       // Order by creation time descending

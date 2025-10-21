@@ -33,10 +33,7 @@ describe('view-sessions-utils', () => {
         id: 123,
         source_id: 'kraken',
         source_type: 'exchange',
-        provider_id: 'kraken-api',
         status: 'completed',
-        transactions_imported: 150,
-        transactions_failed: 5,
         started_at: '2024-01-15T10:30:00Z',
         completed_at: '2024-01-15T10:35:00Z',
         duration_ms: 300000,
@@ -47,11 +44,9 @@ describe('view-sessions-utils', () => {
 
       expect(result).toContain('✓ Session #123 - kraken (exchange)');
       expect(result).toContain('Status: completed');
-      expect(result).toContain('Imported: 150, Failed: 5');
       expect(result).toContain('Started: 2024-01-15T10:30:00Z');
       expect(result).toContain('Completed: 2024-01-15T10:35:00Z');
       expect(result).toContain('Duration: 300.00s');
-      expect(result).toContain('Provider: kraken-api');
     });
 
     it('should format session without optional fields', () => {
@@ -59,10 +54,7 @@ describe('view-sessions-utils', () => {
         id: 456,
         source_id: 'bitcoin',
         source_type: 'blockchain',
-        provider_id: undefined,
         status: 'started',
-        transactions_imported: 0,
-        transactions_failed: 0,
         started_at: '2024-01-15T10:30:00Z',
         completed_at: undefined,
         duration_ms: undefined,
@@ -73,11 +65,9 @@ describe('view-sessions-utils', () => {
 
       expect(result).toContain('⏳ Session #456 - bitcoin (blockchain)');
       expect(result).toContain('Status: started');
-      expect(result).toContain('Imported: 0, Failed: 0');
       expect(result).toContain('Started: 2024-01-15T10:30:00Z');
       expect(result).not.toContain('Completed:');
       expect(result).not.toContain('Duration:');
-      expect(result).not.toContain('Provider:');
       expect(result).not.toContain('Error:');
     });
 
@@ -86,10 +76,7 @@ describe('view-sessions-utils', () => {
         id: 789,
         source_id: 'ethereum',
         source_type: 'blockchain',
-        provider_id: 'alchemy',
         status: 'failed',
-        transactions_imported: 10,
-        transactions_failed: 90,
         started_at: '2024-01-15T10:30:00Z',
         completed_at: '2024-01-15T10:31:00Z',
         duration_ms: 60000,
@@ -108,10 +95,7 @@ describe('view-sessions-utils', () => {
         id: 1,
         source_id: 'test',
         source_type: 'exchange',
-        provider_id: undefined,
         status: 'completed',
-        transactions_imported: 1,
-        transactions_failed: 0,
         started_at: '2024-01-15T10:30:00Z',
         completed_at: '2024-01-15T10:30:01.500Z',
         duration_ms: 1500,
@@ -128,10 +112,7 @@ describe('view-sessions-utils', () => {
         id: 1,
         source_id: 'test',
         source_type: 'exchange',
-        provider_id: undefined,
         status: 'completed',
-        transactions_imported: 1,
-        transactions_failed: 0,
         started_at: '2024-01-15T10:30:00Z',
         completed_at: '2024-01-15T10:30:00Z',
         duration_ms: 0,
@@ -148,10 +129,7 @@ describe('view-sessions-utils', () => {
         id: 999,
         source_id: 'test',
         source_type: 'exchange',
-        provider_id: undefined,
         status: 'cancelled',
-        transactions_imported: 5,
-        transactions_failed: 0,
         started_at: '2024-01-15T10:30:00Z',
         completed_at: undefined,
         duration_ms: undefined,
@@ -182,10 +160,7 @@ describe('view-sessions-utils', () => {
           id: 1,
           source_id: 'kraken',
           source_type: 'exchange',
-          provider_id: undefined,
           status: 'completed',
-          transactions_imported: 100,
-          transactions_failed: 0,
           started_at: '2024-01-15T10:30:00Z',
           completed_at: '2024-01-15T10:35:00Z',
           duration_ms: 300000,
@@ -206,10 +181,7 @@ describe('view-sessions-utils', () => {
           id: 1,
           source_id: 'kraken',
           source_type: 'exchange',
-          provider_id: undefined,
           status: 'completed',
-          transactions_imported: 100,
-          transactions_failed: 0,
           started_at: '2024-01-15T10:30:00Z',
           completed_at: '2024-01-15T10:35:00Z',
           duration_ms: 300000,
@@ -219,10 +191,7 @@ describe('view-sessions-utils', () => {
           id: 2,
           source_id: 'bitcoin',
           source_type: 'blockchain',
-          provider_id: 'blockstream',
           status: 'started',
-          transactions_imported: 0,
-          transactions_failed: 0,
           started_at: '2024-01-15T10:40:00Z',
           completed_at: undefined,
           duration_ms: undefined,
@@ -232,10 +201,7 @@ describe('view-sessions-utils', () => {
           id: 3,
           source_id: 'ethereum',
           source_type: 'blockchain',
-          provider_id: 'alchemy',
           status: 'failed',
-          transactions_imported: 10,
-          transactions_failed: 90,
           started_at: '2024-01-15T10:50:00Z',
           completed_at: '2024-01-15T10:51:00Z',
           duration_ms: 60000,
@@ -257,10 +223,7 @@ describe('view-sessions-utils', () => {
           id: 1,
           source_id: 'kraken',
           source_type: 'exchange',
-          provider_id: undefined,
           status: 'completed',
-          transactions_imported: 100,
-          transactions_failed: 0,
           started_at: '2024-01-15T10:30:00Z',
           completed_at: '2024-01-15T10:35:00Z',
           duration_ms: 300000,
@@ -280,10 +243,7 @@ describe('view-sessions-utils', () => {
           id: 1,
           source_id: 'test1',
           source_type: 'exchange',
-          provider_id: undefined,
           status: 'completed',
-          transactions_imported: 1,
-          transactions_failed: 0,
           started_at: '2024-01-15T10:30:00Z',
           completed_at: undefined,
           duration_ms: undefined,
@@ -293,10 +253,7 @@ describe('view-sessions-utils', () => {
           id: 2,
           source_id: 'test2',
           source_type: 'exchange',
-          provider_id: undefined,
           status: 'completed',
-          transactions_imported: 1,
-          transactions_failed: 0,
           started_at: '2024-01-15T10:30:00Z',
           completed_at: undefined,
           duration_ms: undefined,

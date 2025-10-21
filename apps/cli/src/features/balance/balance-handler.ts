@@ -9,7 +9,7 @@ import {
   fetchBitcoinXpubBalance,
   fetchBlockchainBalance,
   fetchExchangeBalance,
-  ImportSessionRepository,
+  DataSourceRepository,
   type BalanceComparison,
   type BalanceVerificationResult,
   type UnifiedBalanceSnapshot,
@@ -40,13 +40,13 @@ const logger = getLogger('BalanceHandler');
 
 /**
  * Balance handler - fetches live balance and compares against calculated balance.
- * Stores verification results on the most recent import session.
+ * Stores verification results on the most recent data source .
  * Reusable by both CLI command and other contexts.
  */
 export class BalanceHandler {
   private providerManager: BlockchainProviderManager;
   private transactionRepository: TransactionRepository;
-  private sessionRepository: ImportSessionRepository;
+  private sessionRepository: DataSourceRepository;
 
   constructor(database: KyselyDB, explorerConfig?: BlockchainExplorersConfig) {
     // Load explorer config
@@ -54,7 +54,7 @@ export class BalanceHandler {
 
     // Initialize services
     this.transactionRepository = new TransactionRepository(database);
-    this.sessionRepository = new ImportSessionRepository(database);
+    this.sessionRepository = new DataSourceRepository(database);
     this.providerManager = new BlockchainProviderManager(config);
   }
 
@@ -152,7 +152,7 @@ export class BalanceHandler {
 
       const sessions = sessionsResult.value;
       if (sessions.length === 0) {
-        return err(new Error(`No import session found for ${params.sourceName}`));
+        return err(new Error(`No data source  found for ${params.sourceName}`));
       }
 
       // Find session matching this specific address
@@ -163,7 +163,7 @@ export class BalanceHandler {
       });
 
       if (!matchingSession) {
-        return err(new Error(`No import session found for address ${params.address}`));
+        return err(new Error(`No data source  found for address ${params.address}`));
       }
 
       // Extract derived addresses from import_result_metadata (not import_params)
@@ -406,7 +406,7 @@ export class BalanceHandler {
 
       const sessions = sessionsResult.value;
       if (sessions.length === 0) {
-        return err(new Error(`No import session found for ${params.sourceName}`));
+        return err(new Error(`No data source  found for ${params.sourceName}`));
       }
 
       // For blockchain: find session matching the specific address
@@ -420,7 +420,7 @@ export class BalanceHandler {
         });
 
         if (!targetSession) {
-          return err(new Error(`No import session found for ${params.sourceName} with address ${params.address}`));
+          return err(new Error(`No data source  found for ${params.sourceName} with address ${params.address}`));
         }
       } else {
         // For exchanges, filter to completed sessions and sort by completed_at desc
@@ -436,7 +436,7 @@ export class BalanceHandler {
 
       // Ensure we found a session
       if (!targetSession) {
-        return err(new Error(`No import session found for ${params.sourceName}`));
+        return err(new Error(`No data source  found for ${params.sourceName}`));
       }
 
       // Build verification metadata

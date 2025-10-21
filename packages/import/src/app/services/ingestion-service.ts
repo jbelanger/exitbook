@@ -1,6 +1,6 @@
 import { getErrorMessage } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
-import type { RawData, ImportSessionMetadata, StoredImportParams, ITransactionRepository } from '@exitbook/data';
+import type { RawData, ImportSessionMetadata, DataImportParams, ITransactionRepository } from '@exitbook/data';
 import { PartialImportError } from '@exitbook/exchanges';
 import type { ImportParams } from '@exitbook/import/app/ports/importers.ts';
 import type { Logger } from '@exitbook/shared-logger';
@@ -8,8 +8,7 @@ import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, Result } from 'neverthrow';
 
 import type { ImportResult } from '../../index.js';
-import type { IImportSessionErrorRepository } from '../ports/import-session-error-repository.interface.ts';
-import type { IImportSessionRepository } from '../ports/import-session-repository.interface.ts';
+import type { IDataSourceRepository } from '../ports/data-source-repository.interface.ts';
 import type { IImporterFactory } from '../ports/importer-factory.interface.ts';
 import type { IProcessorFactory } from '../ports/processor-factory.js';
 import type { IRawDataRepository, LoadRawDataFilters } from '../ports/raw-data-repository.js';
@@ -25,8 +24,7 @@ export class TransactionIngestionService {
 
   constructor(
     private rawDataRepository: IRawDataRepository,
-    private sessionRepository: IImportSessionRepository,
-    private sessionErrorRepository: IImportSessionErrorRepository,
+    private sessionRepository: IDataSourceRepository,
     private transactionRepository: ITransactionRepository,
     private importerFactory: IImporterFactory,
     private processorFactory: IProcessorFactory
@@ -132,10 +130,10 @@ export class TransactionIngestionService {
       const rawDataBySessionId = new Map<number, RawData[]>();
 
       for (const rawDataItem of rawDataItems) {
-        if (rawDataItem.import_session_id) {
-          const sessionRawData = rawDataBySessionId.get(rawDataItem.import_session_id) || [];
+        if (rawDataItem.data_source_id) {
+          const sessionRawData = rawDataBySessionId.get(rawDataItem.data_source_id) || [];
           sessionRawData.push(rawDataItem);
-          rawDataBySessionId.set(rawDataItem.import_session_id, sessionRawData);
+          rawDataBySessionId.set(rawDataItem.data_source_id, sessionRawData);
         }
       }
 
@@ -155,7 +153,7 @@ export class TransactionIngestionService {
           sessionData.rawDataItems.some(
             (item) =>
               item.processing_status === 'pending' &&
-              (!filters?.importSessionId || item.import_session_id === filters.importSessionId)
+              (!filters?.importSessionId || item.data_source_id === filters.importSessionId)
           )
         );
 
@@ -180,8 +178,8 @@ export class TransactionIngestionService {
 
         const parsedImportParams =
           typeof session.import_params === 'string'
-            ? (JSON.parse(session.import_params) as StoredImportParams)
-            : (session.import_params as StoredImportParams);
+            ? (JSON.parse(session.import_params) as DataImportParams)
+            : (session.import_params as DataImportParams);
         const parsedResultMetadata =
           typeof session.import_result_metadata === 'string'
             ? (JSON.parse(session.import_result_metadata) as Record<string, unknown>)
@@ -234,7 +232,7 @@ export class TransactionIngestionService {
           return err(
             new Error(
               `Cannot proceed: Session ${session.id} processing failed. ${sessionTransactionsResult.error}. ` +
-                `This would corrupt portfolio calculations by losing transactions from this import session.`
+                `This would corrupt portfolio calculations by losing transactions from this data source .`
             )
           );
         }
@@ -329,7 +327,7 @@ export class TransactionIngestionService {
 
     if (existingSession) {
       this.logger.info(
-        `Found existing completed import session ${existingSession.id} with matching parameters - reusing data`
+        `Found existing completed data source  ${existingSession.id} with matching parameters - reusing data`
       );
 
       // Load raw data count from existing session
@@ -353,7 +351,7 @@ export class TransactionIngestionService {
     let sessionCreated = false;
     let importSessionId = 0;
     try {
-      const sessionIdResult = await this.sessionRepository.create(sourceId, sourceType, params.providerId, params);
+      const sessionIdResult = await this.sessionRepository.create(sourceId, sourceType, params);
 
       if (sessionIdResult.isErr()) {
         return err(sessionIdResult.error);
@@ -361,7 +359,7 @@ export class TransactionIngestionService {
 
       importSessionId = sessionIdResult.value;
       sessionCreated = true;
-      this.logger.info(`Created import session: ${importSessionId}`);
+      this.logger.info(`Created data source : ${importSessionId}`);
 
       const importer = await this.importerFactory.create(sourceId, sourceType, params);
 
@@ -394,8 +392,6 @@ export class TransactionIngestionService {
           importSessionId,
           'completed',
           startTime,
-          savedCount,
-          0,
           undefined,
           undefined,
           importResult.metadata
@@ -422,8 +418,6 @@ export class TransactionIngestionService {
           importSessionId,
           'failed',
           startTime,
-          0,
-          0,
           originalError.message,
           error instanceof Error ? { stack: error.stack } : { error: String(error) }
         );
@@ -466,7 +460,7 @@ export class TransactionIngestionService {
 
     if (existingSession) {
       importSessionId = existingSession.id;
-      this.logger.info(`Resuming existing import session: ${importSessionId}`);
+      this.logger.info(`Resuming existing data source : ${importSessionId}`);
 
       const latestCursorResult = await this.rawDataRepository.getLatestCursor(importSessionId);
       if (latestCursorResult.isOk() && latestCursorResult.value) {
@@ -475,7 +469,7 @@ export class TransactionIngestionService {
         this.logger.info(`Resuming from cursor: ${JSON.stringify(latestCursor)}`);
       }
     } else {
-      const sessionIdResult = await this.sessionRepository.create(sourceId, sourceType, params.providerId, params);
+      const sessionIdResult = await this.sessionRepository.create(sourceId, sourceType, params);
 
       if (sessionIdResult.isErr()) {
         return err(sessionIdResult.error);
@@ -483,7 +477,7 @@ export class TransactionIngestionService {
 
       importSessionId = sessionIdResult.value;
       sessionCreated = true;
-      this.logger.info(`Created new import session: ${importSessionId}`);
+      this.logger.info(`Created new data source : ${importSessionId}`);
     }
 
     try {
@@ -517,27 +511,10 @@ export class TransactionIngestionService {
             }
           }
 
-          const errorRecordResult = await this.sessionErrorRepository.create({
-            errorDetails: {
-              lastSuccessfulCursor: error.lastSuccessfulCursor,
-              successfulItemsCount: error.successfulItems.length,
-            },
-            errorMessage: error.message,
-            errorType: 'validation',
-            failedItemData: error.failedItem,
-            importSessionId,
-          });
-
-          if (errorRecordResult.isErr()) {
-            this.logger.error(`Failed to record validation error: ${errorRecordResult.error.message}`);
-          }
-
           const finalizeResult = await this.sessionRepository.finalize(
             importSessionId,
             'failed',
             startTime,
-            savedCount,
-            1,
             error.message,
             {
               failedItem: error.failedItem,
@@ -574,8 +551,6 @@ export class TransactionIngestionService {
         importSessionId,
         'completed',
         startTime,
-        savedCount,
-        0,
         undefined,
         undefined,
         importResult.metadata
@@ -599,8 +574,6 @@ export class TransactionIngestionService {
           importSessionId,
           'failed',
           startTime,
-          0,
-          0,
           originalError.message,
           error instanceof Error ? { stack: error.stack } : { error: String(error) }
         );

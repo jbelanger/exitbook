@@ -1,8 +1,7 @@
 import { TransactionRepository, type KyselyDB } from '@exitbook/data';
 import {
   ImporterFactory,
-  ImportSessionErrorRepository,
-  ImportSessionRepository,
+  DataSourceRepository,
   ProcessorFactory,
   RawDataRepository,
   TransactionIngestionService,
@@ -94,8 +93,7 @@ export class ImportHandler {
     // Initialize services
     const transactionRepository = new TransactionRepository(this.database);
     const rawDataRepository = new RawDataRepository(this.database);
-    const sessionRepository = new ImportSessionRepository(this.database);
-    const sessionErrorRepository = new ImportSessionErrorRepository(this.database);
+    const sessionRepository = new DataSourceRepository(this.database);
     this.providerManager = new BlockchainProviderManager(config);
     const importerFactory = new ImporterFactory(this.providerManager);
     const processorFactory = new ProcessorFactory();
@@ -103,7 +101,6 @@ export class ImportHandler {
     this.ingestionService = new TransactionIngestionService(
       rawDataRepository,
       sessionRepository,
-      sessionErrorRepository,
       transactionRepository,
       importerFactory,
       processorFactory

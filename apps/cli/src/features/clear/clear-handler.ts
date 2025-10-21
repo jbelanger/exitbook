@@ -1,6 +1,6 @@
 import type { CostBasisRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import type { KyselyDB, TransactionRepository } from '@exitbook/data';
-import type { RawDataRepository } from '@exitbook/import';
+import type { DataSourceRepository, RawDataRepository } from '@exitbook/import';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -25,7 +25,8 @@ export class ClearHandler {
     private transactionRepo: TransactionRepository,
     private transactionLinkRepo: TransactionLinkRepository,
     private costBasisRepo: CostBasisRepository,
-    private rawDataRepo: RawDataRepository
+    private rawDataRepo: RawDataRepository,
+    private dataSourceRepo: DataSourceRepository
   ) {}
 
   /**
@@ -36,20 +37,20 @@ export class ClearHandler {
       const countTable = async (tableName: string, sourceFilter?: boolean): Promise<number> => {
         if (sourceFilter && params.source) {
           const result = await this.db
-            .selectFrom(tableName as 'import_sessions')
+            .selectFrom(tableName as 'data_sources')
             .select(({ fn }) => [fn.count<number>('id').as('count')])
             .where('source_id', '=', params.source)
             .executeTakeFirst();
           return result?.count ?? 0;
         }
         const result = await this.db
-          .selectFrom(tableName as 'import_sessions')
+          .selectFrom(tableName as 'data_sources')
           .select(({ fn }) => [fn.count<number>('id').as('count')])
           .executeTakeFirst();
         return result?.count ?? 0;
       };
 
-      const sessions = await countTable('import_sessions', true);
+      const sessions = await countTable('data_sources', true);
       const rawData = await countTable('external_transaction_data', false);
       const transactions = await countTable('transactions', true);
       const links = await countTable('transaction_links', false);
@@ -123,24 +124,15 @@ export class ClearHandler {
         }
 
         if (params.includeRaw) {
-          // Delete raw data and sessions
           const rawDataResult = await this.rawDataRepo.deleteBySource(params.source);
           if (rawDataResult.isErr()) {
             return err(rawDataResult.error);
           }
 
-          // Delete import_session_errors (no repository yet, use db directly)
-          await this.db
-            .deleteFrom('import_session_errors')
-            .where(
-              'import_session_id',
-              'in',
-              this.db.selectFrom('import_sessions').select('id').where('source_id', '=', params.source)
-            )
-            .execute();
-
-          // Delete import_sessions (after raw data is deleted due to FK)
-          await this.db.deleteFrom('import_sessions').where('source_id', '=', params.source).execute();
+          const dataSourceResult = await this.dataSourceRepo.deleteBySource(params.source);
+          if (dataSourceResult.isErr()) {
+            return err(dataSourceResult.error);
+          }
         } else {
           // Reset raw data processing_status to 'pending' for reprocessing
           const resetResult = await this.rawDataRepo.resetProcessingStatusBySource(params.source);
@@ -176,17 +168,15 @@ export class ClearHandler {
         }
 
         if (params.includeRaw) {
-          // Delete raw data and sessions
           const rawDataResult = await this.rawDataRepo.deleteAll();
           if (rawDataResult.isErr()) {
             return err(rawDataResult.error);
           }
 
-          // Delete import_session_errors (no repository yet, use db directly)
-          await this.db.deleteFrom('import_session_errors').execute();
-
-          // Delete import_sessions (after raw data is deleted due to FK)
-          await this.db.deleteFrom('import_sessions').execute();
+          const dataSourceResult = await this.dataSourceRepo.deleteAll();
+          if (dataSourceResult.isErr()) {
+            return err(dataSourceResult.error);
+          }
         } else {
           // Reset raw data processing_status to 'pending' for reprocessing
           const resetResult = await this.rawDataRepo.resetProcessingStatusAll();

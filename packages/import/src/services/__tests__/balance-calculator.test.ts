@@ -9,7 +9,7 @@ import { calculateBalances } from '../balance-calculator.ts';
 function createTestTransaction(overrides: Partial<StoredTransaction>): StoredTransaction {
   return {
     id: 1,
-    import_session_id: 1,
+    data_source_id: 1,
     source_id: 'test',
     source_type: 'exchange',
     external_id: 'test-tx',

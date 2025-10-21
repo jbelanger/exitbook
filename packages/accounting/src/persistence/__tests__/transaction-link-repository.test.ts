@@ -15,9 +15,9 @@ describe('TransactionLinkRepository', () => {
     await runMigrations(db);
     repository = new TransactionLinkRepository(db);
 
-    // Create mock import session for foreign key constraints
+    // Create mock data source  for foreign key constraints
     await db
-      .insertInto('import_sessions')
+      .insertInto('data_sources')
       .values({
         source_type: 'exchange',
         source_id: 'test',
@@ -37,7 +37,7 @@ describe('TransactionLinkRepository', () => {
       await db
         .insertInto('transactions')
         .values({
-          import_session_id: 1,
+          data_source_id: 1,
           source_id: 'test',
           source_type: 'exchange' as const,
           external_id: `tx-${i}`,
@@ -341,7 +341,7 @@ describe('TransactionLinkRepository', () => {
 
       // Create additional transactions with different source_id
       await db
-        .insertInto('import_sessions')
+        .insertInto('data_sources')
         .values({
           source_type: 'blockchain',
           source_id: 'ethereum',
@@ -359,7 +359,7 @@ describe('TransactionLinkRepository', () => {
       await db
         .insertInto('transactions')
         .values({
-          import_session_id: 2,
+          data_source_id: 2,
           source_id: 'ethereum',
           source_type: 'blockchain' as const,
           external_id: 'eth-tx-1',

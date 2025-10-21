@@ -16,10 +16,7 @@ export interface SessionInfo {
   id: number;
   source_id: string;
   source_type: 'exchange' | 'blockchain';
-  provider_id: string | undefined;
   status: 'started' | 'completed' | 'failed' | 'cancelled';
-  transactions_imported: number;
-  transactions_failed: number;
   started_at: string;
   completed_at: string | undefined;
   duration_ms: number | undefined;
@@ -61,7 +58,6 @@ export function formatSessionForDisplay(session: SessionInfo): string {
 
   lines.push(`${statusIcon} Session #${session.id} - ${session.source_id} (${session.source_type})`);
   lines.push(`   Status: ${session.status}`);
-  lines.push(`   Imported: ${session.transactions_imported}, Failed: ${session.transactions_failed}`);
   lines.push(`   Started: ${session.started_at}`);
 
   if (session.completed_at) {
@@ -71,10 +67,6 @@ export function formatSessionForDisplay(session: SessionInfo): string {
   if (session.duration_ms !== undefined) {
     const durationSec = (session.duration_ms / 1000).toFixed(2);
     lines.push(`   Duration: ${durationSec}s`);
-  }
-
-  if (session.provider_id) {
-    lines.push(`   Provider: ${session.provider_id}`);
   }
 
   if (session.error_message) {
