@@ -1,80 +1,26 @@
 /**
- * Raw data tagged with the API client that fetched it
+ * Types exported from schemas for single source of truth
  */
-/**
- * Import parameters that can be stored in session metadata
- */
-export interface DataImportParams {
-  address?: string | undefined;
-  csvDirectories?: string[] | undefined;
-  exchangeCredentials?: Record<string, unknown> | undefined;
-  providerId?: string | undefined;
-}
+export type {
+  BalanceDiscrepancy,
+  BalanceVerification,
+  DataImportParams,
+  SourceParams,
+  VerificationMetadata,
+} from '../schemas/data-source.ts';
 
-/**
- * Verification metadata stored in session
- */
-export interface VerificationMetadata {
-  current_balance: Record<string, string>;
-  last_verification: BalanceVerification;
-  source_params: SourceParams;
-}
+import type { DataImportParams, VerificationMetadata } from '../schemas/data-source.ts';
 
 /**
  * Rich session metadata providing blockchain-specific address context
  */
 export interface ImportSessionMetadata {
-  // User-provided address
   address?: string | undefined;
-
-  // CSV import directories for exchange imports
   csvDirectories?: string[] | undefined;
-
-  // Bitcoin xpub-derived addresses for multi-address wallets
   derivedAddresses?: string[] | undefined;
-
-  // Import timestamp
   importedAt?: number | undefined;
-
-  // Import parameters used for this session
   importParams?: DataImportParams | undefined;
-
-  // Additional provider-specific metadata
   [key: string]: unknown;
-}
-
-/**
- * Source parameters identifying the wallet/account
- */
-export type SourceParams =
-  | {
-      exchange: string;
-    }
-  | {
-      address: string;
-      blockchain: string;
-    };
-
-/**
- * Balance discrepancy details
- */
-export interface BalanceDiscrepancy {
-  asset: string;
-  calculated: string;
-  difference: string;
-  live: string;
-}
-
-/**
- * Balance verification result
- */
-export interface BalanceVerification {
-  calculated_balance: Record<string, string>;
-  discrepancies?: BalanceDiscrepancy[] | undefined;
-  live_balance?: Record<string, string> | undefined;
-  status: 'match' | 'mismatch' | 'unavailable';
-  suggestions?: string[] | undefined;
-  verified_at: string;
 }
 
 /**

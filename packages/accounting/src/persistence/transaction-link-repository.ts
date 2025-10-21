@@ -1,25 +1,21 @@
 /* eslint-disable unicorn/no-null -- null needed by Kysely */
+import { DecimalSchema } from '@exitbook/core';
 import type { KyselyDB, TransactionLinksTable } from '@exitbook/data';
-import { getLogger, type Logger } from '@exitbook/shared-logger';
-import { Decimal } from 'decimal.js';
+import { BaseRepository } from '@exitbook/data';
 import type { Selectable } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
 import { MatchCriteriaSchema } from '../linking/schemas.js';
-import type { TransactionLink } from '../linking/types.js';
+import type { MatchCriteria, TransactionLink } from '../linking/types.js';
 
 export type StoredTransactionLink = Selectable<TransactionLinksTable>;
 
 /**
  * Repository for transaction link operations
  */
-export class TransactionLinkRepository {
-  private readonly db: KyselyDB;
-  private readonly logger: Logger;
-
+export class TransactionLinkRepository extends BaseRepository {
   constructor(db: KyselyDB) {
-    this.db = db;
-    this.logger = getLogger('TransactionLinkRepository');
+    super(db, 'TransactionLinkRepository');
   }
 
   /**
@@ -307,53 +303,21 @@ export class TransactionLinkRepository {
   }
 
   /**
-   * Helper method to serialize data to JSON string safely
-   * Handles Decimal objects by converting them to strings
-   */
-  private serializeToJson(data: unknown): string | undefined {
-    if (data === undefined || data === null) return undefined;
-
-    try {
-      return JSON.stringify(data, (_key, value: unknown) => {
-        // Convert Decimal objects to strings for proper serialization
-        if (
-          value &&
-          typeof value === 'object' &&
-          'd' in value &&
-          'e' in value &&
-          's' in value &&
-          'toString' in value &&
-          typeof value.toString === 'function'
-        ) {
-          // This is likely a Decimal.js object (has d, e, s properties and toString method)
-          return (value as { toString: () => string }).toString();
-        }
-        return value as string | number | boolean | null | object;
-      });
-    } catch (error) {
-      this.logger.warn({ data, error }, 'Failed to serialize data to JSON');
-      return undefined;
-    }
-  }
-
-  /**
    * Convert database row to TransactionLink domain model
    * Uses Zod schema for validation and automatic Decimal transformation
    */
   private toTransactionLink(row: StoredTransactionLink): TransactionLink {
     // Parse and validate matchCriteria with schema (handles Decimal rehydration automatically)
-    const matchCriteria = MatchCriteriaSchema.parse(JSON.parse(row.match_criteria_json as string));
+    const matchCriteria = this.parseWithSchema(row.match_criteria_json, MatchCriteriaSchema, {} as MatchCriteria);
 
-    const metadata = row.metadata_json
-      ? (JSON.parse(row.metadata_json as string) as Record<string, unknown>)
-      : undefined;
+    const metadata = this.parseJson<Record<string, unknown>>(row.metadata_json);
 
     return {
       id: row.id,
       sourceTransactionId: row.source_transaction_id,
       targetTransactionId: row.target_transaction_id,
       linkType: row.link_type,
-      confidenceScore: new Decimal(row.confidence_score),
+      confidenceScore: DecimalSchema.parse(row.confidence_score),
       matchCriteria,
       status: row.status,
       reviewedBy: row.reviewed_by ?? undefined,

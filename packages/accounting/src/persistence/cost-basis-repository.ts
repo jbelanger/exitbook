@@ -1,18 +1,13 @@
-import type { KyselyDB } from '@exitbook/data';
-import { getLogger, type Logger } from '@exitbook/shared-logger';
+import { BaseRepository, type KyselyDB } from '@exitbook/data';
 import { err, ok, type Result } from 'neverthrow';
 
 /**
  * Repository for cost basis data operations
  * Handles acquisition_lots, lot_disposals, and cost_basis_calculations tables
  */
-export class CostBasisRepository {
-  private readonly db: KyselyDB;
-  private readonly logger: Logger;
-
+export class CostBasisRepository extends BaseRepository {
   constructor(db: KyselyDB) {
-    this.db = db;
-    this.logger = getLogger('CostBasisRepository');
+    super(db, 'CostBasisRepository');
   }
 
   /**

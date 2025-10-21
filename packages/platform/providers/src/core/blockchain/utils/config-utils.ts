@@ -2,29 +2,35 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { getErrorMessage } from '@exitbook/core';
+import { z } from 'zod';
+
+// Configuration schemas
+const ProviderOverrideSchema = z.object({
+  description: z.string().optional(),
+  enabled: z.boolean().optional(),
+  priority: z.number().optional(),
+  rateLimit: z
+    .object({
+      requestsPerSecond: z.number().optional(),
+      requestsPerMinute: z.number().optional(),
+      requestsPerHour: z.number().optional(),
+      burstLimit: z.number().optional(),
+    })
+    .optional(),
+  retries: z.number().optional(),
+  timeout: z.number().optional(),
+});
+
+const BlockchainConfigSchema = z.object({
+  defaultEnabled: z.array(z.string()).optional(),
+  overrides: z.record(z.string(), ProviderOverrideSchema).optional(),
+});
+
+export const BlockchainExplorersConfigSchema = z.record(z.string(), BlockchainConfigSchema);
 
 // Configuration types
-export type BlockchainExplorersConfig = Record<
-  string,
-  {
-    defaultEnabled?: string[] | undefined;
-    overrides?: Record<string, ProviderOverride> | undefined;
-  }
->;
-
-export interface ProviderOverride {
-  description?: string | undefined;
-  enabled?: boolean | undefined;
-  priority?: number | undefined;
-  rateLimit?: {
-    burstLimit?: number | undefined;
-    requestsPerHour?: number | undefined;
-    requestsPerMinute?: number | undefined;
-    requestsPerSecond?: number | undefined;
-  };
-  retries?: number | undefined;
-  timeout?: number | undefined;
-}
+export type ProviderOverride = z.infer<typeof ProviderOverrideSchema>;
+export type BlockchainExplorersConfig = z.infer<typeof BlockchainExplorersConfigSchema>;
 
 /**
  * Configuration utilities for dependency injection
@@ -43,7 +49,8 @@ export class ConfigUtils {
 
     try {
       const configData = fs.readFileSync(finalPath, 'utf-8');
-      return JSON.parse(configData) as BlockchainExplorersConfig;
+      const parsed = JSON.parse(configData) as unknown;
+      return BlockchainExplorersConfigSchema.parse(parsed);
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
         // File doesn't exist - this is OK, we'll use registry defaults

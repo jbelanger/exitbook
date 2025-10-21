@@ -1,6 +1,7 @@
 import { type Logger, getLogger } from '@exitbook/shared-logger';
 import { Decimal } from 'decimal.js';
 import type { Transaction } from 'kysely';
+import type { z } from 'zod';
 
 import type { DatabaseSchema } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
@@ -79,5 +80,52 @@ export abstract class BaseRepository {
    */
   protected getCurrentDateTimeForDB(): string {
     return new Date().toISOString();
+  }
+
+  /**
+   * Parse JSON with Zod schema validation
+   * Returns fallback value if parsing or validation fails
+   */
+  protected parseWithSchema<T>(value: unknown, schema: z.ZodSchema<T>, fallback: T): T;
+  protected parseWithSchema<T>(value: unknown, schema: z.ZodSchema<T>): T | undefined;
+  protected parseWithSchema<T>(value: unknown, schema: z.ZodSchema<T>, fallback?: T): T | undefined {
+    if (!value) {
+      return fallback;
+    }
+
+    try {
+      const parsed: unknown = typeof value === 'string' ? JSON.parse(value) : value;
+      const result = schema.safeParse(parsed);
+
+      if (!result.success) {
+        this.logger.warn({ error: result.error, value }, 'Failed to validate with schema');
+        return fallback;
+      }
+
+      return result.data;
+    } catch (error) {
+      this.logger.warn({ error, value }, 'Failed to parse JSON');
+      return fallback;
+    }
+  }
+
+  /**
+   * Parse JSON without schema validation
+   * Returns fallback value if parsing fails (defaults to undefined)
+   * Use this for arbitrary objects where schema validation isn't needed
+   */
+  protected parseJson<T = unknown>(value: unknown, fallback: T): T;
+  protected parseJson<T = unknown>(value: unknown): T | undefined;
+  protected parseJson<T = unknown>(value: unknown, fallback?: T): T | undefined {
+    if (!value) {
+      return fallback;
+    }
+
+    try {
+      return typeof value === 'string' ? (JSON.parse(value) as T) : (value as T);
+    } catch (error) {
+      this.logger.warn({ error, value }, 'Failed to parse JSON');
+      return fallback;
+    }
   }
 }

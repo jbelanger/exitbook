@@ -1,10 +1,10 @@
 import type { DataImportParams, DataSource, VerificationMetadata } from '@exitbook/core';
-import { wrapError } from '@exitbook/core';
+import { DataImportParamsSchema, VerificationMetadataSchema, wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import type { StoredDataSource, ImportSessionQuery, DataSourceUpdate } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
-import { ok, err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 
 import type { IDataSourceRepository } from '../../app/ports/data-source-repository.interface.ts';
 
@@ -268,26 +268,21 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
    * Handles JSON parsing and camelCase conversion
    */
   private toDataSource(row: StoredDataSource): DataSource {
-    // Parse JSON fields
-    const importParams: DataImportParams =
-      typeof row.import_params === 'string'
-        ? (JSON.parse(row.import_params) as DataImportParams)
-        : (row.import_params as DataImportParams);
+    // Parse and validate JSON fields using schemas
+    const importParams: DataImportParams = this.parseWithSchema(
+      row.import_params,
+      DataImportParamsSchema,
+      {} as DataImportParams
+    );
 
-    const importResultMetadata: Record<string, unknown> =
-      typeof row.import_result_metadata === 'string'
-        ? (JSON.parse(row.import_result_metadata) as Record<string, unknown>)
-        : (row.import_result_metadata as Record<string, unknown>);
+    const importResultMetadata: Record<string, unknown> = this.parseJson(row.import_result_metadata, {});
 
-    const errorDetails: unknown =
-      row.error_details && typeof row.error_details === 'string'
-        ? (JSON.parse(row.error_details) as unknown)
-        : row.error_details;
+    const errorDetails: unknown = this.parseJson(row.error_details);
 
-    const verificationMetadata: VerificationMetadata | null =
-      row.verification_metadata && typeof row.verification_metadata === 'string'
-        ? (JSON.parse(row.verification_metadata) as VerificationMetadata)
-        : (row.verification_metadata as VerificationMetadata | null);
+    const verificationMetadata: VerificationMetadata | undefined = this.parseWithSchema(
+      row.verification_metadata,
+      VerificationMetadataSchema
+    );
 
     return {
       id: row.id,
@@ -304,7 +299,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       importParams,
       importResultMetadata,
       lastBalanceCheckAt: row.last_balance_check_at ? new Date(row.last_balance_check_at) : undefined,
-      verificationMetadata: verificationMetadata ?? undefined,
+      verificationMetadata,
     };
   }
 }

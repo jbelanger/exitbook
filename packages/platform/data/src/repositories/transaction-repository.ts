@@ -1,11 +1,12 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
 import type { Currency, AssetMovement, Money, UniversalTransaction, TransactionStatus } from '@exitbook/core';
-import { dbStringToMoney, moneyToDbString, parseDecimal, wrapError } from '@exitbook/core';
+import { AssetMovementSchema, dbStringToMoney, MoneySchema, moneyToDbString, wrapError } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import type { Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
+import { z } from 'zod';
 
 import type { TransactionsTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
@@ -214,10 +215,8 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       // Parse movements once, then filter for those needing prices
       const parsedTransactions = results.map((tx) => ({
         id: tx.id,
-        movementsInflows: tx.movements_inflows ? (JSON.parse(tx.movements_inflows as string) as AssetMovement[]) : [],
-        movementsOutflows: tx.movements_outflows
-          ? (JSON.parse(tx.movements_outflows as string) as AssetMovement[])
-          : [],
+        movementsInflows: this.parseMovements(tx.movements_inflows as string | null),
+        movementsOutflows: this.parseMovements(tx.movements_outflows as string | null),
         transactionDatetime: tx.transaction_datetime,
       }));
 
@@ -273,8 +272,8 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       }
 
       // Parse movements
-      const inflows = tx.movements_inflows ? (JSON.parse(tx.movements_inflows as string) as unknown[]) : [];
-      const outflows = tx.movements_outflows ? (JSON.parse(tx.movements_outflows as string) as unknown[]) : [];
+      const inflows = this.parseMovements(tx.movements_inflows as string | null);
+      const outflows = this.parseMovements(tx.movements_outflows as string | null);
 
       // Create price lookup map
       const priceMap = new Map(
@@ -358,14 +357,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     const platform = this.parseFee(row.fees_platform as string | null);
 
     // Parse metadata from raw_normalized_data if present
-    let metadata: Record<string, unknown> | undefined;
-    if (row.raw_normalized_data) {
-      try {
-        metadata = JSON.parse(row.raw_normalized_data as string) as Record<string, unknown>;
-      } catch {
-        metadata = undefined;
-      }
-    }
+    const metadata = this.parseJson<Record<string, unknown>>(row.raw_normalized_data);
 
     const status: TransactionStatus = row.transaction_status;
 
@@ -411,7 +403,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         type: row.note_type,
         message: row.note_message ?? '',
         severity: row.note_severity ?? undefined,
-        metadata: row.note_metadata ? (JSON.parse(row.note_metadata as string) as Record<string, unknown>) : undefined,
+        metadata: this.parseJson<Record<string, unknown>>(row.note_metadata),
       };
     }
 
@@ -427,32 +419,15 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
 
     try {
-      const parsed = JSON.parse(jsonString) as {
-        amount: string | number;
-        asset: string;
-        priceAtTxTime?: {
-          fetchedAt: string;
-          granularity?: 'day' | 'exact' | 'hour' | 'minute';
-          price: { amount: string | number; currency: string };
-          source: string;
-        };
-      }[];
+      const parsed: unknown = JSON.parse(jsonString);
+      const result = z.array(AssetMovementSchema).safeParse(parsed);
 
-      return parsed.map((movement) => ({
-        amount: parseDecimal(movement.amount.toString()),
-        asset: movement.asset,
-        ...(movement.priceAtTxTime && {
-          priceAtTxTime: {
-            fetchedAt: new Date(movement.priceAtTxTime.fetchedAt),
-            granularity: movement.priceAtTxTime.granularity,
-            price: dbStringToMoney(
-              movement.priceAtTxTime.price.amount.toString(),
-              movement.priceAtTxTime.price.currency
-            )!,
-            source: movement.priceAtTxTime.source,
-          },
-        }),
-      }));
+      if (!result.success) {
+        this.logger.warn({ error: result.error, jsonString }, 'Failed to validate movements JSON');
+        return [];
+      }
+
+      return result.data;
     } catch (error) {
       this.logger.warn({ error, jsonString }, 'Failed to parse movements JSON');
       return [];
@@ -469,12 +444,15 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
 
     try {
-      const parsed = JSON.parse(jsonString) as {
-        amount: string | number;
-        currency: string;
-      };
+      const parsed: unknown = JSON.parse(jsonString);
+      const result = MoneySchema.safeParse(parsed);
 
-      return dbStringToMoney(String(parsed.amount), parsed.currency) ?? null;
+      if (!result.success) {
+        this.logger.warn({ error: result.error, jsonString }, 'Failed to validate fee JSON');
+        return null;
+      }
+
+      return result.data;
     } catch (error) {
       this.logger.warn({ error, jsonString }, 'Failed to parse fee JSON');
       return null;

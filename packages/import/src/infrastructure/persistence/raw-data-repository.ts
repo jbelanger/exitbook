@@ -178,10 +178,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       for (const row of rows) {
         if (!row.cursor) continue;
 
-        const cursor: Record<string, unknown> =
-          typeof row.cursor === 'string'
-            ? (JSON.parse(row.cursor) as Record<string, unknown>)
-            : ((row.cursor as Record<string, unknown>) ?? ({} as Record<string, unknown>));
+        const cursor = this.parseJson<Record<string, unknown>>(row.cursor, {});
 
         if (typeof cursor === 'object' && cursor !== null) {
           for (const [operationType, timestamp] of Object.entries(cursor)) {
@@ -283,32 +280,18 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
    * Handles JSON parsing and camelCase conversion
    */
   private toExternalTransactionData(row: StoredRawData): ExternalTransactionData {
-    // Parse JSON fields
-    const rawData: unknown = typeof row.raw_data === 'string' ? (JSON.parse(row.raw_data) as unknown) : row.raw_data;
-
-    const normalizedData: unknown =
-      typeof row.normalized_data === 'string' ? (JSON.parse(row.normalized_data) as unknown) : row.normalized_data;
-
-    const cursor: Record<string, unknown> | null =
-      row.cursor && typeof row.cursor === 'string'
-        ? (JSON.parse(row.cursor) as Record<string, unknown>)
-        : (row.cursor as Record<string, unknown> | null);
-
-    const metadata: unknown =
-      row.metadata && typeof row.metadata === 'string' ? (JSON.parse(row.metadata) as unknown) : row.metadata;
-
     return {
       id: row.id,
       dataSourceId: row.data_source_id,
       providerId: row.provider_id ?? undefined,
       externalId: row.external_id ?? undefined,
-      cursor: cursor ?? undefined,
-      rawData,
-      normalizedData,
+      cursor: this.parseJson<Record<string, unknown>>(row.cursor),
+      rawData: this.parseJson<unknown>(row.raw_data),
+      normalizedData: this.parseJson<unknown>(row.normalized_data),
       processingStatus: row.processing_status,
       processedAt: row.processed_at ? new Date(row.processed_at) : undefined,
       processingError: row.processing_error ?? undefined,
-      metadata,
+      metadata: this.parseJson<unknown>(row.metadata),
       createdAt: new Date(row.created_at),
     };
   }

@@ -23,6 +23,7 @@ function createTransaction(params: {
 }): UniversalTransaction {
   return {
     id: params.id,
+    externalId: `${params.source}-${params.id}`,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
     source: params.source,
