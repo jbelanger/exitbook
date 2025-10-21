@@ -12,8 +12,8 @@ class TestExchangeProcessor extends DefaultExchangeProcessor {
     super('test-exchange');
   }
 
-  protected mapStatus(status: string | undefined): 'pending' | 'ok' | 'canceled' | 'failed' {
-    if (!status) return 'ok';
+  protected mapStatus(status: string | undefined): 'pending' | 'success' | 'canceled' | 'failed' {
+    if (!status) return 'success';
 
     switch (status.toLowerCase()) {
       case 'pending':
@@ -24,7 +24,7 @@ class TestExchangeProcessor extends DefaultExchangeProcessor {
       case 'failed':
         return 'failed';
       default:
-        return 'ok';
+        return 'success';
     }
   }
 }
