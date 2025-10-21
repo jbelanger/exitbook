@@ -85,7 +85,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
           },
           note: classification.note,
 
-          uniqueId: normalizedTx.id,
+          externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: 'substrate',

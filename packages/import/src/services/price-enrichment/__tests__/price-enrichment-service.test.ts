@@ -22,7 +22,7 @@ function createMockTransaction(
   return {
     id: id,
     source: sourceId,
-    uniqueId: `tx-${id}`,
+    externalId: `tx-${id}`,
     status: 'success',
     datetime: datetime,
     timestamp: new Date(datetime).getTime(),

@@ -61,7 +61,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
 
         const universalTransaction: UniversalTransaction = {
           id: 0, // Will be assigned by database
-          uniqueId: normalizedTx.id,
+          externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: 'bitcoin',
@@ -121,7 +121,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         };
 
         transactions.push(universalTransaction);
-        this.logger.debug(`Successfully processed normalized transaction ${universalTransaction.uniqueId}`);
+        this.logger.debug(`Successfully processed normalized transaction ${universalTransaction.externalId}`);
       } catch (error) {
         this.logger.error(`Failed to process normalized transaction ${normalizedTx.id}: ${String(error)}`);
         continue;

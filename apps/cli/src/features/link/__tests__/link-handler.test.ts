@@ -73,7 +73,7 @@ describe('LinkHandler', () => {
 
   const createMockTransaction = (id: number, sourceType: string, operationType: string): UniversalTransaction => ({
     id: id,
-    uniqueId: `ext-${id}`,
+    externalId: `ext-${id}`,
     source: 'test-source',
     operation: { type: operationType as 'withdrawal' | 'deposit', category: 'transfer' },
     datetime: '2024-01-01T12:00:00Z',

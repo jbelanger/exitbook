@@ -77,7 +77,7 @@ export const TransactionNoteSchema = z.object({
 export const UniversalTransactionSchema = z.object({
   // Core fields
   id: z.number().int(),
-  uniqueId: z.string().min(1, 'Transaction ID must not be empty').optional(),
+  externalId: z.string().min(1, 'Transaction ID must not be empty'),
   datetime: z.string().min(1, 'Datetime string must not be empty'),
   timestamp: z.number().int().positive('Timestamp must be a positive integer'),
   source: z.string().min(1, 'Source must not be empty'),

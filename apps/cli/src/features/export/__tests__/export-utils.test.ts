@@ -219,7 +219,7 @@ describe('export-utils', () => {
     it('should convert single transaction to CSV', () => {
       const transaction: UniversalTransaction = {
         id: 1,
-        uniqueId: 'ext-1',
+        externalId: 'ext-1',
         source: 'kraken',
         datetime: '2024-01-01T12:00:00Z',
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
@@ -248,7 +248,7 @@ describe('export-utils', () => {
       const transactions: UniversalTransaction[] = [
         {
           id: 1,
-          uniqueId: 'ext-1',
+          externalId: 'ext-1',
           source: 'kraken',
           datetime: '2024-01-01T12:00:00Z',
           timestamp: Date.parse('2024-01-01T12:00:00Z'),
@@ -266,7 +266,7 @@ describe('export-utils', () => {
         },
         {
           id: 2,
-          uniqueId: 'ext-2',
+          externalId: 'ext-2',
           source: 'kraken',
           datetime: '2024-01-02T12:00:00Z',
           timestamp: Date.parse('2024-01-02T12:00:00Z'),
@@ -296,7 +296,7 @@ describe('export-utils', () => {
     it('should escape values with commas', () => {
       const transaction: UniversalTransaction = {
         id: 1,
-        uniqueId: 'ext-1',
+        externalId: 'ext-1',
         source: 'test,source',
         datetime: '2024-01-01T12:00:00Z',
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
@@ -328,7 +328,7 @@ describe('export-utils', () => {
     it('should convert single transaction to JSON', () => {
       const transaction: UniversalTransaction = {
         id: 1,
-        uniqueId: 'ext-1',
+        externalId: 'ext-1',
         source: 'kraken',
         datetime: '2024-01-01T12:00:00Z',
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
@@ -370,7 +370,7 @@ describe('export-utils', () => {
       const transactions: UniversalTransaction[] = [
         {
           id: 1,
-          uniqueId: 'ext-1',
+          externalId: 'ext-1',
           source: 'kraken',
           datetime: '2024-01-01T12:00:00Z',
           timestamp: Date.parse('2024-01-01T12:00:00Z'),
@@ -388,7 +388,7 @@ describe('export-utils', () => {
         },
         {
           id: 2,
-          uniqueId: 'ext-2',
+          externalId: 'ext-2',
           source: 'kraken',
           datetime: '2024-01-02T12:00:00Z',
           timestamp: Date.parse('2024-01-02T12:00:00Z'),
@@ -417,7 +417,7 @@ describe('export-utils', () => {
     it('should include blockchain information when present', () => {
       const transaction: UniversalTransaction = {
         id: 1,
-        uniqueId: 'ext-1',
+        externalId: 'ext-1',
         source: 'bitcoin',
         datetime: '2024-01-01T12:00:00Z',
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
@@ -460,7 +460,7 @@ describe('export-utils', () => {
     it('should format JSON with proper indentation', () => {
       const transaction: UniversalTransaction = {
         id: 1,
-        uniqueId: 'ext-1',
+        externalId: 'ext-1',
         source: 'kraken',
         datetime: '2024-01-01T12:00:00Z',
         timestamp: Date.parse('2024-01-01T12:00:00Z'),

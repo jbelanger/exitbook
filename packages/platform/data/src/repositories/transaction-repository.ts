@@ -5,6 +5,7 @@ import type { Decimal } from 'decimal.js';
 import type { Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
+import { v4 as uuidv4 } from 'uuid';
 
 import type { TransactionsTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
@@ -51,7 +52,8 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         .values({
           created_at: this.getCurrentDateTimeForDB(),
           external_id: (transaction.metadata?.hash ||
-            transaction.source + '-' + (transaction.uniqueId || 'unknown')) as string,
+            transaction.externalId ||
+            `${transaction.source}-${transaction.timestamp}-${uuidv4()}`) as string,
           from_address: transaction.from,
           data_source_id: importSessionId,
           note_message: transaction.note?.message,
@@ -427,7 +429,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     // Build UniversalTransaction
     const transaction: UniversalTransaction = {
       id: row.id,
-      uniqueId: row.external_id ?? `${row.source_id}-${row.id}`,
+      externalId: row.external_id ?? `${row.source_id}-${row.id}`,
       datetime,
       timestamp,
       source: row.source_id,

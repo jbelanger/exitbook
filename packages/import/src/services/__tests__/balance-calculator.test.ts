@@ -9,7 +9,7 @@ function createTestTransaction(overrides: Partial<UniversalTransaction>): Univer
   return {
     id: 0, // Will be assigned by database
     source: 'test',
-    uniqueId: 'test-tx',
+    externalId: 'test-tx',
     status: 'success',
     datetime: '2024-01-01T00:00:00Z',
     timestamp: Date.parse(overrides.datetime ?? '2024-01-01T00:00:00Z'),
@@ -30,7 +30,7 @@ describe('calculateBalances', () => {
   it('should calculate balance from single inflow transaction', () => {
     const transaction = createTestTransaction({
       source: 'kraken',
-      uniqueId: 'tx1',
+      externalId: 'tx1',
       movements: {
         inflows: [
           {
@@ -51,7 +51,7 @@ describe('calculateBalances', () => {
   it('should calculate balance from single outflow transaction', () => {
     const transaction = createTestTransaction({
       source: 'kraken',
-      uniqueId: 'tx2',
+      externalId: 'tx2',
       movements: {
         inflows: [],
         outflows: [
@@ -72,7 +72,7 @@ describe('calculateBalances', () => {
   it('should calculate balance with network fees', () => {
     const transaction = createTestTransaction({
       source: 'bitcoin',
-      uniqueId: 'tx3',
+      externalId: 'tx3',
       from: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
       to: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
       movements: {
@@ -97,7 +97,7 @@ describe('calculateBalances', () => {
   it('should calculate balance with platform fees', () => {
     const transaction = createTestTransaction({
       source: 'kraken',
-      uniqueId: 'tx4',
+      externalId: 'tx4',
       movements: {
         inflows: [
           {
@@ -126,7 +126,7 @@ describe('calculateBalances', () => {
   it('should calculate balance with both network and platform fees', () => {
     const transaction = createTestTransaction({
       source: 'ethereum',
-      uniqueId: 'tx5',
+      externalId: 'tx5',
       from: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
       to: '0x123456789abcdef123456789abcdef123456789a',
       movements: {
@@ -150,7 +150,7 @@ describe('calculateBalances', () => {
     const transactions: UniversalTransaction[] = [
       createTestTransaction({
         source: 'kraken',
-        uniqueId: 'tx6',
+        externalId: 'tx6',
         datetime: '2024-01-01T00:00:00Z',
         movements: {
           inflows: [
@@ -163,7 +163,7 @@ describe('calculateBalances', () => {
       }),
       createTestTransaction({
         source: 'kraken',
-        uniqueId: 'tx7',
+        externalId: 'tx7',
         datetime: '2024-01-02T00:00:00Z',
         movements: {
           inflows: [
@@ -176,7 +176,7 @@ describe('calculateBalances', () => {
       }),
       createTestTransaction({
         source: 'kraken',
-        uniqueId: 'tx8',
+        externalId: 'tx8',
         datetime: '2024-01-03T00:00:00Z',
         movements: {
           outflows: [
@@ -199,7 +199,7 @@ describe('calculateBalances', () => {
   it('should handle multiple currencies in one transaction', () => {
     const transaction = createTestTransaction({
       source: 'kraken',
-      uniqueId: 'tx9',
+      externalId: 'tx9',
       movements: {
         inflows: [
           {
@@ -228,7 +228,7 @@ describe('calculateBalances', () => {
   it('should handle transactions with null/empty movement fields', () => {
     const transaction = createTestTransaction({
       source: 'kraken',
-      uniqueId: 'tx10',
+      externalId: 'tx10',
     });
 
     const result = calculateBalances([transaction]);
@@ -239,7 +239,7 @@ describe('calculateBalances', () => {
   it('should handle very small decimal amounts', () => {
     const transaction = createTestTransaction({
       source: 'bitcoin',
-      uniqueId: 'tx12',
+      externalId: 'tx12',
       from: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
       to: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
       movements: {
@@ -261,7 +261,7 @@ describe('calculateBalances', () => {
   it('should handle very large amounts', () => {
     const transaction = createTestTransaction({
       source: 'kraken',
-      uniqueId: 'tx13',
+      externalId: 'tx13',
       movements: {
         inflows: [
           {
@@ -281,7 +281,7 @@ describe('calculateBalances', () => {
   it('should handle multiple inflows for same asset', () => {
     const transaction = createTestTransaction({
       source: 'kraken',
-      uniqueId: 'tx14',
+      externalId: 'tx14',
       movements: {
         inflows: [
           {
@@ -306,7 +306,7 @@ describe('calculateBalances', () => {
     const transactions: UniversalTransaction[] = [
       createTestTransaction({
         source: 'kraken',
-        uniqueId: 'tx15',
+        externalId: 'tx15',
         datetime: '2024-01-01T00:00:00Z',
         movements: {
           inflows: [
@@ -319,7 +319,7 @@ describe('calculateBalances', () => {
       }),
       createTestTransaction({
         source: 'kraken',
-        uniqueId: 'tx16',
+        externalId: 'tx16',
         datetime: '2024-01-02T00:00:00Z',
         movements: {
           outflows: [

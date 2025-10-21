@@ -45,8 +45,8 @@ describe('CorrelatingExchangeProcessor - Strategy Composition', () => {
     const transactions = result.value;
     expect(transactions).toHaveLength(2);
 
-    const swap = transactions.find((t) => t.uniqueId === 'E1');
-    const deposit = transactions.find((t) => t.uniqueId === 'E3');
+    const swap = transactions.find((t) => t.externalId === 'E1');
+    const deposit = transactions.find((t) => t.externalId === 'E3');
 
     expect(swap).toBeDefined();
     expect(deposit).toBeDefined();
@@ -268,7 +268,7 @@ describe('CorrelatingExchangeProcessor - Error Handling', () => {
     if (!result.isOk()) return;
 
     expect(result.value).toHaveLength(1);
-    expect(result.value[0]?.uniqueId).toBe('E1');
+    expect(result.value[0]?.externalId).toBe('E1');
   });
 });
 

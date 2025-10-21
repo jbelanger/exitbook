@@ -71,7 +71,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
 
       const universalTransaction: UniversalTransaction = {
         id: 0, // Will be assigned by database
-        uniqueId: primaryEntry.normalized.id,
+        externalId: primaryEntry.normalized.id,
         datetime: new Date(fundFlow.timestamp).toISOString(),
         timestamp: fundFlow.timestamp,
         source: this.sourceId,
@@ -108,7 +108,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
 
       transactions.push(universalTransaction);
       this.logger.debug(
-        `Successfully processed correlated entry group ${universalTransaction.uniqueId} (${fundFlow.entryCount} entries)`
+        `Successfully processed correlated entry group ${universalTransaction.externalId} (${fundFlow.entryCount} entries)`
       );
     }
 

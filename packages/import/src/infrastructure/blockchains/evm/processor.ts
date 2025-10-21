@@ -91,7 +91,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
       const universalTransaction: UniversalTransaction = {
         id: 0, // Will be assigned by database
-        uniqueId: primaryTx.id,
+        externalId: primaryTx.id,
         datetime: new Date(primaryTx.timestamp).toISOString(),
         timestamp: primaryTx.timestamp,
         source: this.chainConfig.chainName,
@@ -143,7 +143,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
       transactions.push(universalTransaction);
       this.logger.debug(
-        `Successfully processed correlated transaction group ${universalTransaction.uniqueId} (${fundFlow.transactionCount} items)`
+        `Successfully processed correlated transaction group ${universalTransaction.externalId} (${fundFlow.transactionCount} items)`
       );
     }
 

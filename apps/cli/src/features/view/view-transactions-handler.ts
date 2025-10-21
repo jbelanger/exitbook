@@ -94,7 +94,7 @@ export class ViewTransactionsHandler {
 
     return {
       id: tx.id,
-      external_id: tx.uniqueId,
+      external_id: tx.externalId,
       source_id: tx.source,
       source_type: tx.blockchain ? ('blockchain' as const) : ('exchange' as const),
       transaction_datetime: tx.datetime,

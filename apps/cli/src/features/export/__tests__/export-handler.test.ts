@@ -43,7 +43,7 @@ describe('ExportHandler', () => {
 
   const createMockTransaction = (id: number, source: string, asset: string): UniversalTransaction => ({
     id: id,
-    uniqueId: `ext-${id}`,
+    externalId: `ext-${id}`,
     source: source,
     operation: { category: 'trade', type: 'buy' },
     datetime: '2024-01-01T12:00:00Z',

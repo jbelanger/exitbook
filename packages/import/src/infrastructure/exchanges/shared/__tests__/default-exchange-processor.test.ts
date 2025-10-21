@@ -407,6 +407,6 @@ describe('BaseExchangeProcessor - Edge Cases', () => {
     if (!result.isOk()) return;
 
     const [transaction] = result.value;
-    expect(transaction?.uniqueId).toBe('PRIMARY_ID');
+    expect(transaction?.externalId).toBe('PRIMARY_ID');
   });
 });

@@ -99,7 +99,7 @@ export class TransactionLinkingService {
 
       const candidate: TransactionCandidate = {
         id: tx.id,
-        externalId: tx.uniqueId,
+        externalId: tx.externalId,
         sourceId: tx.source,
         sourceType: tx.blockchain ? 'blockchain' : 'exchange',
         timestamp: new Date(tx.datetime),

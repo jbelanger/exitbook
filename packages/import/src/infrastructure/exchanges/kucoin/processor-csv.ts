@@ -102,7 +102,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
 
     return {
       id: 0, // Will be assigned by database
-      uniqueId: `${withdrawal.UID}-${timestampMs}-convert-market-${sellCurrency}-${buyCurrency}`,
+      externalId: `${withdrawal.UID}-${timestampMs}-convert-market-${sellCurrency}-${buyCurrency}`,
       datetime: timestamp,
       timestamp: timestampMs,
       source: 'kucoin',
@@ -159,7 +159,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
 
     return {
       id: 0, // Will be assigned by database
-      uniqueId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-deposit-${row.Amount}`,
+      externalId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-deposit-${row.Amount}`,
       datetime: row['Time(UTC)'],
       timestamp,
       source: 'kucoin',
@@ -217,7 +217,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
 
     return {
       id: 0, // Will be assigned by database
-      uniqueId: uniqueId,
+      externalId: uniqueId,
       datetime: row['Filled Time(UTC)'],
       timestamp,
       source: 'kucoin',
@@ -284,7 +284,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
 
     return {
       id: 0, // Will be assigned by database
-      uniqueId: uniqueId,
+      externalId: uniqueId,
       datetime: row['Time Filled(UTC)'],
       timestamp,
       source: 'kucoin',
@@ -347,7 +347,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
 
     return {
       id: 0, // Will be assigned by database
-      uniqueId: row['Order ID'],
+      externalId: row['Order ID'],
       datetime: row['Filled Time(UTC)'],
       timestamp,
       source: 'kucoin',
@@ -403,7 +403,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
 
     return {
       id: 0, // Will be assigned by database
-      uniqueId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-withdrawal-${row.Amount}`,
+      externalId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-withdrawal-${row.Amount}`,
       datetime: row['Time(UTC)'],
       timestamp,
       source: 'kucoin',

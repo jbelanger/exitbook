@@ -33,7 +33,7 @@ describe('ViewTransactionsHandler', () => {
     return {
       id: 1,
       source: 'kraken',
-      uniqueId: 'ext-123',
+      externalId: 'ext-123',
       status: 'success',
       datetime: baseDatetime,
       timestamp: baseTimestamp,
