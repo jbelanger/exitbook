@@ -17,7 +17,6 @@ vi.mock('@exitbook/providers', () => ({
 
 vi.mock('@exitbook/import', () => ({
   ImporterFactory: vi.fn(),
-  ImportSessionErrorRepository: vi.fn(),
   DataSourceRepository: vi.fn(),
   ProcessorFactory: vi.fn(),
   RawDataRepository: vi.fn(),
@@ -59,7 +58,7 @@ describe('ImportHandler', () => {
 
       (mockIngestionService.importFromSource as Mock).mockResolvedValue(
         ok({
-          importSessionId: 123,
+          dataSourceId: 123,
           imported: 50,
         })
       );
@@ -68,7 +67,7 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
-        importSessionId: 123,
+        dataSourceId: 123,
         imported: 50,
       });
 
@@ -87,7 +86,7 @@ describe('ImportHandler', () => {
 
       (mockIngestionService.importFromSource as Mock).mockResolvedValue(
         ok({
-          importSessionId: 456,
+          dataSourceId: 456,
           imported: 100,
         })
       );
@@ -96,7 +95,7 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
-        importSessionId: 456,
+        dataSourceId: 456,
         imported: 100,
       });
 
@@ -118,7 +117,7 @@ describe('ImportHandler', () => {
 
       (mockIngestionService.importFromSource as Mock).mockResolvedValue(
         ok({
-          importSessionId: 789,
+          dataSourceId: 789,
           imported: 75,
         })
       );
@@ -145,7 +144,7 @@ describe('ImportHandler', () => {
 
       (mockIngestionService.importFromSource as Mock).mockResolvedValue(
         ok({
-          importSessionId: 123,
+          dataSourceId: 123,
           imported: 50,
         })
       );
@@ -161,14 +160,14 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
-        importSessionId: 123,
+        dataSourceId: 123,
         imported: 50,
         processed: 50,
         processingErrors: [],
       });
 
       expect(mockIngestionService.processRawDataToTransactions).toHaveBeenCalledWith('bitcoin', 'blockchain', {
-        importSessionId: 123,
+        dataSourceId: 123,
       });
     });
 
@@ -182,7 +181,7 @@ describe('ImportHandler', () => {
 
       (mockIngestionService.importFromSource as Mock).mockResolvedValue(
         ok({
-          importSessionId: 123,
+          dataSourceId: 123,
           imported: 50,
         })
       );
@@ -199,7 +198,7 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
-        importSessionId: 123,
+        dataSourceId: 123,
         imported: 50,
         processed: 47,
         processingErrors,
@@ -232,7 +231,7 @@ describe('ImportHandler', () => {
 
       (mockIngestionService.importFromSource as Mock).mockResolvedValue(
         ok({
-          importSessionId: 123,
+          dataSourceId: 123,
           imported: 50,
         })
       );

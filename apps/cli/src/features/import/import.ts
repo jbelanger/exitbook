@@ -24,7 +24,7 @@ export interface ExtendedImportCommandOptions extends ImportCommandOptions {
  */
 interface ImportCommandResult {
   imported: number;
-  importSessionId: number;
+  dataSourceId: number;
   processed?: number | undefined;
   processingErrors?: string[] | undefined;
 }
@@ -116,7 +116,7 @@ function handleImportSuccess(
 ): void {
   // Prepare result data
   const resultData: ImportCommandResult = {
-    importSessionId: importResult.importSessionId,
+    dataSourceId: importResult.dataSourceId,
     imported: importResult.imported,
   };
 
@@ -133,7 +133,7 @@ function handleImportSuccess(
   if (importResult.processed !== undefined) {
     parts.push(`${importResult.processed} processed`);
   }
-  parts.push(`session: ${importResult.importSessionId}`);
+  parts.push(`session: ${importResult.dataSourceId}`);
   const completionMessage = `Import complete - ${parts.join(', ')}`;
 
   // Stop spinner with completion message

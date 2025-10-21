@@ -212,7 +212,7 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
                 // Update cursor
                 if (processResult.value.length > 0) {
                   const oldestItem = processResult.value[0]; // First item is oldest
-                  if (oldestItem?.cursor?.ledger) {
+                  if (oldestItem?.cursor?.ledger && typeof oldestItem.cursor.ledger === 'number') {
                     currentCursor.endTime = oldestItem.cursor.ledger - 1;
                   }
                 }

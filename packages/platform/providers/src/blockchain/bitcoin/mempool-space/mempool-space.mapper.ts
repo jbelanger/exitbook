@@ -1,4 +1,4 @@
-import { parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result, ok } from 'neverthrow';
 
@@ -23,7 +23,6 @@ export class MempoolSpaceTransactionMapper extends BaseRawDataMapper<MempoolTran
    */
   protected mapInternal(
     rawData: MempoolTransaction,
-    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<BitcoinTransaction, NormalizationError> {
     const timestamp =

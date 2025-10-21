@@ -116,19 +116,19 @@ describe('EvmImporter', () => {
       mockProviderManager.executeWithFailover
         .mockResolvedValueOnce(
           ok({
-            data: [{ raw: mockNormalTx, normalized: undefined }],
+            data: [{ raw: mockNormalTx, normalized: { id: mockNormalTx.hash }, externalId: mockNormalTx.hash }],
             providerName: 'alchemy',
           } as FailoverExecutionResult<unknown>)
         )
         .mockResolvedValueOnce(
           ok({
-            data: [{ raw: mockInternalTx, normalized: undefined }],
+            data: [{ raw: mockInternalTx, normalized: { id: mockInternalTx.hash }, externalId: mockInternalTx.hash }],
             providerName: 'alchemy',
           } as FailoverExecutionResult<unknown>)
         )
         .mockResolvedValueOnce(
           ok({
-            data: [{ raw: mockTokenTx, normalized: undefined }],
+            data: [{ raw: mockTokenTx, normalized: { id: mockTokenTx.hash }, externalId: mockTokenTx.hash }],
             providerName: 'alchemy',
           } as FailoverExecutionResult<unknown>)
         );
@@ -141,35 +141,32 @@ describe('EvmImporter', () => {
 
         // Verify normal transaction
         expect(result.value.rawTransactions[0]).toEqual({
-          metadata: {
-            providerId: 'alchemy',
-            sourceAddress: address,
-            transactionType: 'normal',
-          },
+          providerId: 'alchemy',
+          sourceAddress: address,
+          transactionType: 'normal',
+          externalId: mockNormalTx.hash,
           rawData: mockNormalTx,
-          normalizedData: undefined,
+          normalizedData: { id: mockNormalTx.hash },
         });
 
         // Verify internal transaction
         expect(result.value.rawTransactions[1]).toEqual({
-          metadata: {
-            providerId: 'alchemy',
-            sourceAddress: address,
-            transactionType: 'internal',
-          },
+          providerId: 'alchemy',
+          sourceAddress: address,
+          transactionType: 'internal',
+          externalId: mockInternalTx.hash,
           rawData: mockInternalTx,
-          normalizedData: undefined,
+          normalizedData: { id: mockInternalTx.hash },
         });
 
         // Verify token transaction
         expect(result.value.rawTransactions[2]).toEqual({
-          metadata: {
-            providerId: 'alchemy',
-            sourceAddress: address,
-            transactionType: 'token',
-          },
+          providerId: 'alchemy',
+          sourceAddress: address,
+          transactionType: 'token',
+          externalId: mockTokenTx.hash,
           rawData: mockTokenTx,
-          normalizedData: undefined,
+          normalizedData: { id: mockTokenTx.hash },
         });
       }
 
@@ -244,13 +241,13 @@ describe('EvmImporter', () => {
         )
         .mockResolvedValueOnce(
           ok({
-            data: [mockInternalTx],
+            data: [{ raw: mockInternalTx, normalized: { id: mockInternalTx.hash } }],
             providerName: 'alchemy',
           } as FailoverExecutionResult<unknown>)
         )
         .mockResolvedValueOnce(
           ok({
-            data: [mockTokenTx],
+            data: [{ raw: mockTokenTx, normalized: { id: mockTokenTx.hash } }],
             providerName: 'alchemy',
           } as FailoverExecutionResult<unknown>)
         );
@@ -282,7 +279,7 @@ describe('EvmImporter', () => {
 
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
-          data: [mockNormalTx],
+          data: [{ raw: mockNormalTx, normalized: { id: mockNormalTx.hash } }],
           providerName: 'snowtrace',
         } as FailoverExecutionResult<unknown>)
       );
@@ -317,8 +314,8 @@ describe('EvmImporter', () => {
       const address = '0x1234567890123456789012345678901234567890';
 
       const multipleNormalTxs = [
-        { raw: mockNormalTx, normalized: undefined },
-        { raw: { ...mockNormalTx, hash: '0x789' }, normalized: undefined },
+        { raw: mockNormalTx, normalized: { id: mockNormalTx.hash } },
+        { raw: { ...mockNormalTx, hash: '0x789' }, normalized: { id: '0x789' } },
       ];
 
       mockProviderManager.executeWithFailover

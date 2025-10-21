@@ -1,14 +1,13 @@
+/**
+ * Input DTO for creating external transaction records
+ * Used by importers before persistence
+ */
 export interface RawTransactionWithMetadata {
-  metadata: RawTransactionMetadata;
-  rawData: unknown;
-  // New fields for exchange validation and auto-incremental imports
-  externalId?: string | undefined; // Unique transaction ID from source
-  cursor?: Record<string, number> | undefined; // Cursor for resuming imports (e.g., { trade: 1704067200000 })
-  normalizedData: unknown; // Standardized transaction data after validation and mapping (mandatory - normalization happens during import)
-}
-
-export interface RawTransactionMetadata {
   providerId: string;
   sourceAddress?: string | undefined;
   transactionType?: string | undefined;
+  externalId?: string | undefined;
+  cursor?: Record<string, unknown> | undefined;
+  rawData: unknown;
+  normalizedData: unknown;
 }

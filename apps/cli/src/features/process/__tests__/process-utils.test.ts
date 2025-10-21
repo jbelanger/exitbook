@@ -143,7 +143,7 @@ describe('process-utils', () => {
         expect(result.isOk()).toBe(true);
 
         const params = result._unsafeUnwrap();
-        expect(params.filters.importSessionId).toBe(123);
+        expect(params.filters.dataSourceId).toBe(123);
       });
 
       it('should build params for exchange with since filter', () => {
@@ -170,7 +170,7 @@ describe('process-utils', () => {
         expect(result.isOk()).toBe(true);
 
         const params = result._unsafeUnwrap();
-        expect(params.filters.importSessionId).toBe(456);
+        expect(params.filters.dataSourceId).toBe(456);
         expect(params.filters.createdAfter).toBe(1609459200);
       });
 
@@ -245,7 +245,7 @@ describe('process-utils', () => {
 
         const params = result._unsafeUnwrap();
         expect(params.sourceName).toBe('ethereum');
-        expect(params.filters.importSessionId).toBe(789);
+        expect(params.filters.dataSourceId).toBe(789);
       });
 
       it('should build params for blockchain with since filter', () => {

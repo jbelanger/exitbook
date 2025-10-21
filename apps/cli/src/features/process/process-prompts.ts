@@ -28,7 +28,7 @@ export async function promptForProcessParams(): Promise<ProcessHandlerParams> {
   // Step 3: Filter options
   const useFilters = await promptConfirm('Apply filters?', false);
 
-  const filters: { createdAfter?: number; importSessionId?: number } = {};
+  const filters: { createdAfter?: number; dataSourceId?: number } = {};
 
   if (useFilters) {
     // Session ID filter
@@ -49,7 +49,7 @@ export async function promptForProcessParams(): Promise<ProcessHandlerParams> {
       }
 
       if (sessionId) {
-        filters.importSessionId = parseInt(sessionId, 10);
+        filters.dataSourceId = parseInt(sessionId, 10);
       }
     }
 

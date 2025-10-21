@@ -58,6 +58,10 @@ export interface ExternalTransactionDataTable {
   external_id: string | null; // Unique transaction ID from exchange/blockchain
   cursor: JSONString | null; // Cursor for resuming imports (ExchangeCursor with per-operation timestamps)
 
+  // Source metadata
+  source_address: string | null; // For blockchain transactions (wallet address)
+  transaction_type: string | null; // For exchange transactions (e.g., 'deposit', 'withdrawal', 'spot_order')
+
   // Data storage
   raw_data: JSONString; // Raw data from source
   normalized_data: JSONString; // Normalized data
@@ -66,8 +70,6 @@ export interface ExternalTransactionDataTable {
   processing_status: 'pending' | 'processed' | 'failed' | 'skipped';
   processed_at: DateTime | null;
   processing_error: string | null;
-
-  metadata: JSONString | null;
 }
 
 /**

@@ -1114,7 +1114,7 @@ async importFromSource(
   sourceType: 'exchange' | 'blockchain',
   params: ImportParams & { mode?: 'incremental' | 'reindex' } // NEW: Server-controlled mode
 ): Promise<Result<ImportResult, Error>> {
-  let importSessionId = 0;
+  let dataSourceId = 0;
   let totalImported = 0;
   let hasMore = true;
   let expectedTotalCount: number | null = null;
@@ -1169,7 +1169,7 @@ async importFromSource(
   );
   if (sessionIdResult.isErr()) return err(sessionIdResult.error);
 
-  importSessionId = sessionIdResult.value;
+  dataSourceId = sessionIdResult.value;
 
   // Paginate through all data
   while (hasMore) {
@@ -1197,7 +1197,7 @@ async importFromSource(
 
     // Save normalized + raw pairs with dedup
     const savedCountResult = await this.rawDataRepository.saveBatch(
-      importSessionId,
+      dataSourceId,
       pageResult.data.map(pair => ({
         normalized: pair.normalized,
         raw: pair.raw,
@@ -1213,7 +1213,7 @@ async importFromSource(
     cursor = pageResult.nextCursor;
 
     // Update session with cursor for resumability
-    await this.sessionRepository.updateCursor(importSessionId, cursor);
+    await this.sessionRepository.updateCursor(dataSourceId, cursor);
 
     // Enhanced observability: per-page metrics with progress
     const cursorAdvanceTime = Date.now() - pageStartTime;
@@ -1240,7 +1240,7 @@ async importFromSource(
   // Finalize session (with warnings if items were skipped)
   const finalStatus = skips > 0 ? 'completed_with_warnings' : 'completed';
   await this.sessionRepository.finalize(
-    importSessionId,
+    dataSourceId,
     finalStatus,
     Date.now(),
     totalImported,
@@ -1248,7 +1248,7 @@ async importFromSource(
     { skippedItems: skips }
   );
 
-  return ok({ imported: totalImported, importSessionId, skipped: skips });
+  return ok({ imported: totalImported, dataSourceId, skipped: skips });
 }
 
 async processRawDataToTransactions(
@@ -1593,7 +1593,7 @@ describe('Import Pipeline Integration', () => {
     expect(mockProvider2.callCount).toBeGreaterThan(0);
 
     // Verify normalized data stored
-    const rawData = await rawDataRepo.load({ sessionId: result.value.importSessionId });
+    const rawData = await rawDataRepo.load({ sessionId: result.value.dataSourceId });
     expect(rawData[0]).toHaveProperty('normalized_data');
   });
 });

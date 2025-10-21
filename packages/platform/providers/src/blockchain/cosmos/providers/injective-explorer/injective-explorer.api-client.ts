@@ -131,13 +131,9 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<CosmosTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(
-        rawTx,
-        { providerId: 'injective-explorer', sourceAddress: address },
-        {
-          address,
-        }
-      );
+      const mapResult = this.mapper.map(rawTx, {
+        address,
+      });
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

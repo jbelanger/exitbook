@@ -27,8 +27,8 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         query = query.where('source_id', '=', filters.sourceId);
       }
 
-      if (filters?.importSessionId) {
-        query = query.where('data_source_id', '=', filters.importSessionId);
+      if (filters?.dataSourceId) {
+        query = query.where('data_source_id', '=', filters.dataSourceId);
       }
 
       if (filters?.providerId) {
@@ -89,7 +89,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async save(importSessionId: number, item?: RawTransactionWithMetadata): Promise<Result<number, Error>> {
+  async save(dataSourceId: number, item?: RawTransactionWithMetadata): Promise<Result<number, Error>> {
     if (!item) {
       return err(new Error('Raw data cannot be null or undefined'));
     }
@@ -102,11 +102,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             created_at: this.getCurrentDateTimeForDB(),
             cursor: item.cursor ? JSON.stringify(item.cursor) : null,
             external_id: item.externalId ?? null,
-            data_source_id: importSessionId,
-            metadata: this.serializeToJson(item.metadata),
+            data_source_id: dataSourceId,
             normalized_data: JSON.stringify(item.normalizedData),
             processing_status: 'pending',
-            provider_id: item.metadata.providerId,
+            provider_id: item.providerId,
+            source_address: item.sourceAddress ?? null,
+            transaction_type: item.transactionType ?? null,
             raw_data: JSON.stringify(item.rawData),
           })
           .onConflict((oc) => oc.doNothing()) // Equivalent to INSERT OR IGNORE
@@ -121,7 +122,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async saveBatch(importSessionId: number, items: RawTransactionWithMetadata[]): Promise<Result<number, Error>> {
+  async saveBatch(dataSourceId: number, items: RawTransactionWithMetadata[]): Promise<Result<number, Error>> {
     if (items.length === 0) {
       return ok(0);
     }
@@ -145,11 +146,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
               created_at: createdAt,
               cursor: item.cursor ? JSON.stringify(item.cursor) : null,
               external_id: item.externalId ?? null,
-              data_source_id: importSessionId,
-              metadata: this.serializeToJson(item.metadata),
+              data_source_id: dataSourceId,
               normalized_data: JSON.stringify(item.normalizedData),
               processing_status: 'pending',
-              provider_id: item.metadata.providerId,
+              provider_id: item.providerId,
+              source_address: item.sourceAddress ?? null,
+              transaction_type: item.transactionType ?? null,
               raw_data: JSON.stringify(item.rawData),
             })
             .onConflict((oc) => oc.doNothing())
@@ -169,12 +171,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async getLatestCursor(importSessionId: number): Promise<Result<Record<string, number> | null, Error>> {
+  async getLatestCursor(dataSourceId: number): Promise<Result<Record<string, number> | null, Error>> {
     try {
       const rows = await this.db
         .selectFrom('external_transaction_data')
         .select('cursor')
-        .where('data_source_id', '=', importSessionId)
+        .where('data_source_id', '=', dataSourceId)
         .where('cursor', 'is not', null)
         .execute();
 
@@ -209,12 +211,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async getValidRecords(importSessionId: number): Promise<Result<ExternalTransactionData[], Error>> {
+  async getValidRecords(dataSourceId: number): Promise<Result<ExternalTransactionData[], Error>> {
     try {
       const rows = await this.db
         .selectFrom('external_transaction_data')
         .selectAll()
-        .where('data_source_id', '=', importSessionId)
+        .where('data_source_id', '=', dataSourceId)
         .where('processing_status', '=', 'pending')
         .execute();
 
@@ -307,7 +309,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     const cursorResult = this.parseJson<Record<string, unknown>>(row.cursor);
     const rawDataResult = this.parseJson<unknown>(row.raw_data);
     const normalizedDataResult = this.parseJson<unknown>(row.normalized_data);
-    const metadataResult = this.parseJson<unknown>(row.metadata);
 
     // Fail fast on any parse errors
     if (cursorResult.isErr()) {
@@ -319,14 +320,18 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     if (normalizedDataResult.isErr()) {
       return err(normalizedDataResult.error);
     }
-    if (metadataResult.isErr()) {
-      return err(metadataResult.error);
+
+    // providerId is required in the domain model
+    if (!row.provider_id) {
+      return err(new Error('Missing required provider_id field'));
     }
 
     return ok({
       id: row.id,
       dataSourceId: row.data_source_id,
-      providerId: row.provider_id ?? undefined,
+      providerId: row.provider_id,
+      sourceAddress: row.source_address ?? undefined,
+      transactionType: row.transaction_type ?? undefined,
       externalId: row.external_id ?? undefined,
       cursor: cursorResult.value,
       rawData: rawDataResult.value,
@@ -334,7 +339,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       processingStatus: row.processing_status,
       processedAt: row.processed_at ? new Date(row.processed_at) : undefined,
       processingError: row.processing_error ?? undefined,
-      metadata: metadataResult.value,
       createdAt: new Date(row.created_at),
     });
   }

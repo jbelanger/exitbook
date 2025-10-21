@@ -28,7 +28,7 @@ export interface ProcessHandlerParams {
   /** Filters for processing */
   filters: {
     createdAfter?: number | undefined;
-    importSessionId?: number | undefined;
+    dataSourceId?: number | undefined;
   };
 }
 
@@ -95,7 +95,7 @@ export function buildProcessParamsFromFlags(options: ProcessCommandOptions): Res
   const sourceType: 'exchange' | 'blockchain' = options.exchange ? 'exchange' : 'blockchain';
 
   // Build filters
-  const filters: { createdAfter?: number; importSessionId?: number } = {};
+  const filters: { createdAfter?: number; dataSourceId?: number } = {};
 
   // Parse session ID if provided
   if (options.session) {
@@ -103,7 +103,7 @@ export function buildProcessParamsFromFlags(options: ProcessCommandOptions): Res
     if (isNaN(sessionId) || sessionId <= 0) {
       return err(new Error('Invalid session ID. Must be a positive integer.'));
     }
-    filters.importSessionId = sessionId;
+    filters.dataSourceId = sessionId;
   }
 
   // Parse since timestamp if provided

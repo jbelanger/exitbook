@@ -30,7 +30,6 @@ export type DataSourceUpdate = Updateable<DataSourcesTable>;
 
 // Internal DB types for raw data repository use
 export type StoredRawData = Selectable<ExternalTransactionDataTable>;
-export type RawData = StoredRawData; // Deprecated: use StoredRawData
 export type NewRawData = Insertable<ExternalTransactionDataTable>;
 export type RawDataUpdate = Updateable<ExternalTransactionDataTable>;
 

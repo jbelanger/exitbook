@@ -1,4 +1,4 @@
-import { parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
@@ -17,7 +17,6 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
 
   protected mapInternal(
     rawData: SubscanTransferAugmented,
-    _metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
   ): Result<SubstrateTransaction, NormalizationError> {
     // Use derivedAddresses for SS58 variants, fallback to address for backward compatibility

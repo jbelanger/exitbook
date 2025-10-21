@@ -118,20 +118,18 @@ describe('SolanaTransactionImporter', () => {
 
         // Verify SOL transaction
         expect(result.value.rawTransactions[0]).toEqual({
-          metadata: {
-            providerId: 'helius',
-            sourceAddress: address,
-          },
+          providerId: 'helius',
+          sourceAddress: address,
+          externalId: mockNormalizedSol.id,
           normalizedData: mockNormalizedSol,
           rawData: mockSolTx,
         });
 
         // Verify token transaction
         expect(result.value.rawTransactions[1]).toEqual({
-          metadata: {
-            providerId: 'helius',
-            sourceAddress: address,
-          },
+          providerId: 'helius',
+          sourceAddress: address,
+          externalId: mockNormalizedToken.id,
           normalizedData: mockNormalizedToken,
           rawData: mockTokenTx,
         });

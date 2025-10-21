@@ -21,5 +21,5 @@ export interface ITransactionRepository {
    * Save a transaction to the database.
    * Returns the database ID of the saved transaction.
    */
-  save(transaction: UniversalTransaction, importSessionId: number): Promise<Result<number, Error>>;
+  save(transaction: UniversalTransaction, dataSourceId: number): Promise<Result<number, Error>>;
 }

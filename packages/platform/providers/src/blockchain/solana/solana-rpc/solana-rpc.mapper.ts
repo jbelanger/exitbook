@@ -1,4 +1,4 @@
-import { isErrorWithMessage, parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
+import { isErrorWithMessage, parseDecimal } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
@@ -14,9 +14,9 @@ import type { SolanaRPCTransaction } from './solana-rpc.types.js';
 export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCTransaction, SolanaTransaction> {
   protected readonly inputSchema = SolanaRPCRawTransactionDataSchema;
   protected readonly outputSchema = SolanaTransactionSchema;
+
   protected mapInternal(
     rawData: SolanaRPCTransaction,
-    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<SolanaTransaction, NormalizationError> {
     try {

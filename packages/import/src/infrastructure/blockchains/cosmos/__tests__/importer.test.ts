@@ -3,7 +3,7 @@
  * Tests the import pattern across multiple Cosmos SDK chains
  */
 
-import type { FailoverExecutionResult } from '@exitbook/providers';
+import type { CosmosTransaction, FailoverExecutionResult } from '@exitbook/providers';
 import { type CosmosChainConfig, type BlockchainProviderManager, ProviderError } from '@exitbook/providers';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
@@ -38,7 +38,10 @@ const mockCosmosTransaction = {
   messageType: '/cosmos.bank.v1beta1.MsgSend',
   timestamp: Date.now(),
   to: 'inj1def...',
-};
+  id: 'tx123',
+  status: 'pending',
+  providerId: 'cosmos',
+} as CosmosTransaction;
 
 const mockIbcTransaction = {
   amount: '5000000',
@@ -52,6 +55,9 @@ const mockIbcTransaction = {
   sourceChannel: 'channel-0',
   timestamp: Date.now(),
   to: 'osmo1def...',
+  id: 'tx456',
+  status: 'pending',
+  providerId: 'cosmos',
 };
 
 type ProviderManagerMock = Mocked<
@@ -137,7 +143,7 @@ describe('CosmosImporter', () => {
         ok({
           data: [
             {
-              raw: { block_timestamp: mockCosmosTransaction.timestamp, hash: mockCosmosTransaction.hash },
+              raw: { block_timestamp: mockCosmosTransaction.timestamp, id: mockCosmosTransaction.id },
               normalized: mockCosmosTransaction,
             },
           ],
@@ -153,12 +159,11 @@ describe('CosmosImporter', () => {
 
         // Verify transaction metadata and data structure
         expect(result.value.rawTransactions[0]).toEqual({
-          metadata: {
-            providerId: 'injective-explorer',
-            sourceAddress: address,
-          },
+          providerId: 'injective-explorer',
+          sourceAddress: address,
+          externalId: mockCosmosTransaction.id,
           normalizedData: mockCosmosTransaction,
-          rawData: { block_timestamp: mockCosmosTransaction.timestamp, hash: mockCosmosTransaction.hash },
+          rawData: { block_timestamp: mockCosmosTransaction.timestamp, id: mockCosmosTransaction.id },
         });
       }
 
@@ -231,15 +236,15 @@ describe('CosmosImporter', () => {
       const tx2Normalized = { ...mockCosmosTransaction, hash: 'tx789' };
       const multipleTransactions = [
         {
-          raw: { block_timestamp: mockCosmosTransaction.timestamp, hash: mockCosmosTransaction.hash },
+          raw: { block_timestamp: mockCosmosTransaction.timestamp, id: mockCosmosTransaction.id },
           normalized: mockCosmosTransaction,
         },
         {
-          raw: { block_timestamp: tx2Normalized.timestamp, hash: tx2Normalized.hash },
+          raw: { block_timestamp: tx2Normalized.timestamp, id: tx2Normalized.id },
           normalized: tx2Normalized,
         },
         {
-          raw: { block_timestamp: mockIbcTransaction.timestamp, hash: mockIbcTransaction.hash },
+          raw: { block_timestamp: mockIbcTransaction.timestamp, id: mockIbcTransaction.id },
           normalized: mockIbcTransaction,
         },
       ];

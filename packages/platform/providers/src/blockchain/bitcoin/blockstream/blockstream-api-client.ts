@@ -198,7 +198,7 @@ export class BlockstreamApiClient extends BaseApiClient {
 
       const validRawTransactions = rawTransactions.filter((tx): tx is BlockstreamTransaction => tx !== null);
       for (const rawTx of validRawTransactions) {
-        const mapResult = this.mapper.map(rawTx, { providerId: 'blockstream.info', sourceAddress: address }, {});
+        const mapResult = this.mapper.map(rawTx, {});
 
         if (mapResult.isErr()) {
           const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

@@ -86,10 +86,9 @@ export class CosmosImporter implements IImporter {
       const providerId = response.providerName;
 
       return transactionsWithRaw.map((txWithRaw) => ({
-        metadata: {
-          providerId,
-          sourceAddress: address,
-        },
+        providerId,
+        externalId: txWithRaw.normalized.id,
+        sourceAddress: address,
         normalizedData: txWithRaw.normalized,
         rawData: txWithRaw.raw, // Keep original provider response for audit trail
       }));

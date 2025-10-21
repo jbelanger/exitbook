@@ -1,4 +1,3 @@
-import type { RawTransactionMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
@@ -23,7 +22,6 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
 
   protected mapInternal(
     rawData: InjectiveApiTransaction,
-    _metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
   ): Result<CosmosTransaction, NormalizationError> {
     const timestamp = rawData.block_timestamp.getTime();

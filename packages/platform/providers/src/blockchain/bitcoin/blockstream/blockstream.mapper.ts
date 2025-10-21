@@ -1,4 +1,4 @@
-import { parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result, ok } from 'neverthrow';
 
@@ -23,7 +23,6 @@ export class BlockstreamTransactionMapper extends BaseRawDataMapper<BlockstreamT
    */
   protected mapInternal(
     rawData: BlockstreamTransaction,
-    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<BitcoinTransaction, NormalizationError> {
     const timestamp =

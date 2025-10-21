@@ -1,18 +1,15 @@
+import type { RawTransactionWithMetadata } from '../index.ts';
+
 /**
  * Domain model for external transaction data
  * Represents raw and normalized transaction data from external sources
+ * Extends RawTransactionWithMetadata with persistence fields
  */
-export interface ExternalTransactionData {
+export interface ExternalTransactionData extends RawTransactionWithMetadata {
   id: number;
   dataSourceId: number;
-  providerId?: string | undefined;
-  externalId?: string | undefined;
-  cursor?: Record<string, unknown> | undefined;
-  rawData: unknown;
-  normalizedData: unknown;
   processingStatus: 'pending' | 'processed' | 'failed' | 'skipped';
   processedAt?: Date | undefined;
   processingError?: string | undefined;
-  metadata?: unknown;
   createdAt: Date;
 }

@@ -295,8 +295,11 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                 if (processResult.value.length > 0) {
                   const lastItem = processResult.value[processResult.value.length - 1];
                   if (lastItem?.cursor && lastItem.cursor[accountId]) {
-                    currentCursor[accountId] = lastItem.cursor[accountId];
-                    accountCursor = currentCursor[accountId];
+                    const cursorValue = lastItem.cursor[accountId];
+                    if (typeof cursorValue === 'number') {
+                      currentCursor[accountId] = cursorValue;
+                      accountCursor = cursorValue;
+                    }
                   }
                 }
 

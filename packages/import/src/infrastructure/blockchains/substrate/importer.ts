@@ -89,12 +89,11 @@ export class SubstrateImporter implements IImporter {
       const providerId = response.providerName;
 
       return transactionsWithRaw.map((txWithRaw) => ({
-        metadata: {
-          providerId,
-          sourceAddress: address,
-        },
+        providerId,
+        sourceAddress: address,
+        externalId: txWithRaw.normalized.id,
         normalizedData: txWithRaw.normalized,
-        rawData: txWithRaw.raw, // Keep original provider response for audit trail
+        rawData: txWithRaw.raw,
       }));
     });
   }

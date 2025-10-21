@@ -1,4 +1,4 @@
-import { parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result, ok } from 'neverthrow';
 
@@ -23,7 +23,6 @@ export class BlockchainComTransactionMapper extends BaseRawDataMapper<Blockchain
    */
   protected mapInternal(
     rawData: BlockchainComTransaction,
-    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<BitcoinTransaction, NormalizationError> {
     const timestamp = rawData.time * 1000;

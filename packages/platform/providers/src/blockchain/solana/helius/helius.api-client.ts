@@ -341,7 +341,7 @@ export class HeliusApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
     for (const rawTx of allRawTransactions) {
-      const mapResult = this.mapper.map(rawTx, { providerId: 'helius', sourceAddress: address }, {});
+      const mapResult = this.mapper.map(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

@@ -1,4 +1,4 @@
-import { isErrorWithMessage, parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
+import { isErrorWithMessage, parseDecimal } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
@@ -17,7 +17,6 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransacti
 
   protected mapInternal(
     rawData: SolscanTransaction,
-    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<SolanaTransaction, NormalizationError> {
     try {

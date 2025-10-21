@@ -21,7 +21,7 @@ export interface BlockchainImportParams extends ImportParams {
 
 export interface ImportResult {
   imported: number;
-  importSessionId: number;
+  dataSourceId: number;
   metadata?: Record<string, unknown> | undefined;
 }
 

@@ -1,4 +1,3 @@
-import type { RawTransactionMetadata } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
@@ -7,9 +6,6 @@ import type { ThetaScanTransaction } from '../thetascan.types.js';
 
 describe('ThetaScanTransactionMapper', () => {
   const mapper = new ThetaScanTransactionMapper();
-  const metadata: RawTransactionMetadata = {
-    providerId: 'thetascan',
-  };
   const sessionContext: ImportSessionMetadata = {
     address: '0x6d882a1ae65377c12e8c1ad5a8b5cfa329edeb07',
   };
@@ -27,7 +23,7 @@ describe('ThetaScanTransactionMapper', () => {
         timestamp: new Date(1752686427 * 1000),
       };
 
-      const result = mapper.map(rawTx, metadata, sessionContext);
+      const result = mapper.map(rawTx, sessionContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -53,7 +49,7 @@ describe('ThetaScanTransactionMapper', () => {
         timestamp: new Date(1752686906 * 1000),
       };
 
-      const result = mapper.map(rawTx, metadata, sessionContext);
+      const result = mapper.map(rawTx, sessionContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -79,7 +75,7 @@ describe('ThetaScanTransactionMapper', () => {
         timestamp: new Date(1715285402 * 1000),
       };
 
-      const result = mapper.map(rawTx, metadata, sessionContext);
+      const result = mapper.map(rawTx, sessionContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -104,7 +100,7 @@ describe('ThetaScanTransactionMapper', () => {
         timestamp: new Date(1715285402 * 1000),
       };
 
-      const result = mapper.map(rawTx, metadata, sessionContext);
+      const result = mapper.map(rawTx, sessionContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -130,7 +126,7 @@ describe('ThetaScanTransactionMapper', () => {
         timestamp: new Date(1752686427 * 1000),
       };
 
-      const result = mapper.map(rawTx, metadata, sessionContext);
+      const result = mapper.map(rawTx, sessionContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -152,7 +148,7 @@ describe('ThetaScanTransactionMapper', () => {
         timestamp: new Date(1752686427 * 1000),
       };
 
-      const result = mapper.map(rawTx, metadata, sessionContext);
+      const result = mapper.map(rawTx, sessionContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -174,7 +170,7 @@ describe('ThetaScanTransactionMapper', () => {
         timestamp: new Date(1752686427 * 1000),
       };
 
-      const result = mapper.map(rawTx, metadata, sessionContext);
+      const result = mapper.map(rawTx, sessionContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -197,7 +193,7 @@ describe('ThetaScanTransactionMapper', () => {
         timestamp: new Date(1752686427 * 1000),
       };
 
-      const result = mapper.map(rawTx, metadata, sessionContext);
+      const result = mapper.map(rawTx, sessionContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -219,7 +215,7 @@ describe('ThetaScanTransactionMapper', () => {
         timestamp: new Date(1752686427 * 1000),
       };
 
-      const result = mapper.map(rawTx, metadata, sessionContext);
+      const result = mapper.map(rawTx, sessionContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -243,7 +239,7 @@ describe('ThetaScanTransactionMapper', () => {
         timestamp: new Date(1752686427 * 1000),
       };
 
-      const result = mapper.map(rawTx, metadata, sessionContext);
+      const result = mapper.map(rawTx, sessionContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {

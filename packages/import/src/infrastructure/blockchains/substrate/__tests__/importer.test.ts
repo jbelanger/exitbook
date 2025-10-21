@@ -185,20 +185,18 @@ describe('SubstrateImporter', () => {
 
         // Verify first transaction
         expect(result.value.rawTransactions[0]).toEqual({
-          metadata: {
-            providerId: 'subscan',
-            sourceAddress: address,
-          },
+          providerId: 'subscan',
+          sourceAddress: address,
+          externalId: mockSubstrateTx1.id,
           normalizedData: mockSubstrateTx1,
           rawData: { original: 'data1' },
         });
 
         // Verify second transaction
         expect(result.value.rawTransactions[1]).toEqual({
-          metadata: {
-            providerId: 'subscan',
-            sourceAddress: address,
-          },
+          providerId: 'subscan',
+          sourceAddress: address,
+          externalId: mockSubstrateTx2.id,
           normalizedData: mockSubstrateTx2,
           rawData: { original: 'data2' },
         });
@@ -543,8 +541,8 @@ describe('SubstrateImporter', () => {
       expect(bittensorResult.isOk()).toBe(true);
 
       if (polkadotResult.isOk() && bittensorResult.isOk()) {
-        expect(polkadotResult.value.rawTransactions[0]!.metadata.providerId).toBe('subscan');
-        expect(bittensorResult.value.rawTransactions[0]!.metadata.providerId).toBe('taostats');
+        expect(polkadotResult.value.rawTransactions[0]!.providerId).toBe('subscan');
+        expect(bittensorResult.value.rawTransactions[0]!.providerId).toBe('taostats');
       }
     });
   });
@@ -686,7 +684,7 @@ describe('SubstrateImporter', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.rawTransactions[0]!.metadata.providerId).toBe('custom-provider');
+        expect(result.value.rawTransactions[0]!.providerId).toBe('custom-provider');
       }
     });
   });

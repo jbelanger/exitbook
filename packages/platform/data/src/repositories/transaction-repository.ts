@@ -33,11 +33,11 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     super(db, 'TransactionRepository');
   }
 
-  async save(transaction: UniversalTransaction, importSessionId: number) {
-    return this.saveTransaction(transaction, importSessionId);
+  async save(transaction: UniversalTransaction, dataSourceId: number) {
+    return this.saveTransaction(transaction, dataSourceId);
   }
 
-  async saveTransaction(transaction: UniversalTransaction, importSessionId: number) {
+  async saveTransaction(transaction: UniversalTransaction, dataSourceId: number) {
     try {
       const rawDataJson = this.serializeToJson(transaction) ?? '{}';
 
@@ -56,7 +56,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             transaction.externalId ||
             `${transaction.source}-${transaction.timestamp}-${uuidv4()}`) as string,
           from_address: transaction.from,
-          data_source_id: importSessionId,
+          data_source_id: dataSourceId,
           note_message: transaction.note?.message,
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
           note_severity: transaction.note?.severity,

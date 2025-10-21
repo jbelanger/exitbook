@@ -55,7 +55,7 @@ export interface ImportHandlerParams {
   shouldProcess?: boolean | undefined;
 
   /** Import session ID (for processing existing data) */
-  importSessionId?: number | undefined;
+  dataSourceId?: number | undefined;
 }
 
 /**
@@ -63,7 +63,7 @@ export interface ImportHandlerParams {
  */
 export interface ImportResult {
   /** Import session ID */
-  importSessionId: number;
+  dataSourceId: number;
 
   /** Number of items imported */
   imported: number;
@@ -153,10 +153,10 @@ export class ImportHandler {
 
       const importData = importResult.value;
       logger.info(`Import completed: ${importData.imported} items imported`);
-      logger.info(`Session ID: ${importData.importSessionId}`);
+      logger.info(`Session ID: ${importData.dataSourceId}`);
 
       const result: ImportResult = {
-        importSessionId: importData.importSessionId,
+        dataSourceId: importData.dataSourceId,
         imported: importData.imported,
       };
 
@@ -168,7 +168,7 @@ export class ImportHandler {
           params.sourceName,
           params.sourceType,
           {
-            importSessionId: importData.importSessionId,
+            dataSourceId: importData.dataSourceId,
           }
         );
 

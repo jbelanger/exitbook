@@ -272,7 +272,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, { providerId: 'alchemy', sourceAddress: address }, {});
+      const mapResult = this.mapper.map(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -314,7 +314,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, { providerId: 'alchemy', sourceAddress: address }, {});
+      const mapResult = this.mapper.map(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -392,7 +392,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, { providerId: 'alchemy', sourceAddress: address }, {});
+      const mapResult = this.mapper.map(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
