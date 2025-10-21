@@ -1,4 +1,4 @@
-import { getErrorMessage, wrapError, type RawTransactionWithMetadata } from '@exitbook/core';
+import { getErrorMessage, wrapError, type ExternalTransaction } from '@exitbook/core';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -75,8 +75,8 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
     return {
       exchangeId: 'kraken',
 
-      async fetchTransactionData(params?: FetchParams): Promise<Result<RawTransactionWithMetadata[], Error>> {
-        const allTransactions: RawTransactionWithMetadata[] = [];
+      async fetchTransactionData(params?: FetchParams): Promise<Result<ExternalTransaction[], Error>> {
+        const allTransactions: ExternalTransaction[] = [];
         const currentCursor = { ...(params?.cursor || {}) };
 
         // Fetch ledger entries - this includes ALL balance changes:

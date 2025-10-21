@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts';
-import { ProcessorFactory } from '@exitbook/import';
+import { ProcessorFactory } from '@exitbook/ingestion';
 import type { ProviderInfo } from '@exitbook/providers';
 import { ProviderRegistry } from '@exitbook/providers';
 

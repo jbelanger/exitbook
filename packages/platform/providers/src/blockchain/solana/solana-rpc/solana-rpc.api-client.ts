@@ -10,7 +10,7 @@ import type { SolanaSignature, SolanaTokenAccountsResponse, SolanaTransaction } 
 import { isValidSolanaAddress } from '../utils.js';
 
 import { SolanaRPCTransactionMapper } from './solana-rpc.mapper.ts';
-import type { SolanaRPCTransaction } from './solana-rpc.types.ts';
+import type { SolanaRPCTransaction } from './solana-rpc.schemas.js';
 
 @RegisterApiClient({
   baseUrl: 'https://api.mainnet-beta.solana.com',

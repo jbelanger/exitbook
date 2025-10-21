@@ -84,9 +84,9 @@ importers:
       '@exitbook/exchanges':
         specifier: workspace:*
         version: link:../../packages/platform/exchanges
-      '@exitbook/import':
+      '@exitbook/ingestion':
         specifier: workspace:*
-        version: link:../../packages/import
+        version: link:../../packages/ingestion
       '@exitbook/platform-price-providers':
         specifier: workspace:*
         version: link:../../packages/platform/price-providers
@@ -184,7 +184,7 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  packages/import:
+  packages/ingestion:
     dependencies:
       '@exitbook/core':
         specifier: workspace:*

@@ -23,7 +23,7 @@ import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
 import type { BitcoinTransaction } from '../types.js';
 
 import { BlockCypherTransactionMapper } from './blockcypher.mapper.ts';
-import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.types.js';
+import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.schemas.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'BLOCKCYPHER_API_KEY',

@@ -8,7 +8,7 @@ import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts'
 import type { EvmTransaction } from '../../types.ts';
 
 import { ThetaScanTransactionMapper } from './thetascan.mapper.ts';
-import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBalance } from './thetascan.types.ts';
+import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBalance } from './thetascan.schemas.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: undefined,

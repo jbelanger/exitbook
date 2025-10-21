@@ -5,7 +5,7 @@ import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
 import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
 import type { SubstrateTransaction } from '../../../types.ts';
 import { TaostatsApiClient } from '../taostats.api-client.ts';
-import type { TaostatsTransactionAugmented } from '../taostats.types.ts';
+import type { TaostatsTransactionAugmented } from '../taostats.schemas.js';
 
 describe('TaostatsApiClient Integration - Bittensor', () => {
   describe('Bittensor', () => {

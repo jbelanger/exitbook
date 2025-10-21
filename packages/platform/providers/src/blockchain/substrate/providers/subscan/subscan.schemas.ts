@@ -91,7 +91,7 @@ const SubscanItemDetailSchema = z.object({
 /**
  * Schema for Subscan transfer structure
  */
-export const SubscanTransferSchema = z.object({
+export const SubscanTransferBaseSchema = z.object({
   amount: z.string().regex(/^\d+(\.\d+)?$/, 'Amount must be numeric string (integer or decimal)'),
   amount_v2: z.string().nullish(),
   asset_symbol: z.string().nullish(),
@@ -116,6 +116,12 @@ export const SubscanTransferSchema = z.object({
   to: z.string().min(1, 'To address must not be empty'),
   to_account_display: SubscanAccountDisplaySchema.nullish(),
   transfer_id: z.number().nullish(),
+});
+
+/**
+ * Schema for Subscan transfer with augmented chain metadata
+ */
+export const SubscanTransferSchema = SubscanTransferBaseSchema.extend({
   // Augmented fields added by API client
   _nativeCurrency: z.string().min(1, 'Native currency must not be empty'),
   _nativeDecimals: z.number().nonnegative('Native decimals must be non-negative'),
@@ -140,7 +146,7 @@ export const SubscanTransfersResponseSchema = z.object({
           })
         )
         .optional(),
-      transfers: z.array(SubscanTransferSchema),
+      transfers: z.array(SubscanTransferBaseSchema),
     })
     .optional(),
   generated_at: z.number().optional(),
@@ -161,3 +167,11 @@ export const SubscanAccountResponseSchema = z.object({
     .optional(),
   message: z.string().optional(),
 });
+
+// Type exports inferred from schemas
+export type SubscanAccountDisplay = z.infer<typeof SubscanAccountDisplaySchema>;
+export type SubscanItemDetail = z.infer<typeof SubscanItemDetailSchema>;
+export type SubscanTransfer = z.infer<typeof SubscanTransferBaseSchema>;
+export type SubscanTransferAugmented = z.infer<typeof SubscanTransferSchema>;
+export type SubscanTransfersResponse = z.infer<typeof SubscanTransfersResponseSchema>;
+export type SubscanAccountResponse = z.infer<typeof SubscanAccountResponseSchema>;

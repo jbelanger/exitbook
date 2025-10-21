@@ -8,8 +8,7 @@ import { SUBSTRATE_CHAINS } from '../../chain-registry.js';
 import { SubstrateTransactionSchema } from '../../schemas.js';
 import type { SubstrateTransaction } from '../../types.js';
 
-import { SubscanTransferSchema } from './subscan.schemas.js';
-import type { SubscanTransferAugmented } from './subscan.types.js';
+import { SubscanTransferSchema, type SubscanTransferAugmented } from './subscan.schemas.js';
 
 export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferAugmented, SubstrateTransaction> {
   protected readonly inputSchema = SubscanTransferSchema;

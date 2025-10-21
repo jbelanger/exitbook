@@ -2,6 +2,12 @@ import { z } from 'zod';
 
 import { timestampToDate } from '../../../../core/blockchain/utils/zod-utils.js';
 
+const ThetaScanNumericStringSchema = z
+  .string()
+  .regex(/^-?\d{1,3}(,\d{3})*(\.\d+)?$/, 'Value must be numeric string with optional commas');
+
+const ThetaScanNumericValueSchema = z.union([ThetaScanNumericStringSchema, z.number()]);
+
 /**
  * Schema for ThetaScan transaction structure
  */
@@ -11,8 +17,8 @@ export const ThetaScanTransactionSchema = z.object({
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   recieving_address: z.string().min(1, 'Receiving address must not be empty'),
   sending_address: z.string().min(1, 'Sending address must not be empty'),
-  tfuel: z.string().regex(/^-?\d{1,3}(,\d{3})*(\.\d+)?$/, 'TFuel must be numeric string with optional commas'),
-  theta: z.string().regex(/^-?\d{1,3}(,\d{3})*(\.\d+)?$/, 'Theta must be numeric string with optional commas'),
+  tfuel: ThetaScanNumericStringSchema,
+  theta: ThetaScanNumericStringSchema,
   timestamp: timestampToDate,
   // Optional fields for token transfers
   contract_address: z.string().optional(),
@@ -30,23 +36,24 @@ export const ThetaScanTransactionArraySchema = z.array(ThetaScanTransactionSchem
  * Schema for ThetaScan balance response
  */
 export const ThetaScanBalanceResponseSchema = z.object({
-  tfuel: z.string().regex(/^-?\d{1,3}(,\d{3})*(\.\d+)?$/, 'TFuel must be numeric string with optional commas'),
-  tfuel_staked: z
-    .string()
-    .regex(/^-?\d{1,3}(,\d{3})*(\.\d+)?$/, 'TFuel staked must be numeric string with optional commas'),
-  theta: z.string().regex(/^-?\d{1,3}(,\d{3})*(\.\d+)?$/, 'Theta must be numeric string with optional commas'),
-  theta_staked: z
-    .string()
-    .regex(/^-?\d{1,3}(,\d{3})*(\.\d+)?$/, 'Theta staked must be numeric string with optional commas'),
+  tfuel: ThetaScanNumericValueSchema,
+  tfuel_staked: ThetaScanNumericValueSchema,
+  theta: ThetaScanNumericValueSchema,
+  theta_staked: ThetaScanNumericValueSchema,
 });
 
 /**
  * Schema for ThetaScan token balance
  */
 export const ThetaScanTokenBalanceSchema = z.object({
-  balance: z.string().regex(/^-?\d{1,3}(,\d{3})*(\.\d+)?$/, 'Balance must be numeric string with optional commas'),
+  balance: ThetaScanNumericValueSchema,
   contract_address: z.string(),
   token_decimals: z.number().optional(),
   token_name: z.string().optional(),
   token_symbol: z.string().optional(),
 });
+
+// Type exports inferred from schemas
+export type ThetaScanTransaction = z.infer<typeof ThetaScanTransactionSchema>;
+export type ThetaScanBalanceResponse = z.infer<typeof ThetaScanBalanceResponseSchema>;
+export type ThetaScanTokenBalance = z.infer<typeof ThetaScanTokenBalanceSchema>;

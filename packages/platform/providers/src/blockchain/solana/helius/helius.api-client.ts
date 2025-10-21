@@ -15,7 +15,7 @@ import type {
 import { isValidSolanaAddress } from '../utils.js';
 
 import { HeliusTransactionMapper } from './helius.mapper.ts';
-import type { HeliusAssetResponse, HeliusTransaction } from './helius.types.js';
+import type { HeliusAssetResponse, HeliusTransaction } from './helius.schemas.js';
 
 export interface SolanaRawBalanceData {
   lamports: number;

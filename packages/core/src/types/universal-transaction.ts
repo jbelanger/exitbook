@@ -20,4 +20,27 @@ export type TransactionNote = z.infer<typeof TransactionNoteSchema>;
 export type PriceAtTxTime = z.infer<typeof PriceAtTxTimeSchema>;
 export type AssetMovement = z.infer<typeof AssetMovementSchema>;
 
+/**
+ * Input DTO for creating universal transaction records
+ * Used by processors before persistence
+ * Write-side
+ */
 export type UniversalTransaction = z.infer<typeof UniversalTransactionSchema>;
+
+/**
+ * Represents a universal transaction after saving to the database
+ * Includes database-specific concerns (IDs, timestamps, source tracking)
+ * Read-side
+ *
+ * Note: Although UniversalTransaction.id is already number, we Omit and re-declare it
+ * to emphasize that StoredTransaction.id is the database-assigned auto-increment ID,
+ * whereas UniversalTransaction.id may come from different sources during processing.
+ */
+export interface StoredTransaction extends Omit<UniversalTransaction, 'id'> {
+  id: number;
+  dataSourceId: number;
+  sourceId: string;
+  sourceType: 'exchange' | 'blockchain';
+  createdAt: Date;
+  updatedAt?: Date | undefined;
+}

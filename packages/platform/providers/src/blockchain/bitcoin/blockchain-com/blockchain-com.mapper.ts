@@ -11,8 +11,7 @@ import type {
   BitcoinTransaction as BitcoinTransaction,
 } from '../types.ts';
 
-import { BlockchainComTransactionSchema } from './blockchain-com.schemas.js';
-import type { BlockchainComTransaction } from './blockchain-com.types.js';
+import { BlockchainComTransactionSchema, type BlockchainComTransaction } from './blockchain-com.schemas.js';
 
 export class BlockchainComTransactionMapper extends BaseRawDataMapper<BlockchainComTransaction, BitcoinTransaction> {
   protected readonly inputSchema = BlockchainComTransactionSchema;

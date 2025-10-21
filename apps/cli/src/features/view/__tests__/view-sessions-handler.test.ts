@@ -1,5 +1,5 @@
 import type { DataSource } from '@exitbook/core';
-import type { DataSourceRepository } from '@exitbook/import';
+import type { DataSourceRepository } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 

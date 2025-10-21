@@ -33,6 +33,12 @@ export const TaostatsTransactionRawSchema = z.object({
   _nativeDecimals: z.number().int().nonnegative('Native decimals must be non-negative integer'),
 });
 
+export const TaostatsTransactionBaseSchema = TaostatsTransactionRawSchema.omit({
+  _chainDisplayName: true,
+  _nativeCurrency: true,
+  _nativeDecimals: true,
+});
+
 /**
  * Schema for Taostats account data in balance response
  */
@@ -65,3 +71,10 @@ export const TaostatsAccountDataSchema = z.object({
 export const TaostatsBalanceResponseSchema = z.object({
   data: z.array(TaostatsAccountDataSchema).optional(),
 });
+
+// Type exports inferred from schemas
+export type TaostatsAddress = z.infer<typeof TaostatsAddressSchema>;
+export type TaostatsTransactionRaw = z.infer<typeof TaostatsTransactionBaseSchema>;
+export type TaostatsTransactionAugmented = z.infer<typeof TaostatsTransactionRawSchema>;
+export type TaostatsAccountData = z.infer<typeof TaostatsAccountDataSchema>;
+export type TaostatsBalanceResponse = z.infer<typeof TaostatsBalanceResponseSchema>;

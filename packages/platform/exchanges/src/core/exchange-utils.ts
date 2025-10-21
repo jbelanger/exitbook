@@ -1,7 +1,7 @@
 // Pure exchange utility functions
 // All functions are pure - no side effects
 
-import { wrapError, type RawTransactionWithMetadata } from '@exitbook/core';
+import { wrapError, type ExternalTransaction } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { type ZodSchema } from 'zod';
@@ -62,8 +62,8 @@ export function processItems<TRaw, TValidated>(
   },
   exchangeId: string,
   currentCursor: Record<string, number>
-): Result<RawTransactionWithMetadata[], PartialImportError> {
-  const transactions: RawTransactionWithMetadata[] = [];
+): Result<ExternalTransaction[], PartialImportError> {
+  const transactions: ExternalTransaction[] = [];
   const lastSuccessfulCursor = { ...currentCursor };
 
   for (const item of items) {

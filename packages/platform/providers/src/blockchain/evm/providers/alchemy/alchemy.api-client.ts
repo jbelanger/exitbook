@@ -17,7 +17,7 @@ import type {
   AlchemyAssetTransferParams,
   AlchemyAssetTransfersResponse,
   AlchemyTokenBalancesResponse,
-} from './alchemy.types.ts';
+} from './alchemy.schemas.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'ALCHEMY_API_KEY',

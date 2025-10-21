@@ -10,7 +10,7 @@ import { COSMOS_CHAINS } from '../../chain-registry.ts';
 import type { CosmosTransaction } from '../../types.js';
 
 import { InjectiveExplorerTransactionMapper } from './injective-explorer.mapper.ts';
-import type { InjectiveExplorerResponse } from './injective-explorer.types.ts';
+import type { InjectiveApiResponse } from './injective-explorer.schemas.js';
 
 @RegisterApiClient({
   baseUrl: 'https://sentry.exchange.grpc-web.injective.network',
@@ -89,7 +89,7 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
     const endpoint = `/api/explorer/v1/accountTxs/${address}`;
-    const result = await this.httpClient.get<InjectiveExplorerResponse>(endpoint);
+    const result = await this.httpClient.get<InjectiveApiResponse>(endpoint);
 
     if (result.isErr()) {
       this.logger.error(

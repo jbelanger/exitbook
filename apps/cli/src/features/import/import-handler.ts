@@ -5,8 +5,8 @@ import {
   ProcessorFactory,
   RawDataRepository,
   TransactionIngestionService,
-} from '@exitbook/import';
-import type { ImportParams } from '@exitbook/import/app/ports/importers.js';
+} from '@exitbook/ingestion';
+import type { ImportParams } from '@exitbook/ingestion/app/ports/importers.js';
 import {
   BlockchainProviderManager,
   initializeProviders,

@@ -11,8 +11,7 @@ import type {
   BitcoinTransaction as BitcoinTransaction,
 } from '../types.ts';
 
-import { TatumBitcoinTransactionSchema } from './tatum.schemas.js';
-import type { TatumBitcoinTransaction } from './tatum.types.js';
+import { TatumBitcoinTransactionSchema, type TatumBitcoinTransaction } from './tatum.schemas.js';
 
 export class TatumBitcoinTransactionMapper extends BaseRawDataMapper<TatumBitcoinTransaction, BitcoinTransaction> {
   protected readonly inputSchema = TatumBitcoinTransactionSchema;

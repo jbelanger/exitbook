@@ -154,3 +154,16 @@ export const InjectiveApiResponseSchema = z.object({
     })
     .optional(),
 });
+
+// Type exports inferred from schemas
+export type InjectiveAmount = z.infer<typeof InjectiveAmountSchema>;
+export type InjectiveGasFee = z.infer<typeof InjectiveGasFeeSchema>;
+export type InjectiveMessageValue = z.infer<typeof InjectiveMessageValueSchema>;
+export type InjectiveMessage = z.infer<typeof InjectiveMessageSchema>;
+export type InjectiveEventAttribute = z.infer<typeof InjectiveEventAttributeSchema>;
+export type InjectiveEvent = z.infer<typeof InjectiveEventSchema>;
+export type InjectiveTransactionLog = z.infer<typeof InjectiveTransactionLogSchema>;
+export type InjectiveTransaction = z.infer<typeof InjectiveTransactionSchema>;
+export type InjectiveBalance = z.infer<typeof InjectiveBalanceSchema>;
+export type InjectiveBalanceResponse = z.infer<typeof InjectiveBalanceResponseSchema>;
+export type InjectiveApiResponse = z.infer<typeof InjectiveApiResponseSchema>;

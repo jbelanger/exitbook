@@ -88,3 +88,20 @@ export const TatumBitcoinTransactionSchema = z
     witnessHash: z.string(),
   })
   .strict();
+
+/**
+ * Schema for Tatum Bitcoin balance response
+ */
+export const TatumBitcoinBalanceSchema = z.object({
+  incoming: z.string().min(1, 'Incoming balance must not be empty'),
+  outgoing: z.string().min(1, 'Outgoing balance must not be empty'),
+});
+
+// Type exports inferred from schemas
+export type TatumBitcoinCoin = z.infer<typeof TatumBitcoinCoinSchema>;
+export type TatumBitcoinPrevout = z.infer<typeof TatumBitcoinPrevoutSchema>;
+export type TatumBitcoinInput = z.infer<typeof TatumBitcoinInputSchema>;
+export type TatumBitcoinScriptPubKey = z.infer<typeof TatumBitcoinScriptPubKeySchema>;
+export type TatumBitcoinOutput = z.infer<typeof TatumBitcoinOutputSchema>;
+export type TatumBitcoinTransaction = z.infer<typeof TatumBitcoinTransactionSchema>;
+export type TatumBitcoinBalance = z.infer<typeof TatumBitcoinBalanceSchema>;

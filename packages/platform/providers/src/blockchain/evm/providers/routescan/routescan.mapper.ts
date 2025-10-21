@@ -7,8 +7,12 @@ import type { NormalizationError } from '../../../../core/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 
-import { RoutescanAnyTransactionSchema } from './routescan.schemas.js';
-import type { RoutescanInternalTransaction, RoutescanTransaction, RoutescanTokenTransfer } from './routescan.types.js';
+import {
+  RoutescanAnyTransactionSchema,
+  type RoutescanInternalTransaction,
+  type RoutescanTransaction,
+  type RoutescanTokenTransfer,
+} from './routescan.schemas.js';
 
 /**
  * Metadata required for mapping Routescan transactions

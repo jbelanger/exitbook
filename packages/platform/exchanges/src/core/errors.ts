@@ -1,4 +1,4 @@
-import type { RawTransactionWithMetadata } from '@exitbook/core';
+import type { ExternalTransaction } from '@exitbook/core';
 
 /**
  * Error thrown when validation fails partway through fetching data.
@@ -7,7 +7,7 @@ import type { RawTransactionWithMetadata } from '@exitbook/core';
 export class PartialImportError extends Error {
   constructor(
     message: string,
-    public readonly successfulItems: RawTransactionWithMetadata[],
+    public readonly successfulItems: ExternalTransaction[],
     public readonly failedItem: unknown,
     public readonly lastSuccessfulCursor?: Record<string, number>
   ) {

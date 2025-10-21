@@ -1,7 +1,7 @@
 // Handler for view sessions command
 
 import type { DataSource } from '@exitbook/core';
-import type { DataSourceRepository } from '@exitbook/import';
+import type { DataSourceRepository } from '@exitbook/ingestion';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 

@@ -6,7 +6,7 @@ import {
   ProcessorFactory,
   RawDataRepository,
   TransactionIngestionService,
-} from '@exitbook/import';
+} from '@exitbook/ingestion';
 import { BlockchainProviderManager, loadExplorerConfig, type BlockchainExplorersConfig } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';

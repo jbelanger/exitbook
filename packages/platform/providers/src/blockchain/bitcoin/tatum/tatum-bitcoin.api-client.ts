@@ -9,7 +9,7 @@ import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
 import type { BitcoinTransaction } from '../types.js';
 
 import { TatumBitcoinTransactionMapper } from './tatum.mapper.ts';
-import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types.js';
+import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.schemas.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'TATUM_API_KEY',

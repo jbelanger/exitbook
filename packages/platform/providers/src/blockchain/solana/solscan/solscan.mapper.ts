@@ -8,8 +8,7 @@ import { SolanaTransactionSchema } from '../schemas.js';
 import type { SolanaAccountChange, SolanaTokenChange, SolanaTransaction } from '../types.js';
 import { lamportsToSol } from '../utils.js';
 
-import { SolscanRawTransactionDataSchema } from './solscan.schemas.js';
-import type { SolscanTransaction } from './solscan.types.js';
+import { SolscanRawTransactionDataSchema, type SolscanTransaction } from './solscan.schemas.js';
 
 export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransaction, SolanaTransaction> {
   protected readonly inputSchema = SolscanRawTransactionDataSchema;

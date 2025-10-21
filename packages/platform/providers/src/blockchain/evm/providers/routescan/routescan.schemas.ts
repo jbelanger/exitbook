@@ -124,3 +124,17 @@ export const RoutescanAnyTransactionSchema = z.union([
   RoutescanInternalTransactionSchema, // Medium specificity - has internal transaction fields
   RoutescanTransactionSchema, // Least specific - basic transaction fields
 ]);
+
+type RoutescanApiResponseBase = z.infer<typeof RoutescanApiResponseSchema>;
+type RoutescanBalanceResponseBase = z.infer<typeof RoutescanBalanceResponseSchema>;
+
+// Type exports inferred from schemas
+export type RoutescanTransaction = z.infer<typeof RoutescanTransactionSchema>;
+export type RoutescanInternalTransaction = z.infer<typeof RoutescanInternalTransactionSchema>;
+export type RoutescanTokenTransfer = z.infer<typeof RoutescanTokenTransferSchema>;
+export type RoutescanApiResponse<T = unknown> = Omit<RoutescanApiResponseBase, 'result'> & {
+  result: T[];
+};
+export type RoutescanBalanceResponse = RoutescanBalanceResponseBase;
+export type RoutescanBalance = z.infer<typeof RoutescanBalanceSchema>;
+export type RoutescanTokenBalance = z.infer<typeof RoutescanTokenBalanceSchema>;

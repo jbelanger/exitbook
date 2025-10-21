@@ -5,7 +5,7 @@ import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
 import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
 import type { SubstrateTransaction } from '../../../types.ts';
 import { SubscanApiClient } from '../subscan.api-client.ts';
-import type { SubscanTransferAugmented } from '../subscan.types.ts';
+import type { SubscanTransferAugmented } from '../subscan.schemas.js';
 
 describe('SubscanApiClient Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('polkadot', 'subscan');

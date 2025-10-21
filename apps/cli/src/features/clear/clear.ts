@@ -45,7 +45,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     // Create handler to preview deletion
     const { initializeDatabase, closeDatabase, TransactionRepository: TxRepo } = await import('@exitbook/data');
     const { TransactionLinkRepository: TLRepo, CostBasisRepository: CBRepo } = await import('@exitbook/accounting');
-    const { RawDataRepository: RDRepo, DataSourceRepository: DSRepo } = await import('@exitbook/import');
+    const { RawDataRepository: RDRepo, DataSourceRepository: DSRepo } = await import('@exitbook/ingestion');
 
     const database = await initializeDatabase(false);
     const txRepo = new TxRepo(database);
@@ -129,7 +129,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
       TransactionRepository,
     } = await import('@exitbook/data');
     const { TransactionLinkRepository, CostBasisRepository } = await import('@exitbook/accounting');
-    const { RawDataRepository, DataSourceRepository } = await import('@exitbook/import');
+    const { RawDataRepository, DataSourceRepository } = await import('@exitbook/ingestion');
 
     const db = await initDb();
     const transactionRepo = new TransactionRepository(db);

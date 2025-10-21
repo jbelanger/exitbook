@@ -35,7 +35,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('external_id', 'text')
     .addColumn('cursor', 'text')
     .addColumn('source_address', 'text')
-    .addColumn('transaction_type', 'text')
+    .addColumn('transaction_type_hint', 'text')
     .addColumn('raw_data', 'text', (col) => col.notNull())
     .addColumn('normalized_data', 'text', (col) => col.notNull())
     .addColumn('processing_status', 'text', (col) => col.notNull().defaultTo('pending'))

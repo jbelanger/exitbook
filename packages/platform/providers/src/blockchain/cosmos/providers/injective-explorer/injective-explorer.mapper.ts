@@ -8,12 +8,12 @@ import type { NormalizationError } from '../../../../core/blockchain/index.ts';
 import { CosmosTransactionSchema } from '../../schemas.ts';
 import type { CosmosTransaction } from '../../types.js';
 
-import { InjectiveTransactionSchema as InjectiveExplorerTransactionSchema } from './injective-explorer.schemas.js';
-import type {
-  InjectiveExplorerTransaction as InjectiveApiTransaction,
-  InjectiveExplorerMessageValue,
-  InjectiveExplorerAmount,
-} from './injective-explorer.types.ts';
+import {
+  InjectiveTransactionSchema as InjectiveExplorerTransactionSchema,
+  type InjectiveTransaction as InjectiveApiTransaction,
+  type InjectiveMessageValue,
+  type InjectiveAmount,
+} from './injective-explorer.schemas.js';
 
 export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<InjectiveApiTransaction, CosmosTransaction> {
   protected readonly inputSchema = InjectiveExplorerTransactionSchema;
@@ -202,9 +202,9 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
 
       // Handle Peggy bridge withdrawal messages (sending funds to Ethereum)
       else if (message.type === '/injective.peggy.v1.MsgSendToEth') {
-        const messageValue = message.value as InjectiveExplorerMessageValue & {
-          amount?: InjectiveExplorerAmount | undefined;
-          bridge_fee?: InjectiveExplorerAmount | undefined;
+        const messageValue = message.value as InjectiveMessageValue & {
+          amount?: InjectiveAmount | undefined;
+          bridge_fee?: InjectiveAmount | undefined;
           eth_dest?: string | undefined;
         };
 
@@ -230,7 +230,7 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
 
       // Handle Peggy bridge deposit messages (when funds come from Ethereum)
       else if (message.type === '/injective.peggy.v1.MsgDepositClaim') {
-        const messageValue = message.value as InjectiveExplorerMessageValue & {
+        const messageValue = message.value as InjectiveMessageValue & {
           cosmos_receiver?: string | undefined;
           ethereum_receiver?: string | undefined;
           ethereum_sender?: string | undefined;
@@ -261,8 +261,8 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
               typeof messageValue.amount[0]?.amount === 'string'
             ) {
               amountValue = messageValue.amount[0].amount;
-            } else if (typeof (messageValue.amount as InjectiveExplorerAmount)?.amount === 'string') {
-              amountValue = (messageValue.amount as InjectiveExplorerAmount).amount;
+            } else if (typeof (messageValue.amount as InjectiveAmount)?.amount === 'string') {
+              amountValue = (messageValue.amount as InjectiveAmount).amount;
             }
             amount = parseDecimal(amountValue).div(Math.pow(10, 18)).toString();
             currency = 'INJ';

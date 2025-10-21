@@ -10,7 +10,7 @@ import type { SolanaTransaction } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
 import { SolscanTransactionMapper } from './solscan.mapper.ts';
-import type { SolscanTransaction, SolscanResponse } from './solscan.types.js';
+import type { SolscanTransaction, SolscanResponse } from './solscan.schemas.js';
 
 export interface SolscanRawBalanceData {
   lamports: string;

@@ -8,8 +8,12 @@ import type { NormalizationError } from '../../../../core/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 
-import { ThetaTransactionSchema } from './theta-explorer.schemas.js';
-import type { ThetaTransaction, ThetaSendTransactionData, ThetaSmartContractData } from './theta-explorer.types.js';
+import {
+  ThetaTransactionSchema,
+  type ThetaTransaction,
+  type ThetaSendTransactionData,
+  type ThetaSmartContractData,
+} from './theta-explorer.schemas.js';
 
 export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTransaction, EvmTransaction> {
   protected readonly inputSchema = ThetaTransactionSchema;

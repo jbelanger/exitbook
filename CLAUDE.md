@@ -68,7 +68,7 @@ pnpm run dev list-blockchains
 ### Monorepo Structure (pnpm workspaces)
 
 - **apps/cli/** - Commander-based CLI (`exitbook-cli`)
-- **packages/import/** - Importers, processors, blockchain/exchange adapters, balance fetching
+- **packages/ingestion/** - Importers, processors, blockchain/exchange adapters, balance fetching
 - **packages/data/** - Kysely/SQLite storage, repositories, migrations
 - **packages/core/** - Domain types, Zod schemas, shared utilities
 - **packages/shared-logger/** - Pino structured logging
@@ -111,12 +111,12 @@ The system follows a two-phase data flow with normalization integrated into impo
 
 Multi-provider architecture with intelligent failover:
 
-**Provider Registry** (`packages/import/src/infrastructure/blockchains/shared/registry/`)
+**Provider Registry** (`packages/ingestion/src/infrastructure/blockchains/shared/registry/`)
 
 - Auto-registers providers via decorators (e.g., `@BlockchainProvider`)
 - Metadata includes: name, blockchain, capabilities, required API keys
 
-**BlockchainProviderManager** (`packages/import/src/infrastructure/blockchains/shared/provider-manager.ts`)
+**BlockchainProviderManager** (`packages/ingestion/src/infrastructure/blockchains/shared/provider-manager.ts`)
 
 - Automatic failover when providers return errors or rate limits
 - Per-provider circuit breakers
@@ -155,10 +155,10 @@ Multi-provider architecture with intelligent failover:
 
 **Each exchange has:**
 
-- CSV Importer: `packages/import/src/infrastructure/exchanges/<exchange>/importer.ts`
-- API Importer (if supported): `packages/import/src/infrastructure/exchanges/<exchange>/api-importer.ts`
+- CSV Importer: `packages/ingestion/src/infrastructure/exchanges/<exchange>/importer.ts`
+- API Importer (if supported): `packages/ingestion/src/infrastructure/exchanges/<exchange>/api-importer.ts`
 - API Client (if supported): `packages/platform/exchanges/src/<exchange>/client.ts`
-- Processor: `packages/import/src/infrastructure/exchanges/<exchange>/processor.ts`
+- Processor: `packages/ingestion/src/infrastructure/exchanges/<exchange>/processor.ts`
 - Zod schemas: For both CSV validation and API response validation
 
 **Import Methods:**
@@ -282,17 +282,17 @@ KUCOIN_PASSPHRASE=...
 
 ### Adding a New Blockchain Provider
 
-1. Create directory: `packages/import/src/infrastructure/blockchains/<blockchain>/`
+1. Create directory: `packages/ingestion/src/infrastructure/blockchains/<blockchain>/`
 2. Implement importer extending `BaseImporter`
 3. Implement processor with mapper from raw data to `StoredTransaction`
 4. Create provider API clients with Zod schemas
 5. Register provider using `@BlockchainProvider` decorator
-6. Add to `packages/import/src/infrastructure/blockchains/registry/register-providers.ts`
+6. Add to `packages/ingestion/src/infrastructure/blockchains/registry/register-providers.ts`
 7. Optionally add config in `apps/cli/config/blockchain-explorers.json`
 
 ### Adding a New Exchange Adapter
 
-1. Create directory: `packages/import/src/infrastructure/exchanges/<exchange>/`
+1. Create directory: `packages/ingestion/src/infrastructure/exchanges/<exchange>/`
 2. Implement importer extending `BaseImporter` (parse CSV or call API)
 3. Implement processor transforming raw data to `StoredTransaction`
 4. Create Zod schemas for validation
@@ -305,7 +305,7 @@ KUCOIN_PASSPHRASE=...
 pnpm build
 
 # Run related unit tests
-pnpm vitest run packages/import/src/infrastructure/blockchains/bitcoin
+pnpm vitest run packages/ingestion/src/infrastructure/blockchains/bitcoin
 
 # Run full test suite
 pnpm test

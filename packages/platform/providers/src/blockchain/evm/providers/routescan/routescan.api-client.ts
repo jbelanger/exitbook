@@ -17,7 +17,7 @@ import type {
   RoutescanInternalTransaction,
   RoutescanTransaction,
   RoutescanTokenTransfer,
-} from './routescan.types.ts';
+} from './routescan.schemas.js';
 
 /**
  * Maps blockchain names to Routescan chain IDs for free chains

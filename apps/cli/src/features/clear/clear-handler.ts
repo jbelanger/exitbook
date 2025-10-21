@@ -1,6 +1,6 @@
 import type { CostBasisRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import type { KyselyDB, TransactionRepository } from '@exitbook/data';
-import type { DataSourceRepository, RawDataRepository } from '@exitbook/import';
+import type { DataSourceRepository, RawDataRepository } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
