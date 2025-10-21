@@ -1,5 +1,5 @@
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
-import type { BalanceVerificationResult } from '@exitbook/import';
+import type { BalanceVerificationResult } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
 import { unwrapResult } from '../shared/command-execution.ts';

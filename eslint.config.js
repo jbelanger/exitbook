@@ -228,21 +228,21 @@ export default [
             // ===== Core purity =====
             {
               target: 'packages/core/**',
-              from: ['packages/import/**', 'packages/balance/**', 'packages/data/**', 'apps/**'],
+              from: ['packages/ingestion/**', 'packages/balance/**', 'packages/data/**', 'apps/**'],
               message: 'core must not depend on other packages or apps',
             },
 
             // ===== Import package: architectural boundaries =====
             // Domain cannot import from app or infrastructure
             {
-              target: 'packages/import/src/domain/**',
-              from: ['packages/import/src/app/**', 'packages/import/src/infrastructure/**'],
+              target: 'packages/ingestion/src/domain/**',
+              from: ['packages/ingestion/src/app/**', 'packages/ingestion/src/infrastructure/**'],
               message: 'domain must not import from app or infrastructure layers',
             },
             // App cannot import from infrastructure
             {
-              target: 'packages/import/src/app/**',
-              from: 'packages/import/src/infrastructure/**',
+              target: 'packages/ingestion/src/app/**',
+              from: 'packages/ingestion/src/infrastructure/**',
               message: 'app layer must not import from infrastructure layer',
             },
           ],

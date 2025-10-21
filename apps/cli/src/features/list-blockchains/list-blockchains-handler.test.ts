@@ -1,4 +1,4 @@
-import { ProcessorFactory } from '@exitbook/import';
+import { ProcessorFactory } from '@exitbook/ingestion';
 import type { ProviderInfo } from '@exitbook/providers';
 import { ProviderRegistry } from '@exitbook/providers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ListBlockchainsHandler } from './list-blockchains-handler.ts';
 
 // Mock dependencies
-vi.mock('@exitbook/import');
+vi.mock('@exitbook/ingestion');
 vi.mock('@exitbook/providers');
 
 describe('ListBlockchainsHandler', () => {

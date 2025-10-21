@@ -1,5 +1,5 @@
 import type { KyselyDB } from '@exitbook/data';
-import type { TransactionIngestionService } from '@exitbook/import';
+import type { TransactionIngestionService } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
@@ -15,7 +15,7 @@ vi.mock('@exitbook/providers', () => ({
   loadExplorerConfig: vi.fn(),
 }));
 
-vi.mock('@exitbook/import', () => ({
+vi.mock('@exitbook/ingestion', () => ({
   ImporterFactory: vi.fn(),
   DataSourceRepository: vi.fn(),
   ProcessorFactory: vi.fn(),
@@ -42,7 +42,7 @@ describe('ImportHandler', () => {
     };
 
     // Setup TransactionIngestionService mock to return our mock instance
-    const { TransactionIngestionService } = await import('@exitbook/import');
+    const { TransactionIngestionService } = await import('@exitbook/ingestion');
     (TransactionIngestionService as unknown as Mock).mockImplementation(() => mockIngestionService);
 
     handler = new ImportHandler(mockDatabase);

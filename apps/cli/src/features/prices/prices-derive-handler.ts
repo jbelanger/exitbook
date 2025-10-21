@@ -4,7 +4,7 @@
 import type { UniversalTransaction } from '@exitbook/core';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
-import { PriceEnrichmentService } from '@exitbook/import';
+import { PriceEnrichmentService } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';

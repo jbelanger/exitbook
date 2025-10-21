@@ -14,7 +14,7 @@ import {
   type BalanceComparison,
   type BalanceVerificationResult,
   type UnifiedBalanceSnapshot,
-} from '@exitbook/import';
+} from '@exitbook/ingestion';
 import {
   BitcoinUtils,
   BlockchainProviderManager,

@@ -65,7 +65,7 @@ async function executeViewSessionsCommand(options: ExtendedViewSessionsCommandOp
 
     // Initialize repository
     const { initializeDatabase, closeDatabase } = await import('@exitbook/data');
-    const { DataSourceRepository } = await import('@exitbook/import');
+    const { DataSourceRepository } = await import('@exitbook/ingestion');
 
     const database = await initializeDatabase(false);
     const sessionRepo = new DataSourceRepository(database);

@@ -1,7 +1,7 @@
 // Imperative shell for list-blockchains command
 // Manages resources and orchestrates business logic
 
-import { ProcessorFactory } from '@exitbook/import';
+import { ProcessorFactory } from '@exitbook/ingestion';
 import type { ProviderInfo } from '@exitbook/providers';
 import { ProviderRegistry } from '@exitbook/providers';
 import type { Result } from 'neverthrow';
