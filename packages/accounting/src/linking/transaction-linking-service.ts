@@ -1,7 +1,7 @@
 import type { UniversalTransaction } from '@exitbook/core';
-import { computePrimaryMovement } from '@exitbook/core';
+import { computePrimaryMovement, wrapError } from '@exitbook/core';
 import type { getLogger } from '@exitbook/shared-logger';
-import { err, ok, type Result } from 'neverthrow';
+import { ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
 import { DEFAULT_MATCHING_CONFIG, findPotentialMatches, shouldAutoConfirm } from './matching-utils.js';
@@ -76,9 +76,8 @@ export class TransactionLinkingService {
 
       return ok(result);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error }, 'Failed to link transactions');
-      return err(new Error(`Transaction linking failed: ${message}`));
+      return wrapError(error, 'Transaction linking failed');
     }
   }
 
