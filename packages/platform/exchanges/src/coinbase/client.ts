@@ -1,3 +1,4 @@
+import type { TransactionStatus } from '@exitbook/core';
 import { getErrorMessage, wrapError, type RawTransactionWithMetadata } from '@exitbook/core';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
@@ -64,8 +65,8 @@ function normalizePemKey(secret: string): string {
 /**
  * Map Coinbase status to universal status format
  */
-function mapCoinbaseStatus(status: string | undefined): 'pending' | 'ok' | 'canceled' | 'failed' {
-  if (!status) return 'ok';
+function mapCoinbaseStatus(status: string | undefined): TransactionStatus {
+  if (!status) return 'success';
 
   switch (status.toLowerCase()) {
     case 'pending':
@@ -73,14 +74,14 @@ function mapCoinbaseStatus(status: string | undefined): 'pending' | 'ok' | 'canc
     case 'ok':
     case 'completed':
     case 'success':
-      return 'ok';
+      return 'success';
     case 'canceled':
     case 'cancelled':
       return 'canceled';
     case 'failed':
       return 'failed';
     default:
-      return 'ok';
+      return 'success';
   }
 }
 

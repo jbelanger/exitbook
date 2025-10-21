@@ -1,6 +1,4 @@
-/* eslint-disable unicorn/no-null -- db requires null*/
-import { parseDecimal } from '@exitbook/core';
-import type { StoredTransaction } from '@exitbook/data';
+import { parseDecimal, type UniversalTransaction } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
 import { describe, expect, it } from 'vitest';
 
@@ -10,54 +8,37 @@ import { TransactionLinkingService } from '../transaction-linking-service.js';
 const logger = getLogger('test');
 
 /**
- * Helper to create a minimal StoredTransaction for testing.
+ * Helper to create a minimal UniversalTransaction for testing.
  * Only requires the essential fields, rest are set to sensible defaults.
  */
 function createTransaction(params: {
+  blockchain?: { is_confirmed: boolean; name: string; transaction_hash: string };
   datetime: string;
-  externalId: string;
-  fromAddress?: string | null;
+  from?: string;
   id: number;
   inflows?: { amount: string; asset: string }[];
   outflows?: { amount: string; asset: string }[];
-  sourceId: string;
-  sourceType: 'exchange' | 'blockchain';
-  toAddress?: string | null;
-}): StoredTransaction {
+  source: string;
+  to?: string;
+}): UniversalTransaction {
   return {
     id: params.id,
-    data_source_id: 1,
-    source_id: params.sourceId,
-    source_type: params.sourceType,
-    external_id: params.externalId,
-    transaction_status: 'success',
-    transaction_datetime: params.datetime,
-    from_address: params.fromAddress ?? null,
-    to_address: params.toAddress ?? null,
-    price: null,
-    price_currency: null,
-    note_type: null,
-    note_severity: null,
-    note_message: null,
-    note_metadata: null,
-    movements_inflows: params.inflows
-      ? params.inflows.map((m) => ({ asset: m.asset, amount: parseDecimal(m.amount) }))
-      : [],
-    movements_outflows: params.outflows
-      ? params.outflows.map((m) => ({ asset: m.asset, amount: parseDecimal(m.amount) }))
-      : [],
-    fees_network: null,
-    fees_platform: null,
-    fees_total: null,
-    operation_category: null,
-    operation_type: null,
-    blockchain_name: params.sourceType === 'blockchain' ? params.sourceId : null,
-    blockchain_block_height: null,
-    blockchain_transaction_hash: null,
-    blockchain_is_confirmed: null,
-    raw_normalized_data: '{}',
-    created_at: params.datetime,
-    updated_at: null,
+    datetime: params.datetime,
+    timestamp: new Date(params.datetime).getTime(),
+    source: params.source,
+    status: 'success',
+    from: params.from,
+    to: params.to,
+    movements: {
+      inflows: params.inflows ? params.inflows.map((m) => ({ asset: m.asset, amount: parseDecimal(m.amount) })) : [],
+      outflows: params.outflows ? params.outflows.map((m) => ({ asset: m.asset, amount: parseDecimal(m.amount) })) : [],
+    },
+    fees: {},
+    operation: {
+      category: 'transfer',
+      type: 'transfer',
+    },
+    blockchain: params.blockchain,
   };
 }
 
@@ -66,26 +47,23 @@ describe('TransactionLinkingService', () => {
     it('should find exact match between exchange withdrawal and blockchain deposit', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         // Exchange withdrawal
         createTransaction({
           id: 1,
-          sourceId: 'kraken',
-          sourceType: 'exchange',
-          externalId: 'W123',
+          source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
           outflows: [{ asset: 'BTC', amount: '1.0' }],
-          toAddress: 'bc1qtest123',
+          to: 'bc1qtest123',
         }),
         // Blockchain deposit
         createTransaction({
           id: 2,
-          sourceId: 'bitcoin',
-          sourceType: 'blockchain',
-          externalId: 'txabc123',
+          source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
           inflows: [{ asset: 'BTC', amount: '1.0' }],
-          toAddress: 'bc1qtest123',
+          to: 'bc1qtest123',
+          blockchain: { name: 'bitcoin', transaction_hash: 'txabc123', is_confirmed: true },
         }),
       ];
 
@@ -113,24 +91,21 @@ describe('TransactionLinkingService', () => {
     it('should suggest low-confidence matches without auto-confirming', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         // Exchange withdrawal - no address
         createTransaction({
           id: 1,
-          sourceId: 'kraken',
-          sourceType: 'exchange',
-          externalId: 'W123',
+          source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
           outflows: [{ asset: 'BTC', amount: '1.0' }],
         }),
         // Blockchain deposit - 24 hours later, 4% fee
         createTransaction({
           id: 2,
-          sourceId: 'bitcoin',
-          sourceType: 'blockchain',
-          externalId: 'txabc123',
+          source: 'bitcoin',
           datetime: '2024-01-02T12:00:00.000Z',
           inflows: [{ asset: 'BTC', amount: '0.96' }],
+          blockchain: { name: 'bitcoin', transaction_hash: 'txabc123', is_confirmed: true },
         }),
       ];
 
@@ -156,33 +131,28 @@ describe('TransactionLinkingService', () => {
     it('should deduplicate matches - one target per source', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         // Source 1 - closer in time (30 min before target)
         createTransaction({
           id: 1,
-          sourceId: 'kraken',
-          sourceType: 'exchange',
-          externalId: 'W123',
+          source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
           outflows: [{ asset: 'BTC', amount: '1.0' }],
         }),
         // Source 2 - farther in time (60 min before target)
         createTransaction({
           id: 2,
-          sourceId: 'kraken',
-          sourceType: 'exchange',
-          externalId: 'W124',
+          source: 'kraken',
           datetime: '2024-01-01T12:30:00.000Z',
           outflows: [{ asset: 'BTC', amount: '1.0' }],
         }),
         // Target (should only match to best source - id 1)
         createTransaction({
           id: 3,
-          sourceId: 'bitcoin',
-          sourceType: 'blockchain',
-          externalId: 'txabc123',
+          source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
           inflows: [{ asset: 'BTC', amount: '1.0' }],
+          blockchain: { name: 'bitcoin', transaction_hash: 'txabc123', is_confirmed: true },
         }),
       ];
 
@@ -197,7 +167,7 @@ describe('TransactionLinkingService', () => {
         // Should only have one link (best match)
         expect(allLinks).toHaveLength(1);
 
-        // Should be the closer source (id=1, 30 min vs id=2, 60 min)
+        // Should be the closer source (id='1', 30 min vs id='2', 60 min)
         const link = allLinks[0];
         if (link) {
           if ('sourceTransactionId' in link) {
@@ -214,13 +184,11 @@ describe('TransactionLinkingService', () => {
     it('should skip transactions without movement data', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         // Transaction with no movements
         createTransaction({
           id: 1,
-          sourceId: 'kraken',
-          sourceType: 'exchange',
-          externalId: 'W123',
+          source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
           // No inflows or outflows
         }),
@@ -244,28 +212,26 @@ describe('TransactionLinkingService', () => {
     it('should handle blockchain-to-blockchain links', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         // Blockchain send
         createTransaction({
           id: 1,
-          sourceId: 'bitcoin',
-          sourceType: 'blockchain',
-          externalId: 'txsend',
+          source: 'bitcoin',
           datetime: '2024-01-01T12:00:00.000Z',
           outflows: [{ asset: 'BTC', amount: '0.5' }],
-          fromAddress: 'bc1qsource',
-          toAddress: 'bc1qtarget',
+          from: 'bc1qsource',
+          to: 'bc1qtarget',
+          blockchain: { name: 'bitcoin', transaction_hash: 'txsend', is_confirmed: true },
         }),
         // Blockchain receive (15 min later, slight fee)
         createTransaction({
           id: 2,
-          sourceId: 'bitcoin',
-          sourceType: 'blockchain',
-          externalId: 'txrecv',
+          source: 'bitcoin',
           datetime: '2024-01-01T12:15:00.000Z',
           inflows: [{ asset: 'BTC', amount: '0.4999' }],
-          fromAddress: 'bc1qtarget',
-          toAddress: 'bc1qreceiver',
+          from: 'bc1qtarget',
+          to: 'bc1qreceiver',
+          blockchain: { name: 'bitcoin', transaction_hash: 'txrecv', is_confirmed: true },
         }),
       ];
 
@@ -306,42 +272,36 @@ describe('TransactionLinkingService', () => {
     it('should calculate statistics correctly', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         // Matched source (BTC withdrawal)
         createTransaction({
           id: 1,
-          sourceId: 'kraken',
-          sourceType: 'exchange',
-          externalId: 'W123',
+          source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
           outflows: [{ asset: 'BTC', amount: '1.0' }],
         }),
         // Unmatched source (ETH withdrawal)
         createTransaction({
           id: 2,
-          sourceId: 'kraken',
-          sourceType: 'exchange',
-          externalId: 'W124',
+          source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
           outflows: [{ asset: 'ETH', amount: '10.0' }],
         }),
         // Matched target (BTC deposit)
         createTransaction({
           id: 3,
-          sourceId: 'bitcoin',
-          sourceType: 'blockchain',
-          externalId: 'txabc',
+          source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
           inflows: [{ asset: 'BTC', amount: '1.0' }],
+          blockchain: { name: 'bitcoin', transaction_hash: 'txabc', is_confirmed: true },
         }),
         // Unmatched target (USDT deposit)
         createTransaction({
           id: 4,
-          sourceId: 'ethereum',
-          sourceType: 'blockchain',
-          externalId: 'txdef',
+          source: 'ethereum',
           datetime: '2024-01-01T13:00:00.000Z',
           inflows: [{ asset: 'USDT', amount: '1000.0' }],
+          blockchain: { name: 'ethereum', transaction_hash: 'txdef', is_confirmed: true },
         }),
       ];
 
@@ -371,15 +331,13 @@ describe('TransactionLinkingService', () => {
     it('should convert valid transactions to candidates', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         createTransaction({
           id: 1,
-          sourceId: 'kraken',
-          sourceType: 'exchange',
-          externalId: 'W123',
+          source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
           outflows: [{ asset: 'BTC', amount: '1.0' }],
-          toAddress: 'bc1qtest',
+          to: 'bc1qtest',
         }),
       ];
 
@@ -396,15 +354,14 @@ describe('TransactionLinkingService', () => {
     it('should skip transactions with only inflows (no direction)', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         // Transaction with only inflows is a deposit (direction 'in')
         createTransaction({
           id: 1,
-          sourceId: 'bitcoin',
-          sourceType: 'blockchain',
-          externalId: 'D123',
+          source: 'bitcoin',
           datetime: '2024-01-01T12:00:00.000Z',
           inflows: [{ asset: 'BTC', amount: '1.0' }],
+          blockchain: { name: 'bitcoin', transaction_hash: 'D123', is_confirmed: true },
         }),
       ];
 
@@ -421,13 +378,11 @@ describe('TransactionLinkingService', () => {
     it('should skip transactions with both inflows and outflows (trades)', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         // Trade: BTC -> ETH
         createTransaction({
           id: 1,
-          sourceId: 'kraken',
-          sourceType: 'exchange',
-          externalId: 'T123',
+          source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
           inflows: [{ asset: 'ETH', amount: '10.0' }],
           outflows: [{ asset: 'BTC', amount: '1.0' }],
@@ -451,33 +406,29 @@ describe('TransactionLinkingService', () => {
     it('should prevent one source from matching multiple targets', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         // Single source
         createTransaction({
           id: 1,
-          sourceId: 'kraken',
-          sourceType: 'exchange',
-          externalId: 'W123',
+          source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
           outflows: [{ asset: 'BTC', amount: '1.0' }],
         }),
         // Target 1 - closer in time (1 hour later)
         createTransaction({
           id: 2,
-          sourceId: 'bitcoin',
-          sourceType: 'blockchain',
-          externalId: 'txabc123',
+          source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
           inflows: [{ asset: 'BTC', amount: '1.0' }],
+          blockchain: { name: 'bitcoin', transaction_hash: 'txabc123', is_confirmed: true },
         }),
         // Target 2 - farther in time (6 hours later)
         createTransaction({
           id: 3,
-          sourceId: 'bitcoin',
-          sourceType: 'blockchain',
-          externalId: 'txdef456',
+          source: 'bitcoin',
           datetime: '2024-01-01T18:00:00.000Z',
           inflows: [{ asset: 'BTC', amount: '1.0' }],
+          blockchain: { name: 'bitcoin', transaction_hash: 'txdef456', is_confirmed: true },
         }),
       ];
 
@@ -508,37 +459,32 @@ describe('TransactionLinkingService', () => {
     it('should keep only highest confidence match per target', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         // Source 1 - closer in time to target (1 hour before)
         createTransaction({
           id: 1,
-          sourceId: 'kraken',
-          sourceType: 'exchange',
-          externalId: 'W123',
+          source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
           outflows: [{ asset: 'BTC', amount: '1.0' }],
-          toAddress: 'bc1qtarget',
+          to: 'bc1qtarget',
         }),
         // Source 2 - farther in time from target (3 hours before)
         createTransaction({
           id: 2,
-          sourceId: 'kraken',
-          sourceType: 'exchange',
-          externalId: 'W124',
+          source: 'kraken',
           datetime: '2024-01-01T10:00:00.000Z',
           outflows: [{ asset: 'BTC', amount: '1.0' }],
-          toAddress: 'bc1qtarget',
+          to: 'bc1qtarget',
         }),
         // Target - should match to source 1 (closer)
         createTransaction({
           id: 3,
-          sourceId: 'bitcoin',
-          sourceType: 'blockchain',
-          externalId: 'txabc',
+          source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
           inflows: [{ asset: 'BTC', amount: '1.0' }],
-          fromAddress: 'bc1qtarget',
-          toAddress: 'bc1qfinal',
+          from: 'bc1qtarget',
+          to: 'bc1qfinal',
+          blockchain: { name: 'bitcoin', transaction_hash: 'txabc', is_confirmed: true },
         }),
       ];
 
@@ -573,25 +519,22 @@ describe('TransactionLinkingService', () => {
         autoConfirmThreshold: parseDecimal('0.9'),
       });
 
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         createTransaction({
           id: 1,
-          sourceId: 'kraken',
-          sourceType: 'exchange',
-          externalId: 'W123',
+          source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
           outflows: [{ asset: 'BTC', amount: '1.0' }],
-          toAddress: 'bc1qtest',
+          to: 'bc1qtest',
         }),
         createTransaction({
           id: 2,
-          sourceId: 'bitcoin',
-          sourceType: 'blockchain',
-          externalId: 'txabc',
+          source: 'bitcoin',
           datetime: '2024-01-01T12:30:00.000Z',
           inflows: [{ asset: 'BTC', amount: '1.0' }],
-          fromAddress: 'bc1qtest',
-          toAddress: 'bc1qfinal',
+          from: 'bc1qtest',
+          to: 'bc1qfinal',
+          blockchain: { name: 'bitcoin', transaction_hash: 'txabc', is_confirmed: true },
         }),
       ];
 
@@ -618,23 +561,20 @@ describe('TransactionLinkingService', () => {
         autoConfirmThreshold: parseDecimal('0.99'), // Very high threshold
       });
 
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         createTransaction({
           id: 1,
-          sourceId: 'kraken',
-          sourceType: 'exchange',
-          externalId: 'W123',
+          source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
           outflows: [{ asset: 'BTC', amount: '1.0' }],
           // No address
         }),
         createTransaction({
           id: 2,
-          sourceId: 'bitcoin',
-          sourceType: 'blockchain',
-          externalId: 'txabc',
+          source: 'bitcoin',
           datetime: '2024-01-02T00:00:00.000Z', // 12 hours later
           inflows: [{ asset: 'BTC', amount: '0.98' }], // 2% fee
+          blockchain: { name: 'bitcoin', transaction_hash: 'txabc', is_confirmed: true },
           // No address
         }),
       ];

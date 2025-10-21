@@ -1,6 +1,5 @@
-import type { AssetMovement, Currency, PriceAtTxTime } from '@exitbook/core';
+import type { AssetMovement, Currency, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { StoredTransaction } from '@exitbook/data';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
@@ -89,8 +88,8 @@ export class PriceEnrichmentService {
       const txIdsNeedingPrices = new Set(transactions.map((tx) => tx.id));
 
       // Separate by source type (keep all transactions for proper price index building)
-      const exchangeTxs = allTransactions.filter((tx) => tx.source_type === 'exchange');
-      const blockchainTxs = allTransactions.filter((tx) => tx.source_type === 'blockchain');
+      const exchangeTxs = allTransactions.filter((tx) => !tx.blockchain);
+      const blockchainTxs = allTransactions.filter((tx) => tx.blockchain !== undefined);
 
       let updatedCount = 0;
 
@@ -124,7 +123,7 @@ export class PriceEnrichmentService {
    * Groups by exchange (source_id) for independent processing
    */
   private async enrichExchangePrices(
-    transactions: StoredTransaction[],
+    transactions: UniversalTransaction[],
     txIdsNeedingPrices: Set<number>
   ): Promise<Result<number, Error>> {
     try {
@@ -158,14 +157,14 @@ export class PriceEnrichmentService {
    */
   private async enrichExchangeGroup(
     exchange: string,
-    transactions: StoredTransaction[],
+    transactions: UniversalTransaction[],
     txIdsNeedingPrices: Set<number>
   ): Promise<Result<number, Error>> {
     try {
       // Sort by timestamp for temporal processing
       const sortedTxs = [...transactions].sort((a, b) => {
-        const timeA = new Date(a.transaction_datetime).getTime();
-        const timeB = new Date(b.transaction_datetime).getTime();
+        const timeA = new Date(a.datetime).getTime();
+        const timeB = new Date(b.datetime).getTime();
         return timeA - timeB;
       });
 
@@ -186,7 +185,9 @@ export class PriceEnrichmentService {
         }
 
         // Check if transaction has any prices to update
-        const hasPrices = [...tx.movements_inflows, ...tx.movements_outflows].some((m) => m.priceAtTxTime);
+        const inflows = tx.movements.inflows ?? [];
+        const outflows = tx.movements.outflows ?? [];
+        const hasPrices = [...inflows, ...outflows].some((m) => m.priceAtTxTime);
 
         if (!hasPrices) {
           skippedCount++;
@@ -213,13 +214,13 @@ export class PriceEnrichmentService {
    * Extract known prices from fiat/stablecoin trades
    * Returns a price index: Map<asset, PriceAtTxTime[]>
    */
-  private extractKnownPrices(transactions: StoredTransaction[]): Map<string, PriceAtTxTime[]> {
+  private extractKnownPrices(transactions: UniversalTransaction[]): Map<string, PriceAtTxTime[]> {
     const priceIndex = new Map<string, PriceAtTxTime[]>();
 
     for (const tx of transactions) {
-      const timestamp = new Date(tx.transaction_datetime).getTime();
+      const timestamp = new Date(tx.datetime).getTime();
 
-      const trade = extractTradeMovements(tx.movements_inflows, tx.movements_outflows, timestamp);
+      const trade = extractTradeMovements(tx.movements.inflows ?? [], tx.movements.outflows ?? [], timestamp);
       if (!trade) {
         continue;
       }
@@ -244,9 +245,9 @@ export class PriceEnrichmentService {
    * Multi-pass inference: iteratively infer prices from crypto-crypto trades
    */
   private inferMultiPass(
-    transactions: StoredTransaction[],
+    transactions: UniversalTransaction[],
     priceIndex: Map<string, PriceAtTxTime[]>
-  ): StoredTransaction[] {
+  ): UniversalTransaction[] {
     // Track which transactions have been enriched with new movements
     const enrichedMovements = new Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>();
 
@@ -254,9 +255,11 @@ export class PriceEnrichmentService {
     // This ensures these movements retain their 'exchange-execution' source instead of being
     // overwritten later with 'derived-history' from Pass N+1 temporal proximity
     for (const tx of transactions) {
-      const timestamp = new Date(tx.transaction_datetime).getTime();
+      const timestamp = new Date(tx.datetime).getTime();
+      const inflows = tx.movements.inflows ?? [];
+      const outflows = tx.movements.outflows ?? [];
 
-      const trade = extractTradeMovements(tx.movements_inflows, tx.movements_outflows, timestamp);
+      const trade = extractTradeMovements(inflows, outflows, timestamp);
       if (!trade) {
         continue;
       }
@@ -264,8 +267,8 @@ export class PriceEnrichmentService {
       const prices = calculatePriceFromTrade(trade);
 
       if (prices.length > 0) {
-        const updatedInflows = this.enrichMovements(tx.movements_inflows, prices);
-        const updatedOutflows = this.enrichMovements(tx.movements_outflows, prices);
+        const updatedInflows = this.enrichMovements(inflows, prices);
+        const updatedOutflows = this.enrichMovements(outflows, prices);
 
         enrichedMovements.set(tx.id, {
           inflows: updatedInflows,
@@ -292,9 +295,9 @@ export class PriceEnrichmentService {
       for (const tx of transactions) {
         // Use enriched movements if available, otherwise use original
         const enriched = enrichedMovements.get(tx.id);
-        const inflows = enriched ? enriched.inflows : tx.movements_inflows;
-        const outflows = enriched ? enriched.outflows : tx.movements_outflows;
-        const timestamp = new Date(tx.transaction_datetime).getTime();
+        const inflows = enriched ? enriched.inflows : (tx.movements.inflows ?? []);
+        const outflows = enriched ? enriched.outflows : (tx.movements.outflows ?? []);
+        const timestamp = new Date(tx.datetime).getTime();
 
         const trade = extractTradeMovements(inflows, outflows, timestamp);
         if (!trade) {
@@ -333,9 +336,9 @@ export class PriceEnrichmentService {
     // Pass N+1: Fill remaining gaps using temporal proximity
     for (const tx of transactions) {
       const enriched = enrichedMovements.get(tx.id);
-      const inflows = enriched ? enriched.inflows : tx.movements_inflows;
-      const outflows = enriched ? enriched.outflows : tx.movements_outflows;
-      const timestamp = new Date(tx.transaction_datetime).getTime();
+      const inflows = enriched ? enriched.inflows : (tx.movements.inflows ?? []);
+      const outflows = enriched ? enriched.outflows : (tx.movements.outflows ?? []);
+      const timestamp = new Date(tx.datetime).getTime();
 
       const allMovements = [...inflows, ...outflows];
       const proximityPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
@@ -371,8 +374,10 @@ export class PriceEnrichmentService {
       if (enriched) {
         return {
           ...tx,
-          movements_inflows: enriched.inflows,
-          movements_outflows: enriched.outflows,
+          movements: {
+            inflows: enriched.inflows,
+            outflows: enriched.outflows,
+          },
         };
       }
       return tx;
@@ -383,7 +388,7 @@ export class PriceEnrichmentService {
    * Process blockchain transactions (simple stablecoin swaps only)
    */
   private async enrichBlockchainPrices(
-    transactions: StoredTransaction[],
+    transactions: UniversalTransaction[],
     txIdsNeedingPrices: Set<number>
   ): Promise<Result<number, Error>> {
     try {
@@ -397,9 +402,9 @@ export class PriceEnrichmentService {
           continue;
         }
 
-        const inflows = tx.movements_inflows;
-        const outflows = tx.movements_outflows;
-        const timestamp = new Date(tx.transaction_datetime).getTime();
+        const inflows = tx.movements.inflows ?? [];
+        const outflows = tx.movements.outflows ?? [];
+        const timestamp = new Date(tx.datetime).getTime();
 
         const trade = extractTradeMovements(inflows, outflows, timestamp);
         if (!trade) {
@@ -412,8 +417,10 @@ export class PriceEnrichmentService {
         if (prices.length > 0) {
           const updateResult = await this.updateTransactionPrices({
             ...tx,
-            movements_inflows: this.enrichMovements(inflows, prices),
-            movements_outflows: this.enrichMovements(outflows, prices),
+            movements: {
+              inflows: this.enrichMovements(inflows, prices),
+              outflows: this.enrichMovements(outflows, prices),
+            },
           });
 
           if (updateResult.isOk()) {
@@ -431,10 +438,10 @@ export class PriceEnrichmentService {
   /**
    * Update transaction in database with enriched price data
    */
-  private async updateTransactionPrices(tx: StoredTransaction): Promise<Result<void, Error>> {
+  private async updateTransactionPrices(tx: UniversalTransaction): Promise<Result<void, Error>> {
     try {
-      const inflows = tx.movements_inflows;
-      const outflows = tx.movements_outflows;
+      const inflows = tx.movements.inflows ?? [];
+      const outflows = tx.movements.outflows ?? [];
 
       // Collect all price data for update
       const priceData: {
@@ -470,11 +477,11 @@ export class PriceEnrichmentService {
   /**
    * Group transactions by exchange (source_id)
    */
-  private groupByExchange(transactions: StoredTransaction[]): Map<string, StoredTransaction[]> {
-    const grouped = new Map<string, StoredTransaction[]>();
+  private groupByExchange(transactions: UniversalTransaction[]): Map<string, UniversalTransaction[]> {
+    const grouped = new Map<string, UniversalTransaction[]>();
 
     for (const tx of transactions) {
-      const exchange = tx.source_id;
+      const exchange = tx.source;
       if (!grouped.has(exchange)) {
         grouped.set(exchange, []);
       }

@@ -1,3 +1,4 @@
+import type { TransactionStatus } from '@exitbook/core';
 import { getErrorMessage, wrapError, type RawTransactionWithMetadata } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
 import * as ccxt from 'ccxt';
@@ -17,8 +18,8 @@ export type KuCoinLedgerEntry = z.infer<typeof KuCoinLedgerEntrySchema>;
 /**
  * Map KuCoin status to universal status format
  */
-function mapKuCoinStatus(status: string | undefined): 'pending' | 'ok' | 'canceled' | 'failed' {
-  if (!status) return 'ok';
+function mapKuCoinStatus(status: string | undefined): TransactionStatus {
+  if (!status) return 'success';
 
   switch (status.toLowerCase()) {
     case 'pending':
@@ -26,14 +27,14 @@ function mapKuCoinStatus(status: string | undefined): 'pending' | 'ok' | 'cancel
     case 'ok':
     case 'completed':
     case 'success':
-      return 'ok';
+      return 'success';
     case 'canceled':
     case 'cancelled':
       return 'canceled';
     case 'failed':
       return 'failed';
     default:
-      return 'ok';
+      return 'success';
   }
 }
 

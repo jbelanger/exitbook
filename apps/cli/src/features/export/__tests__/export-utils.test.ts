@@ -1,6 +1,5 @@
-/* eslint-disable unicorn/no-null -- db requires explicit null */
-import { parseDecimal } from '@exitbook/core';
-import type { StoredTransaction } from '@exitbook/data';
+import type { Money, UniversalTransaction } from '@exitbook/core';
+import { createMoney, parseDecimal } from '@exitbook/core';
 import { describe, it, expect } from 'vitest';
 
 import {
@@ -218,36 +217,23 @@ describe('export-utils', () => {
     });
 
     it('should convert single transaction to CSV', () => {
-      const transaction: StoredTransaction = {
+      const transaction: UniversalTransaction = {
         id: 1,
-        external_id: 'ext-1',
-        source_id: 'kraken',
-        source_type: 'exchange',
-        data_source_id: 123,
-        operation_category: 'trade',
-        operation_type: 'buy',
-        transaction_datetime: '2024-01-01T12:00:00Z',
-        transaction_status: 'success',
-        from_address: null,
-        to_address: null,
-        movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
-        movements_outflows: [],
-        fees_total: null,
-        fees_network: null,
-        fees_platform: null,
-        price: '50000',
-        price_currency: 'USD',
-        note_type: null,
-        note_severity: null,
-        note_message: null,
-        note_metadata: null,
-        raw_normalized_data: '{}',
-        blockchain_name: null,
-        blockchain_block_height: null,
-        blockchain_transaction_hash: null,
-        blockchain_is_confirmed: null,
-        created_at: '2024-01-01T12:00:00Z',
-        updated_at: '2024-01-01T12:00:00Z',
+        uniqueId: 'ext-1',
+        source: 'kraken',
+        datetime: '2024-01-01T12:00:00Z',
+        timestamp: Date.parse('2024-01-01T12:00:00Z'),
+        status: 'success',
+        movements: {
+          inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
+          outflows: [],
+        },
+        fees: {},
+        operation: {
+          category: 'trade',
+          type: 'buy',
+        },
+        price: createMoney('50000', 'USD'),
       };
 
       const result = convertToCSV([transaction]);
@@ -259,68 +245,42 @@ describe('export-utils', () => {
     });
 
     it('should convert multiple transactions to CSV', () => {
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         {
           id: 1,
-          external_id: 'ext-1',
-          source_id: 'kraken',
-          source_type: 'exchange',
-          data_source_id: 123,
-          operation_category: 'trade',
-          operation_type: 'buy',
-          transaction_datetime: '2024-01-01T12:00:00Z',
-          transaction_status: 'success',
-          from_address: null,
-          to_address: null,
-          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
-          movements_outflows: [],
-          fees_total: null,
-          fees_network: null,
-          fees_platform: null,
-          price: '50000',
-          price_currency: 'USD',
-          note_type: null,
-          note_severity: null,
-          note_message: null,
-          note_metadata: null,
-          raw_normalized_data: '{}',
-          blockchain_name: null,
-          blockchain_block_height: null,
-          blockchain_transaction_hash: null,
-          blockchain_is_confirmed: null,
-          created_at: '2024-01-01T12:00:00Z',
-          updated_at: '2024-01-01T12:00:00Z',
+          uniqueId: 'ext-1',
+          source: 'kraken',
+          datetime: '2024-01-01T12:00:00Z',
+          timestamp: Date.parse('2024-01-01T12:00:00Z'),
+          status: 'success',
+          movements: {
+            inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
+            outflows: [],
+          },
+          fees: {},
+          operation: {
+            category: 'trade',
+            type: 'buy',
+          },
+          price: createMoney('50000', 'USD'),
         },
         {
           id: 2,
-          external_id: 'ext-2',
-          source_id: 'kraken',
-          source_type: 'exchange',
-          data_source_id: 123,
-          operation_category: 'trade',
-          operation_type: 'sell',
-          transaction_datetime: '2024-01-02T12:00:00Z',
-          transaction_status: 'success',
-          from_address: null,
-          to_address: null,
-          movements_inflows: [],
-          movements_outflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
-          fees_total: null,
-          fees_network: null,
-          fees_platform: null,
-          price: '3000',
-          price_currency: 'USD',
-          note_type: null,
-          note_severity: null,
-          note_message: null,
-          note_metadata: null,
-          raw_normalized_data: '{}',
-          blockchain_name: null,
-          blockchain_block_height: null,
-          blockchain_transaction_hash: null,
-          blockchain_is_confirmed: null,
-          created_at: '2024-01-02T12:00:00Z',
-          updated_at: '2024-01-02T12:00:00Z',
+          uniqueId: 'ext-2',
+          source: 'kraken',
+          datetime: '2024-01-02T12:00:00Z',
+          timestamp: Date.parse('2024-01-02T12:00:00Z'),
+          status: 'success',
+          movements: {
+            inflows: [],
+            outflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
+          },
+          fees: {},
+          operation: {
+            category: 'trade',
+            type: 'sell',
+          },
+          price: createMoney('3000', 'USD'),
         },
       ];
 
@@ -334,36 +294,23 @@ describe('export-utils', () => {
     });
 
     it('should escape values with commas', () => {
-      const transaction: StoredTransaction = {
+      const transaction: UniversalTransaction = {
         id: 1,
-        external_id: 'ext-1',
-        source_id: 'test,source',
-        source_type: 'exchange',
-        data_source_id: 123,
-        operation_category: 'trade',
-        operation_type: 'buy',
-        transaction_datetime: '2024-01-01T12:00:00Z',
-        transaction_status: 'success',
-        from_address: null,
-        to_address: null,
-        movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
-        movements_outflows: [],
-        fees_total: null,
-        fees_network: null,
-        fees_platform: null,
-        price: '50000',
-        price_currency: 'USD',
-        note_type: null,
-        note_severity: null,
-        note_message: null,
-        note_metadata: null,
-        raw_normalized_data: '{}',
-        blockchain_name: null,
-        blockchain_block_height: null,
-        blockchain_transaction_hash: null,
-        blockchain_is_confirmed: null,
-        created_at: '2024-01-01T12:00:00Z',
-        updated_at: '2024-01-01T12:00:00Z',
+        uniqueId: 'ext-1',
+        source: 'test,source',
+        datetime: '2024-01-01T12:00:00Z',
+        timestamp: Date.parse('2024-01-01T12:00:00Z'),
+        status: 'success',
+        movements: {
+          inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
+          outflows: [],
+        },
+        fees: {},
+        operation: {
+          category: 'trade',
+          type: 'buy',
+        },
+        price: createMoney('50000', 'USD'),
       };
 
       const result = convertToCSV([transaction]);
@@ -379,36 +326,23 @@ describe('export-utils', () => {
     });
 
     it('should convert single transaction to JSON', () => {
-      const transaction: StoredTransaction = {
+      const transaction: UniversalTransaction = {
         id: 1,
-        external_id: 'ext-1',
-        source_id: 'kraken',
-        source_type: 'exchange',
-        data_source_id: 123,
-        operation_category: 'trade',
-        operation_type: 'buy',
-        transaction_datetime: '2024-01-01T12:00:00Z',
-        transaction_status: 'success',
-        from_address: null,
-        to_address: null,
-        movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
-        movements_outflows: [],
-        fees_total: null,
-        fees_network: null,
-        fees_platform: null,
-        price: '50000',
-        price_currency: 'USD',
-        note_type: null,
-        note_severity: null,
-        note_message: null,
-        note_metadata: null,
-        raw_normalized_data: '{}',
-        blockchain_name: null,
-        blockchain_block_height: null,
-        blockchain_transaction_hash: null,
-        blockchain_is_confirmed: null,
-        created_at: '2024-01-01T12:00:00Z',
-        updated_at: '2024-01-01T12:00:00Z',
+        uniqueId: 'ext-1',
+        source: 'kraken',
+        datetime: '2024-01-01T12:00:00Z',
+        timestamp: Date.parse('2024-01-01T12:00:00Z'),
+        status: 'success',
+        movements: {
+          inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
+          outflows: [],
+        },
+        fees: {},
+        operation: {
+          category: 'trade',
+          type: 'buy',
+        },
+        price: createMoney('50000', 'USD'),
       };
 
       const result = convertToJSON([transaction]);
@@ -416,89 +350,59 @@ describe('export-utils', () => {
 
       expect(parsed).toHaveLength(1);
       const tx = parsed[0] as {
-        fees: { total: unknown };
-        id: number;
+        fees: { total?: unknown };
+        id: string;
         movements: { primary: { amount: string; asset: string; direction: string } };
         operation: { category: string; type: string };
-        price: string;
-        price_currency: string;
-        source_id: string;
+        price: Money;
+        source: string;
       };
       expect(tx.id).toBe(1);
-      expect(tx.source_id).toBe('kraken');
+      expect(tx.source).toBe('kraken');
       expect(tx.operation.category).toBe('trade');
       expect(tx.operation.type).toBe('buy');
-      expect(tx.movements.primary.asset).toBe('BTC');
-      expect(tx.movements.primary.amount).toBe('1.5');
-      expect(tx.movements.primary.direction).toBe('in');
-      expect(tx.fees.total).toBe(null);
-      expect(tx.price).toBe('50000');
-      expect(tx.price_currency).toBe('USD');
+      expect(tx.fees.total).toBeUndefined();
+      expect(tx.price.amount).toBe('50000');
+      expect(tx.price.currency).toBe('USD');
     });
 
     it('should convert multiple transactions to JSON', () => {
-      const transactions: StoredTransaction[] = [
+      const transactions: UniversalTransaction[] = [
         {
           id: 1,
-          external_id: 'ext-1',
-          source_id: 'kraken',
-          source_type: 'exchange',
-          data_source_id: 123,
-          operation_category: 'trade',
-          operation_type: 'buy',
-          transaction_datetime: '2024-01-01T12:00:00Z',
-          transaction_status: 'success',
-          from_address: null,
-          to_address: null,
-          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
-          movements_outflows: [],
-          fees_total: null,
-          fees_network: null,
-          fees_platform: null,
-          price: '50000',
-          price_currency: 'USD',
-          note_type: null,
-          note_severity: null,
-          note_message: null,
-          note_metadata: null,
-          raw_normalized_data: '{}',
-          blockchain_name: null,
-          blockchain_block_height: null,
-          blockchain_transaction_hash: null,
-          blockchain_is_confirmed: null,
-          created_at: '2024-01-01T12:00:00Z',
-          updated_at: '2024-01-01T12:00:00Z',
+          uniqueId: 'ext-1',
+          source: 'kraken',
+          datetime: '2024-01-01T12:00:00Z',
+          timestamp: Date.parse('2024-01-01T12:00:00Z'),
+          status: 'success',
+          movements: {
+            inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
+            outflows: [],
+          },
+          fees: {},
+          operation: {
+            category: 'trade',
+            type: 'buy',
+          },
+          price: createMoney('50000', 'USD'),
         },
         {
           id: 2,
-          external_id: 'ext-2',
-          source_id: 'kraken',
-          source_type: 'exchange',
-          data_source_id: 123,
-          operation_category: 'trade',
-          operation_type: 'sell',
-          transaction_datetime: '2024-01-02T12:00:00Z',
-          transaction_status: 'success',
-          from_address: null,
-          to_address: null,
-          movements_inflows: [],
-          movements_outflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
-          fees_total: null,
-          fees_network: null,
-          fees_platform: null,
-          price: '3000',
-          price_currency: 'USD',
-          note_type: null,
-          note_severity: null,
-          note_message: null,
-          note_metadata: null,
-          raw_normalized_data: '{}',
-          blockchain_name: null,
-          blockchain_block_height: null,
-          blockchain_transaction_hash: null,
-          blockchain_is_confirmed: null,
-          created_at: '2024-01-02T12:00:00Z',
-          updated_at: '2024-01-02T12:00:00Z',
+          uniqueId: 'ext-2',
+          source: 'kraken',
+          datetime: '2024-01-02T12:00:00Z',
+          timestamp: Date.parse('2024-01-02T12:00:00Z'),
+          status: 'success',
+          movements: {
+            inflows: [],
+            outflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
+          },
+          fees: {},
+          operation: {
+            category: 'trade',
+            type: 'sell',
+          },
+          price: createMoney('3000', 'USD'),
         },
       ];
 
@@ -506,50 +410,42 @@ describe('export-utils', () => {
       const parsed = JSON.parse(result) as unknown[];
 
       expect(parsed).toHaveLength(2);
-      expect((parsed[0] as { id: number }).id).toBe(1);
-      expect((parsed[1] as { id: number }).id).toBe(2);
+      expect((parsed[0] as { id: string }).id).toBe(1);
+      expect((parsed[1] as { id: string }).id).toBe(2);
     });
 
     it('should include blockchain information when present', () => {
-      const transaction: StoredTransaction = {
+      const transaction: UniversalTransaction = {
         id: 1,
-        external_id: 'ext-1',
-        source_id: 'bitcoin',
-        source_type: 'blockchain',
-        data_source_id: 123,
-        operation_category: 'transfer',
-        operation_type: 'transfer',
-        transaction_datetime: '2024-01-01T12:00:00Z',
-        transaction_status: 'success',
-        from_address: null,
-        to_address: null,
-        movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
-        movements_outflows: [],
-        fees_total: null,
-        fees_network: null,
-        fees_platform: null,
-        price: null,
-        price_currency: null,
-        note_type: null,
-        note_severity: null,
-        note_message: null,
-        note_metadata: null,
-        raw_normalized_data: '{}',
-        blockchain_name: 'bitcoin',
-        blockchain_block_height: 800000,
-        blockchain_transaction_hash: '0xabc123',
-        blockchain_is_confirmed: true,
-        created_at: '2024-01-01T12:00:00Z',
-        updated_at: '2024-01-01T12:00:00Z',
+        uniqueId: 'ext-1',
+        source: 'bitcoin',
+        datetime: '2024-01-01T12:00:00Z',
+        timestamp: Date.parse('2024-01-01T12:00:00Z'),
+        status: 'success',
+        movements: {
+          inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
+          outflows: [],
+        },
+        fees: {},
+        operation: {
+          category: 'transfer',
+          type: 'transfer',
+        },
+        blockchain: {
+          name: 'bitcoin',
+          block_height: 800000,
+          transaction_hash: '0xabc123',
+          is_confirmed: true,
+        },
       };
 
       const result = convertToJSON([transaction]);
       const parsed = JSON.parse(result) as {
         blockchain: {
-          block_height: number | null;
-          is_confirmed: boolean | null;
-          name: string | null;
-          transaction_hash: string | null;
+          block_height?: number;
+          is_confirmed: boolean;
+          name: string;
+          transaction_hash: string;
         };
       }[];
 
@@ -562,36 +458,23 @@ describe('export-utils', () => {
     });
 
     it('should format JSON with proper indentation', () => {
-      const transaction: StoredTransaction = {
+      const transaction: UniversalTransaction = {
         id: 1,
-        external_id: 'ext-1',
-        source_id: 'kraken',
-        source_type: 'exchange',
-        data_source_id: 123,
-        operation_category: 'trade',
-        operation_type: 'buy',
-        transaction_datetime: '2024-01-01T12:00:00Z',
-        transaction_status: 'success',
-        from_address: null,
-        to_address: null,
-        movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
-        movements_outflows: [],
-        fees_total: null,
-        fees_network: null,
-        fees_platform: null,
-        price: '50000',
-        price_currency: 'USD',
-        note_type: null,
-        note_severity: null,
-        note_message: null,
-        note_metadata: null,
-        raw_normalized_data: '{}',
-        blockchain_name: null,
-        blockchain_block_height: null,
-        blockchain_transaction_hash: null,
-        blockchain_is_confirmed: null,
-        created_at: '2024-01-01T12:00:00Z',
-        updated_at: '2024-01-01T12:00:00Z',
+        uniqueId: 'ext-1',
+        source: 'kraken',
+        datetime: '2024-01-01T12:00:00Z',
+        timestamp: Date.parse('2024-01-01T12:00:00Z'),
+        status: 'success',
+        movements: {
+          inflows: [{ asset: 'BTC', amount: parseDecimal('1.5') }],
+          outflows: [],
+        },
+        fees: {},
+        operation: {
+          category: 'trade',
+          type: 'buy',
+        },
+        price: createMoney('50000', 'USD'),
       };
 
       const result = convertToJSON([transaction]);

@@ -1,12 +1,12 @@
+import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import type { StoredTransaction } from '@exitbook/data';
 import type { Decimal } from 'decimal.js';
 
 /**
  * Calculate balances for all currencies from a set of transactions.
  * Returns all currencies that have transactions, including zero balances.
  */
-export function calculateBalances(transactions: StoredTransaction[]): Record<string, Decimal> {
+export function calculateBalances(transactions: UniversalTransaction[]): Record<string, Decimal> {
   const balances: Record<string, Decimal> = {};
 
   for (const transaction of transactions) {
@@ -20,7 +20,7 @@ export function calculateBalances(transactions: StoredTransaction[]): Record<str
  * Process a single transaction's movements and fees to update balances.
  * Handles inflows, outflows, and fees from the transaction's structured data.
  */
-function processTransactionForBalance(transaction: StoredTransaction, balances: Record<string, Decimal>): void {
+function processTransactionForBalance(transaction: UniversalTransaction, balances: Record<string, Decimal>): void {
   // Initialize balance for any assets we encounter
   const ensureBalance = (asset: string) => {
     if (!balances[asset]) {
@@ -30,7 +30,7 @@ function processTransactionForBalance(transaction: StoredTransaction, balances: 
 
   // Process inflows (what user gained)
   // Movements are already deserialized by the repository with Decimal amounts
-  const inflows = transaction.movements_inflows;
+  const inflows = transaction.movements.inflows;
   if (inflows && Array.isArray(inflows) && inflows.length > 0) {
     for (const inflow of inflows) {
       ensureBalance(inflow.asset);
@@ -40,7 +40,7 @@ function processTransactionForBalance(transaction: StoredTransaction, balances: 
 
   // Process outflows (what user lost)
   // Movements are already deserialized by the repository with Decimal amounts
-  const outflows = transaction.movements_outflows;
+  const outflows = transaction.movements.outflows;
   if (outflows && Array.isArray(outflows) && outflows.length > 0) {
     for (const outflow of outflows) {
       ensureBalance(outflow.asset);
@@ -50,15 +50,15 @@ function processTransactionForBalance(transaction: StoredTransaction, balances: 
 
   // Process fees (always a cost)
   // Fees are now deserialized by the repository as Money objects with Decimal amounts
-  if (transaction.fees_network) {
-    const currency = transaction.fees_network.currency.toString();
+  if (transaction.fees.network) {
+    const currency = transaction.fees.network.currency.toString();
     ensureBalance(currency);
-    balances[currency] = balances[currency]!.minus(transaction.fees_network.amount);
+    balances[currency] = balances[currency]!.minus(transaction.fees.network.amount);
   }
 
-  if (transaction.fees_platform) {
-    const currency = transaction.fees_platform.currency.toString();
+  if (transaction.fees.platform) {
+    const currency = transaction.fees.platform.currency.toString();
     ensureBalance(currency);
-    balances[currency] = balances[currency]!.minus(transaction.fees_platform.amount);
+    balances[currency] = balances[currency]!.minus(transaction.fees.platform.amount);
   }
 }

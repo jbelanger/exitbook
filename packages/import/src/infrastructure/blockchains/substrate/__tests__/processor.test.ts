@@ -50,14 +50,14 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
 
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.movements.inflows.length).toBe(1);
-    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1.5');
-    expect(transaction.movements.outflows.length).toBe(0);
+    expect(transaction.movements.inflows?.length).toBe(1);
+    expect(transaction.movements.inflows && transaction.movements.inflows[0]?.amount.toString()).toBe('1.5');
+    expect(transaction.movements.outflows?.length).toBe(0);
     expect(transaction.fees.network?.amount.toString()).toBe('0'); // User received, sender paid fee
     expect(transaction.blockchain?.name).toBe('polkadot');
     expect(transaction.from).toBe(EXTERNAL_ADDRESS);
     expect(transaction.to).toBe(USER_ADDRESS);
-    expect(transaction.status).toBe('ok');
+    expect(transaction.status).toBe('success');
   });
 
   test('classifies outgoing transfer as withdrawal', async () => {
@@ -93,9 +93,9 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
 
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
-    expect(transaction.movements.outflows.length).toBe(1);
-    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('2.5');
-    expect(transaction.movements.inflows.length).toBe(0);
+    expect(transaction.movements.outflows?.length).toBe(1);
+    expect(transaction.movements.outflows![0]?.amount.toString()).toBe('2.5');
+    expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
     expect(transaction.from).toBe(USER_ADDRESS);
     expect(transaction.to).toBe(EXTERNAL_ADDRESS);
@@ -134,10 +134,10 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
     // Structured fields - self-transfer has same asset in and out
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
-    expect(transaction.movements.inflows.length).toBe(1);
-    expect(transaction.movements.outflows.length).toBe(1);
-    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1');
-    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('1');
+    expect(transaction.movements.inflows?.length).toBe(1);
+    expect(transaction.movements.outflows?.length).toBe(1);
+    expect(transaction.movements.inflows![0]?.amount.toString()).toBe('1');
+    expect(transaction.movements.outflows![0]?.amount.toString()).toBe('1');
     expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
     expect(transaction.from).toBe(USER_ADDRESS);
     expect(transaction.to).toBe(USER_ADDRESS);
@@ -177,8 +177,8 @@ describe('SubstrateProcessor - Staking Operations', () => {
 
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('stake');
-    expect(transaction.movements.outflows.length).toBe(1);
-    expect(transaction.movements.inflows.length).toBe(0);
+    expect(transaction.movements.outflows?.length).toBe(1);
+    expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.metadata?.module).toBe('staking');
     expect(transaction.metadata?.call).toBe('bond');
   });
@@ -215,8 +215,8 @@ describe('SubstrateProcessor - Staking Operations', () => {
 
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('unstake');
-    expect(transaction.movements.inflows.length).toBe(1);
-    expect(transaction.movements.outflows.length).toBe(0);
+    expect(transaction.movements.inflows?.length).toBe(1);
+    expect(transaction.movements.outflows?.length).toBe(0);
     expect(transaction.metadata?.call).toBe('unbond');
   });
 
@@ -286,8 +286,8 @@ describe('SubstrateProcessor - Staking Operations', () => {
     // Structured fields - nominate doesn't move funds
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('stake');
-    expect(transaction.movements.inflows.length).toBe(0);
-    expect(transaction.movements.outflows.length).toBe(0);
+    expect(transaction.movements.inflows?.length).toBe(0);
+    expect(transaction.movements.outflows?.length).toBe(0);
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('staking_operation');
     expect(transaction.metadata?.call).toBe('nominate');
@@ -323,8 +323,8 @@ describe('SubstrateProcessor - Staking Operations', () => {
 
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('reward');
-    expect(transaction.movements.inflows.length).toBe(1);
-    expect(transaction.movements.outflows.length).toBe(0);
+    expect(transaction.movements.inflows?.length).toBe(1);
+    expect(transaction.movements.outflows?.length).toBe(0);
   });
 });
 
@@ -361,8 +361,8 @@ describe('SubstrateProcessor - Governance Operations', () => {
 
     expect(transaction.operation.category).toBe('governance');
     expect(transaction.operation.type).toBe('proposal');
-    expect(transaction.movements.outflows.length).toBe(1);
-    expect(transaction.movements.inflows.length).toBe(0);
+    expect(transaction.movements.outflows?.length).toBe(1);
+    expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.metadata?.module).toBe('democracy');
     expect(transaction.metadata?.call).toBe('propose');
   });
@@ -397,8 +397,8 @@ describe('SubstrateProcessor - Governance Operations', () => {
 
     expect(transaction.operation.category).toBe('governance');
     expect(transaction.operation.type).toBe('refund');
-    expect(transaction.movements.inflows.length).toBe(1);
-    expect(transaction.movements.outflows.length).toBe(0);
+    expect(transaction.movements.inflows?.length).toBe(1);
+    expect(transaction.movements.outflows?.length).toBe(0);
     expect(transaction.metadata?.module).toBe('treasury');
   });
 
@@ -434,8 +434,8 @@ describe('SubstrateProcessor - Governance Operations', () => {
 
     expect(transaction.operation.category).toBe('governance');
     expect(transaction.operation.type).toBe('vote');
-    expect(transaction.movements.outflows.length).toBe(1);
-    expect(transaction.movements.inflows.length).toBe(0);
+    expect(transaction.movements.outflows?.length).toBe(1);
+    expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.metadata?.module).toBe('council');
     expect(transaction.metadata?.call).toBe('vote');
   });
@@ -475,9 +475,9 @@ describe('SubstrateProcessor - Utility Operations', () => {
     // Structured fields - utility batch is classified as transfer with note
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
-    expect(transaction.movements.outflows.length).toBe(1);
-    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('3');
-    expect(transaction.movements.inflows.length).toBe(0);
+    expect(transaction.movements.outflows?.length).toBe(1);
+    expect(transaction.movements.outflows![0]?.amount.toString()).toBe('3');
+    expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.fees.network?.amount.toString()).toBe('0.0256');
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('batch_operation');
@@ -557,9 +557,9 @@ describe('SubstrateProcessor - Proxy Operations', () => {
     // Structured fields - proxy is classified as transfer with note
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
-    expect(transaction.movements.outflows.length).toBe(1);
-    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('1');
-    expect(transaction.movements.inflows.length).toBe(0);
+    expect(transaction.movements.outflows?.length).toBe(1);
+    expect(transaction.movements.outflows![0]?.amount.toString()).toBe('1');
+    expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('proxy_operation');
     expect(transaction.metadata?.module).toBe('proxy');
@@ -601,9 +601,9 @@ describe('SubstrateProcessor - Multisig Operations', () => {
     // Structured fields - multisig is classified as transfer with note
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
-    expect(transaction.movements.outflows.length).toBe(1);
-    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('1');
-    expect(transaction.movements.inflows.length).toBe(0);
+    expect(transaction.movements.outflows?.length).toBe(1);
+    expect(transaction.movements.outflows![0]?.amount.toString()).toBe('1');
+    expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('multisig_operation');
     expect(transaction.metadata?.module).toBe('multisig');
@@ -642,7 +642,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.movements.inflows[0]?.asset).toBe('DOT');
+    expect(transaction.movements.inflows![0]?.asset).toBe('DOT');
     expect(transaction.fees.network?.currency.toString()).toBe('DOT');
     expect(transaction.fees.network?.amount.toString()).toBe('0'); // User received, sender paid fee
     expect(transaction.blockchain?.name).toBe('polkadot');
@@ -679,7 +679,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.movements.inflows[0]?.asset).toBe('TAO');
+    expect(transaction.movements.inflows![0]?.asset).toBe('TAO');
     expect(transaction.fees.network?.currency.toString()).toBe('TAO');
     expect(transaction.fees.network?.amount.toString()).toBe('0'); // User received, sender paid fee
     expect(transaction.blockchain?.name).toBe('bittensor');
@@ -754,8 +754,8 @@ describe('SubstrateProcessor - Transaction Type Classification', () => {
     // Structured fields - fee-only transactions
     expect(transaction.operation.category).toBe('fee');
     expect(transaction.operation.type).toBe('fee');
-    expect(transaction.movements.inflows.length).toBe(0);
-    expect(transaction.movements.outflows.length).toBe(0);
+    expect(transaction.movements.inflows?.length).toBe(0);
+    expect(transaction.movements.outflows?.length).toBe(0);
     expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
   });
 
@@ -1127,8 +1127,8 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
     // Structured fields - batch is classified as transfer with note
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
-    expect(transaction.movements.outflows.length).toBe(1);
-    expect(transaction.movements.inflows.length).toBe(0);
+    expect(transaction.movements.outflows?.length).toBe(1);
+    expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('batch_operation');
     expect(transaction.metadata?.module).toBe('utility');

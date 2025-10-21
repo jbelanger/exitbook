@@ -1,6 +1,7 @@
 // Handler for prices derive command
 // Wraps PriceEnrichmentService to deduce prices from transaction history
 
+import type { UniversalTransaction } from '@exitbook/core';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
 import { PriceEnrichmentService } from '@exitbook/import';
@@ -94,12 +95,12 @@ export class PricesDeriveHandler {
   /**
    * Count total number of movements across all transactions
    */
-  private countAllMovements(transactions: { movements_inflows: unknown; movements_outflows: unknown }[]): number {
+  private countAllMovements(transactions: UniversalTransaction[]): number {
     let count = 0;
 
     for (const tx of transactions) {
-      const inflows = this.parseMovements(tx.movements_inflows);
-      const outflows = this.parseMovements(tx.movements_outflows);
+      const inflows = this.parseMovements(tx.movements.inflows);
+      const outflows = this.parseMovements(tx.movements.outflows);
       count += inflows.length + outflows.length;
     }
 
@@ -109,14 +110,12 @@ export class PricesDeriveHandler {
   /**
    * Count movements without prices across all transactions
    */
-  private countMovementsWithoutPrices(
-    transactions: { movements_inflows: unknown; movements_outflows: unknown }[]
-  ): number {
+  private countMovementsWithoutPrices(transactions: UniversalTransaction[]): number {
     let count = 0;
 
     for (const tx of transactions) {
-      const inflows = this.parseMovements(tx.movements_inflows);
-      const outflows = this.parseMovements(tx.movements_outflows);
+      const inflows = this.parseMovements(tx.movements.inflows);
+      const outflows = this.parseMovements(tx.movements.outflows);
 
       for (const movement of [...inflows, ...outflows]) {
         if (!movement.priceAtTxTime) {

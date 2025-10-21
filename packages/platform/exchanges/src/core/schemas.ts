@@ -1,6 +1,5 @@
+import { TransactionStatusSchema } from '@exitbook/core';
 import { z } from 'zod';
-
-export const TransactionStatusSchema = z.enum(['pending', 'open', 'closed', 'canceled', 'failed', 'ok']);
 
 /**
  * Zod schema for validating normalized exchange ledger entries.

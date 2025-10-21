@@ -1,5 +1,5 @@
+import type { UniversalTransaction } from '@exitbook/core';
 import { computePrimaryMovement } from '@exitbook/core';
-import type { StoredTransaction } from '@exitbook/data';
 import type { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
@@ -22,7 +22,7 @@ export class TransactionLinkingService {
    * @param transactions - All transactions to analyze
    * @returns Linking result with suggested and confirmed links
    */
-  linkTransactions(transactions: StoredTransaction[]): Result<LinkingResult, Error> {
+  linkTransactions(transactions: UniversalTransaction[]): Result<LinkingResult, Error> {
     try {
       this.logger.info({ transactionCount: transactions.length }, 'Starting transaction linking process');
 
@@ -85,12 +85,12 @@ export class TransactionLinkingService {
   /**
    * Convert stored transactions to transaction candidates for matching
    */
-  private convertToCandidates(transactions: StoredTransaction[]): TransactionCandidate[] {
+  private convertToCandidates(transactions: UniversalTransaction[]): TransactionCandidate[] {
     const candidates: TransactionCandidate[] = [];
 
     for (const tx of transactions) {
       // Compute primary movement from already-deserialized movements
-      const primary = computePrimaryMovement(tx.movements_inflows, tx.movements_outflows);
+      const primary = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);
 
       // Skip if no primary movement
       if (!primary) {
@@ -99,15 +99,15 @@ export class TransactionLinkingService {
 
       const candidate: TransactionCandidate = {
         id: tx.id,
-        sourceId: tx.source_id,
-        sourceType: tx.source_type,
-        externalId: tx.external_id ?? undefined,
-        timestamp: new Date(tx.transaction_datetime),
+        externalId: tx.uniqueId,
+        sourceId: tx.source,
+        sourceType: tx.blockchain ? 'blockchain' : 'exchange',
+        timestamp: new Date(tx.datetime),
         asset: primary.asset,
         amount: primary.amount,
         direction: primary.direction,
-        fromAddress: tx.from_address ?? undefined,
-        toAddress: tx.to_address ?? undefined,
+        fromAddress: tx.from,
+        toAddress: tx.to,
       };
 
       candidates.push(candidate);

@@ -13,7 +13,7 @@ function createEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEnt
     id: 'ENTRY001',
     timestamp: 1704067200000,
     type: 'test',
-    status: 'ok',
+    status: 'success',
     ...overrides,
   };
 }
@@ -45,8 +45,8 @@ describe('CorrelatingExchangeProcessor - Strategy Composition', () => {
     const transactions = result.value;
     expect(transactions).toHaveLength(2);
 
-    const swap = transactions.find((t) => t.id === 'E1');
-    const deposit = transactions.find((t) => t.id === 'E3');
+    const swap = transactions.find((t) => t.uniqueId === 'E1');
+    const deposit = transactions.find((t) => t.uniqueId === 'E3');
 
     expect(swap).toBeDefined();
     expect(deposit).toBeDefined();
@@ -97,11 +97,11 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
     if (!transaction) return;
 
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows[0]?.asset).toBe('USD');
-    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('150');
+    expect(transaction.movements.outflows![0]?.asset).toBe('USD');
+    expect(transaction.movements.outflows![0]?.amount.toString()).toBe('150');
 
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows[0]?.asset).toBe('BTC');
+    expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
   });
 
   test('consolidates fees across correlated entries', async () => {
@@ -268,7 +268,7 @@ describe('CorrelatingExchangeProcessor - Error Handling', () => {
     if (!result.isOk()) return;
 
     expect(result.value).toHaveLength(1);
-    expect(result.value[0]?.id).toBe('E1');
+    expect(result.value[0]?.uniqueId).toBe('E1');
   });
 });
 

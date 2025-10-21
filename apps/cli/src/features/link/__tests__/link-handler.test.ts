@@ -1,7 +1,7 @@
-/* eslint-disable unicorn/no-null -- db requires explicit null */
 import { DEFAULT_MATCHING_CONFIG, type TransactionLink } from '@exitbook/accounting';
+import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import type { KyselyDB, StoredTransaction } from '@exitbook/data';
+import type { KyselyDB } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -71,36 +71,26 @@ describe('LinkHandler', () => {
     handler = new LinkHandler(mockDatabase);
   });
 
-  const createMockTransaction = (id: number, sourceType: string, operationType: string): StoredTransaction => ({
-    id,
-    external_id: `ext-${id}`,
-    source_id: 'test-source',
-    source_type: sourceType as 'exchange' | 'blockchain',
-    data_source_id: 123,
-    operation_category: 'transfer',
-    operation_type: operationType as 'withdrawal' | 'deposit',
-    transaction_datetime: '2024-01-01T12:00:00Z',
-    transaction_status: 'success',
-    from_address: null,
-    to_address: 'bc1q...',
-    movements_inflows: operationType === 'withdrawal' ? [] : [{ asset: 'BTC', amount: parseDecimal('1.0') }],
-    movements_outflows: operationType === 'withdrawal' ? [{ asset: 'BTC', amount: parseDecimal('1.0') }] : [],
-    fees_total: null,
-    fees_network: null,
-    fees_platform: null,
-    price: null,
-    price_currency: null,
-    note_type: null,
-    note_severity: null,
-    note_message: null,
-    note_metadata: null,
-    raw_normalized_data: '{}',
-    blockchain_name: operationType === 'deposit' ? 'bitcoin' : null,
-    blockchain_block_height: null,
-    blockchain_transaction_hash: null,
-    blockchain_is_confirmed: null,
-    created_at: '2024-01-01T12:00:00Z',
-    updated_at: '2024-01-01T12:00:00Z',
+  const createMockTransaction = (id: number, sourceType: string, operationType: string): UniversalTransaction => ({
+    id: id,
+    uniqueId: `ext-${id}`,
+    source: 'test-source',
+    operation: { type: operationType as 'withdrawal' | 'deposit', category: 'transfer' },
+    datetime: '2024-01-01T12:00:00Z',
+    timestamp: Date.parse('2024-01-01T12:00:00Z') / 1000,
+    status: 'success',
+    to: 'bc1q...',
+    movements: {
+      inflows: operationType === 'withdrawal' ? [] : [{ asset: 'BTC', amount: parseDecimal('1.0') }],
+      outflows: operationType === 'withdrawal' ? [{ asset: 'BTC', amount: parseDecimal('1.0') }] : [],
+    },
+    fees: {},
+    blockchain: {
+      name: operationType === 'deposit' ? 'bitcoin' : '',
+      block_height: undefined,
+      transaction_hash: '',
+      is_confirmed: false,
+    },
   });
 
   const createMockLink = (sourceId: number, targetId: number, confidence: string): TransactionLink => ({

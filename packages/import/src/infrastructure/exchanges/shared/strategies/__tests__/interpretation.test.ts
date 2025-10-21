@@ -12,7 +12,7 @@ function createEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEnt
     id: 'ENTRY001',
     timestamp: 1704067200000,
     type: 'test',
-    status: 'ok',
+    status: 'success',
     ...overrides,
   };
 }

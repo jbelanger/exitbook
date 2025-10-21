@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument -- Acceptable for tests */
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 /* eslint-disable @typescript-eslint/no-explicit-any -- Acceptable for test mocks */
-/* eslint-disable unicorn/no-null -- nulls needed by db */
+
+import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal, type AssetMovement } from '@exitbook/core';
-import type { StoredTransaction, TransactionRepository } from '@exitbook/data';
+import type { TransactionRepository } from '@exitbook/data';
 import { ok, err } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -17,37 +18,30 @@ function createMockTransaction(
   datetime: string,
   inflows: AssetMovement[],
   outflows: AssetMovement[]
-): StoredTransaction {
+): UniversalTransaction {
   return {
-    id,
-    data_source_id: 1,
-    source_id: sourceId,
-    source_type: sourceType,
-    external_id: `tx-${id}`,
-    transaction_status: 'success',
-    transaction_datetime: datetime,
-    from_address: null,
-    to_address: null,
-    price: null,
-    price_currency: null,
-    note_type: null,
-    note_severity: null,
-    note_message: null,
-    note_metadata: null,
-    raw_normalized_data: '{}',
-    movements_inflows: inflows,
-    movements_outflows: outflows,
-    fees_network: null,
-    fees_platform: null,
-    fees_total: null,
-    operation_category: 'trade',
-    operation_type: 'buy',
-    blockchain_name: sourceType === 'blockchain' ? sourceId : null,
-    blockchain_block_height: null,
-    blockchain_transaction_hash: null,
-    blockchain_is_confirmed: null,
-    created_at: datetime,
-    updated_at: null,
+    id: id,
+    source: sourceId,
+    uniqueId: `tx-${id}`,
+    status: 'success',
+    datetime: datetime,
+    timestamp: new Date(datetime).getTime(),
+    movements: {
+      inflows: inflows,
+      outflows: outflows,
+    },
+    fees: {},
+    operation: { category: 'trade', type: 'buy' },
+    ...(sourceType === 'blockchain'
+      ? {
+          blockchain: {
+            name: sourceId,
+            transaction_hash: `mock-hash-${id}`,
+            is_confirmed: true,
+            block_height: 123456 + id,
+          },
+        }
+      : {}),
   };
 }
 
@@ -665,7 +659,7 @@ describe('PriceEnrichmentService', () => {
       // COIN1 <- COIN0 (Pass 1)
       // COIN2 <- COIN1 (Pass 2)
       // COIN3 <- COIN2 (Pass 3 - should be blocked by maxIterations=2)
-      const transactions: StoredTransaction[] = [];
+      const transactions: UniversalTransaction[] = [];
       for (let i = 0; i < 10; i++) {
         transactions.push(
           createMockTransaction(

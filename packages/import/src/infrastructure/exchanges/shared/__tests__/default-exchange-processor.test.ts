@@ -37,7 +37,7 @@ function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedge
     id: 'ENTRY001',
     timestamp: 1704067200000, // Must be in milliseconds and an integer
     type: 'test',
-    status: 'ok',
+    status: 'success',
     ...overrides,
   };
 }
@@ -119,12 +119,12 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     expect(transaction.operation.type).toBe('swap');
 
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows[0]?.asset).toBe('BTC');
-    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('0.025');
+    expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
+    expect(transaction.movements.inflows![0]?.amount.toString()).toBe('0.025');
 
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows[0]?.asset).toBe('USD');
-    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('1000');
+    expect(transaction.movements.outflows![0]?.asset).toBe('USD');
+    expect(transaction.movements.outflows![0]?.amount.toString()).toBe('1000');
 
     expect(transaction.fees.platform?.amount.toString()).toBe('2.5');
   });
@@ -155,8 +155,8 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     expect(transaction.operation.type).toBe('deposit');
 
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows[0]?.asset).toBe('CAD');
-    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('700');
+    expect(transaction.movements.inflows![0]?.asset).toBe('CAD');
+    expect(transaction.movements.inflows![0]?.amount.toString()).toBe('700');
 
     expect(transaction.movements.outflows).toHaveLength(0);
   });
@@ -187,8 +187,8 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     expect(transaction.operation.type).toBe('withdrawal');
 
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows[0]?.asset).toBe('CAD');
-    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('385.155');
+    expect(transaction.movements.outflows![0]?.asset).toBe('CAD');
+    expect(transaction.movements.outflows![0]?.amount.toString()).toBe('385.155');
 
     expect(transaction.movements.inflows).toHaveLength(0);
   });
@@ -246,11 +246,11 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     if (!transaction) return;
 
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows[0]?.asset).toBe('USD');
-    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('150');
+    expect(transaction.movements.outflows![0]?.asset).toBe('USD');
+    expect(transaction.movements.outflows![0]?.amount.toString()).toBe('150');
 
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows[0]?.asset).toBe('BTC');
+    expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
   });
 
   test('aggregates fees across multiple entries', async () => {
@@ -379,7 +379,7 @@ describe('BaseExchangeProcessor - Edge Cases', () => {
         id: 'E1',
         timestamp: 1704067200000, // Milliseconds
         type: 'deposit',
-        status: 'ok',
+        status: 'success',
       },
     ];
 
@@ -407,6 +407,6 @@ describe('BaseExchangeProcessor - Edge Cases', () => {
     if (!result.isOk()) return;
 
     const [transaction] = result.value;
-    expect(transaction?.id).toBe('PRIMARY_ID');
+    expect(transaction?.uniqueId).toBe('PRIMARY_ID');
   });
 });

@@ -28,7 +28,10 @@ export interface PrimaryMovement {
  * @param outflows - Array of asset outflows
  * @returns Primary movement or null if no movements exist
  */
-export function computePrimaryMovement(inflows: AssetMovement[], outflows: AssetMovement[]): PrimaryMovement | null {
+export function computePrimaryMovement(
+  inflows: AssetMovement[] = [],
+  outflows: AssetMovement[] = []
+): PrimaryMovement | null {
   const hasInflows = inflows.length > 0;
   const hasOutflows = outflows.length > 0;
 

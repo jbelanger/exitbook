@@ -54,7 +54,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // User initiated outgoing transfer, should pay fee
     expect(transaction.fees.network?.amount.toString()).toBe('500000000000000');
-    expect(transaction.fees.total.amount.toString()).toBe('500000000000000');
     expect(transaction.operation.type).toBe('withdrawal');
     expect(transaction.movements.outflows).toHaveLength(1);
   });
@@ -91,7 +90,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // External sender paid fee, user should NOT be charged
     expect(transaction.fees.network?.amount.toString()).toBe('0');
-    expect(transaction.fees.total.amount.toString()).toBe('0');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.outflows).toHaveLength(0);
@@ -129,7 +127,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // User signed the transaction, should pay fee even for self-transfer
     expect(transaction.fees.network?.amount.toString()).toBe('500000000000000');
-    expect(transaction.fees.total.amount.toString()).toBe('500000000000000');
     expect(transaction.operation.type).toBe('transfer');
   });
 
@@ -165,7 +162,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // User signs to claim rewards, should pay fee
     expect(transaction.fees.network?.amount.toString()).toBe('500000000000000');
-    expect(transaction.fees.total.amount.toString()).toBe('500000000000000');
     expect(transaction.from).toBe(USER_ADDRESS);
   });
 
@@ -205,7 +201,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // Validator paid fee, user receives full amount
     expect(transaction.fees.network?.amount.toString()).toBe('0');
-    expect(transaction.fees.total.amount.toString()).toBe('0');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.metadata?.bridgeType).toBe('peggy');
   });
@@ -246,7 +241,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // User initiated withdrawal, should pay fee
     expect(transaction.fees.network?.amount.toString()).toBe('500000000000000');
-    expect(transaction.fees.total.amount.toString()).toBe('500000000000000');
     expect(transaction.operation.type).toBe('withdrawal');
   });
 
@@ -285,7 +279,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // Sender/relayer paid fee, user receives full amount
     expect(transaction.fees.network?.amount.toString()).toBe('0');
-    expect(transaction.fees.total.amount.toString()).toBe('0');
     expect(transaction.operation.type).toBe('deposit');
   });
 
@@ -324,7 +317,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // User initiated IBC transfer, should pay fee
     expect(transaction.fees.network?.amount.toString()).toBe('500000000000000');
-    expect(transaction.fees.total.amount.toString()).toBe('500000000000000');
     expect(transaction.operation.type).toBe('withdrawal');
   });
 
@@ -360,7 +352,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // User signs delegation, should pay fee
     expect(transaction.fees.network?.amount.toString()).toBe('500000000000000');
-    expect(transaction.fees.total.amount.toString()).toBe('500000000000000');
     expect(transaction.movements.outflows).toHaveLength(1);
   });
 
@@ -396,7 +387,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // User signs undelegation, should pay fee
     expect(transaction.fees.network?.amount.toString()).toBe('500000000000000');
-    expect(transaction.fees.total.amount.toString()).toBe('500000000000000');
   });
 
   test('deducts fee when user votes on governance proposal (user signs)', async () => {
@@ -431,7 +421,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // User signs governance vote, should pay fee
     expect(transaction.fees.network?.amount.toString()).toBe('500000000000000');
-    expect(transaction.fees.total.amount.toString()).toBe('500000000000000');
     expect(transaction.operation.type).toBe('fee');
   });
 
@@ -469,7 +458,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // User signs contract execution, should pay fee
     expect(transaction.fees.network?.amount.toString()).toBe('500000000000000');
-    expect(transaction.fees.total.amount.toString()).toBe('500000000000000');
     expect(transaction.movements.outflows).toHaveLength(1);
   });
 
@@ -505,7 +493,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // User signs contract call, should pay fee even with zero value
     expect(transaction.fees.network?.amount.toString()).toBe('500000000000000');
-    expect(transaction.fees.total.amount.toString()).toBe('500000000000000');
     expect(transaction.note?.type).toBe('classification_uncertain');
   });
 
@@ -541,7 +528,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // User signed transaction (even though it failed), should still pay fee
     expect(transaction.fees.network?.amount.toString()).toBe('500000000000000');
-    expect(transaction.fees.total.amount.toString()).toBe('500000000000000');
     expect(transaction.status).toBe('failed');
   });
 
@@ -579,7 +565,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // Should match despite case difference
     expect(transaction.fees.network?.amount.toString()).toBe('500000000000000');
-    expect(transaction.fees.total.amount.toString()).toBe('500000000000000');
   });
 
   test('handles missing fee data gracefully', async () => {
@@ -612,7 +597,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
     if (!transaction) return;
 
     // Should default to 0 fee when missing
-    expect(transaction.fees.total.amount.toString()).toBe('0');
     expect(transaction.fees.network?.amount.toString()).toBe('0');
   });
 });
