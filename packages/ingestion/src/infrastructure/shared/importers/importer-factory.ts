@@ -1,3 +1,4 @@
+import type { SourceType } from '@exitbook/core';
 import type { BlockchainProviderManager } from '@exitbook/providers';
 import { getCosmosChainConfig, getEvmChainConfig, getSubstrateChainConfig } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
@@ -17,7 +18,7 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create an importer for the specified source.
    */
-  async create(sourceId: string, sourceType: string, params?: ImportParams): Promise<IImporter> {
+  async create(sourceId: string, sourceType: SourceType, params?: ImportParams): Promise<IImporter> {
     this.logger.info(`Creating importer for ${sourceId} (type: ${sourceType})`);
 
     if (sourceType === 'exchange') {
@@ -28,7 +29,7 @@ export class ImporterFactory implements IImporterFactory {
       return await this.createBlockchainImporter(sourceId, params?.providerId);
     }
 
-    throw new Error(`Unsupported source type: ${sourceType}`);
+    return Promise.reject(new Error(`Unsupported source type: ${String(sourceType)}`));
   }
 
   /**

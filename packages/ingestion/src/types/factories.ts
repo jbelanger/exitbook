@@ -14,9 +14,9 @@ export interface IImporterFactory {
    * @param sourceId - The source identifier (e.g., 'bitcoin', 'kraken')
    * @param sourceType - Whether this is a blockchain or exchange source
    * @param params - Import parameters (may contain provider preferences)
-   * @returns The configured importer instance, or null if no importer exists
+   * @returns The configured importer instance, or undefined if no importer exists
    */
-  create(sourceId: string, sourceType: SourceType, params: ImportParams): Promise<IImporter | null>;
+  create(sourceId: string, sourceType: SourceType, params: ImportParams): Promise<IImporter | undefined>;
 }
 
 /**

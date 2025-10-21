@@ -58,7 +58,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Check if a processor is available for the given source.
    */
-  async isSupported(sourceId: string, sourceType: string): Promise<boolean> {
+  async isSupported(sourceId: string, sourceType: SourceType): Promise<boolean> {
     try {
       if (sourceType === 'exchange') {
         return ['coinbase', 'kraken', 'kucoin', 'ledgerlive'].includes(sourceId.toLowerCase());
@@ -80,7 +80,7 @@ export class ProcessorFactory implements IProcessorFactory {
    */
   async create(
     sourceId: string,
-    sourceType: string,
+    sourceType: SourceType,
     metadata?: Record<string, unknown>
   ): Promise<ITransactionProcessor> {
     this.logger.info(`Creating processor for ${sourceId} (type: ${sourceType})`);
@@ -93,7 +93,7 @@ export class ProcessorFactory implements IProcessorFactory {
       return await this.createBlockchainProcessor(sourceId);
     }
 
-    throw new Error(`Unsupported source type: ${sourceType}`);
+    throw new Error(`Unsupported source type: ${String(sourceType)}`);
   }
 
   /**
