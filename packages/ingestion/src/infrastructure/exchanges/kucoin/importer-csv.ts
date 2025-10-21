@@ -3,10 +3,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { getErrorMessage, type ExternalTransaction } from '@exitbook/core';
-import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/ingestion/app/ports/importers.js';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
+import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.ts';
 import { CsvParser } from '../shared/csv-parser.ts';
 
 import { CSV_FILE_TYPES } from './constants.js';

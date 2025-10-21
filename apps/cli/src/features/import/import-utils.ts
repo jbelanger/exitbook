@@ -1,6 +1,7 @@
 // Pure utility functions for import command
 // All functions are pure - no side effects
 
+import type { SourceType } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -63,7 +64,7 @@ export function buildImportParamsFromFlags(options: ImportCommandOptions): Resul
     return err(new Error('Cannot specify both --exchange and --blockchain. Choose one.'));
   }
 
-  const sourceType: 'exchange' | 'blockchain' = options.exchange ? 'exchange' : 'blockchain';
+  const sourceType: SourceType = options.exchange ? 'exchange' : 'blockchain';
 
   // Validate exchange requirements
   if (sourceType === 'exchange') {

@@ -1,4 +1,4 @@
-import type { DataImportParams, DataSource, VerificationMetadata } from '@exitbook/core';
+import type { DataImportParams, DataSource, SourceType, VerificationMetadata } from '@exitbook/core';
 import { DataImportParamsSchema, VerificationMetadataSchema, wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import type { StoredDataSource, ImportSessionQuery, DataSourceUpdate } from '@exitbook/data';
@@ -6,7 +6,8 @@ import { BaseRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { IDataSourceRepository } from '../../app/ports/data-source-repository.interface.ts';
+import type { ImportParams } from '../types/importers.ts';
+import type { IDataSourceRepository } from '../types/repositories.ts';
 
 /**
  * Kysely-based repository for data source  database operations.
@@ -19,7 +20,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
   async create(
     sourceId: string,
-    sourceType: 'exchange' | 'blockchain',
+    sourceType: SourceType,
     importParams?: DataImportParams
   ): Promise<Result<number, Error>> {
     try {
@@ -197,13 +198,8 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
   async findCompletedWithMatchingParams(
     sourceId: string,
-    sourceType: 'exchange' | 'blockchain',
-    params: {
-      address?: string;
-      csvDirectories?: string[];
-      providerId?: string;
-      since?: number;
-    }
+    sourceType: SourceType,
+    params: ImportParams
   ): Promise<Result<DataSource | undefined, Error>> {
     try {
       // Find all completed sessions for this source

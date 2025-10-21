@@ -1,4 +1,4 @@
-import type { DataSource, SourceParams } from '@exitbook/core';
+import type { DataSource, SourceParams, SourceType } from '@exitbook/core';
 import type { ExchangeCredentials } from '@exitbook/exchanges';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -19,7 +19,7 @@ export interface BalanceCommandOptions {
  * Parameters for balance handler
  */
 export interface BalanceHandlerParams {
-  sourceType: 'exchange' | 'blockchain';
+  sourceType: SourceType;
   sourceName: string;
   address?: string | undefined;
   credentials?: ExchangeCredentials | undefined;
@@ -128,11 +128,7 @@ export function getExchangeCredentialsFromEnv(exchangeName: string): Result<Exch
  * Build source params for storage.
  * Pure function that constructs SourceParams from session data.
  */
-export function buildSourceParams(
-  session: DataSource,
-  sourceType: 'exchange' | 'blockchain',
-  address?: string
-): SourceParams {
+export function buildSourceParams(session: DataSource, sourceType: SourceType, address?: string): SourceParams {
   if (sourceType === 'exchange') {
     return { exchange: session.sourceId };
   } else {

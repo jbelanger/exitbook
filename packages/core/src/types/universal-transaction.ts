@@ -11,6 +11,8 @@ import type {
   UniversalTransactionSchema,
 } from '../schemas/universal-transaction.ts';
 
+import type { SourceType } from './data-source.ts';
+
 export type MovementDirection = z.infer<typeof MovementDirectionSchema>;
 export type TransactionStatus = z.infer<typeof TransactionStatusSchema>;
 export type OperationCategory = z.infer<typeof OperationCategorySchema>;
@@ -40,7 +42,7 @@ export interface StoredTransaction extends Omit<UniversalTransaction, 'id'> {
   id: number;
   dataSourceId: number;
   sourceId: string;
-  sourceType: 'exchange' | 'blockchain';
+  sourceType: SourceType;
   createdAt: Date;
   updatedAt?: Date | undefined;
 }

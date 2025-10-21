@@ -1,3 +1,4 @@
+import type { SourceType } from '@exitbook/core';
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import type { BalanceVerificationResult } from '@exitbook/ingestion';
 import type { Command } from 'commander';
@@ -71,7 +72,7 @@ function handleBalanceSuccess(
   output: OutputManager,
   verificationResult: BalanceVerificationResult,
   sourceName: string,
-  sourceType: 'exchange' | 'blockchain',
+  sourceType: SourceType,
   address?: string
 ) {
   // Display results in text mode

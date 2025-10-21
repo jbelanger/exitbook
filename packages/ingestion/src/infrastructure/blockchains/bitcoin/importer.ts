@@ -1,5 +1,4 @@
 import type { ExternalTransaction } from '@exitbook/core';
-import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/ingestion/app/ports/importers.js';
 import type {
   BitcoinTransaction,
   BitcoinWalletAddress,
@@ -11,6 +10,8 @@ import { BitcoinUtils } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import * as bitcoin from 'bitcoinjs-lib';
 import { err, ok, type Result } from 'neverthrow';
+
+import type { BlockchainImportParams, IImporter, ImportRunResult } from '../../../types/importers.ts';
 
 /**
  * Bitcoin transaction importer that fetches raw transaction data from blockchain APIs.

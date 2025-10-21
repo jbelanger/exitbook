@@ -1,4 +1,5 @@
 import * as p from '@clack/prompts';
+import type { SourceType } from '@exitbook/core';
 import { ProcessorFactory } from '@exitbook/ingestion';
 import type { ProviderInfo } from '@exitbook/providers';
 import { ProviderRegistry } from '@exitbook/providers';
@@ -25,7 +26,7 @@ export function handleCancellation(message = 'Operation cancelled'): never {
 /**
  * Prompt for source type (exchange or blockchain).
  */
-export async function promptSourceType(): Promise<'exchange' | 'blockchain'> {
+export async function promptSourceType(): Promise<SourceType> {
   const sourceType = await p.select({
     message: 'What would you like to import?',
     options: [

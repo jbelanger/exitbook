@@ -143,7 +143,7 @@ describe('EvmImporter', () => {
         expect(result.value.rawTransactions[0]).toEqual({
           providerId: 'alchemy',
           sourceAddress: address,
-          transactionType: 'normal',
+          transactionTypeHint: 'normal',
           externalId: mockNormalTx.hash,
           rawData: mockNormalTx,
           normalizedData: { id: mockNormalTx.hash },
@@ -153,7 +153,7 @@ describe('EvmImporter', () => {
         expect(result.value.rawTransactions[1]).toEqual({
           providerId: 'alchemy',
           sourceAddress: address,
-          transactionType: 'internal',
+          transactionTypeHint: 'internal',
           externalId: mockInternalTx.hash,
           rawData: mockInternalTx,
           normalizedData: { id: mockInternalTx.hash },
@@ -163,7 +163,7 @@ describe('EvmImporter', () => {
         expect(result.value.rawTransactions[2]).toEqual({
           providerId: 'alchemy',
           sourceAddress: address,
-          transactionType: 'token',
+          transactionTypeHint: 'token',
           externalId: mockTokenTx.hash,
           rawData: mockTokenTx,
           normalizedData: { id: mockTokenTx.hash },

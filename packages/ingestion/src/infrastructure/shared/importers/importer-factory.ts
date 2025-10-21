@@ -1,8 +1,9 @@
-import type { IImporterFactory } from '@exitbook/ingestion/app/ports/importer-factory.interface.ts';
-import type { IImporter, ImportParams } from '@exitbook/ingestion/app/ports/importers.js';
 import type { BlockchainProviderManager } from '@exitbook/providers';
 import { getCosmosChainConfig, getEvmChainConfig, getSubstrateChainConfig } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
+
+import type { IImporterFactory } from '../../../types/factories.ts';
+import type { IImporter, ImportParams } from '../../../types/importers.ts';
 
 /**
  * Factory for creating importer instances.

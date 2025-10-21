@@ -1,3 +1,5 @@
+import type { SourceType } from '@exitbook/core';
+
 /**
  * Comparison result for a single currency balance
  */
@@ -15,7 +17,7 @@ export interface BalanceComparison {
  */
 export interface BalanceVerificationResult {
   sourceId: string;
-  sourceType: 'exchange' | 'blockchain';
+  sourceType: SourceType;
   timestamp: number;
   status: 'success' | 'warning' | 'failed';
   comparisons: BalanceComparison[];

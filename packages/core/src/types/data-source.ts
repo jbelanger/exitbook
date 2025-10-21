@@ -12,6 +12,11 @@ export type {
 import type { DataImportParams, VerificationMetadata } from '../schemas/data-source.ts';
 
 /**
+ * The type of data source (blockchain or exchange)
+ */
+export type SourceType = 'blockchain' | 'exchange';
+
+/**
  * Rich session metadata providing blockchain-specific address context
  */
 export interface ImportSessionMetadata {
@@ -30,7 +35,7 @@ export interface ImportSessionMetadata {
 export interface DataSource {
   id: number;
   sourceId: string;
-  sourceType: 'exchange' | 'blockchain';
+  sourceType: SourceType;
   status: 'started' | 'completed' | 'failed' | 'cancelled';
   startedAt: Date;
   completedAt?: Date | undefined;

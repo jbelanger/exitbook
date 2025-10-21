@@ -16,7 +16,7 @@ Exitbook is a pnpm workspace. Each workspace keeps code for a concrete domain so
 ### Domain Packages
 
 - `@exitbook/core` (`packages/core`) — canonical data contracts and validation schemas; no runtime coupling to other packages.
-- `@exitbook/import` (`packages/import`) — blockchain import pipeline: API clients, mappers, processors, and the orchestration services that turn raw provider data into universal transactions.
+- `@exitbook/ingestion` (`packages/import`) — blockchain import pipeline: API clients, mappers, processors, and the orchestration services that turn raw provider data into universal transactions.
 - `@exitbook/data` (`packages/data`) — persistence layer: SQLite access, repositories, and data-oriented services consumed by higher layers.
 - `@exitbook/balance` (`packages/balance`) — balance reconciliation logic that compares computed balances with live or historical data.
 
@@ -170,7 +170,7 @@ Provider metadata declares the recommended API-key env var (e.g., `HELIUS_API_KE
 
 ### Tooling
 
-All scripts live under `@exitbook/import`.
+All scripts live under `@exitbook/ingestion`.
 
 - `pnpm providers:list` — show every registered provider and its metadata.
 - `pnpm providers:sync --fix` — ensure the config file contains all known providers for each chain; keeps `defaultEnabled` fresh.

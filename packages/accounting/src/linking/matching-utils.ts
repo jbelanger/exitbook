@@ -1,3 +1,4 @@
+import type { SourceType } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
@@ -87,10 +88,7 @@ export function isTimingValid(sourceTime: Date, targetTime: Date, config: Matchi
  * @param targetType - Target transaction type
  * @returns Link type
  */
-export function determineLinkType(
-  sourceType: 'exchange' | 'blockchain',
-  targetType: 'exchange' | 'blockchain'
-): LinkType {
+export function determineLinkType(sourceType: SourceType, targetType: SourceType): LinkType {
   if (sourceType === 'exchange' && targetType === 'blockchain') {
     return 'exchange_to_blockchain';
   }

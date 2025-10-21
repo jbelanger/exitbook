@@ -1,5 +1,4 @@
-import type { IProcessorFactory } from '@exitbook/ingestion/app/ports/processor-factory.js';
-import type { ITransactionProcessor } from '@exitbook/ingestion/app/ports/transaction-processor.interface.ts';
+import type { SourceType } from '@exitbook/core';
 import {
   getEvmChainConfig,
   getSubstrateChainConfig,
@@ -7,6 +6,9 @@ import {
   ProviderRegistry,
 } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
+
+import type { IProcessorFactory } from '../../../types/factories.ts';
+import type { ITransactionProcessor } from '../../../types/processors.ts';
 
 /**
  * Factory for creating processor instances.
@@ -19,7 +21,7 @@ export class ProcessorFactory implements IProcessorFactory {
    * Get all supported sources for a given type.
    * For blockchains, returns chains that have at least one registered provider.
    */
-  async getSupportedSources(sourceType: 'exchange' | 'blockchain'): Promise<string[]> {
+  async getSupportedSources(sourceType: SourceType): Promise<string[]> {
     if (sourceType === 'exchange') {
       return ['kraken', 'kucoin', 'ledgerlive', 'coinbase'];
     }

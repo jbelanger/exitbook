@@ -1,5 +1,4 @@
 import type { ExternalTransaction } from '@exitbook/core';
-import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/ingestion/app/ports/importers.js';
 import type {
   BlockchainProviderManager,
   EvmChainConfig,
@@ -9,6 +8,8 @@ import type {
 } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
+
+import type { BlockchainImportParams, IImporter, ImportRunResult } from '../../../types/importers.ts';
 
 /**
  * Generic EVM transaction importer that fetches raw transaction data from blockchain APIs.
@@ -134,7 +135,7 @@ export class EvmImporter implements IImporter {
       return transactionsWithRaw.map((txWithRaw) => ({
         providerId,
         externalId: txWithRaw.normalized.id,
-        transactionType: 'normal',
+        transactionTypeHint: 'normal',
         sourceAddress: address,
         normalizedData: txWithRaw.normalized,
         rawData: txWithRaw.raw,
@@ -164,7 +165,7 @@ export class EvmImporter implements IImporter {
       return transactionsWithRaw.map((txWithRaw) => ({
         providerId,
         externalId: txWithRaw.normalized.id,
-        transactionType: 'internal',
+        transactionTypeHint: 'internal',
         sourceAddress: address,
         normalizedData: txWithRaw.normalized,
         rawData: txWithRaw.raw,
@@ -194,7 +195,7 @@ export class EvmImporter implements IImporter {
       return transactionsWithRaw.map((txWithRaw) => ({
         providerId,
         externalId: txWithRaw.normalized.id,
-        transactionType: 'token',
+        transactionTypeHint: 'token',
         sourceAddress: address,
         normalizedData: txWithRaw.normalized,
         rawData: txWithRaw.raw,

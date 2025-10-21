@@ -1,3 +1,4 @@
+import type { SourceType } from '@exitbook/core';
 import type { Generated, ColumnType } from 'kysely';
 
 /**
@@ -29,7 +30,7 @@ export interface DataSourcesTable {
 
   // Session identification
   source_id: string;
-  source_type: 'exchange' | 'blockchain';
+  source_type: SourceType;
 
   // Status and metrics
   status: 'started' | 'completed' | 'failed' | 'cancelled';
@@ -81,7 +82,7 @@ export interface TransactionsTable {
   id: Generated<number>;
   data_source_id: number; // FK to data_sources.id
   source_id: string;
-  source_type: 'exchange' | 'blockchain';
+  source_type: SourceType;
   external_id: string | null; // hash, transaction ID, etc.
 
   // Transaction metadata

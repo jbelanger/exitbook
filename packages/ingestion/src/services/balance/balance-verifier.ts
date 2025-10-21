@@ -1,3 +1,4 @@
+import type { SourceType } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -67,7 +68,7 @@ export function compareBalances(
  */
 export function createVerificationResult(
   sourceId: string,
-  sourceType: 'exchange' | 'blockchain',
+  sourceType: SourceType,
   comparisons: BalanceComparison[],
   lastImportTimestamp?: number,
   hasTransactions = true

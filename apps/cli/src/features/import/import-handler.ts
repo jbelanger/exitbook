@@ -1,3 +1,4 @@
+import type { SourceType } from '@exitbook/core';
 import { TransactionRepository, type KyselyDB } from '@exitbook/data';
 import {
   ImporterFactory,
@@ -6,7 +7,7 @@ import {
   RawDataRepository,
   TransactionIngestionService,
 } from '@exitbook/ingestion';
-import type { ImportParams } from '@exitbook/ingestion/app/ports/importers.js';
+import type { ImportParams } from '@exitbook/ingestion';
 import {
   BlockchainProviderManager,
   initializeProviders,
@@ -31,7 +32,7 @@ export interface ImportHandlerParams {
   sourceName: string;
 
   /** Source type */
-  sourceType: 'exchange' | 'blockchain';
+  sourceType: SourceType;
 
   /** CSV directory path (for exchange CSV imports) */
   csvDir?: string | undefined;

@@ -1,24 +1,16 @@
 import { getErrorMessage } from '@exitbook/core';
-import type { ExternalTransactionData, ImportSessionMetadata, UniversalTransaction } from '@exitbook/core';
+import type { ExternalTransactionData, ImportSessionMetadata, SourceType, UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import { PartialImportError } from '@exitbook/exchanges';
-import type { ImportParams } from '@exitbook/ingestion/app/ports/importers.ts';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, Result } from 'neverthrow';
 
-import type { ImportResult } from '../../index.js';
-import type { IDataSourceRepository } from '../ports/data-source-repository.interface.ts';
-import type { IImporterFactory } from '../ports/importer-factory.interface.ts';
-import type { IProcessorFactory } from '../ports/processor-factory.js';
-import type { IRawDataRepository, LoadRawDataFilters } from '../ports/raw-data-repository.js';
-import type { ProcessResult } from '../ports/transaction-processor.interface.ts';
+import type { IImporterFactory, IProcessorFactory } from '../types/factories.ts';
+import type { ImportParams, ImportResult } from '../types/importers.ts';
+import type { ProcessResult } from '../types/processors.ts';
+import type { IRawDataRepository, IDataSourceRepository, LoadRawDataFilters } from '../types/repositories.ts';
 
-/**
- * Manages the ETL pipeline for cryptocurrency transaction data.
- * Handles the Import → Process → Load workflow with proper error handling
- * and dependency injection.
- */
 export class TransactionIngestionService {
   private logger: Logger;
 
@@ -75,7 +67,7 @@ export class TransactionIngestionService {
    */
   async importFromSource(
     sourceId: string,
-    sourceType: 'exchange' | 'blockchain',
+    sourceType: SourceType,
     params: ImportParams
   ): Promise<Result<ImportResult, Error>> {
     if (sourceType === 'exchange') {
@@ -90,7 +82,7 @@ export class TransactionIngestionService {
    */
   async processRawDataToTransactions(
     sourceId: string,
-    sourceType: 'exchange' | 'blockchain',
+    sourceType: SourceType,
     filters?: LoadRawDataFilters
   ): Promise<Result<ProcessResult, Error>> {
     this.logger.info(`Starting processing for ${sourceId} (${sourceType})`);
@@ -299,11 +291,11 @@ export class TransactionIngestionService {
     const sourceType = 'blockchain';
     this.logger.info(`Starting blockchain import for ${sourceId}`);
 
-    const existingSessionResult = await this.sessionRepository.findCompletedWithMatchingParams(sourceId, sourceType, {
-      address: params.address,
-      csvDirectories: params.csvDirectories,
-      providerId: params.providerId,
-    });
+    const existingSessionResult = await this.sessionRepository.findCompletedWithMatchingParams(
+      sourceId,
+      sourceType,
+      params
+    );
 
     if (existingSessionResult.isErr()) {
       return err(existingSessionResult.error);

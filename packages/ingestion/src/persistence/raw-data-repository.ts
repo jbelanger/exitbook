@@ -1,10 +1,11 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
-import { wrapError, type ExternalTransactionData, type ExternalTransaction } from '@exitbook/core';
+import { wrapError, type ExternalTransaction, type ExternalTransactionData } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import type { StoredRawData } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
-import type { IRawDataRepository, LoadRawDataFilters } from '@exitbook/ingestion/app/ports/raw-data-repository.js';
 import { err, ok, type Result } from 'neverthrow';
+
+import type { IRawDataRepository, LoadRawDataFilters } from '../types/repositories.ts';
 
 /**
  * Kysely-based repository for raw data database operations.

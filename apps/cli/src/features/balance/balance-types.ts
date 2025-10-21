@@ -1,3 +1,5 @@
+import type { SourceType } from '@exitbook/core';
+
 import type { BalanceCommandOptions } from './balance-utils.ts';
 
 /**
@@ -30,7 +32,7 @@ export interface BalanceCommandResult {
   source: {
     address?: string | undefined;
     name: string;
-    type: 'exchange' | 'blockchain';
+    type: SourceType;
   };
   meta: {
     timestamp: string;
