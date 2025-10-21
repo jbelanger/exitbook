@@ -1,5 +1,6 @@
+import { wrapError } from '@exitbook/core';
 import { BaseRepository, type KyselyDB } from '@exitbook/data';
-import { err, ok, type Result } from 'neverthrow';
+import { ok, type Result } from 'neverthrow';
 
 /**
  * Repository for cost basis data operations
@@ -35,9 +36,8 @@ export class CostBasisRepository extends BaseRepository {
       this.logger.debug({ sourceId, count }, 'Deleted lot disposals by source');
       return ok(count);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, sourceId }, 'Failed to delete lot disposals by source');
-      return err(new Error(`Failed to delete lot disposals by source: ${message}`));
+      return wrapError(error, 'Failed to delete lot disposals by source');
     }
   }
 
@@ -59,9 +59,8 @@ export class CostBasisRepository extends BaseRepository {
       this.logger.debug({ sourceId, count }, 'Deleted acquisition lots by source');
       return ok(count);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, sourceId }, 'Failed to delete acquisition lots by source');
-      return err(new Error(`Failed to delete acquisition lots by source: ${message}`));
+      return wrapError(error, 'Failed to delete acquisition lots by source');
     }
   }
 
@@ -76,9 +75,8 @@ export class CostBasisRepository extends BaseRepository {
       this.logger.info({ count }, 'Deleted all lot disposals');
       return ok(count);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error }, 'Failed to delete all lot disposals');
-      return err(new Error(`Failed to delete all lot disposals: ${message}`));
+      return wrapError(error, 'Failed to delete all lot disposals');
     }
   }
 
@@ -93,9 +91,8 @@ export class CostBasisRepository extends BaseRepository {
       this.logger.info({ count }, 'Deleted all acquisition lots');
       return ok(count);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error }, 'Failed to delete all acquisition lots');
-      return err(new Error(`Failed to delete all acquisition lots: ${message}`));
+      return wrapError(error, 'Failed to delete all acquisition lots');
     }
   }
 
@@ -110,9 +107,8 @@ export class CostBasisRepository extends BaseRepository {
       this.logger.info({ count }, 'Deleted all cost basis calculations');
       return ok(count);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error }, 'Failed to delete all cost basis calculations');
-      return err(new Error(`Failed to delete all cost basis calculations: ${message}`));
+      return wrapError(error, 'Failed to delete all cost basis calculations');
     }
   }
 }

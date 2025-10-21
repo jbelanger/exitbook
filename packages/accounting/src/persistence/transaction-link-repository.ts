@@ -1,9 +1,9 @@
 /* eslint-disable unicorn/no-null -- null needed by Kysely */
-import { DecimalSchema } from '@exitbook/core';
+import { DecimalSchema, wrapError } from '@exitbook/core';
 import type { KyselyDB, TransactionLinksTable } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { Selectable } from 'kysely';
-import { err, ok, type Result } from 'neverthrow';
+import { ok, type Result } from 'neverthrow';
 
 import { MatchCriteriaSchema } from '../linking/schemas.js';
 import type { MatchCriteria, TransactionLink } from '../linking/types.js';
@@ -47,9 +47,8 @@ export class TransactionLinkRepository extends BaseRepository {
       this.logger.debug({ linkId: link.id }, 'Created transaction link');
       return ok(link.id);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error }, 'Failed to create transaction link');
-      return err(new Error(`Failed to create transaction link: ${message}`));
+      return wrapError(error, 'Failed to create transaction link');
     }
   }
 
@@ -85,9 +84,8 @@ export class TransactionLinkRepository extends BaseRepository {
       this.logger.info({ count: links.length }, 'Bulk created transaction links');
       return ok(links.length);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error }, 'Failed to bulk create transaction links');
-      return err(new Error(`Failed to bulk create transaction links: ${message}`));
+      return wrapError(error, 'Failed to bulk create transaction links');
     }
   }
 
@@ -103,9 +101,8 @@ export class TransactionLinkRepository extends BaseRepository {
 
       return ok(row ? this.toTransactionLink(row) : null);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, id }, 'Failed to find transaction link by ID');
-      return err(new Error(`Failed to find transaction link: ${message}`));
+      return wrapError(error, 'Failed to find transaction link');
     }
   }
 
@@ -125,9 +122,8 @@ export class TransactionLinkRepository extends BaseRepository {
 
       return ok(rows.map((row) => this.toTransactionLink(row)));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, sourceTransactionId }, 'Failed to find links by source transaction');
-      return err(new Error(`Failed to find links by source transaction: ${message}`));
+      return wrapError(error, 'Failed to find links by source transaction');
     }
   }
 
@@ -147,9 +143,8 @@ export class TransactionLinkRepository extends BaseRepository {
 
       return ok(rows.map((row) => this.toTransactionLink(row)));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, targetTransactionId }, 'Failed to find links by target transaction');
-      return err(new Error(`Failed to find links by target transaction: ${message}`));
+      return wrapError(error, 'Failed to find links by target transaction');
     }
   }
 
@@ -170,9 +165,8 @@ export class TransactionLinkRepository extends BaseRepository {
       const rows = await query.execute();
       return ok(rows.map((row) => this.toTransactionLink(row)));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, status }, 'Failed to find transaction links');
-      return err(new Error(`Failed to find transaction links: ${message}`));
+      return wrapError(error, 'Failed to find transaction links');
     }
   }
 
@@ -207,9 +201,8 @@ export class TransactionLinkRepository extends BaseRepository {
       this.logger.debug({ linkId: id, status, updated }, 'Updated transaction link status');
       return ok(updated);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, id, status }, 'Failed to update transaction link status');
-      return err(new Error(`Failed to update transaction link status: ${message}`));
+      return wrapError(error, 'Failed to update transaction link status');
     }
   }
 
@@ -227,9 +220,8 @@ export class TransactionLinkRepository extends BaseRepository {
       this.logger.debug({ linkId: id, deleted }, 'Deleted transaction link');
       return ok(deleted);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, id }, 'Failed to delete transaction link');
-      return err(new Error(`Failed to delete transaction link: ${message}`));
+      return wrapError(error, 'Failed to delete transaction link');
     }
   }
 
@@ -250,9 +242,8 @@ export class TransactionLinkRepository extends BaseRepository {
       this.logger.debug({ sourceTransactionId, count }, 'Deleted transaction links by source transaction');
       return ok(count);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, sourceTransactionId }, 'Failed to delete links by source transaction');
-      return err(new Error(`Failed to delete links by source transaction: ${message}`));
+      return wrapError(error, 'Failed to delete links by source transaction');
     }
   }
 
@@ -277,9 +268,8 @@ export class TransactionLinkRepository extends BaseRepository {
       this.logger.debug({ sourceId, count }, 'Deleted transaction links by source');
       return ok(count);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, sourceId }, 'Failed to delete links by source');
-      return err(new Error(`Failed to delete links by source: ${message}`));
+      return wrapError(error, 'Failed to delete links by source');
     }
   }
 
@@ -296,9 +286,8 @@ export class TransactionLinkRepository extends BaseRepository {
       this.logger.info({ count }, 'Deleted all transaction links');
       return ok(count);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error }, 'Failed to delete all links');
-      return err(new Error(`Failed to delete all links: ${message}`));
+      return wrapError(error, 'Failed to delete all links');
     }
   }
 
