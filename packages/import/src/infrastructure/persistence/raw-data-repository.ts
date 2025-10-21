@@ -65,7 +65,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             .updateTable('external_transaction_data')
             .set({
               processed_at: processedAt,
-              processing_error: undefined,
+              processing_error: null,
               processing_status: 'processed',
             })
             .where('id', '=', id)

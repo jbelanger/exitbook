@@ -74,10 +74,6 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
     }
   }
 
-  async findActive(): Promise<Result<DataSource[], Error>> {
-    return this.findAll({ status: 'started' });
-  }
-
   async findAll(filters?: ImportSessionQuery): Promise<Result<DataSource[], Error>> {
     try {
       let query = this.db.selectFrom('data_sources').selectAll();
@@ -125,10 +121,6 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
   async findBySource(sourceId: string, limit?: number): Promise<Result<DataSource[], Error>> {
     return this.findAll({ limit, sourceId });
-  }
-
-  async findRecent(limit = 10): Promise<Result<DataSource[], Error>> {
-    return this.findAll({ limit });
   }
 
   async update(sessionId: number, updates: DataSourceUpdate): Promise<Result<void, Error>> {

@@ -198,63 +198,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async findRecent(address: string, limit: number) {
-    try {
-      const rows = await this.db
-        .selectFrom('transactions')
-        .selectAll()
-        .where((eb) => eb.or([eb('from_address', '=', address), eb('to_address', '=', address)]))
-        .orderBy('transaction_datetime', 'desc')
-        .limit(limit)
-        .execute();
-
-      const transactions = rows.map((row) => this.toUniversalTransaction(row));
-
-      return ok(transactions);
-    } catch (error) {
-      return wrapError(error, 'Failed to retrieve recent transactions by address');
-    }
-  }
-
-  async findByDateRange(address: string, from: Date, to: Date) {
-    try {
-      const rows = await this.db
-        .selectFrom('transactions')
-        .selectAll()
-        .where((eb) =>
-          eb.and([
-            eb.or([eb('from_address', '=', address), eb('to_address', '=', address)]),
-            eb('transaction_datetime', '>=', from.toISOString()),
-            eb('transaction_datetime', '<=', to.toISOString()),
-          ])
-        )
-        .orderBy('transaction_datetime', 'desc')
-        .execute();
-
-      const transactions = rows.map((row) => this.toUniversalTransaction(row));
-
-      return ok(transactions);
-    } catch (error) {
-      return wrapError(error, 'Failed to retrieve transactions by date range');
-    }
-  }
-
-  async getTransactionCount(sourceId?: string) {
-    try {
-      let query = this.db.selectFrom('transactions').select((eb) => eb.fn.count<number>('id').as('count'));
-
-      if (sourceId) {
-        query = query.where('source_id', '=', sourceId);
-      }
-
-      const result = await query.executeTakeFirstOrThrow();
-
-      return ok(result.count);
-    } catch (error) {
-      return wrapError(error, 'Failed to get transaction count');
-    }
-  }
-
   /**
    * Find transactions with movements that need price data
    * Optionally filter by specific asset(s)

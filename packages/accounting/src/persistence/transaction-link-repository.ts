@@ -5,6 +5,7 @@ import { Decimal } from 'decimal.js';
 import type { Selectable } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
+import { MatchCriteriaSchema } from '../linking/schemas.js';
 import type { TransactionLink } from '../linking/types.js';
 
 export type StoredTransactionLink = Selectable<TransactionLinksTable>;
@@ -337,10 +338,12 @@ export class TransactionLinkRepository {
 
   /**
    * Convert database row to TransactionLink domain model
+   * Uses Zod schema for validation and automatic Decimal transformation
    */
   private toTransactionLink(row: StoredTransactionLink): TransactionLink {
-    // Parse JSON fields
-    const matchCriteria = JSON.parse(row.match_criteria_json as string) as TransactionLink['matchCriteria'];
+    // Parse and validate matchCriteria with schema (handles Decimal rehydration automatically)
+    const matchCriteria = MatchCriteriaSchema.parse(JSON.parse(row.match_criteria_json as string));
+
     const metadata = row.metadata_json
       ? (JSON.parse(row.metadata_json as string) as Record<string, unknown>)
       : undefined;

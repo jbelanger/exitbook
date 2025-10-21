@@ -13,23 +13,6 @@ export interface ITransactionRepository {
   findByAddress(address: string): Promise<Result<UniversalTransaction[], Error>>;
 
   /**
-   * Retrieve transactions by address within date range.
-   * Used for historical balance validation.
-   */
-  findByDateRange(address: string, from: Date, to: Date): Promise<Result<UniversalTransaction[], Error>>;
-
-  /**
-   * Retrieve recent transactions by address with limit.
-   * Used for pattern analysis in transaction classification.
-   */
-  findRecent(address: string, limit: number): Promise<Result<UniversalTransaction[], Error>>;
-
-  /**
-   * Get the count of transactions, optionally filtered by source.
-   */
-  getTransactionCount(sourceId?: string): Promise<Result<number, Error>>;
-
-  /**
    * Retrieve transactions with optional filtering.
    */
   getTransactions(sourceId?: string, since?: number): Promise<Result<UniversalTransaction[], Error>>;

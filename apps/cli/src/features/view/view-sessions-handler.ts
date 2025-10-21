@@ -11,24 +11,24 @@ import type { ViewSessionsParams, ViewSessionsResult } from './view-sessions-uti
  * Handler for viewing import sessions.
  */
 export class ViewSessionsHandler {
-  constructor(private readonly sessionRepo: DataSourceRepository) {}
+  constructor(private readonly dataSourceRepo: DataSourceRepository) {}
 
   /**
    * Execute the view sessions command.
    */
   async execute(params: ViewSessionsParams): Promise<Result<ViewSessionsResult, Error>> {
     // Fetch sessions from repository
-    const sessionsResult = await this.sessionRepo.findAll({
+    const dataSourcesResult = await this.dataSourceRepo.findAll({
       sourceId: params.source,
       status: params.status,
       limit: params.limit,
     });
 
-    if (sessionsResult.isErr()) {
-      return err(sessionsResult.error);
+    if (dataSourcesResult.isErr()) {
+      return err(dataSourcesResult.error);
     }
 
-    const sessions = sessionsResult.value;
+    const sessions = dataSourcesResult.value;
 
     // Build result
     const result: ViewSessionsResult = {
