@@ -214,16 +214,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
       // Classification uncertainty
       classificationUncertainty: flowAnalysis.classificationUncertainty,
-
-      // Deprecated fields for backward compatibility
-      currency: flowAnalysis.primary.asset,
-      isIncoming: flowAnalysis.inflows.length > 0 && flowAnalysis.outflows.length === 0,
-      isOutgoing: flowAnalysis.outflows.length > 0 && flowAnalysis.inflows.length === 0,
-      netAmount: flowAnalysis.primary.amount,
-      primaryAmount: flowAnalysis.primary.amount,
-      primarySymbol: flowAnalysis.primary.asset,
-      tokenAccount: tx.tokenAccount,
-      totalAmount: flowAnalysis.primary.amount,
     };
 
     return ok(fundFlow);

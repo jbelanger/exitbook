@@ -8,7 +8,6 @@ import { ok } from 'neverthrow';
 
 import type { TransactionsTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
-import type { StoredTransaction } from '../types/data-types.js';
 
 import { BaseRepository } from './base-repository.js';
 import type { ITransactionRepository } from './transaction-repository.interface.ts';
@@ -473,21 +472,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
 
     return transaction;
-  }
-
-  /**
-   * Deserialize a raw database row into a StoredTransaction with typed movements and fees
-   * @deprecated Use toUniversalTransaction() instead
-   */
-  private deserializeTransaction(row: Selectable<TransactionsTable>): StoredTransaction {
-    return {
-      ...row,
-      fees_network: this.parseFee(row.fees_network as string | null),
-      fees_platform: this.parseFee(row.fees_platform as string | null),
-      fees_total: this.parseFee(row.fees_total as string | null),
-      movements_inflows: this.parseMovements(row.movements_inflows as string | null),
-      movements_outflows: this.parseMovements(row.movements_outflows as string | null),
-    };
   }
 
   /**

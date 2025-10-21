@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
-import { MoneySchema } from './index.ts';
+import { MoneySchema } from './money.ts';
 
 // Transaction type schema
 export const TransactionTypeSchema = z.enum([
@@ -76,7 +76,7 @@ export const TransactionNoteSchema = z.object({
 // Universal Transaction schema (new structure)
 export const UniversalTransactionSchema = z.object({
   // Core fields
-  id: z.number().int(), //.positive('Transaction ID must not be empty'),
+  id: z.number().int(),
   uniqueId: z.string().min(1, 'Transaction ID must not be empty').optional(),
   datetime: z.string().min(1, 'Datetime string must not be empty'),
   timestamp: z.number().int().positive('Timestamp must be a positive integer'),
