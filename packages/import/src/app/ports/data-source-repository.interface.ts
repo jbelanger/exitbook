@@ -1,10 +1,5 @@
-import type {
-  DataSource,
-  ImportSessionQuery,
-  DataSourceUpdate,
-  DataImportParams,
-  VerificationMetadata,
-} from '@exitbook/data';
+import type { DataImportParams, DataSource, VerificationMetadata } from '@exitbook/core';
+import type { ImportSessionQuery, DataSourceUpdate } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
 /**

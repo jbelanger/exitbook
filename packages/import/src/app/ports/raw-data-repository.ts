@@ -1,5 +1,4 @@
-import type { RawTransactionWithMetadata } from '@exitbook/core';
-import type { RawData } from '@exitbook/data';
+import type { ExternalTransactionData, RawTransactionWithMetadata } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 export interface LoadRawDataFilters {
@@ -19,7 +18,7 @@ export interface IRawDataRepository {
   /**
    * Load external data from storage with optional filtering.
    */
-  load(filters?: LoadRawDataFilters): Promise<Result<RawData[], Error>>;
+  load(filters?: LoadRawDataFilters): Promise<Result<ExternalTransactionData[], Error>>;
 
   /**
    * Mark multiple items as processed.
@@ -46,5 +45,5 @@ export interface IRawDataRepository {
    * Get records with valid normalized data (where normalized_data is not null).
    * Used during processing step.
    */
-  getValidRecords(importSessionId: number): Promise<Result<RawData[], Error>>;
+  getValidRecords(importSessionId: number): Promise<Result<ExternalTransactionData[], Error>>;
 }

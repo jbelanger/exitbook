@@ -9,13 +9,8 @@ export type { TransactionNeedingPrice } from './repositories/transaction-reposit
 export type { DatabaseSchema, TransactionLinksTable } from './schema/database-schema.ts';
 export type {
   RawData,
-  DataSource,
+  StoredRawData,
+  StoredDataSource,
   ImportSessionQuery,
   DataSourceUpdate,
-  ImportSessionMetadata,
-  DataImportParams,
-  SourceParams,
-  BalanceDiscrepancy,
-  BalanceVerification,
-  VerificationMetadata,
 } from './types/data-types.ts';

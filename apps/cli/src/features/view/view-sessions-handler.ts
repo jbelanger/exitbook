@@ -1,6 +1,6 @@
 // Handler for view sessions command
 
-import type { DataSource } from '@exitbook/data';
+import type { DataSource } from '@exitbook/core';
 import type { DataSourceRepository } from '@exitbook/import';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -49,13 +49,13 @@ export class ViewSessionsHandler {
   private formatSession(session: DataSource) {
     return {
       id: session.id,
-      source_id: session.source_id,
-      source_type: session.source_type,
+      source_id: session.sourceId,
+      source_type: session.sourceType,
       status: session.status,
-      started_at: session.started_at,
-      completed_at: session.completed_at ?? undefined,
-      duration_ms: session.duration_ms ?? undefined,
-      error_message: session.error_message ?? undefined,
+      started_at: session.startedAt.toISOString(),
+      completed_at: session.completedAt?.toISOString() ?? undefined,
+      duration_ms: session.durationMs ?? undefined,
+      error_message: session.errorMessage ?? undefined,
     };
   }
 }

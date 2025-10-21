@@ -1,6 +1,6 @@
 import { getErrorMessage } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
-import type { RawData, ImportSessionMetadata, DataImportParams, ITransactionRepository } from '@exitbook/data';
+import type { ExternalTransactionData, ImportSessionMetadata, UniversalTransaction } from '@exitbook/core';
+import type { ITransactionRepository } from '@exitbook/data';
 import { PartialImportError } from '@exitbook/exchanges';
 import type { ImportParams } from '@exitbook/import/app/ports/importers.ts';
 import type { Logger } from '@exitbook/shared-logger';
@@ -127,13 +127,13 @@ export class TransactionIngestionService {
         `Found ${allSessions.length} total sessions for source: ${allSessions.map((s) => s.id).join(', ')}`
       );
 
-      const rawDataBySessionId = new Map<number, RawData[]>();
+      const rawDataBySessionId = new Map<number, ExternalTransactionData[]>();
 
       for (const rawDataItem of rawDataItems) {
-        if (rawDataItem.data_source_id) {
-          const sessionRawData = rawDataBySessionId.get(rawDataItem.data_source_id) || [];
+        if (rawDataItem.dataSourceId) {
+          const sessionRawData = rawDataBySessionId.get(rawDataItem.dataSourceId) || [];
           sessionRawData.push(rawDataItem);
-          rawDataBySessionId.set(rawDataItem.data_source_id, sessionRawData);
+          rawDataBySessionId.set(rawDataItem.dataSourceId, sessionRawData);
         }
       }
 
@@ -152,8 +152,8 @@ export class TransactionIngestionService {
         .filter((sessionData) =>
           sessionData.rawDataItems.some(
             (item) =>
-              item.processing_status === 'pending' &&
-              (!filters?.importSessionId || item.data_source_id === filters.importSessionId)
+              item.processingStatus === 'pending' &&
+              (!filters?.importSessionId || item.dataSourceId === filters.importSessionId)
           )
         );
 
@@ -168,7 +168,7 @@ export class TransactionIngestionService {
       for (const sessionData of sessionsToProcess) {
         const { rawDataItems: sessionRawItems, session } = sessionData;
 
-        const pendingItems = sessionRawItems.filter((item) => item.processing_status === 'pending');
+        const pendingItems = sessionRawItems.filter((item) => item.processingStatus === 'pending');
 
         if (pendingItems.length === 0) {
           continue;
@@ -176,48 +176,34 @@ export class TransactionIngestionService {
 
         const normalizedRawDataItems: unknown[] = [];
 
-        const parsedImportParams =
-          typeof session.import_params === 'string'
-            ? (JSON.parse(session.import_params) as DataImportParams)
-            : (session.import_params as DataImportParams);
-        const parsedResultMetadata =
-          typeof session.import_result_metadata === 'string'
-            ? (JSON.parse(session.import_result_metadata) as Record<string, unknown>)
-            : (session.import_result_metadata as Record<string, unknown>);
-
+        // Use already-parsed fields from domain model
         const parsedSessionMetadata: ImportSessionMetadata = {
-          ...parsedImportParams,
-          ...parsedResultMetadata,
+          ...session.importParams,
+          ...session.importResultMetadata,
         };
 
         for (const item of pendingItems) {
-          let normalized_data: unknown =
-            typeof item.normalized_data === 'string' ? JSON.parse(item.normalized_data) : item.normalized_data;
+          let normalizedData: unknown = item.normalizedData;
 
-          if (!normalized_data || Object.keys(normalized_data as Record<string, never>).length === 0) {
-            normalized_data = typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
+          if (!normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0) {
+            normalizedData = item.rawData;
           }
 
           // For exchanges: package both raw and normalized data (supports strategy pattern)
           // Raw contains CCXT-specific fields, normalized contains common ExchangeLedgerEntry fields
           // For blockchains: just use normalized data (already in final provider-specific format)
           if (sourceType === 'exchange') {
-            const raw_data: unknown = typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
-
             const dataPackage = {
-              raw: raw_data,
-              normalized: normalized_data,
-              externalId: item.external_id || '',
-              cursor:
-                typeof item.cursor === 'string'
-                  ? (JSON.parse(item.cursor) as Record<string, unknown>)
-                  : (item.cursor as Record<string, unknown>) || {},
+              raw: item.rawData,
+              normalized: normalizedData,
+              externalId: item.externalId || '',
+              cursor: item.cursor || {},
             };
 
             normalizedRawDataItems.push(dataPackage);
           } else {
             // Blockchain: pass normalized data directly
-            normalizedRawDataItems.push(normalized_data);
+            normalizedRawDataItems.push(normalizedData);
           }
         }
 
@@ -274,7 +260,7 @@ export class TransactionIngestionService {
       const savedCount = combinedResult.value.length;
 
       const allProcessedItems = sessionsToProcess.flatMap((sessionData) =>
-        sessionData.rawDataItems.filter((item) => item.processing_status === 'pending')
+        sessionData.rawDataItems.filter((item) => item.processingStatus === 'pending')
       );
       const allRawDataIds = allProcessedItems.map((item) => item.id);
 

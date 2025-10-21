@@ -1,12 +1,7 @@
+import type { DataImportParams, DataSource, VerificationMetadata } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
-import type {
-  DataSource,
-  ImportSessionQuery,
-  DataSourceUpdate,
-  DataImportParams,
-  VerificationMetadata,
-} from '@exitbook/data';
+import type { StoredDataSource, ImportSessionQuery, DataSourceUpdate } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { ok, err } from 'neverthrow';
@@ -112,7 +107,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       }
 
       const rows = await query.execute();
-      return ok(rows as DataSource[]);
+      return ok(rows.map((row) => this.toDataSource(row)));
     } catch (error) {
       return wrapError(error, 'Failed to find import sessions');
     }
@@ -122,7 +117,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
     try {
       const row = await this.db.selectFrom('data_sources').selectAll().where('id', '=', sessionId).executeTakeFirst();
 
-      return ok(row ? row : undefined);
+      return ok(row ? this.toDataSource(row) : undefined);
     } catch (error) {
       return wrapError(error, 'Failed to find data source  by ID');
     }
@@ -213,10 +208,8 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
       // Find a session with matching import parameters
       for (const session of sessions) {
-        const storedParams: DataImportParams =
-          typeof session.import_params === 'string'
-            ? (JSON.parse(session.import_params) as DataImportParams)
-            : (session.import_params as DataImportParams);
+        // Use already-parsed importParams from domain model
+        const storedParams = session.importParams;
 
         // Compare relevant parameters
         const addressMatches = params.address === storedParams.address;
@@ -276,5 +269,50 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
     } catch (error) {
       return wrapError(error, 'Failed to delete all data sources');
     }
+  }
+
+  /**
+   * Convert database row to DataSource domain model
+   * Handles JSON parsing and camelCase conversion
+   */
+  private toDataSource(row: StoredDataSource): DataSource {
+    // Parse JSON fields
+    const importParams: DataImportParams =
+      typeof row.import_params === 'string'
+        ? (JSON.parse(row.import_params) as DataImportParams)
+        : (row.import_params as DataImportParams);
+
+    const importResultMetadata: Record<string, unknown> =
+      typeof row.import_result_metadata === 'string'
+        ? (JSON.parse(row.import_result_metadata) as Record<string, unknown>)
+        : (row.import_result_metadata as Record<string, unknown>);
+
+    const errorDetails: unknown =
+      row.error_details && typeof row.error_details === 'string'
+        ? (JSON.parse(row.error_details) as unknown)
+        : row.error_details;
+
+    const verificationMetadata: VerificationMetadata | null =
+      row.verification_metadata && typeof row.verification_metadata === 'string'
+        ? (JSON.parse(row.verification_metadata) as VerificationMetadata)
+        : (row.verification_metadata as VerificationMetadata | null);
+
+    return {
+      id: row.id,
+      sourceId: row.source_id,
+      sourceType: row.source_type,
+      status: row.status,
+      startedAt: new Date(row.started_at),
+      completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
+      createdAt: new Date(row.created_at),
+      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+      durationMs: row.duration_ms ?? undefined,
+      errorMessage: row.error_message ?? undefined,
+      errorDetails,
+      importParams,
+      importResultMetadata,
+      lastBalanceCheckAt: row.last_balance_check_at ? new Date(row.last_balance_check_at) : undefined,
+      verificationMetadata: verificationMetadata ?? undefined,
+    };
   }
 }

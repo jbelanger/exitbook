@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- null needed by Kysely */
 import type { KyselyDB, TransactionLinksTable } from '@exitbook/data';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
+import { Decimal } from 'decimal.js';
 import type { Selectable } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -99,11 +100,11 @@ export class TransactionLinkRepository {
    * @param id - Link ID
    * @returns Result with link or null if not found
    */
-  async findById(id: string): Promise<Result<StoredTransactionLink | null, Error>> {
+  async findById(id: string): Promise<Result<TransactionLink | null, Error>> {
     try {
-      const link = await this.db.selectFrom('transaction_links').selectAll().where('id', '=', id).executeTakeFirst();
+      const row = await this.db.selectFrom('transaction_links').selectAll().where('id', '=', id).executeTakeFirst();
 
-      return ok(link ?? null);
+      return ok(row ? this.toTransactionLink(row) : null);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, id }, 'Failed to find transaction link by ID');
@@ -117,15 +118,15 @@ export class TransactionLinkRepository {
    * @param sourceTransactionId - Source transaction ID
    * @returns Result with array of links
    */
-  async findBySourceTransactionId(sourceTransactionId: number): Promise<Result<StoredTransactionLink[], Error>> {
+  async findBySourceTransactionId(sourceTransactionId: number): Promise<Result<TransactionLink[], Error>> {
     try {
-      const links = await this.db
+      const rows = await this.db
         .selectFrom('transaction_links')
         .selectAll()
         .where('source_transaction_id', '=', sourceTransactionId)
         .execute();
 
-      return ok(links);
+      return ok(rows.map((row) => this.toTransactionLink(row)));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, sourceTransactionId }, 'Failed to find links by source transaction');
@@ -139,15 +140,15 @@ export class TransactionLinkRepository {
    * @param targetTransactionId - Target transaction ID
    * @returns Result with array of links
    */
-  async findByTargetTransactionId(targetTransactionId: number): Promise<Result<StoredTransactionLink[], Error>> {
+  async findByTargetTransactionId(targetTransactionId: number): Promise<Result<TransactionLink[], Error>> {
     try {
-      const links = await this.db
+      const rows = await this.db
         .selectFrom('transaction_links')
         .selectAll()
         .where('target_transaction_id', '=', targetTransactionId)
         .execute();
 
-      return ok(links);
+      return ok(rows.map((row) => this.toTransactionLink(row)));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, targetTransactionId }, 'Failed to find links by target transaction');
@@ -161,7 +162,7 @@ export class TransactionLinkRepository {
    * @param status - Optional status filter
    * @returns Result with array of links
    */
-  async findAll(status?: 'suggested' | 'confirmed' | 'rejected'): Promise<Result<StoredTransactionLink[], Error>> {
+  async findAll(status?: 'suggested' | 'confirmed' | 'rejected'): Promise<Result<TransactionLink[], Error>> {
     try {
       let query = this.db.selectFrom('transaction_links').selectAll();
 
@@ -169,8 +170,8 @@ export class TransactionLinkRepository {
         query = query.where('status', '=', status);
       }
 
-      const links = await query.execute();
-      return ok(links);
+      const rows = await query.execute();
+      return ok(rows.map((row) => this.toTransactionLink(row)));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, status }, 'Failed to find transaction links');
@@ -332,5 +333,31 @@ export class TransactionLinkRepository {
       this.logger.warn({ data, error }, 'Failed to serialize data to JSON');
       return undefined;
     }
+  }
+
+  /**
+   * Convert database row to TransactionLink domain model
+   */
+  private toTransactionLink(row: StoredTransactionLink): TransactionLink {
+    // Parse JSON fields
+    const matchCriteria = JSON.parse(row.match_criteria_json as string) as TransactionLink['matchCriteria'];
+    const metadata = row.metadata_json
+      ? (JSON.parse(row.metadata_json as string) as Record<string, unknown>)
+      : undefined;
+
+    return {
+      id: row.id,
+      sourceTransactionId: row.source_transaction_id,
+      targetTransactionId: row.target_transaction_id,
+      linkType: row.link_type,
+      confidenceScore: new Decimal(row.confidence_score),
+      matchCriteria,
+      status: row.status,
+      reviewedBy: row.reviewed_by ?? undefined,
+      reviewedAt: row.reviewed_at ? new Date(row.reviewed_at) : undefined,
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at),
+      metadata,
+    };
   }
 }

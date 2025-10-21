@@ -1,4 +1,5 @@
-import type { KyselyDB, VerificationMetadata } from '@exitbook/data';
+import type { VerificationMetadata } from '@exitbook/core';
+import type { KyselyDB } from '@exitbook/data';
 import { TransactionRepository } from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchanges';
 import {
@@ -29,7 +30,6 @@ import {
   buildSourceParams,
   decimalRecordToStringRecord,
   getExchangeCredentialsFromEnv,
-  parseImportParams,
   validateBalanceParams,
 } from './balance-utils.ts';
 
@@ -158,7 +158,7 @@ export class BalanceHandler {
       // Find session matching this specific address
       const normalizedAddress = params.address?.toLowerCase();
       const matchingSession = sessions.find((session) => {
-        const importParams = parseImportParams(session.import_params);
+        const importParams = session.importParams;
         return importParams.address?.toLowerCase() === normalizedAddress;
       });
 
@@ -166,13 +166,9 @@ export class BalanceHandler {
         return err(new Error(`No data source  found for address ${params.address}`));
       }
 
-      // Extract derived addresses from import_result_metadata (not import_params)
+      // Extract derived addresses from importResultMetadata (not importParams)
       // The derivedAddresses are stored by the importer in the metadata field of ImportRunResult
-      const resultMetadata = matchingSession.import_result_metadata
-        ? typeof matchingSession.import_result_metadata === 'string'
-          ? (JSON.parse(matchingSession.import_result_metadata) as Record<string, unknown>)
-          : (matchingSession.import_result_metadata as Record<string, unknown>)
-        : {};
+      const resultMetadata = matchingSession.importResultMetadata;
 
       const derivedAddresses = resultMetadata.derivedAddresses;
 
@@ -216,7 +212,7 @@ export class BalanceHandler {
       if (params.sourceType === 'blockchain' && params.address) {
         const normalizedAddress = params.address.toLowerCase();
         const matchingSession = completedSessions.find((session) => {
-          const importParams = parseImportParams(session.import_params);
+          const importParams = session.importParams;
           return importParams.address?.toLowerCase() === normalizedAddress;
         });
 
@@ -224,17 +220,17 @@ export class BalanceHandler {
           return undefined;
         }
 
-        return matchingSession.completed_at ? new Date(matchingSession.completed_at).getTime() : undefined;
+        return matchingSession.completedAt?.getTime();
       }
 
-      // For exchanges, sort by completed_at desc to ensure we get the most recent
+      // For exchanges, sort by completedAt desc to ensure we get the most recent
       const sortedSessions = completedSessions.sort((a, b) => {
-        const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
-        const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+        const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+        const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
         return bTime - aTime;
       });
       const mostRecentSession = sortedSessions[0];
-      return mostRecentSession?.completed_at ? new Date(mostRecentSession.completed_at).getTime() : undefined;
+      return mostRecentSession?.completedAt ? new Date(mostRecentSession.completedAt).getTime() : undefined;
     } catch (error) {
       logger.warn(`Error fetching last import timestamp: ${error instanceof Error ? error.message : String(error)}`);
       return undefined;
@@ -415,7 +411,7 @@ export class BalanceHandler {
       if (params.sourceType === 'blockchain' && params.address) {
         const normalizedAddress = params.address.toLowerCase();
         targetSession = sessions.find((session: (typeof sessions)[0]) => {
-          const importParams = parseImportParams(session.import_params);
+          const importParams = session.importParams;
           return importParams.address?.toLowerCase() === normalizedAddress;
         });
 
@@ -427,8 +423,8 @@ export class BalanceHandler {
         const completedSessions = sessions
           .filter((session) => session.status === 'completed')
           .sort((a, b) => {
-            const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
-            const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+            const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+            const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
             return bTime - aTime;
           });
         targetSession = completedSessions[0];

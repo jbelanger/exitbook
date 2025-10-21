@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
-import { wrapError, type RawTransactionWithMetadata } from '@exitbook/core';
+import { wrapError, type ExternalTransactionData, type RawTransactionWithMetadata } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
-import type { RawData } from '@exitbook/data';
+import type { StoredRawData } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { IRawDataRepository, LoadRawDataFilters } from '@exitbook/import/app/ports/raw-data-repository.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -16,7 +16,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     super(db, 'RawDataRepository');
   }
 
-  async load(filters?: LoadRawDataFilters): Promise<Result<RawData[], Error>> {
+  async load(filters?: LoadRawDataFilters): Promise<Result<ExternalTransactionData[], Error>> {
     try {
       let query = this.db
         .selectFrom('external_transaction_data')
@@ -49,7 +49,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
       const rows = await query.execute();
 
-      return ok(rows);
+      return ok(rows.map((row) => this.toExternalTransactionData(row)));
     } catch (error) {
       return wrapError(error, 'Failed to load raw data');
     }
@@ -198,7 +198,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async getValidRecords(importSessionId: number): Promise<Result<RawData[], Error>> {
+  async getValidRecords(importSessionId: number): Promise<Result<ExternalTransactionData[], Error>> {
     try {
       const rows = await this.db
         .selectFrom('external_transaction_data')
@@ -207,7 +207,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .where('processing_status', '=', 'pending')
         .execute();
 
-      return ok(rows);
+      return ok(rows.map((row) => this.toExternalTransactionData(row)));
     } catch (error) {
       return wrapError(error, 'Failed to get valid records');
     }
@@ -276,5 +276,40 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     } catch (error) {
       return wrapError(error, 'Failed to delete all raw data');
     }
+  }
+
+  /**
+   * Convert database row to ExternalTransactionData domain model
+   * Handles JSON parsing and camelCase conversion
+   */
+  private toExternalTransactionData(row: StoredRawData): ExternalTransactionData {
+    // Parse JSON fields
+    const rawData: unknown = typeof row.raw_data === 'string' ? (JSON.parse(row.raw_data) as unknown) : row.raw_data;
+
+    const normalizedData: unknown =
+      typeof row.normalized_data === 'string' ? (JSON.parse(row.normalized_data) as unknown) : row.normalized_data;
+
+    const cursor: Record<string, unknown> | null =
+      row.cursor && typeof row.cursor === 'string'
+        ? (JSON.parse(row.cursor) as Record<string, unknown>)
+        : (row.cursor as Record<string, unknown> | null);
+
+    const metadata: unknown =
+      row.metadata && typeof row.metadata === 'string' ? (JSON.parse(row.metadata) as unknown) : row.metadata;
+
+    return {
+      id: row.id,
+      dataSourceId: row.data_source_id,
+      providerId: row.provider_id ?? undefined,
+      externalId: row.external_id ?? undefined,
+      cursor: cursor ?? undefined,
+      rawData,
+      normalizedData,
+      processingStatus: row.processing_status,
+      processedAt: row.processed_at ? new Date(row.processed_at) : undefined,
+      processingError: row.processing_error ?? undefined,
+      metadata,
+      createdAt: new Date(row.created_at),
+    };
   }
 }

@@ -1,4 +1,4 @@
-import type { DataImportParams, DataSource, SourceParams } from '@exitbook/data';
+import type { DataSource, SourceParams } from '@exitbook/core';
 import type { ExchangeCredentials } from '@exitbook/exchanges';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -134,10 +134,11 @@ export function buildSourceParams(
   address?: string
 ): SourceParams {
   if (sourceType === 'exchange') {
-    return { exchange: session.source_id };
+    return { exchange: session.sourceId };
   } else {
-    const effectiveAddress = address || parseImportParams(session.import_params).address || 'unknown';
-    return { address: effectiveAddress, blockchain: session.source_id };
+    // Use already-parsed importParams from domain model
+    const effectiveAddress = address || session.importParams.address || 'unknown';
+    return { address: effectiveAddress, blockchain: session.sourceId };
   }
 }
 
@@ -152,15 +153,4 @@ export function decimalRecordToStringRecord(record: Record<string, Decimal>): Re
     result[key] = value.toFixed();
   }
   return result;
-}
-
-/**
- * Parse import_params from database (which can be string or unknown) into StoredImportParams.
- * Pure function that handles JSON parsing and type casting.
- */
-export function parseImportParams(importParams: unknown): DataImportParams {
-  if (typeof importParams === 'string') {
-    return JSON.parse(importParams) as DataImportParams;
-  }
-  return importParams as DataImportParams;
 }
