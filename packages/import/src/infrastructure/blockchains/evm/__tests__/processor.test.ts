@@ -567,10 +567,6 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows).toBeDefined();
     if (!transaction.movements.outflows) return;
-    expect(transaction.movements.outflows).toBeDefined();
-    if (!transaction.movements.outflows) return;
-    expect(transaction.movements.outflows).toBeDefined();
-    if (!transaction.movements.outflows) return;
     expect(transaction.movements.outflows[0]?.asset).toBe('ETH');
     expect(transaction.movements.outflows[0]?.amount.toString()).toBe('2');
     expect(transaction.operation.category).toBe('transfer');
@@ -1299,13 +1295,11 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
     expect(transaction.movements.inflows).toHaveLength(1);
 
     expect(transaction.movements.inflows).toBeDefined();
-    expect(transaction.movements.inflows).toBeDefined();
     if (!transaction.movements.inflows) return;
     expect(transaction.movements.inflows[0]?.asset).toBe('USDC');
     expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1000000000');
 
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows).toBeDefined();
     expect(transaction.movements.outflows).toBeDefined();
     if (!transaction.movements.outflows) return;
     expect(transaction.movements.outflows[0]?.asset).toBe('ETH');

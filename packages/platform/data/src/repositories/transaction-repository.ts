@@ -422,7 +422,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       }
     }
 
-    // Map DB status to UniversalTransaction status (DB has 'success' which maps to 'ok')
     const status: TransactionStatus = row.transaction_status;
 
     // Build UniversalTransaction
@@ -486,11 +485,28 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       const parsed = JSON.parse(jsonString) as {
         amount: string | number;
         asset: string;
+        priceAtTxTime?: {
+          fetchedAt: string;
+          granularity?: 'day' | 'exact' | 'hour' | 'minute';
+          price: { amount: string | number; currency: string };
+          source: string;
+        };
       }[];
 
       return parsed.map((movement) => ({
-        asset: movement.asset,
         amount: parseDecimal(movement.amount.toString()),
+        asset: movement.asset,
+        ...(movement.priceAtTxTime && {
+          priceAtTxTime: {
+            fetchedAt: new Date(movement.priceAtTxTime.fetchedAt),
+            granularity: movement.priceAtTxTime.granularity,
+            price: dbStringToMoney(
+              movement.priceAtTxTime.price.amount.toString(),
+              movement.priceAtTxTime.price.currency
+            )!,
+            source: movement.priceAtTxTime.source,
+          },
+        }),
       }));
     } catch (error) {
       this.logger.warn({ error, jsonString }, 'Failed to parse movements JSON');

@@ -95,7 +95,6 @@ export const UniversalTransactionSchema = z.object({
   fees: z.object({
     network: MoneySchema.optional(),
     platform: MoneySchema.optional(),
-    //total: MoneySchema,
   }),
 
   // Enhanced operation classification

@@ -134,12 +134,14 @@ export function convertToCSV(transactions: UniversalTransaction[]): string {
     'source',
     'operation_category',
     'operation_type',
-    'timestamp',
     'datetime',
     'primary_asset',
     'primary_amount',
     'primary_direction',
-    'total_fee',
+    'network_fee_amount',
+    'network_fee_currency',
+    'platform_fee_amount',
+    'platform_fee_currency',
     'price',
     'price_currency',
     'status',
@@ -159,16 +161,27 @@ export function convertToCSV(transactions: UniversalTransaction[]): string {
       primary?.asset || '',
       primary?.amount.toFixed() || '',
       primary?.direction || '',
-      tx.fees.network ?? (tx.fees.platform || ''),
+      tx.fees.network?.amount.toFixed() || '',
+      tx.fees.network?.currency.toString() || '',
+      tx.fees.platform?.amount.toFixed() || '',
+      tx.fees.platform?.currency.toString() || '',
       tx.price?.amount.toFixed() || '',
       tx.price?.currency.toString() || '',
       tx.status || '',
     ];
 
-    // Escape values that contain commas
+    // Escape values per RFC 4180: quote fields containing commas, quotes, or newlines
+    // and escape internal quotes by doubling them
     const escapedValues = values.map((value) => {
       const stringValue = typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value);
-      return stringValue.includes(',') ? `"${stringValue}"` : stringValue;
+
+      // If value contains comma, quote, or newline, it must be quoted
+      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        // Escape quotes by doubling them, then wrap in quotes
+        return `"${stringValue.replaceAll('"', '""')}"`;
+      }
+
+      return stringValue;
     });
 
     csvLines.push(escapedValues.join(','));

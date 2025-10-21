@@ -69,20 +69,20 @@ describe('PricesDeriveHandler', () => {
       const txsBefore = [
         {
           movements: {
-            inflows: JSON.stringify([
+            inflows: [
               { asset: 'BTC', amount: 1 }, // No price
               { asset: 'ETH', amount: 2 }, // No price
-            ]),
-            outflows: JSON.stringify([
+            ],
+            outflows: [
               { asset: 'USD', amount: 50000, priceAtTxTime: {} }, // Has price
-            ]),
+            ],
           },
         },
         {
           movements: {
-            inflows: JSON.stringify([
+            inflows: [
               { asset: 'SOL', amount: 10 }, // No price
-            ]),
+            ],
           },
         },
       ];
@@ -91,20 +91,20 @@ describe('PricesDeriveHandler', () => {
       const txsAfter = [
         {
           movements: {
-            inflows: JSON.stringify([
+            inflows: [
               { asset: 'BTC', amount: 1, priceAtTxTime: {} }, // Now has price
               { asset: 'ETH', amount: 2, priceAtTxTime: {} }, // Now has price
-            ]),
-            outflows: JSON.stringify([
+            ],
+            outflows: [
               { asset: 'USD', amount: 50000, priceAtTxTime: {} }, // Still has price
-            ]),
+            ],
           },
         },
         {
           movements: {
-            inflows: JSON.stringify([
+            inflows: [
               { asset: 'SOL', amount: 10 }, // Still no price
-            ]),
+            ],
           },
         },
       ];
@@ -134,7 +134,7 @@ describe('PricesDeriveHandler', () => {
       // Setup mocks - no prices could be derived
       const txs = [
         {
-          movements: { inflows: JSON.stringify([{ asset: 'BTC', amount: 1 }]) },
+          movements: { inflows: [{ asset: 'BTC', amount: 1 }] },
         },
       ];
 
@@ -160,8 +160,8 @@ describe('PricesDeriveHandler', () => {
       const txsBefore = [
         {
           movements: {
-            inflows: JSON.stringify([{ asset: 'BTC', amount: 1 }]),
-            outflows: JSON.stringify([{ asset: 'USD', amount: 50000 }]),
+            inflows: [{ asset: 'BTC', amount: 1 }],
+            outflows: [{ asset: 'USD', amount: 50000 }],
           },
         },
       ];
@@ -170,8 +170,8 @@ describe('PricesDeriveHandler', () => {
       const txsAfter = [
         {
           movements: {
-            inflows: JSON.stringify([{ asset: 'BTC', amount: 1, priceAtTxTime: {} }]),
-            outflows: JSON.stringify([{ asset: 'USD', amount: 50000, priceAtTxTime: {} }]),
+            inflows: [{ asset: 'BTC', amount: 1, priceAtTxTime: {} }],
+            outflows: [{ asset: 'USD', amount: 50000, priceAtTxTime: {} }],
           },
         },
       ];

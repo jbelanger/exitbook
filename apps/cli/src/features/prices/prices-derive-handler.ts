@@ -99,8 +99,8 @@ export class PricesDeriveHandler {
     let count = 0;
 
     for (const tx of transactions) {
-      const inflows = this.parseMovements(tx.movements.inflows);
-      const outflows = this.parseMovements(tx.movements.outflows);
+      const inflows = tx.movements.inflows ?? [];
+      const outflows = tx.movements.outflows ?? [];
       count += inflows.length + outflows.length;
     }
 
@@ -114,8 +114,8 @@ export class PricesDeriveHandler {
     let count = 0;
 
     for (const tx of transactions) {
-      const inflows = this.parseMovements(tx.movements.inflows);
-      const outflows = this.parseMovements(tx.movements.outflows);
+      const inflows = tx.movements.inflows ?? [];
+      const outflows = tx.movements.outflows ?? [];
 
       for (const movement of [...inflows, ...outflows]) {
         if (!movement.priceAtTxTime) {
@@ -125,20 +125,5 @@ export class PricesDeriveHandler {
     }
 
     return count;
-  }
-
-  /**
-   * Parse movements from JSON string
-   */
-  private parseMovements(movementsJson: unknown): { priceAtTxTime?: unknown }[] {
-    if (!movementsJson || typeof movementsJson !== 'string') {
-      return [];
-    }
-
-    try {
-      return JSON.parse(movementsJson) as { priceAtTxTime?: unknown }[];
-    } catch {
-      return [];
-    }
   }
 }
