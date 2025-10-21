@@ -1,7 +1,7 @@
 // Handler for view transactions command
 
-import { computePrimaryMovement } from '@exitbook/core';
-import type { StoredTransaction } from '@exitbook/data';
+import type { UniversalTransaction } from '@exitbook/core';
+import { computePrimaryMovement, wrapError } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
@@ -26,7 +26,7 @@ export class ViewTransactionsHandler {
     const txResult = await this.txRepo.getTransactions(params.source, since);
 
     if (txResult.isErr()) {
-      return txResult;
+      return wrapError(txResult.error, 'Failed to fetch transactions');
     }
 
     let transactions = txResult.value;
@@ -55,26 +55,26 @@ export class ViewTransactionsHandler {
   /**
    * Apply filters to transactions.
    */
-  private applyFilters(transactions: StoredTransaction[], params: ViewTransactionsParams): StoredTransaction[] {
+  private applyFilters(transactions: UniversalTransaction[], params: ViewTransactionsParams): UniversalTransaction[] {
     let filtered = transactions;
 
     // Filter by until date
     if (params.until) {
       const untilDate = parseDate(params.until);
-      filtered = filtered.filter((tx) => new Date(tx.transaction_datetime) <= untilDate);
+      filtered = filtered.filter((tx) => new Date(tx.datetime) <= untilDate);
     }
 
     // Filter by asset
     if (params.asset) {
       filtered = filtered.filter((tx) => {
-        const primary = computePrimaryMovement(tx.movements_inflows, tx.movements_outflows);
+        const primary = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);
         return primary?.asset === params.asset;
       });
     }
 
     // Filter by operation type
     if (params.operationType) {
-      filtered = filtered.filter((tx) => tx.operation_type === params.operationType);
+      filtered = filtered.filter((tx) => tx.operation.type === params.operationType);
     }
 
     // Filter by no price
@@ -88,26 +88,26 @@ export class ViewTransactionsHandler {
   /**
    * Format transaction for display.
    */
-  private formatTransaction(tx: StoredTransaction) {
+  private formatTransaction(tx: UniversalTransaction) {
     // Compute primary movement from inflows/outflows
-    const primary = computePrimaryMovement(tx.movements_inflows, tx.movements_outflows);
+    const primary = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);
 
     return {
       id: tx.id,
-      source_id: tx.source_id,
-      source_type: tx.source_type,
-      external_id: tx.external_id,
-      transaction_datetime: tx.transaction_datetime,
-      operation_category: tx.operation_category,
-      operation_type: tx.operation_type,
+      external_id: tx.externalId,
+      source_id: tx.source,
+      source_type: tx.blockchain ? ('blockchain' as const) : ('exchange' as const),
+      transaction_datetime: tx.datetime,
+      operation_category: tx.operation.category,
+      operation_type: tx.operation.type,
       movements_primary_asset: primary?.asset ?? undefined,
       movements_primary_amount: primary?.amount.toFixed() ?? undefined,
       movements_primary_direction: primary?.direction ?? undefined,
-      price: tx.price,
-      price_currency: tx.price_currency,
-      from_address: tx.from_address,
-      to_address: tx.to_address,
-      blockchain_transaction_hash: tx.blockchain_transaction_hash,
+      price: tx.price?.amount ? tx.price.amount.toString() : undefined,
+      price_currency: tx.price?.currency.toString(),
+      from_address: tx.from,
+      to_address: tx.to,
+      blockchain_transaction_hash: tx.blockchain?.transaction_hash,
     };
   }
 }

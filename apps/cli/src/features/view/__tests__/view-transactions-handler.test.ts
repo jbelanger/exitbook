@@ -1,6 +1,6 @@
-/* eslint-disable unicorn/no-null -- db requires explicit null */
-import { parseDecimal } from '@exitbook/core';
-import type { StoredTransaction, TransactionRepository } from '@exitbook/data';
+import type { UniversalTransaction } from '@exitbook/core';
+import { createMoney, parseDecimal } from '@exitbook/core';
+import type { TransactionRepository } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -26,51 +26,35 @@ describe('ViewTransactionsHandler', () => {
     handler = new ViewTransactionsHandler(mockTxRepo);
   });
 
-  const createMockTransaction = (overrides: Partial<StoredTransaction> = {}): StoredTransaction => ({
-    id: 1,
-    data_source_id: 1,
-    source_id: 'kraken',
-    source_type: 'exchange',
-    external_id: 'ext-123',
-    transaction_status: 'success',
-    transaction_datetime: '2024-01-01T00:00:00Z',
-    from_address: null,
-    to_address: null,
-    price: '50000.00',
-    price_currency: 'USD',
-    note_type: null,
-    note_severity: null,
-    note_message: null,
-    note_metadata: null,
-    raw_normalized_data: {},
-    movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
-    movements_outflows: [],
-    fees_network: null,
-    fees_platform: null,
-    fees_total: null,
-    operation_category: 'trade',
-    operation_type: 'buy',
-    blockchain_name: null,
-    blockchain_block_height: null,
-    blockchain_transaction_hash: null,
-    blockchain_is_confirmed: null,
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: null,
-    ...overrides,
-  });
+  const createMockTransaction = (overrides: Partial<UniversalTransaction> = {}): UniversalTransaction => {
+    const baseDatetime = overrides.datetime ?? '2024-01-01T00:00:00Z';
+    const baseTimestamp = overrides.timestamp ?? Math.floor(new Date(baseDatetime).getTime() / 1000);
+
+    return {
+      id: 1,
+      source: 'kraken',
+      externalId: 'ext-123',
+      status: 'success',
+      datetime: baseDatetime,
+      timestamp: baseTimestamp,
+      price: createMoney('50000.00', 'USD'),
+      movements: { inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }] },
+      operation: { category: 'trade', type: 'buy' },
+      fees: {},
+      ...overrides,
+    };
+  };
 
   describe('execute', () => {
     it('should return formatted transactions successfully', async () => {
-      const mockTransactions: StoredTransaction[] = [
+      const mockTransactions: UniversalTransaction[] = [
         createMockTransaction({
           id: 1,
-          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
-          movements_outflows: [],
+          movements: { inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }] },
         }),
         createMockTransaction({
           id: 2,
-          movements_inflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
-          movements_outflows: [],
+          movements: { inflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }] },
         }),
       ];
 
@@ -89,7 +73,7 @@ describe('ViewTransactionsHandler', () => {
     });
 
     it('should filter by source', async () => {
-      const mockTransactions: StoredTransaction[] = [createMockTransaction()];
+      const mockTransactions: UniversalTransaction[] = [createMockTransaction()];
       mockGetTransactions.mockResolvedValue(ok(mockTransactions));
 
       const params: ViewTransactionsParams = { source: 'kraken' };
@@ -100,9 +84,7 @@ describe('ViewTransactionsHandler', () => {
     });
 
     it('should filter by since date', async () => {
-      const mockTransactions: StoredTransaction[] = [
-        createMockTransaction({ transaction_datetime: '2024-06-01T00:00:00Z' }),
-      ];
+      const mockTransactions: UniversalTransaction[] = [createMockTransaction({ datetime: '2024-06-01T00:00:00Z' })];
       mockGetTransactions.mockResolvedValue(ok(mockTransactions));
 
       const params: ViewTransactionsParams = { since: '2024-01-01' };
@@ -113,9 +95,9 @@ describe('ViewTransactionsHandler', () => {
     });
 
     it('should filter by until date', async () => {
-      const mockTransactions: StoredTransaction[] = [
-        createMockTransaction({ transaction_datetime: '2024-01-15T00:00:00Z' }),
-        createMockTransaction({ transaction_datetime: '2024-02-15T00:00:00Z' }),
+      const mockTransactions: UniversalTransaction[] = [
+        createMockTransaction({ datetime: '2024-01-15T00:00:00Z' }),
+        createMockTransaction({ datetime: '2024-02-15T00:00:00Z' }),
       ];
       mockGetTransactions.mockResolvedValue(ok(mockTransactions));
 
@@ -130,14 +112,12 @@ describe('ViewTransactionsHandler', () => {
     });
 
     it('should filter by asset', async () => {
-      const mockTransactions: StoredTransaction[] = [
+      const mockTransactions: UniversalTransaction[] = [
         createMockTransaction({
-          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
-          movements_outflows: [],
+          movements: { inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }] },
         }),
         createMockTransaction({
-          movements_inflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
-          movements_outflows: [],
+          movements: { inflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }] },
         }),
       ];
       mockGetTransactions.mockResolvedValue(ok(mockTransactions));
@@ -152,9 +132,9 @@ describe('ViewTransactionsHandler', () => {
     });
 
     it('should filter by operation type', async () => {
-      const mockTransactions: StoredTransaction[] = [
-        createMockTransaction({ operation_type: 'buy' }),
-        createMockTransaction({ operation_type: 'sell' }),
+      const mockTransactions: UniversalTransaction[] = [
+        createMockTransaction({ operation: { category: 'trade', type: 'buy' } }),
+        createMockTransaction({ operation: { category: 'trade', type: 'sell' } }),
       ];
       mockGetTransactions.mockResolvedValue(ok(mockTransactions));
 
@@ -168,9 +148,9 @@ describe('ViewTransactionsHandler', () => {
     });
 
     it('should filter transactions with no price', async () => {
-      const mockTransactions: StoredTransaction[] = [
-        createMockTransaction({ price: '50000.00' }),
-        createMockTransaction({ price: null }),
+      const mockTransactions: UniversalTransaction[] = [
+        createMockTransaction({ price: createMoney('50000.00', 'USD') }),
+        createMockTransaction({ price: undefined }),
       ];
       mockGetTransactions.mockResolvedValue(ok(mockTransactions));
 
@@ -180,11 +160,11 @@ describe('ViewTransactionsHandler', () => {
       expect(result.isOk()).toBe(true);
       const value = result._unsafeUnwrap();
       expect(value.count).toBe(1);
-      expect(value.transactions[0]!.price).toBeNull();
+      expect(value.transactions[0]!.price).toBeUndefined();
     });
 
     it('should apply limit', async () => {
-      const mockTransactions: StoredTransaction[] = [
+      const mockTransactions: UniversalTransaction[] = [
         createMockTransaction({ id: 1 }),
         createMockTransaction({ id: 2 }),
         createMockTransaction({ id: 3 }),
@@ -201,27 +181,24 @@ describe('ViewTransactionsHandler', () => {
     });
 
     it('should apply multiple filters together', async () => {
-      const mockTransactions: StoredTransaction[] = [
+      const mockTransactions: UniversalTransaction[] = [
         createMockTransaction({
           id: 1,
-          transaction_datetime: '2024-01-15T00:00:00Z',
-          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
-          movements_outflows: [],
-          operation_type: 'buy',
+          datetime: '2024-01-15T00:00:00Z',
+          movements: { inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }] },
+          operation: { type: 'buy', category: 'trade' },
         }),
         createMockTransaction({
           id: 2,
-          transaction_datetime: '2024-02-01T00:00:00Z',
-          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('0.5') }],
-          movements_outflows: [],
-          operation_type: 'sell',
+          datetime: '2024-02-01T00:00:00Z',
+          movements: { inflows: [{ asset: 'BTC', amount: parseDecimal('0.5') }] },
+          operation: { type: 'sell', category: 'trade' },
         }),
         createMockTransaction({
           id: 3,
-          transaction_datetime: '2024-01-20T00:00:00Z',
-          movements_inflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
-          movements_outflows: [],
-          operation_type: 'buy',
+          datetime: '2024-01-20T00:00:00Z',
+          movements: { inflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }] },
+          operation: { type: 'buy', category: 'trade' },
         }),
       ];
       mockGetTransactions.mockResolvedValue(ok(mockTransactions));
@@ -243,10 +220,9 @@ describe('ViewTransactionsHandler', () => {
     });
 
     it('should return empty array when no transactions match filters', async () => {
-      const mockTransactions: StoredTransaction[] = [
+      const mockTransactions: UniversalTransaction[] = [
         createMockTransaction({
-          movements_inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
-          movements_outflows: [],
+          movements: { inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }], outflows: [] },
         }),
       ];
       mockGetTransactions.mockResolvedValue(ok(mockTransactions));
@@ -272,12 +248,11 @@ describe('ViewTransactionsHandler', () => {
     });
 
     it('should format blockchain transactions with addresses and hash', async () => {
-      const mockTransactions: StoredTransaction[] = [
+      const mockTransactions: UniversalTransaction[] = [
         createMockTransaction({
-          source_type: 'blockchain',
-          from_address: 'bc1q...',
-          to_address: 'bc1p...',
-          blockchain_transaction_hash: '0x123abc',
+          from: 'bc1q...',
+          to: 'bc1p...',
+          blockchain: { name: 'bitcoin', transaction_hash: '0x123abc', is_confirmed: true },
         }),
       ];
       mockGetTransactions.mockResolvedValue(ok(mockTransactions));
@@ -292,42 +267,12 @@ describe('ViewTransactionsHandler', () => {
       expect(value.transactions[0]!.blockchain_transaction_hash).toBe('0x123abc');
     });
 
-    it('should handle transactions with null optional fields', async () => {
-      const mockTransactions: StoredTransaction[] = [
-        createMockTransaction({
-          external_id: null,
-          operation_category: null,
-          operation_type: null,
-          movements_inflows: [],
-          movements_outflows: [],
-          price: null,
-          price_currency: null,
-          from_address: null,
-          to_address: null,
-          blockchain_transaction_hash: null,
-        }),
-      ];
-      mockGetTransactions.mockResolvedValue(ok(mockTransactions));
-
-      const params: ViewTransactionsParams = {};
-      const result = await handler.execute(params);
-
-      expect(result.isOk()).toBe(true);
-      const value = result._unsafeUnwrap();
-      expect(value.transactions[0]!.external_id).toBeNull();
-      expect(value.transactions[0]!.price).toBeNull();
-      // When movements are empty, primary movement is computed as undefined
-      expect(value.transactions[0]!.movements_primary_asset).toBeUndefined();
-      expect(value.transactions[0]!.movements_primary_amount).toBeUndefined();
-      expect(value.transactions[0]!.movements_primary_direction).toBeUndefined();
-    });
-
     it('should handle date range filtering', async () => {
       // Mock returns transactions after 'since' date (March 1)
       // Handler will then filter by 'until' date (Sept 30)
-      const mockTransactions: StoredTransaction[] = [
-        createMockTransaction({ id: 2, transaction_datetime: '2024-06-15T00:00:00Z' }),
-        createMockTransaction({ id: 3, transaction_datetime: '2024-12-31T00:00:00Z' }),
+      const mockTransactions: UniversalTransaction[] = [
+        createMockTransaction({ id: 2, datetime: '2024-06-15T00:00:00Z' }),
+        createMockTransaction({ id: 3, datetime: '2024-12-31T00:00:00Z' }),
       ];
       mockGetTransactions.mockResolvedValue(ok(mockTransactions));
 

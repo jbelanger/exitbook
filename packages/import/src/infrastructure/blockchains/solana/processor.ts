@@ -70,11 +70,12 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
         // Convert to UniversalTransaction with structured fields
         const universalTransaction: UniversalTransaction = {
-          id: normalizedTx.id,
+          id: 0, // Will be assigned by database
+          externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: 'solana',
-          status: normalizedTx.status === 'success' ? 'ok' : 'failed',
+          status: normalizedTx.status,
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,
 
@@ -93,7 +94,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
           fees: {
             network: networkFee,
             platform: undefined, // Solana has no platform fees
-            total: networkFee,
           },
 
           operation: classification.operation,
@@ -127,7 +127,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         transactions.push(universalTransaction);
 
         this.logger.debug(
-          `Successfully processed transaction ${universalTransaction.id} - Category: ${classification.operation.category}, Type: ${classification.operation.type}, Amount: ${fundFlow.primary.amount} ${fundFlow.primary.asset}`
+          `Successfully processed transaction ${universalTransaction.externalId} - Category: ${classification.operation.category}, Type: ${classification.operation.type}, Amount: ${fundFlow.primary.amount} ${fundFlow.primary.asset}`
         );
       } catch (error) {
         const errorMsg = `Error processing normalized transaction: ${String(error)}`;
@@ -214,16 +214,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
       // Classification uncertainty
       classificationUncertainty: flowAnalysis.classificationUncertainty,
-
-      // Deprecated fields for backward compatibility
-      currency: flowAnalysis.primary.asset,
-      isIncoming: flowAnalysis.inflows.length > 0 && flowAnalysis.outflows.length === 0,
-      isOutgoing: flowAnalysis.outflows.length > 0 && flowAnalysis.inflows.length === 0,
-      netAmount: flowAnalysis.primary.amount,
-      primaryAmount: flowAnalysis.primary.amount,
-      primarySymbol: flowAnalysis.primary.asset,
-      tokenAccount: tx.tokenAccount,
-      totalAmount: flowAnalysis.primary.amount,
     };
 
     return ok(fundFlow);

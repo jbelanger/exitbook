@@ -60,11 +60,12 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
           : createMoney('0', 'BTC');
 
         const universalTransaction: UniversalTransaction = {
-          id: normalizedTx.id,
+          id: 0, // Will be assigned by database
+          externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: 'bitcoin',
-          status: normalizedTx.status === 'success' ? 'ok' : 'failed',
+          status: normalizedTx.status,
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,
 
@@ -100,7 +101,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
           fees: {
             network: networkFee,
             platform: undefined, // Bitcoin has no platform fees
-            total: networkFee,
           },
 
           operation: {
@@ -121,7 +121,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         };
 
         transactions.push(universalTransaction);
-        this.logger.debug(`Successfully processed normalized transaction ${universalTransaction.id}`);
+        this.logger.debug(`Successfully processed normalized transaction ${universalTransaction.externalId}`);
       } catch (error) {
         this.logger.error(`Failed to process normalized transaction ${normalizedTx.id}: ${String(error)}`);
         continue;

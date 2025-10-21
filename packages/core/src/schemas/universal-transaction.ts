@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
-import { MoneySchema } from './index.ts';
+import { MoneySchema } from './money.ts';
 
 // Transaction type schema
 export const TransactionTypeSchema = z.enum([
@@ -25,7 +25,7 @@ export const TransactionTypeSchema = z.enum([
 ]);
 
 // Transaction status schema
-export const TransactionStatusSchema = z.enum(['pending', 'open', 'closed', 'canceled', 'failed', 'ok']);
+export const TransactionStatusSchema = z.enum(['pending', 'open', 'closed', 'canceled', 'failed', 'success']);
 
 // Operation category schema
 export const OperationCategorySchema = z.enum(['trade', 'transfer', 'staking', 'defi', 'fee', 'governance']);
@@ -76,7 +76,8 @@ export const TransactionNoteSchema = z.object({
 // Universal Transaction schema (new structure)
 export const UniversalTransactionSchema = z.object({
   // Core fields
-  id: z.string().min(1, 'Transaction ID must not be empty'),
+  id: z.number().int(),
+  externalId: z.string().min(1, 'Transaction ID must not be empty'),
   datetime: z.string().min(1, 'Datetime string must not be empty'),
   timestamp: z.number().int().positive('Timestamp must be a positive integer'),
   source: z.string().min(1, 'Source must not be empty'),
@@ -86,15 +87,14 @@ export const UniversalTransactionSchema = z.object({
 
   // Structured movements
   movements: z.object({
-    inflows: z.array(AssetMovementSchema),
-    outflows: z.array(AssetMovementSchema),
+    inflows: z.array(AssetMovementSchema).default([]).optional(),
+    outflows: z.array(AssetMovementSchema).default([]).optional(),
   }),
 
   // Structured fees
   fees: z.object({
     network: MoneySchema.optional(),
     platform: MoneySchema.optional(),
-    total: MoneySchema,
   }),
 
   // Enhanced operation classification

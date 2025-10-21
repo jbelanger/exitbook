@@ -60,6 +60,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
           : createMoney('0', fundFlow.feeCurrency);
 
         const universalTransaction: UniversalTransaction = {
+          id: 0, // Will be assigned by database
           // NEW: Structured fields
           movements: {
             inflows: fundFlow.inflows.map((i) => ({
@@ -74,7 +75,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
           fees: {
             network: networkFee,
             platform: undefined,
-            total: networkFee,
           },
           operation: classification.operation,
           blockchain: {
@@ -85,11 +85,11 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
           },
           note: classification.note,
 
-          id: normalizedTx.id,
+          externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: 'substrate',
-          status: normalizedTx.status === 'success' ? 'ok' : 'failed',
+          status: normalizedTx.status,
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,
 

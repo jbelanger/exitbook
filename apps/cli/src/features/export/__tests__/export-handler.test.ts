@@ -1,6 +1,6 @@
-/* eslint-disable unicorn/no-null -- db requires explicit null */
-import { parseDecimal } from '@exitbook/core';
-import type { KyselyDB, StoredTransaction } from '@exitbook/data';
+import type { UniversalTransaction } from '@exitbook/core';
+import { createMoney, parseDecimal } from '@exitbook/core';
+import type { KyselyDB } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
@@ -41,36 +41,17 @@ describe('ExportHandler', () => {
     handler = new ExportHandler(mockDatabase);
   });
 
-  const createMockTransaction = (id: number, source: string, asset: string): StoredTransaction => ({
-    id,
-    external_id: `ext-${id}`,
-    source_id: source,
-    source_type: 'exchange',
-    data_source_id: 123,
-    operation_category: 'trade',
-    operation_type: 'buy',
-    transaction_datetime: '2024-01-01T12:00:00Z',
-    transaction_status: 'success',
-    from_address: null,
-    to_address: null,
-    movements_inflows: [{ asset, amount: parseDecimal('1.0') }],
-    movements_outflows: [],
-    fees_total: null,
-    fees_network: null,
-    fees_platform: null,
-    price: '50000',
-    price_currency: 'USD',
-    note_type: null,
-    note_severity: null,
-    note_message: null,
-    note_metadata: null,
-    raw_normalized_data: '{}',
-    blockchain_name: null,
-    blockchain_block_height: null,
-    blockchain_transaction_hash: null,
-    blockchain_is_confirmed: null,
-    created_at: '2024-01-01T12:00:00Z',
-    updated_at: '2024-01-01T12:00:00Z',
+  const createMockTransaction = (id: number, source: string, asset: string): UniversalTransaction => ({
+    id: id,
+    externalId: `ext-${id}`,
+    source: source,
+    operation: { category: 'trade', type: 'buy' },
+    datetime: '2024-01-01T12:00:00Z',
+    timestamp: Date.parse('2024-01-01T12:00:00Z'),
+    status: 'success',
+    movements: { inflows: [{ asset, amount: parseDecimal('1.0') }], outflows: [] },
+    fees: {},
+    price: createMoney('50000', 'USD'),
   });
 
   describe('execute', () => {
@@ -116,10 +97,10 @@ describe('ExportHandler', () => {
       expect(exportResult.format).toBe('json');
       expect(exportResult.outputPath).toBe('./data/transactions.json');
 
-      const parsedContent = JSON.parse(exportResult.content) as StoredTransaction[];
+      const parsedContent = JSON.parse(exportResult.content) as UniversalTransaction[];
       expect(parsedContent).toHaveLength(1);
       expect(parsedContent[0]?.id).toBe(1);
-      expect(parsedContent[0]?.source_id).toBe('kraken');
+      expect(parsedContent[0]?.source).toBe('kraken');
     });
 
     it('should filter by source name', async () => {

@@ -68,38 +68,44 @@ describe('PricesDeriveHandler', () => {
       // Setup mocks - before enrichment: 100 movements without prices
       const txsBefore = [
         {
-          movements_inflows: JSON.stringify([
-            { asset: 'BTC', amount: 1 }, // No price
-            { asset: 'ETH', amount: 2 }, // No price
-          ]),
-          movements_outflows: JSON.stringify([
-            { asset: 'USD', amount: 50000, priceAtTxTime: {} }, // Has price
-          ]),
+          movements: {
+            inflows: [
+              { asset: 'BTC', amount: 1 }, // No price
+              { asset: 'ETH', amount: 2 }, // No price
+            ],
+            outflows: [
+              { asset: 'USD', amount: 50000, priceAtTxTime: {} }, // Has price
+            ],
+          },
         },
         {
-          movements_inflows: JSON.stringify([
-            { asset: 'SOL', amount: 10 }, // No price
-          ]),
-          movements_outflows: undefined,
+          movements: {
+            inflows: [
+              { asset: 'SOL', amount: 10 }, // No price
+            ],
+          },
         },
       ];
 
       // After enrichment: 1 movement still without price (SOL)
       const txsAfter = [
         {
-          movements_inflows: JSON.stringify([
-            { asset: 'BTC', amount: 1, priceAtTxTime: {} }, // Now has price
-            { asset: 'ETH', amount: 2, priceAtTxTime: {} }, // Now has price
-          ]),
-          movements_outflows: JSON.stringify([
-            { asset: 'USD', amount: 50000, priceAtTxTime: {} }, // Still has price
-          ]),
+          movements: {
+            inflows: [
+              { asset: 'BTC', amount: 1, priceAtTxTime: {} }, // Now has price
+              { asset: 'ETH', amount: 2, priceAtTxTime: {} }, // Now has price
+            ],
+            outflows: [
+              { asset: 'USD', amount: 50000, priceAtTxTime: {} }, // Still has price
+            ],
+          },
         },
         {
-          movements_inflows: JSON.stringify([
-            { asset: 'SOL', amount: 10 }, // Still no price
-          ]),
-          movements_outflows: undefined,
+          movements: {
+            inflows: [
+              { asset: 'SOL', amount: 10 }, // Still no price
+            ],
+          },
         },
       ];
 
@@ -128,8 +134,7 @@ describe('PricesDeriveHandler', () => {
       // Setup mocks - no prices could be derived
       const txs = [
         {
-          movements_inflows: JSON.stringify([{ asset: 'BTC', amount: 1 }]),
-          movements_outflows: undefined,
+          movements: { inflows: [{ asset: 'BTC', amount: 1 }] },
         },
       ];
 
@@ -154,16 +159,20 @@ describe('PricesDeriveHandler', () => {
       // Setup mocks - before: movements without prices
       const txsBefore = [
         {
-          movements_inflows: JSON.stringify([{ asset: 'BTC', amount: 1 }]),
-          movements_outflows: JSON.stringify([{ asset: 'USD', amount: 50000 }]),
+          movements: {
+            inflows: [{ asset: 'BTC', amount: 1 }],
+            outflows: [{ asset: 'USD', amount: 50000 }],
+          },
         },
       ];
 
       // After: all movements have prices
       const txsAfter = [
         {
-          movements_inflows: JSON.stringify([{ asset: 'BTC', amount: 1, priceAtTxTime: {} }]),
-          movements_outflows: JSON.stringify([{ asset: 'USD', amount: 50000, priceAtTxTime: {} }]),
+          movements: {
+            inflows: [{ asset: 'BTC', amount: 1, priceAtTxTime: {} }],
+            outflows: [{ asset: 'USD', amount: 50000, priceAtTxTime: {} }],
+          },
         },
       ];
 

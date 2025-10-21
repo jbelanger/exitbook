@@ -90,11 +90,12 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
         : createMoney('0', fundFlow.feeCurrency);
 
       const universalTransaction: UniversalTransaction = {
-        id: primaryTx.id,
+        id: 0, // Will be assigned by database
+        externalId: primaryTx.id,
         datetime: new Date(primaryTx.timestamp).toISOString(),
         timestamp: primaryTx.timestamp,
         source: this.chainConfig.chainName,
-        status: primaryTx.status === 'success' ? 'ok' : 'failed',
+        status: primaryTx.status,
         from: fundFlow.fromAddress || primaryTx.from,
         to: fundFlow.toAddress || primaryTx.to,
 
@@ -113,7 +114,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
         fees: {
           network: networkFee,
           platform: undefined, // EVM chains have no platform fees
-          total: networkFee,
         },
 
         operation: classification.operation,
@@ -143,7 +143,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
       transactions.push(universalTransaction);
       this.logger.debug(
-        `Successfully processed correlated transaction group ${universalTransaction.id} (${fundFlow.transactionCount} items)`
+        `Successfully processed correlated transaction group ${universalTransaction.externalId} (${fundFlow.transactionCount} items)`
       );
     }
 

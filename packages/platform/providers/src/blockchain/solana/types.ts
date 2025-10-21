@@ -146,24 +146,6 @@ export interface SolanaFundFlow {
 
   // Classification uncertainty tracking
   classificationUncertainty?: string | undefined;
-
-  // Deprecated fields (for migration)
-  /** @deprecated Use inflows/outflows instead */
-  isIncoming?: boolean;
-  /** @deprecated Use inflows/outflows instead */
-  isOutgoing?: boolean;
-  /** @deprecated Use primary.amount instead */
-  netAmount?: string;
-  /** @deprecated Use primary.amount instead */
-  primaryAmount?: string;
-  /** @deprecated Use primary.asset instead */
-  primarySymbol?: string;
-  /** @deprecated Use primary.asset instead */
-  currency?: string;
-  /** @deprecated */
-  tokenAccount?: string | undefined;
-  /** @deprecated */
-  totalAmount?: string;
 }
 
 // Solana RPC API response types for Helius provider

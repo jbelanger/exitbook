@@ -1,8 +1,8 @@
 // Pure utility functions for export command
 // All functions are pure - no side effects
 
+import type { UniversalTransaction } from '@exitbook/core';
 import { computePrimaryMovement } from '@exitbook/core';
-import type { StoredTransaction } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -126,7 +126,7 @@ export function validateExportParams(params: ExportHandlerParams): Result<void, 
 /**
  * Convert transactions to CSV format.
  */
-export function convertToCSV(transactions: StoredTransaction[]): string {
+export function convertToCSV(transactions: UniversalTransaction[]): string {
   if (transactions.length === 0) return '';
 
   const headers = [
@@ -134,12 +134,14 @@ export function convertToCSV(transactions: StoredTransaction[]): string {
     'source',
     'operation_category',
     'operation_type',
-    'timestamp',
     'datetime',
     'primary_asset',
     'primary_amount',
     'primary_direction',
-    'total_fee',
+    'network_fee_amount',
+    'network_fee_currency',
+    'platform_fee_amount',
+    'platform_fee_currency',
     'price',
     'price_currency',
     'status',
@@ -148,32 +150,38 @@ export function convertToCSV(transactions: StoredTransaction[]): string {
 
   for (const tx of transactions) {
     // Compute primary movement from inflows/outflows
-    const primary = computePrimaryMovement(tx.movements_inflows, tx.movements_outflows);
-
-    // Format datetime properly
-    const datetime =
-      tx.transaction_datetime || (tx.transaction_datetime ? new Date(tx.transaction_datetime).toISOString() : '');
+    const primary = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);
 
     const values = [
       tx.id || '',
-      tx.source_id || '',
-      tx.operation_category || '',
-      tx.operation_type || '',
-      tx.transaction_datetime || '',
-      datetime,
+      tx.source || '',
+      tx.operation.category || '',
+      tx.operation.type || '',
+      tx.datetime || '',
       primary?.asset || '',
       primary?.amount.toFixed() || '',
       primary?.direction || '',
-      tx.fees_total || '',
-      tx.price || '',
-      tx.price_currency || '',
-      tx.transaction_status || '',
+      tx.fees.network?.amount.toFixed() || '',
+      tx.fees.network?.currency.toString() || '',
+      tx.fees.platform?.amount.toFixed() || '',
+      tx.fees.platform?.currency.toString() || '',
+      tx.price?.amount.toFixed() || '',
+      tx.price?.currency.toString() || '',
+      tx.status || '',
     ];
 
-    // Escape values that contain commas
+    // Escape values per RFC 4180: quote fields containing commas, quotes, or newlines
+    // and escape internal quotes by doubling them
     const escapedValues = values.map((value) => {
       const stringValue = typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value);
-      return stringValue.includes(',') ? `"${stringValue}"` : stringValue;
+
+      // If value contains comma, quote, or newline, it must be quoted
+      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        // Escape quotes by doubling them, then wrap in quotes
+        return `"${stringValue.replaceAll('"', '""')}"`;
+      }
+
+      return stringValue;
     });
 
     csvLines.push(escapedValues.join(','));
@@ -185,49 +193,7 @@ export function convertToCSV(transactions: StoredTransaction[]): string {
 /**
  * Convert transactions to JSON format.
  */
-export function convertToJSON(transactions: StoredTransaction[]): string {
+export function convertToJSON(transactions: UniversalTransaction[]): string {
   if (transactions.length === 0) return '[]';
-
-  const processedTransactions = transactions.map((tx) => {
-    // Compute primary movement from inflows/outflows
-    const primary = computePrimaryMovement(tx.movements_inflows, tx.movements_outflows);
-
-    return {
-      id: tx.id,
-      source_id: tx.source_id,
-      datetime: tx.transaction_datetime,
-      status: tx.transaction_status,
-      operation: {
-        category: tx.operation_category,
-        type: tx.operation_type,
-      },
-      movements: {
-        primary: primary
-          ? {
-              asset: primary.asset,
-              amount: primary.amount.toFixed(),
-              direction: primary.direction,
-            }
-          : undefined,
-        inflows: tx.movements_inflows,
-        outflows: tx.movements_outflows,
-      },
-      fees: {
-        total: tx.fees_total,
-        network: tx.fees_network,
-        platform: tx.fees_platform,
-      },
-      price: tx.price,
-      price_currency: tx.price_currency,
-      blockchain: {
-        name: tx.blockchain_name,
-        block_height: tx.blockchain_block_height,
-        transaction_hash: tx.blockchain_transaction_hash,
-        is_confirmed: tx.blockchain_is_confirmed,
-      },
-      created_at: tx.created_at,
-    };
-  });
-
-  return JSON.stringify(processedTransactions, undefined, 2);
+  return JSON.stringify(transactions, undefined, 2);
 }

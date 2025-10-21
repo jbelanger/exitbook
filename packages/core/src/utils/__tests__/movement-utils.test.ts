@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AssetMovement } from '../types/universal-transaction.js';
-
-import { parseDecimal } from './decimal-utils.ts';
-import { computePrimaryMovement } from './movement-utils.js';
+import type { AssetMovement } from '../../types/universal-transaction.ts';
+import { parseDecimal } from '../decimal-utils.ts';
+import { computePrimaryMovement } from '../movement-utils.ts';
 
 describe('computePrimaryMovement', () => {
   it('returns null when no movements exist', () => {

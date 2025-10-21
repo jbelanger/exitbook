@@ -101,7 +101,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const platformFee = createMoney(totalFee.toString(), sellCurrency);
 
     return {
-      id: `${withdrawal.UID}-${timestampMs}-convert-market-${sellCurrency}-${buyCurrency}`,
+      id: 0, // Will be assigned by database
+      externalId: `${withdrawal.UID}-${timestampMs}-convert-market-${sellCurrency}-${buyCurrency}`,
       datetime: timestamp,
       timestamp: timestampMs,
       source: 'kucoin',
@@ -127,7 +128,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
       fees: {
         network: undefined, // No network fee for exchange conversions
         platform: platformFee,
-        total: platformFee,
       },
 
       // Operation classification - 10/10 confidence: convert market is a swap
@@ -158,7 +158,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const platformFee = createMoney(fee.toString(), row.Coin);
 
     return {
-      id: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-deposit-${row.Amount}`,
+      id: 0, // Will be assigned by database
+      externalId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-deposit-${row.Amount}`,
       datetime: row['Time(UTC)'],
       timestamp,
       source: 'kucoin',
@@ -179,7 +180,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
       fees: {
         network: undefined, // No network fee for exchange deposits
         platform: platformFee,
-        total: platformFee,
       },
 
       // Operation classification - 10/10 confidence: deposit is transfer/deposit
@@ -216,7 +216,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const uniqueId = `${row['Order ID']}-${timestamp}-${filledAmount}`;
 
     return {
-      id: uniqueId,
+      id: 0, // Will be assigned by database
+      externalId: uniqueId,
       datetime: row['Filled Time(UTC)'],
       timestamp,
       source: 'kucoin',
@@ -242,7 +243,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
       fees: {
         network: undefined, // No network fee for exchange trades
         platform: platformFee,
-        total: platformFee,
       },
 
       // Operation classification - 10/10 confidence: order-splitting is trade/buy or trade/sell
@@ -283,7 +283,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const uniqueId = `${row['Order ID']}-${timestamp}-${filledAmount}`;
 
     return {
-      id: uniqueId,
+      id: 0, // Will be assigned by database
+      externalId: uniqueId,
       datetime: row['Time Filled(UTC)'],
       timestamp,
       source: 'kucoin',
@@ -309,7 +310,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
       fees: {
         network: undefined, // No network fee for exchange trades
         platform: platformFee,
-        total: platformFee,
       },
 
       // Operation classification - 10/10 confidence: trading bot is trade/buy or trade/sell
@@ -346,7 +346,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const isBuy = side === 'buy';
 
     return {
-      id: row['Order ID'],
+      id: 0, // Will be assigned by database
+      externalId: row['Order ID'],
       datetime: row['Filled Time(UTC)'],
       timestamp,
       source: 'kucoin',
@@ -372,7 +373,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
       fees: {
         network: undefined, // No network fee for exchange trades
         platform: platformFee,
-        total: platformFee,
       },
 
       // Operation classification - 10/10 confidence: spot order is trade/buy or trade/sell
@@ -402,7 +402,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const platformFee = createMoney(fee.toString(), row.Coin);
 
     return {
-      id: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-withdrawal-${row.Amount}`,
+      id: 0, // Will be assigned by database
+      externalId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-withdrawal-${row.Amount}`,
       datetime: row['Time(UTC)'],
       timestamp,
       source: 'kucoin',
@@ -423,7 +424,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
       fees: {
         network: undefined, // No network fee for exchange withdrawals
         platform: platformFee,
-        total: platformFee,
       },
 
       // Operation classification - 10/10 confidence: withdrawal is transfer/withdrawal
@@ -445,7 +445,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
   private mapStatus(
     status: string,
     type: 'spot' | 'deposit_withdrawal'
-  ): 'closed' | 'open' | 'canceled' | 'pending' | 'ok' | 'failed' {
+  ): 'closed' | 'open' | 'canceled' | 'pending' | 'success' | 'failed' {
     if (!status) return 'pending';
 
     const statusLower = status.toLowerCase();
@@ -465,7 +465,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
       // deposit_withdrawal
       switch (statusLower) {
         case 'success':
-          return 'ok';
+          return 'success';
         case 'pending':
           return 'pending';
         case 'failed':

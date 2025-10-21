@@ -117,7 +117,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
                   amount: validatedData.amount,
                   fee: validatedData.fee,
                   feeCurrency: normalizedAsset, // Kraken fees are in the same currency as the asset
-                  status: 'ok', // Kraken ledger entries don't have explicit status - they're all completed
+                  status: 'success', // Kraken ledger entries don't have explicit status - they're all completed
                 };
 
                 return {

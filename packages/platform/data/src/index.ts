@@ -9,7 +9,6 @@ export type { TransactionNeedingPrice } from './repositories/transaction-reposit
 export type { DatabaseSchema, TransactionLinksTable } from './schema/database-schema.ts';
 export type {
   RawData,
-  StoredTransaction,
   DataSource,
   ImportSessionQuery,
   DataSourceUpdate,

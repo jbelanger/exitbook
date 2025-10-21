@@ -84,8 +84,8 @@ export interface TransactionsTable {
 
   // Transaction metadata
   // Unified status supporting both blockchain ('success', 'pending', 'failed')
-  // and exchange ('open', 'closed', 'canceled', 'ok', 'pending', 'failed') statuses
-  transaction_status: 'pending' | 'success' | 'failed' | 'open' | 'closed' | 'canceled' | 'ok';
+  // and exchange ('open', 'closed', 'canceled', 'success', 'pending', 'failed') statuses
+  transaction_status: 'pending' | 'success' | 'failed' | 'open' | 'closed' | 'canceled';
   transaction_datetime: DateTime;
   from_address: string | null;
   to_address: string | null;

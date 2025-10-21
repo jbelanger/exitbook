@@ -10,7 +10,7 @@ describe('ExchangeLedgerEntrySchema', () => {
     id: 'ENTRY001',
     timestamp: 1704067200000, // Jan 1, 2024 in milliseconds
     type: 'trade',
-    status: 'ok' as const,
+    status: 'success' as const,
   };
 
   describe('timestamp validation', () => {
@@ -141,7 +141,7 @@ describe('ExchangeLedgerEntrySchema', () => {
         ...validEntry,
         fee: '2.50',
         feeCurrency: 'USD',
-        status: 'ok',
+        status: 'success',
       });
 
       expect(result.success).toBe(true);

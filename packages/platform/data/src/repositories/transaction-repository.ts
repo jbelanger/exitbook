@@ -1,14 +1,14 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
-import type { Currency, AssetMovement, Money, UniversalTransaction } from '@exitbook/core';
+import type { Currency, AssetMovement, Money, UniversalTransaction, TransactionStatus } from '@exitbook/core';
 import { dbStringToMoney, moneyToDbString, parseDecimal, wrapError } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import type { Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
+import { v4 as uuidv4 } from 'uuid';
 
 import type { TransactionsTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
-import type { StoredTransaction } from '../types/data-types.js';
 
 import { BaseRepository } from './base-repository.js';
 import type { ITransactionRepository } from './transaction-repository.interface.ts';
@@ -52,7 +52,8 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         .values({
           created_at: this.getCurrentDateTimeForDB(),
           external_id: (transaction.metadata?.hash ||
-            transaction.source + '-' + (transaction.id || 'unknown')) as string,
+            transaction.externalId ||
+            `${transaction.source}-${transaction.timestamp}-${uuidv4()}`) as string,
           from_address: transaction.from,
           data_source_id: importSessionId,
           note_message: transaction.note?.message,
@@ -86,7 +87,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           // Structured fees
           fees_network: transaction.fees?.network ? this.serializeToJson(transaction.fees.network) : undefined,
           fees_platform: transaction.fees?.platform ? this.serializeToJson(transaction.fees.platform) : undefined,
-          fees_total: transaction.fees?.total ? this.serializeToJson(transaction.fees.total) : undefined,
 
           // Enhanced operation classification
           operation_category: transaction.operation?.category,
@@ -142,7 +142,11 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async getTransactions(sourceId?: string, since?: number, sessionId?: number) {
+  async getTransactions(
+    sourceId?: string,
+    since?: number,
+    sessionId?: number
+  ): Promise<Result<UniversalTransaction[], Error>> {
     try {
       let query = this.db.selectFrom('transactions').selectAll();
 
@@ -165,7 +169,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       query = query.orderBy('created_at', 'desc');
 
       const rows = await query.execute();
-      const transactions = rows.map((row) => this.deserializeTransaction(row));
+      const transactions = rows.map((row) => this.toUniversalTransaction(row));
 
       return ok(transactions);
     } catch (error) {
@@ -186,7 +190,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       }
 
       const rows = await query.orderBy('transaction_datetime', 'desc').execute();
-      const transactions = rows.map((row) => this.deserializeTransaction(row));
+      const transactions = rows.map((row) => this.toUniversalTransaction(row));
 
       return ok(transactions);
     } catch (error) {
@@ -204,7 +208,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         .limit(limit)
         .execute();
 
-      const transactions = rows.map((row) => this.deserializeTransaction(row));
+      const transactions = rows.map((row) => this.toUniversalTransaction(row));
 
       return ok(transactions);
     } catch (error) {
@@ -227,7 +231,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         .orderBy('transaction_datetime', 'desc')
         .execute();
 
-      const transactions = rows.map((row) => this.deserializeTransaction(row));
+      const transactions = rows.map((row) => this.toUniversalTransaction(row));
 
       return ok(transactions);
     } catch (error) {
@@ -300,9 +304,11 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   /**
    * Update a transaction's movements with price data
    * Enriches the movements JSON with priceAtTxTime for specified assets
+   * @param id - The unique ID of the transaction
+   * @param priceData - Price data to enrich movements with
    */
   async updateMovementsWithPrices(
-    transactionId: number,
+    id: number,
     priceData: {
       asset: string;
       fetchedAt: Date;
@@ -312,15 +318,15 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }[]
   ) {
     try {
-      // Fetch current transaction
+      // Fetch current transaction by unique ID
       const tx = await this.db
         .selectFrom('transactions')
         .select(['movements_inflows', 'movements_outflows'])
-        .where('id', '=', transactionId)
+        .where('id', '=', id)
         .executeTakeFirst();
 
       if (!tx) {
-        throw new Error(`Transaction ${transactionId} not found`);
+        throw new Error(`Transaction ${id} not found`);
       }
 
       // Parse movements
@@ -364,7 +370,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           movements_outflows: enrichedOutflows.length > 0 ? this.serializeToJson(enrichedOutflows) : null,
           updated_at: this.getCurrentDateTimeForDB(),
         })
-        .where('id', '=', transactionId)
+        .where('id', '=', id)
         .execute();
 
       // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined for clarity
@@ -393,17 +399,80 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   }
 
   /**
-   * Deserialize a raw database row into a StoredTransaction with typed movements and fees
+   * Convert database row to UniversalTransaction domain model
    */
-  private deserializeTransaction(row: Selectable<TransactionsTable>): StoredTransaction {
-    return {
-      ...row,
-      fees_network: this.parseFee(row.fees_network as string | null),
-      fees_platform: this.parseFee(row.fees_platform as string | null),
-      fees_total: this.parseFee(row.fees_total as string | null),
-      movements_inflows: this.parseMovements(row.movements_inflows as string | null),
-      movements_outflows: this.parseMovements(row.movements_outflows as string | null),
+  private toUniversalTransaction(row: Selectable<TransactionsTable>): UniversalTransaction {
+    // Parse timestamp from datetime
+    const datetime = row.transaction_datetime;
+    const timestamp = new Date(datetime).getTime();
+
+    // Parse movements
+    const inflows = this.parseMovements(row.movements_inflows as string | null);
+    const outflows = this.parseMovements(row.movements_outflows as string | null);
+
+    // Parse fees
+    const network = this.parseFee(row.fees_network as string | null);
+    const platform = this.parseFee(row.fees_platform as string | null);
+
+    // Parse metadata from raw_normalized_data if present
+    let metadata: Record<string, unknown> | undefined;
+    if (row.raw_normalized_data) {
+      try {
+        metadata = JSON.parse(row.raw_normalized_data as string) as Record<string, unknown>;
+      } catch {
+        metadata = undefined;
+      }
+    }
+
+    const status: TransactionStatus = row.transaction_status;
+
+    // Build UniversalTransaction
+    const transaction: UniversalTransaction = {
+      id: row.id,
+      externalId: row.external_id ?? `${row.source_id}-${row.id}`,
+      datetime,
+      timestamp,
+      source: row.source_id,
+      status,
+      from: row.from_address ?? undefined,
+      to: row.to_address ?? undefined,
+      movements: {
+        inflows,
+        outflows,
+      },
+      fees: {
+        network: network ?? undefined,
+        platform: platform ?? undefined,
+      },
+      operation: {
+        category: row.operation_category ?? 'transfer',
+        type: row.operation_type ?? 'transfer',
+      },
+      price: row.price ? (dbStringToMoney(row.price, row.price_currency ?? 'USD') ?? undefined) : undefined,
+      metadata,
     };
+
+    // Add blockchain data if present
+    if (row.blockchain_name) {
+      transaction.blockchain = {
+        name: row.blockchain_name,
+        transaction_hash: row.blockchain_transaction_hash ?? '',
+        is_confirmed: row.blockchain_is_confirmed ?? false,
+        block_height: row.blockchain_block_height ?? undefined,
+      };
+    }
+
+    // Add note if present
+    if (row.note_type) {
+      transaction.note = {
+        type: row.note_type,
+        message: row.note_message ?? '',
+        severity: row.note_severity ?? undefined,
+        metadata: row.note_metadata ? (JSON.parse(row.note_metadata as string) as Record<string, unknown>) : undefined,
+      };
+    }
+
+    return transaction;
   }
 
   /**
@@ -418,11 +487,28 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       const parsed = JSON.parse(jsonString) as {
         amount: string | number;
         asset: string;
+        priceAtTxTime?: {
+          fetchedAt: string;
+          granularity?: 'day' | 'exact' | 'hour' | 'minute';
+          price: { amount: string | number; currency: string };
+          source: string;
+        };
       }[];
 
       return parsed.map((movement) => ({
-        asset: movement.asset,
         amount: parseDecimal(movement.amount.toString()),
+        asset: movement.asset,
+        ...(movement.priceAtTxTime && {
+          priceAtTxTime: {
+            fetchedAt: new Date(movement.priceAtTxTime.fetchedAt),
+            granularity: movement.priceAtTxTime.granularity,
+            price: dbStringToMoney(
+              movement.priceAtTxTime.price.amount.toString(),
+              movement.priceAtTxTime.price.currency
+            )!,
+            source: movement.priceAtTxTime.source,
+          },
+        }),
       }));
     } catch (error) {
       this.logger.warn({ error, jsonString }, 'Failed to parse movements JSON');

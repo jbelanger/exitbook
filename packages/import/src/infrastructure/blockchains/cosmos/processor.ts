@@ -75,11 +75,12 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
         // Convert to UniversalTransaction with enhanced metadata
         const universalTransaction: UniversalTransaction = {
-          id: normalizedTx.id,
+          id: 0, // Will be assigned by database
+          externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: this.chainConfig.chainName,
-          status: normalizedTx.status === 'success' ? 'ok' : 'failed',
+          status: normalizedTx.status,
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,
 
@@ -99,7 +100,6 @@ export class CosmosProcessor extends BaseTransactionProcessor {
           fees: {
             network: networkFee,
             platform: undefined, // Cosmos SDK chains have no platform fees
-            total: networkFee,
           },
 
           operation: classification.operation,

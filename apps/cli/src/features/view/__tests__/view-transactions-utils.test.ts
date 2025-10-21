@@ -92,7 +92,7 @@ describe('view-transactions-utils', () => {
   describe('formatTransactionForDisplay', () => {
     it('should format a complete transaction with all fields', () => {
       const tx: TransactionInfo = {
-        id: 123,
+        id: 1,
         source_id: 'kraken',
         source_type: 'exchange',
         external_id: 'ext-123',
@@ -111,7 +111,7 @@ describe('view-transactions-utils', () => {
 
       const result = formatTransactionForDisplay(tx);
 
-      expect(result).toContain('Transaction #123');
+      expect(result).toContain('Transaction #1');
       expect(result).toContain('Source: kraken (exchange)');
       expect(result).toContain('Date: 2024-01-15T10:30:00Z');
       expect(result).toContain('Operation: trade/buy');
@@ -124,7 +124,7 @@ describe('view-transactions-utils', () => {
 
     it('should format transaction without optional fields', () => {
       const tx: TransactionInfo = {
-        id: 456,
+        id: 1,
         source_id: 'bitcoin',
         source_type: 'blockchain',
         external_id: null,
@@ -143,7 +143,7 @@ describe('view-transactions-utils', () => {
 
       const result = formatTransactionForDisplay(tx);
 
-      expect(result).toContain('Transaction #456');
+      expect(result).toContain('Transaction #1');
       expect(result).toContain('Source: bitcoin (blockchain)');
       expect(result).toContain('Operation: Unknown');
       expect(result).toContain('Price: No price');

@@ -46,8 +46,8 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // User sent funds -> user pays fee
       expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
-      expect(transaction.movements.outflows.length).toBe(1);
-      expect(transaction.movements.inflows.length).toBe(0);
+      expect(transaction.movements.outflows?.length).toBe(1);
+      expect(transaction.movements.inflows?.length).toBe(0);
     });
 
     test('user does NOT pay fee when receiving tokens (incoming transfer)', async () => {
@@ -84,8 +84,8 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // User received funds -> sender paid fee, user pays 0
       expect(transaction.fees.network?.amount.toString()).toBe('0');
-      expect(transaction.movements.inflows.length).toBe(1);
-      expect(transaction.movements.outflows.length).toBe(0);
+      expect(transaction.movements.inflows?.length).toBe(1);
+      expect(transaction.movements.outflows?.length).toBe(0);
     });
 
     test('user pays fee for self-transfer', async () => {
@@ -120,8 +120,8 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // Self-transfer -> user initiated and paid fee
       expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
-      expect(transaction.movements.inflows.length).toBe(1);
-      expect(transaction.movements.outflows.length).toBe(1);
+      expect(transaction.movements.inflows?.length).toBe(1);
+      expect(transaction.movements.outflows?.length).toBe(1);
     });
 
     test('user pays fee when bonding tokens (staking deposit)', async () => {
@@ -156,7 +156,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // User bonding -> user pays fee
       expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
-      expect(transaction.movements.outflows.length).toBe(1);
+      expect(transaction.movements.outflows?.length).toBe(1);
     });
 
     test('user pays fee when unbonding tokens (even though receiving funds)', async () => {
@@ -191,8 +191,8 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // User initiated unbond -> user pays fee (even though receiving funds)
       expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
-      expect(transaction.movements.inflows.length).toBe(1);
-      expect(transaction.movements.outflows.length).toBe(0);
+      expect(transaction.movements.inflows?.length).toBe(1);
+      expect(transaction.movements.outflows?.length).toBe(0);
     });
 
     test('user pays fee when withdrawing unbonded tokens', async () => {
@@ -261,8 +261,8 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // User initiated nominate -> user pays fee
       expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
-      expect(transaction.movements.inflows.length).toBe(0);
-      expect(transaction.movements.outflows.length).toBe(0);
+      expect(transaction.movements.inflows?.length).toBe(0);
+      expect(transaction.movements.outflows?.length).toBe(0);
     });
 
     test('user pays fee when stopping nomination (chill)', async () => {
@@ -331,8 +331,8 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // Validator paid out rewards -> validator paid fee, user pays 0
       expect(transaction.fees.network?.amount.toString()).toBe('0');
-      expect(transaction.movements.inflows.length).toBe(1);
-      expect(transaction.movements.outflows.length).toBe(0);
+      expect(transaction.movements.inflows?.length).toBe(1);
+      expect(transaction.movements.outflows?.length).toBe(0);
     });
 
     test('user pays fee when voting in governance', async () => {
@@ -367,7 +367,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // User voting -> user pays fee
       expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
-      expect(transaction.movements.outflows.length).toBe(1);
+      expect(transaction.movements.outflows?.length).toBe(1);
     });
 
     test('user pays fee for failed transactions (when they initiated)', async () => {
@@ -439,8 +439,8 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // Treasury payout -> system paid fee, user pays 0
       expect(transaction.fees.network?.amount.toString()).toBe('0');
-      expect(transaction.movements.inflows.length).toBe(1);
-      expect(transaction.movements.outflows.length).toBe(0);
+      expect(transaction.movements.inflows?.length).toBe(1);
+      expect(transaction.movements.outflows?.length).toBe(0);
     });
 
     test('user pays fee for utility batch operations', async () => {
@@ -475,7 +475,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // User initiated batch -> user pays fee
       expect(transaction.fees.network?.amount.toString()).toBe('0.0256');
-      expect(transaction.movements.outflows.length).toBe(1);
+      expect(transaction.movements.outflows?.length).toBe(1);
     });
 
     test('user pays fee for proxy operations (when user is proxy signer)', async () => {
@@ -510,7 +510,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // User as proxy initiator -> user pays fee
       expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
-      expect(transaction.movements.outflows.length).toBe(1);
+      expect(transaction.movements.outflows?.length).toBe(1);
     });
 
     test('user pays fee for multisig approval', async () => {
@@ -545,7 +545,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // User approving multisig -> user pays fee
       expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
-      expect(transaction.movements.outflows.length).toBe(1);
+      expect(transaction.movements.outflows?.length).toBe(1);
     });
   });
 
