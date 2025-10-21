@@ -59,3 +59,31 @@ export const BlockstreamTransactionSchema = z
     weight: z.number().positive('Weight must be positive'),
   })
   .strict();
+
+/**
+ * Schema for Blockstream.info address statistics (chain or mempool)
+ */
+export const BlockstreamAddressStatsSchema = z.object({
+  funded_txo_count: z.number().nonnegative('Funded transaction output count must be non-negative'),
+  funded_txo_sum: z.number().nonnegative('Funded transaction output sum must be non-negative'),
+  spent_txo_count: z.number().nonnegative('Spent transaction output count must be non-negative'),
+  spent_txo_sum: z.number().nonnegative('Spent transaction output sum must be non-negative'),
+  tx_count: z.number().nonnegative('Transaction count must be non-negative'),
+});
+
+/**
+ * Schema for Blockstream.info address information response
+ */
+export const BlockstreamAddressInfoSchema = z.object({
+  address: z.string().min(1, 'Address must not be empty'),
+  chain_stats: BlockstreamAddressStatsSchema,
+  mempool_stats: BlockstreamAddressStatsSchema,
+});
+
+// Type exports inferred from schemas
+export type BlockstreamTransactionStatus = z.infer<typeof BlockstreamTransactionStatusSchema>;
+export type BlockstreamInput = z.infer<typeof BlockstreamInputSchema>;
+export type BlockstreamOutput = z.infer<typeof BlockstreamOutputSchema>;
+export type BlockstreamTransaction = z.infer<typeof BlockstreamTransactionSchema>;
+export type BlockstreamAddressStats = z.infer<typeof BlockstreamAddressStatsSchema>;
+export type BlockstreamAddressInfo = z.infer<typeof BlockstreamAddressInfoSchema>;

@@ -8,7 +8,7 @@ import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts'
 import type { EvmTransaction } from '../../types.ts';
 
 import { ThetaExplorerTransactionMapper } from './theta-explorer.mapper.ts';
-import type { ThetaTransaction, ThetaAccountTxResponse } from './theta-explorer.types.ts';
+import type { ThetaTransaction, ThetaAccountTxResponse } from './theta-explorer.schemas.js';
 
 @RegisterApiClient({
   baseUrl: 'https://explorer-api.thetatoken.org/api',

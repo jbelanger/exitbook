@@ -7,8 +7,7 @@ import type { NormalizationError } from '../../../core/blockchain/index.ts';
 import { BitcoinTransactionSchema } from '../schemas.js';
 import type { BitcoinTransaction, BitcoinTransactionInput, BitcoinTransactionOutput } from '../types.js';
 
-import { BlockCypherTransactionSchema } from './blockcypher.schemas.js';
-import type { BlockCypherTransaction } from './blockcypher.types.js';
+import { BlockCypherTransactionSchema, type BlockCypherTransaction } from './blockcypher.schemas.js';
 
 export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherTransaction, BitcoinTransaction> {
   protected readonly inputSchema = BlockCypherTransactionSchema;

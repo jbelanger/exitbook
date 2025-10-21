@@ -6,7 +6,7 @@ import type { TransactionWithRawData } from '../../../../core/blockchain/types/i
 import type { SolanaTransaction } from '../../types.ts';
 import { lamportsToSol } from '../../utils.ts';
 import { HeliusApiClient } from '../helius.api-client.ts';
-import type { HeliusTransaction } from '../helius.types.ts';
+import type { HeliusTransaction } from '../helius.schemas.js';
 
 describe('HeliusApiClient Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('solana', 'helius');

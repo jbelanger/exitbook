@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../core/blockchain/utils/zod-utils.js';
-import { SolanaTokenBalanceSchema } from '../schemas.js';
+import { SolanaTokenAccountSchema, SolanaTokenBalanceSchema } from '../schemas.js';
 
 /**
  * Schema for Solana RPC transaction header
@@ -68,3 +68,34 @@ export const SolanaRPCTransactionSchema = z.object({
  * Schema for Solana RPC raw transaction data (single transaction)
  */
 export const SolanaRPCRawTransactionDataSchema = SolanaRPCTransactionSchema;
+
+/**
+ * Schema for Solana RPC raw balance data
+ */
+export const SolanaRPCRawBalanceDataSchema = z.object({
+  lamports: z.number().nonnegative('Lamports must be non-negative'),
+});
+
+/**
+ * Schema for Solana token accounts response
+ */
+export const SolanaTokenAccountsResponseSchema = z.object({
+  value: z.array(SolanaTokenAccountSchema),
+});
+
+/**
+ * Schema for Solana RPC raw token balance data
+ */
+export const SolanaRPCRawTokenBalanceDataSchema = z.object({
+  tokenAccounts: SolanaTokenAccountsResponseSchema,
+});
+
+// Type exports inferred from schemas
+export type SolanaRPCHeader = z.infer<typeof SolanaRPCHeaderSchema>;
+export type SolanaRPCInstruction = z.infer<typeof SolanaRPCInstructionSchema>;
+export type SolanaRPCMessage = z.infer<typeof SolanaRPCMessageSchema>;
+export type SolanaRPCMeta = z.infer<typeof SolanaRPCMetaSchema>;
+export type SolanaRPCTransaction = z.infer<typeof SolanaRPCTransactionSchema>;
+export type SolanaRPCRawBalanceData = z.infer<typeof SolanaRPCRawBalanceDataSchema>;
+export type SolanaTokenAccountsResponse = z.infer<typeof SolanaTokenAccountsResponseSchema>;
+export type SolanaRPCRawTokenBalanceData = z.infer<typeof SolanaRPCRawTokenBalanceDataSchema>;

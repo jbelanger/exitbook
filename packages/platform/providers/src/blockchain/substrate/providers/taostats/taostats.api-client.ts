@@ -15,7 +15,7 @@ import type {
   TaostatsBalanceResponse,
   TaostatsTransactionAugmented,
   TaostatsTransactionRaw,
-} from './taostats.types.ts';
+} from './taostats.schemas.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'TAOSTATS_API_KEY',

@@ -11,7 +11,7 @@ import type { SubstrateTransaction } from '../../types.ts';
 import { isValidSS58Address } from '../../utils.ts';
 
 import { SubscanTransactionMapper } from './subscan.mapper.ts';
-import type { SubscanAccountResponse, SubscanTransferAugmented, SubscanTransfersResponse } from './subscan.types.ts';
+import type { SubscanAccountResponse, SubscanTransferAugmented, SubscanTransfersResponse } from './subscan.schemas.js';
 
 /**
  * Maps blockchain names to Subscan-specific subdomain identifiers

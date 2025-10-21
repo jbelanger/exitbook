@@ -60,7 +60,7 @@ export interface ExternalTransactionDataTable {
 
   // Source metadata
   source_address: string | null; // For blockchain transactions (wallet address)
-  transaction_type: string | null; // For exchange transactions (e.g., 'deposit', 'withdrawal', 'spot_order')
+  transaction_type_hint: string | null; // For exchange transactions (e.g., 'deposit', 'withdrawal', 'spot_order')
 
   // Data storage
   raw_data: JSONString; // Raw data from source

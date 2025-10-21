@@ -1,4 +1,4 @@
-import type { RawTransactionWithMetadata } from '@exitbook/core';
+import type { ExternalTransaction } from '@exitbook/core';
 import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import type {
   BlockchainProviderManager,
@@ -78,7 +78,7 @@ export class EvmImporter implements IImporter {
   private async fetchAllTransactions(
     address: string,
     since?: number
-  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
+  ): Promise<Result<ExternalTransaction[], ProviderError>> {
     // Fetch all three transaction types in parallel for optimal performance
     const [normalResult, internalResult, tokenResult] = await Promise.all([
       this.fetchNormalTransactions(address, since),
@@ -99,7 +99,7 @@ export class EvmImporter implements IImporter {
     }
 
     // Combine all successful results
-    const allTransactions: RawTransactionWithMetadata[] = [
+    const allTransactions: ExternalTransaction[] = [
       ...normalResult.value,
       ...internalResult.value,
       ...tokenResult.value,
@@ -118,7 +118,7 @@ export class EvmImporter implements IImporter {
   private async fetchNormalTransactions(
     address: string,
     since?: number
-  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
+  ): Promise<Result<ExternalTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
       address: address,
       getCacheKey: (params) =>
@@ -148,7 +148,7 @@ export class EvmImporter implements IImporter {
   private async fetchInternalTransactions(
     address: string,
     since?: number
-  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
+  ): Promise<Result<ExternalTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
       address: address,
       getCacheKey: (params) =>
@@ -178,7 +178,7 @@ export class EvmImporter implements IImporter {
   private async fetchTokenTransactions(
     address: string,
     since?: number
-  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
+  ): Promise<Result<ExternalTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
       address: address,
       getCacheKey: (params) =>

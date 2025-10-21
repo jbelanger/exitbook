@@ -11,8 +11,7 @@ import type {
   BitcoinTransaction as BitcoinTransaction,
 } from '../types.ts';
 
-import { MempoolTransactionSchema } from './mempool-space.schemas.js';
-import type { MempoolTransaction } from './mempool-space.types.js';
+import { MempoolTransactionSchema, type MempoolTransaction } from './mempool-space.schemas.js';
 
 export class MempoolSpaceTransactionMapper extends BaseRawDataMapper<MempoolTransaction, BitcoinTransaction> {
   protected readonly inputSchema = MempoolTransactionSchema;

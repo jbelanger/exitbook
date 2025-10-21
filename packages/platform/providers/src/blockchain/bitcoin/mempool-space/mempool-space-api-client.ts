@@ -9,7 +9,7 @@ import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
 import type { BitcoinTransaction } from '../types.js';
 
 import { MempoolSpaceTransactionMapper } from './mempool-space.mapper.ts';
-import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.types.js';
+import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.schemas.js';
 
 @RegisterApiClient({
   baseUrl: 'https://mempool.space/api',

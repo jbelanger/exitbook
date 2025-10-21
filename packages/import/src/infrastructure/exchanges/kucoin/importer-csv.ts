@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { getErrorMessage, type RawTransactionWithMetadata } from '@exitbook/core';
+import { getErrorMessage, type ExternalTransaction } from '@exitbook/core';
 import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -44,7 +44,7 @@ export class KucoinCsvImporter implements IImporter {
       return err(new Error('CSV directories are required for KuCoin import'));
     }
 
-    const rawTransactions: RawTransactionWithMetadata[] = [];
+    const rawTransactions: ExternalTransaction[] = [];
 
     try {
       for (const csvDirectory of params.csvDirectories) {
@@ -89,7 +89,7 @@ export class KucoinCsvImporter implements IImporter {
                 for (const row of validationResult.valid) {
                   rawTransactions.push({
                     providerId: 'kucoin',
-                    transactionType: 'spot_order',
+                    transactionTypeHint: 'spot_order',
                     rawData: { _rowType: 'spot_order', ...row },
                     normalizedData: { _rowType: 'spot_order', ...row },
                     externalId: row['Order ID'],
@@ -127,7 +127,7 @@ export class KucoinCsvImporter implements IImporter {
                     row.Hash || this.generateExternalId('deposit', row['Time(UTC)'], row.Coin, row.Amount);
                   rawTransactions.push({
                     providerId: 'kucoin',
-                    transactionType: 'deposit',
+                    transactionTypeHint: 'deposit',
                     rawData: { _rowType: 'deposit', ...row },
                     normalizedData: { _rowType: 'deposit', ...row },
                     externalId,
@@ -165,7 +165,7 @@ export class KucoinCsvImporter implements IImporter {
                     row.Hash || this.generateExternalId('withdrawal', row['Time(UTC)'], row.Coin, row.Amount);
                   rawTransactions.push({
                     providerId: 'kucoin',
-                    transactionType: 'withdrawal',
+                    transactionTypeHint: 'withdrawal',
                     normalizedData: { _rowType: 'withdrawal', ...row },
                     rawData: { _rowType: 'withdrawal', ...row },
                     externalId,
@@ -202,7 +202,7 @@ export class KucoinCsvImporter implements IImporter {
                   const externalId = this.generateExternalId(row.Type, row['Time(UTC)'], row.Currency, row.Amount);
                   rawTransactions.push({
                     providerId: 'kucoin',
-                    transactionType: 'account_history',
+                    transactionTypeHint: 'account_history',
                     normalizedData: { _rowType: 'account_history', ...row },
                     rawData: { _rowType: 'account_history', ...row },
                     externalId,
@@ -250,7 +250,7 @@ export class KucoinCsvImporter implements IImporter {
                   const externalId = `${row['Order ID']}-${row['Filled Time(UTC)']}`;
                   rawTransactions.push({
                     providerId: 'kucoin',
-                    transactionType: 'order_splitting',
+                    transactionTypeHint: 'order_splitting',
                     normalizedData: { _rowType: 'order_splitting', ...row },
                     rawData: { _rowType: 'order_splitting', ...row },
                     externalId,
@@ -287,7 +287,7 @@ export class KucoinCsvImporter implements IImporter {
                   const externalId = `${row['Order ID']}-${row['Time Filled(UTC)']}`;
                   rawTransactions.push({
                     providerId: 'kucoin',
-                    transactionType: 'trading_bot',
+                    transactionTypeHint: 'trading_bot',
                     normalizedData: { _rowType: 'trading_bot', ...row },
                     rawData: { _rowType: 'trading_bot', ...row },
                     externalId,

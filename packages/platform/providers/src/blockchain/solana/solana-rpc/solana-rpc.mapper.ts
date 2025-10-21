@@ -8,8 +8,7 @@ import { SolanaTransactionSchema } from '../schemas.js';
 import type { SolanaAccountChange, SolanaTokenBalance, SolanaTokenChange, SolanaTransaction } from '../types.js';
 import { lamportsToSol } from '../utils.js';
 
-import { SolanaRPCRawTransactionDataSchema } from './solana-rpc.schemas.js';
-import type { SolanaRPCTransaction } from './solana-rpc.types.js';
+import { SolanaRPCRawTransactionDataSchema, type SolanaRPCTransaction } from './solana-rpc.schemas.js';
 
 export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCTransaction, SolanaTransaction> {
   protected readonly inputSchema = SolanaRPCRawTransactionDataSchema;

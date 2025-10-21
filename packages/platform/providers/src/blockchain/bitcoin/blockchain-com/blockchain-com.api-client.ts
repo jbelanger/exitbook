@@ -8,7 +8,7 @@ import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
 import type { BitcoinTransaction } from '../types.js';
 
 import { BlockchainComTransactionMapper } from './blockchain-com.mapper.ts';
-import type { BlockchainComAddressResponse } from './blockchain-com.types.js';
+import type { BlockchainComAddressResponse } from './blockchain-com.schemas.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'BLOCKCHAIN_COM_API_KEY',

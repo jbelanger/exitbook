@@ -8,8 +8,7 @@ import type { NormalizationError } from '../../../../core/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 
-import { AlchemyAssetTransferSchema } from './alchemy.schemas.js';
-import type { AlchemyAssetTransfer } from './alchemy.types.js';
+import { AlchemyAssetTransferSchema, type AlchemyAssetTransfer } from './alchemy.schemas.js';
 
 export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTransfer, EvmTransaction> {
   protected readonly inputSchema = AlchemyAssetTransferSchema;
@@ -83,7 +82,7 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
       providerId: 'alchemy',
       status: 'success',
       timestamp,
-      to: rawData.to,
+      to: rawData.to ?? undefined,
       tokenType,
       type: transactionType,
     };

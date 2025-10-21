@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
-import { wrapError, type ExternalTransactionData, type RawTransactionWithMetadata } from '@exitbook/core';
+import { wrapError, type ExternalTransactionData, type ExternalTransaction } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import type { StoredRawData } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
@@ -89,7 +89,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async save(dataSourceId: number, item?: RawTransactionWithMetadata): Promise<Result<number, Error>> {
+  async save(dataSourceId: number, item?: ExternalTransaction): Promise<Result<number, Error>> {
     if (!item) {
       return err(new Error('Raw data cannot be null or undefined'));
     }
@@ -107,7 +107,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             processing_status: 'pending',
             provider_id: item.providerId,
             source_address: item.sourceAddress ?? null,
-            transaction_type: item.transactionType ?? null,
+            transaction_type_hint: item.transactionTypeHint ?? null,
             raw_data: JSON.stringify(item.rawData),
           })
           .onConflict((oc) => oc.doNothing()) // Equivalent to INSERT OR IGNORE
@@ -122,7 +122,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async saveBatch(dataSourceId: number, items: RawTransactionWithMetadata[]): Promise<Result<number, Error>> {
+  async saveBatch(dataSourceId: number, items: ExternalTransaction[]): Promise<Result<number, Error>> {
     if (items.length === 0) {
       return ok(0);
     }
@@ -151,7 +151,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
               processing_status: 'pending',
               provider_id: item.providerId,
               source_address: item.sourceAddress ?? null,
-              transaction_type: item.transactionType ?? null,
+              transaction_type_hint: item.transactionTypeHint ?? null,
               raw_data: JSON.stringify(item.rawData),
             })
             .onConflict((oc) => oc.doNothing())
@@ -331,7 +331,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       dataSourceId: row.data_source_id,
       providerId: row.provider_id,
       sourceAddress: row.source_address ?? undefined,
-      transactionType: row.transaction_type ?? undefined,
+      transactionTypeHint: row.transaction_type_hint ?? undefined,
       externalId: row.external_id ?? undefined,
       cursor: cursorResult.value,
       rawData: rawDataResult.value,

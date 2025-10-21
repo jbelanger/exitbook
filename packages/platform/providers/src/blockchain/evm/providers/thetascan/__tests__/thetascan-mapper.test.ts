@@ -2,7 +2,7 @@ import type { ImportSessionMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ThetaScanTransactionMapper } from '../thetascan.mapper.js';
-import type { ThetaScanTransaction } from '../thetascan.types.js';
+import type { ThetaScanTransaction } from '../thetascan.schemas.js';
 
 describe('ThetaScanTransactionMapper', () => {
   const mapper = new ThetaScanTransactionMapper();

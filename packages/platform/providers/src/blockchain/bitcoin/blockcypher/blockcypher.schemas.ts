@@ -48,8 +48,9 @@ export const BlockCypherTransactionSchema = z
     outputs: z.array(BlockCypherOutputSchema).min(1, 'Transaction must have at least one output'),
     preference: z.string(),
     received: z.string().min(1, 'Received timestamp must not be empty'), // ISO 8601 date
-    relayed_by: z.string().optional(), // IP address that relayed the transaction
+    relayed_by: z.string(), // IP address that relayed the transaction
     size: z.number().positive('Size must be positive'),
+    lock_time: z.number().nonnegative(),
     total: z.number().nonnegative().optional(), // Total amount transacted in satoshis
     ver: z.number(),
     vin_sz: z.number().nonnegative().optional(), // Number of inputs
@@ -57,3 +58,44 @@ export const BlockCypherTransactionSchema = z
     vsize: z.number().positive('Virtual size must be positive'),
   })
   .strict();
+
+/**
+ * Schema for BlockCypher address transaction reference
+ */
+export const BlockCypherTxRefSchema = z.object({
+  block_height: z.number().nonnegative('Block height must be non-negative'),
+  confirmations: z.number().nonnegative('Confirmations must be non-negative'),
+  confirmed: z.string().min(1, 'Confirmed timestamp must not be empty'),
+  double_spend: z.boolean(),
+  ref_balance: z.number(),
+  spent: z.boolean(),
+  tx_hash: z.string().min(1, 'Transaction hash must not be empty'),
+  tx_input_n: z.number(),
+  tx_output_n: z.number(),
+  value: z.number(),
+});
+
+/**
+ * Schema for BlockCypher address response
+ */
+export const BlockCypherAddressSchema = z.object({
+  address: z.string().min(1, 'Address must not be empty'),
+  balance: z.number(),
+  error: z.string().optional(),
+  final_balance: z.number(),
+  final_n_tx: z.number(),
+  hasMore: z.boolean().optional(),
+  n_tx: z.number(),
+  total_received: z.number(),
+  total_sent: z.number(),
+  txrefs: z.array(BlockCypherTxRefSchema).optional(),
+  unconfirmed_balance: z.number(),
+  unconfirmed_n_tx: z.number(),
+});
+
+// Type exports inferred from schemas
+export type BlockCypherInput = z.infer<typeof BlockCypherInputSchema>;
+export type BlockCypherOutput = z.infer<typeof BlockCypherOutputSchema>;
+export type BlockCypherTransaction = z.infer<typeof BlockCypherTransactionSchema>;
+export type BlockCypherTxRef = z.infer<typeof BlockCypherTxRefSchema>;
+export type BlockCypherAddress = z.infer<typeof BlockCypherAddressSchema>;

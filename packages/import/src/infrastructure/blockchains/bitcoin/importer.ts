@@ -1,4 +1,4 @@
-import type { RawTransactionWithMetadata } from '@exitbook/core';
+import type { ExternalTransaction } from '@exitbook/core';
 import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import type {
   BitcoinTransaction,
@@ -93,7 +93,7 @@ export class BitcoinTransactionImporter implements IImporter {
   private async fetchFromXpubWallet(
     derivedAddresses: string[],
     since?: number
-  ): Promise<Result<RawTransactionWithMetadata[], Error>> {
+  ): Promise<Result<ExternalTransaction[], Error>> {
     this.logger.info(`Fetching from ${derivedAddresses.length} derived addresses`);
     const allSourcedTransactions = await this.fetchRawTransactionsForDerivedAddresses(derivedAddresses, since);
     return ok(allSourcedTransactions);
@@ -105,7 +105,7 @@ export class BitcoinTransactionImporter implements IImporter {
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
+  ): Promise<Result<ExternalTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('bitcoin', {
       address: address,
       getCacheKey: (params) =>
@@ -122,7 +122,8 @@ export class BitcoinTransactionImporter implements IImporter {
         providerId,
         sourceAddress: address,
         normalizedData: txWithRaw.normalized,
-        rawData: txWithRaw.raw, // Keep original provider response for audit trail
+        externalId: txWithRaw.normalized.id,
+        rawData: txWithRaw.raw,
       }));
     });
   }
@@ -133,8 +134,8 @@ export class BitcoinTransactionImporter implements IImporter {
   private async fetchRawTransactionsForDerivedAddresses(
     derivedAddresses: string[],
     since?: number
-  ): Promise<RawTransactionWithMetadata[]> {
-    const uniqueTransactions = new Map<string, RawTransactionWithMetadata>();
+  ): Promise<ExternalTransaction[]> {
+    const uniqueTransactions = new Map<string, ExternalTransaction>();
 
     for (const address of derivedAddresses) {
       const cachedInfo = this.addressInfoCache.get(address);

@@ -8,8 +8,7 @@ import { SUBSTRATE_CHAINS } from '../../chain-registry.js';
 import { SubstrateTransactionSchema } from '../../schemas.js';
 import type { SubstrateTransaction } from '../../types.js';
 
-import { TaostatsTransactionRawSchema } from './taostats.schemas.js';
-import type { TaostatsTransactionAugmented } from './taostats.types.js';
+import { TaostatsTransactionRawSchema, type TaostatsTransactionAugmented } from './taostats.schemas.js';
 
 export class TaostatsTransactionMapper extends BaseRawDataMapper<TaostatsTransactionAugmented, SubstrateTransaction> {
   protected readonly inputSchema = TaostatsTransactionRawSchema;

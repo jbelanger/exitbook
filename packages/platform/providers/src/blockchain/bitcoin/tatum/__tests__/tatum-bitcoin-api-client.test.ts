@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { ProviderRegistry } from '../../../../core/blockchain/index.ts';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
-import type { TatumBitcoinTransaction, TatumBitcoinBalance } from '../tatum.types.js';
+import type { TatumBitcoinTransaction, TatumBitcoinBalance } from '../tatum.schemas.js';
 
 const mockHttpClient = {
   get: vi.fn(),

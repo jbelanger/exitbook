@@ -42,16 +42,41 @@ export const ThetaSmartContractDataSchema = z.object({
 });
 
 /**
+ * Schema capturing any Theta transaction data payload
+ */
+export const ThetaTransactionDataSchema = z.union([
+  ThetaSendTransactionDataSchema,
+  ThetaSmartContractDataSchema,
+  z.record(z.string(), z.unknown()),
+]);
+
+/**
+ * Schema for Theta transaction types
+ */
+export const ThetaTransactionTypeSchema = z.union([
+  z.literal(0),
+  z.literal(1),
+  z.literal(2),
+  z.literal(3),
+  z.literal(4),
+  z.literal(5),
+  z.literal(6),
+  z.literal(7),
+  z.literal(8),
+  z.literal(9),
+]);
+
+/**
  * Schema for Theta transaction
  * Note: data field is permissive to handle various transaction types
  */
 export const ThetaTransactionSchema = z.object({
   block_height: z.string().regex(/^\d+$/, 'Block height must be numeric string'),
-  data: z.record(z.string(), z.unknown()),
+  data: ThetaTransactionDataSchema,
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   number: z.number().optional(),
   timestamp: timestampToDate,
-  type: z.number().int().min(0).max(9),
+  type: ThetaTransactionTypeSchema,
 });
 
 /**
@@ -68,3 +93,13 @@ export const ThetaAccountTxResponseSchema = z.object({
  * Schema for arrays of Theta transactions
  */
 export const ThetaTransactionArraySchema = z.array(ThetaTransactionSchema);
+
+// Type exports inferred from schemas
+export type ThetaCoins = z.infer<typeof ThetaCoinsSchema>;
+export type ThetaAccount = z.infer<typeof ThetaAccountSchema>;
+export type ThetaSendTransactionData = z.infer<typeof ThetaSendTransactionDataSchema>;
+export type ThetaSmartContractData = z.infer<typeof ThetaSmartContractDataSchema>;
+export type ThetaTransactionData = z.infer<typeof ThetaTransactionDataSchema>;
+export type ThetaTransactionType = z.infer<typeof ThetaTransactionTypeSchema>;
+export type ThetaTransaction = z.infer<typeof ThetaTransactionSchema>;
+export type ThetaAccountTxResponse = z.infer<typeof ThetaAccountTxResponseSchema>;

@@ -65,7 +65,7 @@ user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00
     const transaction = result.value.rawTransactions[0];
     expect('importMethod' in (transaction ?? {})).toBe(false);
     expect(transaction?.providerId).toBe('kucoin');
-    expect(transaction?.transactionType).toBe('spot_order');
+    expect(transaction?.transactionTypeHint).toBe('spot_order');
   });
 });
 
@@ -96,7 +96,7 @@ user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00
     if (!result.isOk()) return;
 
     const transaction = result.value.rawTransactions[0];
-    expect(transaction?.transactionType).toBe('spot_order');
+    expect(transaction?.transactionTypeHint).toBe('spot_order');
     expect(transaction?.providerId).toBe('kucoin');
     // importMethod is only in result metadata, not individual transaction metadata
     expect(result.value.metadata?.importMethod).toBe('csv');

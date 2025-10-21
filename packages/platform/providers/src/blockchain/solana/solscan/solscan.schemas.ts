@@ -65,3 +65,12 @@ export const SolscanResponseSchema = z.object({
   message: z.string().optional(),
   success: z.boolean(),
 });
+
+// Type exports inferred from schemas
+export type SolscanInputAccount = z.infer<typeof SolscanInputAccountSchema>;
+export type SolscanParsedInstruction = z.infer<typeof SolscanParsedInstructionSchema>;
+export type SolscanTransaction = z.infer<typeof SolscanTransactionSchema>;
+export type SolscanBalance = z.infer<typeof SolscanBalanceSchema>;
+export type SolscanResponse<T = unknown> = Omit<z.infer<typeof SolscanResponseSchema>, 'data'> & {
+  data?: T | undefined;
+};

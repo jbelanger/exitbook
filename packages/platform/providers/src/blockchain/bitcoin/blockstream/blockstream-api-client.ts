@@ -9,7 +9,7 @@ import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
 import type { BitcoinTransaction } from '../types.js';
 
 import { BlockstreamTransactionMapper } from './blockstream.mapper.ts';
-import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstream.types.js';
+import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstream.schemas.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'BLOCKSTREAM_API_KEY',

@@ -1,4 +1,4 @@
-import type { RawTransactionWithMetadata } from '@exitbook/core';
+import type { ExternalTransaction } from '@exitbook/core';
 import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import type {
   BlockchainProviderManager,
@@ -66,7 +66,7 @@ export class SolanaTransactionImporter implements IImporter {
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
+  ): Promise<Result<ExternalTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('solana', {
       address: address,
       getCacheKey: (params) =>

@@ -11,8 +11,7 @@ import type {
   BitcoinTransaction as BitcoinTransaction,
 } from '../types.ts';
 
-import { BlockstreamTransactionSchema } from './blockstream.schemas.js';
-import type { BlockstreamTransaction } from './blockstream.types.js';
+import { BlockstreamTransactionSchema, type BlockstreamTransaction } from './blockstream.schemas.js';
 
 export class BlockstreamTransactionMapper extends BaseRawDataMapper<BlockstreamTransaction, BitcoinTransaction> {
   protected readonly inputSchema = BlockstreamTransactionSchema;

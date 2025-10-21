@@ -79,3 +79,43 @@ export const BlockchainComTransactionSchema = z
     weight: z.number().optional(),
   })
   .strict();
+
+/**
+ * Schema for Blockchain.com address response
+ */
+export const BlockchainComAddressResponseSchema = z
+  .object({
+    address: z.string().min(1, 'Address must not be empty'),
+    final_balance: z.number().nonnegative('Final balance must be non-negative'),
+    hash160: z.string().min(1, 'Hash160 must not be empty'),
+    n_tx: z.number().nonnegative('Transaction count must be non-negative'),
+    total_received: z.number().nonnegative('Total received must be non-negative'),
+    total_sent: z.number().nonnegative('Total sent must be non-negative'),
+    txs: z.array(BlockchainComTransactionSchema),
+  })
+  .strict();
+
+/**
+ * Schema for Blockchain.com balance response entry
+ */
+export const BlockchainComBalanceEntrySchema = z
+  .object({
+    final_balance: z.number().nonnegative('Final balance must be non-negative'),
+    n_tx: z.number().nonnegative('Transaction count must be non-negative'),
+    total_received: z.number().nonnegative('Total received must be non-negative'),
+  })
+  .strict();
+
+/**
+ * Schema for Blockchain.com balance response map
+ */
+export const BlockchainComBalanceResponseSchema = z.record(z.string(), BlockchainComBalanceEntrySchema);
+
+// Type exports inferred from schemas
+export type BlockchainComPrevOut = z.infer<typeof BlockchainComPrevOutSchema>;
+export type BlockchainComInput = z.infer<typeof BlockchainComInputSchema>;
+export type BlockchainComOutput = z.infer<typeof BlockchainComOutputSchema>;
+export type BlockchainComTransaction = z.infer<typeof BlockchainComTransactionSchema>;
+export type BlockchainComAddressResponse = z.infer<typeof BlockchainComAddressResponseSchema>;
+export type BlockchainComBalanceEntry = z.infer<typeof BlockchainComBalanceEntrySchema>;
+export type BlockchainComBalanceResponse = z.infer<typeof BlockchainComBalanceResponseSchema>;

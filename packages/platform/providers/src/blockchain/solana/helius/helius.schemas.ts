@@ -81,3 +81,10 @@ export const HeliusSignatureResponseSchema = z.object({
   signature: z.string().min(1, 'Signature must not be empty'),
   slot: z.number().nonnegative('Slot must be non-negative'),
 });
+
+// Type exports inferred from schemas
+export type HeliusTransactionMeta = z.infer<typeof HeliusTransactionMetaSchema>;
+export type HeliusTransactionMessage = z.infer<typeof HeliusTransactionMessageSchema>;
+export type HeliusTransaction = z.infer<typeof HeliusTransactionSchema>;
+export type HeliusAssetResponse = z.infer<typeof HeliusAssetResponseSchema>;
+export type HeliusSignatureResponse = z.infer<typeof HeliusSignatureResponseSchema>;

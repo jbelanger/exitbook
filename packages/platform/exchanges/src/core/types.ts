@@ -1,4 +1,4 @@
-import type { RawTransactionWithMetadata } from '@exitbook/core';
+import type { ExternalTransaction } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 /**
@@ -40,7 +40,7 @@ export interface IExchangeClient {
    * Validates data and returns transactions ready for storage.
    * May return partial results via PartialImportError if validation fails partway through.
    */
-  fetchTransactionData(params?: FetchParams): Promise<Result<RawTransactionWithMetadata[], Error>>;
+  fetchTransactionData(params?: FetchParams): Promise<Result<ExternalTransaction[], Error>>;
 
   /**
    * Fetch current total balance for all currencies

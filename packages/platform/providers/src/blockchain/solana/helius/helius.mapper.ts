@@ -8,8 +8,7 @@ import { SolanaTransactionSchema } from '../schemas.js';
 import type { SolanaAccountChange, SolanaTokenBalance, SolanaTokenChange, SolanaTransaction } from '../types.js';
 import { lamportsToSol } from '../utils.js';
 
-import { SolanaRawTransactionDataSchema } from './helius.schemas.js';
-import type { HeliusTransaction } from './helius.types.js';
+import { SolanaRawTransactionDataSchema, type HeliusTransaction } from './helius.schemas.js';
 
 export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction, SolanaTransaction> {
   protected readonly inputSchema = SolanaRawTransactionDataSchema;
@@ -29,7 +28,7 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
   }
 
   private transformTransaction(tx: HeliusTransaction): SolanaTransaction {
-    const signature = tx.transaction.signatures?.[0] || tx.signature;
+    const signature = tx.transaction.signatures?.[0] ?? tx.signature ?? '';
     const accountKeys = tx.transaction.message.accountKeys;
     const fee = lamportsToSol(tx.meta.fee);
 
@@ -48,10 +47,10 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
       accountChanges,
 
       // Core transaction data
-      amount: primaryAmount, // Calculated from balance changes
+      amount: primaryAmount ?? '0', // Calculated from balance changes
       blockHeight: tx.slot,
       blockId: signature, // Use signature as block ID for Helius
-      currency: primaryCurrency,
+      currency: primaryCurrency ?? 'SOL',
 
       // Fee information
       feeAmount: fee.toString(),

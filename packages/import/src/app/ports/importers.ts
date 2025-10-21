@@ -1,4 +1,4 @@
-import type { RawTransactionWithMetadata } from '@exitbook/core';
+import type { ExternalTransaction } from '@exitbook/core';
 import type { ExchangeCredentials } from '@exitbook/exchanges';
 import type { Result } from 'neverthrow';
 
@@ -27,7 +27,7 @@ export interface ImportResult {
 
 export interface ImportRunResult {
   // Successfully fetched and validated transactions
-  rawTransactions: RawTransactionWithMetadata[];
+  rawTransactions: ExternalTransaction[];
   // Metadata about the import run (e.g., total fetched, date ranges)
   metadata?: Record<string, unknown> | undefined;
 }
