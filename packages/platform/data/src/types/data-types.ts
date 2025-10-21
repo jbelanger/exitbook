@@ -23,11 +23,13 @@ export type StoredTransaction = Omit<
 export type NewTransaction = Insertable<TransactionsTable>;
 export type TransactionUpdate = Updateable<TransactionsTable>;
 
-export type DataSource = Selectable<DataSourcesTable>;
+// Internal DB types for repository use
+export type StoredDataSource = Selectable<DataSourcesTable>;
 export type NewDataSource = Insertable<DataSourcesTable>;
 export type DataSourceUpdate = Updateable<DataSourcesTable>;
 
-export type RawData = Selectable<ExternalTransactionDataTable>;
+// Internal DB types for raw data repository use
+export type StoredRawData = Selectable<ExternalTransactionDataTable>;
 export type NewRawData = Insertable<ExternalTransactionDataTable>;
 export type RawDataUpdate = Updateable<ExternalTransactionDataTable>;
 
@@ -37,83 +39,4 @@ export interface ImportSessionQuery {
   sourceId?: string | undefined;
   sourceType?: 'exchange' | 'blockchain' | undefined;
   status?: 'started' | 'completed' | 'failed' | 'cancelled' | undefined;
-}
-
-/**
- * Raw data tagged with the API client that fetched it
- */
-/**
- * Import parameters that can be stored in session metadata
- */
-export interface DataImportParams {
-  address?: string | undefined;
-  csvDirectories?: string[] | undefined;
-  exchangeCredentials?: Record<string, unknown> | undefined;
-  providerId?: string | undefined;
-}
-
-/**
- * Rich session metadata providing blockchain-specific address context
- */
-export interface ImportSessionMetadata {
-  // User-provided address
-  address?: string | undefined;
-
-  // CSV import directories for exchange imports
-  csvDirectories?: string[] | undefined;
-
-  // Bitcoin xpub-derived addresses for multi-address wallets
-  derivedAddresses?: string[] | undefined;
-
-  // Import timestamp
-  importedAt?: number | undefined;
-
-  // Import parameters used for this session
-  importParams?: DataImportParams | undefined;
-
-  // Additional provider-specific metadata
-  [key: string]: unknown;
-}
-
-/**
- * Source parameters identifying the wallet/account
- */
-export type SourceParams =
-  | {
-      exchange: string;
-    }
-  | {
-      address: string;
-      blockchain: string;
-    };
-
-/**
- * Balance discrepancy details
- */
-export interface BalanceDiscrepancy {
-  asset: string;
-  calculated: string;
-  difference: string;
-  live: string;
-}
-
-/**
- * Balance verification result
- */
-export interface BalanceVerification {
-  calculated_balance: Record<string, string>;
-  discrepancies?: BalanceDiscrepancy[] | undefined;
-  live_balance?: Record<string, string> | undefined;
-  status: 'match' | 'mismatch' | 'unavailable';
-  suggestions?: string[] | undefined;
-  verified_at: string;
-}
-
-/**
- * Verification metadata stored in session
- */
-export interface VerificationMetadata {
-  current_balance: Record<string, string>;
-  last_verification: BalanceVerification;
-  source_params: SourceParams;
 }

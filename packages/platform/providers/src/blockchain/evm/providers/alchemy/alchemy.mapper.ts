@@ -1,6 +1,5 @@
-import type { RawTransactionMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/data';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
@@ -18,7 +17,6 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
 
   protected mapInternal(
     rawData: AlchemyAssetTransfer,
-    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<EvmTransaction, NormalizationError> {
     // Determine if this is a token transfer

@@ -1,9 +1,11 @@
 /* eslint-disable unicorn/no-null -- null needed by Kysely */
+import { DecimalSchema, wrapError } from '@exitbook/core';
 import type { KyselyDB, TransactionLinksTable } from '@exitbook/data';
-import { getLogger, type Logger } from '@exitbook/shared-logger';
+import { BaseRepository } from '@exitbook/data';
 import type { Selectable } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
+import { MatchCriteriaSchema } from '../linking/schemas.js';
 import type { TransactionLink } from '../linking/types.js';
 
 export type StoredTransactionLink = Selectable<TransactionLinksTable>;
@@ -11,13 +13,9 @@ export type StoredTransactionLink = Selectable<TransactionLinksTable>;
 /**
  * Repository for transaction link operations
  */
-export class TransactionLinkRepository {
-  private readonly db: KyselyDB;
-  private readonly logger: Logger;
-
+export class TransactionLinkRepository extends BaseRepository {
   constructor(db: KyselyDB) {
-    this.db = db;
-    this.logger = getLogger('TransactionLinkRepository');
+    super(db, 'TransactionLinkRepository');
   }
 
   /**
@@ -49,9 +47,8 @@ export class TransactionLinkRepository {
       this.logger.debug({ linkId: link.id }, 'Created transaction link');
       return ok(link.id);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error }, 'Failed to create transaction link');
-      return err(new Error(`Failed to create transaction link: ${message}`));
+      return wrapError(error, 'Failed to create transaction link');
     }
   }
 
@@ -87,9 +84,8 @@ export class TransactionLinkRepository {
       this.logger.info({ count: links.length }, 'Bulk created transaction links');
       return ok(links.length);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error }, 'Failed to bulk create transaction links');
-      return err(new Error(`Failed to bulk create transaction links: ${message}`));
+      return wrapError(error, 'Failed to bulk create transaction links');
     }
   }
 
@@ -99,15 +95,23 @@ export class TransactionLinkRepository {
    * @param id - Link ID
    * @returns Result with link or null if not found
    */
-  async findById(id: string): Promise<Result<StoredTransactionLink | null, Error>> {
+  async findById(id: string): Promise<Result<TransactionLink | null, Error>> {
     try {
-      const link = await this.db.selectFrom('transaction_links').selectAll().where('id', '=', id).executeTakeFirst();
+      const row = await this.db.selectFrom('transaction_links').selectAll().where('id', '=', id).executeTakeFirst();
 
-      return ok(link ?? null);
+      if (!row) {
+        return ok(null);
+      }
+
+      const result = this.toTransactionLink(row);
+      if (result.isErr()) {
+        return err(result.error);
+      }
+
+      return ok(result.value);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, id }, 'Failed to find transaction link by ID');
-      return err(new Error(`Failed to find transaction link: ${message}`));
+      return wrapError(error, 'Failed to find transaction link');
     }
   }
 
@@ -117,19 +121,28 @@ export class TransactionLinkRepository {
    * @param sourceTransactionId - Source transaction ID
    * @returns Result with array of links
    */
-  async findBySourceTransactionId(sourceTransactionId: number): Promise<Result<StoredTransactionLink[], Error>> {
+  async findBySourceTransactionId(sourceTransactionId: number): Promise<Result<TransactionLink[], Error>> {
     try {
-      const links = await this.db
+      const rows = await this.db
         .selectFrom('transaction_links')
         .selectAll()
         .where('source_transaction_id', '=', sourceTransactionId)
         .execute();
 
+      // Convert rows to domain models, failing fast on any parse errors
+      const links: TransactionLink[] = [];
+      for (const row of rows) {
+        const result = this.toTransactionLink(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        links.push(result.value);
+      }
+
       return ok(links);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, sourceTransactionId }, 'Failed to find links by source transaction');
-      return err(new Error(`Failed to find links by source transaction: ${message}`));
+      return wrapError(error, 'Failed to find links by source transaction');
     }
   }
 
@@ -139,19 +152,28 @@ export class TransactionLinkRepository {
    * @param targetTransactionId - Target transaction ID
    * @returns Result with array of links
    */
-  async findByTargetTransactionId(targetTransactionId: number): Promise<Result<StoredTransactionLink[], Error>> {
+  async findByTargetTransactionId(targetTransactionId: number): Promise<Result<TransactionLink[], Error>> {
     try {
-      const links = await this.db
+      const rows = await this.db
         .selectFrom('transaction_links')
         .selectAll()
         .where('target_transaction_id', '=', targetTransactionId)
         .execute();
 
+      // Convert rows to domain models, failing fast on any parse errors
+      const links: TransactionLink[] = [];
+      for (const row of rows) {
+        const result = this.toTransactionLink(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        links.push(result.value);
+      }
+
       return ok(links);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, targetTransactionId }, 'Failed to find links by target transaction');
-      return err(new Error(`Failed to find links by target transaction: ${message}`));
+      return wrapError(error, 'Failed to find links by target transaction');
     }
   }
 
@@ -161,7 +183,7 @@ export class TransactionLinkRepository {
    * @param status - Optional status filter
    * @returns Result with array of links
    */
-  async findAll(status?: 'suggested' | 'confirmed' | 'rejected'): Promise<Result<StoredTransactionLink[], Error>> {
+  async findAll(status?: 'suggested' | 'confirmed' | 'rejected'): Promise<Result<TransactionLink[], Error>> {
     try {
       let query = this.db.selectFrom('transaction_links').selectAll();
 
@@ -169,12 +191,22 @@ export class TransactionLinkRepository {
         query = query.where('status', '=', status);
       }
 
-      const links = await query.execute();
+      const rows = await query.execute();
+
+      // Convert rows to domain models, failing fast on any parse errors
+      const links: TransactionLink[] = [];
+      for (const row of rows) {
+        const result = this.toTransactionLink(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        links.push(result.value);
+      }
+
       return ok(links);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, status }, 'Failed to find transaction links');
-      return err(new Error(`Failed to find transaction links: ${message}`));
+      return wrapError(error, 'Failed to find transaction links');
     }
   }
 
@@ -209,9 +241,8 @@ export class TransactionLinkRepository {
       this.logger.debug({ linkId: id, status, updated }, 'Updated transaction link status');
       return ok(updated);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, id, status }, 'Failed to update transaction link status');
-      return err(new Error(`Failed to update transaction link status: ${message}`));
+      return wrapError(error, 'Failed to update transaction link status');
     }
   }
 
@@ -229,9 +260,8 @@ export class TransactionLinkRepository {
       this.logger.debug({ linkId: id, deleted }, 'Deleted transaction link');
       return ok(deleted);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, id }, 'Failed to delete transaction link');
-      return err(new Error(`Failed to delete transaction link: ${message}`));
+      return wrapError(error, 'Failed to delete transaction link');
     }
   }
 
@@ -252,9 +282,8 @@ export class TransactionLinkRepository {
       this.logger.debug({ sourceTransactionId, count }, 'Deleted transaction links by source transaction');
       return ok(count);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, sourceTransactionId }, 'Failed to delete links by source transaction');
-      return err(new Error(`Failed to delete links by source transaction: ${message}`));
+      return wrapError(error, 'Failed to delete links by source transaction');
     }
   }
 
@@ -279,9 +308,8 @@ export class TransactionLinkRepository {
       this.logger.debug({ sourceId, count }, 'Deleted transaction links by source');
       return ok(count);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error, sourceId }, 'Failed to delete links by source');
-      return err(new Error(`Failed to delete links by source: ${message}`));
+      return wrapError(error, 'Failed to delete links by source');
     }
   }
 
@@ -298,39 +326,43 @@ export class TransactionLinkRepository {
       this.logger.info({ count }, 'Deleted all transaction links');
       return ok(count);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error({ error }, 'Failed to delete all links');
-      return err(new Error(`Failed to delete all links: ${message}`));
+      return wrapError(error, 'Failed to delete all links');
     }
   }
 
   /**
-   * Helper method to serialize data to JSON string safely
-   * Handles Decimal objects by converting them to strings
+   * Convert database row to TransactionLink domain model
+   * Uses Zod schema for validation and automatic Decimal transformation
    */
-  private serializeToJson(data: unknown): string | undefined {
-    if (data === undefined || data === null) return undefined;
-
-    try {
-      return JSON.stringify(data, (_key, value: unknown) => {
-        // Convert Decimal objects to strings for proper serialization
-        if (
-          value &&
-          typeof value === 'object' &&
-          'd' in value &&
-          'e' in value &&
-          's' in value &&
-          'toString' in value &&
-          typeof value.toString === 'function'
-        ) {
-          // This is likely a Decimal.js object (has d, e, s properties and toString method)
-          return (value as { toString: () => string }).toString();
-        }
-        return value as string | number | boolean | null | object;
-      });
-    } catch (error) {
-      this.logger.warn({ data, error }, 'Failed to serialize data to JSON');
-      return undefined;
+  private toTransactionLink(row: StoredTransactionLink): Result<TransactionLink, Error> {
+    // Parse and validate matchCriteria with schema (handles Decimal rehydration automatically)
+    const matchCriteriaResult = this.parseWithSchema(row.match_criteria_json, MatchCriteriaSchema);
+    if (matchCriteriaResult.isErr()) {
+      return err(matchCriteriaResult.error);
     }
+    if (matchCriteriaResult.value === undefined) {
+      return err(new Error('match_criteria_json is required but was undefined'));
+    }
+
+    const metadataResult = this.parseJson<Record<string, unknown>>(row.metadata_json);
+    if (metadataResult.isErr()) {
+      return err(metadataResult.error);
+    }
+
+    return ok({
+      id: row.id,
+      sourceTransactionId: row.source_transaction_id,
+      targetTransactionId: row.target_transaction_id,
+      linkType: row.link_type,
+      confidenceScore: DecimalSchema.parse(row.confidence_score),
+      matchCriteria: matchCriteriaResult.value,
+      status: row.status,
+      reviewedBy: row.reviewed_by ?? undefined,
+      reviewedAt: row.reviewed_at ? new Date(row.reviewed_at) : undefined,
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at),
+      metadata: metadataResult.value,
+    });
   }
 }

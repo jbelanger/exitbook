@@ -1,113 +1,71 @@
-import type { Decimal } from 'decimal.js';
+import type { z } from 'zod';
+
+import type {
+  LinkingResultSchema,
+  LinkStatusSchema,
+  LinkTypeSchema,
+  MatchCriteriaSchema,
+  MatchingConfigSchema,
+  PotentialMatchSchema,
+  TransactionCandidateSchema,
+  TransactionLinkSchema,
+} from './schemas.js';
+
+/**
+ * Types inferred from Zod schemas - schemas are the source of truth
+ * This ensures runtime validation and compile-time types stay in sync
+ */
 
 /**
  * Type of transaction link
+ * - exchange_to_blockchain: Exchange withdrawal → Blockchain deposit
+ * - blockchain_to_blockchain: Blockchain send → Blockchain receive
+ * - exchange_to_exchange: Exchange withdrawal → Exchange deposit
  */
-export type LinkType =
-  | 'exchange_to_blockchain' // Exchange withdrawal → Blockchain deposit
-  | 'blockchain_to_blockchain' // Blockchain send → Blockchain receive
-  | 'exchange_to_exchange'; // Exchange withdrawal → Exchange deposit
+export type LinkType = z.infer<typeof LinkTypeSchema>;
 
 /**
  * Status of a transaction link
  */
-export type LinkStatus = 'suggested' | 'confirmed' | 'rejected';
+export type LinkStatus = z.infer<typeof LinkStatusSchema>;
 
 /**
  * Criteria used for matching transactions
+ * - assetMatch: Whether assets match
+ * - amountSimilarity: 0-1, closer to 1 is better
+ * - timingValid: Source before target, within window
+ * - timingHours: Hours between transactions
+ * - addressMatch: If we can match blockchain addresses (optional)
  */
-export interface MatchCriteria {
-  assetMatch: boolean;
-  amountSimilarity: Decimal; // 0-1, closer to 1 is better
-  timingValid: boolean; // Source before target, within window
-  timingHours: number; // Hours between transactions
-  addressMatch?: boolean | undefined; // If we can match blockchain addresses
-}
+export type MatchCriteria = z.infer<typeof MatchCriteriaSchema>;
 
 /**
  * Transaction link - represents a connection between two transactions
  * where one is the source (withdrawal/send) and the other is the target (deposit/receive)
  */
-export interface TransactionLink {
-  id: string;
-  sourceTransactionId: number; // FK to transactions.id (withdrawal/send)
-  targetTransactionId: number; // FK to transactions.id (deposit/receive)
-  linkType: LinkType;
-  confidenceScore: Decimal; // 0-1, higher is more confident
-  matchCriteria: MatchCriteria;
-  status: LinkStatus;
-  reviewedBy?: string | undefined; // User who confirmed/rejected
-  reviewedAt?: Date | undefined;
-  createdAt: Date;
-  updatedAt: Date;
-  metadata?: Record<string, unknown> | undefined;
-}
+export type TransactionLink = z.infer<typeof TransactionLinkSchema>;
 
 /**
  * A potential match found by the matching algorithm
  */
-export interface PotentialMatch {
-  sourceTransaction: TransactionCandidate;
-  targetTransaction: TransactionCandidate;
-  confidenceScore: Decimal;
-  matchCriteria: MatchCriteria;
-  linkType: LinkType;
-}
+export type PotentialMatch = z.infer<typeof PotentialMatchSchema>;
 
 /**
  * Simplified transaction data for matching
  */
-export interface TransactionCandidate {
-  id: number;
-  sourceId: string;
-  sourceType: 'exchange' | 'blockchain';
-  externalId: string | undefined;
-  timestamp: Date;
-  asset: string; // Primary asset from movements
-  amount: Decimal; // Primary amount from movements
-  direction: 'in' | 'out' | 'neutral';
-  fromAddress: string | undefined;
-  toAddress: string | undefined;
-}
+export type TransactionCandidate = z.infer<typeof TransactionCandidateSchema>;
 
 /**
  * Configuration for the matching algorithm
+ * - maxTimingWindowHours: Maximum time window between source and target (default: 48 hours)
+ * - minAmountSimilarity: Minimum amount similarity threshold 0-1 (default: 0.95 = 95% match accounting for fees)
+ * - minConfidenceScore: Minimum confidence score to suggest a match 0-1 (default: 0.7)
+ * - autoConfirmThreshold: Automatically confirm matches above this confidence 0-1 (default: 0.95 = 95% confident)
  */
-export interface MatchingConfig {
-  /**
-   * Maximum time window between source and target (in hours)
-   * Default: 48 hours
-   */
-  maxTimingWindowHours: number;
-
-  /**
-   * Minimum amount similarity threshold (0-1)
-   * Default: 0.95 (95% match accounting for fees)
-   */
-  minAmountSimilarity: Decimal;
-
-  /**
-   * Minimum confidence score to suggest a match (0-1)
-   * Default: 0.7
-   */
-  minConfidenceScore: Decimal;
-
-  /**
-   * Automatically confirm matches above this confidence (0-1)
-   * Default: 0.95 (95% confident)
-   */
-  autoConfirmThreshold: Decimal;
-}
+export type MatchingConfig = z.infer<typeof MatchingConfigSchema>;
 
 /**
  * Result of the linking process
+ * - matchedTransactionCount: Total unique transactions involved in links (sources + targets)
  */
-export interface LinkingResult {
-  suggestedLinks: PotentialMatch[];
-  confirmedLinks: TransactionLink[];
-  totalSourceTransactions: number;
-  totalTargetTransactions: number;
-  matchedTransactionCount: number; // Total unique transactions involved in links (sources + targets)
-  unmatchedSourceCount: number;
-  unmatchedTargetCount: number;
-}
+export type LinkingResult = z.infer<typeof LinkingResultSchema>;

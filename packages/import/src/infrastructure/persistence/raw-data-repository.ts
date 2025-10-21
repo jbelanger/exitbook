@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
-import { wrapError, type RawTransactionWithMetadata } from '@exitbook/core';
+import { wrapError, type ExternalTransactionData, type RawTransactionWithMetadata } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
-import type { RawData } from '@exitbook/data';
+import type { StoredRawData } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { IRawDataRepository, LoadRawDataFilters } from '@exitbook/import/app/ports/raw-data-repository.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -16,7 +16,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     super(db, 'RawDataRepository');
   }
 
-  async load(filters?: LoadRawDataFilters): Promise<Result<RawData[], Error>> {
+  async load(filters?: LoadRawDataFilters): Promise<Result<ExternalTransactionData[], Error>> {
     try {
       let query = this.db
         .selectFrom('external_transaction_data')
@@ -27,8 +27,8 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         query = query.where('source_id', '=', filters.sourceId);
       }
 
-      if (filters?.importSessionId) {
-        query = query.where('data_source_id', '=', filters.importSessionId);
+      if (filters?.dataSourceId) {
+        query = query.where('data_source_id', '=', filters.dataSourceId);
       }
 
       if (filters?.providerId) {
@@ -49,7 +49,17 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
       const rows = await query.execute();
 
-      return ok(rows);
+      // Convert rows to domain models, failing fast on any parse errors
+      const transactions: ExternalTransactionData[] = [];
+      for (const row of rows) {
+        const result = this.toExternalTransactionData(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        transactions.push(result.value);
+      }
+
+      return ok(transactions);
     } catch (error) {
       return wrapError(error, 'Failed to load raw data');
     }
@@ -65,7 +75,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             .updateTable('external_transaction_data')
             .set({
               processed_at: processedAt,
-              processing_error: undefined,
+              processing_error: null,
               processing_status: 'processed',
             })
             .where('id', '=', id)
@@ -79,7 +89,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async save(importSessionId: number, item?: RawTransactionWithMetadata): Promise<Result<number, Error>> {
+  async save(dataSourceId: number, item?: RawTransactionWithMetadata): Promise<Result<number, Error>> {
     if (!item) {
       return err(new Error('Raw data cannot be null or undefined'));
     }
@@ -92,11 +102,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             created_at: this.getCurrentDateTimeForDB(),
             cursor: item.cursor ? JSON.stringify(item.cursor) : null,
             external_id: item.externalId ?? null,
-            data_source_id: importSessionId,
-            metadata: this.serializeToJson(item.metadata),
+            data_source_id: dataSourceId,
             normalized_data: JSON.stringify(item.normalizedData),
             processing_status: 'pending',
-            provider_id: item.metadata.providerId,
+            provider_id: item.providerId,
+            source_address: item.sourceAddress ?? null,
+            transaction_type: item.transactionType ?? null,
             raw_data: JSON.stringify(item.rawData),
           })
           .onConflict((oc) => oc.doNothing()) // Equivalent to INSERT OR IGNORE
@@ -111,7 +122,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async saveBatch(importSessionId: number, items: RawTransactionWithMetadata[]): Promise<Result<number, Error>> {
+  async saveBatch(dataSourceId: number, items: RawTransactionWithMetadata[]): Promise<Result<number, Error>> {
     if (items.length === 0) {
       return ok(0);
     }
@@ -135,11 +146,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
               created_at: createdAt,
               cursor: item.cursor ? JSON.stringify(item.cursor) : null,
               external_id: item.externalId ?? null,
-              data_source_id: importSessionId,
-              metadata: this.serializeToJson(item.metadata),
+              data_source_id: dataSourceId,
               normalized_data: JSON.stringify(item.normalizedData),
               processing_status: 'pending',
-              provider_id: item.metadata.providerId,
+              provider_id: item.providerId,
+              source_address: item.sourceAddress ?? null,
+              transaction_type: item.transactionType ?? null,
               raw_data: JSON.stringify(item.rawData),
             })
             .onConflict((oc) => oc.doNothing())
@@ -159,12 +171,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async getLatestCursor(importSessionId: number): Promise<Result<Record<string, number> | null, Error>> {
+  async getLatestCursor(dataSourceId: number): Promise<Result<Record<string, number> | null, Error>> {
     try {
       const rows = await this.db
         .selectFrom('external_transaction_data')
         .select('cursor')
-        .where('data_source_id', '=', importSessionId)
+        .where('data_source_id', '=', dataSourceId)
         .where('cursor', 'is not', null)
         .execute();
 
@@ -178,12 +190,13 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       for (const row of rows) {
         if (!row.cursor) continue;
 
-        const cursor: Record<string, unknown> =
-          typeof row.cursor === 'string'
-            ? (JSON.parse(row.cursor) as Record<string, unknown>)
-            : ((row.cursor as Record<string, unknown>) ?? ({} as Record<string, unknown>));
+        const cursorResult = this.parseJson<Record<string, unknown>>(row.cursor);
+        if (cursorResult.isErr()) {
+          return err(cursorResult.error);
+        }
 
-        if (typeof cursor === 'object' && cursor !== null) {
+        const cursor = cursorResult.value;
+        if (cursor && typeof cursor === 'object') {
           for (const [operationType, timestamp] of Object.entries(cursor)) {
             if (typeof timestamp === 'number') {
               mergedCursor[operationType] = Math.max(mergedCursor[operationType] || 0, timestamp);
@@ -198,16 +211,26 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async getValidRecords(importSessionId: number): Promise<Result<RawData[], Error>> {
+  async getValidRecords(dataSourceId: number): Promise<Result<ExternalTransactionData[], Error>> {
     try {
       const rows = await this.db
         .selectFrom('external_transaction_data')
         .selectAll()
-        .where('data_source_id', '=', importSessionId)
+        .where('data_source_id', '=', dataSourceId)
         .where('processing_status', '=', 'pending')
         .execute();
 
-      return ok(rows);
+      // Convert rows to domain models, failing fast on any parse errors
+      const transactions: ExternalTransactionData[] = [];
+      for (const row of rows) {
+        const result = this.toExternalTransactionData(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        transactions.push(result.value);
+      }
+
+      return ok(transactions);
     } catch (error) {
       return wrapError(error, 'Failed to get valid records');
     }
@@ -276,5 +299,47 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     } catch (error) {
       return wrapError(error, 'Failed to delete all raw data');
     }
+  }
+
+  /**
+   * Convert database row to ExternalTransactionData domain model
+   * Handles JSON parsing and camelCase conversion
+   */
+  private toExternalTransactionData(row: StoredRawData): Result<ExternalTransactionData, Error> {
+    const cursorResult = this.parseJson<Record<string, unknown>>(row.cursor);
+    const rawDataResult = this.parseJson<unknown>(row.raw_data);
+    const normalizedDataResult = this.parseJson<unknown>(row.normalized_data);
+
+    // Fail fast on any parse errors
+    if (cursorResult.isErr()) {
+      return err(cursorResult.error);
+    }
+    if (rawDataResult.isErr()) {
+      return err(rawDataResult.error);
+    }
+    if (normalizedDataResult.isErr()) {
+      return err(normalizedDataResult.error);
+    }
+
+    // providerId is required in the domain model
+    if (!row.provider_id) {
+      return err(new Error('Missing required provider_id field'));
+    }
+
+    return ok({
+      id: row.id,
+      dataSourceId: row.data_source_id,
+      providerId: row.provider_id,
+      sourceAddress: row.source_address ?? undefined,
+      transactionType: row.transaction_type ?? undefined,
+      externalId: row.external_id ?? undefined,
+      cursor: cursorResult.value,
+      rawData: rawDataResult.value,
+      normalizedData: normalizedDataResult.value,
+      processingStatus: row.processing_status,
+      processedAt: row.processed_at ? new Date(row.processed_at) : undefined,
+      processingError: row.processing_error ?? undefined,
+      createdAt: new Date(row.created_at),
+    });
   }
 }

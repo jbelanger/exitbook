@@ -1,7 +1,6 @@
-import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
-import { MoneySchema } from './money.ts';
+import { DecimalSchema, MoneySchema } from './money.ts';
 
 // Transaction type schema
 export const TransactionTypeSchema = z.enum([
@@ -61,7 +60,7 @@ export const PriceAtTxTimeSchema = z.object({
 // Asset movement schema
 export const AssetMovementSchema = z.object({
   asset: z.string().min(1, 'Asset must not be empty'),
-  amount: z.instanceof(Decimal, { message: 'Expected Decimal instance' }),
+  amount: DecimalSchema,
   priceAtTxTime: PriceAtTxTimeSchema.optional(),
 });
 

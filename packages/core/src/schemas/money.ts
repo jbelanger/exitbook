@@ -2,11 +2,21 @@ import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
 import { Currency } from '../types/currency.ts';
+import { parseDecimal } from '../utils/decimal-utils.ts';
 
-// Custom Zod type for Decimal.js instances
-export const DecimalSchema = z.instanceof(Decimal, {
-  message: 'Expected Decimal instance',
-});
+// Decimal schema - accepts string or Decimal instance, transforms to Decimal
+// Used for parsing from DB (strings) or validating in-memory objects (Decimal instances)
+export const DecimalSchema = z
+  .string()
+  .or(z.instanceof(Decimal))
+  .transform((val) => (typeof val === 'string' ? parseDecimal(val) : val));
+
+// Date schema - transforms Unix timestamp (number) to Date instance
+export const DateSchema = z
+  .number()
+  .int()
+  .positive()
+  .transform((val) => new Date(val));
 
 // Currency schema - transforms string to Currency instance
 export const CurrencySchema = z
@@ -20,3 +30,5 @@ export const MoneySchema = z.object({
   amount: DecimalSchema,
   currency: CurrencySchema,
 });
+
+export type Money = z.infer<typeof MoneySchema>;

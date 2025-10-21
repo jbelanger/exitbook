@@ -1,5 +1,4 @@
-import type { RawTransactionMetadata } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/data';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
@@ -34,7 +33,6 @@ export class RoutescanTransactionMapper extends BaseRawDataMapper<
 
   protected mapInternal(
     rawData: RoutescanTransaction | RoutescanInternalTransaction | RoutescanTokenTransfer,
-    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<EvmTransaction, NormalizationError> {
     // Type discrimination: token transfers have tokenSymbol, internal transactions have traceId, normal transactions have nonce

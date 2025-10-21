@@ -1,5 +1,4 @@
-import type { RawTransactionMetadata } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/data';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 import type { NormalizationError } from './errors.ts';
@@ -18,7 +17,7 @@ export interface IRawDataMapper<TRawData, TNormalizedData> {
    */
   map(
     rawData: TRawData,
-    metadata: RawTransactionMetadata,
+    providerId: string,
     context: ImportSessionMetadata
   ): Result<TNormalizedData, NormalizationError>;
 }

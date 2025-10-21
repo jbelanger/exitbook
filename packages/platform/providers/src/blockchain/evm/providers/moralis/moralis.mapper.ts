@@ -1,5 +1,5 @@
-import { parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/data';
+import { parseDecimal } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
@@ -20,7 +20,6 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
 
   protected mapInternal(
     rawData: MoralisTransaction,
-    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<EvmTransaction, NormalizationError> {
     const nativeCurrency = rawData._nativeCurrency || 'UNKNOWN';
@@ -78,7 +77,6 @@ export class MoralisTokenTransferMapper extends BaseRawDataMapper<MoralisTokenTr
 
   protected mapInternal(
     rawData: MoralisTokenTransfer,
-    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<EvmTransaction, NormalizationError> {
     const timestamp = new Date(rawData.block_timestamp).getTime();

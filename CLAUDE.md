@@ -95,8 +95,8 @@ The system follows a two-phase data flow with normalization integrated into impo
 
 - Processors (`infrastructure/blockchains/*/processor.ts` or `infrastructure/exchanges/*/processor.ts`)
 - Load **normalized data** from `external_transaction_data` (already validated)
-- Transform normalized payloads into universal `StoredTransaction` format
-- Return `Result<StoredTransaction[], Error>`
+- Transform normalized payloads into universal `UniversalTransaction` format
+- Return `Result<UniversalTransaction[], Error>`
 - Upsert into `transactions` table (keyed by `external_id`)
 
 **Balance Checking (Separate Command)**

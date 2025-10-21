@@ -34,12 +34,13 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('provider_id', 'text')
     .addColumn('external_id', 'text')
     .addColumn('cursor', 'text')
+    .addColumn('source_address', 'text')
+    .addColumn('transaction_type', 'text')
     .addColumn('raw_data', 'text', (col) => col.notNull())
     .addColumn('normalized_data', 'text', (col) => col.notNull())
     .addColumn('processing_status', 'text', (col) => col.notNull().defaultTo('pending'))
     .addColumn('processed_at', 'text')
     .addColumn('processing_error', 'text')
-    .addColumn('metadata', 'text')
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .execute();
 

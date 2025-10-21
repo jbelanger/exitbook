@@ -1,19 +1,13 @@
-import type {
-  DataSource,
-  ImportSessionQuery,
-  DataSourceUpdate,
-  DataImportParams,
-  VerificationMetadata,
-} from '@exitbook/data';
+import type { DataImportParams, DataSource, VerificationMetadata } from '@exitbook/core';
+import type { ImportSessionQuery, DataSourceUpdate } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
 /**
- * Port interface for data source  repository operations.
- * Abstracts persistence layer from the application domain.
+ * Port interface for data source repository operations.
  */
 export interface IDataSourceRepository {
   /**
-   * Create a new data source .
+   * Create a new data source.
    */
   create(
     sourceId: string,
@@ -22,7 +16,7 @@ export interface IDataSourceRepository {
   ): Promise<Result<number, Error>>;
 
   /**
-   * Finalize an data source  with results and status.
+   * Finalize a data source with results and status.
    */
   finalize(
     sessionId: number,
@@ -34,29 +28,19 @@ export interface IDataSourceRepository {
   ): Promise<Result<void, Error>>;
 
   /**
-   * Find active import sessions.
-   */
-  findActive(): Promise<Result<DataSource[], Error>>;
-
-  /**
-   * Find all import sessions with optional filtering.
+   * Find all data sources with optional filtering.
    */
   findAll(filters?: ImportSessionQuery): Promise<Result<DataSource[], Error>>;
 
   /**
-   * Find data source  by ID.
+   * Find data source by ID.
    */
   findById(sessionId: number): Promise<Result<DataSource | undefined, Error>>;
 
   /**
-   * Find import sessions by source ID.
+   * Find data sources by source ID.
    */
   findBySource(sourceId: string, limit?: number): Promise<Result<DataSource[], Error>>;
-
-  /**
-   * Find recent import sessions.
-   */
-  findRecent(limit?: number): Promise<Result<DataSource[], Error>>;
 
   /**
    * Update an existing data source .
@@ -64,7 +48,7 @@ export interface IDataSourceRepository {
   update(sessionId: number, updates: DataSourceUpdate): Promise<Result<void, Error>>;
 
   /**
-   * Find a completed data source  with matching parameters.
+   * Find a completed data source with matching parameters.
    */
   findCompletedWithMatchingParams(
     sourceId: string,

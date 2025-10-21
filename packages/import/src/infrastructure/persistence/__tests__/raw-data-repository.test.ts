@@ -55,7 +55,6 @@ describe('RawDataRepository', () => {
           processing_status: i % 2 === 0 ? 'processed' : 'pending',
           processed_at: i % 2 === 0 ? new Date().toISOString() : undefined,
           processing_error: undefined,
-          metadata: undefined,
           created_at: new Date().toISOString(),
         })
         .execute();

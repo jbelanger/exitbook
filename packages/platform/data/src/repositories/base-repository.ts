@@ -1,6 +1,8 @@
 import { type Logger, getLogger } from '@exitbook/shared-logger';
 import { Decimal } from 'decimal.js';
 import type { Transaction } from 'kysely';
+import { err, ok, type Result } from 'neverthrow';
+import type { z } from 'zod';
 
 import type { DatabaseSchema } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
@@ -79,5 +81,51 @@ export abstract class BaseRepository {
    */
   protected getCurrentDateTimeForDB(): string {
     return new Date().toISOString();
+  }
+
+  /**
+   * Parse JSON with Zod schema validation
+   * Returns Result with parsed value or error
+   */
+  protected parseWithSchema<T>(value: unknown, schema: z.ZodSchema<T>): Result<T | undefined, Error> {
+    if (!value) {
+      // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined for clarity
+      return ok(undefined);
+    }
+
+    try {
+      const parsed: unknown = typeof value === 'string' ? JSON.parse(value) : value;
+      const result = schema.safeParse(parsed);
+
+      if (!result.success) {
+        this.logger.warn({ error: result.error, value }, 'Failed to validate with schema');
+        return err(new Error(`Schema validation failed: ${result.error.message}`));
+      }
+
+      return ok(result.data);
+    } catch (error) {
+      this.logger.warn({ error, value }, 'Failed to parse JSON');
+      return err(new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}`));
+    }
+  }
+
+  /**
+   * Parse JSON without schema validation
+   * Returns Result with parsed value or error
+   * Use this for arbitrary objects where schema validation isn't needed
+   */
+  protected parseJson<T = unknown>(value: unknown): Result<T | undefined, Error> {
+    if (!value) {
+      // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined for clarity
+      return ok(undefined);
+    }
+
+    try {
+      const parsed = typeof value === 'string' ? (JSON.parse(value) as T) : (value as T);
+      return ok(parsed);
+    } catch (error) {
+      this.logger.warn({ error, value }, 'Failed to parse JSON');
+      return err(new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}`));
+    }
   }
 }

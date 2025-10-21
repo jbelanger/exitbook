@@ -1,3 +1,4 @@
+import { DateSchema, DecimalSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -28,53 +29,62 @@ export const AcquisitionLotSchema = z.object({
   id: z.string().uuid(),
   calculationId: z.string().uuid(),
   acquisitionTransactionId: z.number().int().positive(),
-  asset: z.string().min(1), // Currency symbol (e.g., BTC, ETH, USD)
-  quantity: z.string(), // Decimal as string
-  costBasisPerUnit: z.string(), // Decimal as string
-  totalCostBasis: z.string(), // Decimal as string
-  acquisitionDate: z.number().int().positive(), // Unix timestamp
+  asset: z.string().min(1),
+  quantity: DecimalSchema,
+  costBasisPerUnit: DecimalSchema,
+  totalCostBasis: DecimalSchema,
+  acquisitionDate: DateSchema,
   method: CostBasisMethodSchema,
-  remainingQuantity: z.string(), // Decimal as string
+  remainingQuantity: DecimalSchema,
   status: LotStatusSchema,
-  createdAt: z.number().int().positive(), // Unix timestamp
-  updatedAt: z.number().int().positive(), // Unix timestamp
-  metadata: z.record(z.unknown()).optional(),
+  createdAt: DateSchema,
+  updatedAt: DateSchema,
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const LotDisposalSchema = z.object({
   id: z.string().uuid(),
   lotId: z.string().uuid(),
   disposalTransactionId: z.number().int().positive(),
-  quantityDisposed: z.string(), // Decimal as string
-  proceedsPerUnit: z.string(), // Decimal as string
-  totalProceeds: z.string(), // Decimal as string
-  costBasisPerUnit: z.string(), // Decimal as string
-  totalCostBasis: z.string(), // Decimal as string
-  gainLoss: z.string(), // Decimal as string
-  disposalDate: z.number().int().positive(), // Unix timestamp
+  quantityDisposed: DecimalSchema,
+  proceedsPerUnit: DecimalSchema,
+  totalProceeds: DecimalSchema,
+  costBasisPerUnit: DecimalSchema,
+  totalCostBasis: DecimalSchema,
+  gainLoss: DecimalSchema,
+  disposalDate: DateSchema,
   holdingPeriodDays: z.number().int().nonnegative(),
   taxTreatmentCategory: z.string().optional(),
-  createdAt: z.number().int().positive(), // Unix timestamp
-  metadata: z.record(z.unknown()).optional(),
+  createdAt: DateSchema,
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const CostBasisCalculationSchema = z.object({
   id: z.string().uuid(),
-  calculationDate: z.number().int().positive(), // Unix timestamp
+  calculationDate: DateSchema,
   config: CostBasisConfigSchema,
-  startDate: z.number().int().positive().optional(), // Unix timestamp
-  endDate: z.number().int().positive().optional(), // Unix timestamp
-  totalProceeds: z.string(), // Decimal as string
-  totalCostBasis: z.string(), // Decimal as string
-  totalGainLoss: z.string(), // Decimal as string
-  totalTaxableGainLoss: z.string(), // Decimal as string
-  assetsProcessed: z.array(z.string()), // Array of currency symbols (e.g., ['BTC', 'ETH'])
+  startDate: DateSchema.optional(),
+  endDate: DateSchema.optional(),
+  totalProceeds: DecimalSchema,
+  totalCostBasis: DecimalSchema,
+  totalGainLoss: DecimalSchema,
+  totalTaxableGainLoss: DecimalSchema,
+  assetsProcessed: z.array(z.string()),
   transactionsProcessed: z.number().int().nonnegative(),
   lotsCreated: z.number().int().nonnegative(),
   disposalsProcessed: z.number().int().nonnegative(),
   status: CalculationStatusSchema,
   errorMessage: z.string().optional(),
-  createdAt: z.number().int().positive(), // Unix timestamp
-  completedAt: z.number().int().positive().optional(), // Unix timestamp
-  metadata: z.record(z.unknown()).optional(),
+  createdAt: DateSchema,
+  completedAt: DateSchema.optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
+
+/**
+ * Type exports inferred from schemas
+ */
+export type AcquisitionLot = z.infer<typeof AcquisitionLotSchema>;
+export type LotDisposal = z.infer<typeof LotDisposalSchema>;
+export type CostBasisCalculation = z.infer<typeof CostBasisCalculationSchema>;
+export type LotStatus = z.infer<typeof LotStatusSchema>;
+export type CalculationStatus = z.infer<typeof CalculationStatusSchema>;

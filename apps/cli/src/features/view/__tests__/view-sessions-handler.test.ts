@@ -1,5 +1,4 @@
-/* eslint-disable unicorn/no-null -- db requires explicit null */
-import type { DataSource } from '@exitbook/data';
+import type { DataSource } from '@exitbook/core';
 import type { DataSourceRepository } from '@exitbook/import';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
@@ -28,35 +27,30 @@ describe('ViewSessionsHandler', () => {
 
   const createMockSession = (overrides: Partial<DataSource> = {}): DataSource => ({
     id: 1,
-    source_id: 'kraken',
-    source_type: 'exchange',
+    sourceId: 'kraken',
+    sourceType: 'exchange',
     status: 'completed',
-    started_at: '2024-01-01T00:00:00Z',
-    completed_at: '2024-01-01T00:01:00Z',
-    duration_ms: 60000,
-    error_message: null,
-    error_details: null,
-    import_params: {},
-    import_result_metadata: {},
-    last_balance_check_at: null,
-    verification_metadata: null,
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: null,
+    startedAt: new Date('2024-01-01T00:00:00Z'),
+    completedAt: new Date('2024-01-01T00:01:00Z'),
+    durationMs: 60000,
+    importParams: {},
+    importResultMetadata: {},
+    createdAt: new Date('2024-01-01T00:00:00Z'),
     ...overrides,
   });
 
   describe('execute', () => {
     it('should return formatted sessions successfully', async () => {
       const mockSessions: DataSource[] = [
-        createMockSession({ id: 1, source_id: 'kraken' }),
+        createMockSession({ id: 1, sourceId: 'kraken' }),
         createMockSession({
           id: 2,
-          source_id: 'bitcoin',
-          source_type: 'blockchain',
-          started_at: '2024-01-02T00:00:00Z',
-          completed_at: '2024-01-02T00:05:00Z',
-          duration_ms: 300000,
-          created_at: '2024-01-02T00:00:00Z',
+          sourceId: 'bitcoin',
+          sourceType: 'blockchain',
+          startedAt: new Date('2024-01-02T00:00:00Z'),
+          completedAt: new Date('2024-01-02T00:05:00Z'),
+          durationMs: 300000,
+          createdAt: new Date('2024-01-02T00:00:00Z'),
         }),
       ];
 
@@ -74,17 +68,16 @@ describe('ViewSessionsHandler', () => {
         id: 1,
         source_id: 'kraken',
         source_type: 'exchange',
-        provider_id: undefined,
         status: 'completed',
-        started_at: '2024-01-01T00:00:00Z',
-        completed_at: '2024-01-01T00:01:00Z',
+        started_at: '2024-01-01T00:00:00.000Z',
+        completed_at: '2024-01-01T00:01:00.000Z',
         duration_ms: 60000,
         error_message: undefined,
       });
     });
 
     it('should filter sessions by source', async () => {
-      const mockSessions: DataSource[] = [createMockSession({ source_id: 'kraken' })];
+      const mockSessions: DataSource[] = [createMockSession({ sourceId: 'kraken' })];
 
       mockFindAll.mockResolvedValue(ok(mockSessions));
 
@@ -103,7 +96,7 @@ describe('ViewSessionsHandler', () => {
       const mockSessions: DataSource[] = [
         createMockSession({
           status: 'failed',
-          error_message: 'Connection timeout',
+          errorMessage: 'Connection timeout',
         }),
       ];
 
@@ -162,13 +155,13 @@ describe('ViewSessionsHandler', () => {
       expect(result._unsafeUnwrapErr()).toBe(error);
     });
 
-    it('should handle sessions with all optional fields null', async () => {
+    it('should handle sessions with all optional fields undefined', async () => {
       const mockSessions: DataSource[] = [
         createMockSession({
           status: 'started',
-          completed_at: null,
-          duration_ms: null,
-          error_message: null,
+          completedAt: undefined,
+          durationMs: undefined,
+          errorMessage: undefined,
         }),
       ];
 

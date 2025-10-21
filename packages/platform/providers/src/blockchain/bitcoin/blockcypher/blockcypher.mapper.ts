@@ -1,5 +1,5 @@
-import { parseDecimal, type RawTransactionMetadata } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/data';
+import { parseDecimal } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { ok, type Result } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
@@ -19,7 +19,6 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
    */
   protected mapInternal(
     rawData: BlockCypherTransaction,
-    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<BitcoinTransaction, NormalizationError> {
     const timestamp = rawData.confirmed ? new Date(rawData.confirmed).getTime() : Date.now();

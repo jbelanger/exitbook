@@ -1,15 +1,10 @@
-import { wrapError } from '@exitbook/core';
+import type { DataImportParams, DataSource, VerificationMetadata } from '@exitbook/core';
+import { DataImportParamsSchema, VerificationMetadataSchema, wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
-import type {
-  DataSource,
-  ImportSessionQuery,
-  DataSourceUpdate,
-  DataImportParams,
-  VerificationMetadata,
-} from '@exitbook/data';
+import type { StoredDataSource, ImportSessionQuery, DataSourceUpdate } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
-import { ok, err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 
 import type { IDataSourceRepository } from '../../app/ports/data-source-repository.interface.ts';
 
@@ -79,10 +74,6 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
     }
   }
 
-  async findActive(): Promise<Result<DataSource[], Error>> {
-    return this.findAll({ status: 'started' });
-  }
-
   async findAll(filters?: ImportSessionQuery): Promise<Result<DataSource[], Error>> {
     try {
       let query = this.db.selectFrom('data_sources').selectAll();
@@ -112,7 +103,18 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       }
 
       const rows = await query.execute();
-      return ok(rows as DataSource[]);
+
+      // Convert rows to domain models, failing fast on any parse errors
+      const dataSources: DataSource[] = [];
+      for (const row of rows) {
+        const result = this.toDataSource(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        dataSources.push(result.value);
+      }
+
+      return ok(dataSources);
     } catch (error) {
       return wrapError(error, 'Failed to find import sessions');
     }
@@ -122,7 +124,17 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
     try {
       const row = await this.db.selectFrom('data_sources').selectAll().where('id', '=', sessionId).executeTakeFirst();
 
-      return ok(row ? row : undefined);
+      if (!row) {
+        // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined when not found
+        return ok(undefined);
+      }
+
+      const result = this.toDataSource(row);
+      if (result.isErr()) {
+        return err(result.error);
+      }
+
+      return ok(result.value);
     } catch (error) {
       return wrapError(error, 'Failed to find data source  by ID');
     }
@@ -130,10 +142,6 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
   async findBySource(sourceId: string, limit?: number): Promise<Result<DataSource[], Error>> {
     return this.findAll({ limit, sourceId });
-  }
-
-  async findRecent(limit = 10): Promise<Result<DataSource[], Error>> {
-    return this.findAll({ limit });
   }
 
   async update(sessionId: number, updates: DataSourceUpdate): Promise<Result<void, Error>> {
@@ -179,7 +187,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
         return ok();
       }
 
-      await this.db.updateTable('data_sources').set(updates).where('id', '=', sessionId).execute();
+      await this.db.updateTable('data_sources').set(updateData).where('id', '=', sessionId).execute();
 
       return ok();
     } catch (error) {
@@ -213,10 +221,8 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
       // Find a session with matching import parameters
       for (const session of sessions) {
-        const storedParams: DataImportParams =
-          typeof session.import_params === 'string'
-            ? (JSON.parse(session.import_params) as DataImportParams)
-            : (session.import_params as DataImportParams);
+        // Use already-parsed importParams from domain model
+        const storedParams = session.importParams;
 
         // Compare relevant parameters
         const addressMatches = params.address === storedParams.address;
@@ -276,5 +282,53 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
     } catch (error) {
       return wrapError(error, 'Failed to delete all data sources');
     }
+  }
+
+  /**
+   * Convert database row to DataSource domain model
+   * Handles JSON parsing and camelCase conversion
+   */
+  private toDataSource(row: StoredDataSource): Result<DataSource, Error> {
+    // Parse and validate JSON fields using schemas
+    const importParamsResult = this.parseWithSchema(row.import_params, DataImportParamsSchema);
+    if (importParamsResult.isErr()) {
+      return err(importParamsResult.error);
+    }
+    if (importParamsResult.value === undefined) {
+      return err(new Error('import_params is required but was undefined'));
+    }
+
+    const importResultMetadataResult = this.parseJson<Record<string, unknown>>(row.import_result_metadata);
+    if (importResultMetadataResult.isErr()) {
+      return err(importResultMetadataResult.error);
+    }
+
+    const errorDetailsResult = this.parseJson<unknown>(row.error_details);
+    if (errorDetailsResult.isErr()) {
+      return err(errorDetailsResult.error);
+    }
+
+    const verificationMetadataResult = this.parseWithSchema(row.verification_metadata, VerificationMetadataSchema);
+    if (verificationMetadataResult.isErr()) {
+      return err(verificationMetadataResult.error);
+    }
+
+    return ok({
+      id: row.id,
+      sourceId: row.source_id,
+      sourceType: row.source_type,
+      status: row.status,
+      startedAt: new Date(row.started_at),
+      completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
+      createdAt: new Date(row.created_at),
+      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+      durationMs: row.duration_ms ?? undefined,
+      errorMessage: row.error_message ?? undefined,
+      errorDetails: errorDetailsResult.value,
+      importParams: importParamsResult.value,
+      importResultMetadata: importResultMetadataResult.value ?? {},
+      lastBalanceCheckAt: row.last_balance_check_at ? new Date(row.last_balance_check_at) : undefined,
+      verificationMetadata: verificationMetadataResult.value,
+    });
   }
 }

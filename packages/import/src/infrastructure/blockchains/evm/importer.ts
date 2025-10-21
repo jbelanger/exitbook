@@ -1,6 +1,12 @@
 import type { RawTransactionWithMetadata } from '@exitbook/core';
 import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
-import type { BlockchainProviderManager, EvmChainConfig, ProviderError } from '@exitbook/providers';
+import type {
+  BlockchainProviderManager,
+  EvmChainConfig,
+  EvmTransaction,
+  ProviderError,
+  TransactionWithRawData,
+} from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -122,16 +128,16 @@ export class EvmImporter implements IImporter {
     });
 
     return result.map((response) => {
-      const transactionsWithRawData = Array.isArray(response.data) ? response.data : [response.data];
+      const transactionsWithRaw = response.data as TransactionWithRawData<EvmTransaction>[];
+      const providerId = response.providerName;
 
-      return transactionsWithRawData.map((txData: { normalized: unknown; raw: unknown }) => ({
-        metadata: {
-          providerId: response.providerName,
-          sourceAddress: address,
-          transactionType: 'normal',
-        },
-        rawData: txData.raw,
-        normalizedData: txData.normalized,
+      return transactionsWithRaw.map((txWithRaw) => ({
+        providerId,
+        externalId: txWithRaw.normalized.id,
+        transactionType: 'normal',
+        sourceAddress: address,
+        normalizedData: txWithRaw.normalized,
+        rawData: txWithRaw.raw,
       }));
     });
   }
@@ -152,16 +158,16 @@ export class EvmImporter implements IImporter {
     });
 
     return result.map((response) => {
-      const transactionsWithRawData = Array.isArray(response.data) ? response.data : [response.data];
+      const transactionsWithRaw = response.data as TransactionWithRawData<EvmTransaction>[];
+      const providerId = response.providerName;
 
-      return transactionsWithRawData.map((txData: { normalized: unknown; raw: unknown }) => ({
-        metadata: {
-          providerId: response.providerName,
-          sourceAddress: address,
-          transactionType: 'internal',
-        },
-        rawData: txData.raw,
-        normalizedData: txData.normalized,
+      return transactionsWithRaw.map((txWithRaw) => ({
+        providerId,
+        externalId: txWithRaw.normalized.id,
+        transactionType: 'internal',
+        sourceAddress: address,
+        normalizedData: txWithRaw.normalized,
+        rawData: txWithRaw.raw,
       }));
     });
   }
@@ -182,16 +188,16 @@ export class EvmImporter implements IImporter {
     });
 
     return result.map((response) => {
-      const transactionsWithRawData = Array.isArray(response.data) ? response.data : [response.data];
+      const transactionsWithRaw = response.data as TransactionWithRawData<EvmTransaction>[];
+      const providerId = response.providerName;
 
-      return transactionsWithRawData.map((txData: { normalized: unknown; raw: unknown }) => ({
-        metadata: {
-          providerId: response.providerName,
-          sourceAddress: address,
-          transactionType: 'token',
-        },
-        rawData: txData.raw,
-        normalizedData: txData.normalized,
+      return transactionsWithRaw.map((txWithRaw) => ({
+        providerId,
+        externalId: txWithRaw.normalized.id,
+        transactionType: 'token',
+        sourceAddress: address,
+        normalizedData: txWithRaw.normalized,
+        rawData: txWithRaw.raw,
       }));
     });
   }

@@ -1,6 +1,6 @@
 import { getErrorMessage } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
-import type { RawData, ImportSessionMetadata, DataImportParams, ITransactionRepository } from '@exitbook/data';
+import type { ExternalTransactionData, ImportSessionMetadata, UniversalTransaction } from '@exitbook/core';
+import type { ITransactionRepository } from '@exitbook/data';
 import { PartialImportError } from '@exitbook/exchanges';
 import type { ImportParams } from '@exitbook/import/app/ports/importers.ts';
 import type { Logger } from '@exitbook/shared-logger';
@@ -127,13 +127,13 @@ export class TransactionIngestionService {
         `Found ${allSessions.length} total sessions for source: ${allSessions.map((s) => s.id).join(', ')}`
       );
 
-      const rawDataBySessionId = new Map<number, RawData[]>();
+      const rawDataBySessionId = new Map<number, ExternalTransactionData[]>();
 
       for (const rawDataItem of rawDataItems) {
-        if (rawDataItem.data_source_id) {
-          const sessionRawData = rawDataBySessionId.get(rawDataItem.data_source_id) || [];
+        if (rawDataItem.dataSourceId) {
+          const sessionRawData = rawDataBySessionId.get(rawDataItem.dataSourceId) || [];
           sessionRawData.push(rawDataItem);
-          rawDataBySessionId.set(rawDataItem.data_source_id, sessionRawData);
+          rawDataBySessionId.set(rawDataItem.dataSourceId, sessionRawData);
         }
       }
 
@@ -152,8 +152,8 @@ export class TransactionIngestionService {
         .filter((sessionData) =>
           sessionData.rawDataItems.some(
             (item) =>
-              item.processing_status === 'pending' &&
-              (!filters?.importSessionId || item.data_source_id === filters.importSessionId)
+              item.processingStatus === 'pending' &&
+              (!filters?.dataSourceId || item.dataSourceId === filters.dataSourceId)
           )
         );
 
@@ -168,7 +168,7 @@ export class TransactionIngestionService {
       for (const sessionData of sessionsToProcess) {
         const { rawDataItems: sessionRawItems, session } = sessionData;
 
-        const pendingItems = sessionRawItems.filter((item) => item.processing_status === 'pending');
+        const pendingItems = sessionRawItems.filter((item) => item.processingStatus === 'pending');
 
         if (pendingItems.length === 0) {
           continue;
@@ -176,48 +176,34 @@ export class TransactionIngestionService {
 
         const normalizedRawDataItems: unknown[] = [];
 
-        const parsedImportParams =
-          typeof session.import_params === 'string'
-            ? (JSON.parse(session.import_params) as DataImportParams)
-            : (session.import_params as DataImportParams);
-        const parsedResultMetadata =
-          typeof session.import_result_metadata === 'string'
-            ? (JSON.parse(session.import_result_metadata) as Record<string, unknown>)
-            : (session.import_result_metadata as Record<string, unknown>);
-
+        // Use already-parsed fields from domain model
         const parsedSessionMetadata: ImportSessionMetadata = {
-          ...parsedImportParams,
-          ...parsedResultMetadata,
+          ...session.importParams,
+          ...session.importResultMetadata,
         };
 
         for (const item of pendingItems) {
-          let normalized_data: unknown =
-            typeof item.normalized_data === 'string' ? JSON.parse(item.normalized_data) : item.normalized_data;
+          let normalizedData: unknown = item.normalizedData;
 
-          if (!normalized_data || Object.keys(normalized_data as Record<string, never>).length === 0) {
-            normalized_data = typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
+          if (!normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0) {
+            normalizedData = item.rawData;
           }
 
           // For exchanges: package both raw and normalized data (supports strategy pattern)
           // Raw contains CCXT-specific fields, normalized contains common ExchangeLedgerEntry fields
           // For blockchains: just use normalized data (already in final provider-specific format)
           if (sourceType === 'exchange') {
-            const raw_data: unknown = typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
-
             const dataPackage = {
-              raw: raw_data,
-              normalized: normalized_data,
-              externalId: item.external_id || '',
-              cursor:
-                typeof item.cursor === 'string'
-                  ? (JSON.parse(item.cursor) as Record<string, unknown>)
-                  : (item.cursor as Record<string, unknown>) || {},
+              raw: item.rawData,
+              normalized: normalizedData,
+              externalId: item.externalId || '',
+              cursor: item.cursor || {},
             };
 
             normalizedRawDataItems.push(dataPackage);
           } else {
             // Blockchain: pass normalized data directly
-            normalizedRawDataItems.push(normalized_data);
+            normalizedRawDataItems.push(normalizedData);
           }
         }
 
@@ -274,7 +260,7 @@ export class TransactionIngestionService {
       const savedCount = combinedResult.value.length;
 
       const allProcessedItems = sessionsToProcess.flatMap((sessionData) =>
-        sessionData.rawDataItems.filter((item) => item.processing_status === 'pending')
+        sessionData.rawDataItems.filter((item) => item.processingStatus === 'pending')
       );
       const allRawDataIds = allProcessedItems.map((item) => item.id);
 
@@ -332,7 +318,7 @@ export class TransactionIngestionService {
 
       // Load raw data count from existing session
       const rawDataResult = await this.rawDataRepository.load({
-        importSessionId: existingSession.id,
+        dataSourceId: existingSession.id,
       });
 
       if (rawDataResult.isErr()) {
@@ -343,13 +329,13 @@ export class TransactionIngestionService {
 
       return ok({
         imported: rawDataCount,
-        importSessionId: existingSession.id,
+        dataSourceId: existingSession.id,
       });
     }
 
     const startTime = Date.now();
     let sessionCreated = false;
-    let importSessionId = 0;
+    let dataSourceId = 0;
     try {
       const sessionIdResult = await this.sessionRepository.create(sourceId, sourceType, params);
 
@@ -357,9 +343,9 @@ export class TransactionIngestionService {
         return err(sessionIdResult.error);
       }
 
-      importSessionId = sessionIdResult.value;
+      dataSourceId = sessionIdResult.value;
       sessionCreated = true;
-      this.logger.info(`Created data source : ${importSessionId}`);
+      this.logger.info(`Created data source : ${dataSourceId}`);
 
       const importer = await this.importerFactory.create(sourceId, sourceType, params);
 
@@ -378,7 +364,7 @@ export class TransactionIngestionService {
       const importResult = importResultOrError.value;
       const rawData = importResult.rawTransactions;
 
-      const savedCountResult = await this.rawDataRepository.saveBatch(importSessionId, rawData);
+      const savedCountResult = await this.rawDataRepository.saveBatch(dataSourceId, rawData);
 
       if (savedCountResult.isErr()) {
         return err(savedCountResult.error);
@@ -386,10 +372,10 @@ export class TransactionIngestionService {
       const savedCount = savedCountResult.value;
 
       // Finalize session with success and import result metadata
-      if (sessionCreated && typeof importSessionId === 'number') {
-        this.logger.debug(`Finalizing session ${importSessionId} with ${savedCount} transactions`);
+      if (sessionCreated && typeof dataSourceId === 'number') {
+        this.logger.debug(`Finalizing session ${dataSourceId} with ${savedCount} transactions`);
         const finalizeResult = await this.sessionRepository.finalize(
-          importSessionId,
+          dataSourceId,
           'completed',
           startTime,
           undefined,
@@ -401,21 +387,21 @@ export class TransactionIngestionService {
           return err(finalizeResult.error);
         }
 
-        this.logger.debug(`Successfully finalized session ${importSessionId}`);
+        this.logger.debug(`Successfully finalized session ${dataSourceId}`);
       }
 
       this.logger.info(`Import completed for ${sourceId}: ${savedCount} items saved`);
 
       return ok({
         imported: savedCount,
-        importSessionId,
+        dataSourceId,
       });
     } catch (error) {
       const originalError = error instanceof Error ? error : new Error(String(error));
 
-      if (sessionCreated && typeof importSessionId === 'number' && importSessionId > 0) {
+      if (sessionCreated && typeof dataSourceId === 'number' && dataSourceId > 0) {
         const finalizeResult = await this.sessionRepository.finalize(
-          importSessionId,
+          dataSourceId,
           'failed',
           startTime,
           originalError.message,
@@ -456,13 +442,13 @@ export class TransactionIngestionService {
 
     const startTime = Date.now();
     let sessionCreated = false;
-    let importSessionId: number;
+    let dataSourceId: number;
 
     if (existingSession) {
-      importSessionId = existingSession.id;
-      this.logger.info(`Resuming existing data source : ${importSessionId}`);
+      dataSourceId = existingSession.id;
+      this.logger.info(`Resuming existing data source : ${dataSourceId}`);
 
-      const latestCursorResult = await this.rawDataRepository.getLatestCursor(importSessionId);
+      const latestCursorResult = await this.rawDataRepository.getLatestCursor(dataSourceId);
       if (latestCursorResult.isOk() && latestCursorResult.value) {
         const latestCursor = latestCursorResult.value;
         params.cursor = latestCursor;
@@ -475,9 +461,9 @@ export class TransactionIngestionService {
         return err(sessionIdResult.error);
       }
 
-      importSessionId = sessionIdResult.value;
+      dataSourceId = sessionIdResult.value;
       sessionCreated = true;
-      this.logger.info(`Created new data source : ${importSessionId}`);
+      this.logger.info(`Created new data source : ${dataSourceId}`);
     }
 
     try {
@@ -501,7 +487,7 @@ export class TransactionIngestionService {
 
           let savedCount = 0;
           if (error.successfulItems.length > 0) {
-            const saveResult = await this.rawDataRepository.saveBatch(importSessionId, error.successfulItems);
+            const saveResult = await this.rawDataRepository.saveBatch(dataSourceId, error.successfulItems);
 
             if (saveResult.isErr()) {
               this.logger.error(`Failed to save successful items: ${saveResult.error.message}`);
@@ -512,7 +498,7 @@ export class TransactionIngestionService {
           }
 
           const finalizeResult = await this.sessionRepository.finalize(
-            importSessionId,
+            dataSourceId,
             'failed',
             startTime,
             error.message,
@@ -540,7 +526,7 @@ export class TransactionIngestionService {
       const importResult = importResultOrError.value;
       const rawData = importResult.rawTransactions;
 
-      const savedCountResult = await this.rawDataRepository.saveBatch(importSessionId, rawData);
+      const savedCountResult = await this.rawDataRepository.saveBatch(dataSourceId, rawData);
 
       if (savedCountResult.isErr()) {
         return err(savedCountResult.error);
@@ -548,7 +534,7 @@ export class TransactionIngestionService {
       const savedCount = savedCountResult.value;
 
       const finalizeResult = await this.sessionRepository.finalize(
-        importSessionId,
+        dataSourceId,
         'completed',
         startTime,
         undefined,
@@ -564,14 +550,14 @@ export class TransactionIngestionService {
 
       return ok({
         imported: savedCount,
-        importSessionId,
+        dataSourceId,
       });
     } catch (error) {
       const originalError = error instanceof Error ? error : new Error(String(error));
 
-      if (sessionCreated && typeof importSessionId === 'number' && importSessionId > 0) {
+      if (sessionCreated && typeof dataSourceId === 'number' && dataSourceId > 0) {
         const finalizeResult = await this.sessionRepository.finalize(
-          importSessionId,
+          dataSourceId,
           'failed',
           startTime,
           originalError.message,

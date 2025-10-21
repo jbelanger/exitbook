@@ -1,14 +1,5 @@
-import { parseDecimal } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
+import { DecimalSchema } from '@exitbook/core';
 import { z } from 'zod';
-
-/**
- * Zod schema for Decimal values stored as strings
- */
-const DecimalSchema = z
-  .string()
-  .or(z.instanceof(Decimal))
-  .transform((val) => (typeof val === 'string' ? parseDecimal(val) : val));
 
 /**
  * Link type schema

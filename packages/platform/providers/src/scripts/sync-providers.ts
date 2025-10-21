@@ -9,7 +9,10 @@ import { getErrorMessage } from '@exitbook/core';
  * Detects missing providers and can automatically fix config drift
  */
 import { ProviderRegistry } from '../core/blockchain/index.ts';
-import type { BlockchainExplorersConfig } from '../core/blockchain/utils/config-utils.ts';
+import {
+  BlockchainExplorersConfigSchema,
+  type BlockchainExplorersConfig,
+} from '../core/blockchain/utils/config-utils.ts';
 import { initializeProviders } from '../initialize.js';
 
 // Initialize all providers
@@ -27,7 +30,8 @@ function loadCurrentConfig(): BlockchainExplorersConfig {
   const configPath = resolve(process.cwd(), 'config/blockchain-explorers.json');
   try {
     const content = readFileSync(configPath, 'utf-8');
-    return JSON.parse(content) as BlockchainExplorersConfig;
+    const parsed = JSON.parse(content) as unknown;
+    return BlockchainExplorersConfigSchema.parse(parsed);
   } catch (_error) {
     console.log('⚠️  No existing config found, will create new one');
     return {};

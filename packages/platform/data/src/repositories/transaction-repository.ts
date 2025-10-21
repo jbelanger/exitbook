@@ -1,11 +1,12 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
 import type { Currency, AssetMovement, Money, UniversalTransaction, TransactionStatus } from '@exitbook/core';
-import { dbStringToMoney, moneyToDbString, parseDecimal, wrapError } from '@exitbook/core';
+import { AssetMovementSchema, dbStringToMoney, MoneySchema, moneyToDbString, wrapError } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import type { Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
+import { z } from 'zod';
 
 import type { TransactionsTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
@@ -32,11 +33,11 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     super(db, 'TransactionRepository');
   }
 
-  async save(transaction: UniversalTransaction, importSessionId: number) {
-    return this.saveTransaction(transaction, importSessionId);
+  async save(transaction: UniversalTransaction, dataSourceId: number) {
+    return this.saveTransaction(transaction, dataSourceId);
   }
 
-  async saveTransaction(transaction: UniversalTransaction, importSessionId: number) {
+  async saveTransaction(transaction: UniversalTransaction, dataSourceId: number) {
     try {
       const rawDataJson = this.serializeToJson(transaction) ?? '{}';
 
@@ -55,7 +56,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             transaction.externalId ||
             `${transaction.source}-${transaction.timestamp}-${uuidv4()}`) as string,
           from_address: transaction.from,
-          data_source_id: importSessionId,
+          data_source_id: dataSourceId,
           note_message: transaction.note?.message,
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
           note_severity: transaction.note?.severity,
@@ -169,7 +170,16 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       query = query.orderBy('created_at', 'desc');
 
       const rows = await query.execute();
-      const transactions = rows.map((row) => this.toUniversalTransaction(row));
+
+      // Convert rows to domain models, failing fast on any parse errors
+      const transactions: UniversalTransaction[] = [];
+      for (const row of rows) {
+        const result = this.toUniversalTransaction(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        transactions.push(result.value);
+      }
 
       return ok(transactions);
     } catch (error) {
@@ -190,68 +200,20 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       }
 
       const rows = await query.orderBy('transaction_datetime', 'desc').execute();
-      const transactions = rows.map((row) => this.toUniversalTransaction(row));
+
+      // Convert rows to domain models, failing fast on any parse errors
+      const transactions: UniversalTransaction[] = [];
+      for (const row of rows) {
+        const result = this.toUniversalTransaction(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        transactions.push(result.value);
+      }
 
       return ok(transactions);
     } catch (error) {
       return wrapError(error, 'Failed to retrieve transactions by address');
-    }
-  }
-
-  async findRecent(address: string, limit: number) {
-    try {
-      const rows = await this.db
-        .selectFrom('transactions')
-        .selectAll()
-        .where((eb) => eb.or([eb('from_address', '=', address), eb('to_address', '=', address)]))
-        .orderBy('transaction_datetime', 'desc')
-        .limit(limit)
-        .execute();
-
-      const transactions = rows.map((row) => this.toUniversalTransaction(row));
-
-      return ok(transactions);
-    } catch (error) {
-      return wrapError(error, 'Failed to retrieve recent transactions by address');
-    }
-  }
-
-  async findByDateRange(address: string, from: Date, to: Date) {
-    try {
-      const rows = await this.db
-        .selectFrom('transactions')
-        .selectAll()
-        .where((eb) =>
-          eb.and([
-            eb.or([eb('from_address', '=', address), eb('to_address', '=', address)]),
-            eb('transaction_datetime', '>=', from.toISOString()),
-            eb('transaction_datetime', '<=', to.toISOString()),
-          ])
-        )
-        .orderBy('transaction_datetime', 'desc')
-        .execute();
-
-      const transactions = rows.map((row) => this.toUniversalTransaction(row));
-
-      return ok(transactions);
-    } catch (error) {
-      return wrapError(error, 'Failed to retrieve transactions by date range');
-    }
-  }
-
-  async getTransactionCount(sourceId?: string) {
-    try {
-      let query = this.db.selectFrom('transactions').select((eb) => eb.fn.count<number>('id').as('count'));
-
-      if (sourceId) {
-        query = query.where('source_id', '=', sourceId);
-      }
-
-      const result = await query.executeTakeFirstOrThrow();
-
-      return ok(result.count);
-    } catch (error) {
-      return wrapError(error, 'Failed to get transaction count');
     }
   }
 
@@ -271,10 +233,8 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       // Parse movements once, then filter for those needing prices
       const parsedTransactions = results.map((tx) => ({
         id: tx.id,
-        movementsInflows: tx.movements_inflows ? (JSON.parse(tx.movements_inflows as string) as AssetMovement[]) : [],
-        movementsOutflows: tx.movements_outflows
-          ? (JSON.parse(tx.movements_outflows as string) as AssetMovement[])
-          : [],
+        movementsInflows: this.parseMovements(tx.movements_inflows as string | null),
+        movementsOutflows: this.parseMovements(tx.movements_outflows as string | null),
         transactionDatetime: tx.transaction_datetime,
       }));
 
@@ -330,8 +290,8 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       }
 
       // Parse movements
-      const inflows = tx.movements_inflows ? (JSON.parse(tx.movements_inflows as string) as unknown[]) : [];
-      const outflows = tx.movements_outflows ? (JSON.parse(tx.movements_outflows as string) as unknown[]) : [];
+      const inflows = this.parseMovements(tx.movements_inflows as string | null);
+      const outflows = this.parseMovements(tx.movements_outflows as string | null);
 
       // Create price lookup map
       const priceMap = new Map(
@@ -401,7 +361,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   /**
    * Convert database row to UniversalTransaction domain model
    */
-  private toUniversalTransaction(row: Selectable<TransactionsTable>): UniversalTransaction {
+  private toUniversalTransaction(row: Selectable<TransactionsTable>): Result<UniversalTransaction, Error> {
     // Parse timestamp from datetime
     const datetime = row.transaction_datetime;
     const timestamp = new Date(datetime).getTime();
@@ -415,13 +375,9 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     const platform = this.parseFee(row.fees_platform as string | null);
 
     // Parse metadata from raw_normalized_data if present
-    let metadata: Record<string, unknown> | undefined;
-    if (row.raw_normalized_data) {
-      try {
-        metadata = JSON.parse(row.raw_normalized_data as string) as Record<string, unknown>;
-      } catch {
-        metadata = undefined;
-      }
+    const metadataResult = this.parseJson<Record<string, unknown>>(row.raw_normalized_data);
+    if (metadataResult.isErr()) {
+      return err(metadataResult.error);
     }
 
     const status: TransactionStatus = row.transaction_status;
@@ -449,7 +405,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         type: row.operation_type ?? 'transfer',
       },
       price: row.price ? (dbStringToMoney(row.price, row.price_currency ?? 'USD') ?? undefined) : undefined,
-      metadata,
+      metadata: metadataResult.value,
     };
 
     // Add blockchain data if present
@@ -464,15 +420,20 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
     // Add note if present
     if (row.note_type) {
+      const noteMetadataResult = this.parseJson<Record<string, unknown>>(row.note_metadata);
+      if (noteMetadataResult.isErr()) {
+        return err(noteMetadataResult.error);
+      }
+
       transaction.note = {
         type: row.note_type,
         message: row.note_message ?? '',
         severity: row.note_severity ?? undefined,
-        metadata: row.note_metadata ? (JSON.parse(row.note_metadata as string) as Record<string, unknown>) : undefined,
+        metadata: noteMetadataResult.value,
       };
     }
 
-    return transaction;
+    return ok(transaction);
   }
 
   /**
@@ -484,32 +445,15 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
 
     try {
-      const parsed = JSON.parse(jsonString) as {
-        amount: string | number;
-        asset: string;
-        priceAtTxTime?: {
-          fetchedAt: string;
-          granularity?: 'day' | 'exact' | 'hour' | 'minute';
-          price: { amount: string | number; currency: string };
-          source: string;
-        };
-      }[];
+      const parsed: unknown = JSON.parse(jsonString);
+      const result = z.array(AssetMovementSchema).safeParse(parsed);
 
-      return parsed.map((movement) => ({
-        amount: parseDecimal(movement.amount.toString()),
-        asset: movement.asset,
-        ...(movement.priceAtTxTime && {
-          priceAtTxTime: {
-            fetchedAt: new Date(movement.priceAtTxTime.fetchedAt),
-            granularity: movement.priceAtTxTime.granularity,
-            price: dbStringToMoney(
-              movement.priceAtTxTime.price.amount.toString(),
-              movement.priceAtTxTime.price.currency
-            )!,
-            source: movement.priceAtTxTime.source,
-          },
-        }),
-      }));
+      if (!result.success) {
+        this.logger.warn({ error: result.error, jsonString }, 'Failed to validate movements JSON');
+        return [];
+      }
+
+      return result.data;
     } catch (error) {
       this.logger.warn({ error, jsonString }, 'Failed to parse movements JSON');
       return [];
@@ -526,12 +470,15 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
 
     try {
-      const parsed = JSON.parse(jsonString) as {
-        amount: string | number;
-        currency: string;
-      };
+      const parsed: unknown = JSON.parse(jsonString);
+      const result = MoneySchema.safeParse(parsed);
 
-      return dbStringToMoney(String(parsed.amount), parsed.currency) ?? null;
+      if (!result.success) {
+        this.logger.warn({ error: result.error, jsonString }, 'Failed to validate fee JSON');
+        return null;
+      }
+
+      return result.data;
     } catch (error) {
       this.logger.warn({ error, jsonString }, 'Failed to parse fee JSON');
       return null;

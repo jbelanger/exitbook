@@ -100,9 +100,7 @@ export function processItems<TRaw, TValidated>(
     transactions.push({
       cursor,
       externalId,
-      metadata: {
-        providerId: exchangeId,
-      },
+      providerId: exchangeId,
       rawData: validatedData as unknown,
       normalizedData: normalizedValidation.data as unknown,
     });
