@@ -187,7 +187,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
         return ok();
       }
 
-      await this.db.updateTable('data_sources').set(updates).where('id', '=', sessionId).execute();
+      await this.db.updateTable('data_sources').set(updateData).where('id', '=', sessionId).execute();
 
       return ok();
     } catch (error) {
