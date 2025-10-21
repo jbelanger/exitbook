@@ -18,8 +18,14 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
     rawData: HeliusTransaction,
     _sessionContext: ImportSessionMetadata
   ): Result<SolanaTransaction, NormalizationError> {
+    // Validate required signature field
+    const signature = rawData.transaction.signatures?.[0] ?? rawData.signature;
+    if (!signature) {
+      return err({ message: 'Transaction signature is required for normalization', type: 'error' });
+    }
+
     try {
-      const solanaTransaction = this.transformTransaction(rawData);
+      const solanaTransaction = this.transformTransaction(rawData, signature);
       return ok(solanaTransaction);
     } catch (error) {
       const errorMessage = isErrorWithMessage(error) ? error.message : String(error);
@@ -27,8 +33,7 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
     }
   }
 
-  private transformTransaction(tx: HeliusTransaction): SolanaTransaction {
-    const signature = tx.transaction.signatures?.[0] ?? tx.signature ?? '';
+  private transformTransaction(tx: HeliusTransaction, signature: string): SolanaTransaction {
     const accountKeys = tx.transaction.message.accountKeys;
     const fee = lamportsToSol(tx.meta.fee);
 
@@ -47,10 +52,10 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
       accountChanges,
 
       // Core transaction data
-      amount: primaryAmount ?? '0', // Calculated from balance changes
+      amount: primaryAmount ?? '0', // Calculated from balance changes (zero is valid for fee-only transactions)
       blockHeight: tx.slot,
       blockId: signature, // Use signature as block ID for Helius
-      currency: primaryCurrency ?? 'SOL',
+      currency: primaryCurrency ?? 'SOL', // Default to SOL for native transactions without token changes
 
       // Fee information
       feeAmount: fee.toString(),

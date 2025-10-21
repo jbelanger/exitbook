@@ -31,6 +31,10 @@ export type UniversalTransaction = z.infer<typeof UniversalTransactionSchema>;
  * Represents a universal transaction after saving to the database
  * Includes database-specific concerns (IDs, timestamps, source tracking)
  * Read-side
+ *
+ * Note: Although UniversalTransaction.id is already number, we Omit and re-declare it
+ * to emphasize that StoredTransaction.id is the database-assigned auto-increment ID,
+ * whereas UniversalTransaction.id may come from different sources during processing.
  */
 export interface StoredTransaction extends Omit<UniversalTransaction, 'id'> {
   id: number;

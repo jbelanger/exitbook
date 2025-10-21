@@ -48,7 +48,7 @@ export const BlockCypherTransactionSchema = z
     outputs: z.array(BlockCypherOutputSchema).min(1, 'Transaction must have at least one output'),
     preference: z.string(),
     received: z.string().min(1, 'Received timestamp must not be empty'), // ISO 8601 date
-    relayed_by: z.string(), // IP address that relayed the transaction
+    relayed_by: z.string().optional(), // IP address that relayed the transaction
     size: z.number().positive('Size must be positive'),
     lock_time: z.number().nonnegative(),
     total: z.number().nonnegative().optional(), // Total amount transacted in satoshis
