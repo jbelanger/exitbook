@@ -5,12 +5,12 @@ import type { Selectable, Insertable, Updateable } from 'kysely';
 import type { ExternalTransactionDataTable, DataSourcesTable, TransactionsTable } from '../schema/database-schema.ts';
 
 // Raw transaction type from database (with JSON strings)
-type RawStoredTransaction = Selectable<TransactionsTable>;
+type OriginalTransaction = Selectable<TransactionsTable>;
 
 // Transaction types using Kysely schema
 // StoredTransaction has movements and fees deserialized from JSON strings to typed objects
 export type StoredTransaction = Omit<
-  RawStoredTransaction,
+  OriginalTransaction,
   'movements_inflows' | 'movements_outflows' | 'fees_network' | 'fees_platform' | 'fees_total'
 > & {
   fees_network: Money | null;

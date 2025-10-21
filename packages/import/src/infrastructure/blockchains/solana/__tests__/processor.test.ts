@@ -49,9 +49,6 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
     if (!transaction) return;
 
     // Check structured fields
-    expect(transaction.movements.primary.asset).toBe('SOL');
-    expect(transaction.movements.primary.amount.toString()).toBe('1');
-    expect(transaction.movements.primary.direction).toBe('in');
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('SOL');
     expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1');
@@ -96,9 +93,6 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
     if (!transaction) return;
 
     // Check structured fields
-    expect(transaction.movements.primary.asset).toBe('SOL');
-    expect(transaction.movements.primary.amount.toString()).toBe('2');
-    expect(transaction.movements.primary.direction).toBe('out');
     expect(transaction.movements.inflows).toHaveLength(0);
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('SOL');
@@ -194,9 +188,6 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
     if (!transaction) return;
 
     // Check structured fields - amounts are not normalized from token decimals
-    expect(transaction.movements.primary.asset).toBe('USDC');
-    expect(transaction.movements.primary.amount.toString()).toBe('1000000');
-    expect(transaction.movements.primary.direction).toBe('in');
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.operation.type).toBe('deposit');
@@ -247,9 +238,6 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
     if (!transaction) return;
 
     // Check structured fields - amounts are not normalized from token decimals
-    expect(transaction.movements.primary.asset).toBe('USDC');
-    expect(transaction.movements.primary.amount.toString()).toBe('5000000');
-    expect(transaction.movements.primary.direction).toBe('out');
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.inflows).toHaveLength(0);
     expect(transaction.operation.type).toBe('withdrawal');
@@ -287,8 +275,6 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
     if (!transaction) return;
 
     // Check structured fields
-    expect(transaction.movements.primary.amount.toString()).toBe('0');
-    expect(transaction.movements.primary.direction).toBe('neutral');
     expect(transaction.operation.category).toBe('fee');
     expect(transaction.operation.type).toBe('fee');
   });
@@ -434,9 +420,6 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('SOL');
     expect(transaction.movements.outflows[0]?.amount.toString()).toBe('0.5');
-
-    // Primary should be the largest (USDC)
-    expect(transaction.movements.primary.asset).toBe('USDC');
   });
 
   test('detects reverse swap (USDC -> SOL)', async () => {
@@ -842,7 +825,6 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
     if (!transaction) return;
 
     // Should properly match user address
-    expect(transaction.movements.primary.direction).toBe('in');
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.operation.type).toBe('deposit');
   });

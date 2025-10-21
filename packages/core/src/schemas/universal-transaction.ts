@@ -88,11 +88,6 @@ export const UniversalTransactionSchema = z.object({
   movements: z.object({
     inflows: z.array(AssetMovementSchema),
     outflows: z.array(AssetMovementSchema),
-    primary: z.object({
-      asset: z.string().min(1, 'Primary asset must not be empty'),
-      amount: z.instanceof(Decimal, { message: 'Expected Decimal instance' }),
-      direction: MovementDirectionSchema,
-    }),
   }),
 
   // Structured fees

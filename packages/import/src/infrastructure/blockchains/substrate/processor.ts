@@ -70,11 +70,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
               amount: parseDecimal(o.amount),
               asset: o.asset,
             })),
-            primary: {
-              amount: parseDecimal(fundFlow.primary.amount),
-              asset: fundFlow.primary.asset,
-              direction,
-            },
           },
           fees: {
             network: networkFee,

@@ -126,9 +126,6 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     expect(transaction.movements.outflows[0]?.asset).toBe('USD');
     expect(transaction.movements.outflows[0]?.amount.toString()).toBe('1000');
 
-    expect(transaction.movements.primary.asset).toBe('BTC');
-    expect(transaction.movements.primary.direction).toBe('in');
-
     expect(transaction.fees.platform?.amount.toString()).toBe('2.5');
   });
 
@@ -162,7 +159,6 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     expect(transaction.movements.inflows[0]?.amount.toString()).toBe('700');
 
     expect(transaction.movements.outflows).toHaveLength(0);
-    expect(transaction.movements.primary.direction).toBe('in');
   });
 
   test('creates single transaction for withdrawal (outflow only)', async () => {
@@ -195,7 +191,6 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     expect(transaction.movements.outflows[0]?.amount.toString()).toBe('385.155');
 
     expect(transaction.movements.inflows).toHaveLength(0);
-    expect(transaction.movements.primary.direction).toBe('out');
   });
 
   test('handles self-transfer (same asset in and out)', async () => {
@@ -230,7 +225,6 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.primary.direction).toBe('neutral');
   });
 
   test('consolidates duplicate assets in swaps', async () => {

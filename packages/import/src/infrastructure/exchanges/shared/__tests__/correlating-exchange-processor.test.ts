@@ -142,41 +142,6 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
     expect(transaction.fees.platform?.amount.toString()).toBe('2.5');
     expect(transaction.fees.platform?.currency.toString()).toBe('USD');
   });
-
-  test('selects largest inflow as primary movement', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
-
-    const entries = [
-      wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-1000', asset: 'USD' })),
-      wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.025', asset: 'BTC' })),
-    ];
-
-    const result = await processor.process(entries, {});
-
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-
-    const [transaction] = result.value;
-    expect(transaction?.movements.primary.asset).toBe('BTC');
-    expect(transaction?.movements.primary.amount.toString()).toBe('0.025');
-    expect(transaction?.movements.primary.direction).toBe('in');
-  });
-
-  test('selects largest outflow as primary when no inflows', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
-
-    const entries = [wrapEntry(createEntry({ id: 'E1', correlationId: 'WITH001', amount: '-500', asset: 'USD' }))];
-
-    const result = await processor.process(entries, {});
-
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-
-    const [transaction] = result.value;
-    expect(transaction?.movements.primary.asset).toBe('USD');
-    expect(transaction?.movements.primary.amount.toString()).toBe('500');
-    expect(transaction?.movements.primary.direction).toBe('out');
-  });
 });
 
 describe('CorrelatingExchangeProcessor - Operation Classification', () => {
@@ -244,7 +209,6 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
     const [transaction] = result.value;
     expect(transaction?.operation.category).toBe('transfer');
     expect(transaction?.operation.type).toBe('transfer');
-    expect(transaction?.movements.primary.direction).toBe('neutral');
   });
 
   test('adds uncertainty note for complex multi-asset transactions', async () => {

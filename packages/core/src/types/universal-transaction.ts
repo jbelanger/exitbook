@@ -109,10 +109,6 @@ export interface UniversalTransaction {
     inflows: AssetMovement[];
     // What user lost
     outflows: AssetMovement[];
-    // Primary movement summary
-    primary: AssetMovement & {
-      direction: MovementDirection;
-    };
   };
 
   // Structured fee breakdown

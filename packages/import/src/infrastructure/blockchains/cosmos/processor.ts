@@ -93,20 +93,6 @@ export class CosmosProcessor extends BaseTransactionProcessor {
               amount: parseDecimal(outflow.amount),
               asset: outflow.asset,
             })),
-            primary: {
-              amount: parseDecimal(fundFlow.primary.amount),
-              asset: fundFlow.primary.asset,
-              direction: (() => {
-                const hasInflow = fundFlow.inflows.some((i) => i.asset === fundFlow.primary.asset);
-                const hasOutflow = fundFlow.outflows.some((o) => o.asset === fundFlow.primary.asset);
-
-                // Self-transfer (same asset in and out) = net zero = neutral
-                if (hasInflow && hasOutflow) return 'neutral';
-                if (hasInflow) return 'in';
-                if (hasOutflow) return 'out';
-                return 'neutral'; // No movement = neutral
-              })(),
-            },
           },
 
           // Structured fees - only deduct from balance if user paid them

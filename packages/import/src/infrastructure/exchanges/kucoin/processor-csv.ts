@@ -121,11 +121,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
             amount: parseDecimal(buyAmount.toString()),
           },
         ],
-        primary: {
-          asset: buyCurrency, // What we bought is primary
-          amount: parseDecimal(buyAmount.toString()),
-          direction: 'in' as const,
-        },
       },
 
       // Structured fees - convert market has platform fees
@@ -178,11 +173,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
           },
         ],
         outflows: [], // No outflows for deposit
-        primary: {
-          asset: row.Coin,
-          amount: parseDecimal(netAmount.toString()),
-          direction: 'in' as const,
-        },
       },
 
       // Structured fees - exchange deposits have platform fees
@@ -246,11 +236,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
             amount: parseDecimal(isBuy ? filledAmount.toString() : filledVolume.toString()),
           },
         ],
-        primary: {
-          asset: baseCurrency || 'unknown', // Base currency is always primary
-          amount: parseDecimal(isBuy ? filledAmount.toString() : (-filledAmount).toString()),
-          direction: isBuy ? ('in' as const) : ('out' as const),
-        },
       },
 
       // Structured fees - exchange trades have platform fees
@@ -318,11 +303,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
             amount: parseDecimal(isBuy ? filledAmount.toString() : filledVolume.toString()),
           },
         ],
-        primary: {
-          asset: baseCurrency || 'unknown', // Base currency is always primary
-          amount: parseDecimal(isBuy ? filledAmount.toString() : (-filledAmount).toString()),
-          direction: isBuy ? ('in' as const) : ('out' as const),
-        },
       },
 
       // Structured fees - exchange trades have platform fees
@@ -386,11 +366,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
             amount: parseDecimal(isBuy ? filledAmount.toString() : filledVolume.toString()),
           },
         ],
-        primary: {
-          asset: baseCurrency || 'unknown', // Base currency is always primary
-          amount: parseDecimal(isBuy ? filledAmount.toString() : (-filledAmount).toString()),
-          direction: isBuy ? ('in' as const) : ('out' as const),
-        },
       },
 
       // Structured fees - exchange trades have platform fees
@@ -442,11 +417,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
             amount: parseDecimal(absAmount.toString()),
           },
         ],
-        primary: {
-          asset: row.Coin,
-          amount: parseDecimal((-absAmount).toString()), // Negative for outflow
-          direction: 'out' as const,
-        },
       },
 
       // Structured fees - exchange withdrawals have platform fees

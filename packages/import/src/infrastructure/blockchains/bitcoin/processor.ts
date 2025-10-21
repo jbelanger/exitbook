@@ -95,11 +95,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
                     },
                   ]
                 : [],
-            primary: {
-              asset: 'BTC',
-              amount: parseDecimal(fundFlow.netAmount),
-              direction: fundFlow.isIncoming ? 'in' : fundFlow.isOutgoing ? 'out' : 'neutral',
-            },
           },
 
           fees: {

@@ -1,4 +1,4 @@
-import { UniversalTransactionSchema, type UniversalTransaction } from '@exitbook/core';
+import { computePrimaryMovement, UniversalTransactionSchema, type UniversalTransaction } from '@exitbook/core';
 import type { ITransactionProcessor } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
@@ -61,7 +61,10 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
       }
 
       // Apply scam detection based on primary asset
-      const primaryAsset = transaction.movements?.primary?.asset;
+      const primaryAsset = computePrimaryMovement(
+        transaction.movements?.inflows,
+        transaction.movements?.outflows
+      )?.asset;
       if (primaryAsset) {
         const scamResult = detectScamFromSymbol(primaryAsset);
         if (scamResult.isScam) {

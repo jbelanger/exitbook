@@ -85,11 +85,6 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
             amount: parseDecimal(outflow.amount),
             asset: outflow.asset,
           })),
-          primary: {
-            amount: parseDecimal(fundFlow.primary.amount),
-            asset: fundFlow.primary.asset,
-            direction: this.determinePrimaryDirection(fundFlow),
-          },
         },
 
         fees: {

@@ -67,9 +67,6 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
     expect(transaction.to).toBe(USER_ADDRESS);
 
     // Check structured fields
-    expect(transaction.movements.primary.asset).toBe('INJ');
-    expect(transaction.movements.primary.amount.toString()).toBe('1500000000000000000');
-    expect(transaction.movements.primary.direction).toBe('in');
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('INJ');
     expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1500000000000000000');
@@ -111,9 +108,6 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
     expect(transaction.to).toBe(EXTERNAL_ADDRESS);
 
     // Check structured fields
-    expect(transaction.movements.primary.asset).toBe('INJ');
-    expect(transaction.movements.primary.amount.toString()).toBe('2000000000000000000');
-    expect(transaction.movements.primary.direction).toBe('out');
     expect(transaction.movements.inflows).toHaveLength(0);
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('INJ');
@@ -155,9 +149,6 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
     expect(transaction.to).toBe(USER_ADDRESS);
 
     // Check structured fields - self-transfer shows both in and out
-    expect(transaction.movements.primary.asset).toBe('INJ');
-    expect(transaction.movements.primary.amount.toString()).toBe('500000000000000000');
-    expect(transaction.movements.primary.direction).toBe('neutral'); // Net zero for same asset
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.operation.category).toBe('transfer');
@@ -198,9 +189,6 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
     if (!transaction) return;
 
     // Check structured fields
-    expect(transaction.movements.primary.asset).toBe('USDT');
-    expect(transaction.movements.primary.amount.toString()).toBe('1000000000');
-    expect(transaction.movements.primary.direction).toBe('in');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.metadata?.tokenAddress).toBe('inj1usdt000000000000000000000000000000000');
   });
@@ -239,9 +227,6 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
     if (!transaction) return;
 
     // Check structured fields
-    expect(transaction.movements.primary.asset).toBe('USDT');
-    expect(transaction.movements.primary.amount.toString()).toBe('5000000000');
-    expect(transaction.movements.primary.direction).toBe('out');
     expect(transaction.operation.type).toBe('withdrawal');
   });
 });
@@ -278,8 +263,6 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
     if (!transaction) return;
 
     // Check structured fields
-    expect(transaction.movements.primary.amount.toString()).toBe('0');
-    expect(transaction.movements.primary.direction).toBe('neutral');
     expect(transaction.operation.category).toBe('fee');
     expect(transaction.operation.type).toBe('fee');
     expect(transaction.metadata?.hasContractInteraction).toBe(false);
@@ -603,7 +586,6 @@ describe('CosmosProcessor - Multi-Chain Support', () => {
     if (!transaction) return;
 
     // Check structured fields
-    expect(transaction.movements.primary.asset).toBe('INJ');
     expect(transaction.blockchain?.name).toBe('injective');
     expect(transaction.fees.total.currency.toString()).toBe('INJ');
   });
@@ -639,7 +621,6 @@ describe('CosmosProcessor - Multi-Chain Support', () => {
     if (!transaction) return;
 
     // Check structured fields
-    expect(transaction.movements.primary.asset).toBe('OSMO');
     expect(transaction.blockchain?.name).toBe('osmosis');
     expect(transaction.fees.total.currency.toString()).toBe('OSMO');
   });
@@ -704,7 +685,6 @@ describe('CosmosProcessor - Edge Cases', () => {
     if (!transaction) return;
 
     // Check structured fields - should match despite case difference
-    expect(transaction.movements.primary.direction).toBe('in');
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.operation.type).toBe('deposit');
   });

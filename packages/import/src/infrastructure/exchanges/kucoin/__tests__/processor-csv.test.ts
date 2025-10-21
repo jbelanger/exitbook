@@ -61,10 +61,6 @@ describe('KucoinProcessor (CSV) - Spot Order Handling', () => {
     expect(transaction.movements.inflows[0]?.asset).toBe('BTC');
     expect(transaction.movements.inflows[0]?.amount.toString()).toBe('0.1');
 
-    // Verify primary movement (base currency)
-    expect(transaction.movements.primary.asset).toBe('BTC');
-    expect(transaction.movements.primary.direction).toBe('in');
-
     expect(transaction.fees.platform?.amount.toString()).toBe('0.42');
     expect(transaction.fees.platform?.currency.toString()).toBe('USDT');
   });
@@ -290,10 +286,6 @@ describe('KucoinProcessor (CSV) - Account History Handling', () => {
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('BTC');
     expect(transaction.movements.inflows[0]?.amount.toString()).toBe('0.1');
-
-    // Verify primary movement is what we bought
-    expect(transaction.movements.primary.asset).toBe('BTC');
-    expect(transaction.movements.primary.direction).toBe('in');
 
     expect(transaction.metadata?.type).toBe('convert_market');
   });
