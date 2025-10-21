@@ -51,18 +51,18 @@ export const OperationTypeSchema = z.enum([
 // Movement direction schema
 export const MovementDirectionSchema = z.enum(['in', 'out', 'neutral']);
 
+export const PriceAtTxTimeSchema = z.object({
+  price: MoneySchema,
+  source: z.string(),
+  fetchedAt: z.date(),
+  granularity: z.enum(['exact', 'minute', 'hour', 'day']).optional(),
+});
+
 // Asset movement schema
 export const AssetMovementSchema = z.object({
   asset: z.string().min(1, 'Asset must not be empty'),
   amount: z.instanceof(Decimal, { message: 'Expected Decimal instance' }),
-  priceAtTxTime: z
-    .object({
-      price: MoneySchema,
-      source: z.string(),
-      fetchedAt: z.date(),
-      granularity: z.enum(['exact', 'minute', 'hour', 'day']).optional(),
-    })
-    .optional(),
+  priceAtTxTime: PriceAtTxTimeSchema.optional(),
 });
 
 // Transaction note schema
@@ -117,12 +117,6 @@ export const UniversalTransactionSchema = z.object({
   note: TransactionNoteSchema.optional(),
   price: MoneySchema.optional(),
   metadata: z.record(z.string(), z.any()).optional(),
-
-  // Deprecated fields (kept for backward compatibility)
-  amount: MoneySchema.optional(),
-  fee: MoneySchema.optional(),
-  type: TransactionTypeSchema.optional(),
-  symbol: z.string().optional(),
 });
 
 // Universal Balance schema
