@@ -76,7 +76,7 @@ describe('ExportHandler', () => {
       expect(exportResult.content).toContain('1,kraken,trade');
       expect(exportResult.content).toContain('2,kraken,trade');
 
-      expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith(undefined, undefined);
+      expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith(undefined);
     });
 
     it('should successfully export transactions to JSON', async () => {
@@ -121,7 +121,7 @@ describe('ExportHandler', () => {
       expect(exportResult.sourceName).toBe('kraken');
       expect(exportResult.transactionCount).toBe(1);
 
-      expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith('kraken', undefined);
+      expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith({ sourceId: 'kraken' });
     });
 
     it('should filter by since date', async () => {
@@ -139,7 +139,7 @@ describe('ExportHandler', () => {
       const result = await handler.execute(params);
 
       expect(result.isOk()).toBe(true);
-      expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith(undefined, sinceTimestamp);
+      expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith({ since: sinceTimestamp });
     });
 
     it('should filter by both source and since date', async () => {
@@ -158,7 +158,10 @@ describe('ExportHandler', () => {
       const result = await handler.execute(params);
 
       expect(result.isOk()).toBe(true);
-      expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith('bitcoin', sinceTimestamp);
+      expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith({
+        sourceId: 'bitcoin',
+        since: sinceTimestamp,
+      });
     });
 
     it('should handle empty transaction list for CSV', async () => {
