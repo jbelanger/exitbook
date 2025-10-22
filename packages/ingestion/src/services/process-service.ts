@@ -186,7 +186,7 @@ export class TransactionProcessService {
           return err(
             new Error(
               `Cannot proceed: Session ${session.id} processing failed. ${sessionTransactionsResult.error}. ` +
-                `This would corrupt portfolio calculations by losing transactions from this data source .`
+                `This would corrupt portfolio calculations by losing transactions from this data source.`
             )
           );
         }
