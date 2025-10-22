@@ -3,6 +3,7 @@
 
 import type { Command } from 'commander';
 
+import { registerViewLinksCommand } from './view-links.ts';
 import { registerViewSessionsCommand } from './view-sessions.ts';
 import { registerViewTransactionsCommand } from './view-transactions.ts';
 
@@ -15,4 +16,5 @@ export function registerViewCommand(program: Command): void {
   // Register subcommands
   registerViewSessionsCommand(view);
   registerViewTransactionsCommand(view);
+  registerViewLinksCommand(view);
 }
