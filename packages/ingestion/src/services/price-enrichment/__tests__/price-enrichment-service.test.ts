@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 /* eslint-disable @typescript-eslint/no-explicit-any -- Acceptable for test mocks */
 
-import type { UniversalTransaction } from '@exitbook/core';
+import type { SourceType, UniversalTransaction } from '@exitbook/core';
 import { parseDecimal, type AssetMovement } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { ok, err } from 'neverthrow';
@@ -13,7 +13,7 @@ import { PriceEnrichmentService } from '../price-enrichment-service.ts';
 // Helper to create a mock StoredTransaction with typed movements
 function createMockTransaction(
   id: number,
-  sourceType: 'exchange' | 'blockchain',
+  sourceType: SourceType,
   sourceId: string,
   datetime: string,
   inflows: AssetMovement[],

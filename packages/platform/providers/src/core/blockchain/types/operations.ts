@@ -2,16 +2,12 @@ export type ProviderOperationParams =
   | {
       address: string;
       limit?: number | undefined;
-      since?: number | undefined;
       type: 'getAddressTransactions';
-      until?: number | undefined;
     }
   | {
       address: string;
       limit?: number | undefined;
-      since?: number | undefined;
       type: 'getAddressInternalTransactions';
-      until?: number | undefined;
     }
   | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressBalances' }
   | { address: string; type: 'hasAddressTransactions' }
@@ -19,9 +15,7 @@ export type ProviderOperationParams =
       address: string;
       contractAddress?: string | undefined;
       limit?: number | undefined;
-      since?: number | undefined;
       type: 'getAddressTokenTransactions';
-      until?: number | undefined;
     }
   | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressTokenBalances' };
 

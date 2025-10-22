@@ -59,7 +59,6 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
       case 'getAddressTransactions':
         return (await this.getAddressTransactions({
           address: operation.address,
-          since: operation.since,
         })) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
@@ -78,9 +77,8 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
 
   private async getAddressTransactions(params: {
     address: string;
-    since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<CosmosTransaction>[], Error>> {
-    const { address, since } = params;
+    const { address } = params;
 
     if (!this.validateAddress(address)) {
       return err(new Error(`Invalid ${this.chainConfig.displayName} address: ${address}`));
@@ -105,24 +103,7 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    let rawTransactions = response.data;
-
-    // Apply time filter if specified
-    if (since) {
-      rawTransactions = rawTransactions.filter((tx) => {
-        if (
-          typeof tx === 'object' &&
-          tx !== null &&
-          'block_timestamp' in tx &&
-          (typeof (tx as { block_timestamp?: unknown }).block_timestamp === 'string' ||
-            typeof (tx as { block_timestamp?: unknown }).block_timestamp === 'number')
-        ) {
-          const timestamp = new Date(tx.block_timestamp).getTime();
-          return timestamp >= since;
-        }
-        return false;
-      });
-    }
+    const rawTransactions = response.data;
 
     if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
       this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);

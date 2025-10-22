@@ -82,7 +82,6 @@ export class TaostatsApiClient extends BaseApiClient {
       case 'getAddressTransactions':
         return (await this.getAddressTransactions({
           address: operation.address,
-          since: operation.since,
         })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
@@ -140,9 +139,8 @@ export class TaostatsApiClient extends BaseApiClient {
 
   private async getAddressTransactions(params: {
     address: string;
-    since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<SubstrateTransaction>[], Error>> {
-    const { address, since } = params;
+    const { address } = params;
 
     // Validate address format
     if (!isValidSS58Address(address)) {
@@ -165,12 +163,6 @@ export class TaostatsApiClient extends BaseApiClient {
         limit: limit.toString(),
         offset: offset.toString(),
       });
-
-      if (since) {
-        // Taostats expects ISO timestamp
-        const sinceDate = new Date(since).toISOString();
-        params.append('after', sinceDate);
-      }
 
       const endpoint = `/transfer/v1?${params.toString()}`;
       const result = await this.httpClient.get<{ data?: TaostatsTransactionRaw[] }>(endpoint);

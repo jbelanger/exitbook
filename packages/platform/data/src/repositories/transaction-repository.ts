@@ -1,6 +1,14 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
 import type { Currency, AssetMovement, Money, UniversalTransaction, TransactionStatus } from '@exitbook/core';
-import { AssetMovementSchema, dbStringToMoney, MoneySchema, moneyToDbString, wrapError } from '@exitbook/core';
+import {
+  AssetMovementSchema,
+  dbStringToMoney,
+  MoneySchema,
+  moneyToDbString,
+  NoteMetadataSchema,
+  TransactionMetadataSchema,
+  wrapError,
+} from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import type { Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
@@ -39,6 +47,22 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   async saveTransaction(transaction: UniversalTransaction, dataSourceId: number) {
     try {
+      // Validate metadata before saving
+      if (transaction.metadata !== undefined) {
+        const metadataValidation = TransactionMetadataSchema.safeParse(transaction.metadata);
+        if (!metadataValidation.success) {
+          return err(new Error(`Invalid transaction metadata: ${metadataValidation.error.message}`));
+        }
+      }
+
+      // Validate note metadata before saving
+      if (transaction.note?.metadata !== undefined) {
+        const noteMetadataValidation = NoteMetadataSchema.safeParse(transaction.note.metadata);
+        if (!noteMetadataValidation.success) {
+          return err(new Error(`Invalid note metadata: ${noteMetadataValidation.error.message}`));
+        }
+      }
+
       const rawDataJson = this.serializeToJson(transaction) ?? '{}';
 
       // Extract currencies from Money type
@@ -374,8 +398,8 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     const network = this.parseFee(row.fees_network as string | null);
     const platform = this.parseFee(row.fees_platform as string | null);
 
-    // Parse metadata from raw_normalized_data if present
-    const metadataResult = this.parseJson<Record<string, unknown>>(row.raw_normalized_data);
+    // Parse metadata from raw_normalized_data if present (validate with schema)
+    const metadataResult = this.parseWithSchema(row.raw_normalized_data, TransactionMetadataSchema);
     if (metadataResult.isErr()) {
       return err(metadataResult.error);
     }
@@ -420,7 +444,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
     // Add note if present
     if (row.note_type) {
-      const noteMetadataResult = this.parseJson<Record<string, unknown>>(row.note_metadata);
+      const noteMetadataResult = this.parseWithSchema(row.note_metadata, NoteMetadataSchema);
       if (noteMetadataResult.isErr()) {
         return err(noteMetadataResult.error);
       }

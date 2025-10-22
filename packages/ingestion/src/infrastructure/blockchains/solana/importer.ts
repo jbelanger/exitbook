@@ -1,5 +1,4 @@
 import type { ExternalTransaction } from '@exitbook/core';
-import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/ingestion/app/ports/importers.js';
 import type {
   BlockchainProviderManager,
   ProviderError,
@@ -8,6 +7,8 @@ import type {
 } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
+
+import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.ts';
 
 /**
  * Solana transaction importer that fetches raw transaction data from blockchain APIs.
@@ -40,14 +41,14 @@ export class SolanaTransactionImporter implements IImporter {
   /**
    * Import raw transaction data from Solana blockchain APIs with provider provenance.
    */
-  async import(params: BlockchainImportParams): Promise<Result<ImportRunResult, Error>> {
+  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     if (!params.address) {
       return err(new Error('Address required for Solana transaction import'));
     }
 
     this.logger.info(`Starting Solana transaction import for address: ${params.address.substring(0, 20)}...`);
 
-    const result = await this.fetchRawTransactionsForAddress(params.address, params.since);
+    const result = await this.fetchRawTransactionsForAddress(params.address);
 
     return result
       .map((rawTransactions) => {
@@ -63,15 +64,11 @@ export class SolanaTransactionImporter implements IImporter {
   /**
    * Fetch raw transactions for a single address with provider provenance.
    */
-  private async fetchRawTransactionsForAddress(
-    address: string,
-    since?: number
-  ): Promise<Result<ExternalTransaction[], ProviderError>> {
+  private async fetchRawTransactionsForAddress(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('solana', {
       address: address,
       getCacheKey: (params) =>
-        `solana:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? params.since || 'all' : 'unknown'}`,
-      since: since,
+        `solana:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? 'all' : 'unknown'}`,
       type: 'getAddressTransactions',
     });
 

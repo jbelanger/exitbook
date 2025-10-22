@@ -204,31 +204,6 @@ describe('CosmosImporter', () => {
       }
     });
 
-    test('should pass since parameter to API call', async () => {
-      const importer = createImporter();
-      const address = 'inj1abc123def456ghi789';
-      const since = 1234567890;
-
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'injective-explorer',
-        } as FailoverExecutionResult<unknown>)
-      );
-
-      await importer.import({ address, since });
-
-      // Verify since parameter was passed
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
-
-      expect(executeCalls).toHaveLength(1);
-
-      const [, operation] = executeCalls[0]!;
-      expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getAddressTransactions');
-    });
-
     test('should handle multiple transactions', async () => {
       const importer = createImporter();
       const address = 'inj1abc123def456ghi789';
@@ -377,28 +352,6 @@ describe('CosmosImporter', () => {
 
   describe('Cache Key Generation', () => {
     test('should generate correct cache keys', async () => {
-      const importer = createImporter();
-      const address = 'inj1abc123def456ghi789';
-      const since = 1234567890;
-
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'injective-explorer',
-        } as FailoverExecutionResult<unknown>)
-      );
-
-      await importer.import({ address, since });
-
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
-
-      const call = calls[0]![1];
-      const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe(`injective:raw-txs:${address}:${since}`);
-    });
-
-    test('should use "all" in cache key when since is not provided', async () => {
       const importer = createImporter();
       const address = 'inj1abc123def456ghi789';
 

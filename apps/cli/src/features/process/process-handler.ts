@@ -1,13 +1,11 @@
 import type { KyselyDB } from '@exitbook/data';
 import { TransactionRepository } from '@exitbook/data';
 import {
-  ImporterFactory,
   DataSourceRepository,
   ProcessorFactory,
   RawDataRepository,
-  TransactionIngestionService,
+  TransactionProcessService,
 } from '@exitbook/ingestion';
-import { BlockchainProviderManager, loadExplorerConfig, type BlockchainExplorersConfig } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -35,31 +33,19 @@ export interface ProcessResult {
  * Reusable by both CLI command and other contexts.
  */
 export class ProcessHandler {
-  private providerManager: BlockchainProviderManager;
-  private ingestionService: TransactionIngestionService;
-  private transactionRepository: TransactionRepository;
-  private sessionRepository: DataSourceRepository;
+  private processService: TransactionProcessService;
 
-  constructor(
-    private database: KyselyDB,
-    explorerConfig?: BlockchainExplorersConfig
-  ) {
-    // Load explorer config
-    const config = explorerConfig || loadExplorerConfig();
-
+  constructor(private database: KyselyDB) {
     // Initialize services
-    this.transactionRepository = new TransactionRepository(this.database);
+    const transactionRepository = new TransactionRepository(this.database);
     const rawDataRepository = new RawDataRepository(this.database);
-    this.sessionRepository = new DataSourceRepository(this.database);
-    this.providerManager = new BlockchainProviderManager(config);
-    const importerFactory = new ImporterFactory(this.providerManager);
+    const sessionRepository = new DataSourceRepository(this.database);
     const processorFactory = new ProcessorFactory();
 
-    this.ingestionService = new TransactionIngestionService(
+    this.processService = new TransactionProcessService(
       rawDataRepository,
-      this.sessionRepository,
-      this.transactionRepository,
-      importerFactory,
+      sessionRepository,
+      transactionRepository,
       processorFactory
     );
   }
@@ -80,7 +66,7 @@ export class ProcessHandler {
       );
 
       // Process raw data to transactions
-      const processResult = await this.ingestionService.processRawDataToTransactions(
+      const processResult = await this.processService.processRawDataToTransactions(
         params.sourceName,
         params.sourceType,
         params.filters
@@ -111,6 +97,6 @@ export class ProcessHandler {
    * Cleanup resources.
    */
   destroy(): void {
-    this.providerManager.destroy();
+    // No resources to cleanup
   }
 }

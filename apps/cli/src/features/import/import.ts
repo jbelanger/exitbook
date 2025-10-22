@@ -15,8 +15,6 @@ import { buildImportParamsFromFlags, type ImportCommandOptions } from './import-
  */
 export interface ExtendedImportCommandOptions extends ImportCommandOptions {
   json?: boolean | undefined;
-  since?: string | undefined;
-  until?: string | undefined;
 }
 
 /**
@@ -44,8 +42,6 @@ export function registerImportCommand(program: Command): void {
     .option('--api-key <key>', 'API key for exchange API access')
     .option('--api-secret <secret>', 'API secret for exchange API access')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange API access (if required)')
-    .option('--since <date>', 'Import data since date (YYYY-MM-DD, timestamp, or 0 for all history)')
-    .option('--until <date>', 'Import data until date (YYYY-MM-DD or timestamp)')
     .option('--process', 'Process data after import (combined import+process pipeline)')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
     .action(async (options: ExtendedImportCommandOptions) => {

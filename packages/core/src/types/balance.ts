@@ -1,7 +1,5 @@
 /**
- * Blockchain balance snapshot
+ * Blockchain balance snapshot - type inferred from schema
+ * For runtime validation, import BlockchainBalanceSnapshotSchema from schemas/balance.ts
  */
-export interface BlockchainBalanceSnapshot {
-  total: string; // total balance as decimal string
-  asset: string; // native currency symbol (e.g., "BTC", "ETH", "SOL") or token identifier (e.g., contract address or token ID)
-}
+export type { BlockchainBalanceSnapshot } from '../schemas/balance.ts';

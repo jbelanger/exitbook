@@ -20,8 +20,8 @@ export const CostBasisConfigSchema = z.object({
   currency: FiatCurrencySchema,
   jurisdiction: JurisdictionSchema,
   taxYear: z.number().int().min(2000).max(2100),
-  startDate: z.date().optional(),
-  endDate: z.date().optional(),
+  startDate: DateSchema.optional(),
+  endDate: DateSchema.optional(),
   specificLotSelectionStrategy: z.enum(['minimize-gain', 'maximize-loss']).optional(),
 });
 

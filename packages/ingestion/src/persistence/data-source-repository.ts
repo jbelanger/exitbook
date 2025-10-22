@@ -1,12 +1,18 @@
-import type { DataImportParams, DataSource, VerificationMetadata } from '@exitbook/core';
-import { DataImportParamsSchema, VerificationMetadataSchema, wrapError } from '@exitbook/core';
+import type { DataImportParams, DataSource, DataSourceStatus, SourceType, VerificationMetadata } from '@exitbook/core';
+import {
+  DataImportParamsSchema,
+  ImportResultMetadataSchema,
+  VerificationMetadataSchema,
+  wrapError,
+} from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import type { StoredDataSource, ImportSessionQuery, DataSourceUpdate } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { IDataSourceRepository } from '../../app/ports/data-source-repository.interface.ts';
+import type { ImportParams } from '../types/importers.ts';
+import type { IDataSourceRepository } from '../types/repositories.ts';
 
 /**
  * Kysely-based repository for data source  database operations.
@@ -19,15 +25,22 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
   async create(
     sourceId: string,
-    sourceType: 'exchange' | 'blockchain',
+    sourceType: SourceType,
     importParams?: DataImportParams
   ): Promise<Result<number, Error>> {
     try {
+      // Validate import params before saving
+      const paramsToSave = importParams ?? {};
+      const validationResult = DataImportParamsSchema.safeParse(paramsToSave);
+      if (!validationResult.success) {
+        return err(new Error(`Invalid import params: ${validationResult.error.message}`));
+      }
+
       const result = await this.db
         .insertInto('data_sources')
         .values({
           created_at: this.getCurrentDateTimeForDB(),
-          import_params: this.serializeToJson(importParams ?? {}) ?? '{}',
+          import_params: this.serializeToJson(validationResult.data) ?? '{}',
           import_result_metadata: this.serializeToJson({}) ?? '{}',
           source_id: sourceId,
           source_type: sourceType,
@@ -45,13 +58,20 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
   async finalize(
     sessionId: number,
-    status: 'completed' | 'failed' | 'cancelled',
+    status: Exclude<DataSourceStatus, 'started'>,
     startTime: number,
     errorMessage?: string,
     errorDetails?: unknown,
     importResultMetadata?: Record<string, unknown>
   ): Promise<Result<void, Error>> {
     try {
+      // Validate import result metadata before saving
+      const metadataToSave = importResultMetadata ?? {};
+      const validationResult = ImportResultMetadataSchema.safeParse(metadataToSave);
+      if (!validationResult.success) {
+        return err(new Error(`Invalid import result metadata: ${validationResult.error.message}`));
+      }
+
       const durationMs = Date.now() - startTime;
       const currentTimestamp = this.getCurrentDateTimeForDB();
 
@@ -62,7 +82,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
           duration_ms: durationMs,
           error_details: this.serializeToJson(errorDetails),
           error_message: errorMessage,
-          import_result_metadata: this.serializeToJson(importResultMetadata ?? {}),
+          import_result_metadata: this.serializeToJson(validationResult.data),
           status,
           updated_at: currentTimestamp,
         })
@@ -168,17 +188,29 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       }
 
       if (updates.import_params !== undefined) {
-        updateData.import_params =
-          typeof updates.import_params === 'string'
-            ? updates.import_params
-            : this.serializeToJson(updates.import_params);
+        if (typeof updates.import_params === 'string') {
+          updateData.import_params = updates.import_params;
+        } else {
+          // Validate before saving
+          const validationResult = DataImportParamsSchema.safeParse(updates.import_params);
+          if (!validationResult.success) {
+            return err(new Error(`Invalid import params: ${validationResult.error.message}`));
+          }
+          updateData.import_params = this.serializeToJson(validationResult.data);
+        }
       }
 
       if (updates.import_result_metadata !== undefined) {
-        updateData.import_result_metadata =
-          typeof updates.import_result_metadata === 'string'
-            ? updates.import_result_metadata
-            : this.serializeToJson(updates.import_result_metadata);
+        if (typeof updates.import_result_metadata === 'string') {
+          updateData.import_result_metadata = updates.import_result_metadata;
+        } else {
+          // Validate before saving
+          const validationResult = ImportResultMetadataSchema.safeParse(updates.import_result_metadata);
+          if (!validationResult.success) {
+            return err(new Error(`Invalid import result metadata: ${validationResult.error.message}`));
+          }
+          updateData.import_result_metadata = this.serializeToJson(validationResult.data);
+        }
       }
 
       // Only update if there are actual changes besides updated_at
@@ -197,13 +229,8 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
   async findCompletedWithMatchingParams(
     sourceId: string,
-    sourceType: 'exchange' | 'blockchain',
-    params: {
-      address?: string;
-      csvDirectories?: string[];
-      providerId?: string;
-      since?: number;
-    }
+    sourceType: SourceType,
+    params: ImportParams
   ): Promise<Result<DataSource | undefined, Error>> {
     try {
       // Find all completed sessions for this source
@@ -248,6 +275,12 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
     verificationMetadata: VerificationMetadata
   ): Promise<Result<void, Error>> {
     try {
+      // Validate verification metadata before saving
+      const validationResult = VerificationMetadataSchema.safeParse(verificationMetadata);
+      if (!validationResult.success) {
+        return err(new Error(`Invalid verification metadata: ${validationResult.error.message}`));
+      }
+
       const currentTimestamp = this.getCurrentDateTimeForDB();
 
       await this.db
@@ -298,7 +331,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       return err(new Error('import_params is required but was undefined'));
     }
 
-    const importResultMetadataResult = this.parseJson<Record<string, unknown>>(row.import_result_metadata);
+    const importResultMetadataResult = this.parseWithSchema(row.import_result_metadata, ImportResultMetadataSchema);
     if (importResultMetadataResult.isErr()) {
       return err(importResultMetadataResult.error);
     }

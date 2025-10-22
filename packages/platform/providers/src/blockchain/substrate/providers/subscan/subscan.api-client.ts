@@ -173,7 +173,6 @@ export class SubscanApiClient extends BaseApiClient {
       case 'getAddressTransactions':
         return (await this.getAddressTransactions({
           address: operation.address,
-          since: operation.since,
         })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
@@ -243,9 +242,8 @@ export class SubscanApiClient extends BaseApiClient {
 
   private async getAddressTransactions(params: {
     address: string;
-    since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<SubstrateTransaction>[], Error>> {
-    const { address, since: _since } = params;
+    const { address } = params;
 
     // Validate address format
     if (!isValidSS58Address(address)) {
@@ -266,11 +264,6 @@ export class SubscanApiClient extends BaseApiClient {
         page: page,
         row: rowsPerPage,
       };
-
-      // Note: Subscan API does not support timestamp-based filtering via 'since' parameter
-      // The 'since' parameter is accepted but ignored for now
-      // Filtering happens client-side after fetching all transactions
-      // Alternative would be to use 'block_range' if block numbers are known
 
       const result = await this.httpClient.post<SubscanTransfersResponse>('/api/v2/scan/transfers', body);
 

@@ -35,7 +35,7 @@ pnpm run dev import --exchange kraken --csv-dir ./exports/kraken --process
 pnpm run dev import --exchange kraken --api-key YOUR_KEY --api-secret YOUR_SECRET --process
 
 # Import from blockchain
-pnpm run dev import --blockchain bitcoin --address bc1q... --since 2023-01-01 --process
+pnpm run dev import --blockchain bitcoin --address bc1q... --process
 
 # Process raw data into normalized transactions
 pnpm run dev process --exchange kraken --session <id>
@@ -220,8 +220,9 @@ return ok(result.value);
 
 Runtime validation for all external data (API responses, CSV rows):
 
-- Schemas defined in `*.schemas.ts` files
-- Used in importers and processors for validation
+- Core domain schemas centralized in `packages/core/src/schemas/` (single source of truth)
+- Feature-specific schemas in `*.schemas.ts` files alongside implementation
+- Types re-exported from schemas via `packages/core/src/types/` to eliminate duplication
 - Type inference: `type Foo = z.infer<typeof FooSchema>`
 
 ### Logging (Pino)

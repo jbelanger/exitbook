@@ -11,12 +11,15 @@ export const DecimalSchema = z
   .or(z.instanceof(Decimal))
   .transform((val) => (typeof val === 'string' ? parseDecimal(val) : val));
 
-// Date schema - transforms Unix timestamp (number) to Date instance
+// Date schema - accepts Unix timestamp (number) or Date instance, transforms to Date
+// Used for parsing from DB (timestamps) or validating in-memory objects (Date instances)
 export const DateSchema = z
   .number()
   .int()
   .positive()
-  .transform((val) => new Date(val));
+  .or(z.date())
+  // If a Date instance is passed, it is returned as-is (unchanged).
+  .transform((val) => (typeof val === 'number' ? new Date(val) : val));
 
 // Currency schema - transforms string to Currency instance
 export const CurrencySchema = z

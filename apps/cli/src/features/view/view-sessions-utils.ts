@@ -1,5 +1,7 @@
 // Utilities and types for view sessions command
 
+import type { SourceType } from '@exitbook/core';
+
 /**
  * Parameters for view sessions command.
  */
@@ -15,7 +17,7 @@ export interface ViewSessionsParams {
 export interface SessionInfo {
   id: number;
   source_id: string;
-  source_type: 'exchange' | 'blockchain';
+  source_type: SourceType;
   status: 'started' | 'completed' | 'failed' | 'cancelled';
   started_at: string;
   completed_at: string | undefined;

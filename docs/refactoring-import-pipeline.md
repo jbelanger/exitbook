@@ -618,7 +618,7 @@ export interface ExternalTransactionDataTable {
   metadata: JSONString | null;
   created_at: DateTime;
 
-  processing_status: 'pending' | 'processed' | 'failed' | 'skipped';
+  processing_status: ProcessingStatus;
   processed_at: DateTime | null;
   processing_error: string | null;
   provider_id: string | null;
@@ -700,7 +700,7 @@ export interface ImportParams {
 **File:** `packages/platform/providers/src/core/blockchain/types/capabilities.ts`
 
 ```typescript
-import type { CursorType } from '@exitbook/import/app/ports/importers.js';
+import type { CursorType } from '@exitbook/ingestion/app/ports/importers.js';
 
 export interface ProviderCapabilities {
   operations: ProviderOperationType[];
@@ -737,7 +737,7 @@ When `executeWithFailover` selects a different provider than the last successful
 **File:** `packages/platform/providers/src/core/blockchain/types/operations.ts`
 
 ```typescript
-import type { PaginationCursor } from '@exitbook/import/app/ports/importers.js';
+import type { PaginationCursor } from '@exitbook/ingestion/app/ports/importers.js';
 
 export type ProviderOperationParams =
   | {
@@ -1111,7 +1111,7 @@ private async getAddressTransactions(params: {
 ```typescript
 async importFromSource(
   sourceId: string,
-  sourceType: 'exchange' | 'blockchain',
+  sourceType: SourceType,
   params: ImportParams & { mode?: 'incremental' | 'reindex' } // NEW: Server-controlled mode
 ): Promise<Result<ImportResult, Error>> {
   let dataSourceId = 0;
@@ -1253,7 +1253,7 @@ async importFromSource(
 
 async processRawDataToTransactions(
   sourceId: string,
-  sourceType: 'exchange' | 'blockchain',
+  sourceType: SourceType,
   filters?: LoadRawDataFilters
 ): Promise<Result<ProcessResult, Error>> {
   // Load raw data

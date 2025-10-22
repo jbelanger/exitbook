@@ -147,33 +147,6 @@ describe('SolanaTransactionImporter', () => {
       expect(operation.getCacheKey).toBeDefined();
     });
 
-    test('should pass since parameter to API call', async () => {
-      const importer = createImporter();
-      const address = 'user1111111111111111111111111111111111111111';
-      const since = 1234567890;
-
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'helius',
-        } as FailoverExecutionResult<unknown>)
-      );
-
-      await importer.import({ address, since });
-
-      // Verify since parameter was passed
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
-
-      expect(executeCalls).toHaveLength(1);
-
-      const [, operation] = executeCalls[0]!;
-      expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getAddressTransactions');
-      // Type assertion for test purposes - since is added at runtime
-      expect((operation as { since?: number }).since).toBe(since);
-    });
-
     test('should handle empty transaction list', async () => {
       const importer = createImporter();
       const address = 'user1111111111111111111111111111111111111111';
@@ -260,29 +233,7 @@ describe('SolanaTransactionImporter', () => {
   });
 
   describe('Cache Key Generation', () => {
-    test('should generate correct cache key with since parameter', async () => {
-      const importer = createImporter();
-      const address = 'user1111111111111111111111111111111111111111';
-      const since = 1234567890;
-
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'helius',
-        } as FailoverExecutionResult<unknown>)
-      );
-
-      await importer.import({ address, since });
-
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
-
-      const call = calls[0]![1];
-      const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe('solana:raw-txs:user1111111111111111111111111111111111111111:1234567890');
-    });
-
-    test('should use "all" in cache key when since is not provided', async () => {
+    test('should generate correct cache key', async () => {
       const importer = createImporter();
       const address = 'user1111111111111111111111111111111111111111';
 

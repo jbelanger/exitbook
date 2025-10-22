@@ -1,5 +1,7 @@
 // Utilities and types for view transactions command
 
+import type { SourceType } from '@exitbook/core';
+
 /**
  * Parameters for view transactions command.
  */
@@ -19,7 +21,7 @@ export interface ViewTransactionsParams {
 export interface TransactionInfo {
   id: number;
   source_id: string;
-  source_type: 'exchange' | 'blockchain';
+  source_type: SourceType;
   external_id: string | null | undefined;
   transaction_datetime: string;
   operation_category: string | null | undefined;

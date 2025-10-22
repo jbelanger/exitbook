@@ -1,4 +1,4 @@
-import { DecimalSchema } from '@exitbook/core';
+import { DateSchema, DecimalSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -23,6 +23,11 @@ export const MatchCriteriaSchema = z.object({
 });
 
 /**
+ * Transaction link metadata schema
+ */
+export const TransactionLinkMetadataSchema = z.record(z.string(), z.unknown());
+
+/**
  * Transaction link schema
  */
 export const TransactionLinkSchema = z.object({
@@ -34,10 +39,10 @@ export const TransactionLinkSchema = z.object({
   matchCriteria: MatchCriteriaSchema,
   status: LinkStatusSchema,
   reviewedBy: z.string().optional(),
-  reviewedAt: z.date().optional(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  reviewedAt: DateSchema.optional(),
+  createdAt: DateSchema,
+  updatedAt: DateSchema,
+  metadata: TransactionLinkMetadataSchema.optional(),
 });
 
 /**
@@ -48,7 +53,7 @@ export const TransactionCandidateSchema = z.object({
   sourceId: z.string(),
   sourceType: z.enum(['exchange', 'blockchain']),
   externalId: z.string().optional(),
-  timestamp: z.date(),
+  timestamp: DateSchema,
   asset: z.string(),
   amount: DecimalSchema,
   direction: z.enum(['in', 'out', 'neutral']),

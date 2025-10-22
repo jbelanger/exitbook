@@ -10,15 +10,6 @@ export interface ImportParams {
   providerId?: string | undefined;
 }
 
-/**
- * Extended params for blockchain imports that still use since/until.
- * TODO: Refactor blockchain importers to use cursor-based pagination.
- */
-export interface BlockchainImportParams extends ImportParams {
-  since?: number | undefined;
-  until?: number | undefined;
-}
-
 export interface ImportResult {
   imported: number;
   dataSourceId: number;

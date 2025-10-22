@@ -49,7 +49,6 @@ export class SolanaRPCApiClient extends BaseApiClient {
       case 'getAddressTransactions':
         return (await this.getAddressTransactions({
           address: operation.address,
-          since: operation.since,
         })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
@@ -122,9 +121,8 @@ export class SolanaRPCApiClient extends BaseApiClient {
 
   private async getAddressTransactions(params: {
     address: string;
-    since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<SolanaTransaction>[], Error>> {
-    const { address, since } = params;
+    const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
       return err(new Error(`Invalid Solana address: ${address}`));
@@ -186,10 +184,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
 
       const txResponse = txResult.value;
 
-      if (
-        txResponse?.result &&
-        (!since || (txResponse.result.blockTime && txResponse.result.blockTime.getTime() >= since))
-      ) {
+      if (txResponse?.result) {
         rawTransactions.push(txResponse.result);
       }
     }

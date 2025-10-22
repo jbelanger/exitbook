@@ -143,7 +143,7 @@ describe('EvmImporter', () => {
         expect(result.value.rawTransactions[0]).toEqual({
           providerId: 'alchemy',
           sourceAddress: address,
-          transactionType: 'normal',
+          transactionTypeHint: 'normal',
           externalId: mockNormalTx.hash,
           rawData: mockNormalTx,
           normalizedData: { id: mockNormalTx.hash },
@@ -153,7 +153,7 @@ describe('EvmImporter', () => {
         expect(result.value.rawTransactions[1]).toEqual({
           providerId: 'alchemy',
           sourceAddress: address,
-          transactionType: 'internal',
+          transactionTypeHint: 'internal',
           externalId: mockInternalTx.hash,
           rawData: mockInternalTx,
           normalizedData: { id: mockInternalTx.hash },
@@ -163,7 +163,7 @@ describe('EvmImporter', () => {
         expect(result.value.rawTransactions[2]).toEqual({
           providerId: 'alchemy',
           sourceAddress: address,
-          transactionType: 'token',
+          transactionTypeHint: 'token',
           externalId: mockTokenTx.hash,
           rawData: mockTokenTx,
           normalizedData: { id: mockTokenTx.hash },
@@ -190,39 +190,6 @@ describe('EvmImporter', () => {
       expect(tokenOperation.address).toBe(address);
       expect(tokenOperation.type).toBe('getAddressTokenTransactions');
       expect(tokenOperation.getCacheKey).toBeDefined();
-    });
-
-    test('should pass since parameter to all API calls', async () => {
-      const importer = createImporter();
-      const address = '0x1234567890123456789012345678901234567890';
-      const since = 1234567890;
-
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'alchemy',
-        } as FailoverExecutionResult<unknown>)
-      );
-
-      await importer.import({ address, since });
-
-      // Verify since parameter was passed to all three calls
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
-
-      expect(executeCalls).toHaveLength(3);
-
-      const [, normalOperation] = executeCalls[0]!;
-      expect(normalOperation.address).toBe(address);
-      expect(normalOperation.type).toBe('getAddressTransactions');
-
-      const [, internalOperation] = executeCalls[1]!;
-      expect(internalOperation.address).toBe(address);
-      expect(internalOperation.type).toBe('getAddressInternalTransactions');
-
-      const [, tokenOperation] = executeCalls[2]!;
-      expect(tokenOperation.address).toBe(address);
-      expect(tokenOperation.type).toBe('getAddressTokenTransactions');
     });
   });
 
@@ -353,36 +320,6 @@ describe('EvmImporter', () => {
     test('should generate correct cache keys for each transaction type', async () => {
       const importer = createImporter();
       const address = '0x1234567890123456789012345678901234567890';
-      const since = 1234567890;
-
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'alchemy',
-        } as FailoverExecutionResult<unknown>)
-      );
-
-      await importer.import({ address, since });
-
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
-
-      const normalCall = calls[0]![1];
-      const normalCacheKey = normalCall.getCacheKey!(normalCall);
-      expect(normalCacheKey).toBe('ethereum:normal-txs:0x1234567890123456789012345678901234567890:1234567890');
-
-      const internalCall = calls[1]![1];
-      const internalCacheKey = internalCall.getCacheKey!(internalCall);
-      expect(internalCacheKey).toBe('ethereum:internal-txs:0x1234567890123456789012345678901234567890:1234567890');
-
-      const tokenCall = calls[2]![1];
-      const tokenCacheKey = tokenCall.getCacheKey!(tokenCall);
-      expect(tokenCacheKey).toBe('ethereum:token-txs:0x1234567890123456789012345678901234567890:1234567890');
-    });
-
-    test('should use "all" in cache key when since is not provided', async () => {
-      const importer = createImporter();
-      const address = '0x1234567890123456789012345678901234567890';
 
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
@@ -399,6 +336,14 @@ describe('EvmImporter', () => {
       const normalCall = calls[0]![1];
       const normalCacheKey = normalCall.getCacheKey!(normalCall);
       expect(normalCacheKey).toBe('ethereum:normal-txs:0x1234567890123456789012345678901234567890:all');
+
+      const internalCall = calls[1]![1];
+      const internalCacheKey = internalCall.getCacheKey!(internalCall);
+      expect(internalCacheKey).toBe('ethereum:internal-txs:0x1234567890123456789012345678901234567890:all');
+
+      const tokenCall = calls[2]![1];
+      const tokenCacheKey = tokenCall.getCacheKey!(tokenCall);
+      expect(tokenCacheKey).toBe('ethereum:token-txs:0x1234567890123456789012345678901234567890:all');
     });
   });
 });

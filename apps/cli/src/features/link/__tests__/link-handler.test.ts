@@ -1,5 +1,5 @@
 import { DEFAULT_MATCHING_CONFIG, type TransactionLink } from '@exitbook/accounting';
-import type { UniversalTransaction } from '@exitbook/core';
+import type { SourceType, UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
@@ -71,7 +71,7 @@ describe('LinkHandler', () => {
     handler = new LinkHandler(mockDatabase);
   });
 
-  const createMockTransaction = (id: number, sourceType: string, operationType: string): UniversalTransaction => ({
+  const createMockTransaction = (id: number, sourceType: SourceType, operationType: string): UniversalTransaction => ({
     id: id,
     externalId: `ext-${id}`,
     source: 'test-source',

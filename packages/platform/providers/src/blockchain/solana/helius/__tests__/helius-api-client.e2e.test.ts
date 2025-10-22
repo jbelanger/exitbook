@@ -143,27 +143,6 @@ describe('HeliusApiClient Integration', () => {
         expect(normalized.feeAmount).toBe(lamportsToSol(raw.meta.fee).toString());
       }
     }, 30000);
-
-    it('should filter transactions by since parameter', async () => {
-      // Use a date far enough in the past that we know there are transactions
-      const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
-      const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
-        address: testAddress,
-        since: oneYearAgo,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
-
-      const transactions = result.value;
-      expect(Array.isArray(transactions)).toBe(true);
-
-      // All returned transactions should be after the since timestamp
-      transactions.forEach((txData) => {
-        expect(txData.normalized.timestamp).toBeGreaterThanOrEqual(oneYearAgo);
-      });
-    }, 30000);
   });
 
   describe('Address Balance', () => {

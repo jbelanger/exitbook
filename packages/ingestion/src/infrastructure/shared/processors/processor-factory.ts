@@ -1,5 +1,4 @@
-import type { IProcessorFactory } from '@exitbook/ingestion/app/ports/processor-factory.js';
-import type { ITransactionProcessor } from '@exitbook/ingestion/app/ports/transaction-processor.interface.ts';
+import type { SourceType } from '@exitbook/core';
 import {
   getEvmChainConfig,
   getSubstrateChainConfig,
@@ -7,6 +6,9 @@ import {
   ProviderRegistry,
 } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
+
+import type { IProcessorFactory } from '../../../types/factories.ts';
+import type { ITransactionProcessor } from '../../../types/processors.ts';
 
 /**
  * Factory for creating processor instances.
@@ -19,7 +21,7 @@ export class ProcessorFactory implements IProcessorFactory {
    * Get all supported sources for a given type.
    * For blockchains, returns chains that have at least one registered provider.
    */
-  async getSupportedSources(sourceType: 'exchange' | 'blockchain'): Promise<string[]> {
+  async getSupportedSources(sourceType: SourceType): Promise<string[]> {
     if (sourceType === 'exchange') {
       return ['kraken', 'kucoin', 'ledgerlive', 'coinbase'];
     }
@@ -56,7 +58,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Check if a processor is available for the given source.
    */
-  async isSupported(sourceId: string, sourceType: string): Promise<boolean> {
+  async isSupported(sourceId: string, sourceType: SourceType): Promise<boolean> {
     try {
       if (sourceType === 'exchange') {
         return ['coinbase', 'kraken', 'kucoin', 'ledgerlive'].includes(sourceId.toLowerCase());
@@ -78,7 +80,7 @@ export class ProcessorFactory implements IProcessorFactory {
    */
   async create(
     sourceId: string,
-    sourceType: string,
+    sourceType: SourceType,
     metadata?: Record<string, unknown>
   ): Promise<ITransactionProcessor> {
     this.logger.info(`Creating processor for ${sourceId} (type: ${sourceType})`);
@@ -91,7 +93,7 @@ export class ProcessorFactory implements IProcessorFactory {
       return await this.createBlockchainProcessor(sourceId);
     }
 
-    throw new Error(`Unsupported source type: ${sourceType}`);
+    throw new Error(`Unsupported source type: ${String(sourceType)}`);
   }
 
   /**

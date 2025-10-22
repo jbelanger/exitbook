@@ -255,32 +255,6 @@ describe('SubstrateImporter', () => {
       }
     });
 
-    test('should pass since parameter to API call', async () => {
-      const importer = createImporter();
-      const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
-      const since = 1609459200000;
-
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
-
-      await importer.import({ address, since });
-
-      // Verify since parameter was passed
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
-
-      expect(executeCalls).toHaveLength(1);
-
-      const [blockchain, operation] = executeCalls[0]!;
-      expect(blockchain).toBe('polkadot');
-      expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getAddressTransactions');
-    });
-
     test('should handle unexpected data format gracefully', async () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
@@ -548,29 +522,7 @@ describe('SubstrateImporter', () => {
   });
 
   describe('Cache Key Generation', () => {
-    test('should generate correct cache key with address and since', async () => {
-      const importer = createImporter();
-      const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
-      const since = 1609459200000;
-
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
-
-      await importer.import({ address, since });
-
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
-
-      const call = calls[0]![1];
-      const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe('polkadot1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg_1609459200000');
-    });
-
-    test('should use "all" in cache key when since is not provided', async () => {
+    test('should generate correct cache key with address', async () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
@@ -596,7 +548,6 @@ describe('SubstrateImporter', () => {
       const bittensorImporter = createImporter(BITTENSOR_CONFIG);
 
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
-      const since = 1609459200000;
 
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
@@ -605,8 +556,8 @@ describe('SubstrateImporter', () => {
         } as FailoverExecutionResult<unknown>)
       );
 
-      await polkadotImporter.import({ address, since });
-      await bittensorImporter.import({ address, since });
+      await polkadotImporter.import({ address });
+      await bittensorImporter.import({ address });
 
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
@@ -617,8 +568,8 @@ describe('SubstrateImporter', () => {
       const polkadotCacheKey = polkadotCall.getCacheKey!(polkadotCall);
       const bittensorCacheKey = bittensorCall.getCacheKey!(bittensorCall);
 
-      expect(polkadotCacheKey).toBe('polkadot1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg_1609459200000');
-      expect(bittensorCacheKey).toBe('bittensor1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg_1609459200000');
+      expect(polkadotCacheKey).toBe('polkadot1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg_all');
+      expect(bittensorCacheKey).toBe('bittensor1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg_all');
       expect(polkadotCacheKey).not.toBe(bittensorCacheKey);
     });
 

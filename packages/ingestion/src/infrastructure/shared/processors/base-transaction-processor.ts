@@ -1,9 +1,9 @@
 import { computePrimaryMovement, UniversalTransactionSchema, type UniversalTransaction } from '@exitbook/core';
-import type { ITransactionProcessor } from '@exitbook/ingestion/app/ports/transaction-processor.interface.ts';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 import { type Result, err, ok } from 'neverthrow';
 
+import type { ITransactionProcessor } from '../../../types/processors.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.ts';
 
 /**

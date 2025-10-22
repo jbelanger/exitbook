@@ -46,27 +46,6 @@ describe('ThetaScanApiClient Integration', () => {
         }
       }
     }, 30000);
-
-    it('should fetch transactions with since parameter', async () => {
-      const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
-      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
-        address: testAddress,
-        since: oneYearAgo,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
-        // All transactions should be after the since date
-        if (transactions.length > 0) {
-          transactions.forEach((tx) => {
-            expect(tx.normalized.timestamp).toBeGreaterThanOrEqual(oneYearAgo);
-          });
-        }
-      }
-    }, 30000);
   });
 
   describe('Address Balance', () => {

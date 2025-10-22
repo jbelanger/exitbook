@@ -49,7 +49,7 @@ ExitBook processes your cryptocurrency transactions through seven essential step
 pnpm dev -- import --exchange kraken --csv-dir ./exports/kraken
 
 # Import from your Bitcoin wallet
-pnpm dev -- import --blockchain bitcoin --address bc1q... --since 2023-01-01
+pnpm dev -- import --blockchain bitcoin --address bc1q...
 
 # Import from Ethereum wallet using Alchemy
 pnpm dev -- import --blockchain ethereum --address 0x... --provider alchemy
@@ -325,7 +325,7 @@ Import transactions from exchanges (CSV) or blockchains (API).
 pnpm dev -- import --exchange <name> --csv-dir <path> [--process]
 
 # Blockchain import
-pnpm dev -- import --blockchain <chain> --address <wallet> [--provider <name>] [--since <date>] [--process]
+pnpm dev -- import --blockchain <chain> --address <wallet> [--provider <name>] [--process]
 ````
 
 **Options:**
@@ -335,8 +335,6 @@ pnpm dev -- import --blockchain <chain> --address <wallet> [--provider <name>] [
 - `--csv-dir <path>` - Directory containing CSV exports (for exchanges)
 - `--address <wallet>` - Wallet address (for blockchains)
 - `--provider <name>` - Specific provider to use (optional, auto-selects if omitted)
-- `--since <date>` - Start date (ISO format: `2023-01-01` or Unix timestamp)
-- `--until <date>` - End date (optional)
 - `--process` - Process immediately after import
 - `--clear-db` - Drop and recreate database (⚠️ destructive)
 
@@ -346,8 +344,8 @@ pnpm dev -- import --blockchain <chain> --address <wallet> [--provider <name>] [
 # Import and process Kraken in one step
 pnpm dev -- import --exchange kraken --csv-dir ./exports/kraken --process
 
-# Import Bitcoin wallet with date range
-pnpm dev -- import --blockchain bitcoin --address bc1q... --since 2023-01-01 --until 2024-01-01
+# Import Bitcoin wallet
+pnpm dev -- import --blockchain bitcoin --address bc1q... --process
 
 # Import Ethereum using specific provider
 pnpm dev -- import --blockchain ethereum --address 0x... --provider alchemy --process
@@ -369,7 +367,6 @@ pnpm dev -- process --blockchain <chain> [--session <id>]
 - `--exchange <name>` - Exchange to process
 - `--blockchain <chain>` - Blockchain to process
 - `--session <id>` - Process specific data source only
-- `--since <date>` - Process only records after this date
 
 **Examples:**
 
@@ -380,8 +377,8 @@ pnpm dev -- process --exchange kraken
 # Reprocess specific session
 pnpm dev -- process --exchange kucoin --session abc-123-def
 
-# Process recent blockchain imports only
-pnpm dev -- process --blockchain ethereum --since 2024-01-01
+# Process all pending blockchain data
+pnpm dev -- process --blockchain ethereum
 ```
 
 ---
@@ -543,7 +540,7 @@ pnpm dev -- export --exchange kraken --output ./reports/kraken.csv
 pnpm dev -- export --blockchain ethereum --format json --output ./reports/eth.json
 
 # Export 2024 transactions only
-pnpm dev -- export --since 2024-01-01 --until 2024-12-31 --output ./reports/2024.csv
+pnpm dev -- export --since 2024-01-01 --output ./reports/2024.csv
 ```
 
 ---
@@ -605,7 +602,6 @@ pnpm dev -- status
 - `--csv-dir <path>` – Directory that contains official export CSVs for the chosen exchange (required when `--exchange` is set).
 - `--address <wallet>` – Wallet or account address to hydrate (required for `--blockchain`).
 - `--provider <id>` – Optional provider slug (for example `alchemy`, `blockstream.info`, `solscan`). Without it, the provider manager auto-enables all registered providers for the chain, applying any overrides in `config/blockchain-explorers.json`.
-- `--since <date>` / `--until <date>` – Optional time window. Accepts ISO strings (e.g. `2024-01-01`), Unix timestamps (`1704067200`), or `0` for full history. These filters are honoured by blockchain importers; CSV importers rely on the contents of the exported files.
 - `--process` – Run the `process` step immediately for the newly-created session.
 - `--clear-db` – Drop and recreate schema before running (destructive; use only on fresh environments).
 
@@ -639,15 +635,13 @@ Each run stores the raw rows inside `external_transaction_data` tagged with the 
 
 ```bash
 # Bitcoin wallet using auto-selected providers
-pnpm dev -- import --blockchain bitcoin --address bc1qexample... --since 2023-01-01 --process
+pnpm dev -- import --blockchain bitcoin --address bc1qexample... --process
 
 # Ethereum wallet using Alchemy only and a custom config file
 BLOCKCHAIN_EXPLORERS_CONFIG=./config/blockchain-explorers.json \
 pnpm dev -- import --blockchain ethereum \
   --address 0x742d35Cc6634C0532925a3b844Bc454e4438f44e \
   --provider alchemy \
-  --since 2023-01-01T00:00:00Z \
-  --until 2024-01-01T00:00:00Z \
   --process
 ```
 
@@ -693,7 +687,6 @@ pnpm dev -- process --blockchain <chain> [options]
 
 - `--exchange <name>` / `--blockchain <chain>` – Required selector matching whichever importer produced the raw data.
 - `--session <id>` – Restrict processing to a single data source . Helpful for retrying a past run without touching newer data.
-- `--since <date>` – Only pick raw records created at or after the supplied date/timestamp. This is useful when batching multiple imports (the value is converted to Unix seconds internally).
 - `--all` – Reserved for future use; currently ignored.
 - `--clear-db` – Drops and recreates the schema before running. Use only when starting from scratch because it deletes all data.
 
@@ -706,8 +699,8 @@ pnpm dev -- process --exchange kraken
 # Re-run processing for a specific KuCoin session (after fixing a CSV issue)
 pnpm dev -- process --exchange kucoin --session 42
 
-# Process blockchain data imported since a particular upload
-pnpm dev -- process --blockchain ethereum --since 2024-06-01T00:00:00Z
+# Process all pending blockchain data
+pnpm dev -- process --blockchain ethereum
 ```
 
 The command is idempotent: if a transaction already exists, the repository updates the existing row with the latest normalized data. Sessions and raw items keep the association so you can reconcile individual runs.

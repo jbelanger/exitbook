@@ -1,5 +1,4 @@
 import type { ExternalTransaction } from '@exitbook/core';
-import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/ingestion/app/ports/importers.js';
 import type {
   BitcoinTransaction,
   BitcoinWalletAddress,
@@ -11,6 +10,8 @@ import { BitcoinUtils } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import * as bitcoin from 'bitcoinjs-lib';
 import { err, ok, type Result } from 'neverthrow';
+
+import type { ImportParams, IImporter, ImportRunResult } from '../../../types/importers.ts';
 
 /**
  * Bitcoin transaction importer that fetches raw transaction data from blockchain APIs.
@@ -47,7 +48,7 @@ export class BitcoinTransactionImporter implements IImporter {
   /**
    * Import raw transaction data from Bitcoin blockchain APIs with provider provenance.
    */
-  async import(params: BlockchainImportParams): Promise<Result<ImportRunResult, Error>> {
+  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     if (!params.address) {
       return err(new Error('Address required for Bitcoin transaction import'));
     }
@@ -72,8 +73,8 @@ export class BitcoinTransactionImporter implements IImporter {
     this.walletAddresses.push(wallet);
 
     const result = wallet.derivedAddresses
-      ? await this.fetchFromXpubWallet(wallet.derivedAddresses, params.since)
-      : await this.fetchRawTransactionsForAddress(params.address, params.since);
+      ? await this.fetchFromXpubWallet(wallet.derivedAddresses)
+      : await this.fetchRawTransactionsForAddress(params.address);
 
     return result
       .map((allSourcedTransactions) => {
@@ -90,27 +91,20 @@ export class BitcoinTransactionImporter implements IImporter {
   /**
    * Fetch transactions from xpub wallet's derived addresses.
    */
-  private async fetchFromXpubWallet(
-    derivedAddresses: string[],
-    since?: number
-  ): Promise<Result<ExternalTransaction[], Error>> {
+  private async fetchFromXpubWallet(derivedAddresses: string[]): Promise<Result<ExternalTransaction[], Error>> {
     this.logger.info(`Fetching from ${derivedAddresses.length} derived addresses`);
-    const allSourcedTransactions = await this.fetchRawTransactionsForDerivedAddresses(derivedAddresses, since);
+    const allSourcedTransactions = await this.fetchRawTransactionsForDerivedAddresses(derivedAddresses);
     return ok(allSourcedTransactions);
   }
 
   /**
    * Fetch raw transactions for a single address with provider provenance.
    */
-  private async fetchRawTransactionsForAddress(
-    address: string,
-    since?: number
-  ): Promise<Result<ExternalTransaction[], ProviderError>> {
+  private async fetchRawTransactionsForAddress(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('bitcoin', {
       address: address,
       getCacheKey: (params) =>
-        `bitcoin:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? params.since || 'all' : 'unknown'}`,
-      since: since,
+        `bitcoin:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? 'all' : 'unknown'}`,
       type: 'getAddressTransactions',
     });
 
@@ -131,10 +125,7 @@ export class BitcoinTransactionImporter implements IImporter {
   /**
    * Fetch raw transactions for derived addresses from an xpub wallet.
    */
-  private async fetchRawTransactionsForDerivedAddresses(
-    derivedAddresses: string[],
-    since?: number
-  ): Promise<ExternalTransaction[]> {
+  private async fetchRawTransactionsForDerivedAddresses(derivedAddresses: string[]): Promise<ExternalTransaction[]> {
     const uniqueTransactions = new Map<string, ExternalTransaction>();
 
     for (const address of derivedAddresses) {
@@ -145,7 +136,7 @@ export class BitcoinTransactionImporter implements IImporter {
         continue;
       }
 
-      const result = await this.fetchRawTransactionsForAddress(address, since);
+      const result = await this.fetchRawTransactionsForAddress(address);
 
       if (result.isErr()) {
         this.logger.error(`Failed to fetch raw transactions for address ${address}: ${result.error.message}`);

@@ -1,4 +1,4 @@
-import type { BlockchainBalanceSnapshot } from '@exitbook/core';
+import type { BlockchainBalanceSnapshot, SourceType } from '@exitbook/core';
 import { parseDecimal, wrapError } from '@exitbook/core';
 import type { IExchangeClient } from '@exitbook/exchanges';
 import type { BlockchainProviderManager } from '@exitbook/providers';
@@ -15,7 +15,7 @@ export interface UnifiedBalanceSnapshot {
   /** Timestamp when balance was fetched */
   timestamp: number;
   /** Source type */
-  sourceType: 'exchange' | 'blockchain';
+  sourceType: SourceType;
   /** Source identifier (exchange name or blockchain + address) */
   sourceId: string;
 }

@@ -1,3 +1,4 @@
+import type { DataSourceStatus, ProcessingStatus, SourceType } from '@exitbook/core';
 import type { Generated, ColumnType } from 'kysely';
 
 /**
@@ -29,10 +30,10 @@ export interface DataSourcesTable {
 
   // Session identification
   source_id: string;
-  source_type: 'exchange' | 'blockchain';
+  source_type: SourceType;
 
   // Status and metrics
-  status: 'started' | 'completed' | 'failed' | 'cancelled';
+  status: DataSourceStatus;
 
   started_at: DateTime;
   updated_at: DateTime | null;
@@ -67,7 +68,7 @@ export interface ExternalTransactionDataTable {
   normalized_data: JSONString; // Normalized data
 
   // Processing status
-  processing_status: 'pending' | 'processed' | 'failed' | 'skipped';
+  processing_status: ProcessingStatus;
   processed_at: DateTime | null;
   processing_error: string | null;
 }
@@ -81,7 +82,7 @@ export interface TransactionsTable {
   id: Generated<number>;
   data_source_id: number; // FK to data_sources.id
   source_id: string;
-  source_type: 'exchange' | 'blockchain';
+  source_type: SourceType;
   external_id: string | null; // hash, transaction ID, etc.
 
   // Transaction metadata
