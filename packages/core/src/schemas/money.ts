@@ -18,6 +18,7 @@ export const DateSchema = z
   .int()
   .positive()
   .or(z.date())
+  // If a Date instance is passed, it is returned as-is (unchanged).
   .transform((val) => (typeof val === 'number' ? new Date(val) : val));
 
 // Currency schema - transforms string to Currency instance
