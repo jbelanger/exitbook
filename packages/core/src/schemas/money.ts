@@ -11,15 +11,23 @@ export const DecimalSchema = z
   .or(z.instanceof(Decimal))
   .transform((val) => (typeof val === 'string' ? parseDecimal(val) : val));
 
-// Date schema - accepts Unix timestamp (number) or Date instance, transforms to Date
-// Used for parsing from DB (timestamps) or validating in-memory objects (Date instances)
+// Date schema - accepts Unix timestamp (number), ISO 8601 string, or Date instance, transforms to Date
+// Used for parsing from DB (timestamps/strings) or validating in-memory objects (Date instances)
 export const DateSchema = z
-  .number()
-  .int()
-  .positive()
-  .or(z.date())
-  // If a Date instance is passed, it is returned as-is (unchanged).
-  .transform((val) => (typeof val === 'number' ? new Date(val) : val));
+  .union([
+    z.number().int().positive(),
+    z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'Invalid date string' }),
+    z.date(),
+  ])
+  .transform((val) => {
+    if (typeof val === 'number') {
+      return new Date(val);
+    }
+    if (typeof val === 'string') {
+      return new Date(val);
+    }
+    return val;
+  });
 
 // Currency schema - transforms string to Currency instance
 export const CurrencySchema = z

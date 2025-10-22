@@ -492,7 +492,14 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       const result = z.array(AssetMovementSchema).safeParse(parsed);
 
       if (!result.success) {
-        this.logger.warn({ error: result.error, jsonString }, 'Failed to validate movements JSON');
+        this.logger.warn(
+          {
+            error: result.error.format(),
+            issues: result.error.issues,
+            jsonString: jsonString.substring(0, 200),
+          },
+          'Failed to validate movements JSON'
+        );
         return [];
       }
 
