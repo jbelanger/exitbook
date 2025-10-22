@@ -93,10 +93,6 @@ export interface TransactionsTable {
   from_address: string | null;
   to_address: string | null;
 
-  // Optional price data (for trades)
-  price: DecimalString | null;
-  price_currency: string | null;
-
   // Notes and metadata
   note_type: string | null;
   note_severity: 'info' | 'warning' | 'error' | null;

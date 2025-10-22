@@ -2,17 +2,15 @@
 
 import type { SourceType } from '@exitbook/core';
 
+import type { CommonViewFilters } from './view-utils.ts';
+
 /**
  * Parameters for view transactions command.
  */
-export interface ViewTransactionsParams {
-  source?: string | undefined;
+export interface ViewTransactionsParams extends CommonViewFilters {
   asset?: string | undefined;
-  since?: string | undefined;
-  until?: string | undefined;
   operationType?: string | undefined;
   noPrice?: boolean | undefined;
-  limit?: number | undefined;
 }
 
 /**

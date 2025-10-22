@@ -2,9 +2,7 @@
 import type { Currency, AssetMovement, Money, UniversalTransaction, TransactionStatus } from '@exitbook/core';
 import {
   AssetMovementSchema,
-  dbStringToMoney,
   MoneySchema,
-  moneyToDbString,
   NoteMetadataSchema,
   TransactionMetadataSchema,
   wrapError,
@@ -20,7 +18,7 @@ import type { TransactionsTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
 
 import { BaseRepository } from './base-repository.js';
-import type { ITransactionRepository } from './transaction-repository.interface.ts';
+import type { ITransactionRepository, TransactionFilters } from './transaction-repository.interface.ts';
 
 /**
  * Transaction record needing price data for its movements
@@ -65,13 +63,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       const rawDataJson = this.serializeToJson(transaction) ?? '{}';
 
-      // Extract currencies from Money type
-      let priceCurrency: Currency | undefined;
-
-      if (transaction.price && typeof transaction.price === 'object' && transaction.price.currency) {
-        priceCurrency = transaction.price.currency;
-      }
-
       const result = await this.db
         .insertInto('transactions')
         .values({
@@ -85,13 +76,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
           note_severity: transaction.note?.severity,
           note_type: transaction.note?.type,
-          price:
-            typeof transaction.price === 'object'
-              ? moneyToDbString(transaction.price)
-              : transaction.price
-                ? String(transaction.price)
-                : undefined,
-          price_currency: priceCurrency?.toString(),
           raw_normalized_data: rawDataJson,
           source_id: transaction.source,
           source_type: transaction.blockchain ? 'blockchain' : 'exchange',
@@ -130,8 +114,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             note_metadata: (eb) => eb.ref('excluded.note_metadata'),
             note_severity: (eb) => eb.ref('excluded.note_severity'),
             note_type: (eb) => eb.ref('excluded.note_type'),
-            price: (eb) => eb.ref('excluded.price'),
-            price_currency: (eb) => eb.ref('excluded.price_currency'),
             raw_normalized_data: (eb) => eb.ref('excluded.raw_normalized_data'),
             to_address: (eb) => eb.ref('excluded.to_address'),
             transaction_datetime: (eb) => eb.ref('excluded.transaction_datetime'),
@@ -167,27 +149,25 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async getTransactions(
-    sourceId?: string,
-    since?: number,
-    sessionId?: number
-  ): Promise<Result<UniversalTransaction[], Error>> {
+  async getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransaction[], Error>> {
     try {
       let query = this.db.selectFrom('transactions').selectAll();
 
       // Add WHERE conditions if provided
-      if (sourceId) {
-        query = query.where('source_id', '=', sourceId);
-      }
+      if (filters) {
+        if (filters.sourceId) {
+          query = query.where('source_id', '=', filters.sourceId);
+        }
 
-      if (since) {
-        // Convert Unix timestamp to ISO string for comparison
-        const sinceDate = new Date(since * 1000).toISOString();
-        query = query.where('created_at', '>=', sinceDate as unknown as string);
-      }
+        if (filters.since) {
+          // Convert Unix timestamp to ISO string for comparison
+          const sinceDate = new Date(filters.since * 1000).toISOString();
+          query = query.where('created_at', '>=', sinceDate as unknown as string);
+        }
 
-      if (sessionId !== undefined) {
-        query = query.where('data_source_id', '=', sessionId);
+        if (filters.sessionId !== undefined) {
+          query = query.where('data_source_id', '=', filters.sessionId);
+        }
       }
 
       // Order by creation time descending
@@ -447,7 +427,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         category: row.operation_category ?? 'transfer',
         type: row.operation_type ?? 'transfer',
       },
-      price: row.price ? (dbStringToMoney(row.price, row.price_currency ?? 'USD') ?? undefined) : undefined,
       metadata: metadataResult.value,
     };
 

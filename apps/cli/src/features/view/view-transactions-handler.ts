@@ -22,8 +22,14 @@ export class ViewTransactionsHandler {
     // Convert since to unix timestamp if provided
     const since = params.since ? Math.floor(parseDate(params.since).getTime() / 1000) : undefined;
 
+    // Build filter object conditionally to avoid passing undefined values
+    const filters = {
+      ...(params.source && { sourceId: params.source }),
+      ...(since && { since }),
+    };
+
     // Fetch transactions from repository
-    const txResult = await this.txRepo.getTransactions(params.source, since);
+    const txResult = await this.txRepo.getTransactions(Object.keys(filters).length > 0 ? filters : undefined);
 
     if (txResult.isErr()) {
       return wrapError(txResult.error, 'Failed to fetch transactions');

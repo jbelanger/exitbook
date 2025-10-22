@@ -2,13 +2,13 @@
 
 import type { SourceType } from '@exitbook/core';
 
+import type { CommonViewFilters } from './view-utils.ts';
+
 /**
  * Parameters for view sessions command.
  */
-export interface ViewSessionsParams {
-  source?: string | undefined;
+export interface ViewSessionsParams extends CommonViewFilters {
   status?: 'started' | 'completed' | 'failed' | 'cancelled' | undefined;
-  limit?: number | undefined;
 }
 
 /**

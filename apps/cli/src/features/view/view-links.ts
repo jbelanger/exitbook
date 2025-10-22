@@ -31,6 +31,36 @@ export function registerViewLinksCommand(viewCommand: Command): void {
   viewCommand
     .command('links')
     .description('View transaction links with confidence scores')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook view links                                # View all transaction links
+  $ exitbook view links --status suggested             # View AI-suggested links
+  $ exitbook view links --status confirmed             # View user-confirmed links
+  $ exitbook view links --min-confidence 0.8           # View high-confidence links only
+  $ exitbook view links --min-confidence 0.3 --max-confidence 0.7  # Medium confidence range
+  $ exitbook view links --verbose                      # Include full transaction details
+  $ exitbook view links --limit 20                     # View latest 20 links
+
+Common Usage:
+  - Review deposit/withdrawal matching between exchanges and blockchains
+  - Validate high-confidence automated matches before confirming
+  - Investigate low-confidence matches that need manual review
+  - Audit confirmed links for accuracy
+
+Status Values:
+  suggested   - Automatically detected by the system
+  confirmed   - User-verified as correct
+  rejected    - User-verified as incorrect
+
+Confidence Scores:
+  1.0  - Exact match (timestamp + amount + asset)
+  0.8  - Very likely match (close timestamp, matching amount)
+  0.5  - Possible match (similar timing, matching asset)
+  <0.3 - Low confidence, needs manual review
+`
+    )
     .option('--status <status>', 'Filter by status (suggested, confirmed, rejected)')
     .option('--min-confidence <score>', 'Filter by minimum confidence score (0-1)', parseFloat)
     .option('--max-confidence <score>', 'Filter by maximum confidence score (0-1)', parseFloat)

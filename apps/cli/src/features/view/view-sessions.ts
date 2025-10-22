@@ -31,6 +31,26 @@ export function registerViewSessionsCommand(viewCommand: Command): void {
   viewCommand
     .command('sessions')
     .description('View import sessions')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook view sessions                        # View all import sessions
+  $ exitbook view sessions --source kraken        # View Kraken import sessions
+  $ exitbook view sessions --status completed     # View successful imports
+  $ exitbook view sessions --status failed        # View failed imports
+  $ exitbook view sessions --limit 10             # View latest 10 sessions
+
+Common Usage:
+  - Monitor import job history and success rates
+  - Debug failed imports by session ID
+  - Track data source activity over time
+  - Identify which exchanges/blockchains have been imported
+
+Status Values:
+  started, completed, failed, cancelled
+`
+    )
     .option('--source <name>', 'Filter by exchange or blockchain name')
     .option('--status <status>', 'Filter by status (started, completed, failed, cancelled)')
     .option('--limit <number>', 'Maximum number of sessions to return', parseInt)

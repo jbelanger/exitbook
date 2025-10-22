@@ -4,6 +4,7 @@
 import type { Command } from 'commander';
 
 import { registerViewLinksCommand } from './view-links.ts';
+import { registerViewPricesCommand } from './view-prices.ts';
 import { registerViewSessionsCommand } from './view-sessions.ts';
 import { registerViewTransactionsCommand } from './view-transactions.ts';
 
@@ -17,4 +18,5 @@ export function registerViewCommand(program: Command): void {
   registerViewSessionsCommand(view);
   registerViewTransactionsCommand(view);
   registerViewLinksCommand(view);
+  registerViewPricesCommand(view);
 }
