@@ -87,7 +87,7 @@ export class TransactionImportService {
 
       dataSourceId = sessionIdResult.value;
       sessionCreated = true;
-      this.logger.info(`Created data source : ${dataSourceId}`);
+      this.logger.info(`Created data source: ${dataSourceId}`);
 
       const importer = await this.importerFactory.create(sourceId, sourceType, params);
 
