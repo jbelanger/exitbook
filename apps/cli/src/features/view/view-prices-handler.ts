@@ -28,7 +28,7 @@ export class ViewPricesHandler {
     const transactions = txResult.value;
 
     // Group transactions by asset and calculate price coverage
-    const coverageMap = this.calculatePriceCoverage(transactions, params.asset);
+    const { coverageMap, uniqueTransactionIds } = this.calculatePriceCoverage(transactions, params.asset);
 
     // Convert map to array and sort by asset name
     let coverageArray = Array.from(coverageMap.values()).sort((a, b) => a.asset.localeCompare(b.asset));
@@ -38,8 +38,8 @@ export class ViewPricesHandler {
       coverageArray = coverageArray.filter((c) => c.missing_price > 0);
     }
 
-    // Calculate summary statistics
-    const summary = this.calculateSummary(coverageArray);
+    // Calculate summary statistics from unique transaction IDs to avoid double-counting
+    const summary = this.calculateSummary(coverageArray, uniqueTransactionIds);
 
     const result: ViewPricesResult = {
       coverage: coverageArray,
@@ -56,12 +56,17 @@ export class ViewPricesHandler {
   /**
    * Calculate price coverage grouped by asset.
    * For each transaction, check ALL movements (inflows and outflows) to determine price coverage per asset.
+   * Returns both the coverage map and a set of unique transaction IDs that were processed.
    */
   private calculatePriceCoverage(
     transactions: UniversalTransaction[],
     assetFilter?: string
-  ): Map<string, PriceCoverageInfo> {
+  ): {
+    coverageMap: Map<string, PriceCoverageInfo>;
+    uniqueTransactionIds: Set<number>;
+  } {
     const coverageMap = new Map<string, PriceCoverageInfo>();
+    const uniqueTransactionIds = new Set<number>();
 
     for (const tx of transactions) {
       // Collect all movements from this transaction
@@ -88,6 +93,11 @@ export class ViewPricesHandler {
           // If we already saw this asset but it didn't have a price, update to true
           assetPriceStatus.set(asset, true);
         }
+      }
+
+      // If this transaction has any matching assets, track it
+      if (assetPriceStatus.size > 0) {
+        uniqueTransactionIds.add(tx.id);
       }
 
       // Update coverage statistics for each asset found in this transaction
@@ -121,20 +131,22 @@ export class ViewPricesHandler {
       }
     }
 
-    return coverageMap;
+    return { coverageMap, uniqueTransactionIds };
   }
 
   /**
    * Calculate summary statistics across all assets.
+   * Uses unique transaction IDs to avoid double-counting multi-asset transactions.
    */
-  private calculateSummary(coverage: PriceCoverageInfo[]) {
-    const totalTransactions = coverage.reduce((sum, c) => sum + c.total_transactions, 0);
+  private calculateSummary(coverage: PriceCoverageInfo[], uniqueTransactionIds: Set<number>) {
+    // Sum of asset-transaction pairs (these can be > unique transactions for multi-asset txs)
+    const totalAssetTransactions = coverage.reduce((sum, c) => sum + c.total_transactions, 0);
     const withPrice = coverage.reduce((sum, c) => sum + c.with_price, 0);
     const missingPrice = coverage.reduce((sum, c) => sum + c.missing_price, 0);
-    const overallCoverage = totalTransactions > 0 ? (withPrice / totalTransactions) * 100 : 0;
+    const overallCoverage = totalAssetTransactions > 0 ? (withPrice / totalAssetTransactions) * 100 : 0;
 
     return {
-      total_transactions: totalTransactions,
+      total_transactions: uniqueTransactionIds.size, // Actual number of unique transactions analyzed
       with_price: withPrice,
       missing_price: missingPrice,
       overall_coverage_percentage: overallCoverage,

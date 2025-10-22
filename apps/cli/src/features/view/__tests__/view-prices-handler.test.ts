@@ -342,6 +342,57 @@ describe('ViewPricesHandler', () => {
       expect(value.coverage[1]!.asset).toBe('ETH');
       expect(value.coverage[2]!.asset).toBe('SOL');
     });
+
+    it('should not double-count multi-asset transactions in summary', async () => {
+      const mockTransactions: UniversalTransaction[] = [
+        // Trade transaction with BTC (with price) and USDT (with price)
+        createMockTransaction({
+          id: 1,
+          movements: {
+            inflows: [addPriceToMovement({ asset: 'BTC', amount: parseDecimal('1.0') })],
+            outflows: [addPriceToMovement({ asset: 'USDT', amount: parseDecimal('50000') })],
+          },
+        }),
+        // Transfer transaction with only ETH (without price)
+        createMockTransaction({
+          id: 2,
+          movements: {
+            inflows: [{ asset: 'ETH', amount: parseDecimal('10.0') }],
+            outflows: [],
+          },
+        }),
+      ];
+      mockGetTransactions.mockResolvedValue(ok(mockTransactions));
+
+      const params: ViewPricesParams = {};
+      const result = await handler.execute(params);
+
+      expect(result.isOk()).toBe(true);
+      const value = result._unsafeUnwrap();
+
+      // Should have 3 assets
+      expect(value.coverage).toHaveLength(3);
+
+      // Per-asset coverage should be correct
+      const btcCoverage = value.coverage.find((c) => c.asset === 'BTC');
+      expect(btcCoverage?.total_transactions).toBe(1);
+      expect(btcCoverage?.with_price).toBe(1);
+
+      const usdtCoverage = value.coverage.find((c) => c.asset === 'USDT');
+      expect(usdtCoverage?.total_transactions).toBe(1);
+      expect(usdtCoverage?.with_price).toBe(1);
+
+      const ethCoverage = value.coverage.find((c) => c.asset === 'ETH');
+      expect(ethCoverage?.total_transactions).toBe(1);
+      expect(ethCoverage?.missing_price).toBe(1);
+
+      // Summary should show 2 unique transactions, not 3
+      expect(value.summary.total_transactions).toBe(2);
+      expect(value.summary.with_price).toBe(2); // BTC + USDT asset-transaction pairs
+      expect(value.summary.missing_price).toBe(1); // ETH asset-transaction pair
+      // Overall coverage: 2 priced / 3 total asset-transactions = 66.67%
+      expect(value.summary.overall_coverage_percentage).toBeCloseTo(66.67, 1);
+    });
   });
 
   describe('destroy', () => {
