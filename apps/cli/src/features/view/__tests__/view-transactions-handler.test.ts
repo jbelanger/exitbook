@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { ViewTransactionsHandler } from '../view-transactions-handler.ts';
 import type { ViewTransactionsParams } from '../view-transactions-utils.ts';
 
+import { createMockTransaction } from './test-helpers.ts';
+
 describe('ViewTransactionsHandler', () => {
   let mockTxRepo: TransactionRepository;
   let handler: ViewTransactionsHandler;
@@ -25,25 +27,6 @@ describe('ViewTransactionsHandler', () => {
 
     handler = new ViewTransactionsHandler(mockTxRepo);
   });
-
-  const createMockTransaction = (overrides: Partial<UniversalTransaction> = {}): UniversalTransaction => {
-    const baseDatetime = overrides.datetime ?? '2024-01-01T00:00:00Z';
-    const baseTimestamp = overrides.timestamp ?? Math.floor(new Date(baseDatetime).getTime() / 1000);
-
-    return {
-      id: 1,
-      source: 'kraken',
-      externalId: 'ext-123',
-      status: 'success',
-      datetime: baseDatetime,
-      timestamp: baseTimestamp,
-      price: createMoney('50000.00', 'USD'),
-      movements: { inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }] },
-      operation: { category: 'trade', type: 'buy' },
-      fees: {},
-      ...overrides,
-    };
-  };
 
   describe('execute', () => {
     it('should return formatted transactions successfully', async () => {
@@ -80,7 +63,7 @@ describe('ViewTransactionsHandler', () => {
       const result = await handler.execute(params);
 
       expect(result.isOk()).toBe(true);
-      expect(mockGetTransactions).toHaveBeenCalledWith('kraken', undefined);
+      expect(mockGetTransactions).toHaveBeenCalledWith({ sourceId: 'kraken' });
     });
 
     it('should filter by since date', async () => {
@@ -91,7 +74,7 @@ describe('ViewTransactionsHandler', () => {
       const result = await handler.execute(params);
 
       expect(result.isOk()).toBe(true);
-      expect(mockGetTransactions).toHaveBeenCalledWith(undefined, Math.floor(new Date('2024-01-01').getTime() / 1000));
+      expect(mockGetTransactions).toHaveBeenCalledWith({ since: Math.floor(new Date('2024-01-01').getTime() / 1000) });
     });
 
     it('should filter by until date', async () => {

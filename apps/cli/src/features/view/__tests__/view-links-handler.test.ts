@@ -1,12 +1,13 @@
 import type { TransactionLink, TransactionLinkRepository } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { ViewLinksHandler } from '../view-links-handler.ts';
 import type { ViewLinksParams } from '../view-links-utils.ts';
+
+import { createMockTransaction } from './test-helpers.ts';
 
 describe('ViewLinksHandler', () => {
   let mockLinkRepo: TransactionLinkRepository;
@@ -50,37 +51,6 @@ describe('ViewLinksHandler', () => {
     reviewedAt: undefined,
     createdAt: new Date('2024-01-15T10:00:00Z'),
     updatedAt: new Date('2024-01-15T10:00:00Z'),
-    ...overrides,
-  });
-
-  const createMockTransaction = (overrides: Partial<UniversalTransaction> = {}): UniversalTransaction => ({
-    id: 500,
-    externalId: 'tx-500',
-    datetime: '2024-01-15T09:00:00Z',
-    timestamp: 1705312800,
-    source: 'kraken',
-    status: 'success',
-    from: 'bc1qfromaddress0001',
-    to: 'bc1qtoaddress0001',
-    movements: {
-      inflows: [
-        {
-          asset: 'BTC',
-          amount: parseDecimal('0.5'),
-        },
-      ],
-      outflows: [
-        {
-          asset: 'USD',
-          amount: parseDecimal('20000'),
-        },
-      ],
-    },
-    fees: {},
-    operation: {
-      category: 'transfer',
-      type: 'transfer',
-    },
     ...overrides,
   });
 

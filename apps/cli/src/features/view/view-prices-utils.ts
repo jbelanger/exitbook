@@ -1,10 +1,11 @@
 // Utilities and types for view prices command
 
+import type { CommonViewFilters } from './view-utils.ts';
+
 /**
  * Parameters for view prices command.
  */
-export interface ViewPricesParams {
-  source?: string | undefined;
+export interface ViewPricesParams extends CommonViewFilters {
   asset?: string | undefined;
   missingOnly?: boolean | undefined;
 }

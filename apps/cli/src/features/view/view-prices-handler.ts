@@ -7,6 +7,7 @@ import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
 import type { PriceCoverageInfo, ViewPricesParams, ViewPricesResult } from './view-prices-utils.ts';
+import { getAllMovements } from './view-utils.ts';
 
 /**
  * Handler for viewing price coverage.
@@ -19,7 +20,7 @@ export class ViewPricesHandler {
    */
   async execute(params: ViewPricesParams): Promise<Result<ViewPricesResult, Error>> {
     // Fetch transactions from repository
-    const txResult = await this.txRepo.getTransactions(params.source);
+    const txResult = await this.txRepo.getTransactions(params.source ? { sourceId: params.source } : undefined);
 
     if (txResult.isErr()) {
       return wrapError(txResult.error, 'Failed to fetch transactions');
@@ -54,11 +55,40 @@ export class ViewPricesHandler {
   }
 
   /**
-   * Calculate price coverage grouped by asset.
-   * For each transaction, check ALL movements (inflows and outflows) to determine price coverage per asset.
-   * Returns both the coverage map and a set of unique transaction IDs that were processed.
+   * Extract price status for each asset in a transaction.
+   * Returns a map of asset -> hasPrice, where hasPrice is true if ANY movement of that asset has price data.
    */
-  private calculatePriceCoverage(
+  private extractAssetPriceStatus(tx: UniversalTransaction, assetFilter?: string): Map<string, boolean> {
+    const assetPriceStatus = new Map<string, boolean>();
+    const allMovements = getAllMovements(tx.movements);
+
+    for (const movement of allMovements) {
+      const asset = movement.asset;
+
+      // Apply asset filter if provided
+      if (assetFilter && asset !== assetFilter) {
+        continue;
+      }
+
+      // Check if this movement has price data
+      const hasPrice = movement.priceAtTxTime !== undefined && movement.priceAtTxTime !== null;
+
+      // Track if ANY movement of this asset in this transaction has a price
+      if (!assetPriceStatus.has(asset)) {
+        assetPriceStatus.set(asset, hasPrice);
+      } else if (hasPrice) {
+        assetPriceStatus.set(asset, true);
+      }
+    }
+
+    return assetPriceStatus;
+  }
+
+  /**
+   * Aggregate coverage statistics across all transactions.
+   * Builds a map of asset -> coverage info and tracks unique transaction IDs.
+   */
+  private aggregateCoverage(
     transactions: UniversalTransaction[],
     assetFilter?: string
   ): {
@@ -69,31 +99,7 @@ export class ViewPricesHandler {
     const uniqueTransactionIds = new Set<number>();
 
     for (const tx of transactions) {
-      // Collect all movements from this transaction
-      const allMovements = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? [])];
-
-      // Track which assets in this transaction have price data
-      const assetPriceStatus = new Map<string, boolean>();
-
-      for (const movement of allMovements) {
-        const asset = movement.asset;
-
-        // Apply asset filter if provided
-        if (assetFilter && asset !== assetFilter) {
-          continue;
-        }
-
-        // Check if this movement has price data
-        const hasPrice = movement.priceAtTxTime !== undefined && movement.priceAtTxTime !== null;
-
-        // Track if ANY movement of this asset in this transaction has a price
-        if (!assetPriceStatus.has(asset)) {
-          assetPriceStatus.set(asset, hasPrice);
-        } else if (hasPrice) {
-          // If we already saw this asset but it didn't have a price, update to true
-          assetPriceStatus.set(asset, true);
-        }
-      }
+      const assetPriceStatus = this.extractAssetPriceStatus(tx, assetFilter);
 
       // If this transaction has any matching assets, track it
       if (assetPriceStatus.size > 0) {
@@ -132,6 +138,21 @@ export class ViewPricesHandler {
     }
 
     return { coverageMap, uniqueTransactionIds };
+  }
+
+  /**
+   * Calculate price coverage grouped by asset.
+   * For each transaction, check ALL movements (inflows and outflows) to determine price coverage per asset.
+   * Returns both the coverage map and a set of unique transaction IDs that were processed.
+   */
+  private calculatePriceCoverage(
+    transactions: UniversalTransaction[],
+    assetFilter?: string
+  ): {
+    coverageMap: Map<string, PriceCoverageInfo>;
+    uniqueTransactionIds: Set<number>;
+  } {
+    return this.aggregateCoverage(transactions, assetFilter);
   }
 
   /**

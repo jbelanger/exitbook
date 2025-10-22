@@ -31,6 +31,25 @@ export function registerViewTransactionsCommand(viewCommand: Command): void {
   viewCommand
     .command('transactions')
     .description('View processed transactions')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook view transactions                            # View latest 50 transactions
+  $ exitbook view transactions --limit 100                # View latest 100 transactions
+  $ exitbook view transactions --asset BTC                # View Bitcoin transactions only
+  $ exitbook view transactions --source kraken            # View Kraken transactions
+  $ exitbook view transactions --since 2024-01-01         # View transactions from Jan 2024
+  $ exitbook view transactions --operation-type trade     # View trades only
+  $ exitbook view transactions --no-price                 # Find transactions missing price data
+
+Common Usage:
+  - Review recent trading activity across all exchanges
+  - Audit specific assets or date ranges
+  - Identify transactions that need price data
+  - Verify imported data accuracy
+`
+    )
     .option('--source <name>', 'Filter by exchange or blockchain name')
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH)')
     .option('--since <date>', 'Filter by date (ISO 8601 format, e.g., 2024-01-01)')

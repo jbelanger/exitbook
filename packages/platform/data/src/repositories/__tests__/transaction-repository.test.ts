@@ -55,8 +55,6 @@ describe('TransactionRepository - delete methods', () => {
           transaction_datetime: new Date().toISOString(),
           from_address: undefined,
           to_address: undefined,
-          price: undefined,
-          price_currency: undefined,
           note_type: undefined,
           note_severity: undefined,
           note_message: undefined,

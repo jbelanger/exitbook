@@ -55,8 +55,16 @@ export class ExportHandler {
 
       logger.info({ params }, 'Starting export');
 
+      // Build filter object conditionally to avoid passing undefined values
+      const filters = {
+        ...(params.sourceName && { sourceId: params.sourceName }),
+        ...(params.since && { since: params.since }),
+      };
+
       // Fetch transactions from database
-      const transactionsResult = await this.transactionRepository.getTransactions(params.sourceName, params.since);
+      const transactionsResult = await this.transactionRepository.getTransactions(
+        Object.keys(filters).length > 0 ? filters : undefined
+      );
 
       if (transactionsResult.isErr()) {
         return err(new Error(`Failed to retrieve transactions: ${transactionsResult.error.message}`));

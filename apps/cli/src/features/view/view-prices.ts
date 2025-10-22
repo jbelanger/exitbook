@@ -34,6 +34,21 @@ export function registerViewPricesCommand(viewCommand: Command): void {
   viewCommand
     .command('prices')
     .description('View price coverage statistics')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook view prices                    # View price coverage for all assets
+  $ exitbook view prices --asset BTC        # View price coverage for Bitcoin only
+  $ exitbook view prices --missing-only     # Show only assets missing price data
+  $ exitbook view prices --source kraken    # View coverage for Kraken transactions
+
+Common Usage:
+  - Identify which assets need price data before generating tax reports
+  - Check price coverage percentage per asset
+  - Find gaps in historical pricing data
+`
+    )
     .option('--source <name>', 'Filter by exchange or blockchain name')
     .option('--asset <currency>', 'Filter by specific asset (e.g., BTC, ETH)')
     .option('--missing-only', 'Show only assets with missing price data')

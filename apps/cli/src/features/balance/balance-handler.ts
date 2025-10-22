@@ -291,7 +291,7 @@ export class BalanceHandler {
         transactionsResult = await this.transactionRepository.findByAddress(params.address, params.sourceName);
       } else {
         // For exchange, fetch all transactions for this source
-        transactionsResult = await this.transactionRepository.getTransactions(params.sourceName);
+        transactionsResult = await this.transactionRepository.getTransactions({ sourceId: params.sourceName });
       }
 
       if (transactionsResult.isErr()) {

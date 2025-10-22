@@ -4,14 +4,15 @@ import type { LinkStatus, MatchCriteria } from '@exitbook/accounting';
 import type { AssetMovement } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
+import type { CommonViewFilters } from './view-utils.ts';
+
 /**
  * Parameters for view links command.
  */
-export interface ViewLinksParams {
+export interface ViewLinksParams extends CommonViewFilters {
   status?: LinkStatus | undefined;
   minConfidence?: number | undefined;
   maxConfidence?: number | undefined;
-  limit?: number | undefined;
   verbose?: boolean | undefined;
 }
 

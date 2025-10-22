@@ -1,11 +1,13 @@
-import type { AssetMovement, UniversalTransaction } from '@exitbook/core';
-import { createMoney, parseDecimal } from '@exitbook/core';
+import type { UniversalTransaction } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { ViewPricesHandler } from '../view-prices-handler.ts';
 import type { ViewPricesParams } from '../view-prices-utils.ts';
+
+import { addPriceToMovement, createMockTransaction } from './test-helpers.ts';
 
 describe('ViewPricesHandler', () => {
   let mockTxRepo: TransactionRepository;
@@ -25,39 +27,6 @@ describe('ViewPricesHandler', () => {
 
     handler = new ViewPricesHandler(mockTxRepo);
   });
-
-  const createMockTransaction = (overrides: Partial<UniversalTransaction> = {}): UniversalTransaction => {
-    const baseDatetime = overrides.datetime ?? '2024-01-01T00:00:00Z';
-    const baseTimestamp = overrides.timestamp ?? Math.floor(new Date(baseDatetime).getTime() / 1000);
-
-    return {
-      id: 1,
-      source: 'kraken',
-      externalId: 'ext-123',
-      status: 'success',
-      datetime: baseDatetime,
-      timestamp: baseTimestamp,
-      movements: {
-        inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
-        outflows: [],
-      },
-      operation: { category: 'trade', type: 'buy' },
-      fees: {},
-      ...overrides,
-    };
-  };
-
-  const addPriceToMovement = (movement: AssetMovement): AssetMovement => {
-    return {
-      ...movement,
-      priceAtTxTime: {
-        price: createMoney('50000', 'USD'),
-        source: 'test',
-        fetchedAt: new Date('2024-01-01'),
-        granularity: 'exact' as const,
-      },
-    };
-  };
 
   describe('execute', () => {
     it('should calculate price coverage for multiple assets', async () => {
@@ -126,7 +95,7 @@ describe('ViewPricesHandler', () => {
       const result = await handler.execute(params);
 
       expect(result.isOk()).toBe(true);
-      expect(mockGetTransactions).toHaveBeenCalledWith('kraken');
+      expect(mockGetTransactions).toHaveBeenCalledWith({ sourceId: 'kraken' });
     });
 
     it('should filter by asset', async () => {
