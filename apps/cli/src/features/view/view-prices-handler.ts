@@ -65,7 +65,7 @@ export class ViewPricesHandler {
 
     for (const tx of transactions) {
       // Collect all movements from this transaction
-      const allMovements = [...(tx.movements.inflows || []), ...(tx.movements.outflows || [])];
+      const allMovements = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? [])];
 
       // Track which assets in this transaction have price data
       const assetPriceStatus = new Map<string, boolean>();
