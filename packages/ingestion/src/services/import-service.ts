@@ -31,17 +31,14 @@ export class TransactionImportService {
     if (sourceType === 'exchange') {
       return this.importFromExchange(sourceId, params);
     } else {
-      return this.importFromBlockchain(sourceId, params as ImportParams & { since?: number; until?: number });
+      return this.importFromBlockchain(sourceId, params);
     }
   }
 
   /**
    * Import raw data from blockchain and store it in external_transaction_data table.
    */
-  private async importFromBlockchain(
-    sourceId: string,
-    params: ImportParams & { since?: number; until?: number }
-  ): Promise<Result<ImportResult, Error>> {
+  private async importFromBlockchain(sourceId: string, params: ImportParams): Promise<Result<ImportResult, Error>> {
     const sourceType = 'blockchain';
     this.logger.info(`Starting blockchain import for ${sourceId}`);
 

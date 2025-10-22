@@ -52,29 +52,6 @@ export async function promptForProcessParams(): Promise<ProcessHandlerParams> {
         filters.dataSourceId = parseInt(sessionId, 10);
       }
     }
-
-    // Date filter
-    const useDateFilter = await promptConfirm('Filter by date?', false);
-    if (useDateFilter) {
-      const since = await p.text({
-        message: 'Process data since (YYYY-MM-DD or timestamp):',
-        placeholder: '2021-01-01',
-        validate: (value) => {
-          if (!value) return; // Optional
-          const timestamp = new Date(value).getTime();
-          if (isNaN(timestamp)) return 'Invalid date format';
-        },
-      });
-
-      if (isCancelled(since)) {
-        handleCancellation();
-      }
-
-      if (since) {
-        const timestamp = new Date(since).getTime();
-        filters.createdAfter = Math.floor(timestamp / 1000);
-      }
-    }
   }
 
   return {

@@ -76,7 +76,6 @@ export class SolscanApiClient extends BaseApiClient {
       case 'getAddressTransactions':
         return (await this.getAddressTransactions({
           address: operation.address,
-          since: operation.since,
         })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
@@ -134,15 +133,14 @@ export class SolscanApiClient extends BaseApiClient {
 
   private async getAddressTransactions(params: {
     address: string;
-    since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<SolanaTransaction>[], Error>> {
-    const { address, since } = params;
+    const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
       return err(new Error(`Invalid Solana address: ${address}`));
     }
 
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Since: ${since}`);
+    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
     const queryParams = new URLSearchParams({
       account: address,
@@ -222,9 +220,7 @@ export class SolscanApiClient extends BaseApiClient {
       rawTransactions = Array.isArray(legacyResponse.data) ? legacyResponse.data : [];
     }
 
-    const filteredRawTransactions = since
-      ? rawTransactions.filter((tx) => tx.blockTime.getTime() >= since)
-      : rawTransactions;
+    const filteredRawTransactions = rawTransactions;
 
     const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
     for (const rawTx of filteredRawTransactions) {

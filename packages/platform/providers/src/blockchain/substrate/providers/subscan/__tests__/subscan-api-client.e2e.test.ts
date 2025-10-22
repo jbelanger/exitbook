@@ -104,31 +104,5 @@ describe('SubscanApiClient Integration', () => {
         expect(typeof normalized.timestamp).toBe('number');
       }
     }, 30000);
-
-    it.skip('should fetch transactions with since filter', async () => {
-      // Use July 2023 timestamp - before the address's most recent tx (Aug 2023)
-      // but after older transactions to test client-side filtering works
-      const july2023 = new Date('2023-07-01').getTime();
-
-      const result = await provider.execute<TransactionWithRawData<SubstrateTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-        since: july2023,
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) {
-        throw result.error;
-      }
-
-      const transactions = result.value;
-      expect(Array.isArray(transactions)).toBe(true);
-      expect(transactions.length).toBeGreaterThan(0);
-
-      // All transactions should be after the since timestamp (client-side filtered)
-      transactions.forEach((tx) => {
-        expect(tx.normalized.timestamp).toBeGreaterThanOrEqual(july2023);
-      });
-    }, 30000);
   });
 });

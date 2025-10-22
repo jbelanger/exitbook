@@ -142,12 +142,10 @@ export class RoutescanApiClient extends BaseApiClient {
       case 'getAddressTransactions':
         return (await this.getAddressTransactions({
           address: operation.address,
-          since: operation.since,
         })) as Result<T, Error>;
       case 'getAddressInternalTransactions':
         return (await this.getAddressInternalTransactions({
           address: operation.address,
-          since: operation.since,
         })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
@@ -158,8 +156,6 @@ export class RoutescanApiClient extends BaseApiClient {
           address: operation.address,
           contractAddress: operation.contractAddress,
           limit: operation.limit,
-          since: operation.since,
-          until: operation.until,
         })) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
@@ -362,7 +358,6 @@ export class RoutescanApiClient extends BaseApiClient {
 
   private async getAddressTransactions(params: {
     address: string;
-    since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
     const { address } = params;
 
@@ -386,7 +381,6 @@ export class RoutescanApiClient extends BaseApiClient {
 
   private async getAddressInternalTransactions(params: {
     address: string;
-    since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
     const { address } = params;
 
@@ -414,8 +408,6 @@ export class RoutescanApiClient extends BaseApiClient {
     address: string;
     contractAddress?: string | undefined;
     limit?: number | undefined;
-    since?: number | undefined;
-    until?: number | undefined;
   }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
     const { address, contractAddress } = params;
     const result = await this.getTokenTransfers(address, contractAddress);

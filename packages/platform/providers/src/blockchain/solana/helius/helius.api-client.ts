@@ -95,7 +95,6 @@ export class HeliusApiClient extends BaseApiClient {
       case 'getAddressTransactions':
         return (await this.getAddressTransactions({
           address: operation.address,
-          since: operation.since,
         })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
@@ -192,10 +191,7 @@ export class HeliusApiClient extends BaseApiClient {
     };
   }
 
-  private async getDirectAddressTransactions(
-    address: string,
-    since?: number
-  ): Promise<Result<HeliusTransaction[], Error>> {
+  private async getDirectAddressTransactions(address: string): Promise<Result<HeliusTransaction[], Error>> {
     const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>('/', {
       id: 1,
       jsonrpc: '2.0',
@@ -250,14 +246,7 @@ export class HeliusApiClient extends BaseApiClient {
 
       const txResponse = txResult.value;
 
-      if (
-        txResponse?.result &&
-        (!since ||
-          (txResponse.result.blockTime &&
-            (typeof txResponse.result.blockTime === 'number'
-              ? txResponse.result.blockTime * 1000 >= since
-              : txResponse.result.blockTime.getTime() >= since)))
-      ) {
+      if (txResponse?.result) {
         transactions.push(txResponse.result);
       }
     }
@@ -308,9 +297,8 @@ export class HeliusApiClient extends BaseApiClient {
 
   private async getAddressTransactions(params: {
     address: string;
-    since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<SolanaTransaction>[], Error>> {
-    const { address, since } = params;
+    const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
       return err(new Error(`Invalid Solana address: ${address}`));
@@ -318,7 +306,7 @@ export class HeliusApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    const directResult = await this.getDirectAddressTransactions(address, since);
+    const directResult = await this.getDirectAddressTransactions(address);
     if (directResult.isErr()) {
       this.logger.error(
         `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(directResult.error)}`
@@ -326,7 +314,7 @@ export class HeliusApiClient extends BaseApiClient {
       return err(directResult.error);
     }
 
-    const tokenResult = await this.getTokenAccountTransactions(address, since);
+    const tokenResult = await this.getTokenAccountTransactions(address);
     if (tokenResult.isErr()) {
       this.logger.error(
         `Failed to get token account transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(tokenResult.error)}`
@@ -460,10 +448,7 @@ export class HeliusApiClient extends BaseApiClient {
     return ok(tokenAccountAddresses);
   }
 
-  private async getTokenAccountTransactions(
-    address: string,
-    since?: number
-  ): Promise<Result<HeliusTransaction[], Error>> {
+  private async getTokenAccountTransactions(address: string): Promise<Result<HeliusTransaction[], Error>> {
     this.logger.debug(`Fetching token account transactions - Address: ${maskAddress(address)}`);
 
     const tokenAccountsResult = await this.getTokenAccountsOwnedByAddress(address);
@@ -530,14 +515,7 @@ export class HeliusApiClient extends BaseApiClient {
 
           const txResponse = txResult.value;
 
-          if (
-            txResponse?.result &&
-            (!since ||
-              (txResponse.result.blockTime &&
-                (typeof txResponse.result.blockTime === 'number'
-                  ? txResponse.result.blockTime * 1000 >= since
-                  : txResponse.result.blockTime.getTime() >= since)))
-          ) {
+          if (txResponse?.result) {
             tokenTransactions.push(txResponse.result);
           }
         }

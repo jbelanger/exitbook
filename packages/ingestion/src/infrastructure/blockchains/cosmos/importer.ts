@@ -9,7 +9,7 @@ import type {
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 
-import type { BlockchainImportParams, IImporter, ImportRunResult } from '../../../types/importers.ts';
+import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.ts';
 
 /**
  * Generic Cosmos SDK transaction importer that fetches raw transaction data from blockchain APIs.
@@ -45,7 +45,7 @@ export class CosmosImporter implements IImporter {
   /**
    * Import raw transaction data from Cosmos SDK blockchain APIs with provider provenance.
    */
-  async import(params: BlockchainImportParams): Promise<Result<ImportRunResult, Error>> {
+  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     if (!params.address?.length) {
       return err(new Error(`Address required for ${this.chainConfig.displayName} transaction import`));
     }
@@ -54,7 +54,7 @@ export class CosmosImporter implements IImporter {
       `Starting ${this.chainConfig.displayName} transaction import for address: ${params.address.substring(0, 20)}...`
     );
 
-    const result = await this.fetchRawTransactionsForAddress(params.address, params.since);
+    const result = await this.fetchRawTransactionsForAddress(params.address);
 
     return result
       .map((rawTransactions) => {
@@ -70,15 +70,11 @@ export class CosmosImporter implements IImporter {
   /**
    * Fetch raw transactions for a single address with provider provenance.
    */
-  private async fetchRawTransactionsForAddress(
-    address: string,
-    since?: number
-  ): Promise<Result<ExternalTransaction[], ProviderError>> {
+  private async fetchRawTransactionsForAddress(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
       address: address,
       getCacheKey: (params) =>
-        `${this.chainConfig.chainName}:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? params.since || 'all' : 'unknown'}`,
-      since: since,
+        `${this.chainConfig.chainName}:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? 'all' : 'unknown'}`,
       type: 'getAddressTransactions',
     });
 

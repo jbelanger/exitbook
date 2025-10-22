@@ -13,7 +13,6 @@ export interface ProcessCommandOptions {
   blockchain?: string | undefined;
   exchange?: string | undefined;
   session?: string | undefined;
-  since?: string | undefined;
 }
 
 /**
@@ -105,15 +104,6 @@ export function buildProcessParamsFromFlags(options: ProcessCommandOptions): Res
       return err(new Error('Invalid session ID. Must be a positive integer.'));
     }
     filters.dataSourceId = sessionId;
-  }
-
-  // Parse since timestamp if provided
-  if (options.since) {
-    const timestampResult = parseTimestamp(options.since);
-    if (timestampResult.isErr()) {
-      return err(timestampResult.error);
-    }
-    filters.createdAfter = timestampResult.value;
   }
 
   return ok({

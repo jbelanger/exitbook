@@ -247,9 +247,7 @@ describe('TatumBitcoinApiClient', () => {
       const result = await client.execute({
         address: mockAddress,
         limit: undefined,
-        since: undefined,
         type: 'getAddressTransactions',
-        until: undefined,
       });
 
       expect(result.isOk()).toBe(true);

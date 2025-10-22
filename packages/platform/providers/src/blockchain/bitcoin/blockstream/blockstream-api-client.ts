@@ -53,7 +53,6 @@ export class BlockstreamApiClient extends BaseApiClient {
       case 'getAddressTransactions':
         return (await this.getAddressTransactions({
           address: operation.address,
-          since: operation.since,
         })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
@@ -145,11 +144,10 @@ export class BlockstreamApiClient extends BaseApiClient {
    */
   private async getAddressTransactions(params: {
     address: string;
-    since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
-    const { address, since } = params;
+    const { address } = params;
 
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Since: ${since}`);
+    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
     const addressInfoResult = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
 

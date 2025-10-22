@@ -50,7 +50,6 @@ export class ThetaScanApiClient extends BaseApiClient {
       case 'getAddressTransactions':
         return (await this.getAddressTransactions({
           address: operation.address,
-          since: operation.since,
         })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
@@ -76,18 +75,10 @@ export class ThetaScanApiClient extends BaseApiClient {
     };
   }
 
-  private async getNormalTransactions(address: string, since?: number): Promise<Result<ThetaScanTransaction[], Error>> {
+  private async getNormalTransactions(address: string): Promise<Result<ThetaScanTransaction[], Error>> {
     const params = new URLSearchParams({
       address: address,
     });
-
-    // ThetaScan uses Unix timestamp for filtering
-    if (since) {
-      const sinceDate = new Date(since).toISOString().split('T')[0];
-      if (sinceDate) {
-        params.append('start_date', sinceDate);
-      }
-    }
 
     const url = `/transactions/?${params.toString()}`;
     this.logger.info(`ThetaScan API Request: ${this.baseUrl}${url}`);
@@ -146,9 +137,8 @@ export class ThetaScanApiClient extends BaseApiClient {
 
   private async getAddressTransactions(params: {
     address: string;
-    since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const { address, since } = params;
+    const { address } = params;
 
     if (!this.isValidEthAddress(address)) {
       return err(new Error(`Invalid Theta address: ${address}`));
@@ -156,7 +146,7 @@ export class ThetaScanApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    const result = await this.getNormalTransactions(address, since);
+    const result = await this.getNormalTransactions(address);
 
     if (result.isErr()) {
       this.logger.error(

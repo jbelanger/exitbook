@@ -9,7 +9,7 @@ import type {
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { BlockchainImportParams, IImporter, ImportRunResult } from '../../../types/importers.ts';
+import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.ts';
 
 /**
  * Generic EVM transaction importer that fetches raw transaction data from blockchain APIs.
@@ -48,7 +48,7 @@ export class EvmImporter implements IImporter {
     );
   }
 
-  async import(params: BlockchainImportParams): Promise<Result<ImportRunResult, Error>> {
+  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     if (!params.address) {
       return err(new Error(`Address required for ${this.chainConfig.chainName} transaction import`));
     }
@@ -57,7 +57,7 @@ export class EvmImporter implements IImporter {
 
     this.logger.info(`Starting ${this.chainConfig.chainName} import for ${address.substring(0, 20)}...`);
 
-    const result = await this.fetchAllTransactions(address, params.since);
+    const result = await this.fetchAllTransactions(address);
 
     return result
       .map((allRawData) => {
@@ -76,15 +76,12 @@ export class EvmImporter implements IImporter {
    * Fetch all transaction types (normal, internal, token) for an address in parallel.
    * Only normal transactions are required; internal and token failures are handled gracefully.
    */
-  private async fetchAllTransactions(
-    address: string,
-    since?: number
-  ): Promise<Result<ExternalTransaction[], ProviderError>> {
+  private async fetchAllTransactions(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
     // Fetch all three transaction types in parallel for optimal performance
     const [normalResult, internalResult, tokenResult] = await Promise.all([
-      this.fetchNormalTransactions(address, since),
-      this.fetchInternalTransactions(address, since),
-      this.fetchTokenTransactions(address, since),
+      this.fetchNormalTransactions(address),
+      this.fetchInternalTransactions(address),
+      this.fetchTokenTransactions(address),
     ]);
 
     if (normalResult.isErr()) {
@@ -116,15 +113,11 @@ export class EvmImporter implements IImporter {
   /**
    * Fetch normal (external) transactions for an address with provider provenance.
    */
-  private async fetchNormalTransactions(
-    address: string,
-    since?: number
-  ): Promise<Result<ExternalTransaction[], ProviderError>> {
+  private async fetchNormalTransactions(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
       address: address,
       getCacheKey: (params) =>
-        `${this.chainConfig.chainName}:normal-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? params.since || 'all' : 'unknown'}`,
-      since: since,
+        `${this.chainConfig.chainName}:normal-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? 'all' : 'unknown'}`,
       type: 'getAddressTransactions',
     });
 
@@ -146,15 +139,11 @@ export class EvmImporter implements IImporter {
   /**
    * Fetch internal transactions (contract calls) for an address with provider provenance.
    */
-  private async fetchInternalTransactions(
-    address: string,
-    since?: number
-  ): Promise<Result<ExternalTransaction[], ProviderError>> {
+  private async fetchInternalTransactions(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
       address: address,
       getCacheKey: (params) =>
-        `${this.chainConfig.chainName}:internal-txs:${params.type === 'getAddressInternalTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressInternalTransactions' ? params.since || 'all' : 'unknown'}`,
-      since: since,
+        `${this.chainConfig.chainName}:internal-txs:${params.type === 'getAddressInternalTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressInternalTransactions' ? 'all' : 'unknown'}`,
       type: 'getAddressInternalTransactions',
     });
 
@@ -176,15 +165,11 @@ export class EvmImporter implements IImporter {
   /**
    * Fetch token transactions (ERC-20/721/1155) for an address with provider provenance.
    */
-  private async fetchTokenTransactions(
-    address: string,
-    since?: number
-  ): Promise<Result<ExternalTransaction[], ProviderError>> {
+  private async fetchTokenTransactions(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
       address: address,
       getCacheKey: (params) =>
-        `${this.chainConfig.chainName}:token-txs:${params.type === 'getAddressTokenTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTokenTransactions' ? params.since || 'all' : 'unknown'}`,
-      since: since,
+        `${this.chainConfig.chainName}:token-txs:${params.type === 'getAddressTokenTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTokenTransactions' ? 'all' : 'unknown'}`,
       type: 'getAddressTokenTransactions',
     });
 

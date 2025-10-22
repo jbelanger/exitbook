@@ -51,7 +51,6 @@ export class BlockchainComApiClient extends BaseApiClient {
       case 'getAddressTransactions':
         return (await this.getAddressTransactions({
           address: operation.address,
-          since: operation.since,
         })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
@@ -137,9 +136,8 @@ export class BlockchainComApiClient extends BaseApiClient {
    */
   private async getAddressTransactions(params: {
     address: string;
-    since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
-    const { address, since } = params;
+    const { address } = params;
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
@@ -159,19 +157,7 @@ export class BlockchainComApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    let filteredRawTransactions = addressData.txs;
-
-    // Filter by timestamp if 'since' is provided
-    if (since) {
-      filteredRawTransactions = addressData.txs.filter((tx) => {
-        const timestamp = tx.time * 1000; // Convert to milliseconds
-        return timestamp >= since;
-      });
-
-      this.logger.debug(
-        `Filtered raw transactions by timestamp - OriginalCount: ${addressData.txs.length}, FilteredCount: ${filteredRawTransactions.length}`
-      );
-    }
+    const filteredRawTransactions = addressData.txs;
 
     // Sort by timestamp (newest first)
     filteredRawTransactions.sort((a, b) => b.time - a.time);

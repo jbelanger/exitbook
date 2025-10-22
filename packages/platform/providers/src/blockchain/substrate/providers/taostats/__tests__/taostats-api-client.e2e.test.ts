@@ -114,32 +114,5 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
         }
       }, 30000);
     });
-
-    describe('Raw Address Transactions with since parameter', () => {
-      it('should fetch transactions after a specific timestamp', async () => {
-        // Use a timestamp from 1 year ago to ensure we capture existing transactions
-        const sinceTimestamp = Date.now() - 2 * 365 * 24 * 60 * 60 * 1000; // 2 years ago
-
-        const result = await provider.execute<TransactionWithRawData<SubstrateTransaction>[]>({
-          address: testAddress,
-          type: 'getAddressTransactions',
-          since: sinceTimestamp,
-        });
-
-        expect(result.isOk()).toBe(true);
-        if (result.isErr()) {
-          throw result.error;
-        }
-
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
-        if (transactions.length > 0) {
-          transactions.forEach((tx) => {
-            // Verify using normalized timestamp (already converted to number)
-            expect(tx.normalized.timestamp).toBeGreaterThanOrEqual(sinceTimestamp);
-          });
-        }
-      }, 30000);
-    });
   });
 });

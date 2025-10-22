@@ -51,7 +51,6 @@ export class MempoolSpaceApiClient extends BaseApiClient {
       case 'getAddressTransactions':
         return (await this.getAddressTransactions({
           address: operation.address,
-          since: operation.since,
         })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
@@ -140,7 +139,6 @@ export class MempoolSpaceApiClient extends BaseApiClient {
 
   private async getAddressTransactions(params: {
     address: string;
-    since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
     const { address } = params;
 

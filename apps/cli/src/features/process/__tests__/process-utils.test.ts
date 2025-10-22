@@ -146,34 +146,6 @@ describe('process-utils', () => {
         expect(params.filters.dataSourceId).toBe(123);
       });
 
-      it('should build params for exchange with since filter', () => {
-        const options: ProcessCommandOptions = {
-          exchange: 'kraken',
-          since: '2021-01-01',
-        };
-
-        const result = buildProcessParamsFromFlags(options);
-        expect(result.isOk()).toBe(true);
-
-        const params = result._unsafeUnwrap();
-        expect(params.filters.createdAfter).toBeGreaterThan(0);
-      });
-
-      it('should build params for exchange with both session and since', () => {
-        const options: ProcessCommandOptions = {
-          exchange: 'kucoin',
-          session: '456',
-          since: '1609459200000',
-        };
-
-        const result = buildProcessParamsFromFlags(options);
-        expect(result.isOk()).toBe(true);
-
-        const params = result._unsafeUnwrap();
-        expect(params.filters.dataSourceId).toBe(456);
-        expect(params.filters.createdAfter).toBe(1609459200);
-      });
-
       it('should fail for invalid session ID', () => {
         const options: ProcessCommandOptions = {
           exchange: 'kraken',
@@ -206,17 +178,6 @@ describe('process-utils', () => {
         expect(result.isErr()).toBe(true);
         expect(result._unsafeUnwrapErr().message).toContain('Invalid session ID');
       });
-
-      it('should fail for invalid since date', () => {
-        const options: ProcessCommandOptions = {
-          exchange: 'kraken',
-          since: 'not-a-date',
-        };
-
-        const result = buildProcessParamsFromFlags(options);
-        expect(result.isErr()).toBe(true);
-        expect(result._unsafeUnwrapErr().message).toContain('Invalid date format');
-      });
     });
 
     describe('blockchain source', () => {
@@ -246,20 +207,6 @@ describe('process-utils', () => {
         const params = result._unsafeUnwrap();
         expect(params.sourceName).toBe('ethereum');
         expect(params.filters.dataSourceId).toBe(789);
-      });
-
-      it('should build params for blockchain with since filter', () => {
-        const options: ProcessCommandOptions = {
-          blockchain: 'polkadot',
-          since: '2021-06-15',
-        };
-
-        const result = buildProcessParamsFromFlags(options);
-        expect(result.isOk()).toBe(true);
-
-        const params = result._unsafeUnwrap();
-        expect(params.sourceName).toBe('polkadot');
-        expect(params.filters.createdAfter).toBeGreaterThan(0);
       });
     });
   });

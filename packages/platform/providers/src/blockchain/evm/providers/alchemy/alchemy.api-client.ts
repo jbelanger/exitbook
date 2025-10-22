@@ -109,21 +109,21 @@ export class AlchemyApiClient extends BaseApiClient {
 
     switch (operation.type) {
       case 'getAddressTransactions': {
-        const { address, since } = operation;
+        const { address } = operation;
         this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-        return (await this.getAddressTransactions(address, since)) as Result<T, Error>;
+        return (await this.getAddressTransactions(address)) as Result<T, Error>;
       }
       case 'getAddressInternalTransactions': {
-        const { address, since } = operation;
+        const { address } = operation;
         this.logger.debug(`Fetching raw address internal transactions - Address: ${maskAddress(address)}`);
-        return (await this.getAddressInternalTransactions(address, since)) as Result<T, Error>;
+        return (await this.getAddressInternalTransactions(address)) as Result<T, Error>;
       }
       case 'getAddressTokenTransactions': {
-        const { address, contractAddress, since } = operation;
+        const { address, contractAddress } = operation;
         this.logger.debug(
           `Fetching token transactions - Address: ${maskAddress(address)}, Contract: ${contractAddress || 'all'}`
         );
-        return (await this.getAddressTokenTransactions(address, contractAddress, since)) as Result<T, Error>;
+        return (await this.getAddressTokenTransactions(address, contractAddress)) as Result<T, Error>;
       }
       case 'getAddressTokenBalances': {
         const { address, contractAddresses } = operation;
@@ -154,7 +154,6 @@ export class AlchemyApiClient extends BaseApiClient {
 
   private async getAssetTransfers(
     address: string,
-    since?: number,
     category: string[] = ['external', 'internal', 'erc20', 'erc721', 'erc1155'],
     contractAddress?: string
   ): Promise<Result<AlchemyAssetTransfer[], Error>> {
@@ -251,10 +250,9 @@ export class AlchemyApiClient extends BaseApiClient {
   }
 
   private async getAddressInternalTransactions(
-    address: string,
-    since?: number
+    address: string
   ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const result = await this.getAssetTransfers(address, since, ['internal']);
+    const result = await this.getAssetTransfers(address, ['internal']);
 
     if (result.isErr()) {
       this.logger.error(
@@ -293,10 +291,9 @@ export class AlchemyApiClient extends BaseApiClient {
   }
 
   private async getAddressTransactions(
-    address: string,
-    since?: number
+    address: string
   ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const result = await this.getAssetTransfers(address, since, ['external']);
+    const result = await this.getAssetTransfers(address, ['external']);
 
     if (result.isErr()) {
       this.logger.error(
@@ -371,10 +368,9 @@ export class AlchemyApiClient extends BaseApiClient {
 
   private async getAddressTokenTransactions(
     address: string,
-    contractAddress?: string,
-    since?: number
+    contractAddress?: string
   ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const result = await this.getAssetTransfers(address, since, ['erc20', 'erc721', 'erc1155'], contractAddress);
+    const result = await this.getAssetTransfers(address, ['erc20', 'erc721', 'erc1155'], contractAddress);
 
     if (result.isErr()) {
       this.logger.error(

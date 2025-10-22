@@ -9,6 +9,8 @@ import type {
 import type { DataSourceUpdate, ImportSessionQuery } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
+import type { ImportParams } from './importers.ts';
+
 /**
  * Filter options for loading raw data from repository
  * Ingestion-specific concern
@@ -107,12 +109,7 @@ export interface IDataSourceRepository {
   findCompletedWithMatchingParams(
     sourceId: string,
     sourceType: SourceType,
-    params: {
-      address?: string | undefined;
-      csvDirectories?: string[] | undefined;
-      providerId?: string | undefined;
-      since?: number | undefined;
-    }
+    params: ImportParams
   ): Promise<Result<DataSource | undefined, Error>>;
 
   /**

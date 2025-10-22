@@ -9,7 +9,7 @@ import type {
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 
-import type { BlockchainImportParams, IImporter, ImportRunResult } from '../../../types/importers.ts';
+import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.ts';
 
 /**
  * Generic Substrate transaction importer that fetches raw transaction data from blockchain APIs.
@@ -46,7 +46,7 @@ export class SubstrateImporter implements IImporter {
   /**
    * Import raw transaction data from Substrate blockchain APIs with provider provenance.
    */
-  async import(params: BlockchainImportParams): Promise<Result<ImportRunResult, Error>> {
+  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     if (!params.address?.length) {
       return err(new Error(`Address required for ${this.chainConfig.chainName} transaction import`));
     }
@@ -55,7 +55,7 @@ export class SubstrateImporter implements IImporter {
       `Starting ${this.chainConfig.chainName} transaction import for address: ${params.address.substring(0, 20)}...`
     );
 
-    const result = await this.fetchRawTransactionsForAddress(params.address, params.since);
+    const result = await this.fetchRawTransactionsForAddress(params.address);
 
     return result
       .map((rawTransactions) => {
@@ -73,15 +73,11 @@ export class SubstrateImporter implements IImporter {
   /**
    * Fetch raw transactions for a single address with provider provenance.
    */
-  private async fetchRawTransactionsForAddress(
-    address: string,
-    since?: number
-  ): Promise<Result<ExternalTransaction[], ProviderError>> {
+  private async fetchRawTransactionsForAddress(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
       address,
       getCacheKey: (cacheParams) =>
-        `${this.chainConfig.chainName}${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
-      since,
+        `${this.chainConfig.chainName}${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? 'all' : 'unknown'}`,
       type: 'getAddressTransactions',
     });
 

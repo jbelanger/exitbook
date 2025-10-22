@@ -44,9 +44,9 @@ export class ThetaExplorerApiClient extends BaseApiClient {
 
     switch (operation.type) {
       case 'getAddressTransactions': {
-        const { address, since } = operation;
+        const { address } = operation;
         this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-        return (await this.getAddressTransactions(address, since)) as Result<T, Error>;
+        return (await this.getAddressTransactions(address)) as Result<T, Error>;
       }
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
@@ -65,8 +65,7 @@ export class ThetaExplorerApiClient extends BaseApiClient {
   }
 
   private async getAddressTransactions(
-    address: string,
-    _since?: number
+    address: string
   ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
     const result = await this.getTransactions(address);
 
