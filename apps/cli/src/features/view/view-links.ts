@@ -74,7 +74,7 @@ async function executeViewLinksCommand(options: ExtendedViewLinksCommandOptions)
       status: options.status,
       minConfidence: options.minConfidence,
       maxConfidence: options.maxConfidence,
-      limit: options.limit || 50, // Default limit
+      limit: options.limit ?? 50, // Default limit
       verbose: options.verbose,
     };
 
