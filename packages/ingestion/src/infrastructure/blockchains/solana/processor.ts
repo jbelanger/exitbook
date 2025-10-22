@@ -403,8 +403,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
   } {
     const { inflows, outflows } = fundFlow;
     const primaryAmount = parseFloat(fundFlow.primary.amount || '0');
-    const DUST_THRESHOLD = 0.00001;
-    const isDustOrZero = primaryAmount === 0 || primaryAmount < DUST_THRESHOLD;
+    const isZero = primaryAmount === 0;
 
     // Pattern 1: Staking operations (high confidence based on program detection)
     if (fundFlow.hasStaking) {
@@ -448,7 +447,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     }
 
     // Pattern 2: Fee-only transaction (no movements)
-    if (isDustOrZero && inflows.length === 0 && outflows.length === 0) {
+    if (isZero && inflows.length === 0 && outflows.length === 0) {
       return {
         operation: {
           category: 'fee',
@@ -457,46 +456,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
       };
     }
 
-    // Pattern 3: Dust-amount deposit/withdrawal (still meaningful for accounting)
-    if (isDustOrZero) {
-      if (outflows.length === 0 && inflows.length >= 1) {
-        return {
-          note: {
-            message: `Dust deposit (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${DUST_THRESHOLD} threshold but still affects balance.`,
-            metadata: {
-              dustThreshold: DUST_THRESHOLD,
-              inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-            },
-            severity: 'info',
-            type: 'dust_amount',
-          },
-          operation: {
-            category: 'transfer',
-            type: 'deposit',
-          },
-        };
-      }
-
-      if (outflows.length >= 1 && inflows.length === 0) {
-        return {
-          note: {
-            message: `Dust withdrawal (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${DUST_THRESHOLD} threshold but still affects balance.`,
-            metadata: {
-              dustThreshold: DUST_THRESHOLD,
-              outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
-            },
-            severity: 'info',
-            type: 'dust_amount',
-          },
-          operation: {
-            category: 'transfer',
-            type: 'withdrawal',
-          },
-        };
-      }
-    }
-
-    // Pattern 4: Single-asset swap (9/10 confident)
+    // Pattern 3: Single-asset swap (9/10 confident)
     if (outflows.length === 1 && inflows.length === 1) {
       const outAsset = outflows[0]?.asset;
       const inAsset = inflows[0]?.asset;
@@ -511,7 +471,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
       }
     }
 
-    // Pattern 5: DEX swap detected by program (less confident than single-asset swap)
+    // Pattern 4: DEX swap detected by program (less confident than single-asset swap)
     if (fundFlow.hasSwaps) {
       return {
         note: {

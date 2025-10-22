@@ -6,6 +6,7 @@ import type {
   SubstrateTransaction,
   TransactionWithRawData,
 } from '@exitbook/providers';
+import { generateUniqueTransactionId } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 
@@ -86,11 +87,19 @@ export class SubstrateImporter implements IImporter {
       const providerId = response.providerName;
 
       return transactionsWithRaw.map((txWithRaw) => ({
-        providerId,
-        sourceAddress: address,
-        externalId: txWithRaw.normalized.id,
+        externalId: generateUniqueTransactionId({
+          amount: txWithRaw.normalized.amount,
+          currency: txWithRaw.normalized.currency,
+          from: txWithRaw.normalized.from,
+          id: txWithRaw.normalized.id,
+          timestamp: txWithRaw.normalized.timestamp,
+          to: txWithRaw.normalized.to,
+          type: 'transfer',
+        }),
         normalizedData: txWithRaw.normalized,
+        providerId,
         rawData: txWithRaw.raw,
+        sourceAddress: address,
       }));
     });
   }

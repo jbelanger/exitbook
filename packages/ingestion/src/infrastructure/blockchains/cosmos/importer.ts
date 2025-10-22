@@ -6,6 +6,7 @@ import type {
   ProviderError,
   TransactionWithRawData,
 } from '@exitbook/providers';
+import { generateUniqueTransactionId } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 
@@ -83,11 +84,20 @@ export class CosmosImporter implements IImporter {
       const providerId = response.providerName;
 
       return transactionsWithRaw.map((txWithRaw) => ({
-        providerId,
-        externalId: txWithRaw.normalized.id,
-        sourceAddress: address,
+        externalId: generateUniqueTransactionId({
+          amount: txWithRaw.normalized.amount,
+          currency: txWithRaw.normalized.currency,
+          from: txWithRaw.normalized.from,
+          id: txWithRaw.normalized.id,
+          timestamp: txWithRaw.normalized.timestamp,
+          to: txWithRaw.normalized.to,
+          tokenAddress: txWithRaw.normalized.tokenAddress,
+          type: txWithRaw.normalized.messageType || 'transfer',
+        }),
         normalizedData: txWithRaw.normalized,
-        rawData: txWithRaw.raw, // Keep original provider response for audit trail
+        providerId,
+        rawData: txWithRaw.raw,
+        sourceAddress: address,
       }));
     });
   }

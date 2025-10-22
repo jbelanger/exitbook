@@ -16,9 +16,6 @@ import type { CosmosFundFlow } from './types.ts';
  * Enhanced with sophisticated fund flow analysis.
  */
 export class CosmosProcessor extends BaseTransactionProcessor {
-  /** Minimum amount threshold below which transactions are classified as 'fee' type */
-  private static readonly DUST_THRESHOLD = '0.00001';
-
   private chainConfig: CosmosChainConfig;
 
   constructor(chainConfig: CosmosChainConfig, _transactionRepository?: ITransactionRepository) {
@@ -285,19 +282,19 @@ export class CosmosProcessor extends BaseTransactionProcessor {
   } {
     const { inflows, outflows } = fundFlow;
     const amount = this.toDecimal(fundFlow.primary.amount).abs();
-    const isDustOrZero = amount.isZero() || amount.lessThan(CosmosProcessor.DUST_THRESHOLD);
+    const isZero = amount.isZero();
 
-    // Pattern 1: Contract interaction with zero/dust value
+    // Pattern 1: Contract interaction with zero value
     // Classified as transfer with note (contract call, approval, etc.)
-    if (isDustOrZero && fundFlow.hasContractInteraction) {
+    if (isZero && fundFlow.hasContractInteraction) {
       return {
         note: {
-          message: `Contract interaction with zero/dust value (${fundFlow.primary.amount} ${fundFlow.primary.asset}). May be approval, delegation, or other state change.`,
+          message: `Contract interaction with zero value. May be approval, delegation, or other state change.`,
           metadata: {
             hasContractInteraction: fundFlow.hasContractInteraction,
           },
           severity: 'info',
-          type: 'classification_uncertain',
+          type: 'contract_interaction',
         },
         operation: {
           category: 'transfer',
@@ -307,53 +304,14 @@ export class CosmosProcessor extends BaseTransactionProcessor {
     }
 
     // Pattern 2: Fee-only transaction
-    // Zero/dust amount with NO movements at all
-    if (isDustOrZero && inflows.length === 0 && outflows.length === 0) {
+    // Zero value with NO fund movements at all
+    if (isZero && inflows.length === 0 && outflows.length === 0) {
       return {
         operation: {
           category: 'fee',
           type: 'fee',
         },
       };
-    }
-
-    // Pattern 2b: Dust-amount deposit/withdrawal (still meaningful for accounting)
-    if (isDustOrZero) {
-      if (outflows.length === 0 && inflows.length >= 1) {
-        return {
-          note: {
-            message: `Dust deposit (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${CosmosProcessor.DUST_THRESHOLD} threshold but still affects balance.`,
-            metadata: {
-              dustThreshold: CosmosProcessor.DUST_THRESHOLD,
-              inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-            },
-            severity: 'info',
-            type: 'dust_amount',
-          },
-          operation: {
-            category: 'transfer',
-            type: 'deposit',
-          },
-        };
-      }
-
-      if (outflows.length >= 1 && inflows.length === 0) {
-        return {
-          note: {
-            message: `Dust withdrawal (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${CosmosProcessor.DUST_THRESHOLD} threshold but still affects balance.`,
-            metadata: {
-              dustThreshold: CosmosProcessor.DUST_THRESHOLD,
-              outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
-            },
-            severity: 'info',
-            type: 'dust_amount',
-          },
-          operation: {
-            category: 'transfer',
-            type: 'withdrawal',
-          },
-        };
-      }
     }
 
     // Pattern 3: Bridge deposit (Peggy, Gravity Bridge, or IBC)

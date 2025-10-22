@@ -14,7 +14,7 @@ export const ExternalTransactionSchema = z.object({
   providerId: z.string().min(1, 'Provider ID must not be empty'),
   sourceAddress: z.string().optional(),
   transactionTypeHint: z.string().optional(),
-  externalId: z.string().optional(),
+  externalId: z.string().min(1, 'External ID must not be empty'),
   cursor: z.record(z.string(), z.unknown()).optional(),
   rawData: z.unknown(),
   normalizedData: z.unknown(),

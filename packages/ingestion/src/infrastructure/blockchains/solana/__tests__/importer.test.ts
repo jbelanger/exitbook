@@ -117,22 +117,22 @@ describe('SolanaTransactionImporter', () => {
         expect(result.value.rawTransactions).toHaveLength(2);
 
         // Verify SOL transaction
-        expect(result.value.rawTransactions[0]).toEqual({
+        expect(result.value.rawTransactions[0]).toMatchObject({
           providerId: 'helius',
           sourceAddress: address,
-          externalId: mockNormalizedSol.id,
           normalizedData: mockNormalizedSol,
           rawData: mockSolTx,
         });
+        expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
 
         // Verify token transaction
-        expect(result.value.rawTransactions[1]).toEqual({
+        expect(result.value.rawTransactions[1]).toMatchObject({
           providerId: 'helius',
           sourceAddress: address,
-          externalId: mockNormalizedToken.id,
           normalizedData: mockNormalizedToken,
           rawData: mockTokenTx,
         });
+        expect(result.value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
       }
 
       // Verify API call was made

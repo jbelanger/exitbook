@@ -113,7 +113,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
           .values({
             created_at: this.getCurrentDateTimeForDB(),
             cursor: item.cursor ? JSON.stringify(item.cursor) : null,
-            external_id: item.externalId ?? null,
+            external_id: item.externalId,
             data_source_id: dataSourceId,
             normalized_data: JSON.stringify(item.normalizedData),
             processing_status: 'pending',
@@ -122,7 +122,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             transaction_type_hint: item.transactionTypeHint ?? null,
             raw_data: JSON.stringify(item.rawData),
           })
-          .onConflict((oc) => oc.doNothing()) // Equivalent to INSERT OR IGNORE
           .execute();
 
         return insertResult.length > 0 ? 1 : 0;
@@ -172,7 +171,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
               transaction_type_hint: item.transactionTypeHint ?? null,
               raw_data: JSON.stringify(item.rawData),
             })
-            .onConflict((oc) => oc.doNothing())
             .execute();
 
           if (insertResult.length > 0) {
@@ -350,7 +348,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       providerId: row.provider_id,
       sourceAddress: row.source_address ?? undefined,
       transactionTypeHint: row.transaction_type_hint ?? undefined,
-      externalId: row.external_id ?? undefined,
+      externalId: row.external_id,
       cursor: cursorResult.value,
       rawData: rawDataResult.value,
       normalizedData: normalizedDataResult.value,

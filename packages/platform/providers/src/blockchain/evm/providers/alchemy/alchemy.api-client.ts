@@ -1,4 +1,4 @@
-import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig } from '../../../../core/blockchain/index.ts';
@@ -17,6 +17,7 @@ import type {
   AlchemyAssetTransferParams,
   AlchemyAssetTransfersResponse,
   AlchemyTokenBalancesResponse,
+  AlchemyTokenMetadata,
 } from './alchemy.schemas.js';
 
 @RegisterApiClient({
@@ -350,20 +351,70 @@ export class AlchemyApiClient extends BaseApiClient {
     const response = result.value;
     const rawBalances = response.result?.tokenBalances || [];
 
-    // Convert to BlockchainBalanceSnapshot format
-    const balances: BlockchainBalanceSnapshot[] = rawBalances
-      .filter((balance) => !balance.error)
-      .map((balance) => {
-        // Schema already converts hex/numeric to decimal string (in smallest units)
-        // Note: Without decimals info, we return balance in smallest units
-        return {
+    // Filter out errored balances and those with zero balance
+    const nonZeroBalances = rawBalances.filter((balance) => !balance.error && balance.tokenBalance !== '0');
+
+    // Fetch metadata for each token to get symbols
+    const balances: BlockchainBalanceSnapshot[] = [];
+    for (const balance of nonZeroBalances) {
+      const metadataResult = await this.getTokenMetadata(balance.contractAddress);
+
+      if (metadataResult.isErr()) {
+        // If metadata fetch fails, use address as fallback
+        this.logger.warn(`Failed to fetch metadata for ${balance.contractAddress}, using address as symbol`);
+        balances.push({
           asset: balance.contractAddress,
           total: balance.tokenBalance,
-        };
+        });
+        continue;
+      }
+
+      const metadata = metadataResult.value;
+      // Use symbol if available, otherwise fall back to address
+      const asset = metadata.symbol || balance.contractAddress;
+
+      // Convert from smallest units to decimal if we have decimals info
+      let total = balance.tokenBalance;
+      if (metadata.decimals !== undefined && metadata.decimals !== null) {
+        try {
+          const balanceDecimal = parseDecimal(balance.tokenBalance)
+            .div(parseDecimal('10').pow(metadata.decimals))
+            .toString();
+          total = balanceDecimal;
+        } catch (error) {
+          this.logger.warn(`Failed to convert balance for ${balance.contractAddress}: ${getErrorMessage(error)}`);
+          // Keep raw balance if conversion fails
+        }
+      }
+
+      balances.push({
+        asset,
+        total,
       });
+    }
 
     this.logger.debug(`Found ${balances.length} raw token balances for ${address}`);
     return ok(balances);
+  }
+
+  private async getTokenMetadata(contractAddress: string): Promise<Result<AlchemyTokenMetadata, Error>> {
+    const result = await this.httpClient.post<JsonRpcResponse<AlchemyTokenMetadata>>(`/${this.apiKey}`, {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'alchemy_getTokenMetadata',
+      params: [contractAddress],
+    });
+
+    if (result.isErr()) {
+      return err(result.error);
+    }
+
+    const metadata = result.value.result;
+    if (!metadata) {
+      return err(new Error(`No metadata returned for token ${contractAddress}`));
+    }
+
+    return ok(metadata);
   }
 
   private async getAddressTokenTransactions(

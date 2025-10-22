@@ -2,6 +2,7 @@ import type { UniversalTransaction } from '@exitbook/core';
 import { createMoney, parseDecimal } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
+import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -14,9 +15,6 @@ import type { EvmFundFlow } from './types.ts';
  * to every EVM-compatible chain.
  */
 export class EvmTransactionProcessor extends BaseTransactionProcessor {
-  /** Minimum amount threshold below which transactions are classified as 'fee' type */
-  private static readonly DUST_THRESHOLD = '0.00001';
-
   constructor(
     private readonly chainConfig: EvmChainConfig,
     private readonly _transactionRepository?: ITransactionRepository
@@ -240,7 +238,12 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     for (const tx of txGroup) {
       if (tx.type === 'token_transfer' && this.isUserParticipant(tx, userAddress)) {
         const tokenSymbol = tx.tokenSymbol || tx.currency || 'UNKNOWN';
-        const amount = tx.amount ?? '0';
+        const rawAmount = tx.amount ?? '0';
+
+        // Normalize token amount using decimals metadata
+        // Some providers (Alchemy) return amounts in smallest units, others (Moralis) are pre-normalized
+        // Always normalize to ensure consistency across providers
+        const amount = normalizeTokenAmount(rawAmount, tx.tokenDecimals);
 
         // Skip zero amounts
         if (this.isZero(amount)) {
@@ -330,7 +333,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     // Process all native currency movements involving the user
     for (const tx of txGroup) {
       if (this.isNativeMovement(tx) && this.isUserParticipant(tx, userAddress)) {
-        const normalizedAmount = this.normalizeNativeAmount(tx.amount);
+        const normalizedAmount = normalizeNativeAmount(tx.amount, this.chainConfig.nativeDecimals);
 
         // Skip zero amounts
         if (this.isZero(normalizedAmount)) {
@@ -533,7 +536,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
   }
 
   /**
-   * Conservative operation classification with uncertainty tracking.
+   * Conservative operation classification based purely on fund flow structure.
    * Only classifies patterns we're confident about. Complex cases get notes.
    */
   private determineOperationFromFundFlow(fundFlow: EvmFundFlow): {
@@ -544,21 +547,20 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
   } {
     const { inflows, outflows } = fundFlow;
     const amount = parseDecimal(fundFlow.primary.amount || '0').abs();
-    const isDustOrZero = amount.isZero() || amount.lessThan(EvmTransactionProcessor.DUST_THRESHOLD);
+    const isZero = amount.isZero();
 
-    // Pattern 1: Contract interaction with zero/dust value
-    // Approvals, staking operations, etc. - classified as transfer with note
-    // Check this BEFORE other patterns since contract interactions are special
-    if (isDustOrZero && (fundFlow.hasContractInteraction || fundFlow.hasTokenTransfers)) {
+    // Pattern 1: Contract interaction with zero value
+    // Approvals, staking operations, state changes - classified as transfer with note
+    if (isZero && (fundFlow.hasContractInteraction || fundFlow.hasTokenTransfers)) {
       return {
         note: {
-          message: `Contract interaction with zero/dust value (${fundFlow.primary.amount} ${fundFlow.primary.asset}). May be approval, staking, or other state change.`,
+          message: `Contract interaction with zero value. May be approval, staking, or other state change.`,
           metadata: {
             hasContractInteraction: fundFlow.hasContractInteraction,
             hasTokenTransfers: fundFlow.hasTokenTransfers,
           },
           severity: 'info',
-          type: 'classification_uncertain',
+          type: 'contract_interaction',
         },
         operation: {
           category: 'transfer',
@@ -568,54 +570,14 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     }
 
     // Pattern 2: Fee-only transaction
-    // Zero/dust amount with NO movements at all (not even dust deposits)
-    if (isDustOrZero && inflows.length === 0 && outflows.length === 0) {
+    // Zero value with NO fund movements at all
+    if (isZero && inflows.length === 0 && outflows.length === 0) {
       return {
         operation: {
           category: 'fee',
           type: 'fee',
         },
       };
-    }
-
-    // Pattern 2b: Dust-amount deposit/withdrawal (still meaningful for accounting)
-    // Has movement but amount is below threshold - classify correctly with note
-    if (isDustOrZero) {
-      if (outflows.length === 0 && inflows.length >= 1) {
-        return {
-          note: {
-            message: `Dust deposit (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${EvmTransactionProcessor.DUST_THRESHOLD} threshold but still affects balance.`,
-            metadata: {
-              dustThreshold: EvmTransactionProcessor.DUST_THRESHOLD,
-              inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-            },
-            severity: 'info',
-            type: 'dust_amount',
-          },
-          operation: {
-            category: 'transfer',
-            type: 'deposit',
-          },
-        };
-      }
-
-      if (outflows.length >= 1 && inflows.length === 0) {
-        return {
-          note: {
-            message: `Dust withdrawal (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${EvmTransactionProcessor.DUST_THRESHOLD} threshold but still affects balance.`,
-            metadata: {
-              dustThreshold: EvmTransactionProcessor.DUST_THRESHOLD,
-              outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
-            },
-            severity: 'info',
-            type: 'dust_amount',
-          },
-          operation: {
-            category: 'transfer',
-            type: 'withdrawal',
-          },
-        };
-      }
     }
 
     // Pattern 3: Single asset swap
@@ -741,19 +703,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
   private isNativeMovement(tx: EvmTransaction): boolean {
     const native = this.chainConfig.nativeCurrency.toLowerCase();
     return tx.currency.toLowerCase() === native || (tx.tokenSymbol ? tx.tokenSymbol.toLowerCase() === native : false);
-  }
-
-  private normalizeNativeAmount(amountWei: string | undefined): string {
-    if (!amountWei || amountWei === '0') {
-      return '0';
-    }
-
-    try {
-      return parseDecimal(amountWei).dividedBy(parseDecimal('10').pow(this.chainConfig.nativeDecimals)).toString();
-    } catch (error) {
-      this.logger.warn(`Unable to normalize native amount: ${String(error)}`);
-      return '0';
-    }
   }
 
   private isZero(value: string): boolean {

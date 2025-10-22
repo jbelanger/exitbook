@@ -21,6 +21,7 @@ export function registerBalanceCommand(program: Command): void {
     .option('--exchange <name>', 'Exchange name (e.g., kraken, kucoin)')
     .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, solana)')
     .option('--address <address>', 'Wallet address (required for blockchain sources)')
+    .option('--provider <name>', 'Blockchain provider for blockchain sources')
     .option('--api-key <key>', 'API key for exchange (overrides .env)')
     .option('--api-secret <secret>', 'API secret for exchange (overrides .env)')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange (if required)')
