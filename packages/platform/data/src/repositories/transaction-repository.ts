@@ -211,6 +211,25 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
+  async findById(id: number): Promise<Result<UniversalTransaction | null, Error>> {
+    try {
+      const row = await this.db.selectFrom('transactions').selectAll().where('id', '=', id).executeTakeFirst();
+
+      if (!row) {
+        return ok(null);
+      }
+
+      const result = this.toUniversalTransaction(row);
+      if (result.isErr()) {
+        return err(result.error);
+      }
+
+      return ok(result.value);
+    } catch (error) {
+      return wrapError(error, 'Failed to retrieve transaction by ID');
+    }
+  }
+
   async findByAddress(address: string, sourceId?: string) {
     try {
       let query = this.db
