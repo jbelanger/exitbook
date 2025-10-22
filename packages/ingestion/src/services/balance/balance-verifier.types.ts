@@ -1,4 +1,4 @@
-import type { SourceType } from '@exitbook/core';
+import type { BalanceCommandStatus, SourceType } from '@exitbook/core';
 
 /**
  * Comparison result for a single currency balance
@@ -19,7 +19,7 @@ export interface BalanceVerificationResult {
   sourceId: string;
   sourceType: SourceType;
   timestamp: number;
-  status: 'success' | 'warning' | 'failed';
+  status: BalanceCommandStatus;
   comparisons: BalanceComparison[];
   summary: {
     matches: number;

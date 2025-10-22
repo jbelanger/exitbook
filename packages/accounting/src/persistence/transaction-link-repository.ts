@@ -5,7 +5,7 @@ import { BaseRepository } from '@exitbook/data';
 import type { Selectable } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
-import { MatchCriteriaSchema } from '../linking/schemas.js';
+import { MatchCriteriaSchema, TransactionLinkMetadataSchema } from '../linking/schemas.js';
 import type { TransactionLink } from '../linking/types.js';
 
 export type StoredTransactionLink = Selectable<TransactionLinksTable>;
@@ -26,6 +26,20 @@ export class TransactionLinkRepository extends BaseRepository {
    */
   async create(link: TransactionLink): Promise<Result<string, Error>> {
     try {
+      // Validate matchCriteria before saving
+      const matchCriteriaValidation = MatchCriteriaSchema.safeParse(link.matchCriteria);
+      if (!matchCriteriaValidation.success) {
+        return err(new Error(`Invalid match criteria: ${matchCriteriaValidation.error.message}`));
+      }
+
+      // Validate metadata before saving
+      if (link.metadata !== undefined) {
+        const metadataValidation = TransactionLinkMetadataSchema.safeParse(link.metadata);
+        if (!metadataValidation.success) {
+          return err(new Error(`Invalid link metadata: ${metadataValidation.error.message}`));
+        }
+      }
+
       await this.db
         .insertInto('transaction_links')
         .values({
@@ -62,6 +76,21 @@ export class TransactionLinkRepository extends BaseRepository {
     try {
       if (links.length === 0) {
         return ok(0);
+      }
+
+      // Validate all links before saving
+      for (const link of links) {
+        const matchCriteriaValidation = MatchCriteriaSchema.safeParse(link.matchCriteria);
+        if (!matchCriteriaValidation.success) {
+          return err(new Error(`Invalid match criteria for link ${link.id}: ${matchCriteriaValidation.error.message}`));
+        }
+
+        if (link.metadata !== undefined) {
+          const metadataValidation = TransactionLinkMetadataSchema.safeParse(link.metadata);
+          if (!metadataValidation.success) {
+            return err(new Error(`Invalid metadata for link ${link.id}: ${metadataValidation.error.message}`));
+          }
+        }
       }
 
       const values = links.map((link) => ({
@@ -345,7 +374,8 @@ export class TransactionLinkRepository extends BaseRepository {
       return err(new Error('match_criteria_json is required but was undefined'));
     }
 
-    const metadataResult = this.parseJson<Record<string, unknown>>(row.metadata_json);
+    // Parse and validate metadata with schema
+    const metadataResult = this.parseWithSchema(row.metadata_json, TransactionLinkMetadataSchema);
     if (metadataResult.isErr()) {
       return err(metadataResult.error);
     }

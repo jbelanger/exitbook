@@ -1,4 +1,4 @@
-import type { SourceType } from '@exitbook/core';
+import type { BalanceCommandStatus, SourceType } from '@exitbook/core';
 
 import type { BalanceCommandOptions } from './balance-utils.ts';
 
@@ -13,7 +13,7 @@ export interface ExtendedBalanceCommandOptions extends BalanceCommandOptions {
  * Balance command result data for JSON output.
  */
 export interface BalanceCommandResult {
-  status: 'success' | 'warning' | 'failed';
+  status: BalanceCommandStatus;
   liveBalances: Record<string, string>;
   calculatedBalances: Record<string, string>;
   comparisons: {

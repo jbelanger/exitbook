@@ -220,8 +220,9 @@ return ok(result.value);
 
 Runtime validation for all external data (API responses, CSV rows):
 
-- Schemas defined in `*.schemas.ts` files
-- Used in importers and processors for validation
+- Core domain schemas centralized in `packages/core/src/schemas/` (single source of truth)
+- Feature-specific schemas in `*.schemas.ts` files alongside implementation
+- Types re-exported from schemas via `packages/core/src/types/` to eliminate duplication
 - Type inference: `type Foo = z.infer<typeof FooSchema>`
 
 ### Logging (Pino)

@@ -23,6 +23,11 @@ export const MatchCriteriaSchema = z.object({
 });
 
 /**
+ * Transaction link metadata schema
+ */
+export const TransactionLinkMetadataSchema = z.record(z.string(), z.unknown());
+
+/**
  * Transaction link schema
  */
 export const TransactionLinkSchema = z.object({
@@ -37,7 +42,7 @@ export const TransactionLinkSchema = z.object({
   reviewedAt: DateSchema.optional(),
   createdAt: DateSchema,
   updatedAt: DateSchema,
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  metadata: TransactionLinkMetadataSchema.optional(),
 });
 
 /**

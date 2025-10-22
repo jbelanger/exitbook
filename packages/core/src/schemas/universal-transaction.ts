@@ -64,13 +64,19 @@ export const AssetMovementSchema = z.object({
   priceAtTxTime: PriceAtTxTimeSchema.optional(),
 });
 
+// Note metadata schema (for note.metadata field)
+export const NoteMetadataSchema = z.record(z.string(), z.any());
+
 // Transaction note schema
 export const TransactionNoteSchema = z.object({
   type: z.string(),
   message: z.string(),
   severity: z.enum(['info', 'warning', 'error']).optional(),
-  metadata: z.record(z.string(), z.any()).optional(),
+  metadata: NoteMetadataSchema.optional(),
 });
+
+// Transaction metadata schema (for raw_normalized_data field)
+export const TransactionMetadataSchema = z.record(z.string(), z.unknown());
 
 // Universal Transaction schema (new structure)
 export const UniversalTransactionSchema = z.object({
