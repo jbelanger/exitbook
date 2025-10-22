@@ -1,3 +1,4 @@
+import type { SourceType } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
 import { ProcessorFactory } from '../processor-factory.ts';
@@ -102,7 +103,7 @@ describe('ProcessorFactory - Error Handling', () => {
   test('throws error for unsupported source type', async () => {
     const factory = new ProcessorFactory();
 
-    await expect(factory.create('kucoin', 'invalid-type' as unknown as string)).rejects.toThrow(
+    await expect(factory.create('kucoin', 'invalid-type' as unknown as SourceType)).rejects.toThrow(
       'Unsupported source type: invalid-type'
     );
   });

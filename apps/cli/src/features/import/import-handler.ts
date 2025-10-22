@@ -5,7 +5,8 @@ import {
   DataSourceRepository,
   ProcessorFactory,
   RawDataRepository,
-  TransactionIngestionService,
+  TransactionImportService,
+  TransactionProcessService,
 } from '@exitbook/ingestion';
 import type { ImportParams } from '@exitbook/ingestion';
 import {
@@ -82,7 +83,8 @@ export interface ImportResult {
  */
 export class ImportHandler {
   private providerManager: BlockchainProviderManager;
-  private ingestionService: TransactionIngestionService;
+  private importService: TransactionImportService;
+  private processService: TransactionProcessService;
 
   constructor(
     private database: KyselyDB,
@@ -99,11 +101,11 @@ export class ImportHandler {
     const importerFactory = new ImporterFactory(this.providerManager);
     const processorFactory = new ProcessorFactory();
 
-    this.ingestionService = new TransactionIngestionService(
+    this.importService = new TransactionImportService(rawDataRepository, sessionRepository, importerFactory);
+    this.processService = new TransactionProcessService(
       rawDataRepository,
       sessionRepository,
       transactionRepository,
-      importerFactory,
       processorFactory
     );
   }
@@ -142,7 +144,7 @@ export class ImportHandler {
       }
 
       // Import raw data
-      const importResult = await this.ingestionService.importFromSource(
+      const importResult = await this.importService.importFromSource(
         params.sourceName,
         params.sourceType,
         importParams
@@ -165,7 +167,7 @@ export class ImportHandler {
       if (params.shouldProcess) {
         logger.info('Processing imported data to universal format');
 
-        const processResult = await this.ingestionService.processRawDataToTransactions(
+        const processResult = await this.processService.processRawDataToTransactions(
           params.sourceName,
           params.sourceType,
           {

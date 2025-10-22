@@ -1,5 +1,5 @@
 import type { KyselyDB } from '@exitbook/data';
-import type { TransactionIngestionService } from '@exitbook/ingestion';
+import type { TransactionImportService, TransactionProcessService } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
@@ -20,13 +20,15 @@ vi.mock('@exitbook/ingestion', () => ({
   DataSourceRepository: vi.fn(),
   ProcessorFactory: vi.fn(),
   RawDataRepository: vi.fn(),
-  TransactionIngestionService: vi.fn(),
+  TransactionImportService: vi.fn(),
+  TransactionProcessService: vi.fn(),
   TransactionRepository: vi.fn(),
 }));
 
 describe('ImportHandler', () => {
   let mockDatabase: KyselyDB;
-  let mockIngestionService: Partial<TransactionIngestionService>;
+  let mockImportService: Partial<TransactionImportService>;
+  let mockProcessService: Partial<TransactionProcessService>;
   let handler: ImportHandler;
 
   beforeEach(async () => {
@@ -35,15 +37,19 @@ describe('ImportHandler', () => {
     // Mock database
     mockDatabase = {} as KyselyDB;
 
-    // Mock ingestion service
-    mockIngestionService = {
+    // Mock import and process services
+    mockImportService = {
       importFromSource: vi.fn(),
+    };
+
+    mockProcessService = {
       processRawDataToTransactions: vi.fn(),
     };
 
-    // Setup TransactionIngestionService mock to return our mock instance
-    const { TransactionIngestionService } = await import('@exitbook/ingestion');
-    (TransactionIngestionService as unknown as Mock).mockImplementation(() => mockIngestionService);
+    // Setup service mocks to return our mock instances
+    const { TransactionImportService, TransactionProcessService } = await import('@exitbook/ingestion');
+    (TransactionImportService as unknown as Mock).mockImplementation(() => mockImportService);
+    (TransactionProcessService as unknown as Mock).mockImplementation(() => mockProcessService);
 
     handler = new ImportHandler(mockDatabase);
   });
@@ -56,7 +62,7 @@ describe('ImportHandler', () => {
         address: 'bc1qtest',
       };
 
-      (mockIngestionService.importFromSource as Mock).mockResolvedValue(
+      (mockImportService.importFromSource as Mock).mockResolvedValue(
         ok({
           dataSourceId: 123,
           imported: 50,
@@ -71,7 +77,7 @@ describe('ImportHandler', () => {
         imported: 50,
       });
 
-      expect(mockIngestionService.importFromSource).toHaveBeenCalledWith('bitcoin', 'blockchain', {
+      expect(mockImportService.importFromSource).toHaveBeenCalledWith('bitcoin', 'blockchain', {
         address: 'bc1qtest',
         providerId: undefined,
       });
@@ -84,7 +90,7 @@ describe('ImportHandler', () => {
         csvDir: './data/kraken',
       };
 
-      (mockIngestionService.importFromSource as Mock).mockResolvedValue(
+      (mockImportService.importFromSource as Mock).mockResolvedValue(
         ok({
           dataSourceId: 456,
           imported: 100,
@@ -99,7 +105,7 @@ describe('ImportHandler', () => {
         imported: 100,
       });
 
-      expect(mockIngestionService.importFromSource).toHaveBeenCalledWith('kraken', 'exchange', {
+      expect(mockImportService.importFromSource).toHaveBeenCalledWith('kraken', 'exchange', {
         csvDirectories: ['./data/kraken'],
       });
     });
@@ -115,7 +121,7 @@ describe('ImportHandler', () => {
         },
       };
 
-      (mockIngestionService.importFromSource as Mock).mockResolvedValue(
+      (mockImportService.importFromSource as Mock).mockResolvedValue(
         ok({
           dataSourceId: 789,
           imported: 75,
@@ -125,7 +131,7 @@ describe('ImportHandler', () => {
       const result = await handler.execute(params);
 
       expect(result.isOk()).toBe(true);
-      expect(mockIngestionService.importFromSource).toHaveBeenCalledWith('kucoin', 'exchange', {
+      expect(mockImportService.importFromSource).toHaveBeenCalledWith('kucoin', 'exchange', {
         credentials: {
           apiKey: 'test-key',
           secret: 'test-secret',
@@ -142,14 +148,14 @@ describe('ImportHandler', () => {
         shouldProcess: true,
       };
 
-      (mockIngestionService.importFromSource as Mock).mockResolvedValue(
+      (mockImportService.importFromSource as Mock).mockResolvedValue(
         ok({
           dataSourceId: 123,
           imported: 50,
         })
       );
 
-      (mockIngestionService.processRawDataToTransactions as Mock).mockResolvedValue(
+      (mockProcessService.processRawDataToTransactions as Mock).mockResolvedValue(
         ok({
           processed: 50,
           errors: [],
@@ -166,7 +172,7 @@ describe('ImportHandler', () => {
         processingErrors: [],
       });
 
-      expect(mockIngestionService.processRawDataToTransactions).toHaveBeenCalledWith('bitcoin', 'blockchain', {
+      expect(mockProcessService.processRawDataToTransactions).toHaveBeenCalledWith('bitcoin', 'blockchain', {
         dataSourceId: 123,
       });
     });
@@ -179,7 +185,7 @@ describe('ImportHandler', () => {
         shouldProcess: true,
       };
 
-      (mockIngestionService.importFromSource as Mock).mockResolvedValue(
+      (mockImportService.importFromSource as Mock).mockResolvedValue(
         ok({
           dataSourceId: 123,
           imported: 50,
@@ -187,7 +193,7 @@ describe('ImportHandler', () => {
       );
 
       const processingErrors = ['Error 1', 'Error 2', 'Error 3'];
-      (mockIngestionService.processRawDataToTransactions as Mock).mockResolvedValue(
+      (mockProcessService.processRawDataToTransactions as Mock).mockResolvedValue(
         ok({
           processed: 47,
           errors: processingErrors,
@@ -213,7 +219,7 @@ describe('ImportHandler', () => {
       };
 
       const importError = new Error('Import failed: network timeout');
-      (mockIngestionService.importFromSource as Mock).mockResolvedValue(err(importError));
+      (mockImportService.importFromSource as Mock).mockResolvedValue(err(importError));
 
       const result = await handler.execute(params);
 
@@ -229,7 +235,7 @@ describe('ImportHandler', () => {
         shouldProcess: true,
       };
 
-      (mockIngestionService.importFromSource as Mock).mockResolvedValue(
+      (mockImportService.importFromSource as Mock).mockResolvedValue(
         ok({
           dataSourceId: 123,
           imported: 50,
@@ -237,7 +243,7 @@ describe('ImportHandler', () => {
       );
 
       const processingError = new Error('Processing failed');
-      (mockIngestionService.processRawDataToTransactions as Mock).mockResolvedValue(err(processingError));
+      (mockProcessService.processRawDataToTransactions as Mock).mockResolvedValue(err(processingError));
 
       const result = await handler.execute(params);
 

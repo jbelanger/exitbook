@@ -1,4 +1,5 @@
-export { TransactionIngestionService } from './services/ingestion-service.ts';
+export { TransactionImportService } from './services/import-service.ts';
+export { TransactionProcessService } from './services/process-service.ts';
 export {
   PriceEnrichmentService,
   type PriceEnrichmentConfig,
