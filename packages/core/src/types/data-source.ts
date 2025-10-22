@@ -5,16 +5,13 @@ export type {
   BalanceDiscrepancy,
   BalanceVerification,
   DataImportParams,
+  DataSourceStatus,
   SourceParams,
+  SourceType,
   VerificationMetadata,
 } from '../schemas/data-source.ts';
 
-import type { DataImportParams, VerificationMetadata } from '../schemas/data-source.ts';
-
-/**
- * The type of data source (blockchain or exchange)
- */
-export type SourceType = 'blockchain' | 'exchange';
+import type { DataImportParams, DataSourceStatus, SourceType, VerificationMetadata } from '../schemas/data-source.ts';
 
 /**
  * Rich session metadata providing blockchain-specific address context
@@ -36,7 +33,7 @@ export interface DataSource {
   id: number;
   sourceId: string;
   sourceType: SourceType;
-  status: 'started' | 'completed' | 'failed' | 'cancelled';
+  status: DataSourceStatus;
   startedAt: Date;
   completedAt?: Date | undefined;
   createdAt: Date;

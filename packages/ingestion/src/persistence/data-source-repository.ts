@@ -1,4 +1,4 @@
-import type { DataImportParams, DataSource, SourceType, VerificationMetadata } from '@exitbook/core';
+import type { DataImportParams, DataSource, DataSourceStatus, SourceType, VerificationMetadata } from '@exitbook/core';
 import { DataImportParamsSchema, VerificationMetadataSchema, wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import type { StoredDataSource, ImportSessionQuery, DataSourceUpdate } from '@exitbook/data';
@@ -46,7 +46,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
   async finalize(
     sessionId: number,
-    status: 'completed' | 'failed' | 'cancelled',
+    status: Exclude<DataSourceStatus, 'started'>,
     startTime: number,
     errorMessage?: string,
     errorDetails?: unknown,

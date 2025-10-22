@@ -1,9 +1,11 @@
 import type {
   DataImportParams,
   DataSource,
+  DataSourceStatus,
   VerificationMetadata,
   ExternalTransaction,
   ExternalTransactionData,
+  ProcessingStatus,
   SourceType,
 } from '@exitbook/core';
 import type { DataSourceUpdate, ImportSessionQuery } from '@exitbook/data';
@@ -17,7 +19,7 @@ import type { ImportParams } from './importers.ts';
  */
 export interface LoadRawDataFilters {
   dataSourceId?: number | undefined;
-  processingStatus?: 'pending' | 'processed' | 'failed' | undefined;
+  processingStatus?: ProcessingStatus | undefined;
   providerId?: string | undefined;
   since?: number | undefined;
   sourceId?: string | undefined;
@@ -76,7 +78,7 @@ export interface IDataSourceRepository {
    */
   finalize(
     sessionId: number,
-    status: 'completed' | 'failed' | 'cancelled',
+    status: Exclude<DataSourceStatus, 'started'>,
     startTime: number,
     errorMessage?: string,
     errorDetails?: unknown,

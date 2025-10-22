@@ -1,5 +1,5 @@
 // Database schema types for data persistence
-import type { AssetMovement, Money, SourceType } from '@exitbook/core';
+import type { AssetMovement, DataSourceStatus, Money, SourceType } from '@exitbook/core';
 import type { Selectable, Insertable, Updateable } from 'kysely';
 
 import type { ExternalTransactionDataTable, DataSourcesTable, TransactionsTable } from '../schema/database-schema.ts';
@@ -38,5 +38,5 @@ export interface ImportSessionQuery {
   since?: number | undefined;
   sourceId?: string | undefined;
   sourceType?: SourceType | undefined;
-  status?: 'started' | 'completed' | 'failed' | 'cancelled' | undefined;
+  status?: DataSourceStatus | undefined;
 }

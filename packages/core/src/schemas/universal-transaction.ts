@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { DecimalSchema, MoneySchema } from './money.ts';
+import { DateSchema, DecimalSchema, MoneySchema } from './money.ts';
 
 // Transaction type schema
 export const TransactionTypeSchema = z.enum([
@@ -53,7 +53,7 @@ export const MovementDirectionSchema = z.enum(['in', 'out', 'neutral']);
 export const PriceAtTxTimeSchema = z.object({
   price: MoneySchema,
   source: z.string(),
-  fetchedAt: z.date(),
+  fetchedAt: DateSchema,
   granularity: z.enum(['exact', 'minute', 'hour', 'day']).optional(),
 });
 

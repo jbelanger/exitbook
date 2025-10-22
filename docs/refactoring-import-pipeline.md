@@ -618,7 +618,7 @@ export interface ExternalTransactionDataTable {
   metadata: JSONString | null;
   created_at: DateTime;
 
-  processing_status: 'pending' | 'processed' | 'failed' | 'skipped';
+  processing_status: ProcessingStatus;
   processed_at: DateTime | null;
   processing_error: string | null;
   provider_id: string | null;
