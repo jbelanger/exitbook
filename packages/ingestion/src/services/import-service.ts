@@ -56,7 +56,7 @@ export class TransactionImportService {
 
     if (existingSession) {
       this.logger.info(
-        `Found existing completed data source  ${existingSession.id} with matching parameters - reusing data`
+        `Found existing completed data source ${existingSession.id} with matching parameters - reusing data`
       );
 
       const rawDataResult = await this.rawDataRepository.load({
