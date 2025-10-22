@@ -16,7 +16,7 @@ Exitbook is a pnpm workspace. Each workspace keeps code for a concrete domain so
 ### Domain Packages
 
 - `@exitbook/core` (`packages/core`) — canonical data contracts and validation schemas; no runtime coupling to other packages.
-- `@exitbook/ingestion` (`packages/import`) — blockchain import pipeline: API clients, mappers, processors, and the orchestration services that turn raw provider data into universal transactions.
+- `@exitbook/ingestion` (`packages/ingestion`) — blockchain import pipeline: API clients, mappers, processors, and the orchestration services that turn raw provider data into universal transactions.
 - `@exitbook/data` (`packages/data`) — persistence layer: SQLite access, repositories, and data-oriented services consumed by higher layers.
 - `@exitbook/balance` (`packages/balance`) — balance reconciliation logic that compares computed balances with live or historical data.
 

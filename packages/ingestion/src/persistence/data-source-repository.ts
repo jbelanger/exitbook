@@ -40,7 +40,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
         .insertInto('data_sources')
         .values({
           created_at: this.getCurrentDateTimeForDB(),
-          import_params: this.serializeToJson(paramsToSave) ?? '{}',
+          import_params: this.serializeToJson(validationResult.data) ?? '{}',
           import_result_metadata: this.serializeToJson({}) ?? '{}',
           source_id: sourceId,
           source_type: sourceType,
@@ -82,7 +82,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
           duration_ms: durationMs,
           error_details: this.serializeToJson(errorDetails),
           error_message: errorMessage,
-          import_result_metadata: this.serializeToJson(metadataToSave),
+          import_result_metadata: this.serializeToJson(validationResult.data),
           status,
           updated_at: currentTimestamp,
         })
@@ -196,7 +196,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
           if (!validationResult.success) {
             return err(new Error(`Invalid import params: ${validationResult.error.message}`));
           }
-          updateData.import_params = this.serializeToJson(updates.import_params);
+          updateData.import_params = this.serializeToJson(validationResult.data);
         }
       }
 
@@ -209,7 +209,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
           if (!validationResult.success) {
             return err(new Error(`Invalid import result metadata: ${validationResult.error.message}`));
           }
-          updateData.import_result_metadata = this.serializeToJson(updates.import_result_metadata);
+          updateData.import_result_metadata = this.serializeToJson(validationResult.data);
         }
       }
 
