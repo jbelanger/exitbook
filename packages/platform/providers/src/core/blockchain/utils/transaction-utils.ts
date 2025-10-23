@@ -49,7 +49,7 @@ export function generateUniqueTransactionId(tx: TransactionIdFields): string {
     tx.currency || '',
     tx.amount || '',
     tx.type || '',
-    tx.timestamp?.toString() || '',
+    tx.timestamp.toString() || '',
   ];
 
   // Add token-specific fields if present to differentiate token transfers
