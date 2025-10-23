@@ -184,22 +184,22 @@ describe('SubstrateImporter', () => {
         expect(result.value.rawTransactions).toHaveLength(2);
 
         // Verify first transaction
-        expect(result.value.rawTransactions[0]).toEqual({
+        expect(result.value.rawTransactions[0]).toMatchObject({
           providerId: 'subscan',
           sourceAddress: address,
-          externalId: mockSubstrateTx1.id,
           normalizedData: mockSubstrateTx1,
           rawData: { original: 'data1' },
         });
+        expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
 
         // Verify second transaction
-        expect(result.value.rawTransactions[1]).toEqual({
+        expect(result.value.rawTransactions[1]).toMatchObject({
           providerId: 'subscan',
           sourceAddress: address,
-          externalId: mockSubstrateTx2.id,
           normalizedData: mockSubstrateTx2,
           rawData: { original: 'data2' },
         });
+        expect(result.value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
       }
 
       // Verify API call was made

@@ -493,7 +493,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // User signs contract call, should pay fee even with zero value
     expect(transaction.fees.network?.amount.toString()).toBe('500000000000000');
-    expect(transaction.note?.type).toBe('classification_uncertain');
+    expect(transaction.note?.type).toBe('contract_interaction');
   });
 
   test('deducts fee for failed transactions when user signed', async () => {

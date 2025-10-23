@@ -49,33 +49,66 @@ export async function fetchExchangeBalance(
 
 /**
  * Fetch balance from a blockchain using the provider manager.
- * For blockchains, this fetches the native asset balance.
+ * Fetches both native asset balance and token balances if the provider supports it.
  *
- * The currency symbol is returned by the provider based on the blockchain's
- * native currency configuration.
+ * The currency symbols are returned by the provider based on the blockchain's
+ * configuration and token metadata.
  */
 export async function fetchBlockchainBalance(
   providerManager: BlockchainProviderManager,
   blockchain: string,
-  address: string
+  address: string,
+  providerId?: string
 ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
   try {
-    // Execute the balance fetch operation using the provider manager
-    const result = await providerManager.executeWithFailover<BlockchainBalanceSnapshot>(blockchain, {
+    // Auto-register providers for this blockchain with optional provider preference
+    const existingProviders = providerManager.getProviders(blockchain);
+    if (!existingProviders || existingProviders.length === 0) {
+      providerManager.autoRegisterFromConfig(blockchain, providerId);
+    }
+
+    const balances: Record<string, string> = {};
+
+    // 1. Fetch native asset balance
+    const nativeResult = await providerManager.executeWithFailover<BlockchainBalanceSnapshot>(blockchain, {
       type: 'getAddressBalances',
       address,
     });
 
-    if (result.isErr()) {
-      return err(result.error);
+    if (nativeResult.isErr()) {
+      return err(nativeResult.error);
     }
 
-    const { data } = result.value;
+    const { data: nativeBalance } = nativeResult.value;
+    balances[nativeBalance.asset] = nativeBalance.total;
 
-    // Use the currency from the provider's response
-    const balances: Record<string, string> = {
-      [data.asset]: data.total,
-    };
+    // 2. Check if any provider supports token balances
+    const providers = providerManager.getProviders(blockchain);
+    const supportsTokenBalances = providers.some((provider) =>
+      provider.capabilities.supportedOperations.includes('getAddressTokenBalances')
+    );
+
+    // 3. Fetch token balances if supported
+    if (supportsTokenBalances) {
+      const tokenResult = await providerManager.executeWithFailover<BlockchainBalanceSnapshot[]>(blockchain, {
+        type: 'getAddressTokenBalances',
+        address,
+      });
+
+      if (tokenResult.isErr()) {
+        return err(
+          new Error(
+            `Failed to fetch token balances for ${blockchain}:${address}. Native balance: ${nativeBalance.total} ${nativeBalance.asset}. Error: ${tokenResult.error.message}`
+          )
+        );
+      }
+
+      const { data: tokenBalances } = tokenResult.value;
+      // Add each token balance to the result
+      for (const tokenBalance of tokenBalances) {
+        balances[tokenBalance.asset] = tokenBalance.total;
+      }
+    }
 
     return ok({
       balances,
@@ -95,9 +128,16 @@ export async function fetchBlockchainBalance(
 export async function fetchBitcoinXpubBalance(
   providerManager: BlockchainProviderManager,
   xpubAddress: string,
-  derivedAddresses: string[]
+  derivedAddresses: string[],
+  providerId?: string
 ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
   try {
+    // Auto-register providers for bitcoin with optional provider preference
+    const existingProviders = providerManager.getProviders('bitcoin');
+    if (!existingProviders || existingProviders.length === 0) {
+      providerManager.autoRegisterFromConfig('bitcoin', providerId);
+    }
+
     // Fetch balance for each derived address
     const balanceResults = await Promise.all(
       derivedAddresses.map((address) =>

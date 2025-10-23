@@ -54,6 +54,7 @@ describe('RawDataRepository - Cursor Management', () => {
           processing_status: 'pending',
           raw_data: '{}',
           normalized_data: '{}',
+          provider_id: 'kraken',
         })
         .execute();
 
@@ -77,6 +78,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -86,6 +88,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -95,6 +98,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
         ])
         .execute();
@@ -120,6 +124,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -129,6 +134,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -138,6 +144,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -147,6 +154,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
         ])
         .execute();
@@ -174,6 +182,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -183,6 +192,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -192,6 +202,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -201,6 +212,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
         ])
         .execute();
@@ -228,6 +240,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -237,6 +250,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -246,6 +260,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
         ])
         .execute();
@@ -285,6 +300,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -294,6 +310,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kucoin',
           },
         ])
         .execute();
@@ -319,6 +336,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -328,6 +346,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
+            provider_id: 'kraken',
           },
         ])
         .execute();

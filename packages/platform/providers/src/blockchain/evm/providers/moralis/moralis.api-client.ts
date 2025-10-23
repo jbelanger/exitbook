@@ -30,7 +30,7 @@ const CHAIN_ID_MAP: Record<string, string> = {
 
 @RegisterApiClient({
   apiKeyEnvVar: 'MORALIS_API_KEY',
-  baseUrl: 'https://deep-index.moralis.io/api/v2',
+  baseUrl: 'https://deep-index.moralis.io/api/v2.2',
   blockchain: 'ethereum',
   capabilities: {
     supportedOperations: [
@@ -287,7 +287,7 @@ export class MoralisApiClient extends BaseApiClient {
       const balanceDecimal = parseDecimal(balance.balance).div(parseDecimal('10').pow(balance.decimals)).toString();
 
       return {
-        asset: balance.token_address,
+        asset: balance.symbol,
         total: balanceDecimal,
       };
     });

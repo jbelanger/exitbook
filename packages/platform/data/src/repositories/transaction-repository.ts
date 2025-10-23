@@ -108,7 +108,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           blockchain_is_confirmed: transaction.blockchain?.is_confirmed,
         })
         .onConflict((oc) =>
-          oc.columns(['source_id', 'external_id']).doUpdateSet({
+          oc.columns(['data_source_id', 'external_id']).doUpdateSet({
             from_address: (eb) => eb.ref('excluded.from_address'),
             note_message: (eb) => eb.ref('excluded.note_message'),
             note_metadata: (eb) => eb.ref('excluded.note_metadata'),

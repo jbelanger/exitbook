@@ -53,10 +53,10 @@ export interface ExternalTransactionDataTable {
   // Foreign key relationship
   data_source_id: number; // FK to data_sources.id
 
-  provider_id: string | null;
+  provider_id: string;
 
   // Transaction identification and cursor (for auto-incremental imports)
-  external_id: string | null; // Unique transaction ID from exchange/blockchain
+  external_id: string; // Unique transaction ID from exchange/blockchain
   cursor: JSONString | null; // Cursor for resuming imports (ExchangeCursor with per-operation timestamps)
 
   // Source metadata

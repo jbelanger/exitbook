@@ -140,34 +140,34 @@ describe('EvmImporter', () => {
         expect(result.value.rawTransactions).toHaveLength(3);
 
         // Verify normal transaction
-        expect(result.value.rawTransactions[0]).toEqual({
+        expect(result.value.rawTransactions[0]).toMatchObject({
           providerId: 'alchemy',
           sourceAddress: address,
           transactionTypeHint: 'normal',
-          externalId: mockNormalTx.hash,
           rawData: mockNormalTx,
           normalizedData: { id: mockNormalTx.hash },
         });
+        expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
 
         // Verify internal transaction
-        expect(result.value.rawTransactions[1]).toEqual({
+        expect(result.value.rawTransactions[1]).toMatchObject({
           providerId: 'alchemy',
           sourceAddress: address,
           transactionTypeHint: 'internal',
-          externalId: mockInternalTx.hash,
           rawData: mockInternalTx,
           normalizedData: { id: mockInternalTx.hash },
         });
+        expect(result.value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
 
         // Verify token transaction
-        expect(result.value.rawTransactions[2]).toEqual({
+        expect(result.value.rawTransactions[2]).toMatchObject({
           providerId: 'alchemy',
           sourceAddress: address,
           transactionTypeHint: 'token',
-          externalId: mockTokenTx.hash,
           rawData: mockTokenTx,
           normalizedData: { id: mockTokenTx.hash },
         });
+        expect(result.value.rawTransactions[2]?.externalId).toMatch(/^[a-f0-9]{64}$/);
       }
 
       // Verify all three API calls were made in parallel

@@ -23,28 +23,23 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
     _sessionContext: ImportSessionMetadata
   ): Result<EvmTransaction, NormalizationError> {
     const nativeCurrency = rawData._nativeCurrency || 'UNKNOWN';
-    const nativeDecimals = rawData._nativeDecimals || 18;
 
-    // Parse value - Zod already validated it's numeric
-    const valueWei = parseDecimal(rawData.value);
-
-    // Convert to native currency units
-    const valueNative = valueWei.dividedBy(parseDecimal('10').pow(nativeDecimals));
+    // Moralis returns values in smallest units (wei for ETH)
+    // Keep them in wei - the processor will convert to decimal when needed
+    const valueWei = rawData.value;
     const timestamp = new Date(rawData.block_timestamp).getTime();
 
-    // Calculate gas fee - Zod already validated they're numeric
+    // Calculate gas fee in wei - Zod already validated they're numeric
     const gasUsed = parseDecimal(rawData.receipt_gas_used || '0');
     const gasPrice = parseDecimal(rawData.gas_price || '0');
-
-    const feeWei = gasUsed.mul(gasPrice);
-    const feeNative = feeWei.dividedBy(parseDecimal('10').pow(nativeDecimals));
+    const feeWei = gasUsed.mul(gasPrice).toString();
 
     const transaction: EvmTransaction = {
-      amount: valueNative.toString(),
+      amount: valueWei,
       blockHeight: parseInt(rawData.block_number),
       blockId: rawData.block_hash,
       currency: nativeCurrency,
-      feeAmount: feeNative.toString(),
+      feeAmount: feeWei,
       feeCurrency: nativeCurrency,
       from: rawData.from_address,
       gasPrice: rawData.gas_price && rawData.gas_price !== '' ? rawData.gas_price : undefined,
@@ -84,12 +79,23 @@ export class MoralisTokenTransferMapper extends BaseRawDataMapper<MoralisTokenTr
     // Parse token decimals
     const tokenDecimals = parseInt(rawData.token_decimals);
 
-    // Convert token value to decimal representation
-    const valueRaw = parseDecimal(rawData.value);
-    const valueDecimal = valueRaw.dividedBy(parseDecimal('10').pow(tokenDecimals));
+    // Moralis returns token values in smallest units
+    // Keep them in smallest units - the processor will convert to decimal when needed
+    const valueRaw = rawData.value;
+
+    // Map Moralis contract_type to EvmTransaction tokenType
+    // Moralis returns "ERC20", "ERC721", "ERC1155" - convert to lowercase
+    // Default to 'erc20' if contract_type is undefined or unrecognized
+    let tokenType: EvmTransaction['tokenType'] = 'erc20';
+    if (rawData.contract_type) {
+      const contractTypeLower = rawData.contract_type.toLowerCase();
+      if (contractTypeLower === 'erc20' || contractTypeLower === 'erc721' || contractTypeLower === 'erc1155') {
+        tokenType = contractTypeLower;
+      }
+    }
 
     const transaction: EvmTransaction = {
-      amount: valueDecimal.toString(),
+      amount: valueRaw,
       blockHeight: parseInt(rawData.block_number),
       blockId: rawData.block_hash,
       currency: rawData.token_symbol,
@@ -102,7 +108,7 @@ export class MoralisTokenTransferMapper extends BaseRawDataMapper<MoralisTokenTr
       tokenAddress: rawData.address,
       tokenDecimals,
       tokenSymbol: rawData.token_symbol,
-      tokenType: rawData.contract_type as EvmTransaction['tokenType'],
+      tokenType,
       type: 'token_transfer',
     };
 

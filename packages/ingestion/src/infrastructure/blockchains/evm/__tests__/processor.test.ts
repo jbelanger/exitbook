@@ -65,7 +65,7 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
         type: 'internal',
       },
       {
-        amount: '2500000', // 2.5 USDC (pre-normalized)
+        amount: '2500000', // 2.5 USDC in smallest units (2500000 / 10^6 = 2.5)
         blockHeight: 100,
         currency: 'USDC',
         from: CONTRACT_ADDRESS,
@@ -100,7 +100,7 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     expect(transaction.movements.inflows).toHaveLength(2);
     const usdcInflow = transaction.movements.inflows?.find((i) => i.asset === 'USDC');
     const ethInflow = transaction.movements.inflows?.find((i) => i.asset === 'ETH');
-    expect(usdcInflow?.amount.toString()).toBe('2500000');
+    expect(usdcInflow?.amount.toString()).toBe('2.5'); // 2500000 / 10^6 = 2.5 USDC
     expect(ethInflow?.amount.toString()).toBe('1.5'); // 1 ETH + 0.5 ETH consolidated
     expect(transaction.movements.outflows).toHaveLength(0);
     // User received all funds (no outflows), so they didn't pay the fee
@@ -714,12 +714,12 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     expect(transaction.metadata?.hasContractInteraction).toBe(false);
   });
 
-  test('classifies dust-amount deposit correctly (below threshold but still a deposit)', async () => {
+  test('classifies small deposit correctly (affects balance)', async () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
       {
-        amount: '1000000000000', // 0.000001 ETH (below 0.00001 threshold)
+        amount: '1000000000000', // 0.000001 ETH (small amount)
         currency: 'ETH',
         feeAmount: '21000000000000',
         from: EXTERNAL_ADDRESS,
@@ -742,12 +742,10 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Dust deposits are still deposits (affect balance), but flagged with note
+    // Small deposits are normal deposits (affect balance), no special handling
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('dust_amount');
-    expect(transaction.note?.message).toContain('Dust deposit');
+    expect(transaction.note).toBeUndefined(); // No note for normal small deposits
   });
 
   test('classifies contract interaction without fund movement as transfer', async () => {
@@ -1264,7 +1262,7 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
         type: 'transfer',
       },
       {
-        amount: '1000000000', // 1000 USDC received (pre-normalized)
+        amount: '1000000000', // 1000 USDC in smallest units (1000000000 / 10^6 = 1000)
         currency: 'USDC',
         from: CONTRACT_ADDRESS,
         id: '0xswap1',
@@ -1297,7 +1295,7 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
     expect(transaction.movements.inflows).toBeDefined();
     if (!transaction.movements.inflows) return;
     expect(transaction.movements.inflows[0]?.asset).toBe('USDC');
-    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1000000000');
+    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1000'); // 1000000000 / 10^6 = 1000 USDC
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows).toBeDefined();
@@ -1388,7 +1386,7 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
         type: 'token_transfer',
       },
       {
-        amount: '5000000000', // 5000 DAI received
+        amount: '5000000000000000000000', // 5000 DAI in smallest units (5000 * 10^18)
         currency: 'DAI',
         from: CONTRACT_ADDRESS,
         id: '0xcomplex1',
@@ -1458,9 +1456,9 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
     if (!transaction) return;
 
     expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('classification_uncertain');
+    expect(transaction.note?.type).toBe('contract_interaction');
     expect(transaction.note?.message).toContain('Contract interaction');
-    expect(transaction.note?.message).toContain('zero/dust value');
+    expect(transaction.note?.message).toContain('zero value');
 
     // Still classified as transfer
     expect(transaction.operation.category).toBe('transfer');

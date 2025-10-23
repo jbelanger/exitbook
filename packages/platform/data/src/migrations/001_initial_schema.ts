@@ -31,8 +31,8 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .createTable('external_transaction_data')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('data_source_id', 'integer', (col) => col.notNull().references('data_sources.id'))
-    .addColumn('provider_id', 'text')
-    .addColumn('external_id', 'text')
+    .addColumn('provider_id', 'text', (col) => col.notNull())
+    .addColumn('external_id', 'text', (col) => col.notNull())
     .addColumn('cursor', 'text')
     .addColumn('source_address', 'text')
     .addColumn('transaction_type_hint', 'text')
@@ -88,11 +88,12 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('updated_at', 'text')
     .execute();
 
-  // Create unique index on (source_id, external_id) to prevent duplicate transactions
+  // Create unique index on (data_source_id, external_id) to prevent duplicate transactions within a session
+  // This allows different sessions to have their own perspective of the same blockchain transaction
   await db.schema
     .createIndex('idx_transactions_source_external_id')
     .on('transactions')
-    .columns(['source_id', 'external_id'])
+    .columns(['data_source_id', 'external_id'])
     .unique()
     .execute();
 

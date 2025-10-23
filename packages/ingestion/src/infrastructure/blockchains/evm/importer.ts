@@ -6,6 +6,7 @@ import type {
   ProviderError,
   TransactionWithRawData,
 } from '@exitbook/providers';
+import { generateUniqueTransactionId } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -127,7 +128,7 @@ export class EvmImporter implements IImporter {
 
       return transactionsWithRaw.map((txWithRaw) => ({
         providerId,
-        externalId: txWithRaw.normalized.id,
+        externalId: generateUniqueTransactionId(txWithRaw.normalized),
         transactionTypeHint: 'normal',
         sourceAddress: address,
         normalizedData: txWithRaw.normalized,
@@ -153,7 +154,7 @@ export class EvmImporter implements IImporter {
 
       return transactionsWithRaw.map((txWithRaw) => ({
         providerId,
-        externalId: txWithRaw.normalized.id,
+        externalId: generateUniqueTransactionId(txWithRaw.normalized),
         transactionTypeHint: 'internal',
         sourceAddress: address,
         normalizedData: txWithRaw.normalized,
@@ -179,7 +180,7 @@ export class EvmImporter implements IImporter {
 
       return transactionsWithRaw.map((txWithRaw) => ({
         providerId,
-        externalId: txWithRaw.normalized.id,
+        externalId: generateUniqueTransactionId(txWithRaw.normalized),
         transactionTypeHint: 'token',
         sourceAddress: address,
         normalizedData: txWithRaw.normalized,

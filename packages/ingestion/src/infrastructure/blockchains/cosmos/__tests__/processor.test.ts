@@ -272,12 +272,12 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
     expect(transaction.metadata?.hasContractInteraction).toBe(false);
   });
 
-  test('classifies dust-amount deposit correctly (below threshold but still a deposit)', async () => {
+  test('classifies small deposit correctly (affects balance)', async () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
       {
-        amount: '0.000001', // 0.000001 INJ (below 0.00001 threshold)
+        amount: '0.000001', // 0.000001 INJ (small amount)
         blockHeight: 106,
         currency: 'INJ',
         feeAmount: '500000000000000',
@@ -301,12 +301,10 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Dust deposits are still deposits (affect balance), but flagged with note
+    // Small deposits are normal deposits (affect balance), no special handling
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('dust_amount');
-    expect(transaction.note?.message).toContain('Dust deposit');
+    expect(transaction.note).toBeUndefined(); // No note for normal small deposits
   });
 
   test('classifies contract interaction without fund movement as transfer', async () => {
@@ -825,9 +823,9 @@ describe('CosmosProcessor - Classification Uncertainty', () => {
     if (!transaction) return;
 
     expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('classification_uncertain');
+    expect(transaction.note?.type).toBe('contract_interaction');
     expect(transaction.note?.message).toContain('Contract interaction');
-    expect(transaction.note?.message).toContain('zero/dust value');
+    expect(transaction.note?.message).toContain('zero value');
 
     // Still classified as transfer
     expect(transaction.operation.category).toBe('transfer');

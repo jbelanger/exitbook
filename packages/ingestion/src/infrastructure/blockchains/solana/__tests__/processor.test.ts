@@ -279,7 +279,7 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
     expect(transaction.operation.type).toBe('fee');
   });
 
-  test('classifies dust-amount deposit correctly', async () => {
+  test('classifies small deposit correctly', async () => {
     const processor = createProcessor();
 
     const normalizedData: SolanaTransaction[] = [
@@ -291,7 +291,7 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
             preBalance: '1000000000',
           },
         ],
-        amount: '1000', // 0.000001 SOL (below 0.00001 threshold)
+        amount: '1000', // 0.000001 SOL (small amount)
         currency: 'SOL',
         feeAmount: '5000',
         feeCurrency: 'SOL',
@@ -314,12 +314,10 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Dust deposits are still deposits, but flagged with note
+    // Small deposits are normal deposits, no special handling
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('dust_amount');
-    expect(transaction.note?.message).toContain('Dust deposit');
+    expect(transaction.note).toBeUndefined(); // No note for normal small deposits
   });
 
   test('handles failed transactions', async () => {

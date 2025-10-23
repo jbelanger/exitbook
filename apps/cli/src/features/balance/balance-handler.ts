@@ -368,11 +368,16 @@ export class BalanceHandler {
       logger.info(`Fetching balances for ${derivedAddresses.length} derived addresses`);
 
       // Fetch and sum balances from all derived addresses
-      return fetchBitcoinXpubBalance(this.providerManager, params.address, derivedAddresses);
+      return fetchBitcoinXpubBalance(this.providerManager, params.address, derivedAddresses, params.providerId);
     }
 
     // Standard single-address balance fetch
-    const result = await fetchBlockchainBalance(this.providerManager, params.sourceName, params.address);
+    const result = await fetchBlockchainBalance(
+      this.providerManager,
+      params.sourceName,
+      params.address,
+      params.providerId
+    );
 
     if (result.isErr()) {
       return err(result.error);

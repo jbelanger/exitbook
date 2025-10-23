@@ -6,7 +6,7 @@ import type {
   ProviderError,
   TransactionWithRawData,
 } from '@exitbook/providers';
-import { BitcoinUtils } from '@exitbook/providers';
+import { BitcoinUtils, generateUniqueTransactionId } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import * as bitcoin from 'bitcoinjs-lib';
 import { err, ok, type Result } from 'neverthrow';
@@ -113,11 +113,19 @@ export class BitcoinTransactionImporter implements IImporter {
       const providerId = response.providerName;
 
       return transactionsWithRaw.map((txWithRaw) => ({
-        providerId,
-        sourceAddress: address,
+        externalId: generateUniqueTransactionId({
+          amount: txWithRaw.normalized.outputs[0]?.value || '0',
+          currency: txWithRaw.normalized.currency,
+          from: txWithRaw.normalized.inputs[0]?.address || '',
+          id: txWithRaw.normalized.id,
+          timestamp: txWithRaw.normalized.timestamp,
+          to: txWithRaw.normalized.outputs[0]?.address,
+          type: 'transfer',
+        }),
         normalizedData: txWithRaw.normalized,
-        externalId: txWithRaw.normalized.id,
+        providerId,
         rawData: txWithRaw.raw,
+        sourceAddress: address,
       }));
     });
   }

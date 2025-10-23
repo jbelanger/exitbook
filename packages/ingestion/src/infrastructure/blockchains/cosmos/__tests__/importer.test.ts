@@ -158,13 +158,13 @@ describe('CosmosImporter', () => {
         expect(result.value.rawTransactions).toHaveLength(1);
 
         // Verify transaction metadata and data structure
-        expect(result.value.rawTransactions[0]).toEqual({
+        expect(result.value.rawTransactions[0]).toMatchObject({
           providerId: 'injective-explorer',
           sourceAddress: address,
-          externalId: mockCosmosTransaction.id,
           normalizedData: mockCosmosTransaction,
           rawData: { block_timestamp: mockCosmosTransaction.timestamp, id: mockCosmosTransaction.id },
         });
+        expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
       }
 
       // Verify API call was made

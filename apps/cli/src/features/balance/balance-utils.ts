@@ -10,6 +10,7 @@ export interface BalanceCommandOptions {
   exchange?: string | undefined;
   blockchain?: string | undefined;
   address?: string | undefined;
+  provider?: string | undefined;
   apiKey?: string | undefined;
   apiSecret?: string | undefined;
   apiPassphrase?: string | undefined;
@@ -22,6 +23,7 @@ export interface BalanceHandlerParams {
   sourceType: SourceType;
   sourceName: string;
   address?: string | undefined;
+  providerId?: string | undefined;
   credentials?: ExchangeCredentials | undefined;
 }
 
@@ -76,6 +78,7 @@ export function buildBalanceParamsFromFlags(options: BalanceCommandOptions): Res
       sourceType: 'blockchain',
       sourceName: options.blockchain,
       address: options.address,
+      providerId: options.provider,
     });
   }
 
