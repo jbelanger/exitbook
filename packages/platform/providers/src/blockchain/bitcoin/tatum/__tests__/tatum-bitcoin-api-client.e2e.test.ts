@@ -1,8 +1,8 @@
 import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { TransactionWithRawData } from '../../../../core/blockchain/index.ts';
-import { ProviderRegistry } from '../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../shared/blockchain/index.ts';
+import { ProviderRegistry } from '../../../../shared/blockchain/index.ts';
 import type { BitcoinTransaction } from '../../types.ts';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.ts';
 

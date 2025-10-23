@@ -1,11 +1,11 @@
 import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
-import type { ProviderConfig } from '../../../core/blockchain/index.ts';
-import { RegisterApiClient } from '../../../core/blockchain/index.ts';
-import type { ProviderOperation, TransactionWithRawData } from '../../../core/blockchain/types/index.ts';
-import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
+import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
+import type { ProviderConfig } from '../../../shared/blockchain/index.ts';
+import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
+import type { ProviderOperation, TransactionWithRawData } from '../../../shared/blockchain/types/index.ts';
+import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
 import type { BitcoinTransaction } from '../types.js';
 
 import { MempoolSpaceTransactionMapper } from './mempool-space.mapper.ts';

@@ -2,8 +2,8 @@ import { parseDecimal } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result, ok } from 'neverthrow';
 
-import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
-import type { NormalizationError } from '../../../../core/blockchain/index.ts';
+import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts';
+import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.ts';
 import type { EvmTransaction } from '../../types.ts';
 

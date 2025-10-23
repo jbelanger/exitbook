@@ -4,16 +4,16 @@ import { resolve } from 'node:path';
 
 import { getErrorMessage } from '@exitbook/core';
 
+import { initializeProviders } from '../initialize.js';
 /**
  * Sync registered providers with blockchain configuration
  * Detects missing providers and can automatically fix config drift
  */
-import { ProviderRegistry } from '../core/blockchain/index.ts';
+import { ProviderRegistry } from '../shared/blockchain/index.ts';
 import {
   BlockchainExplorersConfigSchema,
   type BlockchainExplorersConfig,
-} from '../core/blockchain/utils/config-utils.ts';
-import { initializeProviders } from '../initialize.js';
+} from '../shared/blockchain/utils/config-utils.ts';
 
 // Initialize all providers
 initializeProviders();

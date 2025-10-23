@@ -1,14 +1,14 @@
 import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig } from '../../../../core/blockchain/index.ts';
-import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
+import type { ProviderConfig } from '../../../../shared/blockchain/index.ts';
+import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
 import type {
   ProviderOperation,
   JsonRpcResponse,
   TransactionWithRawData,
-} from '../../../../core/blockchain/types/index.ts';
-import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
+} from '../../../../shared/blockchain/types/index.ts';
+import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
 import type { EvmTransaction } from '../../types.ts';
 
 import { AlchemyTransactionMapper } from './alchemy.mapper.ts';

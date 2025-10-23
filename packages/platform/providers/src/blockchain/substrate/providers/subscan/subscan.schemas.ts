@@ -3,7 +3,7 @@
  */
 import { z } from 'zod';
 
-import { hexOrNumericToNumericRequired, timestampToDate } from '../../../../core/blockchain/utils/zod-utils.js';
+import { hexOrNumericToNumericRequired, timestampToDate } from '../../../../shared/blockchain/utils/zod-utils.js';
 
 /**
  * Schema for account display metadata

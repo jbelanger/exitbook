@@ -4,7 +4,7 @@ import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { BlockchainProviderManager } from '../../core/blockchain/provider-manager.ts';
+import type { BlockchainProviderManager } from '../../shared/blockchain/provider-manager.ts';
 
 import type { AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from './types.js';
 

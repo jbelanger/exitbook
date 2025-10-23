@@ -1,8 +1,8 @@
 import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../core/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../core/blockchain/types/index.ts';
+import { ProviderRegistry } from '../../../../shared/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
 import type { SolanaTransaction } from '../../types.ts';
 import { SolanaRPCApiClient } from '../solana-rpc.api-client.ts';
 

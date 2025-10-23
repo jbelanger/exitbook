@@ -2,8 +2,8 @@ import { parseDecimal } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/core';
 import { ok, type Result } from 'neverthrow';
 
-import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
-import type { NormalizationError } from '../../../core/blockchain/index.ts';
+import { BaseRawDataMapper } from '../../../shared/blockchain/base/mapper.ts';
+import type { NormalizationError } from '../../../shared/blockchain/index.ts';
 import { BitcoinTransactionSchema } from '../schemas.js';
 import type { BitcoinTransaction, BitcoinTransactionInput, BitcoinTransactionOutput } from '../types.js';
 

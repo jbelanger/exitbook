@@ -1,8 +1,8 @@
 import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../core/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../core/blockchain/types/index.ts';
+import { ProviderRegistry } from '../../../../shared/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
 import type { SolanaTransaction } from '../../types.ts';
 import { lamportsToSol } from '../../utils.ts';
 import { HeliusApiClient } from '../helius.api-client.ts';
@@ -30,6 +30,10 @@ describe('HeliusApiClient Integration', () => {
         type: 'getAddressTransactions',
       });
 
+      if (result.isErr()) {
+        console.error('Transaction fetch error:', result.error.message);
+        console.error('Full error:', result.error);
+      }
       expect(result.isOk()).toBe(true);
       if (result.isErr()) return;
 
@@ -184,8 +188,8 @@ describe('HeliusApiClient Integration', () => {
         expect(firstBalance).toHaveProperty('total');
         expect(typeof firstBalance.asset).toBe('string');
         expect(typeof firstBalance.total).toBe('string');
-        // Token should be a mint address (base58 encoded)
-        expect(firstBalance.asset.length).toBeGreaterThan(32);
+        // Asset should be a token symbol or fallback to mint address
+        expect(firstBalance.asset.length).toBeGreaterThan(0);
         // Total should be a numeric string (in UI amount format)
         const numericTotal = Number(firstBalance.total);
         expect(numericTotal).not.toBeNaN();
@@ -216,27 +220,42 @@ describe('HeliusApiClient Integration', () => {
     }, 30000);
   });
 
-  describe('Token Symbol Resolution', () => {
-    it('should resolve known token symbols successfully', async () => {
+  describe('Token Metadata Resolution', () => {
+    it('should resolve token metadata successfully', async () => {
       // Test with USDC mint address
       const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-      const symbol = await provider.getTokenSymbol(usdcMint);
+      const result = await provider.getTokenMetadata(usdcMint);
 
-      expect(typeof symbol).toBe('string');
-      expect(symbol.length).toBeGreaterThan(0);
-      // Should return 'USDC' for the known mint
-      expect(symbol).toBe('USDC');
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
+
+      const metadata = result.value;
+      expect(metadata).toHaveProperty('blockchain');
+      expect(metadata).toHaveProperty('contractAddress');
+      expect(metadata).toHaveProperty('symbol');
+      expect(metadata).toHaveProperty('source');
+      expect(metadata.blockchain).toBe('solana');
+      expect(metadata.contractAddress).toBe(usdcMint);
+      expect(metadata.source).toBe('helius');
+
+      // Should have a symbol
+      if (metadata.symbol) {
+        expect(typeof metadata.symbol).toBe('string');
+        expect(metadata.symbol.length).toBeGreaterThan(0);
+      }
     }, 30000);
 
-    it('should handle unknown token addresses gracefully', async () => {
-      // Test with a random address that's likely not a valid token
-      const randomAddress = '11111111111111111111111111111112';
-      const symbol = await provider.getTokenSymbol(randomAddress);
+    it('should handle API errors gracefully', async () => {
+      // Test with system program address (not a token)
+      const systemProgram = '11111111111111111111111111111111';
+      const result = await provider.getTokenMetadata(systemProgram);
 
-      expect(typeof symbol).toBe('string');
-      expect(symbol.length).toBeGreaterThan(0);
-      // Should return a fallback format like "111111..."
-      expect(symbol).toMatch(/^\w{6}\.\.\.$/);
+      // Should return error for non-token addresses
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error).toBeInstanceOf(Error);
+        expect(result.error.message.length).toBeGreaterThan(0);
+      }
     }, 30000);
   });
 

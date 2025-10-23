@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../../core/blockchain/index.ts';
+import { timestampToDate } from '../../../../shared/blockchain/index.ts';
 
 /**
  * Schema for Moralis transaction structure

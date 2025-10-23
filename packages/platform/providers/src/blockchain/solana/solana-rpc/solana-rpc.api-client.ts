@@ -1,11 +1,11 @@
 import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
-import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
-import { RegisterApiClient } from '../../../core/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../core/blockchain/types/index.ts';
-import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
+import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
+import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../shared/blockchain/index.ts';
+import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../shared/blockchain/types/index.ts';
+import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
 import type { SolanaSignature, SolanaTokenAccountsResponse, SolanaTransaction } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 

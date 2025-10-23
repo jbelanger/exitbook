@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../core/blockchain/utils/zod-utils.js';
+import { timestampToDate } from '../../../shared/blockchain/utils/zod-utils.js';
 
 /**
  * Schema for Solscan input account structure

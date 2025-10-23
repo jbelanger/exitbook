@@ -1,10 +1,10 @@
 import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
-import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../core/blockchain/types/index.ts';
-import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
+import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
+import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
+import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
 import type { EvmTransaction } from '../../types.ts';
 
 import { ThetaScanTransactionMapper } from './thetascan.mapper.ts';
