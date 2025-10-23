@@ -129,7 +129,12 @@ export class TokenMetadataCache {
         .execute();
 
       if (metadata.symbol) {
-        await this.upsertSymbolIndex(blockchain, metadata.symbol, contractAddress);
+        const symbolIndexResult = await this.upsertSymbolIndex(blockchain, metadata.symbol, contractAddress);
+        if (symbolIndexResult.isErr()) {
+          logger.warn(
+            `Failed to update symbol index - Blockchain: ${blockchain}, Contract: ${contractAddress}, Symbol: ${metadata.symbol}, Error: ${symbolIndexResult.error.message}`
+          );
+        }
       }
 
       logger.debug(
@@ -167,11 +172,17 @@ export class TokenMetadataCache {
         logger.debug(`Background refresh started - Blockchain: ${blockchain}, Contract: ${contractAddress}`);
         const result = await fetchFn();
         if (result.isOk()) {
-          await this.set(blockchain, contractAddress, result.value, source);
-          logger.debug(`Background refresh completed - Blockchain: ${blockchain}, Contract: ${contractAddress}`);
+          const setResult = await this.set(blockchain, contractAddress, result.value, source);
+          if (setResult.isErr()) {
+            logger.warn(
+              `Background refresh failed to update cache - Blockchain: ${blockchain}, Contract: ${contractAddress}, Error: ${setResult.error.message}`
+            );
+          } else {
+            logger.debug(`Background refresh completed - Blockchain: ${blockchain}, Contract: ${contractAddress}`);
+          }
         } else {
           logger.warn(
-            `Background refresh failed - Blockchain: ${blockchain}, Contract: ${contractAddress}, Error: ${result.error.message}`
+            `Background refresh failed to fetch data - Blockchain: ${blockchain}, Contract: ${contractAddress}, Error: ${result.error.message}`
           );
         }
       } catch (error) {
