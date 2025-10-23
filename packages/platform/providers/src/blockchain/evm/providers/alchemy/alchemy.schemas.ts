@@ -4,7 +4,7 @@ import {
   hexOrNumericToNumeric,
   hexOrNumericToNumericRequired,
   timestampToDate,
-} from '../../../../core/blockchain/utils/zod-utils.ts';
+} from '../../../../shared/blockchain/utils/zod-utils.ts';
 
 /**
  * Schema for Alchemy raw contract structure

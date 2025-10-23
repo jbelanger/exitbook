@@ -1,8 +1,8 @@
 import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
+import { ProviderRegistry } from '../../../../../shared/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../../shared/blockchain/types/index.ts';
 import type { EvmTransaction } from '../../../types.ts';
 import { ThetaScanApiClient } from '../thetascan.api-client.ts';
 
@@ -80,7 +80,7 @@ describe('ThetaScanApiClient Integration', () => {
       }
     }, 30000);
 
-    it('should handle token balances with contract addresses', async () => {
+    it('should handle token balances with symbols from contract metadata', async () => {
       // Example Theta token contract - replace with actual contract if known
       const contractAddresses = ['0x4dc08b15ea0e10b96c41aec22fab934ba15c983e'];
 
@@ -98,7 +98,10 @@ describe('ThetaScanApiClient Integration', () => {
         if (balances.length > 0 && balances[0]) {
           expect(balances[0]).toHaveProperty('asset');
           expect(balances[0]).toHaveProperty('total');
+          expect(typeof balances[0].asset).toBe('string');
           expect(typeof balances[0].total).toBe('string');
+          // Asset should be a symbol or fallback to contract address
+          expect(balances[0].asset.length).toBeGreaterThan(0);
         }
       }
     }, 30000);

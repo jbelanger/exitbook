@@ -1,10 +1,11 @@
 import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
-import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../core/blockchain/types/index.ts';
-import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
+import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
+import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
+import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
+import { getTokenMetadataWithCache } from '../../../../shared/token-metadata/index.ts';
 import type { EvmTransaction } from '../../types.ts';
 
 import { ThetaScanTransactionMapper } from './thetascan.mapper.ts';
@@ -224,6 +225,27 @@ export class ThetaScanApiClient extends BaseApiClient {
       const balanceData = result.value as ThetaScanTokenBalance;
 
       if (balanceData) {
+        // Cache the metadata for future lookups
+        const metadataResult = await getTokenMetadataWithCache(
+          this.blockchain,
+          contractAddress,
+          async () =>
+            Promise.resolve(
+              ok({
+                symbol: balanceData.token_symbol ?? undefined,
+                name: balanceData.token_name ?? undefined,
+                decimals: balanceData.token_decimals ?? undefined,
+              })
+            ),
+          'thetascan'
+        );
+
+        // Use symbol from metadata (or fallback to contract address if metadata fetch failed)
+        const asset =
+          metadataResult.isOk() && metadataResult.value.symbol
+            ? metadataResult.value.symbol
+            : balanceData.contract_address;
+
         // Convert to BlockchainBalanceSnapshot format
         let balanceDecimal: string;
         if (balanceData.token_decimals !== undefined) {
@@ -237,7 +259,7 @@ export class ThetaScanApiClient extends BaseApiClient {
         }
 
         balances.push({
-          asset: balanceData.contract_address,
+          asset,
           total: balanceDecimal,
         });
       }

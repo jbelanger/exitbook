@@ -2,11 +2,11 @@ import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@
 import { ServiceError } from '@exitbook/platform-http';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../../core/blockchain/base/api-client.ts';
-import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
-import { RegisterApiClient } from '../../../../core/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../core/blockchain/types/index.ts';
-import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
+import { BaseApiClient } from '../../../../shared/blockchain/base/api-client.ts';
+import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
+import { RegisterApiClient } from '../../../../shared/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
+import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
 import type { EvmChainConfig } from '../../chain-config.interface.ts';
 import { getEvmChainConfig } from '../../chain-registry.ts';
 import type { EvmTransaction } from '../../types.ts';

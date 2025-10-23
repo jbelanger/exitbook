@@ -1,14 +1,16 @@
 import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig } from '../../../../core/blockchain/index.ts';
-import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
+import type { ProviderConfig } from '../../../../shared/blockchain/index.ts';
+import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
 import type {
   ProviderOperation,
   JsonRpcResponse,
   TransactionWithRawData,
-} from '../../../../core/blockchain/types/index.ts';
-import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
+} from '../../../../shared/blockchain/types/index.ts';
+import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
+import type { TokenMetadata } from '../../../../shared/token-metadata/index.ts';
+import { getTokenMetadataWithCache } from '../../../../shared/token-metadata/index.ts';
 import type { EvmTransaction } from '../../types.ts';
 
 import { AlchemyTransactionMapper } from './alchemy.mapper.ts';
@@ -397,24 +399,36 @@ export class AlchemyApiClient extends BaseApiClient {
     return ok(balances);
   }
 
-  private async getTokenMetadata(contractAddress: string): Promise<Result<AlchemyTokenMetadata, Error>> {
-    const result = await this.httpClient.post<JsonRpcResponse<AlchemyTokenMetadata>>(`/${this.apiKey}`, {
-      id: 1,
-      jsonrpc: '2.0',
-      method: 'alchemy_getTokenMetadata',
-      params: [contractAddress],
-    });
+  private async getTokenMetadata(contractAddress: string): Promise<Result<TokenMetadata, Error>> {
+    return await getTokenMetadataWithCache(
+      this.blockchain,
+      contractAddress,
+      async () => {
+        const result = await this.httpClient.post<JsonRpcResponse<AlchemyTokenMetadata>>(`/${this.apiKey}`, {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'alchemy_getTokenMetadata',
+          params: [contractAddress],
+        });
 
-    if (result.isErr()) {
-      return err(result.error);
-    }
+        if (result.isErr()) {
+          return err(result.error);
+        }
 
-    const metadata = result.value.result;
-    if (!metadata) {
-      return err(new Error(`No metadata returned for token ${contractAddress}`));
-    }
+        const metadata = result.value.result;
+        if (!metadata) {
+          return err(new Error(`No metadata returned for token ${contractAddress}`));
+        }
 
-    return ok(metadata);
+        return ok({
+          symbol: metadata.symbol ?? undefined,
+          name: metadata.name ?? undefined,
+          decimals: metadata.decimals ?? undefined,
+          logoUrl: metadata.logo ?? undefined,
+        });
+      },
+      'alchemy'
+    );
   }
 
   private async getAddressTokenTransactions(

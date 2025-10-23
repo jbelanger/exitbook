@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url';
 
 import { getErrorMessage } from '@exitbook/core';
 
-import { ProviderRegistry } from '../core/blockchain/index.ts';
 import { initializeProviders } from '../initialize.js';
+import { ProviderRegistry } from '../shared/blockchain/index.ts';
 
 // Initialize all providers
 initializeProviders();

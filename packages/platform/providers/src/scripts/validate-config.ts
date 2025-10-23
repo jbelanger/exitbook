@@ -6,9 +6,9 @@
 
 import { getErrorMessage } from '@exitbook/core';
 
-import { ProviderRegistry } from '../core/blockchain/index.ts';
-import { loadExplorerConfig } from '../core/blockchain/utils/config-utils.ts';
 import { initializeProviders } from '../initialize.js';
+import { ProviderRegistry } from '../shared/blockchain/index.ts';
+import { loadExplorerConfig } from '../shared/blockchain/utils/config-utils.ts';
 
 // Initialize all providers
 initializeProviders();

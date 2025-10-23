@@ -17,7 +17,7 @@
 
 export { initializeProviders } from './initialize.js';
 
-export * from './core/blockchain/index.ts';
+export * from './shared/blockchain/index.ts';
 
 export * from './blockchain/bitcoin/index.ts';
 export * from './blockchain/cosmos/index.ts';

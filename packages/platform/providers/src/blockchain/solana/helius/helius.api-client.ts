@@ -1,11 +1,13 @@
 import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
-import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
-import { RegisterApiClient } from '../../../core/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../core/blockchain/types/index.ts';
-import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
+import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
+import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../shared/blockchain/index.ts';
+import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../shared/blockchain/types/index.ts';
+import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
+import type { TokenMetadata } from '../../../shared/token-metadata/index.ts';
+import { getTokenMetadataWithCache } from '../../../shared/token-metadata/index.ts';
 import type {
   SolanaAccountBalance,
   SolanaSignature,
@@ -48,28 +50,7 @@ export interface SolanaRawTokenBalanceData {
   requiresApiKey: true,
 })
 export class HeliusApiClient extends BaseApiClient {
-  /**
-   * Static token registry for common Solana tokens
-   */
-  private static readonly KNOWN_TOKENS = new Map<string, string>([
-    ['rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof', 'RENDER'],
-    ['hntyVP6YFm1Hg25TN9WGLqM12b8TQmcknKrdu1oxWux', 'HNT'],
-    ['4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R', 'RAY'],
-    ['EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'USDC'],
-    ['Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', 'USDT'],
-    ['mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So', 'mSOL'],
-    ['7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj', 'stSOL'],
-    ['J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn', 'jitoSOL'],
-    ['bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1', 'bSOL'],
-    ['DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', 'BONK'],
-    ['5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm', 'INF'],
-    ['7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs', 'ETH'],
-    ['9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E', 'BTC'],
-  ]);
-
   private mapper: HeliusTransactionMapper;
-  private tokenMetadataCache = new Map<string, Record<string, unknown>>();
-  private tokenSymbolCache = new Map<string, string>();
 
   constructor(config: ProviderConfig) {
     super(config);
@@ -110,69 +91,42 @@ export class HeliusApiClient extends BaseApiClient {
     }
   }
 
-  async getTokenSymbol(mintAddress: string): Promise<string> {
-    if (this.tokenSymbolCache.has(mintAddress)) {
-      return this.tokenSymbolCache.get(mintAddress)!;
-    }
+  async getTokenMetadata(mintAddress: string): Promise<Result<TokenMetadata, Error>> {
+    return await getTokenMetadataWithCache(
+      'solana',
+      mintAddress,
+      async () => {
+        const result = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>('/', {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'getAsset',
+          params: {
+            displayOptions: {
+              showFungible: true,
+            },
+            id: mintAddress,
+          },
+        });
 
-    const knownSymbol = HeliusApiClient.KNOWN_TOKENS.get(mintAddress);
-    if (knownSymbol) {
-      this.tokenSymbolCache.set(mintAddress, knownSymbol);
-      this.logger.debug(
-        `Found token symbol in static registry - Mint: ${maskAddress(mintAddress)}, Symbol: ${knownSymbol}`
-      );
-      return knownSymbol;
-    }
+        if (result.isErr()) {
+          return err(result.error);
+        }
 
-    const result = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>('/', {
-      id: 1,
-      jsonrpc: '2.0',
-      method: 'getAsset',
-      params: {
-        displayOptions: {
-          showFungible: true,
-        },
-        id: mintAddress,
+        const response = result.value;
+        const apiMetadata = response?.result?.content?.metadata;
+
+        if (!apiMetadata) {
+          return err(new Error(`No metadata found for mint address: ${mintAddress}`));
+        }
+
+        return ok({
+          symbol: apiMetadata.symbol ?? undefined,
+          name: apiMetadata.name ?? undefined,
+          logoUrl: undefined,
+        });
       },
-    });
-
-    if (result.isErr()) {
-      const fallbackSymbol = `${mintAddress.slice(0, 6)}...`;
-      this.tokenSymbolCache.set(mintAddress, fallbackSymbol);
-      this.logger.warn(
-        `Failed to fetch token symbol, using fallback - Mint: ${maskAddress(mintAddress)}, Symbol: ${fallbackSymbol}, Error: ${getErrorMessage(result.error)}`
-      );
-      return fallbackSymbol;
-    }
-
-    const response = result.value;
-
-    if (response?.result?.content?.metadata?.symbol) {
-      const metadata = response.result.content.metadata;
-      const symbol = metadata.symbol;
-      if (symbol) {
-        this.storeTokenMetadata(mintAddress, metadata);
-        this.tokenSymbolCache.set(mintAddress, symbol);
-        return symbol;
-      }
-    }
-
-    if (response?.result?.content?.metadata?.name) {
-      const metadata = response.result.content.metadata;
-      const name = metadata.name;
-      if (name) {
-        this.storeTokenMetadata(mintAddress, metadata);
-        this.tokenSymbolCache.set(mintAddress, name);
-        return name;
-      }
-    }
-
-    const fallbackSymbol = `${mintAddress.slice(0, 6)}...`;
-    this.tokenSymbolCache.set(mintAddress, fallbackSymbol);
-    this.logger.warn(
-      `No symbol or name found in metadata, using fallback - Mint: ${maskAddress(mintAddress)}, Symbol: ${fallbackSymbol}`
+      'helius'
     );
-    return fallbackSymbol;
   }
 
   getHealthCheckConfig() {
@@ -391,14 +345,21 @@ export class HeliusApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    // Convert to BlockchainBalanceSnapshot format
-    const balances: BlockchainBalanceSnapshot[] = tokenAccountsResponse.result.value.map((account) => {
+    // Convert to BlockchainBalanceSnapshot format with symbols
+    const balances: BlockchainBalanceSnapshot[] = [];
+    for (const account of tokenAccountsResponse.result.value) {
       const tokenInfo = account.account.data.parsed.info;
-      return {
-        asset: tokenInfo.mint,
+      const mintAddress = tokenInfo.mint;
+
+      // Fetch token metadata to get symbol
+      const metadataResult = await this.getTokenMetadata(mintAddress);
+      const symbol = metadataResult.isOk() && metadataResult.value.symbol ? metadataResult.value.symbol : mintAddress; // Fallback to mint address if symbol not found
+
+      balances.push({
+        asset: symbol,
         total: tokenInfo.tokenAmount.uiAmountString,
-      };
-    });
+      });
+    }
 
     this.logger.debug(
       `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${balances.length}`
@@ -527,16 +488,5 @@ export class HeliusApiClient extends BaseApiClient {
     );
 
     return ok(tokenTransactions);
-  }
-
-  private storeTokenMetadata(mintAddress: string, metadata: Record<string, unknown>): void {
-    this.tokenMetadataCache.set(mintAddress, {
-      attributes: metadata['attributes'],
-      description: metadata['description'],
-      external_url: metadata['external_url'],
-      image: metadata['image'],
-      name: metadata['name'] || '',
-      symbol: metadata['symbol'] || '',
-    });
   }
 }

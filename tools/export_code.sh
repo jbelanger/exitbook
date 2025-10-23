@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Package roots
-ROOTS=("../apps" "../packages" "../packages/shared")
+ROOTS=("../apps" "../packages" "../packages/platform")
 
 for root in "${ROOTS[@]}"; do
   for pkg in "$root"/*; do

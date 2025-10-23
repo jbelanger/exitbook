@@ -1,8 +1,8 @@
 import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
+import { ProviderRegistry } from '../../../../../shared/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../../shared/blockchain/types/index.ts';
 import type { EvmTransaction } from '../../../types.ts';
 import { AlchemyApiClient } from '../alchemy.api-client.ts';
 
@@ -92,7 +92,7 @@ describe('AlchemyApiClient Integration', () => {
   });
 
   describe('Token Balances', () => {
-    it('should fetch token balances in normalized format', async () => {
+    it('should fetch token balances in normalized format with symbols', async () => {
       const result = await provider.execute<BlockchainBalanceSnapshot[]>({
         address: testAddress,
         type: 'getAddressTokenBalances',
@@ -108,8 +108,8 @@ describe('AlchemyApiClient Integration', () => {
           expect(firstBalance).toHaveProperty('total');
           expect(typeof firstBalance.asset).toBe('string');
           expect(typeof firstBalance.total).toBe('string');
-          // Token should be a contract address (0x...)
-          expect(firstBalance.asset).toMatch(/^0x[a-fA-F0-9]{40}$/);
+          // Asset should be a symbol or fallback to contract address
+          expect(firstBalance.asset.length).toBeGreaterThan(0);
           // Total should be a numeric string
           expect(Number(firstBalance.total)).not.toBeNaN();
         }
@@ -147,9 +147,11 @@ describe('AlchemyApiClient Integration', () => {
       if (result.isOk()) {
         const balances = result.value;
         expect(Array.isArray(balances)).toBe(true);
-        // Should only return balance for the specified contract
-        for (const balance of balances) {
-          expect(balance.asset.toLowerCase()).toBe(usdcContract.toLowerCase());
+        // Should only return balance for the specified contract (as symbol or address)
+        if (balances.length > 0) {
+          const balance = balances[0]!;
+          // Asset should be USDC symbol or the contract address as fallback
+          expect(balance.asset.toLowerCase()).toMatch(/^(usdc|0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48)$/);
         }
       }
     }, 30000);

@@ -1,10 +1,12 @@
 import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
-import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../core/blockchain/types/index.ts';
-import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
+import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
+import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
+import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
+import type { TokenMetadata } from '../../../../shared/token-metadata/index.ts';
+import { getTokenMetadataWithCache } from '../../../../shared/token-metadata/index.ts';
 import type { EvmChainConfig } from '../../chain-config.interface.ts';
 import { getEvmChainConfig } from '../../chain-registry.ts';
 import type { EvmTransaction } from '../../types.ts';
@@ -257,6 +259,40 @@ export class MoralisApiClient extends BaseApiClient {
     return Promise.resolve(ok([]));
   }
 
+  private async getTokenMetadata(contractAddress: string): Promise<Result<TokenMetadata, Error>> {
+    return await getTokenMetadataWithCache(
+      this.blockchain,
+      contractAddress,
+      async () => {
+        const params = new URLSearchParams({
+          chain: this.moralisChainId,
+        });
+        params.append('token_addresses[]', contractAddress);
+
+        const endpoint = `/erc20/metadata?${params.toString()}`;
+        const result = await this.httpClient.get<MoralisTokenBalance[]>(endpoint);
+
+        if (result.isErr()) {
+          this.logger.warn(`Failed to fetch token metadata for ${contractAddress}: ${getErrorMessage(result.error)}`);
+          return err(result.error);
+        }
+
+        const metadata = result.value?.[0];
+        if (!metadata) {
+          return err(new Error(`No metadata returned for token ${contractAddress}`));
+        }
+
+        return ok({
+          symbol: metadata.symbol ?? undefined,
+          name: metadata.name ?? undefined,
+          decimals: metadata.decimals ?? undefined,
+          logoUrl: metadata.logo ?? undefined,
+        });
+      },
+      'moralis'
+    );
+  }
+
   private async getAddressTokenBalances(
     address: string,
     contractAddresses?: string[]
@@ -281,16 +317,37 @@ export class MoralisApiClient extends BaseApiClient {
 
     const rawBalances = result.value || [];
 
-    // Convert to BlockchainBalanceSnapshot format
-    const balances: BlockchainBalanceSnapshot[] = rawBalances.map((balance) => {
+    // Convert to BlockchainBalanceSnapshot format and cache metadata
+    const balances: BlockchainBalanceSnapshot[] = [];
+    for (const balance of rawBalances) {
+      // Cache the metadata for future lookups
+      const metadataResult = await getTokenMetadataWithCache(
+        this.blockchain,
+        balance.token_address,
+        async () =>
+          Promise.resolve(
+            ok({
+              symbol: balance.symbol ?? undefined,
+              name: balance.name ?? undefined,
+              decimals: balance.decimals ?? undefined,
+              logoUrl: balance.logo ?? undefined,
+            })
+          ),
+        'moralis'
+      );
+
+      // Use symbol from metadata (or fallback to contract address if metadata fetch failed)
+      const asset =
+        metadataResult.isOk() && metadataResult.value.symbol ? metadataResult.value.symbol : balance.token_address;
+
       // Convert from smallest units to decimal string
       const balanceDecimal = parseDecimal(balance.balance).div(parseDecimal('10').pow(balance.decimals)).toString();
 
-      return {
-        asset: balance.symbol,
+      balances.push({
+        asset,
         total: balanceDecimal,
-      };
-    });
+      });
+    }
 
     this.logger.debug(`Found ${balances.length} raw token balances for ${address}`);
     return ok(balances);

@@ -1,8 +1,8 @@
 import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
+import { ProviderRegistry } from '../../../../../shared/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../../shared/blockchain/types/index.ts';
 import type { EvmTransaction } from '../../../types.ts';
 import { MoralisApiClient } from '../moralis.api-client.ts';
 
@@ -83,7 +83,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
     });
 
     describe('Token Balances', () => {
-      it('should fetch token balances in normalized format', async () => {
+      it('should fetch token balances in normalized format with symbols', async () => {
         // Use a different address with fewer tokens to avoid Moralis's 2000 token limit
         const smallerAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4';
 
@@ -102,8 +102,8 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
             expect(firstBalance).toHaveProperty('total');
             expect(typeof firstBalance.asset).toBe('string');
             expect(typeof firstBalance.total).toBe('string');
-            // Token should be a contract address (0x...)
-            expect(firstBalance.asset).toMatch(/^0x[a-fA-F0-9]{40}$/);
+            // Asset should be a symbol or fallback to contract address
+            expect(firstBalance.asset.length).toBeGreaterThan(0);
             // Total should be a numeric string (converted from smallest units to decimal)
             expect(Number(firstBalance.total)).not.toBeNaN();
           }

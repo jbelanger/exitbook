@@ -1,11 +1,13 @@
 import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
-import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
-import { RegisterApiClient } from '../../../core/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../core/blockchain/types/index.ts';
-import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
+import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
+import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../shared/blockchain/index.ts';
+import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../shared/blockchain/types/index.ts';
+import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
+import type { TokenMetadata } from '../../../shared/token-metadata/index.ts';
+import { getTokenMetadataWithCache } from '../../../shared/token-metadata/index.ts';
 import type { SolanaSignature, SolanaTokenAccountsResponse, SolanaTransaction } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
@@ -62,6 +64,27 @@ export class SolanaRPCApiClient extends BaseApiClient {
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
     }
+  }
+
+  async getTokenMetadata(mintAddress: string): Promise<Result<TokenMetadata, Error>> {
+    return await getTokenMetadataWithCache(
+      'solana',
+      mintAddress,
+      async () => {
+        // NOTE: Standard Solana RPC doesn't provide token metadata directly.
+        // To fetch token metadata, we would need to:
+        // 1. Derive the Metaplex metadata PDA from the mint address
+        // 2. Fetch the metadata account using getAccountInfo
+        // 3. Parse the Metaplex metadata format
+        //
+        // For now, this returns an error which causes graceful fallback to mint address.
+        // Future enhancement: Add Metaplex metadata fetching support.
+        return Promise.resolve(
+          err(new Error(`Token metadata not available via standard Solana RPC for mint: ${mintAddress}`))
+        );
+      },
+      'solana-rpc'
+    );
   }
 
   getHealthCheckConfig() {
@@ -255,14 +278,21 @@ export class SolanaRPCApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    // Convert to BlockchainBalanceSnapshot format
-    const balances: BlockchainBalanceSnapshot[] = tokenAccountsResponse.result.value.map((account) => {
+    // Convert to BlockchainBalanceSnapshot format with symbols
+    const balances: BlockchainBalanceSnapshot[] = [];
+    for (const account of tokenAccountsResponse.result.value) {
       const tokenInfo = account.account.data.parsed.info;
-      return {
-        asset: tokenInfo.mint,
+      const mintAddress = tokenInfo.mint;
+
+      // Fetch token metadata to get symbol
+      const metadataResult = await this.getTokenMetadata(mintAddress);
+      const symbol = metadataResult.isOk() && metadataResult.value.symbol ? metadataResult.value.symbol : mintAddress;
+
+      balances.push({
+        asset: symbol,
         total: tokenInfo.tokenAmount.uiAmountString,
-      };
-    });
+      });
+    }
 
     this.logger.debug(
       `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${balances.length}`

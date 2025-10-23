@@ -5,7 +5,7 @@
  * and exchange providers. Call this once during application startup.
  */
 
-import './core/blockchain/registry/register-apis.js';
+import './shared/blockchain/registry/register-apis.js';
 
 let initialized = false;
 

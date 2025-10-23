@@ -3,8 +3,8 @@ import type { ImportSessionMetadata } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
-import type { NormalizationError } from '../../../../core/blockchain/index.ts';
+import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts';
+import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
 import { CosmosTransactionSchema } from '../../schemas.ts';
 import type { CosmosTransaction } from '../../types.js';
 
