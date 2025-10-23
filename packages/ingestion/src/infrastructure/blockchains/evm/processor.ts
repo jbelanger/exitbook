@@ -241,8 +241,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
         const rawAmount = tx.amount ?? '0';
 
         // Normalize token amount using decimals metadata
-        // Some providers (Alchemy) return amounts in smallest units, others (Moralis) are pre-normalized
-        // Always normalize to ensure consistency across providers
+        // All providers return amounts in smallest units; normalization ensures consistency and safety
         const amount = normalizeTokenAmount(rawAmount, tx.tokenDecimals);
 
         // Skip zero amounts
