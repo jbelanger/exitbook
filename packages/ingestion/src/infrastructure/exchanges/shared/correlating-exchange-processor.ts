@@ -396,7 +396,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     }
 
     return Array.from(assetMap.entries()).map(([asset, amount]) => ({
-      amount: amount.toString(),
+      amount: amount.toFixed(),
       asset,
     }));
   }
@@ -417,7 +417,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     }
 
     return Array.from(feeMap.entries()).map(([currency, amount]) => ({
-      amount: amount.toString(),
+      amount: amount.toFixed(),
       currency,
     }));
   }

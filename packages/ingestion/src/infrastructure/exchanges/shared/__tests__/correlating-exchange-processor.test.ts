@@ -98,7 +98,7 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.asset).toBe('USD');
-    expect(transaction.movements.outflows![0]?.amount.toString()).toBe('150');
+    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('150');
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
@@ -139,7 +139,7 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.fees.platform?.amount.toString()).toBe('2.5');
+    expect(transaction.fees.platform?.amount.toFixed()).toBe('2.5');
     expect(transaction.fees.platform?.asset.toString()).toBe('USD');
   });
 });

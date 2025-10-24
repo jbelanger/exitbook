@@ -206,13 +206,10 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   async findByAddress(address: string, sourceId?: string) {
     try {
-      // Normalize address to lowercase for case-insensitive comparison (EVM addresses)
-      const normalizedAddress = address.toLowerCase();
-
       let query = this.db
         .selectFrom('transactions')
         .selectAll()
-        .where((eb) => eb.or([eb('from_address', '=', normalizedAddress), eb('to_address', '=', normalizedAddress)]));
+        .where((eb) => eb.or([eb('from_address', '=', address), eb('to_address', '=', address)]));
 
       // Filter by blockchain/exchange if specified (critical for EVM addresses shared across chains)
       if (sourceId) {

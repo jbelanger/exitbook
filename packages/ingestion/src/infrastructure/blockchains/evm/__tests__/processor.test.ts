@@ -100,11 +100,11 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     expect(transaction.movements.inflows).toHaveLength(2);
     const usdcInflow = transaction.movements.inflows?.find((i) => i.asset === 'USDC');
     const ethInflow = transaction.movements.inflows?.find((i) => i.asset === 'ETH');
-    expect(usdcInflow?.amount.toString()).toBe('2.5'); // 2500000 / 10^6 = 2.5 USDC
-    expect(ethInflow?.amount.toString()).toBe('1.5'); // 1 ETH + 0.5 ETH consolidated
+    expect(usdcInflow?.amount.toFixed()).toBe('2.5'); // 2500000 / 10^6 = 2.5 USDC
+    expect(ethInflow?.amount.toFixed()).toBe('1.5'); // 1 ETH + 0.5 ETH consolidated
     expect(transaction.movements.outflows).toHaveLength(0);
     // User received all funds (no outflows), so they didn't pay the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
     expect(transaction.fees.network?.asset.toString()).toBe('ETH');
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
@@ -201,7 +201,7 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
   });
 });
 
@@ -235,7 +235,7 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     if (!transaction) return;
 
     // User paid the fee, so it should be deducted
-    expect(transaction.fees.network?.amount.toString()).toBe('0.000021');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.000021');
     expect(transaction.operation.type).toBe('withdrawal');
   });
 
@@ -268,7 +268,7 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     if (!transaction) return;
 
     // User did NOT pay the fee (sender did), so fee should be 0
-    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
     expect(transaction.operation.type).toBe('deposit');
   });
 
@@ -301,7 +301,7 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     if (!transaction) return;
 
     // User initiated the self-transfer, so they paid the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0.000021');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.000021');
     expect(transaction.operation.type).toBe('transfer');
   });
 
@@ -335,7 +335,7 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     if (!transaction) return;
 
     // User initiated contract interaction, so they paid the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0.00015');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.00015');
   });
 
   test('does NOT deduct fee for incoming token transfers (airdrop/mint scenario)', async () => {
@@ -370,7 +370,7 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     if (!transaction) return;
 
     // User did NOT pay the fee (contract/minter did), so fee should be 0
-    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
     expect(transaction.operation.type).toBe('deposit');
   });
 
@@ -403,7 +403,7 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     if (!transaction) return;
 
     // User initiated failed transaction, so they still paid the gas fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0.0001');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.0001');
     expect(transaction.status).toBe('failed');
   });
 
@@ -451,7 +451,7 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     if (!transaction) return;
 
     // User initiated swap, so they paid the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0.00015');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.00015');
     expect(transaction.operation.type).toBe('swap');
   });
 
@@ -486,7 +486,7 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     if (!transaction) return;
 
     // Should correctly identify user as sender despite case difference
-    expect(transaction.fees.network?.amount.toString()).toBe('0.000021');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.000021');
   });
 });
 
@@ -526,7 +526,7 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     if (!transaction.movements.inflows) return;
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('ETH');
-    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1.5');
+    expect(transaction.movements.inflows[0]?.amount.toFixed()).toBe('1.5');
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
@@ -568,7 +568,7 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     expect(transaction.movements.outflows).toBeDefined();
     if (!transaction.movements.outflows) return;
     expect(transaction.movements.outflows[0]?.asset).toBe('ETH');
-    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('2');
+    expect(transaction.movements.outflows[0]?.amount.toFixed()).toBe('2');
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
   });
@@ -1095,7 +1095,7 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
     if (!transaction) return;
 
     // Check structured fields
-    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
   });
 
   test('handles transactions with missing optional fields', async () => {
@@ -1295,13 +1295,13 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
     expect(transaction.movements.inflows).toBeDefined();
     if (!transaction.movements.inflows) return;
     expect(transaction.movements.inflows[0]?.asset).toBe('USDC');
-    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1000'); // 1000000000 / 10^6 = 1000 USDC
+    expect(transaction.movements.inflows[0]?.amount.toFixed()).toBe('1000'); // 1000000000 / 10^6 = 1000 USDC
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows).toBeDefined();
     if (!transaction.movements.outflows) return;
     expect(transaction.movements.outflows[0]?.asset).toBe('ETH');
-    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('0.5');
+    expect(transaction.movements.outflows[0]?.amount.toFixed()).toBe('0.5');
   });
 
   test('detects reverse swap (USDC -> ETH)', async () => {

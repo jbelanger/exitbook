@@ -214,7 +214,7 @@ describe('findClosestPrice', () => {
     const result = findClosestPrice('BTC', targetTimestamp, priceIndex, maxTimeDelta);
 
     expect(result).toBeDefined();
-    expect(result!.price.amount.toString()).toBe('50000');
+    expect(result!.price.amount.toFixed()).toBe('50000');
     expect(result!.source).toBe('derived-history');
   });
 

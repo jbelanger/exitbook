@@ -73,7 +73,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
   // Outflow is fiat/stablecoin - calculate price of inflow
   if (outflowIsFiatOrStable) {
-    const price = parseDecimal(outflow.amount.toString()).dividedBy(parseDecimal(inflow.amount.toString()));
+    const price = parseDecimal(outflow.amount.toFixed()).dividedBy(parseDecimal(inflow.amount.toFixed()));
 
     results.push({
       asset: inflow.asset,
@@ -88,7 +88,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
   // Inflow is fiat/stablecoin - calculate price of outflow
   if (inflowIsFiatOrStable) {
-    const price = parseDecimal(inflow.amount.toString()).dividedBy(parseDecimal(outflow.amount.toString()));
+    const price = parseDecimal(inflow.amount.toFixed()).dividedBy(parseDecimal(outflow.amount.toFixed()));
 
     results.push({
       asset: outflow.asset,
@@ -167,8 +167,8 @@ export function inferPriceFromTrade(
   // If we know inflow price, calculate outflow price
   if (inflowPrice && !outflowPrice) {
     // outflowPrice = inflowPrice * (inflow.amount / outflow.amount)
-    const ratio = parseDecimal(inflow.amount.toString()).dividedBy(parseDecimal(outflow.amount.toString()));
-    const derivedPrice = parseDecimal(inflowPrice.price.amount.toString()).times(ratio);
+    const ratio = parseDecimal(inflow.amount.toFixed()).dividedBy(parseDecimal(outflow.amount.toFixed()));
+    const derivedPrice = parseDecimal(inflowPrice.price.amount.toFixed()).times(ratio);
 
     results.push({
       asset: outflow.asset,
@@ -184,8 +184,8 @@ export function inferPriceFromTrade(
   // If we know outflow price, calculate inflow price
   if (outflowPrice && !inflowPrice) {
     // inflowPrice = outflowPrice * (outflow.amount / inflow.amount)
-    const ratio = parseDecimal(outflow.amount.toString()).dividedBy(parseDecimal(inflow.amount.toString()));
-    const derivedPrice = parseDecimal(outflowPrice.price.amount.toString()).times(ratio);
+    const ratio = parseDecimal(outflow.amount.toFixed()).dividedBy(parseDecimal(inflow.amount.toFixed()));
+    const derivedPrice = parseDecimal(outflowPrice.price.amount.toFixed()).times(ratio);
 
     results.push({
       asset: inflow.asset,

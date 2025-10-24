@@ -45,7 +45,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // User sent funds -> user pays fee
-      expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
       expect(transaction.movements.outflows?.length).toBe(1);
       expect(transaction.movements.inflows?.length).toBe(0);
     });
@@ -83,7 +83,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // User received funds -> sender paid fee, user pays 0
-      expect(transaction.fees.network?.amount.toString()).toBe('0');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0');
       expect(transaction.movements.inflows?.length).toBe(1);
       expect(transaction.movements.outflows?.length).toBe(0);
     });
@@ -119,7 +119,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // Self-transfer -> user initiated and paid fee
-      expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
       expect(transaction.movements.inflows?.length).toBe(1);
       expect(transaction.movements.outflows?.length).toBe(1);
     });
@@ -155,7 +155,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // User bonding -> user pays fee
-      expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
       expect(transaction.movements.outflows?.length).toBe(1);
     });
 
@@ -190,7 +190,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // User initiated unbond -> user pays fee (even though receiving funds)
-      expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
       expect(transaction.movements.inflows?.length).toBe(1);
       expect(transaction.movements.outflows?.length).toBe(0);
     });
@@ -226,7 +226,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // User initiated withdraw -> user pays fee
-      expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
     });
 
     test('user pays fee when nominating validators (no fund movement)', async () => {
@@ -260,7 +260,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // User initiated nominate -> user pays fee
-      expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
       expect(transaction.movements.inflows?.length).toBe(0);
       expect(transaction.movements.outflows?.length).toBe(0);
     });
@@ -296,7 +296,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // User initiated chill -> user pays fee
-      expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
     });
 
     test('user does NOT pay fee for staking rewards (incoming from validator)', async () => {
@@ -330,7 +330,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // Validator paid out rewards -> validator paid fee, user pays 0
-      expect(transaction.fees.network?.amount.toString()).toBe('0');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0');
       expect(transaction.movements.inflows?.length).toBe(1);
       expect(transaction.movements.outflows?.length).toBe(0);
     });
@@ -366,7 +366,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // User voting -> user pays fee
-      expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
       expect(transaction.movements.outflows?.length).toBe(1);
     });
 
@@ -401,7 +401,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // Failed transaction but user initiated -> user still pays fee
-      expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
       expect(transaction.status).toBe('failed');
     });
   });
@@ -438,7 +438,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // Treasury payout -> system paid fee, user pays 0
-      expect(transaction.fees.network?.amount.toString()).toBe('0');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0');
       expect(transaction.movements.inflows?.length).toBe(1);
       expect(transaction.movements.outflows?.length).toBe(0);
     });
@@ -474,7 +474,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // User initiated batch -> user pays fee
-      expect(transaction.fees.network?.amount.toString()).toBe('0.0256');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.0256');
       expect(transaction.movements.outflows?.length).toBe(1);
     });
 
@@ -509,7 +509,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // User as proxy initiator -> user pays fee
-      expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
       expect(transaction.movements.outflows?.length).toBe(1);
     });
 
@@ -544,7 +544,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // User approving multisig -> user pays fee
-      expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
       expect(transaction.movements.outflows?.length).toBe(1);
     });
   });
@@ -581,7 +581,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // Should match despite case difference
-      expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
     });
 
     test('handles zero-amount transactions (fee-only)', async () => {
@@ -615,7 +615,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // User initiated remark -> user pays fee
-      expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
     });
 
     test('handles missing fee amount gracefully', async () => {
@@ -648,7 +648,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // Missing fee defaults to 0
-      expect(transaction.fees.network?.amount.toString()).toBe('0');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0');
     });
 
     test('multi-chain support: Bittensor (TAO) with different decimals', async () => {
@@ -682,7 +682,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       if (!transaction) return;
 
       // User sent TAO -> user pays fee
-      expect(transaction.fees.network?.amount.toString()).toBe('0.1');
+      expect(transaction.fees.network?.amount.toFixed()).toBe('0.1');
       expect(transaction.fees.network?.asset.toString()).toBe('TAO');
     });
   });
@@ -767,7 +767,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // All 4 operations initiated by user -> user pays all fees
       result.value.forEach((tx) => {
-        expect(tx.fees.network?.amount.toString()).toBe('0.0156');
+        expect(tx.fees.network?.amount.toFixed()).toBe('0.0156');
       });
     });
   });

@@ -166,7 +166,7 @@ export function isZeroMoney(money: Money | undefined): boolean {
  */
 export function decimalToString(decimal: Decimal | undefined): string | undefined {
   if (!decimal) return undefined;
-  return decimal.toString();
+  return decimal.toFixed();
 }
 
 /**
@@ -182,7 +182,7 @@ export function stringToDecimal(value: string | undefined): Decimal {
  */
 export function moneyToDbString(money: Money | undefined): string | undefined {
   if (!money) return undefined;
-  return money.amount.toString();
+  return money.amount.toFixed();
 }
 
 /**

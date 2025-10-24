@@ -216,7 +216,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                     //
                     // IMPORTANT: ExchangeLedgerEntry requires signed amounts (negative for outflows, positive for inflows)
                     // CCXT provides direction field ('in' or 'out') with absolute amounts, so we need to apply the sign
-                    const amountStr = validatedData.amount.toString();
+                    const amountStr = validatedData.amount.toFixed();
                     const signedAmount =
                       validatedData.direction === 'out'
                         ? amountStr.startsWith('-')

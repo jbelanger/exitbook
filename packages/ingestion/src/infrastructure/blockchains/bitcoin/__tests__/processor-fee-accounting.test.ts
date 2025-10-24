@@ -55,7 +55,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User spent their UTXO (outgoing), so they paid the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0.0001');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.0001');
     expect(transaction.operation.type).toBe('withdrawal');
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.inflows).toHaveLength(0);
@@ -102,7 +102,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User did NOT spend any UTXOs (incoming only), so they did NOT pay the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.outflows).toHaveLength(0);
@@ -149,7 +149,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User spent their UTXO (self-transfer), so they paid the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0.00005');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.00005');
     // Self-transfer has both isIncoming and isOutgoing, so it's classified as 'transfer'
     // However, since output equals input (minus fee), it's actually just outgoing (withdrawal)
     expect(transaction.operation.type).toBe('withdrawal');
@@ -203,7 +203,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User spent UTXO with change return, so they paid the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0.00015');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.00015');
     // Input: 3.00015 BTC, Output to user: 2.0 BTC, Output to external: 1.0 BTC
     // walletInput = 3.00015, walletOutput = 2.0 → outgoing (withdrawal)
     // Outflows: walletInput - fee = 3.0 BTC (amount actually spent from wallet)
@@ -212,10 +212,10 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     expect(transaction.operation.type).toBe('withdrawal');
     expect(transaction.movements.outflows).toBeDefined();
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows?.[0]?.amount.toString()).toBe('3');
+    expect(transaction.movements.outflows?.[0]?.amount.toFixed()).toBe('3');
     expect(transaction.movements.inflows).toBeDefined();
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows?.[0]?.amount.toString()).toBe('2');
+    expect(transaction.movements.inflows?.[0]?.amount.toFixed()).toBe('2');
   });
 
   test('deducts fee for multi-input transaction from user wallet', async () => {
@@ -265,7 +265,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User spent multiple UTXOs from their wallet, so they paid the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0.0002');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.0002');
     expect(transaction.operation.type).toBe('withdrawal');
   });
 
@@ -315,7 +315,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User did NOT spend any UTXOs (incoming only), so they did NOT pay the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
     expect(transaction.operation.type).toBe('deposit');
   });
 
@@ -369,7 +369,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User's derived addresses spent UTXOs, so they paid the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0.00012');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.00012');
     expect(transaction.operation.type).toBe('withdrawal');
   });
 
@@ -417,7 +417,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User did NOT spend UTXOs (incoming to derived address), so they did NOT pay the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
     expect(transaction.operation.type).toBe('deposit');
   });
 
@@ -462,7 +462,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // Case-insensitive matching should work
-    expect(transaction.fees.network?.amount.toString()).toBe('0.0001');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.0001');
     expect(transaction.operation.type).toBe('withdrawal');
   });
 
@@ -507,7 +507,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // Failed transaction: user initiated (has outflows), so they paid the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0.0001');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.0001');
     expect(transaction.status).toBe('failed');
   });
 
@@ -554,7 +554,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User created OP_RETURN, so they paid the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0.00001');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.00001');
   });
 
   test.skip('TODO: Multisig transaction - proportional fee handling', async () => {
@@ -616,7 +616,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     // Current behavior: user pays full fee (0.0003)
     // Ideal behavior: user pays 1/3 of fee (0.0001) based on input proportion
     // TODO: Implement proportional fee logic for multisig
-    expect(transaction.fees.network?.amount.toString()).toBe('0.0001'); // Proportional
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0.0001'); // Proportional
   });
 
   test.skip('TODO: Lightning channel close - complex fee handling', async () => {
@@ -670,6 +670,6 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
 
     // TODO: Need to detect if user initiated close to determine fee responsibility
     // For now, implementation treats this as incoming (no wallet input), so fee = 0
-    expect(transaction.fees.network?.amount.toString()).toBe('0'); // May be incorrect
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0'); // May be incorrect
   });
 });

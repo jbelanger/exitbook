@@ -48,8 +48,8 @@ export const standardAmounts: InterpretationStrategy = {
     const feeCurrency = entry.normalized.feeCurrency || asset;
 
     return {
-      inflows: amount.isPositive() ? [{ amount: absAmount.toString(), asset }] : [],
-      outflows: amount.isNegative() ? [{ amount: absAmount.toString(), asset }] : [],
+      inflows: amount.isPositive() ? [{ amount: absAmount.toFixed(), asset }] : [],
+      outflows: amount.isNegative() ? [{ amount: absAmount.toFixed(), asset }] : [],
       fees: feeCost ? [{ amount: feeCost.toString(), currency: feeCurrency }] : [],
     };
   },
@@ -90,15 +90,15 @@ class CoinbaseGrossAmountsStrategy implements InterpretationStrategy<CoinbaseLed
       const netAmount = absAmount.minus(feeCost);
       return {
         inflows: [],
-        outflows: [{ amount: netAmount.toString(), asset }],
+        outflows: [{ amount: netAmount.toFixed(), asset }],
         fees: shouldIncludeFee ? [{ amount: feeCost.toString(), currency: feeCurrency }] : [],
       };
     }
 
     // Trades/deposits: amount is GROSS, fee is separate
     return {
-      inflows: isInflow ? [{ amount: absAmount.toString(), asset }] : [],
-      outflows: !isInflow ? [{ amount: absAmount.toString(), asset }] : [],
+      inflows: isInflow ? [{ amount: absAmount.toFixed(), asset }] : [],
+      outflows: !isInflow ? [{ amount: absAmount.toFixed(), asset }] : [],
       fees: shouldIncludeFee && !feeCost.isZero() ? [{ amount: feeCost.toString(), currency: feeCurrency }] : [],
     };
   }

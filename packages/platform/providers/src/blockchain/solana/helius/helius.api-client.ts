@@ -281,9 +281,38 @@ export class HeliusApiClient extends BaseApiClient {
 
     const allRawTransactions = [...directTransactions, ...tokenAccountTransactions];
 
+    // Deduplicate transactions by signature (same tx can appear in both direct and token account lists)
+    const uniqueTransactions = new Map<string, HeliusTransaction>();
+    for (const tx of allRawTransactions) {
+      const signature = tx.transaction.signatures?.[0] ?? tx.signature;
+      if (signature && !uniqueTransactions.has(signature)) {
+        uniqueTransactions.set(signature, tx);
+      }
+    }
+
+    this.logger.debug(
+      `Deduplicated transactions - Address: ${maskAddress(address)}, Total: ${allRawTransactions.length}, Unique: ${uniqueTransactions.size}`
+    );
+
+    // Extract all unique mint addresses and fetch their symbols using the cache
+    const mintAddresses = new Set<string>();
+    for (const tx of uniqueTransactions.values()) {
+      tx.meta.preTokenBalances?.forEach((b) => mintAddresses.add(b.mint));
+      tx.meta.postTokenBalances?.forEach((b) => mintAddresses.add(b.mint));
+    }
+
+    // Fetch metadata for all mints - getTokenMetadata uses the cache automatically
+    const tokenSymbols: Record<string, string> = {};
+    for (const mint of mintAddresses) {
+      const metadataResult = await this.getTokenMetadata(mint);
+      if (metadataResult.isOk() && metadataResult.value.symbol) {
+        tokenSymbols[mint] = metadataResult.value.symbol;
+      }
+    }
+
     const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
-    for (const rawTx of allRawTransactions) {
-      const mapResult = this.mapper.map(rawTx, {});
+    for (const rawTx of uniqueTransactions.values()) {
+      const mapResult = this.mapper.map(rawTx, { tokenSymbols });
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

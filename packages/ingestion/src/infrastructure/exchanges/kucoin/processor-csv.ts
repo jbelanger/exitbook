@@ -113,13 +113,13 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [
           {
             asset: sellCurrency,
-            amount: parseDecimal(sellAmount.toString()),
+            amount: parseDecimal(sellAmount.toFixed()),
           },
         ],
         inflows: [
           {
             asset: buyCurrency,
-            amount: parseDecimal(buyAmount.toString()),
+            amount: parseDecimal(buyAmount.toFixed()),
           },
         ],
       },
@@ -168,7 +168,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         inflows: [
           {
             asset: row.Coin,
-            amount: parseDecimal(netAmount.toString()),
+            amount: parseDecimal(netAmount.toFixed()),
           },
         ],
         outflows: [], // No outflows for deposit
@@ -226,13 +226,13 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [
           {
             asset: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledVolume.toString() : filledAmount.toString()),
+            amount: parseDecimal(isBuy ? filledVolume.toString() : filledAmount.toFixed()),
           },
         ],
         inflows: [
           {
             asset: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledAmount.toString() : filledVolume.toString()),
+            amount: parseDecimal(isBuy ? filledAmount.toFixed() : filledVolume.toString()),
           },
         ],
       },
@@ -291,13 +291,13 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [
           {
             asset: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledVolume.toString() : filledAmount.toString()),
+            amount: parseDecimal(isBuy ? filledVolume.toString() : filledAmount.toFixed()),
           },
         ],
         inflows: [
           {
             asset: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledAmount.toString() : filledVolume.toString()),
+            amount: parseDecimal(isBuy ? filledAmount.toFixed() : filledVolume.toString()),
           },
         ],
       },
@@ -352,13 +352,13 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [
           {
             asset: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledVolume.toString() : filledAmount.toString()),
+            amount: parseDecimal(isBuy ? filledVolume.toString() : filledAmount.toFixed()),
           },
         ],
         inflows: [
           {
             asset: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledAmount.toString() : filledVolume.toString()),
+            amount: parseDecimal(isBuy ? filledAmount.toFixed() : filledVolume.toString()),
           },
         ],
       },
@@ -407,7 +407,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [
           {
             asset: row.Coin,
-            amount: parseDecimal(absAmount.toString()),
+            amount: parseDecimal(absAmount.toFixed()),
           },
         ],
       },

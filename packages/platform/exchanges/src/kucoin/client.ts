@@ -174,7 +174,7 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
                       timestamp,
                       type: validatedData.type,
                       asset: validatedData.currency,
-                      amount: validatedData.amount.toString(),
+                      amount: validatedData.amount.toFixed(),
                       fee: validatedData.fee?.cost.toString(),
                       feeCurrency: validatedData.fee?.currency,
                       status: mapKuCoinStatus(validatedData.status),

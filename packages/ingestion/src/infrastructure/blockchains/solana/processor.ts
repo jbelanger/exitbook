@@ -2,6 +2,8 @@ import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { SolanaTransaction } from '@exitbook/providers';
+import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers';
+import type { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
@@ -247,11 +249,15 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
         if (!isUserAccount) continue;
 
-        const tokenAmount = parseFloat(change.postAmount) - parseFloat(change.preAmount);
-        if (tokenAmount === 0) continue; // Skip zero changes
+        const tokenAmountInSmallestUnits = parseFloat(change.postAmount) - parseFloat(change.preAmount);
+        if (tokenAmountInSmallestUnits === 0) continue; // Skip zero changes
+
+        // Normalize token amount using decimals metadata
+        // All providers return amounts in smallest units; normalization ensures consistency and safety
+        const normalizedAmount = normalizeTokenAmount(Math.abs(tokenAmountInSmallestUnits).toString(), change.decimals);
 
         const movement: { amount: string; asset: string; decimals?: number; tokenAddress?: string } = {
-          amount: Math.abs(tokenAmount).toString(),
+          amount: normalizedAmount,
           asset: change.symbol || change.mint,
         };
 
@@ -262,7 +268,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
           movement.tokenAddress = change.mint;
         }
 
-        if (tokenAmount > 0) {
+        if (tokenAmountInSmallestUnits > 0) {
           inflows.push(movement);
           toAddress = change.account;
         } else {
@@ -278,17 +284,17 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         const isUserAccount = allWalletAddresses.has(change.account);
         if (!isUserAccount) continue;
 
-        const solAmount = parseFloat(change.postBalance) - parseFloat(change.preBalance);
-        if (solAmount === 0) continue; // Skip zero changes
+        const solAmountInLamports = parseFloat(change.postBalance) - parseFloat(change.preBalance);
+        if (solAmountInLamports === 0) continue; // Skip zero changes
 
-        // Convert lamports to SOL
-        const solAmountConverted = solAmount / 1_000_000_000;
+        // Normalize lamports to SOL using native amount normalization (SOL has 9 decimals)
+        const normalizedSolAmount = normalizeNativeAmount(Math.abs(solAmountInLamports).toString(), 9);
         const movement = {
-          amount: Math.abs(solAmountConverted).toString(),
+          amount: normalizedSolAmount,
           asset: 'SOL',
         };
 
-        if (solAmount > 0) {
+        if (solAmountInLamports > 0) {
           inflows.push(movement);
           toAddress = change.account;
         } else {
@@ -304,16 +310,16 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     ): { amount: string; asset: string; decimals?: number | undefined; tokenAddress?: string | undefined }[] => {
       const assetMap = new Map<
         string,
-        { amount: number; decimals?: number | undefined; tokenAddress?: string | undefined }
+        { amount: Decimal; decimals?: number | undefined; tokenAddress?: string | undefined }
       >();
 
       for (const movement of movements) {
         const existing = assetMap.get(movement.asset);
         if (existing) {
-          existing.amount += parseFloat(movement.amount);
+          existing.amount = existing.amount.plus(parseDecimal(movement.amount));
         } else {
-          const entry: { amount: number; decimals?: number; tokenAddress?: string } = {
-            amount: parseFloat(movement.amount),
+          const entry: { amount: Decimal; decimals?: number; tokenAddress?: string } = {
+            amount: parseDecimal(movement.amount),
           };
           if (movement.decimals !== undefined) {
             entry.decimals = movement.decimals;
@@ -327,7 +333,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
       return Array.from(assetMap.entries()).map(([asset, data]) => {
         const result: { amount: string; asset: string; decimals?: number; tokenAddress?: string } = {
-          amount: data.amount.toString(),
+          amount: data.amount.toFixed(),
           asset,
         };
         if (data.decimals !== undefined) {
@@ -352,16 +358,28 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
     // Use largest inflow as primary (prefer tokens with more decimals)
     const largestInflow = consolidatedInflows
-      .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))
-      .find((inflow) => parseFloat(inflow.amount) !== 0);
+      .sort((a, b) => {
+        try {
+          return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
+        } catch {
+          return 0;
+        }
+      })
+      .find((inflow) => !this.isZero(inflow.amount));
 
     if (largestInflow) {
       primary = { ...largestInflow };
     } else {
       // If no inflows, use largest outflow
       const largestOutflow = consolidatedOutflows
-        .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))
-        .find((outflow) => parseFloat(outflow.amount) !== 0);
+        .sort((a, b) => {
+          try {
+            return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
+          } catch {
+            return 0;
+          }
+        })
+        .find((outflow) => !this.isZero(outflow.amount));
 
       if (largestOutflow) {
         primary = { ...largestOutflow };
@@ -402,8 +420,8 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     };
   } {
     const { inflows, outflows } = fundFlow;
-    const primaryAmount = parseFloat(fundFlow.primary.amount || '0');
-    const isZero = primaryAmount === 0;
+    const primaryAmount = parseDecimal(fundFlow.primary.amount || '0').abs();
+    const isZero = primaryAmount.isZero();
 
     // Pattern 1: Staking operations (high confidence based on program detection)
     if (fundFlow.hasStaking) {
@@ -418,7 +436,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
       if (inflows.length > 0 && outflows.length === 0) {
         // Check if reward or withdrawal based on amount
-        const isReward = primaryAmount > 0 && primaryAmount < 1; // Rewards are typically small
+        const isReward = primaryAmount.greaterThan(0) && primaryAmount.lessThan(1); // Rewards are typically small
         return {
           operation: {
             category: 'staking',
@@ -675,5 +693,13 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     ];
 
     return instructions.some((instruction) => instruction.programId && nftPrograms.includes(instruction.programId));
+  }
+
+  private isZero(value: string): boolean {
+    try {
+      return parseDecimal(value || '0').isZero();
+    } catch {
+      return true;
+    }
   }
 }

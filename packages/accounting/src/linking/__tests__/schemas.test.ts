@@ -207,7 +207,7 @@ describe('schemas', () => {
       expect(result.timestamp).toBeInstanceOf(Date);
       expect(result.asset).toBe('BTC');
       expect(result.amount).toBeInstanceOf(Decimal);
-      expect(result.amount.toString()).toBe('1.5');
+      expect(result.amount.toFixed()).toBe('1.5');
       expect(result.direction).toBe('out');
     });
 
@@ -555,7 +555,7 @@ describe('schemas', () => {
 
       const result = TransactionCandidateSchema.parse(candidate);
       expect(result.amount).toBeInstanceOf(Decimal);
-      expect(result.amount.toString()).toBe('1000000000000');
+      expect(result.amount.toFixed()).toBe('1000000000000');
     });
   });
 });

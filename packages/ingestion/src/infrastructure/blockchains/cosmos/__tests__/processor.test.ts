@@ -71,7 +71,7 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
     if (!transaction.movements.inflows) return;
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows[0]?.asset).toBe('INJ');
-    expect(transaction.movements.inflows[0]?.amount.toString()).toBe('1500000000000000000');
+    expect(transaction.movements.inflows[0]?.amount.toFixed()).toBe('1500000000000000000');
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
@@ -115,7 +115,7 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
     expect(transaction.movements.outflows).toBeDefined();
     if (!transaction.movements.outflows) return;
     expect(transaction.movements.outflows[0]?.asset).toBe('INJ');
-    expect(transaction.movements.outflows[0]?.amount.toString()).toBe('2000000000000000000');
+    expect(transaction.movements.outflows[0]?.amount.toFixed()).toBe('2000000000000000000');
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
   });
@@ -719,7 +719,7 @@ describe('CosmosProcessor - Edge Cases', () => {
     if (!transaction) return;
 
     // Check structured fields
-    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
   });
 
   test('handles transactions with missing optional fields', async () => {

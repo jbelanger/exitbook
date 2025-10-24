@@ -6,6 +6,7 @@ import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts'
 import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.ts';
 import type { EvmTransaction } from '../../types.ts';
+import { normalizeEvmAddress } from '../../utils.js';
 
 import {
   MoralisTransactionSchema,
@@ -41,7 +42,7 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
       currency: nativeCurrency,
       feeAmount: feeWei,
       feeCurrency: nativeCurrency,
-      from: rawData.from_address,
+      from: normalizeEvmAddress(rawData.from_address) ?? '',
       gasPrice: rawData.gas_price && rawData.gas_price !== '' ? rawData.gas_price : undefined,
       gasUsed: rawData.receipt_gas_used && rawData.receipt_gas_used !== '' ? rawData.receipt_gas_used : undefined,
       id: rawData.hash,
@@ -50,7 +51,7 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
       providerId: 'moralis',
       status: rawData.receipt_status === '1' ? 'success' : 'failed',
       timestamp,
-      to: rawData.to_address,
+      to: normalizeEvmAddress(rawData.to_address),
       tokenType: 'native',
       type: 'transfer',
     };
@@ -99,12 +100,12 @@ export class MoralisTokenTransferMapper extends BaseRawDataMapper<MoralisTokenTr
       blockHeight: parseInt(rawData.block_number),
       blockId: rawData.block_hash,
       currency: rawData.token_symbol,
-      from: rawData.from_address,
+      from: normalizeEvmAddress(rawData.from_address) ?? '',
       id: rawData.transaction_hash,
       providerId: 'moralis',
       status: 'success', // Token transfers are always successful if they appear in the results
       timestamp,
-      to: rawData.to_address,
+      to: normalizeEvmAddress(rawData.to_address),
       tokenAddress: rawData.address,
       tokenDecimals,
       tokenSymbol: rawData.token_symbol,

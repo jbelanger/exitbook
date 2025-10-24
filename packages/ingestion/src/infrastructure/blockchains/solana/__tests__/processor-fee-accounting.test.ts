@@ -50,7 +50,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
 
     // User paid the fee (outflow exists), so it should be deducted
     // Fees are stored in lamports (raw units), not SOL
-    expect(transaction.fees.network?.amount.toString()).toBe('5000');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('5000');
     expect(transaction.operation.type).toBe('withdrawal');
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.inflows).toHaveLength(0);
@@ -92,7 +92,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User did NOT pay the fee (sender did), so fee should be 0
-    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.outflows).toHaveLength(0);
@@ -135,7 +135,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
 
     // User initiated the self-transfer, so they paid the fee
     // (The balance change from fee creates an outflow, triggering fee deduction)
-    expect(transaction.fees.network?.amount.toString()).toBe('5000');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('5000');
     expect(transaction.from).toBe(USER_ADDRESS);
     expect(transaction.to).toBe(USER_ADDRESS);
   });
@@ -182,7 +182,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
 
     // User initiated program interaction, so they paid the fee
     // (Outflow from fee deduction triggers fee logic)
-    expect(transaction.fees.network?.amount.toString()).toBe('5000');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('5000');
   });
 
   test('does NOT deduct fee for incoming token transfers (airdrop/mint scenario)', async () => {
@@ -229,7 +229,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User did NOT pay the fee (contract/minter did), so fee should be 0
-    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.outflows).toHaveLength(0);
@@ -266,7 +266,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
 
     // User initiated failed transaction, so they still paid the gas fee
     // (No outflows due to failure, but from === userAddress triggers fee deduction)
-    expect(transaction.fees.network?.amount.toString()).toBe('5000');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('5000');
     expect(transaction.status).toBe('failed');
   });
 
@@ -322,7 +322,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User initiated swap, so they paid the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('5000');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('5000');
     expect(transaction.operation.type).toBe('swap');
     expect(transaction.movements.outflows).toHaveLength(1); // SOL out
     expect(transaction.movements.inflows).toHaveLength(1); // USDC in
@@ -366,7 +366,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // Should correctly identify user as sender despite case difference
-    expect(transaction.fees.network?.amount.toString()).toBe('5000');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('5000');
   });
 
   test('does NOT deduct fee when receiving staking rewards', async () => {
@@ -410,7 +410,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User received reward, validator paid fee (if any), so fee should be 0
-    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
     expect(transaction.operation.type).toBe('reward');
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.outflows).toHaveLength(0);
@@ -457,7 +457,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User initiated staking, so they paid the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('5000');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('5000');
     expect(transaction.operation.type).toBe('stake');
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.inflows).toHaveLength(0);
@@ -505,7 +505,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User received funds at derived wallet, external sender paid fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
     expect(transaction.operation.type).toBe('deposit');
   });
 
@@ -551,7 +551,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User (via derived wallet) initiated transaction, so they paid fee
-    expect(transaction.fees.network?.amount.toString()).toBe('5000');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('5000');
     expect(transaction.operation.type).toBe('withdrawal');
   });
 
@@ -611,7 +611,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User initiated DeFi operation (has outflows), so they paid the fee
-    expect(transaction.fees.network?.amount.toString()).toBe('5000');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('5000');
     expect(transaction.movements.outflows?.length).toBeGreaterThan(0);
   });
 
@@ -659,7 +659,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User received NFT, minter paid fee
-    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
     expect(transaction.operation.type).toBe('deposit');
   });
 });

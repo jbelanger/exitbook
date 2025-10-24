@@ -429,7 +429,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
       return Array.from(assetMap.entries()).map(([asset, data]) => {
         const result: { amount: string; asset: string; tokenAddress?: string; tokenDecimals?: number } = {
-          amount: data.amount.toString(),
+          amount: data.amount.toFixed(),
           asset,
         };
         if (data.tokenAddress !== undefined) {

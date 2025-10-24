@@ -86,6 +86,7 @@ export class SolanaTransactionImporter implements IImporter {
           timestamp: txWithRaw.normalized.timestamp,
           to: txWithRaw.normalized.to,
           tokenAddress: txWithRaw.normalized.tokenAddress,
+          traceId: txWithRaw.normalized.signature,
           type: 'transfer',
         }),
         normalizedData: txWithRaw.normalized,

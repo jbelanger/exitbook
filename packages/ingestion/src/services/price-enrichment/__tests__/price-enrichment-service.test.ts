@@ -321,10 +321,10 @@ describe('PriceEnrichmentService', () => {
 
       // Verify each exchange got its own price
       const tx1Calls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0] === 1);
-      expect(tx1Calls[0]![1][0]!.price.amount.toString()).toBe('50000');
+      expect(tx1Calls[0]![1][0]!.price.amount.toFixed()).toBe('50000');
 
       const tx2Calls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0] === 2);
-      expect(tx2Calls[0]![1][0]!.price.amount.toString()).toBe('50100');
+      expect(tx2Calls[0]![1][0]!.price.amount.toFixed()).toBe('50100');
     });
   });
 

@@ -7,6 +7,7 @@ import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts'
 import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
+import { normalizeEvmAddress } from '../../utils.js';
 
 import {
   ThetaTransactionSchema,
@@ -33,9 +34,9 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
     if (rawData.type === 2) {
       const data = rawData.data as ThetaSendTransactionData;
 
-      // Get from/to addresses
-      from = data.source?.address || data.inputs?.[0]?.address || '0x0';
-      to = data.target?.address || data.outputs?.[0]?.address || '0x0';
+      // Get from/to addresses and normalize
+      from = normalizeEvmAddress(data.source?.address || data.inputs?.[0]?.address) || '0x0';
+      to = normalizeEvmAddress(data.target?.address || data.outputs?.[0]?.address) || '0x0';
 
       // Determine currency and amount
       // The API can use either source/target OR inputs/outputs pattern
@@ -72,8 +73,8 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
     else if (rawData.type === 7) {
       const data = rawData.data as ThetaSmartContractData;
 
-      from = data.from?.address || '0x0';
-      to = data.to?.address || '0x0';
+      from = normalizeEvmAddress(data.from?.address) || '0x0';
+      to = normalizeEvmAddress(data.to?.address) || '0x0';
 
       // For smart contract transactions, check both coins, prioritize THETA over TFUEL
       const tfuelWei = parseDecimal(data.to?.coins?.tfuelwei || '0');

@@ -7,6 +7,7 @@ import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts'
 import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
+import { normalizeEvmAddress } from '../../utils.js';
 
 import { ThetaScanTransactionSchema, type ThetaScanTransaction } from './thetascan.schemas.js';
 
@@ -56,7 +57,7 @@ export class ThetaScanTransactionMapper extends BaseRawDataMapper<ThetaScanTrans
     // - THETA transfers are mapped as token_transfer, so amounts should be normalized (not wei)
     // - TFUEL transfers are mapped as native transfer, so amounts should be in wei
     const amountFormatted = isThetaTransfer
-      ? amount.toString()
+      ? amount.toFixed()
       : amount.mul(parseDecimal('10').pow(THETA_DECIMALS)).toFixed(0);
 
     const transaction: EvmTransaction = {
@@ -65,12 +66,12 @@ export class ThetaScanTransactionMapper extends BaseRawDataMapper<ThetaScanTrans
       currency,
       feeAmount: feeInWei.toFixed(0),
       feeCurrency: 'TFUEL', // Fees are always paid in TFUEL on Theta
-      from: rawData.sending_address,
+      from: normalizeEvmAddress(rawData.sending_address) ?? '',
       id: rawData.hash,
       providerId: 'thetascan',
       status: 'success', // ThetaScan only returns successful transactions
       timestamp,
-      to: rawData.recieving_address,
+      to: normalizeEvmAddress(rawData.recieving_address),
       tokenSymbol: isThetaTransfer ? 'THETA' : 'TFUEL',
       tokenType: 'native',
       type: isThetaTransfer ? 'token_transfer' : 'transfer',

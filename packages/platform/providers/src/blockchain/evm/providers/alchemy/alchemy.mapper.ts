@@ -7,6 +7,7 @@ import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts'
 import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
+import { normalizeEvmAddress } from '../../utils.js';
 
 import { AlchemyAssetTransferSchema, type AlchemyAssetTransfer } from './alchemy.schemas.js';
 
@@ -31,15 +32,15 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
     const transactionType = this.determineTransactionType(rawData.category);
 
     const transaction: EvmTransaction = {
-      amount: amount.toString(),
+      amount: amount.toFixed(),
       blockHeight: parseInt(rawData.blockNum, 16),
       currency,
-      from: rawData.from,
+      from: normalizeEvmAddress(rawData.from) ?? '',
       id: rawData.hash,
       providerId: 'alchemy',
       status: 'success',
       timestamp,
-      to: rawData.to ?? undefined,
+      to: normalizeEvmAddress(rawData.to),
       tokenType,
       type: transactionType,
     };

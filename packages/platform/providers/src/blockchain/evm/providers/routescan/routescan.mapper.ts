@@ -6,6 +6,7 @@ import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts'
 import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
+import { normalizeEvmAddress } from '../../utils.js';
 
 import {
   RoutescanAnyTransactionSchema,
@@ -61,12 +62,12 @@ export class RoutescanTransactionMapper extends BaseRawDataMapper<
       amount: rawData.value,
       blockHeight: parseInt(rawData.blockNumber),
       currency: this.nativeCurrency,
-      from: rawData.from,
+      from: normalizeEvmAddress(rawData.from) ?? '',
       id: rawData.hash,
       providerId: 'routescan',
       status: rawData.isError === '0' ? 'success' : 'failed',
       timestamp,
-      to: rawData.to,
+      to: normalizeEvmAddress(rawData.to),
       traceId: rawData.traceId,
       type: 'internal',
     });
@@ -80,14 +81,14 @@ export class RoutescanTransactionMapper extends BaseRawDataMapper<
       blockHeight: parseInt(rawData.blockNumber),
       blockId: rawData.blockHash,
       currency: this.nativeCurrency,
-      from: rawData.from,
+      from: normalizeEvmAddress(rawData.from) ?? '',
       gasPrice: rawData.gasPrice,
       gasUsed: rawData.gasUsed,
       id: rawData.hash,
       providerId: 'routescan',
       status: rawData.txreceipt_status === '1' ? 'success' : 'failed',
       timestamp,
-      to: rawData.to,
+      to: normalizeEvmAddress(rawData.to),
       type: rawData.functionName ? 'contract_call' : 'transfer',
     };
 
@@ -119,14 +120,14 @@ export class RoutescanTransactionMapper extends BaseRawDataMapper<
       blockHeight: parseInt(rawData.blockNumber),
       blockId: rawData.blockHash,
       currency: rawData.tokenSymbol,
-      from: rawData.from,
+      from: normalizeEvmAddress(rawData.from) ?? '',
       gasPrice: rawData.gasPrice,
       gasUsed: rawData.gasUsed,
       id: rawData.hash,
       providerId: 'routescan',
       status: 'success',
       timestamp,
-      to: rawData.to,
+      to: normalizeEvmAddress(rawData.to),
       tokenAddress: rawData.contractAddress,
       tokenDecimals: parseInt(rawData.tokenDecimal),
       tokenSymbol: rawData.tokenSymbol,
