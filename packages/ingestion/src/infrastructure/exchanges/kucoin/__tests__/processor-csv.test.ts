@@ -62,7 +62,7 @@ describe('KucoinProcessor (CSV) - Spot Order Handling', () => {
     expect(transaction.movements.inflows![0]?.amount.toString()).toBe('0.1');
 
     expect(transaction.fees.platform?.amount.toString()).toBe('0.42');
-    expect(transaction.fees.platform?.currency.toString()).toBe('USDT');
+    expect(transaction.fees.platform?.asset.toString()).toBe('USDT');
   });
 
   test('processes spot sell order', async () => {
@@ -191,7 +191,7 @@ describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
     expect(transaction.movements.inflows![0]?.amount.toString()).toBe('0.9995');
 
     expect(transaction.fees.platform?.amount.toString()).toBe('0.0005');
-    expect(transaction.fees.platform?.currency.toString()).toBe('BTC');
+    expect(transaction.fees.platform?.asset.toString()).toBe('BTC');
 
     expect(transaction.metadata?.hash).toBe('txhash123');
     expect(transaction.metadata?.address).toBe('bc1q...');

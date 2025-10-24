@@ -49,15 +49,15 @@ function processTransactionForBalance(transaction: UniversalTransaction, balance
   }
 
   // Process fees (always a cost)
-  // Fees are now deserialized by the repository as Money objects with Decimal amounts
+  // Fees are now deserialized by the repository as AssetMovement objects with Decimal amounts
   if (transaction.fees.network) {
-    const currency = transaction.fees.network.currency.toString();
+    const currency = transaction.fees.network.asset.toString();
     ensureBalance(currency);
     balances[currency] = balances[currency]!.minus(transaction.fees.network.amount);
   }
 
   if (transaction.fees.platform) {
-    const currency = transaction.fees.platform.currency.toString();
+    const currency = transaction.fees.platform.asset.toString();
     ensureBalance(currency);
     balances[currency] = balances[currency]!.minus(transaction.fees.platform.amount);
   }

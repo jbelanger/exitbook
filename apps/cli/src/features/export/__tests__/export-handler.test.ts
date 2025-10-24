@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@exitbook/core';
-import { createMoney, parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
@@ -51,7 +51,6 @@ describe('ExportHandler', () => {
     status: 'success',
     movements: { inflows: [{ asset, amount: parseDecimal('1.0') }], outflows: [] },
     fees: {},
-    price: createMoney('50000', 'USD'),
   });
 
   describe('execute', () => {

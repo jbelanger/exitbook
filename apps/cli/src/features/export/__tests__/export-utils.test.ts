@@ -1,5 +1,5 @@
-import type { Money, UniversalTransaction } from '@exitbook/core';
-import { createMoney, parseDecimal } from '@exitbook/core';
+import type { UniversalTransaction } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import { describe, it, expect } from 'vitest';
 
 import {
@@ -233,7 +233,6 @@ describe('export-utils', () => {
           category: 'trade',
           type: 'buy',
         },
-        price: createMoney('50000', 'USD'),
       };
 
       const result = convertToCSV([transaction]);
@@ -241,7 +240,6 @@ describe('export-utils', () => {
       expect(result).toContain('id,source,operation_category');
       expect(result).toContain('1,kraken,trade,buy');
       expect(result).toContain('BTC,1.5,in');
-      expect(result).toContain('50000,USD,success');
     });
 
     it('should convert multiple transactions to CSV', () => {
@@ -262,7 +260,6 @@ describe('export-utils', () => {
             category: 'trade',
             type: 'buy',
           },
-          price: createMoney('50000', 'USD'),
         },
         {
           id: 2,
@@ -280,7 +277,6 @@ describe('export-utils', () => {
             category: 'trade',
             type: 'sell',
           },
-          price: createMoney('3000', 'USD'),
         },
       ];
 
@@ -310,7 +306,6 @@ describe('export-utils', () => {
           category: 'trade',
           type: 'buy',
         },
-        price: createMoney('50000', 'USD'),
       };
 
       const result = convertToCSV([transaction]);
@@ -342,7 +337,6 @@ describe('export-utils', () => {
           category: 'trade',
           type: 'buy',
         },
-        price: createMoney('50000', 'USD'),
       };
 
       const result = convertToJSON([transaction]);
@@ -354,7 +348,6 @@ describe('export-utils', () => {
         id: string;
         movements: { primary: { amount: string; asset: string; direction: string } };
         operation: { category: string; type: string };
-        price: Money;
         source: string;
       };
       expect(tx.id).toBe(1);
@@ -362,8 +355,6 @@ describe('export-utils', () => {
       expect(tx.operation.category).toBe('trade');
       expect(tx.operation.type).toBe('buy');
       expect(tx.fees.total).toBeUndefined();
-      expect(tx.price.amount).toBe('50000');
-      expect(tx.price.currency).toBe('USD');
     });
 
     it('should convert multiple transactions to JSON', () => {
@@ -384,7 +375,6 @@ describe('export-utils', () => {
             category: 'trade',
             type: 'buy',
           },
-          price: createMoney('50000', 'USD'),
         },
         {
           id: 2,
@@ -402,7 +392,6 @@ describe('export-utils', () => {
             category: 'trade',
             type: 'sell',
           },
-          price: createMoney('3000', 'USD'),
         },
       ];
 
@@ -474,7 +463,6 @@ describe('export-utils', () => {
           category: 'trade',
           type: 'buy',
         },
-        price: createMoney('50000', 'USD'),
       };
 
       const result = convertToJSON([transaction]);

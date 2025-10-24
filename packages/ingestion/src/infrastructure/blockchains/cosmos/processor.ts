@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@exitbook/core';
-import { createMoney, parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/providers';
 import type { Decimal } from 'decimal.js';
@@ -67,8 +67,8 @@ export class CosmosProcessor extends BaseTransactionProcessor {
         const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
         const networkFee = userPaidFee
-          ? createMoney(fundFlow.feeAmount, fundFlow.feeCurrency)
-          : createMoney('0', fundFlow.feeCurrency);
+          ? { amount: parseDecimal(fundFlow.feeAmount), asset: fundFlow.feeCurrency }
+          : { amount: parseDecimal('0'), asset: fundFlow.feeCurrency };
 
         // Convert to UniversalTransaction with enhanced metadata
         const universalTransaction: UniversalTransaction = {

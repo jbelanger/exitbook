@@ -1,12 +1,6 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
-import type { Currency, AssetMovement, Money, UniversalTransaction, TransactionStatus } from '@exitbook/core';
-import {
-  AssetMovementSchema,
-  MoneySchema,
-  NoteMetadataSchema,
-  TransactionMetadataSchema,
-  wrapError,
-} from '@exitbook/core';
+import type { Currency, AssetMovement, UniversalTransaction, TransactionStatus } from '@exitbook/core';
+import { AssetMovementSchema, NoteMetadataSchema, TransactionMetadataSchema, wrapError } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import type { Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
@@ -494,16 +488,16 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   /**
    * Parse fee from JSON string stored in database
-   * Fees are stored as Money objects: { amount: string, currency: string }
+   * Fees are stored as AssetMovement objects: { asset: string, amount: string, priceAtTxTime: PriceAtTxTime | undefined }
    */
-  private parseFee(jsonString: string | null): Money | null {
+  private parseFee(jsonString: string | null): AssetMovement | null {
     if (!jsonString) {
       return null;
     }
 
     try {
       const parsed: unknown = JSON.parse(jsonString);
-      const result = MoneySchema.safeParse(parsed);
+      const result = AssetMovementSchema.safeParse(parsed);
 
       if (!result.success) {
         this.logger.warn({ error: result.error, jsonString }, 'Failed to validate fee JSON');

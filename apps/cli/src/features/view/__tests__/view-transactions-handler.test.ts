@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@exitbook/core';
-import { createMoney, parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
@@ -132,8 +132,8 @@ describe('ViewTransactionsHandler', () => {
 
     it('should filter transactions with no price', async () => {
       const mockTransactions: UniversalTransaction[] = [
-        createMockTransaction({ price: createMoney('50000.00', 'USD') }),
-        createMockTransaction({ price: undefined }),
+        createMockTransaction({ movements: { inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }] } }),
+        createMockTransaction({ movements: { inflows: [], outflows: [] } }),
       ];
       mockGetTransactions.mockResolvedValue(ok(mockTransactions));
 
@@ -143,7 +143,6 @@ describe('ViewTransactionsHandler', () => {
       expect(result.isOk()).toBe(true);
       const value = result._unsafeUnwrap();
       expect(value.count).toBe(1);
-      expect(value.transactions[0]!.price).toBeUndefined();
     });
 
     it('should apply limit', async () => {

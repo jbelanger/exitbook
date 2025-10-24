@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 import type { TransactionInfo } from '../view-transactions-utils.ts';
 import {
   formatOperationLabel,
-  formatPriceInfo,
   formatTransactionForDisplay,
   formatTransactionsListForDisplay,
   getDirectionIcon,
@@ -62,33 +61,6 @@ describe('view-transactions-utils', () => {
     });
   });
 
-  describe('formatPriceInfo', () => {
-    it('should format price with currency', () => {
-      expect(formatPriceInfo('50000.00', 'USD')).toBe('50000.00 USD');
-    });
-
-    it('should format price without currency', () => {
-      expect(formatPriceInfo('50000.00', null)).toBe('50000.00');
-    });
-
-    it('should return No price when price is null', () => {
-      expect(formatPriceInfo(null, 'USD')).toBe('No price');
-    });
-
-    it('should return No price when price is undefined', () => {
-      expect(formatPriceInfo(undefined, undefined)).toBe('No price');
-    });
-
-    it('should handle empty currency string', () => {
-      expect(formatPriceInfo('100', '')).toBe('100');
-    });
-
-    it('should trim trailing spaces', () => {
-      expect(formatPriceInfo('100', null)).toBe('100');
-      expect(formatPriceInfo('100', undefined)).toBe('100');
-    });
-  });
-
   describe('formatTransactionForDisplay', () => {
     it('should format a complete transaction with all fields', () => {
       const tx: TransactionInfo = {
@@ -102,8 +74,6 @@ describe('view-transactions-utils', () => {
         movements_primary_asset: 'BTC',
         movements_primary_amount: '0.5',
         movements_primary_direction: 'in',
-        price: '50000.00',
-        price_currency: 'USD',
         from_address: '0xabc123',
         to_address: '0xdef456',
         blockchain_transaction_hash: '0x123456789',
@@ -116,7 +86,6 @@ describe('view-transactions-utils', () => {
       expect(result).toContain('Date: 2024-01-15T10:30:00Z');
       expect(result).toContain('Operation: trade/buy');
       expect(result).toContain('Movement: ← 0.5 BTC');
-      expect(result).toContain('Price: 50000.00 USD');
       expect(result).toContain('Hash: 0x123456789');
       expect(result).toContain('From: 0xabc123');
       expect(result).toContain('To: 0xdef456');
@@ -134,8 +103,6 @@ describe('view-transactions-utils', () => {
         movements_primary_asset: null,
         movements_primary_amount: null,
         movements_primary_direction: null,
-        price: null,
-        price_currency: null,
         from_address: null,
         to_address: null,
         blockchain_transaction_hash: null,
@@ -146,7 +113,6 @@ describe('view-transactions-utils', () => {
       expect(result).toContain('Transaction #1');
       expect(result).toContain('Source: bitcoin (blockchain)');
       expect(result).toContain('Operation: Unknown');
-      expect(result).toContain('Price: No price');
       expect(result).not.toContain('Movement:');
       expect(result).not.toContain('Hash:');
       expect(result).not.toContain('From:');
@@ -165,8 +131,6 @@ describe('view-transactions-utils', () => {
         movements_primary_asset: 'ETH',
         movements_primary_amount: '1.0',
         movements_primary_direction: 'out',
-        price: null,
-        price_currency: null,
         from_address: '0xabc123',
         to_address: null,
         blockchain_transaction_hash: null,
@@ -190,8 +154,6 @@ describe('view-transactions-utils', () => {
         movements_primary_asset: 'ETH',
         movements_primary_amount: '1.0',
         movements_primary_direction: 'in',
-        price: null,
-        price_currency: null,
         from_address: null,
         to_address: '0xdef456',
         blockchain_transaction_hash: null,
@@ -215,8 +177,6 @@ describe('view-transactions-utils', () => {
         movements_primary_asset: 'BTC',
         movements_primary_amount: null,
         movements_primary_direction: 'in',
-        price: null,
-        price_currency: null,
         from_address: null,
         to_address: null,
         blockchain_transaction_hash: null,
@@ -239,8 +199,6 @@ describe('view-transactions-utils', () => {
         movements_primary_asset: 'BTC',
         movements_primary_amount: '0.5',
         movements_primary_direction: 'out',
-        price: '50000.00',
-        price_currency: 'USD',
         from_address: null,
         to_address: null,
         blockchain_transaction_hash: null,
@@ -263,8 +221,6 @@ describe('view-transactions-utils', () => {
         movements_primary_asset: 'BTC',
         movements_primary_amount: '1.0',
         movements_primary_direction: null,
-        price: null,
-        price_currency: null,
         from_address: null,
         to_address: null,
         blockchain_transaction_hash: null,
@@ -299,8 +255,6 @@ describe('view-transactions-utils', () => {
           movements_primary_asset: 'BTC',
           movements_primary_amount: '0.5',
           movements_primary_direction: 'in',
-          price: '50000.00',
-          price_currency: 'USD',
           from_address: null,
           to_address: null,
           blockchain_transaction_hash: null,
@@ -327,8 +281,6 @@ describe('view-transactions-utils', () => {
           movements_primary_asset: 'BTC',
           movements_primary_amount: '0.5',
           movements_primary_direction: 'in',
-          price: '50000.00',
-          price_currency: 'USD',
           from_address: null,
           to_address: null,
           blockchain_transaction_hash: null,
@@ -344,8 +296,6 @@ describe('view-transactions-utils', () => {
           movements_primary_asset: 'BTC',
           movements_primary_amount: '0.1',
           movements_primary_direction: 'out',
-          price: null,
-          price_currency: null,
           from_address: '0xabc',
           to_address: '0xdef',
           blockchain_transaction_hash: '0x123',
@@ -361,8 +311,6 @@ describe('view-transactions-utils', () => {
           movements_primary_asset: 'ETH',
           movements_primary_amount: '2.0',
           movements_primary_direction: 'in',
-          price: null,
-          price_currency: null,
           from_address: null,
           to_address: null,
           blockchain_transaction_hash: null,
@@ -390,8 +338,6 @@ describe('view-transactions-utils', () => {
           movements_primary_asset: 'BTC',
           movements_primary_amount: '0.5',
           movements_primary_direction: 'in',
-          price: null,
-          price_currency: null,
           from_address: null,
           to_address: null,
           blockchain_transaction_hash: null,
@@ -417,8 +363,6 @@ describe('view-transactions-utils', () => {
           movements_primary_asset: 'BTC',
           movements_primary_amount: '1',
           movements_primary_direction: 'in',
-          price: null,
-          price_currency: null,
           from_address: null,
           to_address: null,
           blockchain_transaction_hash: null,
@@ -434,8 +378,6 @@ describe('view-transactions-utils', () => {
           movements_primary_asset: 'BTC',
           movements_primary_amount: '1',
           movements_primary_direction: 'in',
-          price: null,
-          price_currency: null,
           from_address: null,
           to_address: null,
           blockchain_transaction_hash: null,

@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@exitbook/core';
-import { createMoney, parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers';
@@ -84,8 +84,8 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
       const networkFee = userPaidFee
-        ? createMoney(fundFlow.feeAmount, fundFlow.feeCurrency)
-        : createMoney('0', fundFlow.feeCurrency);
+        ? { amount: parseDecimal(fundFlow.feeAmount), asset: fundFlow.feeCurrency }
+        : { amount: parseDecimal('0'), asset: fundFlow.feeCurrency };
 
       const universalTransaction: UniversalTransaction = {
         id: 0, // Will be assigned by database
@@ -510,7 +510,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       }
     }, parseDecimal('0'));
 
-    const feeAmount = totalFeeWei.dividedBy(parseDecimal('10').pow(this.chainConfig.nativeDecimals)).toString();
+    const feeAmount = totalFeeWei.dividedBy(parseDecimal('10').pow(this.chainConfig.nativeDecimals)).toFixed();
 
     // Track uncertainty for complex transactions
     let classificationUncertainty: string | undefined;

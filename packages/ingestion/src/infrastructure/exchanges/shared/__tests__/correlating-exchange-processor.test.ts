@@ -140,7 +140,7 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
     if (!transaction) return;
 
     expect(transaction.fees.platform?.amount.toString()).toBe('2.5');
-    expect(transaction.fees.platform?.currency.toString()).toBe('USD');
+    expect(transaction.fees.platform?.asset.toString()).toBe('USD');
   });
 });
 

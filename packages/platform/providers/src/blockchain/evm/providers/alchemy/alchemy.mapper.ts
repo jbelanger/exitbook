@@ -10,6 +10,14 @@ import type { EvmTransaction } from '../../types.js';
 
 import { AlchemyAssetTransferSchema, type AlchemyAssetTransfer } from './alchemy.schemas.js';
 
+const TOKEN_CATEGORIES = new Set<string>(['token', 'erc20', 'erc721', 'erc1155']);
+
+interface AmountResult {
+  amount: Decimal;
+  currency: string;
+  tokenType: EvmTransaction['tokenType'];
+}
+
 export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTransfer, EvmTransaction> {
   protected readonly inputSchema = AlchemyAssetTransferSchema;
   protected readonly outputSchema = EvmTransactionSchema;
@@ -18,60 +26,9 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
     rawData: AlchemyAssetTransfer,
     _sessionContext: ImportSessionMetadata
   ): Result<EvmTransaction, NormalizationError> {
-    // Determine if this is a token transfer
-    const isTokenTransfer =
-      rawData.category === 'token' ||
-      rawData.category === 'erc20' ||
-      rawData.category === 'erc721' ||
-      rawData.category === 'erc1155';
-
-    // Determine if this is an internal transaction
-    const isInternal = rawData.category === 'internal';
-
-    // Extract basic transaction data - currency will be determined later
-    let currency: string;
-    let amount: Decimal;
-    let tokenType: EvmTransaction['tokenType'] = 'native';
-
-    if (isTokenTransfer) {
-      // For token transfers, use rawContract.value if available
-      // Schema already converts hex to decimal string, so we can parse directly
-      const rawValue = rawData.rawContract?.value || rawData.value;
-      amount = parseDecimal(String(rawValue || 0));
-
-      currency = rawData.asset || 'UNKNOWN';
-      tokenType = rawData.category as EvmTransaction['tokenType'];
-
-      // For NFTs, amount is typically 1 or the specified quantity
-      if (rawData.category === 'erc721') {
-        amount = parseDecimal('1');
-      } else if (
-        rawData.category === 'erc1155' &&
-        Array.isArray(rawData.erc1155Metadata) &&
-        rawData.erc1155Metadata.length > 0 &&
-        rawData.erc1155Metadata[0] !== undefined
-      ) {
-        amount = parseDecimal(rawData.erc1155Metadata[0]?.value || '1');
-      }
-    } else {
-      // For native transfers (ETH, AVAX, MATIC, etc.) - use asset from rawData
-      amount = parseDecimal(String(rawData.value || 0));
-      currency = rawData.asset || 'UNKNOWN'; // Alchemy provides asset for all transfer types
-    }
-
-    const timestamp = rawData.metadata?.blockTimestamp
-      ? new Date(rawData.metadata.blockTimestamp).getTime()
-      : Date.now();
-
-    // Determine transaction type
-    let transactionType: EvmTransaction['type'];
-    if (isTokenTransfer) {
-      transactionType = 'token_transfer';
-    } else if (isInternal) {
-      transactionType = 'internal';
-    } else {
-      transactionType = 'transfer';
-    }
+    const { amount, currency, tokenType } = this.extractAmountAndCurrency(rawData);
+    const timestamp = this.extractTimestamp(rawData);
+    const transactionType = this.determineTransactionType(rawData.category);
 
     const transaction: EvmTransaction = {
       amount: amount.toString(),
@@ -87,19 +44,106 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
       type: transactionType,
     };
 
-    // Add token-specific fields if it's a token transfer
-    if (isTokenTransfer && rawData.rawContract?.address) {
-      transaction.tokenAddress = rawData.rawContract.address;
-      transaction.tokenSymbol = currency;
-      if (rawData.rawContract.decimal) {
-        const decimals =
-          typeof rawData.rawContract.decimal === 'number'
-            ? rawData.rawContract.decimal
-            : parseInt(String(rawData.rawContract.decimal));
-        transaction.tokenDecimals = decimals;
-      }
-    }
+    this.enrichWithTokenFields(transaction, rawData, currency);
+    this.enrichWithGasFees(transaction, rawData);
 
     return ok(transaction);
+  }
+
+  private extractAmountAndCurrency(rawData: AlchemyAssetTransfer): AmountResult {
+    const isTokenTransfer = TOKEN_CATEGORIES.has(rawData.category);
+
+    return isTokenTransfer ? this.extractTokenTransferData(rawData) : this.extractNativeTransferData(rawData);
+  }
+
+  private extractTokenTransferData(rawData: AlchemyAssetTransfer): AmountResult {
+    const rawValue = rawData.rawContract?.value || rawData.value;
+    const baseAmount = parseDecimal(String(rawValue || 0));
+
+    const amount = this.adjustNftAmount(rawData, baseAmount);
+    const currency = rawData.asset ?? (rawData.rawContract?.address || 'UNKNOWN');
+    const tokenType = rawData.category as EvmTransaction['tokenType'];
+
+    return { amount, currency, tokenType };
+  }
+
+  private adjustNftAmount(rawData: AlchemyAssetTransfer, baseAmount: Decimal): Decimal {
+    const nftAmountHandlers: Record<string, () => Decimal> = {
+      erc721: () => parseDecimal('1'),
+      erc1155: () => this.extractErc1155Amount(rawData),
+    };
+
+    const handler = nftAmountHandlers[rawData.category];
+    return handler ? handler() : baseAmount;
+  }
+
+  private extractErc1155Amount(rawData: AlchemyAssetTransfer): Decimal {
+    const firstMetadata = rawData.erc1155Metadata?.[0];
+    return firstMetadata?.value ? parseDecimal(firstMetadata.value) : parseDecimal('1');
+  }
+
+  private extractNativeTransferData(rawData: AlchemyAssetTransfer): AmountResult {
+    const amount = rawData.rawContract?.value
+      ? parseDecimal(String(rawData.rawContract.value))
+      : this.convertToSmallestUnit(rawData);
+
+    const currency = rawData.asset ?? (rawData.rawContract?.address || 'UNKNOWN');
+
+    return { amount, currency, tokenType: 'native' };
+  }
+
+  private convertToSmallestUnit(rawData: AlchemyAssetTransfer): Decimal {
+    const decimalAmount = parseDecimal(String(rawData.value || 0));
+    const decimals = rawData.rawContract?.decimal ? parseInt(String(rawData.rawContract.decimal)) : 18;
+    return decimalAmount.mul(parseDecimal('10').pow(decimals));
+  }
+
+  private extractTimestamp(rawData: AlchemyAssetTransfer): number {
+    return new Date(rawData.metadata.blockTimestamp).getTime();
+  }
+
+  private determineTransactionType(category: string): EvmTransaction['type'] {
+    if (TOKEN_CATEGORIES.has(category)) return 'token_transfer';
+    if (category === 'internal') return 'internal';
+    return 'transfer';
+  }
+
+  private enrichWithTokenFields(transaction: EvmTransaction, rawData: AlchemyAssetTransfer, currency: string): void {
+    const isTokenTransfer = TOKEN_CATEGORIES.has(rawData.category);
+    const contractAddress = rawData.rawContract?.address;
+
+    if (!isTokenTransfer || !contractAddress) return;
+
+    transaction.tokenAddress = contractAddress;
+    transaction.tokenSymbol = currency;
+
+    const rawDecimals = rawData.rawContract?.decimal;
+    if (rawDecimals !== undefined) {
+      transaction.tokenDecimals = typeof rawDecimals === 'number' ? rawDecimals : parseInt(String(rawDecimals));
+    }
+  }
+
+  private enrichWithGasFees(transaction: EvmTransaction, rawData: AlchemyAssetTransfer): void {
+    // Extract gas data from receipt (added by API client)
+    const gasUsed = rawData._gasUsed;
+    const effectiveGasPrice = rawData._effectiveGasPrice;
+    const nativeCurrency = rawData._nativeCurrency;
+
+    if (!gasUsed || !effectiveGasPrice) {
+      return;
+    }
+
+    // Calculate total fee: gasUsed * effectiveGasPrice (both in wei)
+    const gasUsedDecimal = parseDecimal(gasUsed);
+    const gasPriceDecimal = parseDecimal(effectiveGasPrice);
+    const feeWei = gasUsedDecimal.mul(gasPriceDecimal);
+
+    transaction.gasUsed = gasUsed;
+    transaction.gasPrice = effectiveGasPrice;
+    transaction.feeAmount = feeWei.toString();
+
+    // Gas fees are always paid in the native currency (ETH, MATIC, AVAX, etc.)
+    // Use the chain-specific native currency from chain registry
+    transaction.feeCurrency = nativeCurrency || 'ETH'; // Fallback to ETH if not provided
   }
 }

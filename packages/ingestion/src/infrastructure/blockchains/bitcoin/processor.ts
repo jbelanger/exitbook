@@ -1,4 +1,4 @@
-import { createMoney, parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { BitcoinTransaction } from '@exitbook/providers';
 import { type Result, err, ok } from 'neverthrow';
@@ -53,11 +53,11 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         // Store actual network fees for reporting
         // For consistency with account-based blockchains, we record fees separately
         // and subtract them from outflows to avoid double-counting
-        const userPaidFee = fundFlow.isOutgoing && parseFloat(fundFlow.walletInput) > 0;
-        const feeAmount = parseFloat(normalizedTx.feeAmount || '0');
+        const userPaidFee = fundFlow.isOutgoing && !parseDecimal(fundFlow.walletInput).isZero();
+        const feeAmount = parseDecimal(normalizedTx.feeAmount || '0');
         const networkFee = userPaidFee
-          ? createMoney(normalizedTx.feeAmount || '0', normalizedTx.feeCurrency || 'BTC')
-          : createMoney('0', 'BTC');
+          ? { amount: feeAmount, asset: normalizedTx.feeCurrency || 'BTC' }
+          : { amount: parseDecimal('0'), asset: 'BTC' };
 
         const universalTransaction: UniversalTransaction = {
           id: 0, // Will be assigned by database
@@ -83,7 +83,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
                       asset: 'BTC',
                       // Subtract fee from outflow to avoid double-counting
                       // walletInput already includes the fee, so we remove it here
-                      amount: parseDecimal((parseFloat(fundFlow.walletInput) - feeAmount).toString()),
+                      amount: parseDecimal(parseDecimal(fundFlow.walletInput).minus(feeAmount).toString()),
                     },
                   ]
                 : [],

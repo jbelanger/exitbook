@@ -19,7 +19,7 @@ import { z } from 'zod';
  * Uses Decimal.js for conversion to maintain precision for any decimal values.
  * Uses toFixed() to avoid scientific notation (e.g., "1e-8" becomes "0.00000001").
  */
-export const hexOrNumericToNumeric = z
+export const hexOrNumericToNumericOptional = z
   .union([
     z.string().regex(/^0x[\da-fA-F]+$/, 'Must be hex string'),
     z.string().regex(/^\d+$/, 'Must be numeric string'),

@@ -162,11 +162,9 @@ export function convertToCSV(transactions: UniversalTransaction[]): string {
       primary?.amount.toFixed() || '',
       primary?.direction || '',
       tx.fees.network?.amount.toFixed() || '',
-      tx.fees.network?.currency.toString() || '',
+      tx.fees.network?.asset.toString() || '',
       tx.fees.platform?.amount.toFixed() || '',
-      tx.fees.platform?.currency.toString() || '',
-      tx.price?.amount.toFixed() || '',
-      tx.price?.currency.toString() || '',
+      tx.fees.platform?.asset.toString() || '',
       tx.status || '',
     ];
 

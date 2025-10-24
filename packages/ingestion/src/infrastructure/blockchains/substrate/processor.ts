@@ -1,4 +1,4 @@
-import { createMoney, parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { SubstrateTransaction, SubstrateFundFlow, SubstrateChainConfig } from '@exitbook/providers';
@@ -56,8 +56,8 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
         const userPaidFee = this.didUserPayFee(normalizedTx, fundFlow, userAddress);
 
         const networkFee = userPaidFee
-          ? createMoney(fundFlow.feeAmount, fundFlow.feeCurrency)
-          : createMoney('0', fundFlow.feeCurrency);
+          ? { amount: parseDecimal(fundFlow.feeAmount), asset: fundFlow.feeCurrency }
+          : { amount: parseDecimal('0'), asset: fundFlow.feeCurrency };
 
         const universalTransaction: UniversalTransaction = {
           id: 0, // Will be assigned by database

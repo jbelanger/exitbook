@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@exitbook/core';
-import { createMoney, parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -92,8 +92,8 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
           network: undefined,
           platform:
             fundFlow.fees.length > 0
-              ? createMoney(fundFlow.fees[0]!.amount, fundFlow.fees[0]!.currency)
-              : createMoney('0', fundFlow.primary.asset),
+              ? { amount: parseDecimal(fundFlow.fees[0]!.amount), asset: fundFlow.fees[0]!.currency }
+              : { amount: parseDecimal('0'), asset: fundFlow.primary.asset },
         },
 
         operation: classification.operation,

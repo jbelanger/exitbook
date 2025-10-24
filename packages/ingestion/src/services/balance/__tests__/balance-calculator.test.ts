@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@exitbook/core';
-import { createMoney, parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { calculateBalances } from '../balance-calculator.ts';
@@ -84,7 +84,7 @@ describe('calculateBalances', () => {
         ],
       },
       fees: {
-        network: createMoney('0.0001', 'BTC'),
+        network: { amount: parseDecimal('0.0001'), asset: 'BTC' },
       },
     });
 
@@ -112,7 +112,7 @@ describe('calculateBalances', () => {
           },
         ],
       },
-      fees: { platform: createMoney('0.001', 'BTC') },
+      fees: { platform: { amount: parseDecimal('0.001'), asset: 'BTC' } },
     });
 
     const result = calculateBalances([transaction]);
@@ -137,7 +137,10 @@ describe('calculateBalances', () => {
           },
         ],
       },
-      fees: { network: createMoney('0.005', 'ETH'), platform: createMoney('0.001', 'ETH') },
+      fees: {
+        network: { amount: parseDecimal('0.005'), asset: 'ETH' },
+        platform: { amount: parseDecimal('0.001'), asset: 'ETH' },
+      },
     });
 
     const result = calculateBalances([transaction]);
@@ -186,7 +189,7 @@ describe('calculateBalances', () => {
             },
           ],
         },
-        fees: { platform: createMoney('0.001', 'BTC') },
+        fees: { platform: { amount: parseDecimal('0.001'), asset: 'BTC' } },
       }),
     ];
 
@@ -214,7 +217,7 @@ describe('calculateBalances', () => {
           },
         ],
       },
-      fees: { platform: createMoney('10', 'USDT') },
+      fees: { platform: { amount: parseDecimal('10'), asset: 'USDT' } },
     });
 
     const result = calculateBalances([transaction]);
@@ -329,7 +332,7 @@ describe('calculateBalances', () => {
             },
           ],
         },
-        fees: { platform: createMoney('0.001', 'BTC') },
+        fees: { platform: { amount: parseDecimal('0.001'), asset: 'BTC' } },
       }),
     ];
 

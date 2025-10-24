@@ -1,4 +1,4 @@
-import { parseDecimal, createMoney, getErrorMessage } from '@exitbook/core';
+import { parseDecimal, getErrorMessage } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, ok } from 'neverthrow';
 
@@ -98,7 +98,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const withdrawalFee = withdrawal.Fee ? parseDecimal(withdrawal.Fee).toNumber() : 0;
     const depositFee = deposit.Fee ? parseDecimal(deposit.Fee).toNumber() : 0;
     const totalFee = withdrawalFee + depositFee;
-    const platformFee = createMoney(totalFee.toString(), sellCurrency);
+    const platformFee = { amount: parseDecimal(totalFee.toString()), asset: sellCurrency };
 
     return {
       id: 0, // Will be assigned by database
@@ -136,8 +136,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         type: 'swap',
       },
 
-      price: createMoney(sellAmount.toString(), sellCurrency),
-
       metadata: {
         type: 'convert_market',
         depositFee,
@@ -155,7 +153,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
 
     // For KuCoin deposits: amount is gross, user actually receives amount - fee
     const netAmount = grossAmount - fee;
-    const platformFee = createMoney(fee.toString(), row.Coin);
+    const platformFee = { amount: parseDecimal(fee.toString()), asset: row.Coin };
 
     return {
       id: 0, // Will be assigned by database
@@ -204,7 +202,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const filledAmount = parseDecimal(row['Filled Amount']).toNumber();
     const filledVolume = parseDecimal(row['Filled Volume']).toNumber();
     const fee = parseDecimal(row.Fee).toNumber();
-    const platformFee = createMoney(fee.toString(), row['Fee Currency']);
+    const platformFee = { amount: parseDecimal(fee.toString()), asset: row['Fee Currency'] };
     const side = row.Side.toLowerCase() as 'buy' | 'sell';
 
     // For order-splitting (individual fills):
@@ -251,8 +249,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         type: side, // 'buy' or 'sell'
       },
 
-      price: createMoney(filledVolume.toString(), quoteCurrency || 'unknown'),
-
       metadata: {
         side,
         orderType: row['Order Type'],
@@ -271,7 +267,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const filledAmount = parseDecimal(row['Filled Amount']).toNumber();
     const filledVolume = parseDecimal(row['Filled Volume']).toNumber();
     const fee = parseDecimal(row.Fee).toNumber();
-    const platformFee = createMoney(fee.toString(), row['Fee Currency']);
+    const platformFee = { amount: parseDecimal(fee.toString()), asset: row['Fee Currency'] };
     const side = row.Side.toLowerCase() as 'buy' | 'sell';
 
     // For trading bot fills (similar to order-splitting):
@@ -318,8 +314,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         type: side, // 'buy' or 'sell'
       },
 
-      price: createMoney(filledVolume.toString(), quoteCurrency || 'unknown'),
-
       metadata: {
         side,
         orderType: row['Order Type'],
@@ -337,7 +331,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const filledAmount = parseDecimal(row['Filled Amount']).toNumber();
     const filledVolume = parseDecimal(row['Filled Volume']).toNumber();
     const fee = parseDecimal(row.Fee).toNumber();
-    const platformFee = createMoney(fee.toString(), row['Fee Currency']);
+    const platformFee = { amount: parseDecimal(fee.toString()), asset: row['Fee Currency'] };
     const side = row.Side.toLowerCase() as 'buy' | 'sell';
 
     // For spot orders:
@@ -381,8 +375,6 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         type: side, // 'buy' or 'sell'
       },
 
-      price: createMoney(filledVolume.toString(), quoteCurrency || 'unknown'),
-
       metadata: {
         side,
         orderType: row['Order Type'],
@@ -398,8 +390,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
   private convertWithdrawalToTransaction(row: CsvDepositWithdrawalRow): UniversalTransaction {
     const timestamp = new Date(row['Time(UTC)']).getTime();
     const absAmount = Math.abs(parseDecimal(row.Amount).toNumber());
-    const fee = row.Fee ? parseDecimal(row.Fee).toNumber() : 0;
-    const platformFee = createMoney(fee.toString(), row.Coin);
+    const fee = parseDecimal(row.Fee ?? '0');
+    const platformFee = { amount: fee, asset: row.Coin };
 
     return {
       id: 0, // Will be assigned by database

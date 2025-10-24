@@ -85,7 +85,7 @@ export class ViewTransactionsHandler {
 
     // Filter by no price
     if (params.noPrice) {
-      filtered = filtered.filter((tx) => !tx.price || tx.price === null);
+      filtered = filtered.filter((tx) => !(tx.movements.inflows?.length === 0 || tx.movements.outflows?.length === 0));
     }
 
     return filtered;
@@ -109,8 +109,6 @@ export class ViewTransactionsHandler {
       movements_primary_asset: primary?.asset ?? undefined,
       movements_primary_amount: primary?.amount.toFixed() ?? undefined,
       movements_primary_direction: primary?.direction ?? undefined,
-      price: tx.price?.amount ? tx.price.amount.toString() : undefined,
-      price_currency: tx.price?.currency.toString(),
       from_address: tx.from,
       to_address: tx.to,
       blockchain_transaction_hash: tx.blockchain?.transaction_hash,

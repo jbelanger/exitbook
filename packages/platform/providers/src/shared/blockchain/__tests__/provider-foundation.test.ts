@@ -333,36 +333,36 @@ describe('ProviderRegistry', () => {
     availableEthereumProviders = ProviderRegistry.getAvailable('ethereum');
   });
 
-  test('should have registered Alchemy provider', () => {
-    const isRegistered = ProviderRegistry.isRegistered('ethereum', 'alchemy');
+  test('should have registered Moralis provider', () => {
+    const isRegistered = ProviderRegistry.isRegistered('ethereum', 'moralis');
     expect(isRegistered).toBe(true);
   });
 
-  test('should list Alchemy in available Ethereum providers', () => {
+  test('should list Moralis in available Ethereum providers', () => {
     expect(availableEthereumProviders.length).toBeGreaterThanOrEqual(1);
 
-    const alchemy = availableEthereumProviders.find((p) => p.name === 'alchemy');
-    expect(alchemy).toBeDefined();
-    expect(alchemy?.blockchain).toBe('ethereum');
-    expect(alchemy?.displayName).toBe('Alchemy');
-    expect(alchemy?.requiresApiKey).toBe(true);
+    const moralis = availableEthereumProviders.find((p) => p.name === 'moralis');
+    expect(moralis).toBeDefined();
+    expect(moralis?.blockchain).toBe('ethereum');
+    expect(moralis?.displayName).toBe('Moralis');
+    expect(moralis?.requiresApiKey).toBe(true);
   });
 
   test('should have correct provider metadata', () => {
-    const metadata = ProviderRegistry.getMetadata('ethereum', 'alchemy');
+    const metadata = ProviderRegistry.getMetadata('ethereum', 'moralis');
 
     expect(metadata).toBeDefined();
-    expect(metadata?.name).toBe('alchemy');
+    expect(metadata?.name).toBe('moralis');
     expect(metadata?.blockchain).toBe('ethereum');
-    expect(metadata?.displayName).toBe('Alchemy');
+    expect(metadata?.displayName).toBe('Moralis');
     expect(metadata?.requiresApiKey).toBe(true);
     expect(metadata?.defaultConfig).toBeDefined();
-    expect(metadata?.baseUrl).toBe('https://eth-mainnet.g.alchemy.com/v2');
+    expect(metadata?.baseUrl).toBe('https://deep-index.moralis.io/api/v2.2');
   });
 
   test('should create provider instances from registry', () => {
     // Get metadata to build a proper ProviderConfig
-    const metadata = ProviderRegistry.getMetadata('ethereum', 'alchemy')!;
+    const metadata = ProviderRegistry.getMetadata('ethereum', 'moralis')!;
 
     const config = {
       ...metadata.defaultConfig,
@@ -373,10 +373,10 @@ describe('ProviderRegistry', () => {
       requiresApiKey: metadata.requiresApiKey,
     };
 
-    const provider = ProviderRegistry.createProvider('ethereum', 'alchemy', config);
+    const provider = ProviderRegistry.createProvider('ethereum', 'moralis', config);
 
     expect(provider).toBeDefined();
-    expect(provider.name).toBe('alchemy');
+    expect(provider.name).toBe('moralis');
     expect(provider.blockchain).toBe('ethereum');
     expect(provider.capabilities).toBeDefined();
     expect(provider.capabilities.supportedOperations).toContain('getAddressTransactions');
@@ -386,7 +386,7 @@ describe('ProviderRegistry', () => {
   test('should validate legacy configuration correctly', () => {
     const validConfig = {
       ethereum: {
-        explorers: [{ enabled: true, name: 'alchemy', priority: 1 }],
+        explorers: [{ enabled: true, name: 'moralis', priority: 1 }],
       },
     };
 
@@ -409,9 +409,9 @@ describe('ProviderRegistry', () => {
   test('should validate new override-based configuration correctly', () => {
     const validOverrideConfig = {
       ethereum: {
-        defaultEnabled: ['alchemy', 'moralis'],
+        defaultEnabled: ['routescan', 'moralis'],
         overrides: {
-          alchemy: { priority: 1, rateLimit: { requestsPerSecond: 0.5 } },
+          routescan: { priority: 1, rateLimit: { requestsPerSecond: 0.5 } },
           moralis: { enabled: false },
         },
       },
@@ -470,18 +470,18 @@ describe('ProviderRegistry', () => {
   });
 
   test('should provide provider capabilities information', () => {
-    const alchemy = availableEthereumProviders.find((p) => p.name === 'alchemy');
+    const moralis = availableEthereumProviders.find((p) => p.name === 'moralis');
 
-    expect(alchemy?.capabilities).toBeDefined();
-    expect(alchemy?.capabilities.supportedOperations).toBeDefined();
+    expect(moralis?.capabilities).toBeDefined();
+    expect(moralis?.capabilities.supportedOperations).toBeDefined();
   });
 
   test('should provide rate limiting information', () => {
-    const alchemy = availableEthereumProviders.find((p) => p.name === 'alchemy');
+    const moralis = availableEthereumProviders.find((p) => p.name === 'moralis');
 
-    expect(alchemy?.defaultConfig.rateLimit).toBeDefined();
-    expect(alchemy?.defaultConfig.rateLimit.requestsPerSecond).toBe(5);
-    expect(alchemy?.defaultConfig.rateLimit.burstLimit).toBe(10);
+    expect(moralis?.defaultConfig.rateLimit).toBeDefined();
+    expect(moralis?.defaultConfig.rateLimit.requestsPerSecond).toBe(2);
+    expect(moralis?.defaultConfig.rateLimit.burstLimit).toBe(5);
   });
 });
 
@@ -525,7 +525,7 @@ describe('Provider System Integration', () => {
     try {
       // For this test, we'll manually create a provider since the config loading
       // uses import.meta.url which doesn't work well in Jest environment
-      const metadata = ProviderRegistry.getMetadata('ethereum', 'alchemy')!;
+      const metadata = ProviderRegistry.getMetadata('ethereum', 'moralis')!;
 
       const testConfig = {
         ...metadata.defaultConfig,
@@ -536,12 +536,12 @@ describe('Provider System Integration', () => {
         requiresApiKey: metadata.requiresApiKey,
       };
 
-      const provider = ProviderRegistry.createProvider('ethereum', 'alchemy', testConfig);
+      const provider = ProviderRegistry.createProvider('ethereum', 'moralis', testConfig);
       manager.registerProviders('ethereum', [provider]);
 
       const registeredProviders = manager.getProviders('ethereum');
       expect(registeredProviders.length).toBe(1);
-      expect(registeredProviders[0]?.name).toBe('alchemy');
+      expect(registeredProviders[0]?.name).toBe('moralis');
     } finally {
       manager.destroy();
     }

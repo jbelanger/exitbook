@@ -1,4 +1,21 @@
+/**
+ * ╔═══════════════════════════════════════════════════════════════════════════════╗
+ * ║                                                                               ║
+ * ║  ⚠️  PROVIDER CURRENTLY DISABLED - DO NOT USE                                 ║
+ * ║                                                                               ║
+ * ║  This provider requires additional work before it can be used:                ║
+ * ║                                                                               ║
+ * ║  1. Fee handling is incomplete and unreliable                                 ║
+ * ║  2. Some transactions are missing the "asset" property, causing crashes       ║
+ * ║  3. Data validation needs to handle edge cases better                         ║
+ * ║                                                                               ║
+ * ║  Use Moralis or chain-specific providers instead.                             ║
+ * ║                                                                               ║
+ * ╚═══════════════════════════════════════════════════════════════════════════════╝
+ */
+
 import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import { HttpClient } from '@exitbook/platform-http';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig } from '../../../../shared/blockchain/index.ts';
@@ -9,8 +26,9 @@ import type {
   TransactionWithRawData,
 } from '../../../../shared/blockchain/types/index.ts';
 import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
-import type { TokenMetadata } from '../../../../shared/token-metadata/index.ts';
 import { getTokenMetadataWithCache } from '../../../../shared/token-metadata/index.ts';
+import type { EvmChainConfig } from '../../chain-config.interface.ts';
+import { getEvmChainConfig } from '../../chain-registry.ts';
 import type { EvmTransaction } from '../../types.ts';
 
 import { AlchemyTransactionMapper } from './alchemy.mapper.ts';
@@ -18,9 +36,9 @@ import type {
   AlchemyAssetTransfer,
   AlchemyAssetTransferParams,
   AlchemyAssetTransfersResponse,
-  AlchemyTokenBalancesResponse,
-  AlchemyTokenMetadata,
+  AlchemyTransactionReceipt,
 } from './alchemy.schemas.js';
+import { AlchemyPortfolioBalanceResponseSchema, AlchemyTransactionReceiptSchema } from './alchemy.schemas.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'ALCHEMY_API_KEY',
@@ -31,6 +49,7 @@ import type {
       'getAddressTransactions',
       'getAddressInternalTransactions',
       'getAddressTokenTransactions',
+      'getAddressBalances',
       'getAddressTokenBalances',
     ],
   },
@@ -100,11 +119,30 @@ import type {
   },
 })
 export class AlchemyApiClient extends BaseApiClient {
+  private readonly chainConfig: EvmChainConfig;
   private mapper: AlchemyTransactionMapper;
+  private portfolioClient: HttpClient;
 
   constructor(config: ProviderConfig) {
     super(config);
+
+    // Get EVM chain config for native currency
+    const evmChainConfig = getEvmChainConfig(config.blockchain);
+    if (!evmChainConfig) {
+      throw new Error(`Unsupported blockchain for Alchemy provider: ${config.blockchain}`);
+    }
+    this.chainConfig = evmChainConfig;
+
     this.mapper = new AlchemyTransactionMapper();
+
+    // Create separate HTTP client for Portfolio API
+    this.portfolioClient = new HttpClient({
+      baseUrl: `https://api.g.alchemy.com/data/v1/${this.apiKey}`,
+      providerName: `${this.metadata.name}-portfolio`,
+      rateLimit: config.rateLimit,
+      retries: config.retries,
+      timeout: config.timeout,
+    });
   }
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
@@ -128,9 +166,14 @@ export class AlchemyApiClient extends BaseApiClient {
         );
         return (await this.getAddressTokenTransactions(address, contractAddress)) as Result<T, Error>;
       }
+      case 'getAddressBalances': {
+        const { address } = operation;
+        this.logger.debug(`Fetching native balance - Address: ${maskAddress(address)}`);
+        return (await this.getAddressBalances(address)) as Result<T, Error>;
+      }
       case 'getAddressTokenBalances': {
         const { address, contractAddresses } = operation;
-        this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
+        this.logger.debug(`Fetching token balances - Address: ${maskAddress(address)}`);
         return (await this.getAddressTokenBalances(address, contractAddresses)) as Result<T, Error>;
       }
       default:
@@ -153,6 +196,12 @@ export class AlchemyApiClient extends BaseApiClient {
         return data && data.result !== undefined;
       },
     };
+  }
+
+  private getAlchemyNetworkName(): string {
+    // Extract network name from baseUrl: https://eth-mainnet.g.alchemy.com/v2 -> eth-mainnet
+    const match = this.baseUrl.match(/https:\/\/([^.]+)\.g\.alchemy\.com/);
+    return match?.[1] || `${this.blockchain}-mainnet`;
   }
 
   private async getAssetTransfers(
@@ -252,6 +301,93 @@ export class AlchemyApiClient extends BaseApiClient {
     return ok(transfers);
   }
 
+  /**
+   * Fetches transaction receipts for multiple transaction hashes in parallel.
+   * Deduplicates hashes and returns a Map for efficient lookup.
+   * FAILS if any receipt cannot be fetched - gas fees are critical for reporting.
+   */
+  private async getTransactionReceipts(
+    txHashes: string[]
+  ): Promise<Result<Map<string, AlchemyTransactionReceipt>, Error>> {
+    // Deduplicate transaction hashes
+    const uniqueHashes = [...new Set(txHashes)];
+
+    if (uniqueHashes.length === 0) {
+      return ok(new Map());
+    }
+
+    this.logger.debug(`Fetching ${uniqueHashes.length} transaction receipts`);
+
+    // Fetch all receipts in parallel
+    const receiptPromises = uniqueHashes.map(async (hash) => {
+      const result = await this.httpClient.post<JsonRpcResponse<AlchemyTransactionReceipt | null>>(`/${this.apiKey}`, {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'eth_getTransactionReceipt',
+        params: [hash],
+      });
+
+      if (result.isErr()) {
+        return { hash, error: result.error };
+      }
+
+      const receipt = result.value.result;
+      if (!receipt) {
+        return { hash, error: new Error(`No receipt found for transaction ${hash}`) };
+      }
+
+      // Validate receipt with Zod schema
+      const parseResult = AlchemyTransactionReceiptSchema.safeParse(receipt);
+      if (!parseResult.success) {
+        return { hash, error: new Error(`Invalid receipt for ${hash}: ${parseResult.error.message}`) };
+      }
+
+      return { hash, receipt: parseResult.data, error: undefined };
+    });
+
+    const results = await Promise.all(receiptPromises);
+
+    // Check for any failures - gas fees are critical, we must have complete data
+    const failures = results.filter((r) => r.error);
+    if (failures.length > 0) {
+      const errorMessages = failures.map((f) => `${f.hash}: ${getErrorMessage(f.error!)}`).join('; ');
+      this.logger.error(`Failed to fetch ${failures.length}/${uniqueHashes.length} receipts: ${errorMessages}`);
+      return err(new Error(`Failed to fetch transaction receipts (gas fees required): ${errorMessages}`));
+    }
+
+    // Build Map of hash -> receipt
+    const receiptMap = new Map<string, AlchemyTransactionReceipt>();
+    for (const result of results) {
+      if (result.receipt) {
+        receiptMap.set(result.hash, result.receipt);
+      }
+    }
+
+    this.logger.debug(`Successfully fetched all ${receiptMap.size} receipts`);
+    return ok(receiptMap);
+  }
+
+  /**
+   * Merges receipt data (gas fees) into asset transfers.
+   * Modifies transfers in place by adding _gasUsed, _effectiveGasPrice, and _nativeCurrency fields.
+   */
+  private mergeReceiptsIntoTransfers(
+    transfers: AlchemyAssetTransfer[],
+    receipts: Map<string, AlchemyTransactionReceipt>
+  ): void {
+    const nativeCurrency = this.chainConfig.nativeCurrency;
+
+    for (const transfer of transfers) {
+      const receipt = receipts.get(transfer.hash);
+      if (receipt) {
+        // Add receipt data as underscore-prefixed fields to avoid conflicts
+        transfer._gasUsed = receipt.gasUsed;
+        transfer._effectiveGasPrice = receipt.effectiveGasPrice || '0';
+        transfer._nativeCurrency = nativeCurrency;
+      }
+    }
+  }
+
   private async getAddressInternalTransactions(
     address: string
   ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
@@ -270,6 +406,18 @@ export class AlchemyApiClient extends BaseApiClient {
       this.logger.debug(`No raw internal transactions found - Address: ${maskAddress(address)}`);
       return ok([]);
     }
+
+    // Fetch transaction receipts for gas fee data (REQUIRED for accurate reporting)
+    const txHashes = rawTransactions.map((tx) => tx.hash);
+    const receiptsResult = await this.getTransactionReceipts(txHashes);
+
+    if (receiptsResult.isErr()) {
+      this.logger.error(`Failed to fetch receipts - ${getErrorMessage(receiptsResult.error)}`);
+      return err(receiptsResult.error);
+    }
+
+    // Merge receipt data into transfers
+    this.mergeReceiptsIntoTransfers(rawTransactions, receiptsResult.value);
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
@@ -312,6 +460,18 @@ export class AlchemyApiClient extends BaseApiClient {
       return ok([]);
     }
 
+    // Fetch transaction receipts for gas fee data (REQUIRED for accurate reporting)
+    const txHashes = rawTransactions.map((tx) => tx.hash);
+    const receiptsResult = await this.getTransactionReceipts(txHashes);
+
+    if (receiptsResult.isErr()) {
+      this.logger.error(`Failed to fetch receipts - ${getErrorMessage(receiptsResult.error)}`);
+      return err(receiptsResult.error);
+    }
+
+    // Merge receipt data into transfers
+    this.mergeReceiptsIntoTransfers(rawTransactions, receiptsResult.value);
+
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
       const mapResult = this.mapper.map(rawTx, {});
@@ -334,59 +494,148 @@ export class AlchemyApiClient extends BaseApiClient {
     return ok(transactions);
   }
 
+  private async getAddressBalances(address: string): Promise<Result<BlockchainBalanceSnapshot, Error>> {
+    const networkName = this.getAlchemyNetworkName();
+
+    const requestBody = {
+      addresses: [
+        {
+          address,
+          networks: [networkName],
+        },
+      ],
+      includeErc20Tokens: false,
+      includeNativeToken: true,
+      withMetadata: true,
+    };
+
+    const result = await this.portfolioClient.post<unknown>('/assets/tokens/balances/by-address', requestBody);
+
+    if (result.isErr()) {
+      this.logger.error(`Failed to fetch native balance for ${address} - Error: ${getErrorMessage(result.error)}`);
+      return err(result.error);
+    }
+
+    // Validate response with Zod schema
+    const parseResult = AlchemyPortfolioBalanceResponseSchema.safeParse(result.value);
+    if (!parseResult.success) {
+      this.logger.error(`Invalid Portfolio API response: ${parseResult.error.message}`);
+      return err(new Error(`Invalid Portfolio API response: ${parseResult.error.message}`));
+    }
+
+    const tokenBalances = parseResult.data.data.tokens;
+
+    // Find the native token (tokenAddress is null for native token)
+    const nativeBalance = tokenBalances.find(
+      (balance) =>
+        !balance.tokenAddress ||
+        balance.tokenAddress === '0x0000000000000000000000000000000000000000' ||
+        balance.tokenAddress === '0x0'
+    );
+
+    if (!nativeBalance) {
+      this.logger.debug(`No native balance found for ${address}`);
+      return ok({ asset: 'ETH', total: '0' });
+    }
+
+    const metadata = nativeBalance.tokenMetadata;
+    // When metadata is null/empty, it's the native token (ETH, MATIC, etc.)
+    const asset = metadata?.symbol || 'ETH';
+    const decimals = metadata?.decimals ?? 18; // Default to 18 for native tokens
+
+    // Convert from smallest units (wei) to decimal
+    let total = nativeBalance.tokenBalance;
+    try {
+      const balanceDecimal = parseDecimal(nativeBalance.tokenBalance).div(parseDecimal('10').pow(decimals)).toString();
+      total = balanceDecimal;
+    } catch (error) {
+      this.logger.warn(`Failed to convert native balance: ${getErrorMessage(error)}`);
+    }
+
+    this.logger.debug(`Found native balance for ${address}: ${total} ${asset}`);
+    return ok({ asset, total });
+  }
+
   private async getAddressTokenBalances(
     address: string,
     contractAddresses?: string[]
   ): Promise<Result<BlockchainBalanceSnapshot[], Error>> {
-    const result = await this.httpClient.post<JsonRpcResponse<AlchemyTokenBalancesResponse>>(`/${this.apiKey}`, {
-      id: 1,
-      jsonrpc: '2.0',
-      method: 'alchemy_getTokenBalances',
-      params: [address, contractAddresses || 'DEFAULT_TOKENS'],
-    });
+    const networkName = this.getAlchemyNetworkName();
+
+    const requestBody = {
+      addresses: [
+        {
+          address,
+          networks: [networkName],
+        },
+      ],
+      includeErc20Tokens: true,
+      includeNativeToken: false,
+      withMetadata: true,
+    };
+
+    const result = await this.portfolioClient.post<unknown>('/assets/tokens/balances/by-address', requestBody);
 
     if (result.isErr()) {
-      this.logger.error(`Failed to fetch raw token balances for ${address} - Error: ${getErrorMessage(result.error)}`);
+      this.logger.error(`Failed to fetch token balances for ${address} - Error: ${getErrorMessage(result.error)}`);
       return err(result.error);
     }
 
-    const response = result.value;
-    const rawBalances = response.result?.tokenBalances || [];
+    // Validate response with Zod schema
+    const parseResult = AlchemyPortfolioBalanceResponseSchema.safeParse(result.value);
+    if (!parseResult.success) {
+      this.logger.error(`Invalid Portfolio API response: ${parseResult.error.message}`);
+      return err(new Error(`Invalid Portfolio API response: ${parseResult.error.message}`));
+    }
 
-    // Filter out errored balances and those with zero balance
-    const nonZeroBalances = rawBalances.filter((balance) => !balance.error && balance.tokenBalance !== '0');
+    const tokenBalances = parseResult.data.data.tokens;
 
-    // Fetch metadata for each token to get symbols
+    // Filter by contract addresses if provided
+    const filteredBalances = contractAddresses
+      ? tokenBalances.filter((balance) => balance.tokenAddress && contractAddresses.includes(balance.tokenAddress))
+      : tokenBalances;
+
+    // Convert to BlockchainBalanceSnapshot format and cache metadata
     const balances: BlockchainBalanceSnapshot[] = [];
-    for (const balance of nonZeroBalances) {
-      const metadataResult = await this.getTokenMetadata(balance.contractAddress);
-
-      if (metadataResult.isErr()) {
-        // If metadata fetch fails, use address as fallback
-        this.logger.warn(`Failed to fetch metadata for ${balance.contractAddress}, using address as symbol`);
-        balances.push({
-          asset: balance.contractAddress,
-          total: balance.tokenBalance,
-        });
+    for (const balance of filteredBalances.filter((b) => b.tokenBalance !== '0')) {
+      if (!balance.tokenAddress) {
         continue;
       }
 
-      const metadata = metadataResult.value;
-      // Use symbol if available, otherwise fall back to address
-      const asset = metadata.symbol || balance.contractAddress;
+      const metadata = balance.tokenMetadata;
 
-      // Convert from smallest units to decimal if we have decimals info
+      // Check cache first, then cache Alchemy's metadata if needed
+      const metadataResult = await getTokenMetadataWithCache(
+        this.blockchain,
+        balance.tokenAddress,
+        () =>
+          Promise.resolve(
+            ok({
+              symbol: metadata?.symbol ?? undefined,
+              name: metadata?.name ?? undefined,
+              decimals: metadata?.decimals ?? undefined,
+              logoUrl: metadata?.logo ?? undefined,
+            })
+          ),
+        'alchemy'
+      );
+
+      // Use symbol and decimals from cached metadata (prioritizes previously cached data from other providers)
+      // Only fall back to contract address if no symbol is available
+      const asset =
+        metadataResult.isOk() && metadataResult.value.symbol ? metadataResult.value.symbol : balance.tokenAddress;
+
+      // Use decimals from cached metadata, which may come from previous imports or other providers
+      const decimals =
+        metadataResult.isOk() && metadataResult.value.decimals !== undefined ? metadataResult.value.decimals : 18; // Default to 18 only if cache has no decimals
+
+      // Convert from smallest units to decimal
       let total = balance.tokenBalance;
-      if (metadata.decimals !== undefined && metadata.decimals !== null) {
-        try {
-          const balanceDecimal = parseDecimal(balance.tokenBalance)
-            .div(parseDecimal('10').pow(metadata.decimals))
-            .toString();
-          total = balanceDecimal;
-        } catch (error) {
-          this.logger.warn(`Failed to convert balance for ${balance.contractAddress}: ${getErrorMessage(error)}`);
-          // Keep raw balance if conversion fails
-        }
+      try {
+        const balanceDecimal = parseDecimal(balance.tokenBalance).div(parseDecimal('10').pow(decimals)).toString();
+        total = balanceDecimal;
+      } catch (error) {
+        this.logger.warn(`Failed to convert balance for ${balance.tokenAddress}: ${getErrorMessage(error)}`);
       }
 
       balances.push({
@@ -395,40 +644,8 @@ export class AlchemyApiClient extends BaseApiClient {
       });
     }
 
-    this.logger.debug(`Found ${balances.length} raw token balances for ${address}`);
+    this.logger.debug(`Found ${balances.length} token balances for ${address}`);
     return ok(balances);
-  }
-
-  private async getTokenMetadata(contractAddress: string): Promise<Result<TokenMetadata, Error>> {
-    return await getTokenMetadataWithCache(
-      this.blockchain,
-      contractAddress,
-      async () => {
-        const result = await this.httpClient.post<JsonRpcResponse<AlchemyTokenMetadata>>(`/${this.apiKey}`, {
-          id: 1,
-          jsonrpc: '2.0',
-          method: 'alchemy_getTokenMetadata',
-          params: [contractAddress],
-        });
-
-        if (result.isErr()) {
-          return err(result.error);
-        }
-
-        const metadata = result.value.result;
-        if (!metadata) {
-          return err(new Error(`No metadata returned for token ${contractAddress}`));
-        }
-
-        return ok({
-          symbol: metadata.symbol ?? undefined,
-          name: metadata.name ?? undefined,
-          decimals: metadata.decimals ?? undefined,
-          logoUrl: metadata.logo ?? undefined,
-        });
-      },
-      'alchemy'
-    );
   }
 
   private async getAddressTokenTransactions(
@@ -450,6 +667,18 @@ export class AlchemyApiClient extends BaseApiClient {
       this.logger.debug(`No raw token transactions found - Address: ${maskAddress(address)}`);
       return ok([]);
     }
+
+    // Fetch transaction receipts for gas fee data (REQUIRED for accurate reporting)
+    const txHashes = rawTransactions.map((tx) => tx.hash);
+    const receiptsResult = await this.getTransactionReceipts(txHashes);
+
+    if (receiptsResult.isErr()) {
+      this.logger.error(`Failed to fetch receipts - ${getErrorMessage(receiptsResult.error)}`);
+      return err(receiptsResult.error);
+    }
+
+    // Merge receipt data into transfers
+    this.mergeReceiptsIntoTransfers(rawTransactions, receiptsResult.value);
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {

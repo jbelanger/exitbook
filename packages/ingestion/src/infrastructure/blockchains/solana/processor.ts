@@ -1,4 +1,4 @@
-import { createMoney, parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { SolanaTransaction } from '@exitbook/providers';
@@ -65,8 +65,8 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         const userPaidFee = fundFlow.outflows.length > 0 || txFromLower === userAddressLower;
 
         const networkFee = userPaidFee
-          ? createMoney(normalizedTx.feeAmount || '0', normalizedTx.feeCurrency || 'SOL')
-          : createMoney('0', 'SOL');
+          ? { amount: parseDecimal(normalizedTx.feeAmount || '0'), asset: normalizedTx.feeCurrency || 'SOL' }
+          : { amount: parseDecimal('0'), asset: 'SOL' };
 
         // Convert to UniversalTransaction with structured fields
         const universalTransaction: UniversalTransaction = {

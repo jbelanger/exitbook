@@ -105,7 +105,7 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     expect(transaction.movements.outflows).toHaveLength(0);
     // User received all funds (no outflows), so they didn't pay the fee
     expect(transaction.fees.network?.amount.toString()).toBe('0');
-    expect(transaction.fees.network?.currency.toString()).toBe('ETH');
+    expect(transaction.fees.network?.asset.toString()).toBe('ETH');
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.blockchain?.name).toBe('ethereum');
@@ -939,7 +939,7 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
 
     // Check structured fields
     expect(transaction.blockchain?.name).toBe('ethereum');
-    expect(transaction.fees.network?.currency.toString()).toBe('ETH');
+    expect(transaction.fees.network?.asset.toString()).toBe('ETH');
   });
 
   test('uses chain-specific native currency for Avalanche', async () => {
@@ -973,7 +973,7 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
     // Check structured fields
     expect(transaction.blockchain?.name).toBe('avalanche');
     expect(transaction.metadata?.chainId).toBe(43114);
-    expect(transaction.fees.network?.currency.toString()).toBe('AVAX');
+    expect(transaction.fees.network?.asset.toString()).toBe('AVAX');
   });
 
   test('normalizes native amounts using chain-specific decimals', async () => {

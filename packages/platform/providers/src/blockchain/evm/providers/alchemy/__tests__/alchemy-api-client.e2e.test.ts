@@ -22,7 +22,7 @@ describe('AlchemyApiClient Integration', () => {
   });
 
   describe('Raw Address Transactions', () => {
-    it('should fetch raw address transactions successfully', async () => {
+    it('should fetch raw address transactions successfully with gas fees', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getAddressTransactions',
@@ -41,6 +41,15 @@ describe('AlchemyApiClient Integration', () => {
           expect(firstTx.normalized).toHaveProperty('to');
           expect(firstTx.normalized).toHaveProperty('blockHeight');
           expect(firstTx.normalized.providerId).toBe('alchemy');
+
+          // Verify gas fee data is populated
+          expect(firstTx.normalized).toHaveProperty('gasUsed');
+          expect(firstTx.normalized).toHaveProperty('gasPrice');
+          expect(firstTx.normalized).toHaveProperty('feeAmount');
+          expect(firstTx.normalized).toHaveProperty('feeCurrency');
+          expect(firstTx.normalized.feeCurrency).toBe('ETH'); // Ethereum native currency
+          expect(firstTx.normalized.gasUsed).toBeTruthy();
+          expect(firstTx.normalized.feeAmount).toBeTruthy();
         }
       }
     }, 30000);
@@ -69,7 +78,7 @@ describe('AlchemyApiClient Integration', () => {
   });
 
   describe('Token Transactions', () => {
-    it('should fetch token transactions successfully', async () => {
+    it('should fetch token transactions successfully with gas fees', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getAddressTokenTransactions',
@@ -86,6 +95,15 @@ describe('AlchemyApiClient Integration', () => {
           expect(firstTx.normalized).toHaveProperty('id');
           expect(firstTx.normalized.type).toBe('token_transfer');
           expect(firstTx.normalized.providerId).toBe('alchemy');
+
+          // Verify gas fee data is populated (even for token transfers, gas is paid in native currency)
+          expect(firstTx.normalized).toHaveProperty('gasUsed');
+          expect(firstTx.normalized).toHaveProperty('gasPrice');
+          expect(firstTx.normalized).toHaveProperty('feeAmount');
+          expect(firstTx.normalized).toHaveProperty('feeCurrency');
+          expect(firstTx.normalized.feeCurrency).toBe('ETH'); // Gas always paid in native currency
+          expect(firstTx.normalized.gasUsed).toBeTruthy();
+          expect(firstTx.normalized.feeAmount).toBeTruthy();
         }
       }
     }, 30000);

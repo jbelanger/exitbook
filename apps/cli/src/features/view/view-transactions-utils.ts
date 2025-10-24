@@ -27,8 +27,6 @@ export interface TransactionInfo {
   movements_primary_asset: string | null | undefined;
   movements_primary_amount: string | null | undefined;
   movements_primary_direction: string | null | undefined;
-  price: string | null | undefined;
-  price_currency: string | null | undefined;
   from_address: string | null | undefined;
   to_address: string | null | undefined;
   blockchain_transaction_hash: string | null | undefined;
@@ -67,21 +65,10 @@ export function formatOperationLabel(category: string | null | undefined, type: 
 }
 
 /**
- * Format price information for display.
- */
-export function formatPriceInfo(price: string | null | undefined, currency: string | null | undefined): string {
-  if (price) {
-    return `${price} ${currency || ''}`.trim();
-  }
-  return 'No price';
-}
-
-/**
  * Format a single transaction for text display.
  */
 export function formatTransactionForDisplay(tx: TransactionInfo): string {
   const lines: string[] = [];
-  const priceInfo = formatPriceInfo(tx.price, tx.price_currency);
   const operationLabel = formatOperationLabel(tx.operation_category, tx.operation_type);
 
   lines.push(`Transaction #${tx.id}`);
@@ -94,8 +81,6 @@ export function formatTransactionForDisplay(tx: TransactionInfo): string {
     const amount = tx.movements_primary_amount || '?';
     lines.push(`   Movement: ${directionIcon} ${amount} ${tx.movements_primary_asset}`);
   }
-
-  lines.push(`   Price: ${priceInfo}`);
 
   if (tx.blockchain_transaction_hash) {
     lines.push(`   Hash: ${tx.blockchain_transaction_hash}`);

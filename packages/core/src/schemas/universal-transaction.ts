@@ -98,8 +98,8 @@ export const UniversalTransactionSchema = z.object({
 
   // Structured fees
   fees: z.object({
-    network: MoneySchema.optional(),
-    platform: MoneySchema.optional(),
+    network: AssetMovementSchema.optional(),
+    platform: AssetMovementSchema.optional(),
   }),
 
   // Enhanced operation classification
@@ -120,7 +120,6 @@ export const UniversalTransactionSchema = z.object({
 
   // Optional fields
   note: TransactionNoteSchema.optional(),
-  price: MoneySchema.optional(),
   metadata: z.record(z.string(), z.any()).optional(),
 });
 

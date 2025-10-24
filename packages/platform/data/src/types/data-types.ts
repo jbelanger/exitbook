@@ -13,8 +13,8 @@ export type StoredTransaction = Omit<
   OriginalTransaction,
   'movements_inflows' | 'movements_outflows' | 'fees_network' | 'fees_platform' | 'fees_total'
 > & {
-  fees_network: Money | null;
-  fees_platform: Money | null;
+  fees_network: AssetMovement | null;
+  fees_platform: AssetMovement | null;
   fees_total: Money | null;
   movements_inflows: AssetMovement[];
   movements_outflows: AssetMovement[];
