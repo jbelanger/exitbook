@@ -494,23 +494,13 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       }
     }
 
-    // Calculate total fee across all correlated transactions in the group
-    // Note: In practice, only the main transaction pays gas fees, but we sum defensively
-    // in case providers report fees differently across internal/token transactions
-    const totalFeeWei = txGroup.reduce((acc, tx) => {
-      if (!tx.feeAmount) {
-        return acc;
-      }
-
-      try {
-        return acc.plus(parseDecimal(tx.feeAmount));
-      } catch (error) {
-        this.logger.warn(`Unable to parse fee amount for transaction ${tx.id}: ${String(error)}`);
-        return acc;
-      }
-    }, parseDecimal('0'));
-
-    const feeAmount = totalFeeWei.dividedBy(parseDecimal('10').pow(this.chainConfig.nativeDecimals)).toFixed();
+    // Get fee from the parent transaction (NOT from token_transfer events)
+    // A single on-chain transaction has only ONE fee, but providers may duplicate it across
+    // the parent transaction and child events (token transfers, internal calls).
+    // We take the fee from the first non-token_transfer transaction to avoid double-counting.
+    const parentTx = txGroup.find((tx) => tx.type !== 'token_transfer') || txGroup[0];
+    const feeWei = parentTx?.feeAmount ? parseDecimal(parentTx.feeAmount) : parseDecimal('0');
+    const feeAmount = feeWei.dividedBy(parseDecimal('10').pow(this.chainConfig.nativeDecimals)).toFixed();
 
     // Track uncertainty for complex transactions
     let classificationUncertainty: string | undefined;
