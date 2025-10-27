@@ -1,7 +1,7 @@
 import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { BitcoinTransaction } from '@exitbook/providers';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
@@ -38,7 +38,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
 
       try {
         // Perform enhanced fund flow analysis with structured input/output data
-        const fundFlowResult = await Promise.resolve(this.analyzeFundFlowFromNormalized(normalizedTx, sessionMetadata));
+        const fundFlowResult = this.analyzeFundFlowFromNormalized(normalizedTx, sessionMetadata);
 
         if (fundFlowResult.isErr()) {
           this.logger.warn(`Fund flow analysis failed for ${normalizedTx.id}: ${fundFlowResult.error}`);
@@ -129,7 +129,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
     }
 
     this.logger.info(`Normalized processing completed: ${transactions.length} transactions processed successfully`);
-    return ok(transactions);
+    return okAsync(transactions);
   }
 
   /**
@@ -160,7 +160,8 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
       const value = parseFloat(input.value);
       totalInput += value;
 
-      if (input.address && allWalletAddresses.has(input.address.toLowerCase())) {
+      // Address already normalized by BitcoinAddressSchema
+      if (input.address && allWalletAddresses.has(input.address)) {
         walletInput += value;
       }
     }
@@ -170,7 +171,8 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
       const value = parseFloat(output.value);
       totalOutput += value;
 
-      if (output.address && allWalletAddresses.has(output.address.toLowerCase())) {
+      // Address already normalized by BitcoinAddressSchema
+      if (output.address && allWalletAddresses.has(output.address)) {
         walletOutput += value;
       }
     }
@@ -180,14 +182,13 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
     const isOutgoing = walletInput > walletOutput;
 
     // Determine primary addresses for from/to fields
+    // Addresses already normalized by BitcoinAddressSchema
     const fromAddress = isOutgoing
-      ? normalizedTx.inputs.find((input) => input.address && allWalletAddresses.has(input.address.toLowerCase()))
-          ?.address
+      ? normalizedTx.inputs.find((input) => input.address && allWalletAddresses.has(input.address))?.address
       : normalizedTx.inputs[0]?.address;
 
     const toAddress = isIncoming
-      ? normalizedTx.outputs.find((output) => output.address && allWalletAddresses.has(output.address.toLowerCase()))
-          ?.address
+      ? normalizedTx.outputs.find((output) => output.address && allWalletAddresses.has(output.address))?.address
       : normalizedTx.outputs[0]?.address;
 
     return ok({

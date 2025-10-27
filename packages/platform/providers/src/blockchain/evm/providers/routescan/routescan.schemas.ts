@@ -7,6 +7,7 @@
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../../shared/blockchain/utils/zod-utils.js';
+import { EvmAddressSchema } from '../../schemas.ts';
 
 /**
  * Schema for Routescan normal transaction structure
@@ -16,7 +17,7 @@ export const RoutescanTransactionSchema = z.object({
   blockNumber: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
   confirmations: z.string().regex(/^\d+$/, 'Confirmations must be numeric string'),
   cumulativeGasUsed: z.string().regex(/^\d+$/, 'Cumulative gas used must be numeric string'),
-  from: z.string().min(1, 'From address must not be empty'),
+  from: EvmAddressSchema,
   functionName: z.string().optional(),
   gas: z.string().regex(/^\d+$/, 'Gas must be numeric string'),
   gasPrice: z.string().regex(/^\d+$/, 'Gas price must be numeric string'),
@@ -27,7 +28,7 @@ export const RoutescanTransactionSchema = z.object({
   methodId: z.string().optional(),
   nonce: z.string().regex(/^\d+$/, 'Nonce must be numeric string'),
   timeStamp: timestampToDate,
-  to: z.string().min(1, 'To address must not be empty'),
+  to: EvmAddressSchema,
   transactionIndex: z.string().regex(/^\d+$/, 'Transaction index must be numeric string'),
   txreceipt_status: z.string().optional(),
   value: z.string().regex(/^\d+$/, 'Value must be numeric string'),
@@ -38,16 +39,16 @@ export const RoutescanTransactionSchema = z.object({
  */
 export const RoutescanInternalTransactionSchema = z.object({
   blockNumber: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
-  contractAddress: z.string(),
+  contractAddress: EvmAddressSchema,
   errCode: z.string(),
-  from: z.string().min(1, 'From address must not be empty'),
+  from: EvmAddressSchema,
   gas: z.string().regex(/^\d+$/, 'Gas must be numeric string'),
   gasUsed: z.string().regex(/^\d+$/, 'Gas used must be numeric string'),
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   input: z.string(),
   isError: z.string().min(1, 'IsError must not be empty'),
   timeStamp: timestampToDate,
-  to: z.string().min(1, 'To address must not be empty'),
+  to: EvmAddressSchema,
   traceId: z.string().min(1, 'Trace ID must not be empty'),
   type: z.string().min(1, 'Type must not be empty'),
   value: z.string().regex(/^\d+$/, 'Value must be numeric string'),
@@ -60,9 +61,9 @@ export const RoutescanTokenTransferSchema = z.object({
   blockHash: z.string().min(1, 'Block hash must not be empty'),
   blockNumber: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
   confirmations: z.string().regex(/^\d+$/, 'Confirmations must be numeric string'),
-  contractAddress: z.string().min(1, 'Contract address must not be empty'),
+  contractAddress: EvmAddressSchema,
   cumulativeGasUsed: z.string().regex(/^\d+$/, 'Cumulative gas used must be numeric string'),
-  from: z.string().min(1, 'From address must not be empty'),
+  from: EvmAddressSchema,
   gas: z.string().regex(/^\d+$/, 'Gas must be numeric string'),
   gasPrice: z.string().regex(/^\d+$/, 'Gas price must be numeric string'),
   gasUsed: z.string().regex(/^\d+$/, 'Gas used must be numeric string'),
@@ -70,7 +71,7 @@ export const RoutescanTokenTransferSchema = z.object({
   input: z.string(),
   nonce: z.string().regex(/^\d+$/, 'Nonce must be numeric string'),
   timeStamp: timestampToDate,
-  to: z.string().min(1, 'To address must not be empty'),
+  to: EvmAddressSchema,
   tokenDecimal: z.string().regex(/^\d+$/, 'Token decimal must be numeric string'),
   tokenName: z.string().min(1, 'Token name must not be empty'),
   tokenSymbol: z.string().min(1, 'Token symbol must not be empty'),
@@ -100,7 +101,7 @@ export const RoutescanBalanceResponseSchema = z.object({
  * Schema for Routescan balance structure
  */
 export const RoutescanBalanceSchema = z.object({
-  account: z.string().min(1, 'Account address must not be empty'),
+  account: EvmAddressSchema,
   balance: z.string().regex(/^\d+$/, 'Balance must be numeric string'),
 });
 
@@ -108,7 +109,7 @@ export const RoutescanBalanceSchema = z.object({
  * Schema for Routescan token balance structure
  */
 export const RoutescanTokenBalanceSchema = z.object({
-  TokenAddress: z.string().min(1, 'Token address must not be empty'),
+  TokenAddress: EvmAddressSchema,
   TokenDivisor: z.string().regex(/^\d+$/, 'Token divisor must be numeric string'),
   TokenName: z.string().min(1, 'Token name must not be empty'),
   TokenQuantity: z.string().regex(/^\d+$/, 'Token quantity must be numeric string'),

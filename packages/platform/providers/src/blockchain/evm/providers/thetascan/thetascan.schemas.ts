@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../../shared/blockchain/utils/zod-utils.js';
+import { EvmAddressSchema } from '../../schemas.ts';
 
 const ThetaScanNumericStringSchema = z
   .string()
@@ -15,13 +16,13 @@ export const ThetaScanTransactionSchema = z.object({
   block: z.string().regex(/^\d+$/, 'Block must be numeric string'),
   fee_tfuel: z.number(),
   hash: z.string().min(1, 'Transaction hash must not be empty'),
-  recieving_address: z.string().min(1, 'Receiving address must not be empty'),
-  sending_address: z.string().min(1, 'Sending address must not be empty'),
+  recieving_address: EvmAddressSchema,
+  sending_address: EvmAddressSchema,
   tfuel: ThetaScanNumericStringSchema,
   theta: ThetaScanNumericStringSchema,
   timestamp: timestampToDate,
   // Optional fields for token transfers
-  contract_address: z.string().optional(),
+  contract_address: EvmAddressSchema.optional(),
   token_name: z.string().optional(),
   token_symbol: z.string().optional(),
   type: z.string().optional(),
@@ -47,7 +48,7 @@ export const ThetaScanBalanceResponseSchema = z.object({
  */
 export const ThetaScanTokenBalanceSchema = z.object({
   balance: ThetaScanNumericValueSchema,
-  contract_address: z.string(),
+  contract_address: EvmAddressSchema,
   token_decimals: z.number().optional(),
   token_name: z.string().optional(),
   token_symbol: z.string().optional(),

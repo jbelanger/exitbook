@@ -46,8 +46,7 @@ export async function promptSourceType(): Promise<SourceType> {
  * Prompt for exchange selection.
  */
 export async function promptExchange(): Promise<string> {
-  const processorFactory = new ProcessorFactory();
-  const exchanges = await processorFactory.getSupportedSources('exchange');
+  const exchanges = await ProcessorFactory.getSupportedSources('exchange');
 
   const exchange = await p.select({
     message: 'Select an exchange',
@@ -70,8 +69,7 @@ export async function promptExchange(): Promise<string> {
  * Note: @clack/prompts select has built-in filtering when you type.
  */
 export async function promptBlockchain(): Promise<string> {
-  const processorFactory = new ProcessorFactory();
-  const blockchains = await processorFactory.getSupportedSources('blockchain');
+  const blockchains = await ProcessorFactory.getSupportedSources('blockchain');
 
   // Sort blockchains by category and popularity
   const sortedBlockchains = sortBlockchainsByCategory(blockchains);

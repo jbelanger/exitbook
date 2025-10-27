@@ -1,12 +1,12 @@
-import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
 import type { ProviderConfig, TransactionWithRawData } from '../../../shared/blockchain/index.ts';
 import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
-import type { ProviderOperation } from '../../../shared/blockchain/types/index.ts';
+import type { ProviderOperation, RawBalanceData } from '../../../shared/blockchain/types/index.ts';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
-import type { BitcoinTransaction } from '../types.js';
+import type { BitcoinTransaction } from '../schemas.js';
 
 import { TatumBitcoinTransactionMapper } from './tatum.mapper.ts';
 import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.schemas.js';
@@ -101,7 +101,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
   /**
    * Get lightweight address info for efficient gap scanning
    */
-  async getAddressBalances(address: string): Promise<Result<BlockchainBalanceSnapshot, Error>> {
+  async getAddressBalances(address: string): Promise<Result<RawBalanceData, Error>> {
     this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
 
     // Get balance data
@@ -127,9 +127,11 @@ export class TatumBitcoinApiClient extends BaseApiClient {
     );
 
     return ok({
-      total: balanceBTC,
-      asset: 'BTC',
-    });
+      rawAmount: balanceSats.toString(),
+      symbol: 'BTC',
+      decimals: 8,
+      decimalAmount: balanceBTC,
+    } as RawBalanceData);
   }
 
   /**

@@ -1,13 +1,12 @@
-import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import type { TokenMetadata } from '@exitbook/core';
+import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
 import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../shared/blockchain/index.ts';
 import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../shared/blockchain/types/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../shared/blockchain/types/index.ts';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
-import type { TokenMetadata } from '../../../shared/token-metadata/index.ts';
-import { getTokenMetadataWithCache } from '../../../shared/token-metadata/index.ts';
 import type {
   SolanaAccountBalance,
   SolanaSignature,
@@ -32,7 +31,12 @@ export interface SolanaRawTokenBalanceData {
   baseUrl: 'https://rpc.helius.xyz',
   blockchain: 'solana',
   capabilities: {
-    supportedOperations: ['getAddressTransactions', 'getAddressBalances', 'getAddressTokenBalances'],
+    supportedOperations: [
+      'getAddressTransactions',
+      'getAddressBalances',
+      'getAddressTokenBalances',
+      'getTokenMetadata',
+    ],
   },
   defaultConfig: {
     rateLimit: {
@@ -86,47 +90,49 @@ export class HeliusApiClient extends BaseApiClient {
           address: operation.address,
           contractAddresses: operation.contractAddresses,
         })) as Result<T, Error>;
+      case 'getTokenMetadata':
+        return (await this.getTokenMetadata(operation.contractAddress)) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
     }
   }
 
   async getTokenMetadata(mintAddress: string): Promise<Result<TokenMetadata, Error>> {
-    return await getTokenMetadataWithCache(
-      'solana',
-      mintAddress,
-      async () => {
-        const result = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>('/', {
-          id: 1,
-          jsonrpc: '2.0',
-          method: 'getAsset',
-          params: {
-            displayOptions: {
-              showFungible: true,
-            },
-            id: mintAddress,
-          },
-        });
-
-        if (result.isErr()) {
-          return err(result.error);
-        }
-
-        const response = result.value;
-        const apiMetadata = response?.result?.content?.metadata;
-
-        if (!apiMetadata) {
-          return err(new Error(`No metadata found for mint address: ${mintAddress}`));
-        }
-
-        return ok({
-          symbol: apiMetadata.symbol ?? undefined,
-          name: apiMetadata.name ?? undefined,
-          logoUrl: undefined,
-        });
+    const result = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>('/', {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'getAsset',
+      params: {
+        displayOptions: {
+          showFungible: true,
+        },
+        id: mintAddress,
       },
-      'helius'
-    );
+    });
+
+    if (result.isErr()) {
+      return err(result.error);
+    }
+
+    const response = result.value;
+    if (!response?.result) {
+      return err(new Error(`Token metadata not found for mint address: ${mintAddress}`));
+    }
+
+    const asset = response.result;
+    const metadata = asset.content?.metadata;
+    const tokenInfo = asset.token_info;
+    const links = asset.content?.links;
+
+    return ok({
+      contractAddress: mintAddress,
+      refreshedAt: new Date(),
+      decimals: tokenInfo?.decimals ?? undefined,
+      logoUrl: links?.image ?? undefined,
+      name: metadata?.name ?? undefined,
+      symbol: metadata?.symbol ?? undefined,
+      source: 'helius',
+    });
   }
 
   getHealthCheckConfig() {
@@ -208,7 +214,7 @@ export class HeliusApiClient extends BaseApiClient {
     return ok(transactions);
   }
 
-  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
@@ -246,7 +252,12 @@ export class HeliusApiClient extends BaseApiClient {
       `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceSOL}`
     );
 
-    return ok({ total: balanceSOL, asset: 'SOL' });
+    return ok({
+      rawAmount: response.result.value.toString(),
+      decimals: 9,
+      decimalAmount: balanceSOL,
+      symbol: 'SOL',
+    } as RawBalanceData);
   }
 
   private async getAddressTransactions(params: {
@@ -294,25 +305,9 @@ export class HeliusApiClient extends BaseApiClient {
       `Deduplicated transactions - Address: ${maskAddress(address)}, Total: ${allRawTransactions.length}, Unique: ${uniqueTransactions.size}`
     );
 
-    // Extract all unique mint addresses and fetch their symbols using the cache
-    const mintAddresses = new Set<string>();
-    for (const tx of uniqueTransactions.values()) {
-      tx.meta.preTokenBalances?.forEach((b) => mintAddresses.add(b.mint));
-      tx.meta.postTokenBalances?.forEach((b) => mintAddresses.add(b.mint));
-    }
-
-    // Fetch metadata for all mints - getTokenMetadata uses the cache automatically
-    const tokenSymbols: Record<string, string> = {};
-    for (const mint of mintAddresses) {
-      const metadataResult = await this.getTokenMetadata(mint);
-      if (metadataResult.isOk() && metadataResult.value.symbol) {
-        tokenSymbols[mint] = metadataResult.value.symbol;
-      }
-    }
-
     const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
     for (const rawTx of uniqueTransactions.values()) {
-      const mapResult = this.mapper.map(rawTx, { tokenSymbols });
+      const mapResult = this.mapper.map(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -336,7 +331,7 @@ export class HeliusApiClient extends BaseApiClient {
   private async getAddressTokenBalances(params: {
     address: string;
     contractAddresses?: string[] | undefined;
-  }): Promise<Result<BlockchainBalanceSnapshot[], Error>> {
+  }): Promise<Result<RawBalanceData[], Error>> {
     const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
@@ -374,19 +369,18 @@ export class HeliusApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    // Convert to BlockchainBalanceSnapshot format with symbols
-    const balances: BlockchainBalanceSnapshot[] = [];
+    // Convert to RawBalanceData format with mint addresses
+    const balances: RawBalanceData[] = [];
     for (const account of tokenAccountsResponse.result.value) {
       const tokenInfo = account.account.data.parsed.info;
       const mintAddress = tokenInfo.mint;
 
-      // Fetch token metadata to get symbol
-      const metadataResult = await this.getTokenMetadata(mintAddress);
-      const symbol = metadataResult.isOk() && metadataResult.value.symbol ? metadataResult.value.symbol : mintAddress; // Fallback to mint address if symbol not found
-
       balances.push({
-        asset: symbol,
-        total: tokenInfo.tokenAmount.uiAmountString,
+        contractAddress: mintAddress,
+        decimals: tokenInfo.tokenAmount.decimals,
+        decimalAmount: tokenInfo.tokenAmount.uiAmountString,
+        symbol: undefined,
+        rawAmount: tokenInfo.tokenAmount.amount,
       });
     }
 

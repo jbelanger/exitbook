@@ -1,10 +1,10 @@
-import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { HttpClient } from '@exitbook/platform-http';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
 import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
 import type { CosmosChainConfig } from '../../chain-config.interface.js';
 import { COSMOS_CHAINS } from '../../chain-registry.ts';
@@ -150,7 +150,7 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
     return ok(transactions);
   }
 
-  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
     if (!this.validateAddress(address)) {
@@ -175,7 +175,12 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
 
     if (!response.balances || response.balances.length === 0) {
       this.logger.debug(`No balance found for address - Address: ${maskAddress(address)}`);
-      return ok({ total: '0', asset: this.chainConfig.nativeCurrency });
+      return ok({
+        rawAmount: '0',
+        symbol: this.chainConfig.nativeCurrency,
+        decimals: this.chainConfig.nativeDecimals,
+        decimalAmount: '0',
+      } as RawBalanceData);
     }
 
     // Find the native token balance (denom is typically "inj" for Injective)
@@ -187,7 +192,12 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
       this.logger.debug(
         `No native currency balance found for address - Address: ${maskAddress(address)}, Denoms found: ${response.balances.map((b) => b.denom).join(', ')}`
       );
-      return ok({ total: '0', asset: this.chainConfig.nativeCurrency });
+      return ok({
+        rawAmount: '0',
+        symbol: this.chainConfig.nativeCurrency,
+        decimals: this.chainConfig.nativeDecimals,
+        decimalAmount: '0',
+      } as RawBalanceData);
     }
 
     // Convert from smallest unit (e.g., uinj = 10^-18 INJ) to main unit
@@ -200,7 +210,12 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
       `Found raw balance for ${maskAddress(address)}: ${balanceDecimal} ${this.chainConfig.nativeCurrency}`
     );
 
-    return ok({ total: balanceDecimal, asset: this.chainConfig.nativeCurrency });
+    return ok({
+      rawAmount: balanceSmallest,
+      decimalAmount: balanceDecimal,
+      decimals: this.chainConfig.nativeDecimals,
+      symbol: this.chainConfig.nativeCurrency,
+    } as RawBalanceData);
   }
 
   private validateAddress(address: string): boolean {

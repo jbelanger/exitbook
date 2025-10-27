@@ -4,13 +4,14 @@
 import { z } from 'zod';
 
 import { hexOrNumericToNumericRequired, timestampToDate } from '../../../../shared/blockchain/utils/zod-utils.js';
+import { SubstrateAddressSchema } from '../../schemas.js';
 
 /**
  * Schema for account display metadata
  */
 const SubscanAccountDisplaySchema = z.object({
   account_index: z.string().optional(),
-  address: z.string().optional(),
+  address: SubstrateAddressSchema.optional(),
   display: z.string().optional(),
   evm_address: z.string().optional(),
   evm_contract: z
@@ -38,7 +39,7 @@ const SubscanAccountDisplaySchema = z.object({
     .optional(),
   parent: z
     .object({
-      address: z.string().optional(),
+      address: SubstrateAddressSchema.optional(),
       display: z.string().optional(),
       identity: z.boolean().optional(),
       sub_symbol: z.string().optional(),
@@ -58,7 +59,7 @@ const SubscanAccountDisplaySchema = z.object({
         .optional(),
       parent: z
         .object({
-          address: z.string().optional(),
+          address: SubstrateAddressSchema.optional(),
           display: z.string().optional(),
           identity: z.boolean().optional(),
           sub_symbol: z.string().optional(),
@@ -104,7 +105,7 @@ export const SubscanTransferBaseSchema = z.object({
   event_idx: z.number().nullish(),
   extrinsic_index: z.string().min(1, 'Extrinsic index must not be empty'),
   fee: hexOrNumericToNumericRequired,
-  from: z.string().min(1, 'From address must not be empty'),
+  from: SubstrateAddressSchema,
   from_account_display: SubscanAccountDisplaySchema.nullish(),
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   is_lock: z.boolean().nullish(),
@@ -113,7 +114,7 @@ export const SubscanTransferBaseSchema = z.object({
   module: z.string().min(1, 'Module must not be empty'),
   nonce: z.number().nullish(),
   success: z.boolean(),
-  to: z.string().min(1, 'To address must not be empty'),
+  to: SubstrateAddressSchema,
   to_account_display: SubscanAccountDisplaySchema.nullish(),
   transfer_id: z.number().nullish(),
 });
@@ -160,7 +161,7 @@ export const SubscanAccountResponseSchema = z.object({
   code: z.number(),
   data: z
     .object({
-      account: z.string().optional(),
+      account: SubstrateAddressSchema.optional(),
       balance: hexOrNumericToNumericRequired.optional(),
       reserved: hexOrNumericToNumericRequired.optional(),
     })

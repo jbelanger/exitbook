@@ -433,7 +433,8 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
         id: 'tx9yza',
         inputs: [
           {
-            address: USER_ADDRESS.toUpperCase(), // Different case
+            // Addresses normalized to lowercase (as they would be from BitcoinAddressSchema)
+            address: USER_ADDRESS.toLowerCase(),
             txid: 'prev9',
             value: '100010000',
             vout: 0,

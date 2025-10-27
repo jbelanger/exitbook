@@ -5,6 +5,7 @@
 
 import type { FailoverExecutionResult } from '@exitbook/providers';
 import { type SubstrateChainConfig, type BlockchainProviderManager, ProviderError } from '@exitbook/providers';
+import { assertOperationType } from '@exitbook/providers/blockchain/__tests__/test-utils.js';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
@@ -210,8 +211,8 @@ describe('SubstrateImporter', () => {
 
       const [blockchain, operation] = executeCalls[0]!;
       expect(blockchain).toBe('polkadot');
+      assertOperationType(operation, 'getAddressTransactions');
       expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getAddressTransactions');
       expect(operation.getCacheKey).toBeDefined();
     });
 
@@ -438,8 +439,8 @@ describe('SubstrateImporter', () => {
       expect(executeCalls[0]?.[0]).toBe('bittensor');
 
       const [, operation] = executeCalls[0]!;
+      assertOperationType(operation, 'getAddressTransactions');
       expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getAddressTransactions');
 
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(1);
@@ -661,6 +662,7 @@ describe('SubstrateImporter', () => {
         mockProviderManager.executeWithFailover.mock.calls;
 
       const call = calls[0]![1];
+      assertOperationType(call, 'getAddressTransactions');
       expect(call.address).toBe(address);
     });
 

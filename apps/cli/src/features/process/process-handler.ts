@@ -1,11 +1,13 @@
 import type { KyselyDB } from '@exitbook/data';
-import { TransactionRepository } from '@exitbook/data';
+import { TokenMetadataRepository, TransactionRepository } from '@exitbook/data';
 import {
   DataSourceRepository,
   ProcessorFactory,
   RawDataRepository,
+  TokenMetadataService,
   TransactionProcessService,
 } from '@exitbook/ingestion';
+import { BlockchainProviderManager, loadExplorerConfig } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -34,13 +36,18 @@ export interface ProcessResult {
  */
 export class ProcessHandler {
   private processService: TransactionProcessService;
+  private providerManager: BlockchainProviderManager;
 
   constructor(private database: KyselyDB) {
     // Initialize services
+    const config = loadExplorerConfig();
     const transactionRepository = new TransactionRepository(this.database);
     const rawDataRepository = new RawDataRepository(this.database);
     const sessionRepository = new DataSourceRepository(this.database);
-    const processorFactory = new ProcessorFactory();
+    const tokenMetadataRepository = new TokenMetadataRepository(this.database);
+    this.providerManager = new BlockchainProviderManager(config);
+    const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, this.providerManager);
+    const processorFactory = new ProcessorFactory(tokenMetadataService);
 
     this.processService = new TransactionProcessService(
       rawDataRepository,
@@ -97,6 +104,6 @@ export class ProcessHandler {
    * Cleanup resources.
    */
   destroy(): void {
-    // No resources to cleanup
+    this.providerManager.destroy();
   }
 }

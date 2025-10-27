@@ -90,15 +90,15 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const timestampMs = new Date(timestamp).getTime();
 
     const sellCurrency = withdrawal.Currency;
-    const sellAmount = parseDecimal(withdrawal.Amount).abs().toNumber();
+    const sellAmount = parseDecimal(withdrawal.Amount).abs();
     const buyCurrency = deposit.Currency;
-    const buyAmount = parseDecimal(deposit.Amount).toNumber();
+    const buyAmount = parseDecimal(deposit.Amount);
 
     // Calculate total fees (both deposit and withdrawal fees)
-    const withdrawalFee = withdrawal.Fee ? parseDecimal(withdrawal.Fee).toNumber() : 0;
-    const depositFee = deposit.Fee ? parseDecimal(deposit.Fee).toNumber() : 0;
-    const totalFee = withdrawalFee + depositFee;
-    const platformFee = { amount: parseDecimal(totalFee.toString()), asset: sellCurrency };
+    const withdrawalFee = withdrawal.Fee ? parseDecimal(withdrawal.Fee) : parseDecimal('0');
+    const depositFee = deposit.Fee ? parseDecimal(deposit.Fee) : parseDecimal('0');
+    const totalFee = withdrawalFee.plus(depositFee);
+    const platformFee = { amount: totalFee, asset: sellCurrency };
 
     return {
       id: 0, // Will be assigned by database
@@ -113,13 +113,13 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [
           {
             asset: sellCurrency,
-            amount: parseDecimal(sellAmount.toFixed()),
+            amount: sellAmount,
           },
         ],
         inflows: [
           {
             asset: buyCurrency,
-            amount: parseDecimal(buyAmount.toFixed()),
+            amount: buyAmount,
           },
         ],
       },
@@ -148,12 +148,12 @@ export class KucoinProcessor extends BaseTransactionProcessor {
 
   private convertDepositToTransaction(row: CsvDepositWithdrawalRow): UniversalTransaction {
     const timestamp = new Date(row['Time(UTC)']).getTime();
-    const grossAmount = parseDecimal(row.Amount).toNumber();
-    const fee = row.Fee ? parseDecimal(row.Fee).toNumber() : 0;
+    const grossAmount = parseDecimal(row.Amount);
+    const fee = row.Fee ? parseDecimal(row.Fee) : parseDecimal('0');
 
     // For KuCoin deposits: amount is gross, user actually receives amount - fee
-    const netAmount = grossAmount - fee;
-    const platformFee = { amount: parseDecimal(fee.toString()), asset: row.Coin };
+    const netAmount = grossAmount.minus(fee);
+    const platformFee = { amount: fee, asset: row.Coin };
 
     return {
       id: 0, // Will be assigned by database
@@ -168,7 +168,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         inflows: [
           {
             asset: row.Coin,
-            amount: parseDecimal(netAmount.toFixed()),
+            amount: netAmount,
           },
         ],
         outflows: [], // No outflows for deposit
@@ -199,8 +199,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
   private convertOrderSplittingToTransaction(row: CsvOrderSplittingRow): UniversalTransaction {
     const timestamp = new Date(row['Filled Time(UTC)']).getTime();
     const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
-    const filledAmount = parseDecimal(row['Filled Amount']).toNumber();
-    const filledVolume = parseDecimal(row['Filled Volume']).toNumber();
+    const filledAmount = row['Filled Amount'];
+    const filledVolume = row['Filled Volume'];
     const fee = parseDecimal(row.Fee).toNumber();
     const platformFee = { amount: parseDecimal(fee.toString()), asset: row['Fee Currency'] };
     const side = row.Side.toLowerCase() as 'buy' | 'sell';
@@ -226,13 +226,13 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [
           {
             asset: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledVolume.toString() : filledAmount.toFixed()),
+            amount: parseDecimal(isBuy ? filledVolume : filledAmount),
           },
         ],
         inflows: [
           {
             asset: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledAmount.toFixed() : filledVolume.toString()),
+            amount: parseDecimal(isBuy ? filledAmount : filledVolume),
           },
         ],
       },
@@ -264,8 +264,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
   private convertTradingBotToTransaction(row: CsvTradingBotRow): UniversalTransaction {
     const timestamp = new Date(row['Time Filled(UTC)']).getTime();
     const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
-    const filledAmount = parseDecimal(row['Filled Amount']).toNumber();
-    const filledVolume = parseDecimal(row['Filled Volume']).toNumber();
+    const filledAmount = row['Filled Amount'];
+    const filledVolume = row['Filled Volume'];
     const fee = parseDecimal(row.Fee).toNumber();
     const platformFee = { amount: parseDecimal(fee.toString()), asset: row['Fee Currency'] };
     const side = row.Side.toLowerCase() as 'buy' | 'sell';
@@ -291,13 +291,13 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [
           {
             asset: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledVolume.toString() : filledAmount.toFixed()),
+            amount: parseDecimal(isBuy ? filledVolume : filledAmount),
           },
         ],
         inflows: [
           {
             asset: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledAmount.toFixed() : filledVolume.toString()),
+            amount: parseDecimal(isBuy ? filledAmount : filledVolume),
           },
         ],
       },
@@ -328,8 +328,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
   private convertSpotOrderToTransaction(row: CsvSpotOrderRow): UniversalTransaction {
     const timestamp = new Date(row['Filled Time(UTC)']).getTime();
     const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
-    const filledAmount = parseDecimal(row['Filled Amount']).toNumber();
-    const filledVolume = parseDecimal(row['Filled Volume']).toNumber();
+    const filledAmount = row['Filled Amount'];
+    const filledVolume = row['Filled Volume'];
     const fee = parseDecimal(row.Fee).toNumber();
     const platformFee = { amount: parseDecimal(fee.toString()), asset: row['Fee Currency'] };
     const side = row.Side.toLowerCase() as 'buy' | 'sell';
@@ -352,13 +352,13 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [
           {
             asset: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledVolume.toString() : filledAmount.toFixed()),
+            amount: parseDecimal(isBuy ? filledVolume : filledAmount),
           },
         ],
         inflows: [
           {
             asset: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledAmount.toFixed() : filledVolume.toString()),
+            amount: parseDecimal(isBuy ? filledAmount : filledVolume),
           },
         ],
       },

@@ -9,7 +9,7 @@ import type {
   BitcoinTransactionInput,
   BitcoinTransactionOutput,
   BitcoinTransaction as BitcoinTransaction,
-} from '../types.ts';
+} from '../schemas.ts';
 
 import { MempoolTransactionSchema, type MempoolTransaction } from './mempool-space.schemas.js';
 

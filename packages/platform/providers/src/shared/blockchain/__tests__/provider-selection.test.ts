@@ -255,7 +255,7 @@ describe('Provider Selection (Pure Functions)', () => {
     it('includes blockchain in cache key', () => {
       const operation: ProviderOperation = {
         address: 'bc1xyz',
-        getCacheKey: (op) => `${op.type}-${String(op.address)}`,
+        getCacheKey: (op) => `${op.type}-${String((op as { address?: string }).address)}`,
         type: 'getAddressBalances',
       };
 

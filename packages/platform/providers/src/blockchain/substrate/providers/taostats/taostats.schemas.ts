@@ -4,13 +4,14 @@
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../../shared/blockchain/utils/zod-utils.js';
+import { SubstrateAddressSchema } from '../../schemas.js';
 
 /**
  * Schema for Taostats address structure
  */
 export const TaostatsAddressSchema = z.object({
   hex: z.string().min(1, 'Hex address must not be empty'),
-  ss58: z.string().min(1, 'SS58 address must not be empty'),
+  ss58: SubstrateAddressSchema,
 });
 
 /**

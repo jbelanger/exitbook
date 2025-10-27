@@ -6,6 +6,8 @@ import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
+import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.ts';
+import { looksLikeContractAddress, needsEnrichment } from '../../../services/token-metadata/token-metadata-utils.ts';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
 import type { EvmFundFlow } from './types.ts';
@@ -17,6 +19,7 @@ import type { EvmFundFlow } from './types.ts';
 export class EvmTransactionProcessor extends BaseTransactionProcessor {
   constructor(
     private readonly chainConfig: EvmChainConfig,
+    private readonly tokenMetadataService: ITokenMetadataService,
     private readonly _transactionRepository?: ITransactionRepository
   ) {
     super(chainConfig.chainName);
@@ -36,6 +39,12 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     }
 
     this.logger.info(`Processing ${normalizedData.length} normalized ${this.chainConfig.chainName} transactions`);
+
+    // Enrich token metadata before processing (required for proper decimal normalization)
+    const enrichResult = await this.enrichTokenMetadata(normalizedData as EvmTransaction[]);
+    if (enrichResult.isErr()) {
+      return err(`Token metadata enrichment failed: ${enrichResult.error.message}`);
+    }
 
     const transactionGroups = this.groupTransactionsByHash(normalizedData as EvmTransaction[]);
 
@@ -78,9 +87,8 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       // User paid fee if:
       // 1. They have ANY outflows (sent funds, swapped, etc.) OR
       // 2. They initiated a contract interaction with no outflows (approval, state change, etc.)
-      const userAddressLower = userAddress.toLowerCase();
-      const fromAddressLower = (fundFlow.fromAddress || '').toLowerCase();
-      const userInitiatedTransaction = fromAddressLower === userAddressLower;
+      // Addresses already normalized to lowercase via EvmAddressSchema
+      const userInitiatedTransaction = (fundFlow.fromAddress || '') === userAddress;
       const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
       const networkFee = userPaidFee
@@ -205,7 +213,8 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       return err('Missing user address in session metadata');
     }
 
-    const userAddress = sessionMetadata.address.toLowerCase();
+    // Address already normalized to lowercase via EvmAddressSchema
+    const userAddress = sessionMetadata.address;
 
     // Analyze transaction group complexity - essential for proper EVM classification
     const hasTokenTransfers = txGroup.some((tx) => tx.type === 'token_transfer');
@@ -681,8 +690,9 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     return txGroup[0];
   }
 
+  // Addresses already normalized to lowercase via EvmAddressSchema
   private matchesAddress(address: string | undefined, target: string): boolean {
-    return address ? address.toLowerCase() === target : false;
+    return address ? address === target : false;
   }
 
   private isUserParticipant(tx: EvmTransaction, userAddress: string): boolean {
@@ -700,5 +710,56 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     } catch {
       return true;
     }
+  }
+
+  /**
+   * Enrich token metadata for all transactions.
+   * Only fetches metadata for symbols that look like contract addresses.
+   */
+  private async enrichTokenMetadata(transactions: EvmTransaction[]): Promise<Result<void, Error>> {
+    // Collect all token transfers that need enrichment
+    const transactionsToEnrich = transactions.filter((tx) => {
+      if (tx.type !== 'token_transfer' || !tx.tokenAddress) {
+        return false;
+      }
+
+      const symbol = tx.tokenSymbol || tx.currency;
+      // Enrich if metadata is incomplete OR if symbol looks like a contract address (EVM = 40 chars)
+      return needsEnrichment(symbol, tx.tokenDecimals) || (symbol ? looksLikeContractAddress(symbol, 40) : false);
+    });
+
+    if (transactionsToEnrich.length === 0) {
+      return ok();
+    }
+
+    this.logger.debug(`Enriching token metadata for ${transactionsToEnrich.length} token transfers`);
+
+    // Use the token metadata service to enrich with caching and provider fetching
+    const enrichResult = await this.tokenMetadataService.enrichBatch(
+      transactionsToEnrich,
+      this.chainConfig.chainName,
+      (tx) => tx.tokenAddress,
+      (tx, metadata) => {
+        if (metadata.symbol) {
+          tx.currency = metadata.symbol;
+          tx.tokenSymbol = metadata.symbol;
+        }
+        // Update decimals if available and not already set
+        if (metadata.decimals !== undefined && tx.tokenDecimals === undefined) {
+          this.logger.debug(
+            `Updating decimals for ${tx.tokenAddress} from ${tx.tokenDecimals} to ${metadata.decimals}`
+          );
+          tx.tokenDecimals = metadata.decimals;
+        }
+      },
+      (tx) => tx.tokenDecimals !== undefined // Enrichment failure OK if decimals already present
+    );
+
+    if (enrichResult.isErr()) {
+      return err(enrichResult.error);
+    }
+
+    this.logger.debug('Successfully enriched token metadata from cache/provider');
+    return ok();
   }
 }

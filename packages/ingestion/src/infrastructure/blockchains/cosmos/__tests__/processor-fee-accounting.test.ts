@@ -534,8 +534,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
   test('handles case-insensitive address matching for fee logic', async () => {
     const processor = createInjectiveProcessor();
 
-    const mixedCaseUser = 'INJ1UseR000000000000000000000000000000000';
+    // User address provided in mixed case (as might come from user input)
+    const mixedCaseUserInput = 'INJ1UseR000000000000000000000000000000000';
 
+    // Normalized data has lowercase addresses (as produced by CosmosAddressSchema)
     const normalizedData: CosmosTransaction[] = [
       {
         amount: '1000000000000000000',
@@ -543,7 +545,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         currency: 'INJ',
         feeAmount: '500000000000000',
         feeCurrency: 'INJ',
-        from: mixedCaseUser, // Different case
+        from: USER_ADDRESS.toLowerCase(), // Normalized by schema
         id: 'txCaseTest',
         messageType: '/cosmos.bank.v1beta1.MsgSend',
         providerId: 'injective-explorer',
@@ -554,7 +556,8 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    // Pass mixed-case address - processor should normalize it
+    const result = await processor.process(normalizedData, { address: mixedCaseUserInput });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -563,7 +566,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Should match despite case difference
+    // Should match despite case difference in input
     expect(transaction.fees.network?.amount.toFixed()).toBe('500000000000000');
   });
 

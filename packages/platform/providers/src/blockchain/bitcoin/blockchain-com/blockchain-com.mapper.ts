@@ -9,7 +9,7 @@ import type {
   BitcoinTransactionInput,
   BitcoinTransactionOutput,
   BitcoinTransaction as BitcoinTransaction,
-} from '../types.ts';
+} from '../schemas.ts';
 
 import { BlockchainComTransactionSchema, type BlockchainComTransaction } from './blockchain-com.schemas.js';
 

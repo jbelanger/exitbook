@@ -1,6 +1,6 @@
 import type { VerificationMetadata } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
-import { TransactionRepository } from '@exitbook/data';
+import { TokenMetadataRepository, TransactionRepository } from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchanges';
 import {
   calculateBalances,
@@ -47,6 +47,7 @@ export class BalanceHandler {
   private providerManager: BlockchainProviderManager;
   private transactionRepository: TransactionRepository;
   private sessionRepository: DataSourceRepository;
+  private tokenMetadataRepository: TokenMetadataRepository;
 
   constructor(database: KyselyDB, explorerConfig?: BlockchainExplorersConfig) {
     // Load explorer config
@@ -55,6 +56,7 @@ export class BalanceHandler {
     // Initialize services
     this.transactionRepository = new TransactionRepository(database);
     this.sessionRepository = new DataSourceRepository(database);
+    this.tokenMetadataRepository = new TokenMetadataRepository(database);
     this.providerManager = new BlockchainProviderManager(config);
   }
 
@@ -368,12 +370,19 @@ export class BalanceHandler {
       logger.info(`Fetching balances for ${derivedAddresses.length} derived addresses`);
 
       // Fetch and sum balances from all derived addresses
-      return fetchBitcoinXpubBalance(this.providerManager, params.address, derivedAddresses, params.providerId);
+      return fetchBitcoinXpubBalance(
+        this.providerManager,
+        this.tokenMetadataRepository,
+        params.address,
+        derivedAddresses,
+        params.providerId
+      );
     }
 
     // Standard single-address balance fetch
     const result = await fetchBlockchainBalance(
       this.providerManager,
+      this.tokenMetadataRepository,
       params.sourceName,
       params.address,
       params.providerId

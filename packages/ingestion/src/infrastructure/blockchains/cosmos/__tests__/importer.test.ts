@@ -5,6 +5,7 @@
 
 import type { CosmosTransaction, FailoverExecutionResult } from '@exitbook/providers';
 import { type CosmosChainConfig, type BlockchainProviderManager, ProviderError } from '@exitbook/providers';
+import { assertOperationType } from '@exitbook/providers/blockchain/__tests__/test-utils.js';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
@@ -174,8 +175,8 @@ describe('CosmosImporter', () => {
         mockProviderManager.executeWithFailover.mock.calls;
 
       const [, operation] = executeCalls[0]!;
+      assertOperationType(operation, 'getAddressTransactions');
       expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getAddressTransactions');
       expect(operation.getCacheKey).toBeDefined();
     });
 
@@ -334,8 +335,8 @@ describe('CosmosImporter', () => {
       expect(executeCalls[0]?.[0]).toBe('osmosis');
 
       const [, operation] = executeCalls[0]!;
+      assertOperationType(operation, 'getAddressTransactions');
       expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getAddressTransactions');
     });
 
     test('should generate correct error messages for different chains', async () => {

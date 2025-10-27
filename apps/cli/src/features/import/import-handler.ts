@@ -1,10 +1,11 @@
 import type { SourceType } from '@exitbook/core';
-import { TransactionRepository, type KyselyDB } from '@exitbook/data';
+import { TokenMetadataRepository, TransactionRepository, type KyselyDB } from '@exitbook/data';
 import {
   ImporterFactory,
   DataSourceRepository,
   ProcessorFactory,
   RawDataRepository,
+  TokenMetadataService,
   TransactionImportService,
   TransactionProcessService,
 } from '@exitbook/ingestion';
@@ -97,9 +98,11 @@ export class ImportHandler {
     const transactionRepository = new TransactionRepository(this.database);
     const rawDataRepository = new RawDataRepository(this.database);
     const sessionRepository = new DataSourceRepository(this.database);
+    const tokenMetadataRepository = new TokenMetadataRepository(this.database);
     this.providerManager = new BlockchainProviderManager(config);
+    const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, this.providerManager);
     const importerFactory = new ImporterFactory(this.providerManager);
-    const processorFactory = new ProcessorFactory();
+    const processorFactory = new ProcessorFactory(tokenMetadataService);
 
     this.importService = new TransactionImportService(rawDataRepository, sessionRepository, importerFactory);
     this.processService = new TransactionProcessService(

@@ -13,14 +13,19 @@
  * Use BlockCypher as emergency fallback or for addresses with few transactions only.
  */
 
-import { getErrorMessage, hasStringProperty, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage, hasStringProperty } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
-import type { ProviderConfig, ProviderOperation, TransactionWithRawData } from '../../../shared/blockchain/index.ts';
+import type {
+  ProviderConfig,
+  ProviderOperation,
+  RawBalanceData,
+  TransactionWithRawData,
+} from '../../../shared/blockchain/index.ts';
 import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
-import type { BitcoinTransaction } from '../types.js';
+import type { BitcoinTransaction } from '../schemas.js';
 
 import { BlockCypherTransactionMapper } from './blockcypher.mapper.ts';
 import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.schemas.js';
@@ -202,7 +207,7 @@ export class BlockCypherApiClient extends BaseApiClient {
   /**
    * Get raw address info
    */
-  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
     this.logger.debug(`Fetching raw address info - Address: ${maskAddress(address)}`);
@@ -225,9 +230,11 @@ export class BlockCypherApiClient extends BaseApiClient {
     );
 
     return ok({
-      total: balanceBTC,
-      asset: 'BTC',
-    });
+      rawAmount: addressInfo.final_balance.toString(),
+      symbol: 'BTC',
+      decimals: 8,
+      decimalAmount: balanceBTC,
+    } as RawBalanceData);
   }
 
   /**

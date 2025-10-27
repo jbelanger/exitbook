@@ -1,11 +1,11 @@
-import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { ServiceError } from '@exitbook/platform-http';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../../shared/blockchain/base/api-client.ts';
 import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
 import { RegisterApiClient } from '../../../../shared/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
 import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
 import type { EvmChainConfig } from '../../chain-config.interface.ts';
 import { getEvmChainConfig } from '../../chain-registry.ts';
@@ -299,7 +299,7 @@ export class RoutescanApiClient extends BaseApiClient {
     return ok(allTransactions);
   }
 
-  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
     if (!this.isValidEvmAddress(address)) {
@@ -340,7 +340,7 @@ export class RoutescanApiClient extends BaseApiClient {
       );
     }
 
-    // Convert from wei to native currency (18 decimals for most EVM chains)
+    // Convert from wei to native currency
     const balanceWei = typeof res.result === 'string' ? res.result : String(res.result);
     const balanceDecimal = parseDecimal(balanceWei)
       .div(parseDecimal('10').pow(this.chainConfig.nativeDecimals))
@@ -351,9 +351,11 @@ export class RoutescanApiClient extends BaseApiClient {
     );
 
     return ok({
-      total: balanceDecimal,
-      asset: this.chainConfig.nativeCurrency,
-    });
+      rawAmount: balanceWei,
+      symbol: this.chainConfig.nativeCurrency,
+      decimals: this.chainConfig.nativeDecimals,
+      decimalAmount: balanceDecimal,
+    } as RawBalanceData);
   }
 
   private async getAddressTransactions(params: {

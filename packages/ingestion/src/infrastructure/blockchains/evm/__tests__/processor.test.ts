@@ -1,6 +1,9 @@
+/* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
-import { describe, expect, test } from 'vitest';
+import { ok } from 'neverthrow';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 
+import type { ITokenMetadataService } from '../../../../services/token-metadata/token-metadata-service.interface.ts';
 import { EvmTransactionProcessor } from '../processor.ts';
 
 const ETHEREUM_CONFIG: EvmChainConfig = {
@@ -21,12 +24,19 @@ const USER_ADDRESS = '0xuser00000000000000000000000000000000000000';
 const EXTERNAL_ADDRESS = '0xexternal000000000000000000000000000000000';
 const CONTRACT_ADDRESS = '0xcontract00000000000000000000000000000000';
 
+function createMockTokenMetadataService(): ITokenMetadataService {
+  return {
+    enrichBatch: vi.fn().mockResolvedValue(ok()),
+    getOrFetch: vi.fn().mockResolvedValue(ok()),
+  } as unknown as ITokenMetadataService;
+}
+
 function createEthereumProcessor() {
-  return new EvmTransactionProcessor(ETHEREUM_CONFIG);
+  return new EvmTransactionProcessor(ETHEREUM_CONFIG, createMockTokenMetadataService());
 }
 
 function createAvalancheProcessor() {
-  return new EvmTransactionProcessor(AVALANCHE_CONFIG);
+  return new EvmTransactionProcessor(AVALANCHE_CONFIG, createMockTokenMetadataService());
 }
 
 describe('EvmTransactionProcessor - Transaction Correlation', () => {
@@ -465,7 +475,8 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
         amount: '1000000000000000000',
         currency: 'ETH',
         feeAmount: '21000000000000',
-        from: mixedCaseUser.toUpperCase(), // Different case but same address
+        // Addresses normalized to lowercase (as they would be from EvmAddressSchema)
+        from: mixedCaseUser.toLowerCase(),
         id: '0xhash7',
         providerId: 'alchemy',
         status: 'success',
@@ -1046,7 +1057,8 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
         providerId: 'alchemy',
         status: 'success',
         timestamp: Date.now(),
-        to: mixedCaseUser, // Different case than USER_ADDRESS
+        // Addresses normalized to lowercase (as they would be from EvmAddressSchema)
+        to: mixedCaseUser.toLowerCase(),
         tokenType: 'native',
         type: 'transfer',
       },
@@ -1463,5 +1475,210 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
     // Still classified as transfer
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
+  });
+});
+
+describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
+  let mockTokenMetadataService: ITokenMetadataService;
+
+  beforeEach(() => {
+    // Mock TokenMetadataService that actually enriches the data
+    mockTokenMetadataService = {
+      enrichBatch: vi
+        .fn()
+        .mockImplementation(
+          (
+            items: EvmTransaction[],
+            _blockchain: string,
+            contractExtractor: (item: EvmTransaction) => string | undefined,
+            metadataUpdater: (item: EvmTransaction, metadata: { decimals: number; symbol: string }) => void
+          ) => {
+            // Simulate enrichment by calling the metadataUpdater callback
+            for (const item of items) {
+              const contractAddress = contractExtractor(item);
+              // Mock metadata based on contract address
+              if (contractAddress === '0xusdc000000000000000000000000000000000000') {
+                metadataUpdater(item, { symbol: 'USDC', decimals: 6 });
+              } else if (contractAddress === '0xdai0000000000000000000000000000000000000') {
+                metadataUpdater(item, { symbol: 'DAI', decimals: 18 });
+              } else if (contractAddress === '0xtoken00000000000000000000000000000000000') {
+                metadataUpdater(item, { symbol: 'TOKEN', decimals: 18 });
+              }
+            }
+            return ok();
+          }
+        ),
+      getOrFetch: vi.fn().mockResolvedValue(ok()),
+    } as unknown as ITokenMetadataService;
+  });
+
+  test('enriches token metadata when symbol looks like contract address', async () => {
+    const processor = new EvmTransactionProcessor(ETHEREUM_CONFIG, mockTokenMetadataService);
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '1000000000', // 1000 USDC
+        // Symbol is contract address (needs enrichment)
+        currency: '0xusdc000000000000000000000000000000000000',
+        from: EXTERNAL_ADDRESS,
+        id: '0xhash1',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: USER_ADDRESS,
+        tokenAddress: '0xusdc000000000000000000000000000000000000',
+        tokenDecimals: 6,
+        tokenSymbol: '0xusdc000000000000000000000000000000000000',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    // Verify enrichBatch was called with the transactions
+    expect(mockTokenMetadataService.enrichBatch).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tokenAddress: '0xusdc000000000000000000000000000000000000',
+        }),
+      ]),
+      'ethereum',
+      expect.any(Function),
+      expect.any(Function),
+      expect.any(Function)
+    );
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // Verify enriched symbol is used in transaction
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.movements.inflows?.[0]?.asset).toBe('USDC');
+  });
+
+  test('skips enrichment when symbol is already readable', async () => {
+    const processor = new EvmTransactionProcessor(ETHEREUM_CONFIG, mockTokenMetadataService);
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '1000000000',
+        currency: 'USDC', // Already readable
+        from: EXTERNAL_ADDRESS,
+        id: '0xhash1',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: USER_ADDRESS,
+        tokenAddress: '0xusdc000000000000000000000000000000000000',
+        tokenDecimals: 6,
+        tokenSymbol: 'USDC', // Already readable
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+
+    // Verify enrichBatch was NOT called for readable symbols
+    expect(mockTokenMetadataService.enrichBatch).not.toHaveBeenCalled();
+  });
+
+  test('enriches decimals when missing from transaction', async () => {
+    const processor = new EvmTransactionProcessor(ETHEREUM_CONFIG, mockTokenMetadataService);
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '1000000000000000000',
+        currency: '0xtoken00000000000000000000000000000000000',
+        from: EXTERNAL_ADDRESS,
+        id: '0xhash1',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: USER_ADDRESS,
+        tokenAddress: '0xtoken00000000000000000000000000000000000',
+        // tokenDecimals missing
+        tokenSymbol: '0xtoken00000000000000000000000000000000000',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    // Verify enrichBatch was called
+    expect(mockTokenMetadataService.enrichBatch).toHaveBeenCalled();
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // Verify enriched metadata is used
+    expect(transaction.movements.inflows?.[0]?.asset).toBe('TOKEN');
+    expect(transaction.metadata?.tokenDecimals).toBe(18);
+  });
+
+  test('handles multiple token transfers with enrichment', async () => {
+    const processor = new EvmTransactionProcessor(ETHEREUM_CONFIG, mockTokenMetadataService);
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '1000000000',
+        currency: '0xusdc000000000000000000000000000000000000',
+        from: USER_ADDRESS,
+        id: '0xswap1',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: CONTRACT_ADDRESS,
+        tokenAddress: '0xusdc000000000000000000000000000000000000',
+        tokenDecimals: 6,
+        tokenSymbol: '0xusdc000000000000000000000000000000000000',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      },
+      {
+        amount: '1000000000000000000000',
+        currency: '0xdai0000000000000000000000000000000000000',
+        from: CONTRACT_ADDRESS,
+        id: '0xswap1',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: USER_ADDRESS,
+        tokenAddress: '0xdai0000000000000000000000000000000000000',
+        tokenDecimals: 18,
+        tokenSymbol: '0xdai0000000000000000000000000000000000000',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    // Verify enrichBatch was called once with both tokens
+    expect(mockTokenMetadataService.enrichBatch).toHaveBeenCalledTimes(1);
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // Verify both enriched symbols are used
+    expect(transaction.movements.outflows?.[0]?.asset).toBe('USDC');
+    expect(transaction.movements.inflows?.[0]?.asset).toBe('DAI');
+    expect(transaction.operation.type).toBe('swap');
   });
 });

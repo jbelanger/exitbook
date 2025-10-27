@@ -95,20 +95,25 @@ export class MoralisTokenTransferMapper extends BaseRawDataMapper<MoralisTokenTr
       }
     }
 
+    // Use token_symbol if Moralis provides it, otherwise fall back to contract address for currency
+    // The processor will enrich contract addresses with metadata from the token repository
+    const currency = rawData.token_symbol || rawData.address;
+    const tokenSymbol = rawData.token_symbol || undefined;
+
     const transaction: EvmTransaction = {
       amount: valueRaw,
       blockHeight: parseInt(rawData.block_number),
       blockId: rawData.block_hash,
-      currency: rawData.token_symbol,
+      currency,
       from: normalizeEvmAddress(rawData.from_address) ?? '',
       id: rawData.transaction_hash,
       providerId: 'moralis',
       status: 'success', // Token transfers are always successful if they appear in the results
       timestamp,
       to: normalizeEvmAddress(rawData.to_address),
-      tokenAddress: rawData.address,
+      tokenAddress: normalizeEvmAddress(rawData.address),
       tokenDecimals,
-      tokenSymbol: rawData.token_symbol,
+      tokenSymbol,
       tokenType,
       type: 'token_transfer',
     };

@@ -1,12 +1,16 @@
-import { getErrorMessage, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
 import type { ProviderConfig } from '../../../shared/blockchain/index.ts';
 import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
-import type { ProviderOperation, TransactionWithRawData } from '../../../shared/blockchain/types/index.ts';
+import type {
+  ProviderOperation,
+  RawBalanceData,
+  TransactionWithRawData,
+} from '../../../shared/blockchain/types/index.ts';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
-import type { BitcoinTransaction } from '../types.js';
+import type { BitcoinTransaction } from '../schemas.js';
 
 import { MempoolSpaceTransactionMapper } from './mempool-space.mapper.ts';
 import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.schemas.js';
@@ -105,7 +109,7 @@ export class MempoolSpaceApiClient extends BaseApiClient {
   /**
    * Get lightweight address info for efficient gap scanning
    */
-  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
     this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
@@ -132,9 +136,11 @@ export class MempoolSpaceApiClient extends BaseApiClient {
     );
 
     return ok({
-      total: balanceBTC,
-      asset: 'BTC',
-    });
+      rawAmount: totalBalanceSats.toString(),
+      symbol: 'BTC',
+      decimals: 8,
+      decimalAmount: balanceBTC,
+    } as RawBalanceData);
   }
 
   private async getAddressTransactions(params: {

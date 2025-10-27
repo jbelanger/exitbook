@@ -8,6 +8,7 @@
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../../shared/blockchain/utils/zod-utils.js';
+import { CosmosAddressSchema } from '../../schemas.js';
 
 /**
  * Schema for Injective amount (denom and amount pair)
@@ -19,45 +20,47 @@ export const InjectiveAmountSchema = z.object({
 
 /**
  * Schema for Injective gas fee structure
+ * Granter and payer addresses normalized via CosmosAddressSchema
  */
 export const InjectiveGasFeeSchema = z.object({
   amount: z.array(InjectiveAmountSchema).min(1, 'Gas fee must have at least one amount'),
   gas_limit: z.number().nonnegative('Gas limit must be non-negative'),
-  granter: z.string(),
-  payer: z.string(),
+  granter: CosmosAddressSchema,
+  payer: CosmosAddressSchema,
 });
 
 /**
  * Schema for Injective message value (flexible structure for different message types)
+ * All address fields normalized via CosmosAddressSchema
  */
 export const InjectiveMessageValueSchema = z.object({
   // Common fields across message types
   amount: z.union([z.array(InjectiveAmountSchema), z.string(), InjectiveAmountSchema]).optional(),
   block_height: z.string().optional(),
-  cosmos_receiver: z.string().optional(),
+  cosmos_receiver: CosmosAddressSchema.optional(),
   data: z.string().optional(),
-  ethereum_receiver: z.string().optional(),
-  ethereum_sender: z.string().optional(),
+  ethereum_receiver: CosmosAddressSchema.optional(),
+  ethereum_sender: CosmosAddressSchema.optional(),
   event_nonce: z.string().optional(), // For Peggy bridge deposits
-  from_address: z.string().optional(),
-  injective_receiver: z.string().optional(),
+  from_address: CosmosAddressSchema.optional(),
+  injective_receiver: CosmosAddressSchema.optional(),
   memo: z.string().optional(),
-  orchestrator: z.string().optional(),
-  receiver: z.string().optional(),
-  sender: z.string().optional(),
+  orchestrator: CosmosAddressSchema.optional(),
+  receiver: CosmosAddressSchema.optional(),
+  sender: CosmosAddressSchema.optional(),
   source_channel: z.string().optional(),
   source_port: z.string().optional(),
   timeout_height: z.any().optional(), // Can be various types
   timeout_timestamp: z.string().optional(),
-  to_address: z.string().optional(),
+  to_address: CosmosAddressSchema.optional(),
   token: InjectiveAmountSchema.optional(),
-  token_contract: z.string().optional(),
+  token_contract: CosmosAddressSchema.optional(),
   // CosmWasm contract execution fields
-  contract: z.string().optional(),
+  contract: CosmosAddressSchema.optional(),
   msg: z.any().optional(), // Can be object or JSON string
   funds: z.union([z.array(InjectiveAmountSchema), z.string()]).optional(), // Array for MsgExecuteContract, string for MsgExecuteContractCompat
   // Peggy bridge withdrawal fields
-  eth_dest: z.string().optional(),
+  eth_dest: CosmosAddressSchema.optional(),
   bridge_fee: InjectiveAmountSchema.optional(),
 });
 

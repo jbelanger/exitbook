@@ -206,11 +206,7 @@ describe('TatumBitcoinApiClient', () => {
     };
 
     it('should fetch balance successfully', async () => {
-      const mockTransactions: TatumBitcoinTransaction[] = [];
-
-      mockHttpGet
-        .mockResolvedValueOnce(ok(mockBalance)) // First call for balance
-        .mockResolvedValueOnce(ok(mockTransactions)); // Second call for transaction count
+      mockHttpGet.mockResolvedValueOnce(ok(mockBalance)); // Call for balance
 
       const result = await client.getAddressBalances(mockAddress);
 
@@ -218,8 +214,10 @@ describe('TatumBitcoinApiClient', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toEqual({
-          asset: 'BTC',
-          total: '40', // (5000000000 - 1000000000) / 100000000
+          rawAmount: '4000000000', // 5000000000 - 1000000000
+          symbol: 'BTC',
+          decimals: 8,
+          decimalAmount: '40', // (5000000000 - 1000000000) / 100000000
         });
       }
     });
@@ -261,11 +259,8 @@ describe('TatumBitcoinApiClient', () => {
         incoming: '5000000000',
         outgoing: '1000000000',
       };
-      const mockTransactions: TatumBitcoinTransaction[] = [];
 
-      mockHttpGet
-        .mockResolvedValueOnce(ok(mockBalance)) // First call for balance
-        .mockResolvedValueOnce(ok(mockTransactions)); // Second call for transaction count
+      mockHttpGet.mockResolvedValueOnce(ok(mockBalance)); // Call for balance
 
       const result = await client.execute({
         address: mockAddress,
@@ -275,8 +270,10 @@ describe('TatumBitcoinApiClient', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toEqual({
-          asset: 'BTC',
-          total: '40', // (5000000000 - 1000000000) / 100000000
+          rawAmount: '4000000000', // 5000000000 - 1000000000
+          symbol: 'BTC',
+          decimals: 8,
+          decimalAmount: '40', // (5000000000 - 1000000000) / 100000000
         });
       }
     });

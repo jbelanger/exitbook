@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BitcoinTransaction } from '../../../../blockchain/bitcoin/types.ts';
+import type { BitcoinTransaction } from '../../../../blockchain/bitcoin/schemas.ts';
 import type { CosmosTransaction } from '../../../../blockchain/cosmos/types.ts';
 import type { EvmTransaction } from '../../../../blockchain/evm/types.ts';
 import type { SolanaTransaction } from '../../../../blockchain/solana/types.ts';

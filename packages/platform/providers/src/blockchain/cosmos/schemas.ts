@@ -16,6 +16,27 @@ const numericString = z.string().refine(
 );
 
 /**
+ * Cosmos address schema with automatic lowercase normalization
+ *
+ * Cosmos addresses use Bech32 encoding (e.g., cosmos1..., inj1..., osmo1...),
+ * which is case-insensitive according to BIP-173. The standard representation uses lowercase.
+ *
+ * This schema automatically normalizes addresses to lowercase at the validation boundary,
+ * eliminating the need for manual normalization throughout the codebase.
+ *
+ * Examples:
+ * - "inj1abc..." → "inj1abc..." (already lowercase)
+ * - "INJ1ABC..." → "inj1abc..." (normalized to lowercase)
+ * - "cosmos1xyz..." → "cosmos1xyz..." (already lowercase)
+ *
+ * @see https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki
+ */
+export const CosmosAddressSchema = z
+  .string()
+  .min(1, 'Cosmos address must not be empty')
+  .transform((addr) => addr.toLowerCase());
+
+/**
  * Schema for unified Cosmos SDK transaction
  *
  * Validates transactions from all Cosmos SDK-based chains (Injective, Osmosis, Cosmos Hub, etc.)
@@ -31,9 +52,9 @@ export const CosmosTransactionSchema = z.object({
   timestamp: z.number().positive('Timestamp must be positive'),
   status: z.enum(['success', 'failed', 'pending']),
 
-  // Transaction flow
-  from: z.string().min(1, 'From address must not be empty'),
-  to: z.string().min(1, 'To address must not be empty'),
+  // Transaction flow (addresses normalized via CosmosAddressSchema)
+  from: CosmosAddressSchema,
+  to: CosmosAddressSchema,
 
   // Value information
   amount: numericString,
@@ -61,7 +82,7 @@ export const CosmosTransactionSchema = z.object({
   feeCurrency: z.string().optional(),
 
   // Token-specific information
-  tokenAddress: z.string().optional(),
+  tokenAddress: CosmosAddressSchema.optional(),
   tokenDecimals: z.number().nonnegative().optional(),
   tokenSymbol: z.string().optional(),
   tokenType: z.enum(['cw20', 'native', 'ibc']).optional(),
@@ -77,9 +98,9 @@ export const CosmosTransactionSchema = z.object({
   bridgeType: z.enum(['peggy', 'gravity', 'ibc', 'native']).optional(),
   bridgeId: z.string().optional(),
 
-  // Injective Peggy bridge-specific
-  ethereumSender: z.string().optional(),
-  ethereumReceiver: z.string().optional(),
+  // Injective Peggy bridge-specific (Ethereum addresses also normalized to lowercase)
+  ethereumSender: CosmosAddressSchema.optional(),
+  ethereumReceiver: CosmosAddressSchema.optional(),
   eventNonce: z.string().optional(),
   claimId: z.array(z.number()).optional(),
 
@@ -88,12 +109,12 @@ export const CosmosTransactionSchema = z.object({
   gravityBatchNonce: z.string().optional(),
 
   // CosmWasm contract-specific
-  contractAddress: z.string().optional(),
+  contractAddress: CosmosAddressSchema.optional(),
   contractAction: z.string().optional(),
   contractResult: z.string().optional(),
 });
 
 /**
- * Type inferred from schema
+ * Type inferred from schema (schema-first approach)
  */
-export type CosmosTransactionSchemaType = z.infer<typeof CosmosTransactionSchema>;
+export type CosmosTransaction = z.infer<typeof CosmosTransactionSchema>;

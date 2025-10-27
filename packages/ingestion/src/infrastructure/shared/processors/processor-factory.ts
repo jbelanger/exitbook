@@ -7,21 +7,29 @@ import {
 } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 
+import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.ts';
 import type { IProcessorFactory } from '../../../types/factories.ts';
 import type { ITransactionProcessor } from '../../../types/processors.ts';
 
 /**
  * Factory for creating processor instances.
  * Handles dependency injection and source-specific instantiation.
+ *
+ * Architecture:
+ * - Static methods (getSupportedSources, isSupported): Query available processors without dependencies
+ * - Instance methods (create): Create processors with injected dependencies (TokenMetadataService)
+ *
+ * This hybrid pattern allows:
+ * 1. Lightweight querying of capabilities (e.g., listing blockchains) without service initialization
+ * 2. Proper dependency injection when creating actual processor instances
  */
 export class ProcessorFactory implements IProcessorFactory {
-  private readonly logger = getLogger('ProcessorFactory');
-
   /**
    * Get all supported sources for a given type.
    * For blockchains, returns chains that have at least one registered provider.
+   * Static method - does not require instance dependencies.
    */
-  async getSupportedSources(sourceType: SourceType): Promise<string[]> {
+  static async getSupportedSources(sourceType: SourceType): Promise<string[]> {
     if (sourceType === 'exchange') {
       return ['kraken', 'kucoin', 'ledgerlive', 'coinbase'];
     }
@@ -57,15 +65,16 @@ export class ProcessorFactory implements IProcessorFactory {
 
   /**
    * Check if a processor is available for the given source.
+   * Static method - does not require instance dependencies.
    */
-  async isSupported(sourceId: string, sourceType: SourceType): Promise<boolean> {
+  static async isSupported(sourceId: string, sourceType: SourceType): Promise<boolean> {
     try {
       if (sourceType === 'exchange') {
         return ['coinbase', 'kraken', 'kucoin', 'ledgerlive'].includes(sourceId.toLowerCase());
       }
 
       if (sourceType === 'blockchain') {
-        const supportedChains = await this.getSupportedSources('blockchain');
+        const supportedChains = await ProcessorFactory.getSupportedSources('blockchain');
         return supportedChains.includes(sourceId.toLowerCase());
       }
 
@@ -74,7 +83,9 @@ export class ProcessorFactory implements IProcessorFactory {
       return false;
     }
   }
+  private readonly logger = getLogger('ProcessorFactory');
 
+  constructor(private readonly tokenMetadataService: ITokenMetadataService) {}
   /**
    * Create a processor for the specified source.
    */
@@ -107,7 +118,7 @@ export class ProcessorFactory implements IProcessorFactory {
     if (!config) {
       throw new Error(`EVM chain config not found: ${chainName}`);
     }
-    return new EvmTransactionProcessor(config);
+    return new EvmTransactionProcessor(config, this.tokenMetadataService);
   }
 
   /**
@@ -289,6 +300,6 @@ export class ProcessorFactory implements IProcessorFactory {
   private async createSolanaProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { SolanaTransactionProcessor } = await import('../../blockchains/solana/processor.ts');
-    return new SolanaTransactionProcessor();
+    return new SolanaTransactionProcessor(this.tokenMetadataService);
   }
 }

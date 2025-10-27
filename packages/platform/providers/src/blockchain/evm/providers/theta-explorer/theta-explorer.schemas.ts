@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../../shared/blockchain/utils/zod-utils.js';
+import { EvmAddressSchema } from '../../schemas.ts';
 
 /**
  * Schema for Theta blockchain coin balances
@@ -14,7 +15,7 @@ export const ThetaCoinsSchema = z.object({
  * Schema for Theta account information
  */
 export const ThetaAccountSchema = z.object({
-  address: z.string().min(1, 'Address must not be empty'),
+  address: EvmAddressSchema,
   coins: ThetaCoinsSchema,
   sequence: z.string().optional(),
   signature: z.string().optional(),

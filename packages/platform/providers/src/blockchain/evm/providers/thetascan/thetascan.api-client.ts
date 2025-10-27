@@ -1,11 +1,10 @@
-import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
 import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
-import { getTokenMetadataWithCache } from '../../../../shared/token-metadata/index.ts';
 import type { EvmTransaction } from '../../types.ts';
 
 import { ThetaScanTransactionMapper } from './thetascan.mapper.ts';
@@ -101,7 +100,7 @@ export class ThetaScanApiClient extends BaseApiClient {
     return ok(Array.isArray(transactions) ? transactions : []);
   }
 
-  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
     if (!this.isValidEthAddress(address)) {
@@ -125,15 +124,16 @@ export class ThetaScanApiClient extends BaseApiClient {
 
     const balanceData = result.value as ThetaScanBalanceResponse;
 
-    this.logger.debug(`Retrieved balance for ${maskAddress(address)}: ${balanceData.theta} THETA`);
+    this.logger.debug(`Retrieved balance for ${maskAddress(address)}: ${balanceData.tfuel} TFUEL`);
 
     // ThetaScan API may return numbers instead of strings, ensure conversion
-    const total = String(balanceData.theta || '0');
+    const total = String(balanceData.tfuel || '0');
 
     return ok({
-      total,
-      asset: 'TFUEL',
-    });
+      rawAmount: total,
+      decimals: 18,
+      symbol: 'TFUEL',
+    } as RawBalanceData);
   }
 
   private async getAddressTransactions(params: {
@@ -188,7 +188,7 @@ export class ThetaScanApiClient extends BaseApiClient {
   private async getAddressTokenBalances(params: {
     address: string;
     contractAddresses?: string[] | undefined;
-  }): Promise<Result<BlockchainBalanceSnapshot[], Error>> {
+  }): Promise<Result<RawBalanceData[], Error>> {
     const { address, contractAddresses } = params;
 
     if (!this.isValidEthAddress(address)) {
@@ -203,7 +203,7 @@ export class ThetaScanApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    const balances: BlockchainBalanceSnapshot[] = [];
+    const balances: RawBalanceData[] = [];
 
     // Fetch balance for each contract
     for (const contractAddress of contractAddresses) {
@@ -225,28 +225,7 @@ export class ThetaScanApiClient extends BaseApiClient {
       const balanceData = result.value as ThetaScanTokenBalance;
 
       if (balanceData) {
-        // Cache the metadata for future lookups
-        const metadataResult = await getTokenMetadataWithCache(
-          this.blockchain,
-          contractAddress,
-          async () =>
-            Promise.resolve(
-              ok({
-                symbol: balanceData.token_symbol ?? undefined,
-                name: balanceData.token_name ?? undefined,
-                decimals: balanceData.token_decimals ?? undefined,
-              })
-            ),
-          'thetascan'
-        );
-
-        // Use symbol from metadata (or fallback to contract address if metadata fetch failed)
-        const asset =
-          metadataResult.isOk() && metadataResult.value.symbol
-            ? metadataResult.value.symbol
-            : balanceData.contract_address;
-
-        // Convert to BlockchainBalanceSnapshot format
+        // Convert to RawBalanceData format
         let balanceDecimal: string;
         if (balanceData.token_decimals !== undefined) {
           // Convert from smallest units to decimal
@@ -259,8 +238,11 @@ export class ThetaScanApiClient extends BaseApiClient {
         }
 
         balances.push({
-          asset,
-          total: balanceDecimal,
+          rawAmount: String(balanceData.balance || '0'),
+          decimals: balanceData.token_decimals,
+          decimalAmount: balanceDecimal,
+          symbol: balanceData.token_symbol ?? undefined,
+          contractAddress: balanceData.contract_address,
         });
       }
     }

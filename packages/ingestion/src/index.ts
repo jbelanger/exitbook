@@ -5,6 +5,10 @@ export {
   type PriceEnrichmentConfig,
 } from './services/price-enrichment/price-enrichment-service.ts';
 
+// Token metadata services
+export { TokenMetadataService } from './services/token-metadata/token-metadata-service.ts';
+export type { ITokenMetadataService } from './services/token-metadata/token-metadata-service.interface.ts';
+
 // Balance services
 export { calculateBalances } from './services/balance/balance-calculator.ts';
 export {

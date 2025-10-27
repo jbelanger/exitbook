@@ -1,6 +1,6 @@
 export * from './money.js';
 export * from './currency.js';
 export * from './universal-transaction.js';
-export * from './balance.js';
 export * from './data-source.js';
 export * from './external-transaction-data.js';
+export * from './token-metadata.js';

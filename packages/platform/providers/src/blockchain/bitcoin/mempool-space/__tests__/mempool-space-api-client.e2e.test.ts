@@ -1,9 +1,8 @@
-import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { TransactionWithRawData } from '../../../../shared/blockchain/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/index.ts';
 import { ProviderRegistry } from '../../../../shared/blockchain/index.ts';
-import type { BitcoinTransaction } from '../../types.ts';
+import type { BitcoinTransaction } from '../../schemas.ts';
 import { MempoolSpaceApiClient } from '../mempool-space-api-client.ts';
 
 describe('MempoolSpaceProvider Integration', () => {
@@ -24,7 +23,7 @@ describe('MempoolSpaceProvider Integration', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<BlockchainBalanceSnapshot>({
+      const result = await provider.execute<RawBalanceData>({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -33,8 +32,9 @@ describe('MempoolSpaceProvider Integration', () => {
       if (result.isOk()) {
         const balance = result.value;
         expect(balance).toBeDefined();
-        expect(balance).toHaveProperty('total');
-        expect(typeof balance.total).toBe('string');
+        expect(balance.symbol).toBe('BTC');
+        expect(balance.decimals).toBe(8);
+        expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
       }
     }, 30000);
   });
