@@ -146,12 +146,6 @@ export class BlockstreamApiClient extends BaseApiClient {
   }
 
   /**
-      total: balanceBTC,
-      asset: 'BTC',
-    });
-  }
-
-  /**
    * Get raw transaction data without transformation for wallet-aware parsing
    */
   private async getAddressTransactions(params: {

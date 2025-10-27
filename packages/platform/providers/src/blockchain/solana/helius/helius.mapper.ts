@@ -73,7 +73,7 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
       instructions: (tx.transaction.message.instructions || []).map((instruction) => ({
         accounts: [], // Will be extracted by processor if needed
         data: JSON.stringify(instruction), // Serialize instruction as data
-        programId: '', // Will be extracted by processor if needed
+        programId: undefined, // Will be extracted by processor if needed
       })),
 
       // Log messages

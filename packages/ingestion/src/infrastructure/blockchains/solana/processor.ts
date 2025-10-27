@@ -7,7 +7,7 @@ import type { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.ts';
-import { looksLikeContractAddress, needsEnrichment } from '../../../services/token-metadata/token-metadata-utils.ts';
+import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.ts';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
 import type { SolanaFundFlow } from './types.js';
@@ -724,7 +724,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
       // Enrich if metadata is incomplete OR if symbol looks like a mint address (Solana = 32+ chars)
       return tx.tokenChanges.filter(
         (change) =>
-          needsEnrichment(change.symbol, change.decimals) ||
+          isMissingMetadata(change.symbol, change.decimals) ||
           (change.symbol ? looksLikeContractAddress(change.symbol, 32) : false)
       );
     });

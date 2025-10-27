@@ -8,7 +8,7 @@
 import { z } from 'zod';
 
 /**
- * Solana address schema with validation but NO transformation.
+ * Solana address schema with validation but NO case transformation.
  *
  * Unlike Bitcoin and EVM addresses which are case-insensitive,
  * Solana addresses are case-sensitive base58-encoded strings.

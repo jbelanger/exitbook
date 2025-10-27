@@ -273,7 +273,7 @@ export async function enrichTokenMetadataBatch<T>(
  * Note: This does NOT check if the symbol looks like a contract address.
  * Callers should combine with looksLikeContractAddress() if needed.
  */
-export function needsEnrichment(symbol?: string, decimals?: number): boolean {
+export function isMissingMetadata(symbol?: string, decimals?: number): boolean {
   return !symbol || decimals === undefined;
 }
 

@@ -11,7 +11,7 @@ import {
   enrichTokenMetadataBatch,
   getOrFetchTokenMetadata,
   looksLikeContractAddress,
-  needsEnrichment,
+  isMissingMetadata,
 } from '../token-metadata-utils.js';
 
 describe('token-metadata-utils', () => {
@@ -355,19 +355,19 @@ describe('token-metadata-utils', () => {
 
   describe('needsEnrichment', () => {
     it('should return true if symbol is missing', () => {
-      expect(needsEnrichment(undefined, 18)).toBe(true);
+      expect(isMissingMetadata(undefined, 18)).toBe(true);
     });
 
     it('should return true if decimals is missing', () => {
-      expect(needsEnrichment('TEST')).toBe(true);
+      expect(isMissingMetadata('TEST')).toBe(true);
     });
 
     it('should return true if both are missing', () => {
-      expect(needsEnrichment()).toBe(true);
+      expect(isMissingMetadata()).toBe(true);
     });
 
     it('should return false if both are present', () => {
-      expect(needsEnrichment('TEST', 18)).toBe(false);
+      expect(isMissingMetadata('TEST', 18)).toBe(false);
     });
   });
 

@@ -7,7 +7,7 @@ import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.ts';
-import { looksLikeContractAddress, needsEnrichment } from '../../../services/token-metadata/token-metadata-utils.ts';
+import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.ts';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
 import type { EvmFundFlow } from './types.ts';
@@ -725,7 +725,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
       const symbol = tx.tokenSymbol || tx.currency;
       // Enrich if metadata is incomplete OR if symbol looks like a contract address (EVM = 40 chars)
-      return needsEnrichment(symbol, tx.tokenDecimals) || (symbol ? looksLikeContractAddress(symbol, 40) : false);
+      return isMissingMetadata(symbol, tx.tokenDecimals) || (symbol ? looksLikeContractAddress(symbol, 40) : false);
     });
 
     if (transactionsToEnrich.length === 0) {
