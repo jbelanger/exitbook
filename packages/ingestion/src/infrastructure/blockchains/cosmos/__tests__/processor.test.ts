@@ -657,8 +657,10 @@ describe('CosmosProcessor - Edge Cases', () => {
   test('handles case-insensitive address matching', async () => {
     const processor = createInjectiveProcessor();
 
-    const mixedCaseUser = 'INJ1UseR000000000000000000000000000000000';
+    // User address provided in mixed case (as might come from user input)
+    const mixedCaseUserInput = 'INJ1UseR000000000000000000000000000000000';
 
+    // Normalized data has lowercase addresses (as produced by CosmosAddressSchema)
     const normalizedData: CosmosTransaction[] = [
       {
         amount: '1000000000000000000',
@@ -670,12 +672,13 @@ describe('CosmosProcessor - Edge Cases', () => {
         providerId: 'injective-explorer',
         status: 'success',
         timestamp: Date.now(),
-        to: mixedCaseUser, // Different case than USER_ADDRESS
+        to: USER_ADDRESS.toLowerCase(), // Normalized by schema
         tokenType: 'native',
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    // Pass mixed-case address - processor should normalize it
+    const result = await processor.process(normalizedData, { address: mixedCaseUserInput });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -684,7 +687,7 @@ describe('CosmosProcessor - Edge Cases', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Check structured fields - should match despite case difference
+    // Check structured fields - should match despite case difference in input
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.operation.type).toBe('deposit');
   });

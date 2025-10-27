@@ -550,7 +550,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
   });
 
   describe('Edge Cases', () => {
-    test('handles case-insensitive address matching', async () => {
+    test('handles case-sensitive address matching (SS58 addresses are case-sensitive)', async () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
@@ -561,7 +561,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
           currency: 'DOT',
           feeAmount: '156000000',
           feeCurrency: 'DOT',
-          from: USER_ADDRESS.toUpperCase(), // Different case
+          from: USER_ADDRESS, // Same case - should match
           id: 'extrinsic-115-1',
           module: 'balances',
           providerId: 'subscan',
@@ -571,7 +571,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
         },
       ];
 
-      const result = await processor.process(normalizedData, { address: USER_ADDRESS.toLowerCase() });
+      const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -580,7 +580,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       expect(transaction).toBeDefined();
       if (!transaction) return;
 
-      // Should match despite case difference
+      // Should match with exact case match (SS58 addresses are case-sensitive)
       expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
     });
 

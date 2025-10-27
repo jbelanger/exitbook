@@ -17,7 +17,8 @@ export type ProviderOperationParams =
       limit?: number | undefined;
       type: 'getAddressTokenTransactions';
     }
-  | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressTokenBalances' };
+  | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressTokenBalances' }
+  | { contractAddress: string; type: 'getTokenMetadata' };
 
 export type ProviderOperation = {
   getCacheKey?: (params: ProviderOperationParams) => string;
@@ -29,7 +30,8 @@ export type ProviderOperationType =
   | 'hasAddressTransactions'
   | 'getAddressTokenTransactions'
   | 'getAddressTokenBalances'
-  | 'getAddressInternalTransactions';
+  | 'getAddressInternalTransactions'
+  | 'getTokenMetadata';
 
 /**
  * Result from failover execution that includes provenance

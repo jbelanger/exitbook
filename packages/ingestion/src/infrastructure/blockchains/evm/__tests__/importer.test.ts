@@ -5,6 +5,7 @@
 
 import type { FailoverExecutionResult } from '@exitbook/providers';
 import { type EvmChainConfig, type BlockchainProviderManager, ProviderError } from '@exitbook/providers';
+import { assertOperationType } from '@exitbook/providers/blockchain/__tests__/test-utils.js';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
@@ -177,18 +178,18 @@ describe('EvmImporter', () => {
         mockProviderManager.executeWithFailover.mock.calls;
 
       const [, normalOperation] = executeCalls[0]!;
+      assertOperationType(normalOperation, 'getAddressTransactions');
       expect(normalOperation.address).toBe(address);
-      expect(normalOperation.type).toBe('getAddressTransactions');
       expect(normalOperation.getCacheKey).toBeDefined();
 
       const [, internalOperation] = executeCalls[1]!;
+      assertOperationType(internalOperation, 'getAddressInternalTransactions');
       expect(internalOperation.address).toBe(address);
-      expect(internalOperation.type).toBe('getAddressInternalTransactions');
       expect(internalOperation.getCacheKey).toBeDefined();
 
       const [, tokenOperation] = executeCalls[2]!;
+      assertOperationType(tokenOperation, 'getAddressTokenTransactions');
       expect(tokenOperation.address).toBe(address);
-      expect(tokenOperation.type).toBe('getAddressTokenTransactions');
       expect(tokenOperation.getCacheKey).toBeDefined();
     });
   });
@@ -264,16 +265,16 @@ describe('EvmImporter', () => {
       expect(executeCalls[2]?.[0]).toBe('avalanche');
 
       const [, normalOperation] = executeCalls[0]!;
+      assertOperationType(normalOperation, 'getAddressTransactions');
       expect(normalOperation.address).toBe(address);
-      expect(normalOperation.type).toBe('getAddressTransactions');
 
       const [, internalOperation] = executeCalls[1]!;
+      assertOperationType(internalOperation, 'getAddressInternalTransactions');
       expect(internalOperation.address).toBe(address);
-      expect(internalOperation.type).toBe('getAddressInternalTransactions');
 
       const [, tokenOperation] = executeCalls[2]!;
+      assertOperationType(tokenOperation, 'getAddressTokenTransactions');
       expect(tokenOperation.address).toBe(address);
-      expect(tokenOperation.type).toBe('getAddressTokenTransactions');
     });
 
     test('should handle array of transactions from provider', async () => {

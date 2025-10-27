@@ -34,7 +34,9 @@ export class CosmosProcessor extends BaseTransactionProcessor {
       return err('No address provided in session metadata');
     }
 
-    const userAddress = sessionMetadata.address;
+    // Normalize user address to lowercase for case-insensitive matching
+    // (normalized data addresses are already lowercase via CosmosAddressSchema)
+    const userAddress = sessionMetadata.address.toLowerCase();
 
     // Deduplicate by transaction ID (handles cases like Peggy deposits where multiple validators
     // submit the same deposit claim with different tx hashes but same event_nonce-based ID)
@@ -61,9 +63,8 @@ export class CosmosProcessor extends BaseTransactionProcessor {
         // User paid fee if:
         // 1. They have ANY outflows (sent funds, delegated, swapped, etc.) OR
         // 2. They initiated a transaction with no outflows (governance votes, contract calls, etc.)
-        const userAddressLower = userAddress.toLowerCase();
-        const fromAddressLower = normalizedTx.from.toLowerCase();
-        const userInitiatedTransaction = fromAddressLower === userAddressLower;
+        // Note: Addresses are already normalized to lowercase via CosmosAddressSchema
+        const userInitiatedTransaction = normalizedTx.from === userAddress;
         const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
         const networkFee = userPaidFee
@@ -142,12 +143,9 @@ export class CosmosProcessor extends BaseTransactionProcessor {
   /**
    * Analyze fund flow from normalized CosmosTransaction data
    * Collects ALL assets that move in/out (following EVM pattern)
+   * Note: Addresses are already normalized to lowercase via CosmosAddressSchema
    */
   private analyzeFundFlowFromNormalized(transaction: CosmosTransaction, userAddress: string): CosmosFundFlow {
-    const userAddressLower = userAddress.toLowerCase();
-    const fromAddressLower = transaction.from.toLowerCase();
-    const toAddressLower = transaction.to.toLowerCase();
-
     // Analyze transaction type context
     const hasBridgeTransfer = transaction.bridgeType === 'peggy' || transaction.bridgeType === 'ibc';
     const hasIbcTransfer = transaction.bridgeType === 'ibc';
@@ -172,8 +170,8 @@ export class CosmosProcessor extends BaseTransactionProcessor {
     }[] = [];
 
     // Determine flow direction
-    const isIncoming = toAddressLower === userAddressLower;
-    const isOutgoing = fromAddressLower === userAddressLower;
+    const isIncoming = transaction.to === userAddress;
+    const isOutgoing = transaction.from === userAddress;
 
     // Skip zero amounts
     const amount = transaction.amount;

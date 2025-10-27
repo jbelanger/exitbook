@@ -5,12 +5,13 @@ import {
   hexOrNumericToNumericRequired,
   timestampToDate,
 } from '../../../../shared/blockchain/utils/zod-utils.ts';
+import { EvmAddressSchema } from '../../schemas.ts';
 
 /**
  * Schema for Alchemy raw contract structure
  */
 export const AlchemyRawContractSchema = z.object({
-  address: z.union([z.string(), z.null()]).optional(),
+  address: EvmAddressSchema.nullable().optional(),
   decimal: hexOrNumericToNumericOptional,
   value: hexOrNumericToNumericOptional,
 });
@@ -27,14 +28,14 @@ export const AlchemyMetadataSchema = z.object({
  */
 export const AlchemyAssetTransferParamsSchema = z.object({
   category: z.array(z.string().min(1, 'Category entry must not be empty')),
-  contractAddresses: z.array(z.string().min(1, 'Contract address must not be empty')).optional(),
+  contractAddresses: z.array(EvmAddressSchema).optional(),
   excludeZeroValue: z.boolean(),
-  fromAddress: z.string().min(1, 'From address must not be empty').optional(),
+  fromAddress: EvmAddressSchema.optional(),
   fromBlock: z.string().min(1, 'From block must not be empty').optional(),
   maxCount: z.string().min(1, 'Max count must not be empty'),
   order: z.string().optional(),
   pageKey: z.string().optional(),
-  toAddress: z.string().min(1, 'To address must not be empty').optional(),
+  toAddress: EvmAddressSchema.optional(),
   toBlock: z.string().min(1, 'To block must not be empty').optional(),
   withMetadata: z.boolean(),
 });
@@ -58,11 +59,11 @@ export const AlchemyAssetTransferSchema = z.object({
     ])
     .optional(),
   erc721TokenId: z.union([z.string(), z.null()]).optional(),
-  from: z.string().min(1, 'From address must not be empty'),
+  from: EvmAddressSchema,
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   metadata: AlchemyMetadataSchema,
   rawContract: AlchemyRawContractSchema.optional(),
-  to: z.union([z.string().min(1, 'To address must not be empty'), z.null()]).optional(),
+  to: EvmAddressSchema.nullable().optional(),
   tokenId: z.union([z.string(), z.null()]).optional(),
   uniqueId: z.string().optional(),
   value: hexOrNumericToNumericOptional,
@@ -121,9 +122,9 @@ export const AlchemyPortfolioTokenMetadataSchema = z.object({
  * Schema for Alchemy Portfolio API token balance
  */
 export const AlchemyPortfolioTokenBalanceSchema = z.object({
-  address: z.string(),
+  address: EvmAddressSchema,
   network: z.string(),
-  tokenAddress: z.string().nullable(),
+  tokenAddress: EvmAddressSchema.nullable(),
   tokenBalance: z.string(),
   tokenMetadata: AlchemyPortfolioTokenMetadataSchema.optional(),
   tokenPrices: z.array(AlchemyPortfolioTokenPriceSchema).optional(),
@@ -142,7 +143,7 @@ export const AlchemyPortfolioBalanceResponseSchema = z.object({
  * Schema for Alchemy Portfolio API request address
  */
 export const AlchemyPortfolioAddressSchema = z.object({
-  address: z.string(),
+  address: EvmAddressSchema,
   networks: z.array(z.string()),
 });
 
@@ -163,15 +164,15 @@ export const AlchemyPortfolioBalanceRequestSchema = z.object({
 export const AlchemyTransactionReceiptSchema = z.object({
   blockHash: z.string(),
   blockNumber: z.string().regex(/^0x[\da-fA-F]+$/, 'Block number must be hex string'),
-  contractAddress: z.string().nullable(),
+  contractAddress: EvmAddressSchema.nullable(),
   cumulativeGasUsed: hexOrNumericToNumericRequired,
   effectiveGasPrice: hexOrNumericToNumericRequired.optional(), // Only available post-EIP-1559
-  from: z.string(),
+  from: EvmAddressSchema,
   gasUsed: hexOrNumericToNumericRequired,
   logs: z.array(z.any()).optional(),
   logsBloom: z.string().optional(),
   status: z.string().regex(/^0x[01]$/, 'Status must be 0x0 or 0x1'),
-  to: z.string().nullable(),
+  to: EvmAddressSchema.nullable(),
   transactionHash: z.string(),
   transactionIndex: z.string().regex(/^0x[\da-fA-F]+$/, 'Transaction index must be hex string'),
   type: z

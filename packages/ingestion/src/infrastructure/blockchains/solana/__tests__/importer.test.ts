@@ -5,6 +5,7 @@
 
 import type { FailoverExecutionResult } from '@exitbook/providers';
 import { ProviderError, type BlockchainProviderManager } from '@exitbook/providers';
+import { assertOperationType } from '@exitbook/providers/blockchain/__tests__/test-utils.js';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
@@ -142,8 +143,8 @@ describe('SolanaTransactionImporter', () => {
         mockProviderManager.executeWithFailover.mock.calls;
 
       const [, operation] = executeCalls[0]!;
+      assertOperationType(operation, 'getAddressTransactions');
       expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getAddressTransactions');
       expect(operation.getCacheKey).toBeDefined();
     });
 

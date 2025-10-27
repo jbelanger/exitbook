@@ -1,8 +1,7 @@
-import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../shared/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../../shared/blockchain/types/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../../shared/blockchain/types/index.ts';
 import type { CosmosTransaction } from '../../../types.ts';
 import { InjectiveExplorerApiClient } from '../injective-explorer.api-client.ts';
 import type { InjectiveTransaction } from '../injective-explorer.schemas.js';
@@ -25,7 +24,7 @@ describe('InjectiveExplorerApiClient Integration', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<BlockchainBalanceSnapshot>({
+      const result = await provider.execute<RawBalanceData>({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -36,20 +35,23 @@ describe('InjectiveExplorerApiClient Integration', () => {
       }
 
       const balance = result.value;
-      expect(balance).toHaveProperty('total');
-      expect(balance).toHaveProperty('asset');
-      expect(typeof balance.total).toBe('string');
-      expect(balance.asset).toBe('INJ');
+      expect(balance).toBeDefined();
+      expect(balance.symbol).toBe('INJ');
+      expect(balance.decimals).toBe(18);
+      expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
 
-      // Balance should be a valid decimal number string
-      expect(() => parseFloat(balance.total)).not.toThrow();
-      expect(parseFloat(balance.total)).toBeGreaterThanOrEqual(0);
+      // Balance should be a valid decimal number
+      if (balance.decimalAmount) {
+        const numericValue = parseFloat(balance.decimalAmount);
+        expect(numericValue).not.toBeNaN();
+        expect(numericValue).toBeGreaterThanOrEqual(0);
+      }
     }, 30000);
 
     it('should handle address with minimal or zero balance', async () => {
       // Use a different address that might have minimal balance
       const minimalAddress = 'inj1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqe2hm49';
-      const result = await provider.execute<BlockchainBalanceSnapshot>({
+      const result = await provider.execute<RawBalanceData>({
         address: minimalAddress,
         type: 'getAddressBalances',
       });
@@ -60,10 +62,12 @@ describe('InjectiveExplorerApiClient Integration', () => {
       }
 
       const balance = result.value;
-      expect(balance).toHaveProperty('total');
-      expect(balance).toHaveProperty('asset');
-      expect(balance.asset).toBe('INJ');
-      expect(parseFloat(balance.total)).toBeGreaterThanOrEqual(0);
+      expect(balance).toBeDefined();
+      expect(balance.symbol).toBe('INJ');
+      expect(balance.decimals).toBe(18);
+      if (balance.decimalAmount) {
+        expect(parseFloat(balance.decimalAmount)).toBeGreaterThanOrEqual(0);
+      }
     }, 30000);
   });
 

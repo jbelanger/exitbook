@@ -20,6 +20,7 @@ vi.mock('@exitbook/ingestion', () => ({
   DataSourceRepository: vi.fn(),
   ProcessorFactory: vi.fn(),
   RawDataRepository: vi.fn(),
+  TokenMetadataService: vi.fn(),
   TransactionImportService: vi.fn(),
   TransactionProcessService: vi.fn(),
   TransactionRepository: vi.fn(),

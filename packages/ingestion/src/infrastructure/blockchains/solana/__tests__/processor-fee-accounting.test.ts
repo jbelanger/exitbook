@@ -1,6 +1,8 @@
 import type { SolanaTransaction } from '@exitbook/providers';
-import { describe, expect, test } from 'vitest';
+import { ok } from 'neverthrow';
+import { describe, expect, test, vi } from 'vitest';
 
+import type { ITokenMetadataService } from '../../../../services/token-metadata/token-metadata-service.interface.ts';
 import { SolanaTransactionProcessor } from '../processor.ts';
 
 const USER_ADDRESS = 'user1111111111111111111111111111111111111111';
@@ -9,7 +11,14 @@ const CONTRACT_ADDRESS = 'contract333333333333333333333333333333333333';
 const TOKEN_ACCOUNT = 'token4444444444444444444444444444444444444444';
 
 function createProcessor() {
-  return new SolanaTransactionProcessor();
+  // Create minimal mock for token metadata service
+  const mockTokenMetadataService = {
+    enrichBatch: vi.fn().mockResolvedValue(ok()),
+    // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
+    getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+  } as unknown as ITokenMetadataService;
+
+  return new SolanaTransactionProcessor(mockTokenMetadataService);
 }
 
 describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {

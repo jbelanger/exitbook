@@ -1,13 +1,11 @@
-import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
 import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../shared/blockchain/index.ts';
 import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../shared/blockchain/types/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../shared/blockchain/types/index.ts';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
-import type { TokenMetadata } from '../../../shared/token-metadata/index.ts';
-import { getTokenMetadataWithCache } from '../../../shared/token-metadata/index.ts';
 import type { SolanaSignature, SolanaTokenAccountsResponse, SolanaTransaction } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
@@ -66,27 +64,6 @@ export class SolanaRPCApiClient extends BaseApiClient {
     }
   }
 
-  async getTokenMetadata(mintAddress: string): Promise<Result<TokenMetadata, Error>> {
-    return await getTokenMetadataWithCache(
-      'solana',
-      mintAddress,
-      async () => {
-        // NOTE: Standard Solana RPC doesn't provide token metadata directly.
-        // To fetch token metadata, we would need to:
-        // 1. Derive the Metaplex metadata PDA from the mint address
-        // 2. Fetch the metadata account using getAccountInfo
-        // 3. Parse the Metaplex metadata format
-        //
-        // For now, this returns an error which causes graceful fallback to mint address.
-        // Future enhancement: Add Metaplex metadata fetching support.
-        return Promise.resolve(
-          err(new Error(`Token metadata not available via standard Solana RPC for mint: ${mintAddress}`))
-        );
-      },
-      'solana-rpc'
-    );
-  }
-
   getHealthCheckConfig() {
     return {
       body: {
@@ -103,7 +80,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
     };
   }
 
-  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
@@ -139,7 +116,12 @@ export class SolanaRPCApiClient extends BaseApiClient {
       `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceSOL}`
     );
 
-    return ok({ total: balanceSOL, asset: 'SOL' });
+    return ok({
+      rawAmount: response.result.value.toString(),
+      decimals: 9,
+      decimalAmount: balanceSOL,
+      symbol: 'SOL',
+    } as RawBalanceData);
   }
 
   private async getAddressTransactions(params: {
@@ -240,7 +222,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
   private async getAddressTokenBalances(params: {
     address: string;
     contractAddresses?: string[] | undefined;
-  }): Promise<Result<BlockchainBalanceSnapshot[], Error>> {
+  }): Promise<Result<RawBalanceData[], Error>> {
     const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
@@ -278,19 +260,17 @@ export class SolanaRPCApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    // Convert to BlockchainBalanceSnapshot format with symbols
-    const balances: BlockchainBalanceSnapshot[] = [];
+    // Convert to RawBalanceData format with symbols
+    const balances: RawBalanceData[] = [];
     for (const account of tokenAccountsResponse.result.value) {
       const tokenInfo = account.account.data.parsed.info;
       const mintAddress = tokenInfo.mint;
 
-      // Fetch token metadata to get symbol
-      const metadataResult = await this.getTokenMetadata(mintAddress);
-      const symbol = metadataResult.isOk() && metadataResult.value.symbol ? metadataResult.value.symbol : mintAddress;
-
       balances.push({
-        asset: symbol,
-        total: tokenInfo.tokenAmount.uiAmountString,
+        contractAddress: mintAddress,
+        decimals: tokenInfo.tokenAmount.decimals,
+        rawAmount: tokenInfo.tokenAmount.amount,
+        decimalAmount: tokenInfo.tokenAmount.uiAmountString,
       });
     }
 

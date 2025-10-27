@@ -1,24 +1,24 @@
-import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import type { TokenMetadata } from '@exitbook/core';
+import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
 import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
-import type { TokenMetadata } from '../../../../shared/token-metadata/index.ts';
-import { getTokenMetadataWithCache } from '../../../../shared/token-metadata/index.ts';
 import type { EvmChainConfig } from '../../chain-config.interface.ts';
 import { getEvmChainConfig } from '../../chain-registry.ts';
 import type { EvmTransaction } from '../../types.ts';
 
 import { MoralisTransactionMapper, MoralisTokenTransferMapper } from './moralis.mapper.ts';
-import type {
-  MoralisNativeBalance,
-  MoralisTransaction,
-  MoralisTransactionResponse,
-  MoralisTokenBalance,
-  MoralisTokenTransfer,
-  MoralisTokenTransferResponse,
+import {
+  MoralisTokenMetadataSchema,
+  type MoralisNativeBalance,
+  type MoralisTokenBalance,
+  type MoralisTokenTransfer,
+  type MoralisTokenTransferResponse,
+  type MoralisTransaction,
+  type MoralisTransactionResponse,
 } from './moralis.schemas.ts';
 
 /**
@@ -41,6 +41,7 @@ const CHAIN_ID_MAP: Record<string, string> = {
       'getAddressBalances',
       'getAddressTokenTransactions',
       'getAddressTokenBalances',
+      'getTokenMetadata',
     ],
   },
   defaultConfig: {
@@ -127,6 +128,11 @@ export class MoralisApiClient extends BaseApiClient {
         this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
         return (await this.getAddressTokenBalances(address, contractAddresses)) as Result<T, Error>;
       }
+      case 'getTokenMetadata': {
+        const { contractAddress } = operation;
+        this.logger.debug(`Fetching token metadata - Contract: ${contractAddress}`);
+        return (await this.getTokenMetadata(contractAddress)) as Result<T, Error>;
+      }
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
     }
@@ -142,7 +148,45 @@ export class MoralisApiClient extends BaseApiClient {
     };
   }
 
-  private async getAddressBalances(address: string): Promise<Result<BlockchainBalanceSnapshot, Error>> {
+  async getTokenMetadata(contractAddress: string): Promise<Result<TokenMetadata, Error>> {
+    const params = new URLSearchParams({
+      chain: this.moralisChainId,
+    });
+    params.append('addresses[0]', contractAddress);
+
+    const endpoint = `/erc20/metadata?${params.toString()}`;
+    const result = await this.httpClient.get<unknown[]>(endpoint);
+
+    if (result.isErr()) {
+      this.logger.warn(`Failed to fetch token metadata for ${contractAddress}: ${getErrorMessage(result.error)}`);
+      return err(result.error);
+    }
+
+    const rawMetadata = result.value?.[0];
+    if (!rawMetadata) {
+      return err(new Error(`No metadata returned for token ${contractAddress}`));
+    }
+
+    // Parse and transform the response using Zod schema
+    const parseResult = MoralisTokenMetadataSchema.safeParse(rawMetadata);
+    if (!parseResult.success) {
+      return err(new Error(`Failed to parse token metadata: ${parseResult.error.message}`));
+    }
+
+    const metadata = parseResult.data;
+
+    return ok({
+      contractAddress: contractAddress,
+      refreshedAt: new Date(),
+      decimals: metadata.decimals ?? undefined,
+      logoUrl: metadata.logo ?? undefined,
+      name: metadata.name ?? undefined,
+      symbol: metadata.symbol ?? undefined,
+      source: 'moralis',
+    });
+  }
+
+  private async getAddressBalances(address: string): Promise<Result<RawBalanceData, Error>> {
     const params = new URLSearchParams({
       chain: this.moralisChainId,
     });
@@ -163,7 +207,12 @@ export class MoralisApiClient extends BaseApiClient {
       .toString();
 
     this.logger.debug(`Found raw native balance for ${address}: ${balanceDecimal}`);
-    return ok({ total: balanceDecimal, asset: this.chainConfig.nativeCurrency });
+    return ok({
+      rawAmount: response.balance,
+      symbol: this.chainConfig.nativeCurrency,
+      decimals: this.chainConfig.nativeDecimals,
+      decimalAmount: balanceDecimal,
+    } as RawBalanceData);
   }
 
   private async getAddressTransactions(
@@ -259,44 +308,10 @@ export class MoralisApiClient extends BaseApiClient {
     return Promise.resolve(ok([]));
   }
 
-  private async getTokenMetadata(contractAddress: string): Promise<Result<TokenMetadata, Error>> {
-    return await getTokenMetadataWithCache(
-      this.blockchain,
-      contractAddress,
-      async () => {
-        const params = new URLSearchParams({
-          chain: this.moralisChainId,
-        });
-        params.append('token_addresses[]', contractAddress);
-
-        const endpoint = `/erc20/metadata?${params.toString()}`;
-        const result = await this.httpClient.get<MoralisTokenBalance[]>(endpoint);
-
-        if (result.isErr()) {
-          this.logger.warn(`Failed to fetch token metadata for ${contractAddress}: ${getErrorMessage(result.error)}`);
-          return err(result.error);
-        }
-
-        const metadata = result.value?.[0];
-        if (!metadata) {
-          return err(new Error(`No metadata returned for token ${contractAddress}`));
-        }
-
-        return ok({
-          symbol: metadata.symbol ?? undefined,
-          name: metadata.name ?? undefined,
-          decimals: metadata.decimals ?? undefined,
-          logoUrl: metadata.logo ?? undefined,
-        });
-      },
-      'moralis'
-    );
-  }
-
   private async getAddressTokenBalances(
     address: string,
     contractAddresses?: string[]
-  ): Promise<Result<BlockchainBalanceSnapshot[], Error>> {
+  ): Promise<Result<RawBalanceData[], Error>> {
     const params = new URLSearchParams({
       chain: this.moralisChainId,
     });
@@ -317,35 +332,18 @@ export class MoralisApiClient extends BaseApiClient {
 
     const rawBalances = result.value || [];
 
-    // Convert to BlockchainBalanceSnapshot format and cache metadata
-    const balances: BlockchainBalanceSnapshot[] = [];
+    // Convert to RawBalanceData format
+    const balances: RawBalanceData[] = [];
     for (const balance of rawBalances) {
-      // Cache the metadata for future lookups
-      const metadataResult = await getTokenMetadataWithCache(
-        this.blockchain,
-        balance.token_address,
-        async () =>
-          Promise.resolve(
-            ok({
-              symbol: balance.symbol ?? undefined,
-              name: balance.name ?? undefined,
-              decimals: balance.decimals ?? undefined,
-              logoUrl: balance.logo ?? undefined,
-            })
-          ),
-        'moralis'
-      );
-
-      // Use symbol from metadata (or fallback to contract address if metadata fetch failed)
-      const asset =
-        metadataResult.isOk() && metadataResult.value.symbol ? metadataResult.value.symbol : balance.token_address;
-
       // Convert from smallest units to decimal string
       const balanceDecimal = parseDecimal(balance.balance).div(parseDecimal('10').pow(balance.decimals)).toString();
 
       balances.push({
-        asset,
-        total: balanceDecimal,
+        rawAmount: balance.balance,
+        decimals: balance.decimals,
+        decimalAmount: balanceDecimal,
+        symbol: balance.symbol || undefined,
+        contractAddress: balance.token_address,
       });
     }
 

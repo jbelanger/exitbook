@@ -1,6 +1,8 @@
 import type { SolanaTransaction } from '@exitbook/providers';
-import { describe, expect, test } from 'vitest';
+import { ok } from 'neverthrow';
+import { describe, expect, test, vi } from 'vitest';
 
+import type { ITokenMetadataService } from '../../../../services/token-metadata/token-metadata-service.interface.ts';
 import { SolanaTransactionProcessor } from '../processor.ts';
 
 const USER_ADDRESS = 'user1111111111111111111111111111111111111111';
@@ -9,7 +11,15 @@ const CONTRACT_ADDRESS = 'contract333333333333333333333333333333333333';
 const TOKEN_ACCOUNT = 'token4444444444444444444444444444444444444444';
 
 function createProcessor() {
-  return new SolanaTransactionProcessor();
+  // Create minimal mock for token metadata service
+  const mockTokenMetadataService = {
+    // Return NO_PROVIDERS ProviderError to simulate provider not supporting metadata
+    enrichBatch: vi.fn().mockResolvedValue(ok()),
+    // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
+    getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+  } as unknown as ITokenMetadataService;
+
+  return new SolanaTransactionProcessor(mockTokenMetadataService);
 }
 
 describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
@@ -410,10 +420,10 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
     expect(transaction.operation.category).toBe('trade');
     expect(transaction.operation.type).toBe('swap');
 
-    // Verify both assets tracked - amounts are not normalized from token decimals
+    // Verify both assets tracked - amounts are decimal-adjusted to UI amounts
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows![0]?.asset).toBe('USDC');
-    expect(transaction.movements.inflows![0]?.amount.toFixed()).toBe('1000000000');
+    expect(transaction.movements.inflows![0]?.amount.toFixed()).toBe('1000');
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.asset).toBe('SOL');
@@ -686,10 +696,10 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
     const usdtInflow = transaction.movements.inflows?.find((i) => i.asset === 'USDT');
 
     expect(usdcInflow).toBeDefined();
-    expect(usdcInflow?.amount.toFixed()).toBe('1000000000');
+    expect(usdcInflow?.amount.toFixed()).toBe('1000');
 
     expect(usdtInflow).toBeDefined();
-    expect(usdtInflow?.amount.toFixed()).toBe('500000000000');
+    expect(usdtInflow?.amount.toFixed()).toBe('500');
 
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('classification_uncertain');
@@ -750,13 +760,13 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Should consolidate USDC movements (1000000 + 1000000 = 2000000 raw units)
+    // Should consolidate USDC movements (1 + 1 = 2 USDC UI amount)
     expect(transaction.movements.inflows).toHaveLength(2); // SOL and USDC
     const usdcInflow = transaction.movements.inflows?.find((i) => i.asset === 'USDC');
     const solInflow = transaction.movements.inflows?.find((i) => i.asset === 'SOL');
 
     expect(usdcInflow).toBeDefined();
-    expect(usdcInflow?.amount.toFixed()).toBe('2000000');
+    expect(usdcInflow?.amount.toFixed()).toBe('2');
 
     expect(solInflow).toBeDefined();
     expect(solInflow?.amount.toFixed()).toBe('1');
@@ -1122,5 +1132,206 @@ describe('SolanaTransactionProcessor - Blockchain Metadata', () => {
     expect(transaction.metadata?.blockId).toBe('block123');
     expect(transaction.metadata?.computeUnitsUsed).toBe(150000);
     expect(transaction.metadata?.providerId).toBe('helius');
+  });
+});
+
+describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
+  test('enriches token symbols from mint addresses when service is provided', async () => {
+    // Mock TokenMetadataService that actually enriches the data
+    const mockTokenMetadataService = {
+      enrichBatch: vi
+        .fn()
+        .mockImplementation(
+          (
+            items: unknown[],
+            _blockchain: string,
+            contractExtractor: (item: unknown) => string,
+            metadataUpdater: (item: unknown, metadata: { decimals: number; symbol: string }) => void
+          ) => {
+            // Simulate enrichment by calling the metadataUpdater callback
+            for (const item of items) {
+              const contractAddress: string = contractExtractor(item);
+              if (contractAddress === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') {
+                metadataUpdater(item, { symbol: 'USDC', decimals: 6 });
+              }
+            }
+            return ok();
+          }
+        ),
+      // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
+      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+    } as unknown as ITokenMetadataService;
+
+    const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
+
+    const normalizedData: SolanaTransaction[] = [
+      {
+        accountChanges: [],
+        amount: '1000000',
+        currency: 'SOL',
+        feeAmount: '5000',
+        feeCurrency: 'SOL',
+        from: USER_ADDRESS,
+        id: 'sigEnrich1',
+        providerId: 'helius',
+        slot: 100000,
+        status: 'success',
+        timestamp: Date.now(),
+        to: EXTERNAL_ADDRESS,
+        tokenChanges: [
+          {
+            account: TOKEN_ACCOUNT,
+            decimals: 6,
+            mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+            owner: USER_ADDRESS,
+            postAmount: '1000000',
+            preAmount: '0',
+            // Symbol is the mint address (will be enriched)
+            symbol: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+          },
+        ],
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    // Check that the token change symbol was enriched
+    expect(normalizedData[0]?.tokenChanges?.[0]?.symbol).toBe('USDC');
+  });
+
+  test('skips enrichment when repository returns no metadata', async () => {
+    const processor = createProcessor(); // Uses mocks that return ok(undefined)
+
+    const normalizedData: SolanaTransaction[] = [
+      {
+        accountChanges: [],
+        amount: '1000000',
+        currency: 'SOL',
+        feeAmount: '5000',
+        feeCurrency: 'SOL',
+        from: USER_ADDRESS,
+        id: 'sigNoEnrich1',
+        providerId: 'helius',
+        slot: 100000,
+        status: 'success',
+        timestamp: Date.now(),
+        to: EXTERNAL_ADDRESS,
+        tokenChanges: [
+          {
+            account: TOKEN_ACCOUNT,
+            decimals: 6,
+            mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+            owner: USER_ADDRESS,
+            postAmount: '1000000',
+            preAmount: '0',
+            symbol: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+          },
+        ],
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    // Symbol should remain as mint address (not enriched)
+    expect(normalizedData[0]?.tokenChanges?.[0]?.symbol).toBe('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+  });
+
+  test('does not enrich symbols that are already human-readable', async () => {
+    const mockTokenMetadataService = {
+      enrichBatch: vi.fn().mockResolvedValue(ok()),
+      // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
+      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+    } as unknown as ITokenMetadataService;
+
+    const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
+
+    const normalizedData: SolanaTransaction[] = [
+      {
+        accountChanges: [],
+        amount: '1000000',
+        currency: 'SOL',
+        feeAmount: '5000',
+        feeCurrency: 'SOL',
+        from: USER_ADDRESS,
+        id: 'sigHumanReadable1',
+        providerId: 'helius',
+        slot: 100000,
+        status: 'success',
+        timestamp: Date.now(),
+        to: EXTERNAL_ADDRESS,
+        tokenChanges: [
+          {
+            account: TOKEN_ACCOUNT,
+            decimals: 6,
+            mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+            owner: USER_ADDRESS,
+            postAmount: '1000000',
+            preAmount: '0',
+            // Symbol is already human-readable (not a mint address)
+            symbol: 'USDC',
+          },
+        ],
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    // Symbol should remain as-is (not enriched)
+    expect(normalizedData[0]?.tokenChanges?.[0]?.symbol).toBe('USDC');
+  });
+
+  test('handles service errors gracefully', async () => {
+    const mockTokenMetadataService = {
+      enrichBatch: vi.fn().mockResolvedValue(ok()),
+      // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
+      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+    } as unknown as ITokenMetadataService;
+
+    const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
+
+    const normalizedData: SolanaTransaction[] = [
+      {
+        accountChanges: [],
+        amount: '1000000',
+        currency: 'SOL',
+        feeAmount: '5000',
+        feeCurrency: 'SOL',
+        from: USER_ADDRESS,
+        id: 'sigRepoError1',
+        providerId: 'helius',
+        slot: 100000,
+        status: 'success',
+        timestamp: Date.now(),
+        to: EXTERNAL_ADDRESS,
+        tokenChanges: [
+          {
+            account: TOKEN_ACCOUNT,
+            decimals: 6,
+            mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+            owner: USER_ADDRESS,
+            postAmount: '1000000',
+            preAmount: '0',
+            symbol: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+          },
+        ],
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    // Symbol should remain as mint address (fallback on error)
+    expect(normalizedData[0]?.tokenChanges?.[0]?.symbol).toBe('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
   });
 });

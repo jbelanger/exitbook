@@ -1,12 +1,13 @@
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../shared/blockchain/utils/zod-utils.js';
+import { SolanaAddressSchema } from '../schemas.js';
 
 /**
  * Schema for Solscan input account structure
  */
 export const SolscanInputAccountSchema = z.object({
-  account: z.string().min(1, 'Account must not be empty'),
+  account: SolanaAddressSchema, // Solana address - case-sensitive
   postBalance: z.number().nonnegative('Post balance must be non-negative'),
   preBalance: z.number().nonnegative('Pre balance must be non-negative'),
   signer: z.boolean(),
@@ -19,7 +20,7 @@ export const SolscanInputAccountSchema = z.object({
 export const SolscanParsedInstructionSchema = z.object({
   params: z.record(z.string(), z.unknown()).optional(),
   program: z.string().min(1, 'Program must not be empty'),
-  programId: z.string().min(1, 'Program ID must not be empty'),
+  programId: SolanaAddressSchema, // Program address - case-sensitive
   type: z.string().min(1, 'Type must not be empty'),
 });
 
@@ -34,7 +35,7 @@ export const SolscanTransactionSchema = z.object({
   logMessage: z.array(z.string()),
   parsedInstruction: z.array(SolscanParsedInstructionSchema),
   recentBlockhash: z.string().min(1, 'Recent blockhash must not be empty'),
-  signer: z.array(z.string().min(1, 'Signer must not be empty')),
+  signer: z.array(SolanaAddressSchema), // Signer addresses - case-sensitive
   slot: z.number().nonnegative('Slot must be non-negative'),
   status: z.enum(['Success', 'Fail'], { message: 'Status must be Success or Fail' }),
   txHash: z.string().min(1, 'Transaction hash must not be empty'),
@@ -44,10 +45,10 @@ export const SolscanTransactionSchema = z.object({
  * Schema for Solscan balance structure
  */
 export const SolscanBalanceSchema = z.object({
-  account: z.string().min(1, 'Account must not be empty'),
+  account: SolanaAddressSchema, // Solana address - case-sensitive
   executable: z.boolean(),
   lamports: z.number().nonnegative('Lamports must be non-negative'),
-  ownerProgram: z.string().min(1, 'Owner program must not be empty'),
+  ownerProgram: SolanaAddressSchema, // Owner program address - case-sensitive
   rentEpoch: z.number().nonnegative('Rent epoch must be non-negative'),
   type: z.string().min(1, 'Type must not be empty'),
 });

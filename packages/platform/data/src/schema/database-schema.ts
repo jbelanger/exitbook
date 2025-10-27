@@ -225,6 +225,34 @@ export interface TransactionLinksTable {
 }
 
 /**
+ * Token metadata table - stores token information by contract address
+ * Used by processors to enrich transaction data with token details
+ */
+export interface TokenMetadataTable {
+  id: Generated<number>;
+  blockchain: string;
+  contract_address: string;
+  symbol: string | null;
+  name: string | null;
+  decimals: number | null;
+  logo_url: string | null;
+  source: string;
+  refreshed_at: DateTime;
+}
+
+/**
+ * Symbol index table - enables reverse lookup from symbol to contract addresses
+ * Supports multiple contracts with the same symbol
+ */
+export interface SymbolIndexTable {
+  id: Generated<number>;
+  blockchain: string;
+  symbol: string;
+  contract_address: string;
+  created_at: DateTime;
+}
+
+/**
  * Main database interface combining all tables
  */
 export interface DatabaseSchema {
@@ -233,6 +261,8 @@ export interface DatabaseSchema {
   external_transaction_data: ExternalTransactionDataTable;
   data_sources: DataSourcesTable;
   lot_disposals: LotDisposalsTable;
+  symbol_index: SymbolIndexTable;
+  token_metadata: TokenMetadataTable;
   transaction_links: TransactionLinksTable;
   transactions: TransactionsTable;
 }

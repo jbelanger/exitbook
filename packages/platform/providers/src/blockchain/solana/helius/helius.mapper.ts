@@ -36,19 +36,16 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
   private transformTransaction(
     tx: HeliusTransaction,
     signature: string,
-    sessionContext: ImportSessionMetadata
+    _sessionContext: ImportSessionMetadata
   ): SolanaTransaction {
     const accountKeys = tx.transaction.message.accountKeys;
     const fee = lamportsToSol(tx.meta.fee);
 
-    // Extract token symbols from session context (pre-fetched and cached by API client)
-    const tokenSymbols = (sessionContext.tokenSymbols as Record<string, string> | undefined) || {};
-
     // Extract account balance changes for accurate fund flow analysis
     const accountChanges = this.extractAccountChanges(tx, accountKeys);
 
-    // Extract token balance changes for SPL token analysis with symbols
-    const tokenChanges = this.extractTokenChanges(tx, tokenSymbols);
+    // Extract token balance changes for SPL token analysis with mint addresses
+    const tokenChanges = this.extractTokenChanges(tx);
 
     // Determine primary currency and amount from balance changes
     const { primaryAmount, primaryCurrency } = this.determinePrimaryTransfer(accountChanges, tokenChanges);
@@ -76,7 +73,7 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
       instructions: (tx.transaction.message.instructions || []).map((instruction) => ({
         accounts: [], // Will be extracted by processor if needed
         data: JSON.stringify(instruction), // Serialize instruction as data
-        programId: '', // Will be extracted by processor if needed
+        programId: undefined, // Will be extracted by processor if needed
       })),
 
       // Log messages
@@ -128,9 +125,10 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
   }
 
   /**
-   * Extract SPL token balance changes with symbols resolved from cache
+   * Extract SPL token balance changes with mint addresses
+   * Processors will handle symbol resolution using TokenMetadataRepository
    */
-  private extractTokenChanges(tx: HeliusTransaction, tokenSymbols: Record<string, string>): SolanaTokenChange[] {
+  private extractTokenChanges(tx: HeliusTransaction): SolanaTokenChange[] {
     const changes: SolanaTokenChange[] = [];
 
     // Create maps for easier lookup
@@ -164,7 +162,7 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
             owner: balance.owner,
             postAmount,
             preAmount,
-            symbol: tokenSymbols[balance.mint], // Resolve symbol from cache
+            symbol: balance.mint, // Use mint address - processor will resolve to symbol
           });
         }
       }
@@ -180,7 +178,7 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
           owner: preBalance.owner,
           postAmount: '0',
           preAmount: preBalance.uiTokenAmount.amount,
-          symbol: tokenSymbols[preBalance.mint], // Resolve symbol from cache
+          symbol: preBalance.mint, // Use mint address - processor will resolve to symbol
         });
       }
     }

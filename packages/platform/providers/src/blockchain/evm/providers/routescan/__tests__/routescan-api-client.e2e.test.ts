@@ -1,8 +1,7 @@
-import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../shared/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../../shared/blockchain/types/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../../shared/blockchain/types/index.ts';
 import type { EvmTransaction } from '../../../types.ts';
 import { RoutescanApiClient } from '../routescan.api-client.ts';
 
@@ -23,7 +22,7 @@ describe('RoutescanApiClient Integration - Ethereum', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<BlockchainBalanceSnapshot>({
+      const result = await provider.execute<RawBalanceData>({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -31,10 +30,13 @@ describe('RoutescanApiClient Integration - Ethereum', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const balance = result.value;
-        expect(balance).toHaveProperty('total');
-        expect(typeof balance.total).toBe('string');
-        expect(() => parseFloat(balance.total)).not.toThrow();
-        expect(parseFloat(balance.total)).toBeGreaterThanOrEqual(0);
+        expect(balance).toBeDefined();
+        expect(balance.symbol).toBe('ETH');
+        expect(balance.decimals).toBe(18);
+        expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
+        if (balance.decimalAmount) {
+          expect(parseFloat(balance.decimalAmount)).toBeGreaterThanOrEqual(0);
+        }
       }
     }, 30000);
   });
@@ -129,7 +131,7 @@ describe('RoutescanApiClient Integration - Optimism', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<BlockchainBalanceSnapshot>({
+      const result = await provider.execute<RawBalanceData>({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -137,8 +139,10 @@ describe('RoutescanApiClient Integration - Optimism', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const balance = result.value;
-        expect(balance).toHaveProperty('total');
-        expect(typeof balance.total).toBe('string');
+        expect(balance).toBeDefined();
+        expect(balance.symbol).toBe('ETH');
+        expect(balance.decimals).toBe(18);
+        expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
       }
     }, 30000);
   });
@@ -182,7 +186,7 @@ describe('RoutescanApiClient Integration - BSC', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<BlockchainBalanceSnapshot>({
+      const result = await provider.execute<RawBalanceData>({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -190,10 +194,13 @@ describe('RoutescanApiClient Integration - BSC', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const balance = result.value;
-        expect(balance).toHaveProperty('total');
-        expect(typeof balance.total).toBe('string');
-        expect(() => parseFloat(balance.total)).not.toThrow();
-        expect(parseFloat(balance.total)).toBeGreaterThanOrEqual(0);
+        expect(balance).toBeDefined();
+        expect(balance.symbol).toBe('BNB');
+        expect(balance.decimals).toBe(18);
+        expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
+        if (balance.decimalAmount) {
+          expect(parseFloat(balance.decimalAmount)).toBeGreaterThanOrEqual(0);
+        }
       }
     }, 30000);
   });
@@ -239,7 +246,7 @@ describe('RoutescanApiClient Integration - Mantle', () => {
   describe('Address Balance', () => {
     it.skip('should fetch address balance successfully', async () => {
       // Skipping: Mantle API endpoint may not be available or configured correctly
-      const result = await provider.execute<BlockchainBalanceSnapshot>({
+      const result = await provider.execute<RawBalanceData>({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -247,8 +254,9 @@ describe('RoutescanApiClient Integration - Mantle', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const balance = result.value;
-        expect(balance).toHaveProperty('total');
-        expect(typeof balance.total).toBe('string');
+        expect(balance).toBeDefined();
+        expect(balance.symbol).toBe('MNT');
+        expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
       }
     }, 30000);
   });

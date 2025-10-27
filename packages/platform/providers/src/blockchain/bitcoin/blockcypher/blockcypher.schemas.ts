@@ -1,10 +1,12 @@
 import { z } from 'zod';
 
+import { BitcoinAddressSchema } from '../schemas.js';
+
 /**
  * Schema for BlockCypher transaction input
  */
 export const BlockCypherInputSchema = z.object({
-  addresses: z.array(z.string()),
+  addresses: z.array(BitcoinAddressSchema),
   age: z.number().nonnegative(),
   output_index: z.number().nonnegative(),
   output_value: z.number().nonnegative('Output value must be non-negative'),
@@ -17,7 +19,7 @@ export const BlockCypherInputSchema = z.object({
  * Schema for BlockCypher transaction output
  */
 export const BlockCypherOutputSchema = z.object({
-  addresses: z.array(z.string()),
+  addresses: z.array(BitcoinAddressSchema),
   script: z.string(),
   script_type: z.string(),
   value: z.number().nonnegative('Output value must be non-negative'),
@@ -28,7 +30,7 @@ export const BlockCypherOutputSchema = z.object({
  */
 export const BlockCypherTransactionSchema = z
   .object({
-    addresses: z.array(z.string()).optional(), // Root-level addresses involved in transaction
+    addresses: z.array(BitcoinAddressSchema).optional(), // Root-level addresses involved in transaction
     block_hash: z.string().optional(), // Optional for unconfirmed transactions
     block_height: z.number().nonnegative().optional(), // Optional for unconfirmed transactions
     block_index: z.number().nonnegative().optional(), // Optional for unconfirmed transactions
@@ -79,7 +81,7 @@ export const BlockCypherTxRefSchema = z.object({
  * Schema for BlockCypher address response
  */
 export const BlockCypherAddressSchema = z.object({
-  address: z.string().min(1, 'Address must not be empty'),
+  address: BitcoinAddressSchema,
   balance: z.number(),
   error: z.string().optional(),
   final_balance: z.number(),

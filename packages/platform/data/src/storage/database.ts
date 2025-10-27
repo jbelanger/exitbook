@@ -98,6 +98,8 @@ export async function clearDatabase(db: Kysely<DatabaseSchema>): Promise<void> {
 
     // Drop tables in correct order (respecting foreign key constraints)
     const tablesToDrop = [
+      'symbol_index',
+      'token_metadata',
       'lot_disposals',
       'acquisition_lots',
       'cost_basis_calculations',

@@ -1,9 +1,9 @@
-import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
 import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
 import type { SubstrateChainConfig } from '../../chain-config.interface.ts';
 import { getSubstrateChainConfig } from '../../chain-registry.ts';
@@ -101,7 +101,7 @@ export class TaostatsApiClient extends BaseApiClient {
     };
   }
 
-  private async getAddressBalances(params: { address: string }): Promise<Result<BlockchainBalanceSnapshot, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
     // Validate address format
@@ -134,7 +134,12 @@ export class TaostatsApiClient extends BaseApiClient {
       `Found raw balance for ${maskAddress(address)}: ${balanceDecimal} ${this.chainConfig.nativeCurrency}`
     );
 
-    return ok({ total: balanceDecimal, asset: this.chainConfig.nativeCurrency });
+    return ok({
+      rawAmount: balanceRao,
+      decimalAmount: balanceDecimal,
+      decimals: this.chainConfig.nativeDecimals,
+      symbol: this.chainConfig.nativeCurrency,
+    });
   }
 
   private async getAddressTransactions(params: {

@@ -14,7 +14,7 @@
  * ╚═══════════════════════════════════════════════════════════════════════════════╝
  */
 
-import { getErrorMessage, parseDecimal, type BlockchainBalanceSnapshot } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/core';
 import { HttpClient } from '@exitbook/platform-http';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -23,10 +23,10 @@ import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/
 import type {
   ProviderOperation,
   JsonRpcResponse,
+  RawBalanceData,
   TransactionWithRawData,
 } from '../../../../shared/blockchain/types/index.ts';
 import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
-import { getTokenMetadataWithCache } from '../../../../shared/token-metadata/index.ts';
 import type { EvmChainConfig } from '../../chain-config.interface.ts';
 import { getEvmChainConfig } from '../../chain-registry.ts';
 import type { EvmTransaction } from '../../types.ts';
@@ -494,7 +494,7 @@ export class AlchemyApiClient extends BaseApiClient {
     return ok(transactions);
   }
 
-  private async getAddressBalances(address: string): Promise<Result<BlockchainBalanceSnapshot, Error>> {
+  private async getAddressBalances(address: string): Promise<Result<RawBalanceData, Error>> {
     const networkName = this.getAlchemyNetworkName();
 
     const requestBody = {
@@ -535,31 +535,34 @@ export class AlchemyApiClient extends BaseApiClient {
 
     if (!nativeBalance) {
       this.logger.debug(`No native balance found for ${address}`);
-      return ok({ asset: 'ETH', total: '0' });
+      return ok({
+        rawAmount: '0',
+        symbol: this.chainConfig.nativeCurrency,
+        contractAddress: undefined,
+        decimals: 18,
+      });
     }
 
     const metadata = nativeBalance.tokenMetadata;
-    // When metadata is null/empty, it's the native token (ETH, MATIC, etc.)
-    const asset = metadata?.symbol || 'ETH';
-    const decimals = metadata?.decimals ?? 18; // Default to 18 for native tokens
+    const symbol = metadata?.symbol || this.chainConfig.nativeCurrency;
+    const decimals = metadata?.decimals ?? 18;
 
-    // Convert from smallest units (wei) to decimal
-    let total = nativeBalance.tokenBalance;
-    try {
-      const balanceDecimal = parseDecimal(nativeBalance.tokenBalance).div(parseDecimal('10').pow(decimals)).toString();
-      total = balanceDecimal;
-    } catch (error) {
-      this.logger.warn(`Failed to convert native balance: ${getErrorMessage(error)}`);
-    }
+    this.logger.debug(
+      `Found native balance for ${address}: ${nativeBalance.tokenBalance} (${symbol}, ${decimals} decimals)`
+    );
 
-    this.logger.debug(`Found native balance for ${address}: ${total} ${asset}`);
-    return ok({ asset, total });
+    return ok({
+      rawAmount: nativeBalance.tokenBalance,
+      symbol,
+      contractAddress: nativeBalance.tokenAddress ?? undefined,
+      decimals,
+    });
   }
 
   private async getAddressTokenBalances(
     address: string,
     contractAddresses?: string[]
-  ): Promise<Result<BlockchainBalanceSnapshot[], Error>> {
+  ): Promise<Result<RawBalanceData[], Error>> {
     const networkName = this.getAlchemyNetworkName();
 
     const requestBody = {
@@ -595,8 +598,8 @@ export class AlchemyApiClient extends BaseApiClient {
       ? tokenBalances.filter((balance) => balance.tokenAddress && contractAddresses.includes(balance.tokenAddress))
       : tokenBalances;
 
-    // Convert to BlockchainBalanceSnapshot format and cache metadata
-    const balances: BlockchainBalanceSnapshot[] = [];
+    // Return raw balance data - let caller handle conversions
+    const balances: RawBalanceData[] = [];
     for (const balance of filteredBalances.filter((b) => b.tokenBalance !== '0')) {
       if (!balance.tokenAddress) {
         continue;
@@ -604,43 +607,11 @@ export class AlchemyApiClient extends BaseApiClient {
 
       const metadata = balance.tokenMetadata;
 
-      // Check cache first, then cache Alchemy's metadata if needed
-      const metadataResult = await getTokenMetadataWithCache(
-        this.blockchain,
-        balance.tokenAddress,
-        () =>
-          Promise.resolve(
-            ok({
-              symbol: metadata?.symbol ?? undefined,
-              name: metadata?.name ?? undefined,
-              decimals: metadata?.decimals ?? undefined,
-              logoUrl: metadata?.logo ?? undefined,
-            })
-          ),
-        'alchemy'
-      );
-
-      // Use symbol and decimals from cached metadata (prioritizes previously cached data from other providers)
-      // Only fall back to contract address if no symbol is available
-      const asset =
-        metadataResult.isOk() && metadataResult.value.symbol ? metadataResult.value.symbol : balance.tokenAddress;
-
-      // Use decimals from cached metadata, which may come from previous imports or other providers
-      const decimals =
-        metadataResult.isOk() && metadataResult.value.decimals !== undefined ? metadataResult.value.decimals : 18; // Default to 18 only if cache has no decimals
-
-      // Convert from smallest units to decimal
-      let total = balance.tokenBalance;
-      try {
-        const balanceDecimal = parseDecimal(balance.tokenBalance).div(parseDecimal('10').pow(decimals)).toString();
-        total = balanceDecimal;
-      } catch (error) {
-        this.logger.warn(`Failed to convert balance for ${balance.tokenAddress}: ${getErrorMessage(error)}`);
-      }
-
       balances.push({
-        asset,
-        total,
+        rawAmount: balance.tokenBalance,
+        symbol: metadata?.symbol ?? undefined,
+        contractAddress: balance.tokenAddress,
+        decimals: metadata?.decimals ?? undefined,
       });
     }
 

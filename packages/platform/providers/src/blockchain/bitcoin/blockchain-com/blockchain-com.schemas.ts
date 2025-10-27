@@ -1,11 +1,13 @@
 import { z } from 'zod';
 
+import { BitcoinAddressSchema } from '../schemas.js';
+
 /**
  * Schema for Blockchain.com transaction input prev_out
  */
 export const BlockchainComPrevOutSchema = z
   .object({
-    addr: z.string().optional(),
+    addr: BitcoinAddressSchema.optional(),
     n: z.number(),
     script: z.string(),
     spending_outpoints: z.array(z.object({ n: z.number(), tx_index: z.number() })).optional(),
@@ -34,7 +36,7 @@ export const BlockchainComInputSchema = z
  */
 export const BlockchainComOutputSchema = z
   .object({
-    addr: z.string().optional(),
+    addr: BitcoinAddressSchema.optional(),
     n: z.number(),
     script: z.string(),
     spending_outpoints: z.array(z.object({ n: z.number(), tx_index: z.number() })).optional(),
@@ -85,7 +87,7 @@ export const BlockchainComTransactionSchema = z
  */
 export const BlockchainComAddressResponseSchema = z
   .object({
-    address: z.string().min(1, 'Address must not be empty'),
+    address: BitcoinAddressSchema,
     final_balance: z.number().nonnegative('Final balance must be non-negative'),
     hash160: z.string().min(1, 'Hash160 must not be empty'),
     n_tx: z.number().nonnegative('Transaction count must be non-negative'),

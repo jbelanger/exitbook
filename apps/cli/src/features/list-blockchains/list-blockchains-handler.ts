@@ -35,12 +35,6 @@ export interface ListBlockchainsResult {
  * Manages resource fetching and orchestrates pure business logic.
  */
 export class ListBlockchainsHandler {
-  private processorFactory: ProcessorFactory;
-
-  constructor() {
-    this.processorFactory = new ProcessorFactory();
-  }
-
   /**
    * Execute list-blockchains command.
    */
@@ -56,7 +50,7 @@ export class ListBlockchainsHandler {
     }
 
     // Get supported blockchains from ProcessorFactory
-    const supportedBlockchains = await this.processorFactory.getSupportedSources('blockchain');
+    const supportedBlockchains = await ProcessorFactory.getSupportedSources('blockchain');
 
     // Get all providers from ProviderRegistry (for summary stats)
     const allProviders: ProviderInfo[] = ProviderRegistry.getAllProviders();

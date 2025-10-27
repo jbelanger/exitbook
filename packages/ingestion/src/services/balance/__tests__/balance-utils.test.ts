@@ -1,11 +1,22 @@
-import type { BlockchainBalanceSnapshot } from '@exitbook/core';
+import type { TokenMetadataRepository } from '@exitbook/data';
 import type { BalanceSnapshot, IExchangeClient } from '@exitbook/exchanges';
-import type { BlockchainProviderManager, FailoverExecutionResult } from '@exitbook/providers';
+import type { BlockchainProviderManager, FailoverExecutionResult, RawBalanceData } from '@exitbook/providers';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { convertBalancesToDecimals, fetchBlockchainBalance, fetchExchangeBalance } from '../balance-utils.ts';
+
+// Helper to create mock TokenMetadataRepository
+function createMockTokenMetadataRepository(): TokenMetadataRepository {
+  return {
+    // eslint-disable-next-line unicorn/no-useless-undefined -- undefined indicates not found
+    getByContract: vi.fn().mockResolvedValue(ok(undefined)),
+    save: vi.fn().mockResolvedValue(ok()),
+    isStale: vi.fn().mockReturnValue(false),
+    refreshInBackground: vi.fn(),
+  } as unknown as TokenMetadataRepository;
+}
 
 describe('fetchExchangeBalance', () => {
   it('should fetch and return exchange balance successfully', async () => {
@@ -98,13 +109,15 @@ describe('fetchExchangeBalance', () => {
 
 describe('fetchBlockchainBalance', () => {
   it('should fetch and return blockchain balance successfully', async () => {
-    const mockBalanceSnapshot: BlockchainBalanceSnapshot = {
-      asset: 'BTC',
-      total: '2.5',
+    const mockBalanceData: RawBalanceData = {
+      rawAmount: '250000000',
+      symbol: 'BTC',
+      decimals: 8,
+      decimalAmount: '2.5',
     };
 
-    const mockProviderResult: FailoverExecutionResult<BlockchainBalanceSnapshot> = {
-      data: mockBalanceSnapshot,
+    const mockProviderResult: FailoverExecutionResult<RawBalanceData> = {
+      data: mockBalanceData,
       providerName: 'blockstream',
     };
 
@@ -123,6 +136,7 @@ describe('fetchBlockchainBalance', () => {
 
     const result = await fetchBlockchainBalance(
       mockProviderManager,
+      createMockTokenMetadataRepository(),
       'bitcoin',
       'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
     );
@@ -156,6 +170,7 @@ describe('fetchBlockchainBalance', () => {
 
     const result = await fetchBlockchainBalance(
       mockProviderManager,
+      createMockTokenMetadataRepository(),
       'ethereum',
       '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'
     );
@@ -176,6 +191,7 @@ describe('fetchBlockchainBalance', () => {
 
     const result = await fetchBlockchainBalance(
       mockProviderManager,
+      createMockTokenMetadataRepository(),
       'solana',
       'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK'
     );
@@ -187,13 +203,15 @@ describe('fetchBlockchainBalance', () => {
   });
 
   it('should handle different blockchain native assets', async () => {
-    const mockBalanceSnapshot: BlockchainBalanceSnapshot = {
-      asset: 'ETH',
-      total: '15.75',
+    const mockBalanceData: RawBalanceData = {
+      rawAmount: '15750000000000000000',
+      symbol: 'ETH',
+      decimals: 18,
+      decimalAmount: '15.75',
     };
 
-    const mockProviderResult: FailoverExecutionResult<BlockchainBalanceSnapshot> = {
-      data: mockBalanceSnapshot,
+    const mockProviderResult: FailoverExecutionResult<RawBalanceData> = {
+      data: mockBalanceData,
       providerName: 'alchemy',
     };
 
@@ -212,6 +230,7 @@ describe('fetchBlockchainBalance', () => {
 
     const result = await fetchBlockchainBalance(
       mockProviderManager,
+      createMockTokenMetadataRepository(),
       'ethereum',
       '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'
     );
@@ -225,13 +244,15 @@ describe('fetchBlockchainBalance', () => {
   });
 
   it('should handle zero balance', async () => {
-    const mockBalanceSnapshot: BlockchainBalanceSnapshot = {
-      asset: 'SOL',
-      total: '0',
+    const mockBalanceData: RawBalanceData = {
+      rawAmount: '0',
+      symbol: 'SOL',
+      decimals: 9,
+      decimalAmount: '0',
     };
 
-    const mockProviderResult: FailoverExecutionResult<BlockchainBalanceSnapshot> = {
-      data: mockBalanceSnapshot,
+    const mockProviderResult: FailoverExecutionResult<RawBalanceData> = {
+      data: mockBalanceData,
       providerName: 'helius',
     };
 
@@ -250,6 +271,7 @@ describe('fetchBlockchainBalance', () => {
 
     const result = await fetchBlockchainBalance(
       mockProviderManager,
+      createMockTokenMetadataRepository(),
       'solana',
       'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK'
     );

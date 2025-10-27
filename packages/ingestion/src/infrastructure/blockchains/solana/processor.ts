@@ -6,6 +6,8 @@ import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers
 import type { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
+import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.ts';
+import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.ts';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
 import type { SolanaFundFlow } from './types.js';
@@ -16,7 +18,10 @@ import type { SolanaFundFlow } from './types.js';
  * and historical context for accurate transaction classification.
  */
 export class SolanaTransactionProcessor extends BaseTransactionProcessor {
-  constructor(private _transactionRepository?: ITransactionRepository) {
+  constructor(
+    private readonly tokenMetadataService: ITokenMetadataService,
+    private readonly _transactionRepository?: ITransactionRepository
+  ) {
     super('solana');
   }
 
@@ -33,6 +38,12 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     }
 
     this.logger.info(`Processing ${normalizedData.length} normalized Solana transactions`);
+
+    // Enrich all transactions with token metadata (required)
+    const enrichResult = await this.enrichTokenMetadata(normalizedData as SolanaTransaction[]);
+    if (enrichResult.isErr()) {
+      return err(`Token metadata enrichment failed: ${enrichResult.error.message}`);
+    }
 
     const transactions: UniversalTransaction[] = [];
     const processingErrors: { error: string; signature: string }[] = [];
@@ -61,10 +72,9 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         // User paid fee if:
         // 1. They have ANY outflows (sent funds, swapped, staked, etc.) OR
         // 2. They initiated a transaction with no outflows (contract interactions, approvals, account creation)
+        // Note: Solana addresses are case-sensitive (base58), so we compare them directly
         const userAddress = sessionMetadata.address as string;
-        const userAddressLower = userAddress.toLowerCase();
-        const txFromLower = normalizedTx.from.toLowerCase();
-        const userPaidFee = fundFlow.outflows.length > 0 || txFromLower === userAddressLower;
+        const userPaidFee = fundFlow.outflows.length > 0 || normalizedTx.from === userAddress;
 
         const networkFee = userPaidFee
           ? { amount: parseDecimal(normalizedTx.feeAmount || '0'), asset: normalizedTx.feeCurrency || 'SOL' }
@@ -701,5 +711,53 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     } catch {
       return true;
     }
+  }
+
+  /**
+   * Enrich token metadata for all transactions
+   * Only fetches metadata for symbols that look like mint addresses
+   */
+  private async enrichTokenMetadata(transactions: SolanaTransaction[]): Promise<Result<void, Error>> {
+    // Collect all token changes that need enrichment
+    const tokenChangesToEnrich = transactions.flatMap((tx) => {
+      if (!tx.tokenChanges) return [];
+      // Enrich if metadata is incomplete OR if symbol looks like a mint address (Solana = 32+ chars)
+      return tx.tokenChanges.filter(
+        (change) =>
+          isMissingMetadata(change.symbol, change.decimals) ||
+          (change.symbol ? looksLikeContractAddress(change.symbol, 32) : false)
+      );
+    });
+
+    if (tokenChangesToEnrich.length === 0) {
+      return ok(void 0);
+    }
+
+    this.logger.debug(`Enriching token metadata for ${tokenChangesToEnrich.length} token changes`);
+
+    // Use the token metadata service to enrich with caching and provider fetching
+    const enrichResult = await this.tokenMetadataService.enrichBatch(
+      tokenChangesToEnrich,
+      'solana',
+      (change) => change.mint,
+      (change, metadata) => {
+        if (metadata.symbol) {
+          change.symbol = metadata.symbol;
+        }
+        // Decimals are already set from provider data, but update if metadata has better info
+        if (metadata.decimals !== undefined && metadata.decimals !== change.decimals) {
+          this.logger.debug(`Updating decimals for ${change.mint} from ${change.decimals} to ${metadata.decimals}`);
+          change.decimals = metadata.decimals;
+        }
+      },
+      (change) => change.decimals !== undefined // Enrichment failure OK if decimals already present
+    );
+
+    if (enrichResult.isErr()) {
+      return err(new Error(`Failed to enrich token metadata: ${enrichResult.error.message}`));
+    }
+
+    this.logger.debug('Successfully enriched token metadata from cache/provider');
+    return ok(void 0);
   }
 }

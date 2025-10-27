@@ -1,11 +1,13 @@
 import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
-import type { SubstrateTransaction, SubstrateFundFlow, SubstrateChainConfig } from '@exitbook/providers';
+import type { SubstrateTransaction, SubstrateChainConfig } from '@exitbook/providers';
 import { derivePolkadotAddressVariants } from '@exitbook/providers';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
+
+import type { SubstrateFundFlow } from './types.ts';
 
 /**
  * Generic Substrate transaction processor that converts raw blockchain transaction data
@@ -574,9 +576,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
 
     // Rule 3: Check if from address matches user (for regular transfers)
     // Note: This may not be accurate for all staking rewards, but handles most cases
-    const userAddressLower = userAddress.toLowerCase();
-    const fromAddressLower = transaction.from.toLowerCase();
-
-    return fromAddressLower === userAddressLower;
+    // Substrate addresses are case-sensitive (SS58 base58 encoding)
+    return transaction.from === userAddress;
   }
 }

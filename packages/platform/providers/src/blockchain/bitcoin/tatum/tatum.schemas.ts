@@ -1,10 +1,12 @@
 import { z } from 'zod';
 
+import { BitcoinAddressSchema } from '../schemas.js';
+
 /**
  * Schema for Tatum Bitcoin transaction input coin
  */
 export const TatumBitcoinCoinSchema = z.object({
-  address: z.string(),
+  address: BitcoinAddressSchema,
   coinbase: z.boolean(),
   height: z.number(),
   reqSigs: z
@@ -56,9 +58,7 @@ export const TatumBitcoinScriptPubKeySchema = z.object({
  * Schema for Tatum Bitcoin transaction output
  */
 export const TatumBitcoinOutputSchema = z.object({
-  address: z
-    .string()
-    .nullable()
+  address: BitcoinAddressSchema.nullable()
     .optional()
     .transform((val) => val ?? undefined),
   script: z.string(),

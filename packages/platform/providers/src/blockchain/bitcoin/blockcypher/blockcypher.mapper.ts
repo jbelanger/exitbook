@@ -5,7 +5,7 @@ import { ok, type Result } from 'neverthrow';
 import { BaseRawDataMapper } from '../../../shared/blockchain/base/mapper.ts';
 import type { NormalizationError } from '../../../shared/blockchain/index.ts';
 import { BitcoinTransactionSchema } from '../schemas.js';
-import type { BitcoinTransaction, BitcoinTransactionInput, BitcoinTransactionOutput } from '../types.js';
+import type { BitcoinTransaction, BitcoinTransactionInput, BitcoinTransactionOutput } from '../schemas.js';
 
 import { BlockCypherTransactionSchema, type BlockCypherTransaction } from './blockcypher.schemas.js';
 

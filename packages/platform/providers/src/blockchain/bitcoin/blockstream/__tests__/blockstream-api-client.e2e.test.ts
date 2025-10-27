@@ -1,9 +1,8 @@
-import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { TransactionWithRawData } from '../../../../shared/blockchain/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/index.ts';
 import { ProviderRegistry } from '../../../../shared/blockchain/index.ts';
-import type { BitcoinTransaction } from '../../types.js';
+import type { BitcoinTransaction } from '../../schemas.js';
 import { BlockstreamApiClient } from '../blockstream-api-client.js';
 
 describe('BlockstreamApiClient E2E', () => {
@@ -21,7 +20,7 @@ describe('BlockstreamApiClient E2E', () => {
   }, 60000);
 
   it('should get address balance for known address', async () => {
-    const result = await client.execute<BlockchainBalanceSnapshot>({
+    const result = await client.execute<RawBalanceData>({
       address: testAddress,
       type: 'getAddressBalances',
     });
@@ -30,10 +29,12 @@ describe('BlockstreamApiClient E2E', () => {
     if (result.isOk()) {
       const balance = result.value;
       expect(balance).toBeDefined();
-      expect(balance).toHaveProperty('total');
-      expect(typeof balance.total).toBe('string');
-      const totalNum = parseFloat(balance.total);
-      expect(totalNum).toBeGreaterThan(0);
+      expect(balance.symbol).toBe('BTC');
+      expect(balance.decimals).toBe(8);
+      expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
+      if (balance.decimalAmount) {
+        expect(parseFloat(balance.decimalAmount)).toBeGreaterThan(0);
+      }
     }
   }, 60000);
 

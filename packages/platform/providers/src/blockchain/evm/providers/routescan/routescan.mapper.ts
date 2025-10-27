@@ -128,7 +128,7 @@ export class RoutescanTransactionMapper extends BaseRawDataMapper<
       status: 'success',
       timestamp,
       to: normalizeEvmAddress(rawData.to),
-      tokenAddress: rawData.contractAddress,
+      tokenAddress: normalizeEvmAddress(rawData.contractAddress),
       tokenDecimals: parseInt(rawData.tokenDecimal),
       tokenSymbol: rawData.tokenSymbol,
       tokenType: 'erc20', // Assume ERC-20 for Routescan token transfers

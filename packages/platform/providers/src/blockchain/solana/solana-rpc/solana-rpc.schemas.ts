@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../shared/blockchain/utils/zod-utils.js';
-import { SolanaTokenAccountSchema, SolanaTokenBalanceSchema } from '../schemas.js';
+import { SolanaAddressSchema, SolanaTokenAccountSchema, SolanaTokenBalanceSchema } from '../schemas.js';
 
 /**
  * Schema for Solana RPC transaction header
@@ -25,7 +25,7 @@ export const SolanaRPCInstructionSchema = z.object({
  * Schema for Solana RPC transaction message
  */
 export const SolanaRPCMessageSchema = z.object({
-  accountKeys: z.array(z.string().min(1, 'Account key must not be empty')),
+  accountKeys: z.array(SolanaAddressSchema), // Solana addresses - case-sensitive
   header: SolanaRPCHeaderSchema,
   instructions: z.array(SolanaRPCInstructionSchema),
   recentBlockhash: z.string().min(1, 'Recent blockhash must not be empty'),

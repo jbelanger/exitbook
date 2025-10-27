@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../shared/blockchain/utils/zod-utils.js';
-import { SolanaTokenBalanceSchema } from '../schemas.js';
+import { SolanaAddressSchema, SolanaTokenBalanceSchema } from '../schemas.js';
 
 /**
  * Schema for Helius transaction meta structure
@@ -24,7 +24,7 @@ export const HeliusTransactionMetaSchema = z.object({
  * Schema for Helius transaction message structure
  */
 export const HeliusTransactionMessageSchema = z.object({
-  accountKeys: z.array(z.string().min(1, 'Account key must not be empty')),
+  accountKeys: z.array(SolanaAddressSchema), // Solana addresses - case-sensitive
   instructions: z.array(z.unknown()),
   recentBlockhash: z.string().min(1, 'Recent blockhash must not be empty'),
 });
@@ -58,13 +58,27 @@ export const SolanaRawTransactionDataSchema = HeliusTransactionSchema;
  * Schema for Helius asset response
  */
 export const HeliusAssetResponseSchema = z.object({
-  content: z.object({
-    metadata: z.object({
-      description: z.string().optional(),
-      name: z.string().optional(),
-      symbol: z.string().optional(),
-    }),
-  }),
+  content: z
+    .object({
+      links: z
+        .object({
+          image: z.string().optional(),
+        })
+        .optional(),
+      metadata: z.object({
+        description: z.string().optional(),
+        name: z.string().optional(),
+        symbol: z.string().optional(),
+        token_standard: z.string().optional(),
+      }),
+    })
+    .optional(),
+  token_info: z
+    .object({
+      decimals: z.number().optional(),
+      supply: z.number().optional(),
+    })
+    .optional(),
 });
 
 /**

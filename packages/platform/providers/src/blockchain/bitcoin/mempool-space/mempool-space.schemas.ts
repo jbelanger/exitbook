@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../shared/blockchain/utils/zod-utils.js';
+import { BitcoinAddressSchema } from '../schemas.js';
 
 /**
  * Schema for Mempool.space transaction status
@@ -17,7 +18,7 @@ export const MempoolTransactionStatusSchema = z.object({
  */
 export const MempoolPrevoutSchema = z.object({
   scriptpubkey: z.string(),
-  scriptpubkey_address: z.string().optional(),
+  scriptpubkey_address: BitcoinAddressSchema.optional(),
   scriptpubkey_asm: z.string(),
   scriptpubkey_type: z.string(),
   value: z.number().nonnegative('Value must be non-negative'),
@@ -41,7 +42,7 @@ export const MempoolInputSchema = z.object({
  */
 export const MempoolOutputSchema = z.object({
   scriptpubkey: z.string(),
-  scriptpubkey_address: z.string().optional(),
+  scriptpubkey_address: BitcoinAddressSchema.optional(),
   scriptpubkey_asm: z.string(),
   scriptpubkey_type: z.string(),
   value: z.number().nonnegative('Output value must be non-negative'),
@@ -80,7 +81,7 @@ export const MempoolAddressStatsSchema = z.object({
  * Schema for Mempool.space address information response
  */
 export const MempoolAddressInfoSchema = z.object({
-  address: z.string().min(1, 'Address must not be empty'),
+  address: BitcoinAddressSchema,
   chain_stats: MempoolAddressStatsSchema,
   mempool_stats: MempoolAddressStatsSchema,
 });

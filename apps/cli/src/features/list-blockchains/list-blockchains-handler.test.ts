@@ -19,14 +19,9 @@ describe('ListBlockchainsHandler', () => {
     // Reset mocks
     vi.clearAllMocks();
 
-    // Mock ProcessorFactory
+    // Mock ProcessorFactory static methods
     mockGetSupportedSources = vi.fn();
-    vi.mocked(ProcessorFactory).mockImplementation(
-      () =>
-        ({
-          getSupportedSources: mockGetSupportedSources,
-        }) as Partial<ProcessorFactory> as ProcessorFactory
-    );
+    vi.mocked(ProcessorFactory).getSupportedSources = mockGetSupportedSources;
 
     // Mock ProviderRegistry
     mockGetAllProviders = vi.fn();

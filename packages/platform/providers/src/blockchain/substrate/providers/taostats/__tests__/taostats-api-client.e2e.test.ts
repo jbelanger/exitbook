@@ -1,8 +1,7 @@
-import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../shared/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../../shared/blockchain/types/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../../shared/blockchain/types/index.ts';
 import type { SubstrateTransaction } from '../../../types.ts';
 import { TaostatsApiClient } from '../taostats.api-client.ts';
 import type { TaostatsTransactionAugmented } from '../taostats.schemas.js';
@@ -30,7 +29,7 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
 
     describe('Address Balance', () => {
       it('should fetch address balance successfully', async () => {
-        const result = await provider.execute<BlockchainBalanceSnapshot>({
+        const result = await provider.execute<RawBalanceData>({
           address: testAddress,
           type: 'getAddressBalances',
         });
@@ -42,11 +41,16 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
 
         const balance = result.value;
         expect(balance).toBeDefined();
-        expect(balance).toHaveProperty('total');
-        expect(typeof balance.total).toBe('string');
-        const totalNum = parseFloat(balance.total);
-        expect(totalNum).not.toBeNaN();
-        expect(totalNum).toBeGreaterThan(0);
+        expect(balance.symbol).toBe('TAO');
+        expect(balance.decimals).toBe(9);
+        expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
+
+        // Balance should be valid
+        if (balance.decimalAmount) {
+          const totalNum = parseFloat(balance.decimalAmount);
+          expect(totalNum).not.toBeNaN();
+          expect(totalNum).toBeGreaterThan(0);
+        }
       }, 30000);
     });
 

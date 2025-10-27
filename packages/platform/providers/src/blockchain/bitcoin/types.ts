@@ -21,46 +21,5 @@ export interface SmartDetectionResult {
   hdNode: HDKey;
 }
 
-/**
- * Normalized Bitcoin transaction with structured input/output data
- * for sophisticated fund flow analysis in the processor
- */
-export interface BitcoinTransaction {
-  // Block context
-  blockHeight?: number | undefined;
-  blockId?: string | undefined;
-  currency: 'BTC';
-  // Fee information
-  feeAmount?: string | undefined;
-  feeCurrency?: string | undefined;
-
-  // Core transaction data
-  id: string;
-  // Structured input/output data for fund flow analysis
-  inputs: BitcoinTransactionInput[];
-
-  outputs: BitcoinTransactionOutput[];
-  providerId: string;
-
-  status: 'success' | 'failed' | 'pending';
-  timestamp: number;
-}
-
-/**
- * Structured Bitcoin input data
- */
-export interface BitcoinTransactionInput {
-  address?: string | undefined; // Address that owns this input
-  txid?: string | undefined; // Previous transaction ID
-  value: string; // Value in satoshis as string
-  vout?: number | undefined; // Previous output index
-}
-
-/**
- * Structured Bitcoin output data
- */
-export interface BitcoinTransactionOutput {
-  address?: string | undefined; // Destination address
-  index: number; // Output index
-  value: string; // Value in satoshis as string
-}
+// BitcoinTransaction, BitcoinTransactionInput, and BitcoinTransactionOutput types
+// are now inferred from Zod schemas in schemas.ts and exported from there

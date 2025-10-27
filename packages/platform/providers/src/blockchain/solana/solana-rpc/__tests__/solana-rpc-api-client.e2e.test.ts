@@ -1,8 +1,7 @@
-import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../shared/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
 import type { SolanaTransaction } from '../../types.ts';
 import { SolanaRPCApiClient } from '../solana-rpc.api-client.ts';
 
@@ -23,7 +22,7 @@ describe('SolanaRPCApiClient Integration', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance in normalized format', async () => {
-      const result = await provider.execute<BlockchainBalanceSnapshot>({
+      const result = await provider.execute<RawBalanceData>({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -32,12 +31,16 @@ describe('SolanaRPCApiClient Integration', () => {
       if (result.isErr()) return;
 
       const balance = result.value;
-      expect(balance).toHaveProperty('total');
-      expect(typeof balance.total).toBe('string');
-      // Total should be in SOL (converted from lamports)
-      const numericBalance = Number(balance.total);
-      expect(numericBalance).not.toBeNaN();
-      expect(numericBalance).toBeGreaterThanOrEqual(0);
+      expect(balance).toBeDefined();
+      expect(balance.symbol).toBe('SOL');
+      expect(balance.decimals).toBe(9);
+      expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
+      // Should have a valid balance
+      if (balance.decimalAmount) {
+        const numericBalance = Number(balance.decimalAmount);
+        expect(numericBalance).not.toBeNaN();
+        expect(numericBalance).toBeGreaterThanOrEqual(0);
+      }
     }, 30000);
   });
 
@@ -90,7 +93,7 @@ describe('SolanaRPCApiClient Integration', () => {
   describe('Token Balances', () => {
     it.skip('should fetch token balances in normalized format', async () => {
       // Skipping: Public Solana RPC is extremely slow and unreliable for E2E tests
-      const result = await provider.execute<BlockchainBalanceSnapshot[]>({
+      const result = await provider.execute<RawBalanceData[]>({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -103,23 +106,26 @@ describe('SolanaRPCApiClient Integration', () => {
 
       if (balances.length > 0) {
         const firstBalance = balances[0]!;
-        expect(firstBalance).toHaveProperty('asset');
-        expect(firstBalance).toHaveProperty('total');
-        expect(typeof firstBalance.asset).toBe('string');
-        expect(typeof firstBalance.total).toBe('string');
-        // Asset can be either a symbol (short string) or mint address (base58 encoded, 32+ chars)
-        // Since standard Solana RPC doesn't provide metadata, this will be a mint address
-        expect(firstBalance.asset.length).toBeGreaterThan(0);
-        // Total should be a numeric string (in UI amount format)
-        const numericTotal = Number(firstBalance.total);
-        expect(numericTotal).not.toBeNaN();
-        expect(numericTotal).toBeGreaterThanOrEqual(0);
+        expect(firstBalance).toHaveProperty('symbol');
+        expect(firstBalance).toHaveProperty('contractAddress');
+        expect(firstBalance.rawAmount || firstBalance.decimalAmount).toBeDefined();
+        // Symbol may be undefined if metadata is not available
+        // contractAddress (mint) should always be present
+        expect(firstBalance.contractAddress).toBeTruthy();
+        // Should have decimals
+        expect(firstBalance.decimals).toBeDefined();
+        // If decimalAmount is present, it should be valid
+        if (firstBalance.decimalAmount) {
+          const numericTotal = Number(firstBalance.decimalAmount);
+          expect(numericTotal).not.toBeNaN();
+          expect(numericTotal).toBeGreaterThanOrEqual(0);
+        }
       }
     }, 30000);
 
     it.skip('should return token balances with UI amount strings', async () => {
       // Skipping: Public Solana RPC is extremely slow and unreliable for E2E tests
-      const result = await provider.execute<BlockchainBalanceSnapshot[]>({
+      const result = await provider.execute<RawBalanceData[]>({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -132,10 +138,12 @@ describe('SolanaRPCApiClient Integration', () => {
       if (balances.length > 0) {
         // All balances should have human-readable amounts (not raw token amounts)
         for (const balance of balances) {
-          const numericValue = Number(balance.total);
-          expect(numericValue).not.toBeNaN();
-          // Should be a reasonable value (not raw lamports/smallest units)
-          expect(balance.total).not.toMatch(/^[0-9]{15,}$/); // Not a huge integer
+          if (balance.decimalAmount) {
+            const numericValue = Number(balance.decimalAmount);
+            expect(numericValue).not.toBeNaN();
+            // Should be a reasonable value (not raw lamports/smallest units)
+            expect(balance.decimalAmount).not.toMatch(/^[0-9]{15,}$/); // Not a huge integer
+          }
         }
       }
     }, 30000);

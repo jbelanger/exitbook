@@ -62,7 +62,8 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
     const baseAmount = parseDecimal(String(rawValue || 0));
 
     const amount = this.adjustNftAmount(rawData, baseAmount);
-    const currency = rawData.asset ?? (rawData.rawContract?.address || 'UNKNOWN');
+    // Use contract address - processor will enrich with metadata from token repository
+    const currency = rawData.rawContract?.address || 'UNKNOWN';
     const tokenType = rawData.category as EvmTransaction['tokenType'];
 
     return { amount, currency, tokenType };
@@ -109,14 +110,15 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
     return 'transfer';
   }
 
-  private enrichWithTokenFields(transaction: EvmTransaction, rawData: AlchemyAssetTransfer, currency: string): void {
+  private enrichWithTokenFields(transaction: EvmTransaction, rawData: AlchemyAssetTransfer, _currency: string): void {
     const isTokenTransfer = TOKEN_CATEGORIES.has(rawData.category);
     const contractAddress = rawData.rawContract?.address;
 
     if (!isTokenTransfer || !contractAddress) return;
 
-    transaction.tokenAddress = contractAddress;
-    transaction.tokenSymbol = currency;
+    transaction.tokenAddress = normalizeEvmAddress(contractAddress);
+    // Use contract address - processor will enrich with symbol from token repository
+    transaction.tokenSymbol = contractAddress;
 
     const rawDecimals = rawData.rawContract?.decimal;
     if (rawDecimals !== undefined) {

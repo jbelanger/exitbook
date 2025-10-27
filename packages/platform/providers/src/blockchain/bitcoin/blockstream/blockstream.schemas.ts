@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../shared/blockchain/utils/zod-utils.js';
+import { BitcoinAddressSchema } from '../schemas.js';
 
 /**
  * Schema for Blockstream.info transaction status
@@ -19,7 +20,7 @@ export const BlockstreamInputSchema = z.object({
   is_coinbase: z.boolean(),
   prevout: z.object({
     scriptpubkey: z.string(),
-    scriptpubkey_address: z.string().optional(),
+    scriptpubkey_address: BitcoinAddressSchema.optional(),
     scriptpubkey_asm: z.string(),
     scriptpubkey_type: z.string(),
     value: z.number().nonnegative('Prevout value must be non-negative'),
@@ -37,7 +38,7 @@ export const BlockstreamInputSchema = z.object({
  */
 export const BlockstreamOutputSchema = z.object({
   scriptpubkey: z.string(),
-  scriptpubkey_address: z.string().optional(),
+  scriptpubkey_address: BitcoinAddressSchema.optional(),
   scriptpubkey_asm: z.string(),
   scriptpubkey_type: z.string(),
   value: z.number().nonnegative('Output value must be non-negative'),
@@ -75,7 +76,7 @@ export const BlockstreamAddressStatsSchema = z.object({
  * Schema for Blockstream.info address information response
  */
 export const BlockstreamAddressInfoSchema = z.object({
-  address: z.string().min(1, 'Address must not be empty'),
+  address: BitcoinAddressSchema,
   chain_stats: BlockstreamAddressStatsSchema,
   mempool_stats: BlockstreamAddressStatsSchema,
 });

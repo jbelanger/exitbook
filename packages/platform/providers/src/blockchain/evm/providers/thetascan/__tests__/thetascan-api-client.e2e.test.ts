@@ -1,8 +1,7 @@
-import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../shared/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../../shared/blockchain/types/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../../shared/blockchain/types/index.ts';
 import type { EvmTransaction } from '../../../types.ts';
 import { ThetaScanApiClient } from '../thetascan.api-client.ts';
 
@@ -50,7 +49,7 @@ describe('ThetaScanApiClient Integration', () => {
 
   describe('Address Balance', () => {
     it('should fetch address balance successfully', async () => {
-      const result = await provider.execute<BlockchainBalanceSnapshot>({
+      const result = await provider.execute<RawBalanceData>({
         address: testAddress,
         type: 'getAddressBalances',
       });
@@ -59,15 +58,16 @@ describe('ThetaScanApiClient Integration', () => {
       if (result.isOk()) {
         const balance = result.value;
         expect(balance).toBeDefined();
-        expect(balance).toHaveProperty('total');
-        expect(typeof balance.total).toBe('string');
+        expect(balance.symbol).toBe('TFUEL');
+        expect(balance.decimals).toBe(18);
+        expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
       }
     }, 30000);
   });
 
   describe('Token Balances', () => {
     it('should return empty array when no contract addresses provided', async () => {
-      const result = await provider.execute<BlockchainBalanceSnapshot[]>({
+      const result = await provider.execute<RawBalanceData[]>({
         address: testAddress,
         type: 'getAddressTokenBalances',
       });
@@ -84,7 +84,7 @@ describe('ThetaScanApiClient Integration', () => {
       // Example Theta token contract - replace with actual contract if known
       const contractAddresses = ['0x4dc08b15ea0e10b96c41aec22fab934ba15c983e'];
 
-      const result = await provider.execute<BlockchainBalanceSnapshot[]>({
+      const result = await provider.execute<RawBalanceData[]>({
         address: testAddress,
         contractAddresses,
         type: 'getAddressTokenBalances',
@@ -96,12 +96,13 @@ describe('ThetaScanApiClient Integration', () => {
         expect(Array.isArray(balances)).toBe(true);
         // May or may not have balances depending on the address
         if (balances.length > 0 && balances[0]) {
-          expect(balances[0]).toHaveProperty('asset');
-          expect(balances[0]).toHaveProperty('total');
-          expect(typeof balances[0].asset).toBe('string');
-          expect(typeof balances[0].total).toBe('string');
-          // Asset should be a symbol or fallback to contract address
-          expect(balances[0].asset.length).toBeGreaterThan(0);
+          expect(balances[0]).toHaveProperty('symbol');
+          expect(balances[0]).toHaveProperty('contractAddress');
+          expect(balances[0].rawAmount || balances[0].decimalAmount).toBeDefined();
+          // Symbol may be undefined for some tokens
+          if (balances[0].symbol) {
+            expect(balances[0].symbol.length).toBeGreaterThan(0);
+          }
         }
       }
     }, 30000);

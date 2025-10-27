@@ -1,9 +1,8 @@
-import type { BlockchainBalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { TransactionWithRawData } from '../../../../shared/blockchain/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/index.ts';
 import { ProviderRegistry } from '../../../../shared/blockchain/index.ts';
-import type { BitcoinTransaction } from '../../types.js';
+import type { BitcoinTransaction } from '../../schemas.js';
 import { BlockchainComApiClient } from '../blockchain-com.api-client.js';
 
 describe.skip('BlockchainComApiClient E2E', () => {
@@ -21,7 +20,7 @@ describe.skip('BlockchainComApiClient E2E', () => {
   }, 30000);
 
   it('should get address balance for known address', async () => {
-    const result = await client.execute<BlockchainBalanceSnapshot>({
+    const result = await client.execute<RawBalanceData>({
       address: testAddress,
       type: 'getAddressBalances',
     });
@@ -30,9 +29,12 @@ describe.skip('BlockchainComApiClient E2E', () => {
     if (result.isOk()) {
       const balance = result.value;
       expect(balance).toBeDefined();
-      expect(balance).toHaveProperty('total');
-      expect(typeof balance.total).toBe('string');
-      expect(parseFloat(balance.total)).toBeGreaterThan(0);
+      expect(balance.symbol).toBe('BTC');
+      expect(balance.decimals).toBe(8);
+      expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
+      if (balance.decimalAmount) {
+        expect(parseFloat(balance.decimalAmount)).toBeGreaterThan(0);
+      }
     }
   }, 30000);
 
@@ -68,7 +70,7 @@ describe.skip('BlockchainComApiClient E2E', () => {
   }, 30000);
 
   it('should handle empty address gracefully', async () => {
-    const result = await client.execute<BlockchainBalanceSnapshot>({
+    const result = await client.execute<RawBalanceData>({
       address: emptyAddress,
       type: 'getAddressBalances',
     });
@@ -77,8 +79,9 @@ describe.skip('BlockchainComApiClient E2E', () => {
     if (result.isOk()) {
       const balance = result.value;
       expect(balance).toBeDefined();
-      expect(balance).toHaveProperty('total');
-      expect(typeof balance.total).toBe('string');
+      expect(balance.symbol).toBe('BTC');
+      expect(balance.decimals).toBe(8);
+      expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
     }
   }, 30000);
 

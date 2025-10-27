@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./app/*": "./src/app/*",
+    "./blockchain/*": "./src/shared/blockchain/*",
     "./domain/*": "./src/domain/*",
     "./infrastructure/*": "./src/infrastructure/*"
   },
