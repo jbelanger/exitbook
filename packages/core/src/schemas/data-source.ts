@@ -6,12 +6,12 @@ import { z } from 'zod';
 export const SourceTypeSchema = z.enum(['blockchain', 'exchange']);
 
 /**
- * Data source status schema - lifecycle states for import sessions
+ * Data source status schema - lifecycle states
  */
 export const DataSourceStatusSchema = z.enum(['started', 'completed', 'failed', 'cancelled']);
 
 /**
- * Schema for import parameters stored in session metadata
+ * Schema for import parameters stored in source metadata
  */
 export const DataImportParamsSchema = z.object({
   address: z.string().optional(),
@@ -24,7 +24,7 @@ export const DataImportParamsSchema = z.object({
  * Schema for import session metadata
  * Provides blockchain-specific address context and import details
  */
-export const ImportSessionMetadataSchema = z
+export const SourceMetadataSchema = z
   .object({
     address: z.string().optional(),
     csvDirectories: z.array(z.string()).optional(),
@@ -122,7 +122,7 @@ export const DataSourceSchema = z.object({
 export type SourceType = z.infer<typeof SourceTypeSchema>;
 export type DataSourceStatus = z.infer<typeof DataSourceStatusSchema>;
 export type DataImportParams = z.infer<typeof DataImportParamsSchema>;
-export type ImportSessionMetadata = z.infer<typeof ImportSessionMetadataSchema>;
+export type SourceMetadata = z.infer<typeof SourceMetadataSchema>;
 export type ImportResultMetadata = z.infer<typeof ImportResultMetadataSchema>;
 export type SourceParams = z.infer<typeof SourceParamsSchema>;
 export type BalanceDiscrepancy = z.infer<typeof BalanceDiscrepancySchema>;

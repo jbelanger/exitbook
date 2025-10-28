@@ -1,6 +1,6 @@
 import type { TokenMetadata } from '@exitbook/core';
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, okAsync, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
@@ -298,14 +298,14 @@ export class MoralisApiClient extends BaseApiClient {
     return ok(transactions);
   }
 
-  private getAddressInternalTransactions(address: string): Promise<Result<MoralisTransaction[], Error>> {
+  private async getAddressInternalTransactions(address: string): Promise<Result<MoralisTransaction[], Error>> {
     // Moralis includes internal transactions automatically when fetching regular transactions
     // with the 'include=internal_transactions' parameter. To avoid duplicate API calls,
     // internal transactions should be fetched via getAddressTransactions instead.
     this.logger.info(
       `Moralis internal transactions are included in getAddressTransactions call - returning empty array to avoid duplicate fetching for ${maskAddress(address)}`
     );
-    return Promise.resolve(ok([]));
+    return okAsync([]);
   }
 
   private async getAddressTokenBalances(

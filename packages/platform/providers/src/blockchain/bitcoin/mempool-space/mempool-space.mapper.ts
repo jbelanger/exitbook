@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/core';
+import type { SourceMetadata } from '@exitbook/core';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../shared/blockchain/base/mapper.ts';
@@ -22,7 +22,7 @@ export class MempoolSpaceTransactionMapper extends BaseRawDataMapper<MempoolTran
    */
   protected mapInternal(
     rawData: MempoolTransaction,
-    _sessionContext: ImportSessionMetadata
+    _sourceContext: SourceMetadata
   ): Result<BitcoinTransaction, NormalizationError> {
     const timestamp =
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time.getTime() : Date.now();

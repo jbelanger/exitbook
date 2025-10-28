@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/core';
+import type { SourceMetadata } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
 import { type Result, err, ok } from 'neverthrow';
 
@@ -22,16 +22,16 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
 
   protected mapInternal(
     rawData: InjectiveApiTransaction,
-    sessionContext: ImportSessionMetadata
+    sourceContext: SourceMetadata
   ): Result<CosmosTransaction, NormalizationError> {
     const timestamp = rawData.block_timestamp.getTime();
 
-    if (!sessionContext.address) {
+    if (!sourceContext.address) {
       return err({ message: 'Invalid address', type: 'error' });
     }
 
     // Extract address from rich session context
-    const relevantAddress = sessionContext.address;
+    const relevantAddress = sourceContext.address;
 
     let amount = '0';
     let feeAmount = '0';
@@ -271,6 +271,7 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
             tokenSymbol = currency;
           }
         }
+        break;
       }
 
       // Unhandled message type - log and skip

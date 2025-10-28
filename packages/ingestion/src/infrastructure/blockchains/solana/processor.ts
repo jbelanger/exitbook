@@ -4,7 +4,7 @@ import type { ITransactionRepository } from '@exitbook/data';
 import type { SolanaTransaction } from '@exitbook/providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers';
 import type { Decimal } from 'decimal.js';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.ts';
 import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.ts';
@@ -174,7 +174,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
       );
     }
 
-    return Promise.resolve(ok(transactions));
+    return okAsync(transactions);
   }
 
   /**

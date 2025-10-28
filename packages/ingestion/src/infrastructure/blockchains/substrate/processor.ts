@@ -3,7 +3,7 @@ import type { UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { SubstrateTransaction, SubstrateChainConfig } from '@exitbook/providers';
 import { derivePolkadotAddressVariants } from '@exitbook/providers';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
@@ -37,13 +37,13 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
       return err('Missing session address in metadata for Substrate processing');
     }
 
-    const sessionContext = this.enrichSessionContext(sessionMetadata.address);
+    const sourceContext = this.enrichSourceContext(sessionMetadata.address);
     const transactions: UniversalTransaction[] = [];
 
     for (const item of normalizedData) {
       const normalizedTx = item as SubstrateTransaction;
       try {
-        const fundFlow = this.analyzeFundFlowFromNormalized(normalizedTx, sessionContext);
+        const fundFlow = this.analyzeFundFlowFromNormalized(normalizedTx, sourceContext);
         const classification = this.determineOperationFromFundFlow(fundFlow, normalizedTx);
 
         // Calculate direction for primary asset
@@ -121,14 +121,14 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
       }
     }
 
-    return Promise.resolve(ok(transactions));
+    return okAsync(transactions);
   }
 
   /**
    * Enrich session context with SS58 address variants for better transaction matching.
    * Similar to Bitcoin's derived address approach but for Substrate/Polkadot ecosystem.
    */
-  protected enrichSessionContext(address: string): Record<string, unknown> {
+  protected enrichSourceContext(address: string): Record<string, unknown> {
     if (!address) {
       throw new Error('Missing session address in metadata for Polkadot processing');
     }

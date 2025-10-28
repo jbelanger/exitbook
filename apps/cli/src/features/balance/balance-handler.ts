@@ -241,60 +241,57 @@ export class BalanceHandler {
 
   /**
    * Calculate balances from transactions in the database.
-   * For blockchain: filter by address AND blockchain (critical for EVM addresses shared across chains)
-   * For Bitcoin xpub: fetch transactions for ALL derived addresses
-   * For exchange: filter by source_id
+   * For blockchain: find the data_source for the address, then query by data_source_id
+   * For exchange: find the most recent completed data_source, then query by data_source_id
    */
   private async calculateBalancesFromTransactions(
     params: BalanceHandlerParams
   ): Promise<Result<Record<string, import('decimal.js').Decimal>, Error>> {
     try {
-      let transactionsResult;
+      // Find the data_source that matches this source
+      const sessionsResult = await this.sessionRepository.findBySource(params.sourceName);
+      if (sessionsResult.isErr()) {
+        return err(sessionsResult.error);
+      }
+
+      const sessions = sessionsResult.value;
+      if (sessions.length === 0) {
+        return err(new Error(`No data source found for ${params.sourceName}`));
+      }
+
+      let matchingSession: (typeof sessions)[0] | undefined;
 
       if (params.sourceType === 'blockchain' && params.address) {
-        // Special handling for Bitcoin xpub addresses
-        if (params.sourceName === 'bitcoin' && BitcoinUtils.isXpub(params.address)) {
-          logger.info('Detected Bitcoin xpub address, calculating balance from all derived addresses');
+        // Find session matching this specific address
+        const normalizedAddress = params.address.toLowerCase();
+        matchingSession = sessions.find((session) => {
+          const importParams = session.importParams;
+          return importParams.address?.toLowerCase() === normalizedAddress;
+        });
 
-          // Get derived addresses from session metadata
-          const derivedAddressesResult = await this.getDerivedAddressesFromSession(params);
-          if (derivedAddressesResult.isErr()) {
-            return err(derivedAddressesResult.error);
-          }
-
-          const derivedAddresses = derivedAddressesResult.value;
-          logger.info(`Fetching transactions for ${derivedAddresses.length} derived addresses`);
-
-          // Fetch transactions for all derived addresses
-          const allTransactions = [];
-          for (const address of derivedAddresses) {
-            const result = await this.transactionRepository.findByAddress(address, params.sourceName);
-            if (result.isOk()) {
-              allTransactions.push(...result.value);
-            }
-          }
-
-          // Deduplicate transactions by ID (same transaction might appear in multiple addresses)
-          const uniqueTransactions = Array.from(new Map(allTransactions.map((tx) => [tx.id, tx])).values());
-
-          logger.info(`Found ${uniqueTransactions.length} unique transactions across all derived addresses`);
-
-          if (uniqueTransactions.length === 0) {
-            logger.warn(`No transactions found for xpub ${params.address} - calculated balance will be empty`);
-            return ok({});
-          }
-
-          const calculatedBalances = calculateBalances(uniqueTransactions);
-          return ok(calculatedBalances);
+        if (!matchingSession) {
+          return err(new Error(`No data source found for address ${params.address}`));
         }
-
-        // For regular blockchain addresses, fetch transactions by address AND blockchain
-        // This prevents cross-chain aggregation (e.g., Ethereum + Polygon with same 0x address)
-        transactionsResult = await this.transactionRepository.findByAddress(params.address, params.sourceName);
       } else {
-        // For exchange, fetch all transactions for this source
-        transactionsResult = await this.transactionRepository.getTransactions({ sourceId: params.sourceName });
+        // For exchanges, filter to completed sessions and use the most recent
+        const completedSessions = sessions
+          .filter((session) => session.status === 'completed')
+          .sort((a, b) => {
+            const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+            const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+            return bTime - aTime;
+          });
+        matchingSession = completedSessions[0];
       }
+
+      if (!matchingSession) {
+        return err(new Error(`No data source found for ${params.sourceName}`));
+      }
+
+      // Fetch all transactions for this data_source_id
+      const transactionsResult = await this.transactionRepository.getTransactions({
+        sessionId: matchingSession.id,
+      });
 
       if (transactionsResult.isErr()) {
         return err(transactionsResult.error);

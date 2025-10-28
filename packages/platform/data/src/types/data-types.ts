@@ -33,7 +33,7 @@ export type StoredRawData = Selectable<ExternalTransactionDataTable>;
 export type NewRawData = Insertable<ExternalTransactionDataTable>;
 export type RawDataUpdate = Updateable<ExternalTransactionDataTable>;
 
-export interface ImportSessionQuery {
+export interface SourceQuery {
   limit?: number | undefined;
   since?: number | undefined;
   sourceId?: string | undefined;

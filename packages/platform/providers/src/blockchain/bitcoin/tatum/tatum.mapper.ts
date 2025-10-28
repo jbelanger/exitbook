@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/core';
+import type { SourceMetadata } from '@exitbook/core';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../shared/blockchain/base/mapper.ts';
@@ -22,7 +22,7 @@ export class TatumBitcoinTransactionMapper extends BaseRawDataMapper<TatumBitcoi
    */
   protected mapInternal(
     rawData: TatumBitcoinTransaction,
-    _sessionContext: ImportSessionMetadata
+    _sourceContext: SourceMetadata
   ): Result<BitcoinTransaction, NormalizationError> {
     const timestamp = rawData.time * 1000;
 

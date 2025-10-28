@@ -1,11 +1,11 @@
 // Imperative shell for list-blockchains command
 // Manages resources and orchestrates business logic
 
-import { ProcessorFactory } from '@exitbook/ingestion';
+import { getAllBlockchains } from '@exitbook/ingestion';
 import type { ProviderInfo } from '@exitbook/providers';
 import { ProviderRegistry } from '@exitbook/providers';
 import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import { err, okAsync } from 'neverthrow';
 
 import type {
   BlockchainCategory,
@@ -49,15 +49,15 @@ export class ListBlockchainsHandler {
       validatedCategory = categoryResult.value;
     }
 
-    // Get supported blockchains from ProcessorFactory
-    const supportedBlockchains = await ProcessorFactory.getSupportedSources('blockchain');
+    // Get supported blockchains from blockchain config registry
+    const supportedBlockchains = getAllBlockchains();
 
     // Get all providers from ProviderRegistry (for summary stats)
     const allProviders: ProviderInfo[] = ProviderRegistry.getAllProviders();
 
     // Build blockchain info for each supported blockchain
     // Use getAvailable() instead of grouping to properly handle multi-chain providers
-    let blockchains: BlockchainInfo[] = supportedBlockchains.map((blockchain) => {
+    let blockchains: BlockchainInfo[] = supportedBlockchains.map((blockchain: string) => {
       const providers = ProviderRegistry.getAvailable(blockchain);
       return buildBlockchainInfo(blockchain, providers, options.detailed || false);
     });
@@ -77,7 +77,7 @@ export class ListBlockchainsHandler {
     // Build summary
     const summary = buildSummary(blockchains, allProviders);
 
-    return ok({
+    return okAsync({
       blockchains,
       summary,
     });

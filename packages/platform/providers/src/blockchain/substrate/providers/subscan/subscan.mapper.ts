@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/core';
+import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts';
@@ -16,10 +16,10 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
 
   protected mapInternal(
     rawData: SubscanTransferAugmented,
-    sessionContext: ImportSessionMetadata
+    sourceContext: SourceMetadata
   ): Result<SubstrateTransaction, NormalizationError> {
     // Use derivedAddresses for SS58 variants, fallback to address for backward compatibility
-    const addresses = sessionContext.derivedAddresses || (sessionContext.address ? [sessionContext.address] : []);
+    const addresses = sourceContext.derivedAddresses || (sourceContext.address ? [sourceContext.address] : []);
     const relevantAddresses = new Set(addresses);
 
     const nativeCurrency = rawData._nativeCurrency;

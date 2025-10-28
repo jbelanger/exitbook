@@ -51,6 +51,10 @@ export class CosmosImporter implements IImporter {
       return err(new Error(`Address required for ${this.chainConfig.displayName} transaction import`));
     }
 
+    // Normalize Cosmos address to lowercase (Cosmos addresses are case-insensitive)
+    // This ensures consistency with CosmosAddressSchema normalization and processor expectations
+    params.address = params.address.toLowerCase();
+
     this.logger.info(
       `Starting ${this.chainConfig.displayName} transaction import for address: ${params.address.substring(0, 20)}...`
     );

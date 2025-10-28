@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/core';
+import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts';
@@ -16,14 +16,14 @@ export class TaostatsTransactionMapper extends BaseRawDataMapper<TaostatsTransac
 
   protected mapInternal(
     rawData: TaostatsTransactionAugmented,
-    sessionContext: ImportSessionMetadata
+    sourceContext: SourceMetadata
   ): Result<SubstrateTransaction, NormalizationError> {
     // Extract SS58 addresses from address objects
     const fromAddress = rawData.from.ss58;
     const toAddress = rawData.to.ss58;
 
     // Extract addresses from session context
-    const addresses = sessionContext.derivedAddresses || (sessionContext.address ? [sessionContext.address] : []);
+    const addresses = sourceContext.derivedAddresses || (sourceContext.address ? [sourceContext.address] : []);
     const relevantAddresses = new Set(addresses);
 
     // Check if transaction involves any of our addresses

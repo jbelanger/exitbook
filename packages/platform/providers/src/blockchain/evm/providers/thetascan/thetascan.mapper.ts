@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/core';
+import type { SourceMetadata } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
@@ -17,7 +17,7 @@ export class ThetaScanTransactionMapper extends BaseRawDataMapper<ThetaScanTrans
 
   protected mapInternal(
     rawData: ThetaScanTransaction,
-    _sessionContext: ImportSessionMetadata
+    _sourceContext: SourceMetadata
   ): Result<EvmTransaction, NormalizationError> {
     // Remove commas from amounts (ThetaScan uses "1,000,000.000000" format)
     const thetaAmount = parseDecimal(rawData.theta.replace(/,/g, ''));

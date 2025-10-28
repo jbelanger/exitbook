@@ -1,5 +1,5 @@
 import { isErrorWithMessage, parseDecimal } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/core';
+import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../shared/blockchain/base/mapper.ts';
@@ -16,7 +16,7 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
 
   protected mapInternal(
     rawData: HeliusTransaction,
-    sessionContext: ImportSessionMetadata
+    sourceContext: SourceMetadata
   ): Result<SolanaTransaction, NormalizationError> {
     // Validate required signature field
     const signature = rawData.transaction.signatures?.[0] ?? rawData.signature;
@@ -25,7 +25,7 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
     }
 
     try {
-      const solanaTransaction = this.transformTransaction(rawData, signature, sessionContext);
+      const solanaTransaction = this.transformTransaction(rawData, signature, sourceContext);
       return ok(solanaTransaction);
     } catch (error) {
       const errorMessage = isErrorWithMessage(error) ? error.message : String(error);
@@ -36,7 +36,7 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
   private transformTransaction(
     tx: HeliusTransaction,
     signature: string,
-    _sessionContext: ImportSessionMetadata
+    _sourceContext: SourceMetadata
   ): SolanaTransaction {
     const accountKeys = tx.transaction.message.accountKeys;
     const fee = lamportsToSol(tx.meta.fee);

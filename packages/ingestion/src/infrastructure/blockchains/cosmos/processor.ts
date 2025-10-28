@@ -3,7 +3,7 @@ import { parseDecimal } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/providers';
 import type { Decimal } from 'decimal.js';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
@@ -137,7 +137,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
       }
     }
 
-    return Promise.resolve(ok(universalTransactions));
+    return okAsync(universalTransactions);
   }
 
   /**

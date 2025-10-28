@@ -21,12 +21,13 @@ export const InjectiveAmountSchema = z.object({
 /**
  * Schema for Injective gas fee structure
  * Granter and payer addresses normalized via CosmosAddressSchema
+ * Both are optional as the API returns empty strings when not present
  */
 export const InjectiveGasFeeSchema = z.object({
   amount: z.array(InjectiveAmountSchema).min(1, 'Gas fee must have at least one amount'),
   gas_limit: z.number().nonnegative('Gas limit must be non-negative'),
-  granter: CosmosAddressSchema,
-  payer: CosmosAddressSchema,
+  granter: z.preprocess((val) => (val === '' ? undefined : val), CosmosAddressSchema.optional()),
+  payer: z.preprocess((val) => (val === '' ? undefined : val), CosmosAddressSchema.optional()),
 });
 
 /**

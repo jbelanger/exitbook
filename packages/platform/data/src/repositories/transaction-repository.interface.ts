@@ -19,12 +19,6 @@ export interface TransactionFilters {
  */
 export interface ITransactionRepository {
   /**
-   * Retrieve transactions by address (from or to).
-   * Used for historical context in transaction processing.
-   */
-  findByAddress(address: string): Promise<Result<UniversalTransaction[], Error>>;
-
-  /**
    * Retrieve transactions with optional filtering.
    */
   getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransaction[], Error>>;

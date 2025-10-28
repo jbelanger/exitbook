@@ -34,7 +34,7 @@ export function registerImportCommand(program: Command): void {
   program
     .command('import')
     .description('Import raw data from external sources (blockchain or exchange)')
-    .option('--exchange <name>', 'Exchange name (e.g., kraken, kucoin, ledgerlive)')
+    .option('--exchange <name>', 'Exchange name (e.g., kraken, kucoin)')
     .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, polkadot, bittensor)')
     .option('--csv-dir <path>', 'CSV directory for exchange sources')
     .option('--address <address>', 'Wallet address for blockchain source')

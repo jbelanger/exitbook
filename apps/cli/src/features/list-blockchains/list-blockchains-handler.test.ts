@@ -1,4 +1,4 @@
-import { ProcessorFactory } from '@exitbook/ingestion';
+import { getAllBlockchains } from '@exitbook/ingestion';
 import type { ProviderInfo } from '@exitbook/providers';
 import { ProviderRegistry } from '@exitbook/providers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,7 +11,7 @@ vi.mock('@exitbook/providers');
 
 describe('ListBlockchainsHandler', () => {
   let handler: ListBlockchainsHandler;
-  let mockGetSupportedSources: ReturnType<typeof vi.fn>;
+  let mockGetAllBlockchains: ReturnType<typeof vi.fn>;
   let mockGetAllProviders: ReturnType<typeof vi.fn>;
   let mockGetAvailable: ReturnType<typeof vi.fn>;
 
@@ -19,9 +19,9 @@ describe('ListBlockchainsHandler', () => {
     // Reset mocks
     vi.clearAllMocks();
 
-    // Mock ProcessorFactory static methods
-    mockGetSupportedSources = vi.fn();
-    vi.mocked(ProcessorFactory).getSupportedSources = mockGetSupportedSources;
+    // Mock getAllBlockchains
+    mockGetAllBlockchains = vi.fn();
+    vi.mocked(getAllBlockchains).mockImplementation(mockGetAllBlockchains);
 
     // Mock ProviderRegistry
     mockGetAllProviders = vi.fn();
@@ -42,7 +42,7 @@ describe('ListBlockchainsHandler', () => {
   describe('execute', () => {
     it('should return list of blockchains with providers', async () => {
       // Setup mocks
-      mockGetSupportedSources.mockResolvedValue(['bitcoin', 'ethereum']);
+      mockGetAllBlockchains.mockReturnValue(['bitcoin', 'ethereum']);
       const allProviders = [
         createMockProvider('blockstream', 'bitcoin', false),
         createMockProvider('alchemy', 'ethereum', true),
@@ -68,7 +68,7 @@ describe('ListBlockchainsHandler', () => {
 
     it('should filter blockchains by valid category', async () => {
       // Setup mocks
-      mockGetSupportedSources.mockResolvedValue(['bitcoin', 'ethereum', 'polygon']);
+      mockGetAllBlockchains.mockReturnValue(['bitcoin', 'ethereum', 'polygon']);
       const allProviders = [
         createMockProvider('blockstream', 'bitcoin', false),
         createMockProvider('alchemy', 'ethereum', true),
@@ -93,7 +93,7 @@ describe('ListBlockchainsHandler', () => {
 
     it('should return error for invalid category', async () => {
       // Setup mocks (though they won't be called)
-      mockGetSupportedSources.mockResolvedValue([]);
+      mockGetAllBlockchains.mockReturnValue([]);
       mockGetAllProviders.mockReturnValue([]);
 
       // Execute with invalid category
@@ -108,7 +108,7 @@ describe('ListBlockchainsHandler', () => {
 
     it('should filter blockchains that require API key', async () => {
       // Setup mocks
-      mockGetSupportedSources.mockResolvedValue(['bitcoin', 'ethereum']);
+      mockGetAllBlockchains.mockReturnValue(['bitcoin', 'ethereum']);
       const allProviders = [
         createMockProvider('blockstream', 'bitcoin', false), // No API key
         createMockProvider('alchemy', 'ethereum', true), // Requires API key
@@ -131,7 +131,7 @@ describe('ListBlockchainsHandler', () => {
 
     it('should filter blockchains that do not require API key', async () => {
       // Setup mocks
-      mockGetSupportedSources.mockResolvedValue(['bitcoin', 'ethereum']);
+      mockGetAllBlockchains.mockReturnValue(['bitcoin', 'ethereum']);
       const allProviders = [
         createMockProvider('blockstream', 'bitcoin', false), // No API key
         createMockProvider('alchemy', 'ethereum', true), // Requires API key
@@ -154,7 +154,7 @@ describe('ListBlockchainsHandler', () => {
 
     it('should include detailed provider information when detailed=true', async () => {
       // Setup mocks
-      mockGetSupportedSources.mockResolvedValue(['bitcoin']);
+      mockGetAllBlockchains.mockReturnValue(['bitcoin']);
       const allProviders = [
         {
           name: 'blockstream',
@@ -192,7 +192,7 @@ describe('ListBlockchainsHandler', () => {
 
     it('should not include detailed provider information when detailed=false', async () => {
       // Setup mocks
-      mockGetSupportedSources.mockResolvedValue(['bitcoin']);
+      mockGetAllBlockchains.mockReturnValue(['bitcoin']);
       const allProviders = [
         {
           name: 'blockstream',
@@ -230,7 +230,7 @@ describe('ListBlockchainsHandler', () => {
 
     it('should handle blockchains with no providers', async () => {
       // Setup mocks
-      mockGetSupportedSources.mockResolvedValue(['bitcoin', 'ethereum']);
+      mockGetAllBlockchains.mockReturnValue(['bitcoin', 'ethereum']);
       const allProviders = [
         createMockProvider('blockstream', 'bitcoin', false),
         // No Ethereum providers
@@ -255,7 +255,7 @@ describe('ListBlockchainsHandler', () => {
 
     it('should handle blockchains with multiple providers', async () => {
       // Setup mocks
-      mockGetSupportedSources.mockResolvedValue(['bitcoin']);
+      mockGetAllBlockchains.mockReturnValue(['bitcoin']);
       const allProviders = [
         createMockProvider('blockstream', 'bitcoin', false),
         createMockProvider('mempool', 'bitcoin', false),
@@ -282,7 +282,7 @@ describe('ListBlockchainsHandler', () => {
 
     it('should sort blockchains by popularity', async () => {
       // Setup mocks with blockchains in random order
-      mockGetSupportedSources.mockResolvedValue(['solana', 'kusama', 'bitcoin', 'polygon', 'ethereum']);
+      mockGetAllBlockchains.mockReturnValue(['solana', 'kusama', 'bitcoin', 'polygon', 'ethereum']);
       const allProviders = [
         createMockProvider('provider1', 'bitcoin', false),
         createMockProvider('provider2', 'ethereum', false),
@@ -308,7 +308,7 @@ describe('ListBlockchainsHandler', () => {
 
     it('should build correct summary statistics', async () => {
       // Setup mocks
-      mockGetSupportedSources.mockResolvedValue(['bitcoin', 'ethereum', 'polygon']);
+      mockGetAllBlockchains.mockReturnValue(['bitcoin', 'ethereum', 'polygon']);
       const allProviders = [
         createMockProvider('blockstream', 'bitcoin', false),
         createMockProvider('alchemy', 'ethereum', true),

@@ -7,4 +7,9 @@ export type { ITransactionRepository, TransactionFilters } from './repositories/
 export type { TransactionNeedingPrice } from './repositories/transaction-repository.ts';
 export { TokenMetadataRepository } from './repositories/token-metadata-repository.ts';
 export type { DatabaseSchema, TransactionLinksTable } from './schema/database-schema.ts';
-export type { StoredRawData, StoredDataSource, ImportSessionQuery, DataSourceUpdate } from './types/data-types.ts';
+export type {
+  StoredRawData,
+  StoredDataSource,
+  SourceQuery as ImportSessionQuery,
+  DataSourceUpdate,
+} from './types/data-types.ts';

@@ -330,7 +330,7 @@ pnpm dev -- import --blockchain <chain> --address <wallet> [--provider <name>] [
 
 **Options:**
 
-- `--exchange <name>` - Exchange name: `kraken`, `kucoin`, `ledgerlive`
+- `--exchange <name>` - Exchange name: `kraken`, `kucoin`
 - `--blockchain <name>` - Blockchain name: `bitcoin`, `ethereum`, `solana`, etc.
 - `--csv-dir <path>` - Directory containing CSV exports (for exchanges)
 - `--address <wallet>` - Wallet address (for blockchains)
@@ -597,7 +597,7 @@ pnpm dev -- status
 
 **Options**
 
-- `--exchange <name>` – Required for CSV imports. Current adapters: `kraken`, `kucoin`, `ledgerlive` (case-insensitive).
+- `--exchange <name>` – Required for CSV imports. Current adapters: `kraken`, `kucoin` (case-insensitive).
 - `--blockchain <name>` – Required for on-chain imports. Use `pnpm dev -- list-blockchains` to see supported IDs.
 - `--csv-dir <path>` – Directory that contains official export CSVs for the chosen exchange (required when `--exchange` is set).
 - `--address <wallet>` – Wallet or account address to hydrate (required for `--blockchain`).
@@ -621,8 +621,6 @@ pnpm dev -- import --exchange kraken --csv-dir ./exports/kraken-2024 --process
 pnpm dev -- import --exchange kucoin --csv-dir ./exports/kucoin
 pnpm dev -- process --exchange kucoin --session <session-id>
 
-# Ledger Live example
-pnpm dev -- import --exchange ledgerlive --csv-dir ./exports/ledger
 ````
 
 Each run stores the raw rows inside `external_transaction_data` tagged with the provider (`kraken`, `kucoin`, etc.) so you can reprocess without re-reading the CSVs.

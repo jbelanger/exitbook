@@ -1,7 +1,7 @@
 import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, okAsync, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
@@ -135,7 +135,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
       );
     }
 
-    return Promise.resolve(ok(transactions));
+    return okAsync(transactions);
   }
 
   /**

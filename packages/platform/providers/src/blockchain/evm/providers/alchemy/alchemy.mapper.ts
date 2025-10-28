@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/core';
+import type { SourceMetadata } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
@@ -25,7 +25,7 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
 
   protected mapInternal(
     rawData: AlchemyAssetTransfer,
-    _sessionContext: ImportSessionMetadata
+    _sourceContext: SourceMetadata
   ): Result<EvmTransaction, NormalizationError> {
     const { amount, currency, tokenType } = this.extractAmountAndCurrency(rawData);
     const timestamp = this.extractTimestamp(rawData);

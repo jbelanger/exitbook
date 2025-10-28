@@ -204,36 +204,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async findByAddress(address: string, sourceId?: string) {
-    try {
-      let query = this.db
-        .selectFrom('transactions')
-        .selectAll()
-        .where((eb) => eb.or([eb('from_address', '=', address), eb('to_address', '=', address)]));
-
-      // Filter by blockchain/exchange if specified (critical for EVM addresses shared across chains)
-      if (sourceId) {
-        query = query.where('source_id', '=', sourceId);
-      }
-
-      const rows = await query.orderBy('transaction_datetime', 'desc').execute();
-
-      // Convert rows to domain models, failing fast on any parse errors
-      const transactions: UniversalTransaction[] = [];
-      for (const row of rows) {
-        const result = this.toUniversalTransaction(row);
-        if (result.isErr()) {
-          return err(result.error);
-        }
-        transactions.push(result.value);
-      }
-
-      return ok(transactions);
-    } catch (error) {
-      return wrapError(error, 'Failed to retrieve transactions by address');
-    }
-  }
-
   /**
    * Find transactions with movements that need price data
    * Optionally filter by specific asset(s)

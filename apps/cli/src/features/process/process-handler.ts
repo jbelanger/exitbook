@@ -2,7 +2,6 @@ import type { KyselyDB } from '@exitbook/data';
 import { TokenMetadataRepository, TransactionRepository } from '@exitbook/data';
 import {
   DataSourceRepository,
-  ProcessorFactory,
   RawDataRepository,
   TokenMetadataService,
   TransactionProcessService,
@@ -47,13 +46,12 @@ export class ProcessHandler {
     const tokenMetadataRepository = new TokenMetadataRepository(this.database);
     this.providerManager = new BlockchainProviderManager(config);
     const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, this.providerManager);
-    const processorFactory = new ProcessorFactory(tokenMetadataService);
 
     this.processService = new TransactionProcessService(
       rawDataRepository,
       sessionRepository,
       transactionRepository,
-      processorFactory
+      tokenMetadataService
     );
   }
 

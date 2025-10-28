@@ -8,7 +8,7 @@ import { type RateLimitConfig } from '@exitbook/platform-http';
 
 // Import clients to trigger registration
 import '../../../blockchain/evm/register-apis.js';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { BlockchainProviderManager } from '../provider-manager.ts';
@@ -73,7 +73,7 @@ class MockProvider implements IBlockchainProvider {
     if (this.shouldFail) {
       return err(new Error('Mock provider is unhealthy'));
     }
-    return Promise.resolve(ok(true));
+    return okAsync(true);
   }
 
   async benchmarkRateLimit(): Promise<{

@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/core';
+import type { SourceMetadata } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { type Result, ok, err } from 'neverthrow';
 
@@ -22,7 +22,7 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
 
   protected mapInternal(
     rawData: ThetaTransaction,
-    _sessionContext: ImportSessionMetadata
+    _sourceContext: SourceMetadata
   ): Result<EvmTransaction, NormalizationError> {
     // Extract transaction details based on type
     let from: string;

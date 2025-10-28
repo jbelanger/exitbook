@@ -1,6 +1,6 @@
 import { parseDecimal, getErrorMessage } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
-import { type Result, ok } from 'neverthrow';
+import { type Result, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
@@ -79,7 +79,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
       allTransactions.push(...convertTransactions);
     }
 
-    return Promise.resolve(ok(allTransactions));
+    return okAsync(allTransactions);
   }
 
   private convertAccountHistoryConvertToTransaction(

@@ -9,7 +9,7 @@ export type {
   DataImportParams,
   DataSource,
   DataSourceStatus,
-  ImportSessionMetadata,
+  SourceMetadata as ImportSessionMetadata,
   SourceParams,
   SourceType,
   VerificationMetadata,

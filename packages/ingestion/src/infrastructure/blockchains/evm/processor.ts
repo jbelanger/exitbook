@@ -4,7 +4,7 @@ import type { ITransactionRepository } from '@exitbook/data';
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers';
 import type { Decimal } from 'decimal.js';
-import { err, ok, type Result } from 'neverthrow';
+import { err, okAsync, ok, type Result } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.ts';
 import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.ts';
@@ -38,6 +38,9 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       return err('Missing user address in session metadata');
     }
 
+    // Normalize address to lowercase for consistency with transaction addresses
+    const normalizedUserAddress = userAddress.toLowerCase();
+
     this.logger.info(`Processing ${normalizedData.length} normalized ${this.chainConfig.chainName} transactions`);
 
     // Enrich token metadata before processing (required for proper decimal normalization)
@@ -56,7 +59,9 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     const processingErrors: { error: string; hash: string; txCount: number }[] = [];
 
     for (const [hash, txGroup] of transactionGroups) {
-      const fundFlowResult = this.analyzeFundFlowFromNormalized(txGroup, sessionMetadata);
+      // Pass normalized address in metadata for consistent comparison
+      const normalizedMetadata = { ...sessionMetadata, address: normalizedUserAddress };
+      const fundFlowResult = this.analyzeFundFlowFromNormalized(txGroup, normalizedMetadata);
 
       if (fundFlowResult.isErr()) {
         const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;
@@ -88,7 +93,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       // 1. They have ANY outflows (sent funds, swapped, etc.) OR
       // 2. They initiated a contract interaction with no outflows (approval, state change, etc.)
       // Addresses already normalized to lowercase via EvmAddressSchema
-      const userInitiatedTransaction = (fundFlow.fromAddress || '') === userAddress;
+      const userInitiatedTransaction = (fundFlow.fromAddress || '') === normalizedUserAddress;
       const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
       const networkFee = userPaidFee
@@ -179,7 +184,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       );
     }
 
-    return Promise.resolve(ok(transactions));
+    return okAsync(transactions);
   }
 
   private groupTransactionsByHash(transactions: EvmTransaction[]): Map<string, EvmTransaction[]> {
@@ -213,7 +218,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       return err('Missing user address in session metadata');
     }
 
-    // Address already normalized to lowercase via EvmAddressSchema
+    // Address should already be normalized by caller
     const userAddress = sessionMetadata.address;
 
     // Analyze transaction group complexity - essential for proper EVM classification

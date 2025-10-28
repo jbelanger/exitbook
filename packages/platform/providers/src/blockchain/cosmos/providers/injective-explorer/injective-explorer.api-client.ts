@@ -133,7 +133,15 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.debug(`Skipping transaction - Address: ${maskAddress(address)}, Reason: ${errorMessage}`);
+        if (mapResult.error.type === 'error') {
+          // Log validation errors at error level (matches other providers)
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+        } else {
+          // Log skipped transactions (non-errors) at debug level
+          this.logger.debug(`Skipping transaction - Address: ${maskAddress(address)}, Reason: ${errorMessage}`);
+        }
         continue;
       }
 

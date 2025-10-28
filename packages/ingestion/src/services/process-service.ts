@@ -1,11 +1,13 @@
 import { getErrorMessage } from '@exitbook/core';
-import type { ExternalTransactionData, ImportSessionMetadata, SourceType, UniversalTransaction } from '@exitbook/core';
+import type { ExternalTransactionData, SourceMetadata, SourceType, UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, Result } from 'neverthrow';
 
-import type { IProcessorFactory } from '../types/factories.ts';
+import { getBlockchainConfig } from '../infrastructure/blockchains/index.ts';
+import { createExchangeProcessor } from '../infrastructure/exchanges/shared/exchange-processor-factory.ts';
+import type { ITokenMetadataService } from '../services/token-metadata/token-metadata-service.interface.ts';
 import type { ProcessResult } from '../types/processors.ts';
 import type { IDataSourceRepository, IRawDataRepository, LoadRawDataFilters } from '../types/repositories.ts';
 
@@ -14,9 +16,9 @@ export class TransactionProcessService {
 
   constructor(
     private rawDataRepository: IRawDataRepository,
-    private sessionRepository: IDataSourceRepository,
+    private dataSourceRepository: IDataSourceRepository,
     private transactionRepository: ITransactionRepository,
-    private processorFactory: IProcessorFactory
+    private tokenMetadataService: ITokenMetadataService
   ) {
     this.logger = getLogger('TransactionProcessService');
   }
@@ -89,7 +91,7 @@ export class TransactionProcessService {
 
       this.logger.info(`Found ${rawDataItems.length} raw data items to process for ${sourceId}`);
 
-      const allSessionsResult = await this.sessionRepository.findBySource(sourceId);
+      const allSessionsResult = await this.dataSourceRepository.findBySource(sourceId);
 
       if (allSessionsResult.isErr()) {
         return err(allSessionsResult.error);
@@ -149,7 +151,7 @@ export class TransactionProcessService {
 
         const normalizedRawDataItems: unknown[] = [];
 
-        const parsedSessionMetadata: ImportSessionMetadata = {
+        const parsedSessionMetadata: SourceMetadata = {
           ...session.importParams,
           ...session.importResultMetadata,
         };
@@ -175,7 +177,27 @@ export class TransactionProcessService {
           }
         }
 
-        const processor = await this.processorFactory.create(sourceId, sourceType, parsedSessionMetadata);
+        // Create processor based on source type
+        let processor;
+        if (sourceType === 'blockchain') {
+          // Normalize sourceId to lowercase for config lookup (registry keys are lowercase)
+          const normalizedSourceId = sourceId.toLowerCase();
+          const config = getBlockchainConfig(normalizedSourceId);
+          if (!config) {
+            return err(new Error(`Unknown blockchain: ${sourceId}`));
+          }
+          const processorResult = config.createProcessor(this.tokenMetadataService);
+          if (processorResult.isErr()) {
+            return err(processorResult.error);
+          }
+          processor = processorResult.value;
+        } else {
+          const processorResult = await createExchangeProcessor(sourceId, parsedSessionMetadata);
+          if (processorResult.isErr()) {
+            return err(processorResult.error);
+          }
+          processor = processorResult.value;
+        }
 
         const sessionTransactionsResult = await processor.process(normalizedRawDataItems, parsedSessionMetadata);
 
@@ -192,7 +214,9 @@ export class TransactionProcessService {
         }
 
         const sessionTransactions = sessionTransactionsResult.value;
-        allTransactions.push(...sessionTransactions.map((tx) => ({ ...tx, sessionId: session.id })));
+        allTransactions.push(
+          ...sessionTransactions.map((tx: UniversalTransaction) => ({ ...tx, sessionId: session.id }))
+        );
 
         this.logger.debug(`Processed ${sessionTransactions.length} transactions for session ${session.id}`);
       }

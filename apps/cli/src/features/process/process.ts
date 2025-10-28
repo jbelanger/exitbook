@@ -32,9 +32,9 @@ export function registerProcessCommand(program: Command): void {
   program
     .command('process')
     .description('Transform raw imported data to universal transaction format')
-    .option('--exchange <name>', 'Exchange name (e.g., kraken, kucoin, ledgerlive)')
+    .option('--exchange <name>', 'Exchange name (e.g., kraken, kucoin)')
     .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, polkadot, bittensor)')
-    .option('--session <id>', 'Import session ID to process')
+    .option('--source <id>', 'Import source ID to process')
     .option('--all', 'Process all pending raw data for this source')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
     .action(async (options: ExtendedProcessCommandOptions) => {

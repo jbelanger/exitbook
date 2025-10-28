@@ -1,3 +1,6 @@
+// Initialize blockchain configs by importing the registry
+import './infrastructure/blockchains';
+
 export { TransactionImportService } from './services/import-service.ts';
 export { TransactionProcessService } from './services/process-service.ts';
 export {
@@ -28,10 +31,19 @@ export type { BalanceComparison, BalanceVerificationResult } from './services/ba
 // Types
 export type { ImportResult, ImportParams } from './types/importers.ts';
 export type { IRawDataRepository, IDataSourceRepository, LoadRawDataFilters } from './types/repositories.ts';
-export type { IImporterFactory, IProcessorFactory } from './types/factories.ts';
 
 // Concrete implementations
 export { RawDataRepository } from './persistence/raw-data-repository.ts';
 export { DataSourceRepository } from './persistence/data-source-repository.ts';
-export { ImporterFactory } from './infrastructure/shared/importers/importer-factory.ts';
-export { ProcessorFactory } from './infrastructure/shared/processors/processor-factory.ts';
+
+// Blockchain configuration
+export {
+  getBlockchainConfig,
+  getAllBlockchains,
+  hasBlockchainConfig,
+  type BlockchainConfig,
+} from './infrastructure/blockchains/shared/blockchain-config.ts';
+
+// Exchange factories
+export { createExchangeImporter } from './infrastructure/exchanges/shared/exchange-importer-factory.ts';
+export { createExchangeProcessor } from './infrastructure/exchanges/shared/exchange-processor-factory.ts';

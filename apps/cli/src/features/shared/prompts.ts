@@ -1,6 +1,6 @@
 import * as p from '@clack/prompts';
 import type { SourceType } from '@exitbook/core';
-import { ProcessorFactory } from '@exitbook/ingestion';
+import { getAllBlockchains } from '@exitbook/ingestion';
 import type { ProviderInfo } from '@exitbook/providers';
 import { ProviderRegistry } from '@exitbook/providers';
 
@@ -46,11 +46,11 @@ export async function promptSourceType(): Promise<SourceType> {
  * Prompt for exchange selection.
  */
 export async function promptExchange(): Promise<string> {
-  const exchanges = await ProcessorFactory.getSupportedSources('exchange');
+  const exchanges = ['kraken', 'kucoin', 'coinbase'];
 
   const exchange = await p.select({
     message: 'Select an exchange',
-    options: exchanges.map((name) => ({
+    options: exchanges.map((name: string) => ({
       value: name,
       label: formatExchangeName(name),
       hint: getExchangeHint(name),
@@ -69,14 +69,14 @@ export async function promptExchange(): Promise<string> {
  * Note: @clack/prompts select has built-in filtering when you type.
  */
 export async function promptBlockchain(): Promise<string> {
-  const blockchains = await ProcessorFactory.getSupportedSources('blockchain');
+  const blockchains = getAllBlockchains();
 
   // Sort blockchains by category and popularity
   const sortedBlockchains = sortBlockchainsByCategory(blockchains);
 
   const blockchain = await p.select({
     message: 'Select a blockchain (type to filter)',
-    options: sortedBlockchains.map((name) => ({
+    options: sortedBlockchains.map((name: string) => ({
       value: name,
       label: formatBlockchainName(name),
       hint: getBlockchainHint(name),
@@ -209,7 +209,6 @@ function formatExchangeName(name: string): string {
   const names: Record<string, string> = {
     kraken: 'Kraken',
     kucoin: 'KuCoin',
-    ledgerlive: 'Ledger Live',
     coinbase: 'Coinbase',
   };
   return names[name] || name.charAt(0).toUpperCase() + name.slice(1);
@@ -222,7 +221,6 @@ function getExchangeHint(name: string): string {
   const hints: Record<string, string> = {
     kraken: 'CSV or API',
     kucoin: 'CSV or API',
-    ledgerlive: 'CSV only',
     coinbase: 'API only',
   };
   return hints[name] || '';

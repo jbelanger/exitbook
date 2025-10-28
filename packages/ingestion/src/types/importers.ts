@@ -22,6 +22,7 @@ export interface ImportRunResult {
   // Metadata about the import run (e.g., total fetched, date ranges)
   metadata?: Record<string, unknown> | undefined;
 }
+
 /**
  * Interface for importing raw data from external sources.
  * Each importer is responsible for fetching data from a specific source
