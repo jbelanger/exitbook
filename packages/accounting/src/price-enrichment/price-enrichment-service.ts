@@ -6,12 +6,16 @@ import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import type { TransactionLinkRepository } from '../persistence/transaction-link-repository.js';
+
+import { LinkGraphBuilder } from './link-graph-builder.js';
 import {
   calculatePriceFromTrade,
   extractTradeMovements,
   findClosestPrice,
   inferPriceFromTrade,
-} from './price-calculation-utils.ts';
+} from './price-calculation-utils.js';
+import type { TransactionGroup } from './types.js';
 
 const logger = getLogger('PriceEnrichmentService');
 
@@ -37,18 +41,26 @@ export interface PriceEnrichmentConfig {
  * 1. Extract known prices from fiat/stablecoin trades
  * 2. Iteratively infer prices from crypto-crypto trades
  * 3. Fill remaining gaps using temporal proximity
+ *
+ * Phase 2 Enhancement (Link-Aware):
+ * - Uses TransactionLinkRepository to fetch confirmed transaction links
+ * - Groups linked transactions together via Union-Find algorithm
+ * - Enables price propagation across platforms (exchange ↔ blockchain)
  */
 export class PriceEnrichmentService {
   private readonly config: Required<PriceEnrichmentConfig>;
+  private readonly linkGraphBuilder: LinkGraphBuilder;
 
   constructor(
     private readonly transactionRepository: TransactionRepository,
+    private readonly linkRepository: TransactionLinkRepository,
     config?: PriceEnrichmentConfig
   ) {
     this.config = {
       maxTimeDeltaMs: config?.maxTimeDeltaMs ?? 3_600_000, // 1 hour
       maxIterations: config?.maxIterations ?? 10,
     };
+    this.linkGraphBuilder = new LinkGraphBuilder();
   }
 
   /**
@@ -87,28 +99,34 @@ export class PriceEnrichmentService {
       // Track which transactions need price updates (but process all for index building)
       const txIdsNeedingPrices = new Set(transactions.map((tx) => tx.id));
 
-      // Separate by source type (keep all transactions for proper price index building)
-      const exchangeTxs = allTransactions.filter((tx) => !tx.blockchain);
-      const blockchainTxs = allTransactions.filter((tx) => tx.blockchain !== undefined);
+      // Fetch confirmed transaction links
+      const linksResult = await this.linkRepository.findAll('confirmed');
+      if (linksResult.isErr()) {
+        return err(linksResult.error);
+      }
+
+      const confirmedLinks = linksResult.value;
+      logger.info({ linkCount: confirmedLinks.length }, 'Fetched confirmed transaction links');
+
+      // Build link graph: groups transitively linked transactions together
+      // This enables price propagation across platforms (exchange → blockchain → exchange)
+      const transactionGroups = this.linkGraphBuilder.buildLinkGraph(allTransactions, confirmedLinks);
+      logger.info({ groupCount: transactionGroups.length }, 'Built transaction groups from links');
 
       let updatedCount = 0;
 
-      // Process exchanges (grouped by source_id)
-      if (exchangeTxs.length > 0) {
-        const exchangeResult = await this.enrichExchangePrices(exchangeTxs, txIdsNeedingPrices);
-        if (exchangeResult.isErr()) {
-          return err(exchangeResult.error);
+      // Process each transaction group independently
+      for (const group of transactionGroups) {
+        const groupResult = await this.enrichTransactionGroup(group, txIdsNeedingPrices);
+        if (groupResult.isErr()) {
+          logger.error(
+            { groupId: group.groupId, sources: Array.from(group.sources), error: groupResult.error },
+            'Failed to enrich transaction group'
+          );
+          continue;
         }
-        updatedCount += exchangeResult.value;
-      }
 
-      // Process blockchains (simple swaps only)
-      if (blockchainTxs.length > 0) {
-        const blockchainResult = await this.enrichBlockchainPrices(blockchainTxs, txIdsNeedingPrices);
-        if (blockchainResult.isErr()) {
-          return err(blockchainResult.error);
-        }
-        updatedCount += blockchainResult.value;
+        updatedCount += groupResult.value;
       }
 
       logger.info({ transactionsUpdated: updatedCount }, 'Price enrichment completed');
@@ -119,48 +137,34 @@ export class PriceEnrichmentService {
   }
 
   /**
-   * Process exchange transactions with multi-pass inference
-   * Groups by exchange (source_id) for independent processing
+   * Enrich prices for a transaction group using multi-pass inference
+   *
+   * Transaction groups can contain:
+   * - Single exchange transactions (no links)
+   * - Single blockchain transactions (no links)
+   * - Mixed cross-platform transactions (linked via Union-Find)
+   *
+   * The multi-pass inference algorithm works the same regardless of group composition,
+   * but linked groups enable price propagation across platforms.
    */
-  private async enrichExchangePrices(
-    transactions: UniversalTransaction[],
+  private async enrichTransactionGroup(
+    group: TransactionGroup,
     txIdsNeedingPrices: Set<number>
   ): Promise<Result<number, Error>> {
     try {
-      // Group by exchange
-      const txsByExchange = this.groupByExchange(transactions);
+      const { groupId, transactions, sources, linkChain } = group;
 
-      logger.info({ exchanges: txsByExchange.size }, 'Processing exchanges');
+      // Log group details for debugging
+      logger.debug(
+        {
+          groupId,
+          transactionCount: transactions.length,
+          sources: Array.from(sources),
+          linkCount: linkChain.length,
+        },
+        'Processing transaction group'
+      );
 
-      let totalUpdated = 0;
-
-      for (const [exchange, txs] of txsByExchange.entries()) {
-        logger.debug({ exchange, transactionCount: txs.length }, 'Processing exchange');
-
-        const updated = await this.enrichExchangeGroup(exchange, txs, txIdsNeedingPrices);
-        if (updated.isErr()) {
-          logger.error({ exchange, error: updated.error }, 'Failed to enrich exchange prices');
-          continue;
-        }
-
-        totalUpdated += updated.value;
-      }
-
-      return ok(totalUpdated);
-    } catch (error) {
-      return wrapError(error, 'Failed to enrich exchange prices');
-    }
-  }
-
-  /**
-   * Enrich prices for a single exchange using multi-pass inference
-   */
-  private async enrichExchangeGroup(
-    exchange: string,
-    transactions: UniversalTransaction[],
-    txIdsNeedingPrices: Set<number>
-  ): Promise<Result<number, Error>> {
-    try {
       // Sort by timestamp for temporal processing
       const sortedTxs = [...transactions].sort((a, b) => {
         const timeA = new Date(a.datetime).getTime();
@@ -170,10 +174,32 @@ export class PriceEnrichmentService {
 
       // Pass 1: Extract known prices from fiat/stablecoin trades
       const priceIndex = this.extractKnownPrices(sortedTxs);
-      logger.debug({ exchange, pricesExtracted: priceIndex.size }, 'Extracted known prices');
+      logger.debug({ groupId, pricesExtracted: priceIndex.size }, 'Extracted known prices');
 
       // Pass 2-N: Iterative inference
-      const enrichedTxs = this.inferMultiPass(sortedTxs, priceIndex);
+      const inferredTxs = this.inferMultiPass(sortedTxs, priceIndex);
+
+      // Pass N+1: Propagate prices across confirmed links (NEW)
+      // This enables cross-platform price flow (exchange → blockchain → exchange)
+      // This happens AFTER multi-pass inference so transactions have all possible derived prices
+      const { pricesFromLinks, enrichedTransactions } = this.propagatePricesAcrossLinks(group, inferredTxs);
+
+      let enrichedTxs = enrichedTransactions;
+
+      if (pricesFromLinks.length > 0) {
+        logger.debug({ groupId, linkPricesPropagated: pricesFromLinks.length }, 'Propagated prices across links');
+
+        // Add link-propagated prices to index so they can help other transactions in this run
+        for (const { asset, priceAtTxTime } of pricesFromLinks) {
+          if (!priceIndex.has(asset)) {
+            priceIndex.set(asset, []);
+          }
+          priceIndex.get(asset)!.push(priceAtTxTime);
+        }
+
+        // Run one more temporal proximity pass to use the newly propagated prices
+        enrichedTxs = this.fillGapsWithTemporalProximity(enrichedTransactions, priceIndex);
+      }
 
       // Update database with enriched prices (only for transactions that need prices)
       let updatedCount = 0;
@@ -201,12 +227,12 @@ export class PriceEnrichmentService {
       }
 
       if (skippedCount > 0) {
-        logger.debug({ exchange, skippedCount }, 'Transactions skipped (no prices could be derived)');
+        logger.debug({ groupId, skippedCount }, 'Transactions skipped (no prices could be derived)');
       }
 
       return ok(updatedCount);
     } catch (error) {
-      return wrapError(error, `Failed to enrich prices for exchange: ${exchange}`);
+      return wrapError(error, `Failed to enrich prices for transaction group: ${group.groupId}`);
     }
   }
 
@@ -239,6 +265,206 @@ export class PriceEnrichmentService {
     }
 
     return priceIndex;
+  }
+
+  /**
+   * Propagate prices across confirmed transaction links
+   *
+   * This enables cross-platform price flow:
+   * - Exchange withdrawal → Blockchain deposit
+   * - Blockchain transfer → Blockchain receive
+   * - Exchange withdrawal → Exchange deposit
+   *
+   * Logic:
+   * 1. For each confirmed link, find source and target transactions
+   * 2. Match movements by asset (source outflow → target inflow)
+   * 3. Copy price from source movement to target movement
+   * 4. Set source to 'link-propagated'
+   *
+   * @param group - Transaction group with linkChain
+   * @param transactions - All transactions in the group
+   * @returns Object with propagated prices and enriched transactions
+   */
+  private propagatePricesAcrossLinks(
+    group: TransactionGroup,
+    transactions: UniversalTransaction[]
+  ): {
+    enrichedTransactions: UniversalTransaction[];
+    pricesFromLinks: { asset: string; priceAtTxTime: PriceAtTxTime }[];
+  } {
+    const { linkChain } = group;
+    const propagatedPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
+
+    // Build transaction lookup map for fast access
+    const txMap = new Map(transactions.map((tx) => [tx.id, tx]));
+
+    // Track enriched movements for each transaction
+    const enrichedMovements = new Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>();
+
+    for (const link of linkChain) {
+      const sourceTx = txMap.get(link.sourceTransactionId);
+      const targetTx = txMap.get(link.targetTransactionId);
+
+      if (!sourceTx || !targetTx) {
+        logger.warn(
+          {
+            linkId: link.id,
+            sourceId: link.sourceTransactionId,
+            targetId: link.targetTransactionId,
+          },
+          'Link references transactions not in group, skipping'
+        );
+        continue;
+      }
+
+      // Match movements: source outflows → target inflows
+      const sourceOutflows = sourceTx.movements.outflows ?? [];
+      const targetInflows = targetTx.movements.inflows ?? [];
+
+      // Track which target movements got prices
+      const targetMovementPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
+
+      for (const sourceMovement of sourceOutflows) {
+        // Skip if source movement doesn't have a price
+        if (!sourceMovement.priceAtTxTime) {
+          continue;
+        }
+
+        // Find matching target movement by asset
+        for (const targetMovement of targetInflows) {
+          if (targetMovement.asset === sourceMovement.asset) {
+            // Check if amounts are reasonably close (allow up to 10% difference for fees)
+            const sourceAmount = sourceMovement.amount.toNumber();
+            const targetAmount = targetMovement.amount.toNumber();
+            const amountDiff = Math.abs(sourceAmount - targetAmount);
+            const amountTolerance = sourceAmount * 0.1; // 10% tolerance
+
+            if (amountDiff <= amountTolerance) {
+              // Propagate price with 'link-propagated' source
+              // Preserve original fetchedAt to maintain temporal proximity for future runs
+              const propagatedPrice: PriceAtTxTime = {
+                ...sourceMovement.priceAtTxTime,
+                source: 'link-propagated',
+              };
+
+              propagatedPrices.push({
+                asset: targetMovement.asset,
+                priceAtTxTime: propagatedPrice,
+              });
+
+              targetMovementPrices.push({
+                asset: targetMovement.asset,
+                priceAtTxTime: propagatedPrice,
+              });
+
+              logger.debug(
+                {
+                  sourceTransactionId: sourceTx.id,
+                  targetTransactionId: targetTx.id,
+                  asset: targetMovement.asset,
+                  price: sourceMovement.priceAtTxTime.price,
+                  linkType: link.linkType,
+                },
+                'Propagated price across link'
+              );
+
+              // Only match each target movement once
+              break;
+            }
+          }
+        }
+      }
+
+      // Apply propagated prices to target transaction movements
+      // Use overwriteDerivedHistory=true because link propagation is more direct/accurate
+      if (targetMovementPrices.length > 0) {
+        const enrichedInflows = this.enrichMovements(targetInflows, targetMovementPrices, true);
+        const targetOutflows = targetTx.movements.outflows ?? [];
+
+        enrichedMovements.set(targetTx.id, {
+          inflows: enrichedInflows,
+          outflows: targetOutflows,
+        });
+      }
+    }
+
+    // Return enriched transactions (with link-propagated prices applied)
+    const enrichedTransactions = transactions.map((tx) => {
+      const enriched = enrichedMovements.get(tx.id);
+      if (enriched) {
+        return {
+          ...tx,
+          movements: {
+            inflows: enriched.inflows,
+            outflows: enriched.outflows,
+          },
+        };
+      }
+      return tx;
+    });
+
+    return {
+      pricesFromLinks: propagatedPrices,
+      enrichedTransactions,
+    };
+  }
+
+  /**
+   * Fill remaining price gaps using temporal proximity
+   */
+  private fillGapsWithTemporalProximity(
+    transactions: UniversalTransaction[],
+    priceIndex: Map<string, PriceAtTxTime[]>
+  ): UniversalTransaction[] {
+    const enrichedMovements = new Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>();
+
+    for (const tx of transactions) {
+      const inflows = tx.movements.inflows ?? [];
+      const outflows = tx.movements.outflows ?? [];
+      const timestamp = new Date(tx.datetime).getTime();
+
+      const allMovements = [...inflows, ...outflows];
+      const proximityPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
+
+      for (const movement of allMovements) {
+        if (movement.priceAtTxTime) {
+          continue; // Already has price
+        }
+
+        const closestPrice = findClosestPrice(movement.asset, timestamp, priceIndex, this.config.maxTimeDeltaMs);
+        if (closestPrice) {
+          proximityPrices.push({
+            asset: movement.asset,
+            priceAtTxTime: closestPrice,
+          });
+        }
+      }
+
+      if (proximityPrices.length > 0) {
+        const updatedInflows = this.enrichMovements(inflows, proximityPrices);
+        const updatedOutflows = this.enrichMovements(outflows, proximityPrices);
+
+        enrichedMovements.set(tx.id, {
+          inflows: updatedInflows,
+          outflows: updatedOutflows,
+        });
+      }
+    }
+
+    // Return transactions with enriched movements
+    return transactions.map((tx) => {
+      const enriched = enrichedMovements.get(tx.id);
+      if (enriched) {
+        return {
+          ...tx,
+          movements: {
+            inflows: enriched.inflows,
+            outflows: enriched.outflows,
+          },
+        };
+      }
+      return tx;
+    });
   }
 
   /**
@@ -385,57 +611,6 @@ export class PriceEnrichmentService {
   }
 
   /**
-   * Process blockchain transactions (simple stablecoin swaps only)
-   */
-  private async enrichBlockchainPrices(
-    transactions: UniversalTransaction[],
-    txIdsNeedingPrices: Set<number>
-  ): Promise<Result<number, Error>> {
-    try {
-      logger.info({ transactionCount: transactions.length }, 'Processing blockchain transactions');
-
-      let updatedCount = 0;
-
-      for (const tx of transactions) {
-        // Only process transactions that need prices
-        if (!txIdsNeedingPrices.has(tx.id)) {
-          continue;
-        }
-
-        const inflows = tx.movements.inflows ?? [];
-        const outflows = tx.movements.outflows ?? [];
-        const timestamp = new Date(tx.datetime).getTime();
-
-        const trade = extractTradeMovements(inflows, outflows, timestamp);
-        if (!trade) {
-          continue;
-        }
-
-        // Only process if one side is fiat/stablecoin
-        const prices = calculatePriceFromTrade(trade);
-
-        if (prices.length > 0) {
-          const updateResult = await this.updateTransactionPrices({
-            ...tx,
-            movements: {
-              inflows: this.enrichMovements(inflows, prices),
-              outflows: this.enrichMovements(outflows, prices),
-            },
-          });
-
-          if (updateResult.isOk()) {
-            updatedCount++;
-          }
-        }
-      }
-
-      return ok(updatedCount);
-    } catch (error) {
-      return wrapError(error, 'Failed to enrich blockchain prices');
-    }
-  }
-
-  /**
    * Update transaction in database with enriched price data
    */
   private async updateTransactionPrices(tx: UniversalTransaction): Promise<Result<void, Error>> {
@@ -475,36 +650,37 @@ export class PriceEnrichmentService {
   }
 
   /**
-   * Group transactions by exchange (source_id)
-   */
-  private groupByExchange(transactions: UniversalTransaction[]): Map<string, UniversalTransaction[]> {
-    const grouped = new Map<string, UniversalTransaction[]>();
-
-    for (const tx of transactions) {
-      const exchange = tx.source;
-      if (!grouped.has(exchange)) {
-        grouped.set(exchange, []);
-      }
-      grouped.get(exchange)!.push(tx);
-    }
-
-    return grouped;
-  }
-
-  /**
    * Enrich movements with price data
+   *
+   * @param movements - Movements to enrich
+   * @param prices - Prices to apply
+   * @param overwriteDerivedHistory - If true, allow overwriting existing derived-history prices
+   *        This is useful for link propagation, which is more direct/accurate than temporal proximity
    */
   private enrichMovements(
     movements: AssetMovement[],
-    prices: { asset: string; priceAtTxTime: PriceAtTxTime }[]
+    prices: { asset: string; priceAtTxTime: PriceAtTxTime }[],
+    overwriteDerivedHistory = false
   ): AssetMovement[] {
     const priceMap = new Map(prices.map((p) => [p.asset, p.priceAtTxTime]));
 
     return movements.map((movement) => {
       const price = priceMap.get(movement.asset);
-      if (price && !movement.priceAtTxTime) {
+
+      if (!price) {
+        return movement;
+      }
+
+      // Always enrich if no existing price
+      if (!movement.priceAtTxTime) {
         return { ...movement, priceAtTxTime: price };
       }
+
+      // Optionally overwrite derived-history prices with more direct sources
+      if (overwriteDerivedHistory && movement.priceAtTxTime.source === 'derived-history') {
+        return { ...movement, priceAtTxTime: price };
+      }
+
       return movement;
     });
   }

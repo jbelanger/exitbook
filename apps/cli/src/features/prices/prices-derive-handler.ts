@@ -1,10 +1,10 @@
 // Handler for prices derive command
 // Wraps PriceEnrichmentService to deduce prices from transaction history
 
+import { PriceEnrichmentService, TransactionLinkRepository } from '@exitbook/accounting';
 import type { UniversalTransaction } from '@exitbook/core';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
-import { PriceEnrichmentService } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -28,14 +28,20 @@ export interface PricesDeriveResult {
 /**
  * Handler for prices derive command.
  * Deduces prices from transaction data (fiat/stable trades).
+ *
+ * Phase 2 Enhancement:
+ * - Now uses transaction links to enable cross-platform price propagation
+ * - Prices can flow from exchange → blockchain and across blockchains
  */
 export class PricesDeriveHandler {
   private transactionRepo: TransactionRepository;
+  private linkRepo: TransactionLinkRepository;
   private priceService: PriceEnrichmentService;
 
   constructor(private db: KyselyDB) {
     this.transactionRepo = new TransactionRepository(db);
-    this.priceService = new PriceEnrichmentService(this.transactionRepo);
+    this.linkRepo = new TransactionLinkRepository(db);
+    this.priceService = new PriceEnrichmentService(this.transactionRepo, this.linkRepo);
   }
 
   /**

@@ -3,10 +3,6 @@ import './infrastructure/blockchains';
 
 export { TransactionImportService } from './services/import-service.ts';
 export { TransactionProcessService } from './services/process-service.ts';
-export {
-  PriceEnrichmentService,
-  type PriceEnrichmentConfig,
-} from './services/price-enrichment/price-enrichment-service.ts';
 
 // Token metadata services
 export { TokenMetadataService } from './services/token-metadata/token-metadata-service.ts';
