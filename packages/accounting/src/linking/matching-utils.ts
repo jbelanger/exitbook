@@ -215,6 +215,9 @@ export function findPotentialMatches(
   const matches: PotentialMatch[] = [];
 
   for (const target of targets) {
+    // Prevent self-matching (candidates from the same transaction)
+    if (source.id === target.id) continue;
+
     // Quick filters
     if (source.asset !== target.asset) continue;
     if (source.direction !== 'out' || target.direction !== 'in') continue;

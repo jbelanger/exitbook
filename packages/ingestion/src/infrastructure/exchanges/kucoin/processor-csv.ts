@@ -29,7 +29,10 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const accountHistoryRows: CsvAccountHistoryRow[] = [];
 
     for (const rawDataItem of rawDataItems) {
-      const row = rawDataItem as { _rowType?: string };
+      // For exchanges, rawDataItem is wrapped in a dataPackage with {raw, normalized, externalId, cursor}
+      // Extract the normalized data which contains the _rowType field
+      const dataPackage = rawDataItem as { normalized?: unknown };
+      const row = (dataPackage.normalized || rawDataItem) as { _rowType?: string };
 
       try {
         switch (row._rowType) {

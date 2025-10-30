@@ -32,9 +32,11 @@ import {
 export class KucoinCsvImporter implements IImporter {
   private readonly logger: Logger;
   private readonly sourceId = 'kucoin';
+  private usedExternalIds: Map<string, number>;
 
   constructor() {
     this.logger = getLogger('kucoinImporter');
+    this.usedExternalIds = new Map();
   }
 
   async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
@@ -44,6 +46,8 @@ export class KucoinCsvImporter implements IImporter {
       return err(new Error('CSV directories are required for KuCoin import'));
     }
 
+    // Reset external ID tracking for new import
+    this.usedExternalIds.clear();
     const rawTransactions: ExternalTransaction[] = [];
 
     try {
@@ -87,12 +91,13 @@ export class KucoinCsvImporter implements IImporter {
 
                 // Convert each row to a RawTransactionWithMetadata
                 for (const row of validationResult.valid) {
+                  const externalId = this.getUniqueExternalId(row['Order ID']);
                   rawTransactions.push({
                     providerId: 'kucoin',
                     transactionTypeHint: 'spot_order',
                     rawData: { _rowType: 'spot_order', ...row },
                     normalizedData: { _rowType: 'spot_order', ...row },
-                    externalId: row['Order ID'],
+                    externalId,
                   });
                 }
                 break;
@@ -123,8 +128,8 @@ export class KucoinCsvImporter implements IImporter {
                 // Convert each row to a RawTransactionWithMetadata
                 for (const row of validationResult.valid) {
                   // Use hash as external ID, or generate one if hash is empty
-                  const externalId =
-                    row.Hash || this.generateExternalId('deposit', row['Time(UTC)'], row.Coin, row.Amount);
+                  const baseId = row.Hash || this.generateExternalId('deposit', row['Time(UTC)'], row.Coin, row.Amount);
+                  const externalId = this.getUniqueExternalId(baseId);
                   rawTransactions.push({
                     providerId: 'kucoin',
                     transactionTypeHint: 'deposit',
@@ -161,8 +166,9 @@ export class KucoinCsvImporter implements IImporter {
                 // Convert each row to a RawTransactionWithMetadata
                 for (const row of validationResult.valid) {
                   // Use hash as external ID, or generate one if hash is empty
-                  const externalId =
+                  const baseId =
                     row.Hash || this.generateExternalId('withdrawal', row['Time(UTC)'], row.Coin, row.Amount);
+                  const externalId = this.getUniqueExternalId(baseId);
                   rawTransactions.push({
                     providerId: 'kucoin',
                     transactionTypeHint: 'withdrawal',
@@ -199,7 +205,8 @@ export class KucoinCsvImporter implements IImporter {
                 // Convert each row to a RawTransactionWithMetadata
                 for (const row of validationResult.valid) {
                   // Generate external ID from timestamp, type, currency, and amount
-                  const externalId = this.generateExternalId(row.Type, row['Time(UTC)'], row.Currency, row.Amount);
+                  const baseId = this.generateExternalId(row.Type, row['Time(UTC)'], row.Currency, row.Amount);
+                  const externalId = this.getUniqueExternalId(baseId);
                   rawTransactions.push({
                     providerId: 'kucoin',
                     transactionTypeHint: 'account_history',
@@ -247,7 +254,8 @@ export class KucoinCsvImporter implements IImporter {
                 // Convert each row to a RawTransactionWithMetadata
                 for (const row of validationResult.valid) {
                   // Use Order ID + Filled Time as external ID since there can be multiple fills per order
-                  const externalId = `${row['Order ID']}-${row['Filled Time(UTC)']}`;
+                  const baseId = `${row['Order ID']}-${row['Filled Time(UTC)']}`;
+                  const externalId = this.getUniqueExternalId(baseId);
                   rawTransactions.push({
                     providerId: 'kucoin',
                     transactionTypeHint: 'order_splitting',
@@ -284,7 +292,8 @@ export class KucoinCsvImporter implements IImporter {
                 // Convert each row to a RawTransactionWithMetadata
                 for (const row of validationResult.valid) {
                   // Use Order ID + Time Filled as external ID since there can be multiple fills per order
-                  const externalId = `${row['Order ID']}-${row['Time Filled(UTC)']}`;
+                  const baseId = `${row['Order ID']}-${row['Time Filled(UTC)']}`;
+                  const externalId = this.getUniqueExternalId(baseId);
                   rawTransactions.push({
                     providerId: 'kucoin',
                     transactionTypeHint: 'trading_bot',
@@ -453,6 +462,17 @@ export class KucoinCsvImporter implements IImporter {
   private generateExternalId(type: string, timestamp: string, currency: string, amount: string): string {
     const data = `${type}-${timestamp}-${currency}-${amount}`;
     return crypto.createHash('sha256').update(data).digest('hex').substring(0, 16);
+  }
+
+  /**
+   * Get a unique external ID, appending a counter if the ID has been used before.
+   * This handles duplicate rows in CSV files.
+   */
+  private getUniqueExternalId(baseId: string): string {
+    const count = this.usedExternalIds.get(baseId) ?? 0;
+    this.usedExternalIds.set(baseId, count + 1);
+
+    return count === 0 ? baseId : `${baseId}-${count}`;
   }
 
   /**

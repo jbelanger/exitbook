@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@exitbook/core';
-import { computePrimaryMovement, wrapError } from '@exitbook/core';
+import { wrapError } from '@exitbook/core';
 import type { getLogger } from '@exitbook/shared-logger';
 import { ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
@@ -82,34 +82,46 @@ export class TransactionLinkingService {
   }
 
   /**
-   * Convert stored transactions to transaction candidates for matching
+   * Convert stored transactions to transaction candidates for matching.
+   * Creates one candidate per asset movement (not just primary).
    */
   private convertToCandidates(transactions: UniversalTransaction[]): TransactionCandidate[] {
     const candidates: TransactionCandidate[] = [];
 
     for (const tx of transactions) {
-      // Compute primary movement from already-deserialized movements
-      const primary = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);
-
-      // Skip if no primary movement
-      if (!primary) {
-        continue;
+      // Create candidates for all inflows
+      for (const inflow of tx.movements.inflows ?? []) {
+        const candidate: TransactionCandidate = {
+          id: tx.id,
+          externalId: tx.externalId,
+          sourceId: tx.source,
+          sourceType: tx.blockchain ? 'blockchain' : 'exchange',
+          timestamp: new Date(tx.datetime),
+          asset: inflow.asset,
+          amount: inflow.amount,
+          direction: 'in',
+          fromAddress: tx.from,
+          toAddress: tx.to,
+        };
+        candidates.push(candidate);
       }
 
-      const candidate: TransactionCandidate = {
-        id: tx.id,
-        externalId: tx.externalId,
-        sourceId: tx.source,
-        sourceType: tx.blockchain ? 'blockchain' : 'exchange',
-        timestamp: new Date(tx.datetime),
-        asset: primary.asset,
-        amount: primary.amount,
-        direction: primary.direction,
-        fromAddress: tx.from,
-        toAddress: tx.to,
-      };
-
-      candidates.push(candidate);
+      // Create candidates for all outflows
+      for (const outflow of tx.movements.outflows ?? []) {
+        const candidate: TransactionCandidate = {
+          id: tx.id,
+          externalId: tx.externalId,
+          sourceId: tx.source,
+          sourceType: tx.blockchain ? 'blockchain' : 'exchange',
+          timestamp: new Date(tx.datetime),
+          asset: outflow.asset,
+          amount: outflow.amount,
+          direction: 'out',
+          fromAddress: tx.from,
+          toAddress: tx.to,
+        };
+        candidates.push(candidate);
+      }
     }
 
     return candidates;

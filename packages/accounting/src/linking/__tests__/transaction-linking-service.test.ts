@@ -513,6 +513,66 @@ describe('TransactionLinkingService', () => {
     });
   });
 
+  describe('self-matching prevention', () => {
+    it('should not match a transaction against itself when it has both inflows and outflows of the same asset', () => {
+      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+
+      const transactions: UniversalTransaction[] = [
+        // Self-transfer: BTC withdrawal with change (both in and out in same tx)
+        createTransaction({
+          id: 1,
+          source: 'bitcoin',
+          datetime: '2024-01-01T12:00:00.000Z',
+          inflows: [{ asset: 'BTC', amount: '0.5' }], // Change output
+          outflows: [{ asset: 'BTC', amount: '0.49' }], // Sent amount (minus fee)
+          blockchain: { name: 'bitcoin', transaction_hash: 'txself', is_confirmed: true },
+        }),
+      ];
+
+      const result = service.linkTransactions(transactions);
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        const { confirmedLinks, suggestedLinks } = result.value;
+
+        // Should have NO matches (transaction should not match itself)
+        expect(confirmedLinks).toHaveLength(0);
+        expect(suggestedLinks).toHaveLength(0);
+      }
+    });
+
+    it('should not match a swap transaction against itself', () => {
+      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+
+      const transactions: UniversalTransaction[] = [
+        // BTC swap with BTC fee (both BTC in and out)
+        createTransaction({
+          id: 1,
+          source: 'kraken',
+          datetime: '2024-01-01T12:00:00.000Z',
+          inflows: [
+            { asset: 'ETH', amount: '10.0' },
+            { asset: 'BTC', amount: '0.001' },
+          ], // Rebate
+          outflows: [{ asset: 'BTC', amount: '1.0' }],
+        }),
+      ];
+
+      const result = service.linkTransactions(transactions);
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        const { confirmedLinks, suggestedLinks } = result.value;
+
+        // Should have NO matches (BTC inflow should not match BTC outflow from same tx)
+        expect(confirmedLinks).toHaveLength(0);
+        expect(suggestedLinks).toHaveLength(0);
+      }
+    });
+  });
+
   describe('auto-confirmation', () => {
     it('should auto-confirm matches above threshold', () => {
       const service = new TransactionLinkingService(logger, {

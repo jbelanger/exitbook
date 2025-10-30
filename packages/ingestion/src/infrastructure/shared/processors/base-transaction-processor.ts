@@ -1,4 +1,4 @@
-import { computePrimaryMovement, UniversalTransactionSchema, type UniversalTransaction } from '@exitbook/core';
+import { UniversalTransactionSchema, type UniversalTransaction } from '@exitbook/core';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 import { type Result, err, ok } from 'neverthrow';
@@ -60,19 +60,26 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
         return transaction;
       }
 
-      // Apply scam detection based on primary asset
-      const primaryAsset = computePrimaryMovement(
-        transaction.movements?.inflows,
-        transaction.movements?.outflows
-      )?.asset;
-      if (primaryAsset) {
-        const scamResult = detectScamFromSymbol(primaryAsset);
+      // Check all assets (inflows and outflows) for scams
+      const allAssets = new Set<string>();
+
+      for (const inflow of transaction.movements?.inflows ?? []) {
+        allAssets.add(inflow.asset);
+      }
+
+      for (const outflow of transaction.movements?.outflows ?? []) {
+        allAssets.add(outflow.asset);
+      }
+
+      // Check each unique asset for scam patterns
+      for (const asset of allAssets) {
+        const scamResult = detectScamFromSymbol(asset);
         if (scamResult.isScam) {
           return {
             ...transaction,
             note: {
-              message: `⚠️ Potential scam token: ${scamResult.reason}`,
-              metadata: { scamReason: scamResult.reason },
+              message: `⚠️ Potential scam token (${asset}): ${scamResult.reason}`,
+              metadata: { scamReason: scamResult.reason, scamAsset: asset },
               severity: 'warning' as const,
               type: 'SCAM_TOKEN',
             },

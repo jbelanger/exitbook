@@ -73,8 +73,9 @@ export class ViewTransactionsHandler {
     // Filter by asset
     if (params.asset) {
       filtered = filtered.filter((tx) => {
-        const primary = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);
-        return primary?.asset === params.asset;
+        const hasInflow = tx.movements.inflows?.some((m) => m.asset === params.asset);
+        const hasOutflow = tx.movements.outflows?.some((m) => m.asset === params.asset);
+        return hasInflow || hasOutflow;
       });
     }
 
