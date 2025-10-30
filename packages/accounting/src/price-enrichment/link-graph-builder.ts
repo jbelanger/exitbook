@@ -98,12 +98,18 @@ export class LinkGraphBuilder {
    *
    * Algorithm:
    * 1. Initialize Union-Find with all transaction IDs
-   * 2. Seed: Union transactions from the same source (preserves Phase 1 behavior)
+   * 2. Seed: Union transactions from the same EXCHANGE (preserves Phase 1 backward compatibility)
+   *    - Exchange transactions (Kraken, Coinbase, etc.) grouped by source
+   *    - Blockchain transactions (Bitcoin, Ethereum, etc.) remain isolated
+   *    - Rationale: Exchanges = single user's activity; Blockchains = multiple wallets
    * 3. Enhance: Union confirmed cross-platform links (adds Phase 2 functionality)
+   *    - Links connect related transactions across platforms
    * 4. Group transactions by their root representative
    * 5. Build TransactionGroup objects with metadata
    *
    * Time Complexity: O(n log n) where n is the number of transactions
+   *
+   * Security: Prevents price leakage across unrelated wallets on same blockchain
    *
    * @param transactions - All transactions to group
    * @param links - Transaction links (only confirmed links are used)
@@ -120,21 +126,29 @@ export class LinkGraphBuilder {
     const transactionIdSet = new Set(transactionIds);
     const uf = new UnionFind(transactionIds);
 
-    // SEED: First, union all transactions from the same source (Phase 1 behavior)
-    // This ensures same-source transactions (e.g., Kraken trade + Kraken withdrawal)
-    // are grouped together even without explicit links
-    const txsBySource = new Map<string, number[]>();
+    // SEED: Union transactions from the same EXCHANGE source (Phase 1 backward compatibility)
+    // IMPORTANT: Only group EXCHANGE transactions, NOT blockchain transactions
+    // Rationale:
+    // - Exchanges: All activity belongs to one user → safe to group together
+    // - Blockchains: Multiple wallets possible → must NOT group together
+    // Example: Bitcoin chain can have wallet A (tx1, tx2) and wallet B (tx3, tx4)
+    //          Grouping all bitcoin txs would leak prices from wallet A to wallet B
+    const txsByExchange = new Map<string, number[]>();
     for (const tx of transactions) {
-      if (!txsBySource.has(tx.source)) {
-        txsBySource.set(tx.source, []);
+      // Only group if this is an exchange transaction (not blockchain)
+      const isBlockchain = 'blockchain' in tx && tx.blockchain !== undefined;
+      if (!isBlockchain) {
+        if (!txsByExchange.has(tx.source)) {
+          txsByExchange.set(tx.source, []);
+        }
+        txsByExchange.get(tx.source)!.push(tx.id);
       }
-      txsBySource.get(tx.source)!.push(tx.id);
     }
 
-    // Union all transactions within each source
-    for (const txIds of txsBySource.values()) {
+    // Union all transactions within each exchange
+    for (const txIds of txsByExchange.values()) {
       if (txIds.length > 1) {
-        // Connect all transactions to the first one in the source
+        // Connect all transactions to the first one in the exchange
         const firstId = txIds[0]!;
         for (let i = 1; i < txIds.length; i++) {
           uf.union(firstId, txIds[i]!);

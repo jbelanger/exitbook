@@ -158,7 +158,118 @@ describe('LinkGraphBuilder', () => {
       expect(group.groupId).toBeTruthy();
     });
 
-    it('should preserve same-source grouping while adding cross-platform links', () => {
+    it('should NOT group blockchain transactions from same chain (prevents price leakage across wallets)', () => {
+      const builder = new LinkGraphBuilder();
+
+      const transactions: UniversalTransaction[] = [
+        // Bitcoin wallet A
+        createTransaction({
+          id: 1,
+          source: 'bitcoin',
+          datetime: '2024-01-01T12:00:00.000Z',
+          inflows: [{ asset: 'BTC', amount: '1.0' }],
+        }),
+        createTransaction({
+          id: 2,
+          source: 'bitcoin',
+          datetime: '2024-01-01T13:00:00.000Z',
+          outflows: [{ asset: 'BTC', amount: '0.5' }],
+        }),
+        // Bitcoin wallet B (completely separate, unrelated user/wallet)
+        createTransaction({
+          id: 3,
+          source: 'bitcoin',
+          datetime: '2024-01-01T14:00:00.000Z',
+          inflows: [{ asset: 'BTC', amount: '2.0' }],
+        }),
+        createTransaction({
+          id: 4,
+          source: 'bitcoin',
+          datetime: '2024-01-01T15:00:00.000Z',
+          outflows: [{ asset: 'BTC', amount: '1.0' }],
+        }),
+      ];
+
+      const groups = builder.buildLinkGraph(transactions, []);
+
+      // Each bitcoin transaction should be isolated (different wallets)
+      // This prevents price leakage from wallet A to wallet B
+      expect(groups).toHaveLength(4);
+
+      for (const group of groups) {
+        expect(group.transactions).toHaveLength(1);
+        expect(group.sources).toEqual(new Set(['bitcoin']));
+        expect(group.linkChain).toHaveLength(0);
+      }
+    });
+
+    it('HIGH SEVERITY: should prevent price leakage from linked wallet to unrelated wallet on same chain', () => {
+      const builder = new LinkGraphBuilder();
+
+      const transactions: UniversalTransaction[] = [
+        // Kraken withdrawal (has price)
+        createTransaction({
+          id: 1,
+          source: 'kraken',
+          datetime: '2024-01-01T12:00:00.000Z',
+          outflows: [{ asset: 'BTC', amount: '1.0' }],
+        }),
+        // Bitcoin wallet A - receives Kraken withdrawal (linked)
+        createTransaction({
+          id: 2,
+          source: 'bitcoin',
+          datetime: '2024-01-01T13:00:00.000Z',
+          inflows: [{ asset: 'BTC', amount: '1.0' }],
+        }),
+        // Bitcoin wallet B - completely UNRELATED wallet (must NOT get Kraken's price)
+        createTransaction({
+          id: 3,
+          source: 'bitcoin',
+          datetime: '2024-01-01T14:00:00.000Z',
+          inflows: [{ asset: 'BTC', amount: '5.0' }],
+        }),
+        createTransaction({
+          id: 4,
+          source: 'bitcoin',
+          datetime: '2024-01-01T15:00:00.000Z',
+          outflows: [{ asset: 'BTC', amount: '2.0' }],
+        }),
+      ];
+
+      const links: TransactionLink[] = [
+        createTransactionLink({
+          id: 'link-1',
+          sourceTransactionId: 1, // Kraken withdrawal
+          targetTransactionId: 2, // Bitcoin wallet A
+          linkType: 'exchange_to_blockchain',
+          status: 'confirmed',
+        }),
+      ];
+
+      const groups = builder.buildLinkGraph(transactions, links);
+
+      // Should create 3 groups:
+      // - Group 1: Kraken tx1 + Bitcoin tx2 (linked)
+      // - Group 2: Bitcoin tx3 (isolated, wallet B)
+      // - Group 3: Bitcoin tx4 (isolated, wallet B)
+      expect(groups).toHaveLength(3);
+
+      // Find the linked group
+      const linkedGroup = groups.find((g) => g.linkChain.length > 0);
+      expect(linkedGroup).toBeDefined();
+      expect(linkedGroup!.transactions).toHaveLength(2);
+      expect(linkedGroup!.transactions.map((t) => t.id).sort()).toEqual([1, 2]);
+
+      // Verify wallet B transactions are isolated
+      const isolatedGroups = groups.filter((g) => g.linkChain.length === 0);
+      expect(isolatedGroups).toHaveLength(2);
+      for (const group of isolatedGroups) {
+        expect(group.transactions).toHaveLength(1);
+        expect([3, 4]).toContain(group.transactions[0]!.id);
+      }
+    });
+
+    it('should preserve same-exchange grouping while adding cross-platform links', () => {
       const builder = new LinkGraphBuilder();
 
       const transactions: UniversalTransaction[] = [
@@ -205,18 +316,29 @@ describe('LinkGraphBuilder', () => {
 
       const groups = builder.buildLinkGraph(transactions, links);
 
-      // All transactions should be in ONE group:
-      // - Kraken trade + withdrawal grouped by source
-      // - Kraken withdrawal → Bitcoin deposit linked explicitly
-      // - Bitcoin deposit + send grouped by source
-      // Result: All 4 transactions in one group
-      expect(groups).toHaveLength(1);
+      // Should create TWO groups:
+      // - Group 1: Kraken tx1, tx2 + Bitcoin tx3 (linked via tx2→tx3)
+      //   - Kraken trade + withdrawal grouped by exchange
+      //   - Bitcoin deposit linked to Kraken withdrawal
+      // - Group 2: Bitcoin tx4 (isolated, different wallet from tx3)
+      //   - NOT grouped with tx3 (blockchain transactions don't auto-group)
+      expect(groups).toHaveLength(2);
 
-      const group = groups[0]!;
-      expect(group.transactions).toHaveLength(4);
-      expect(group.sources).toEqual(new Set(['kraken', 'bitcoin']));
-      expect(group.linkChain).toHaveLength(1);
-      expect(group.linkChain[0]?.id).toBe('link-1');
+      // Find the linked group with Kraken + Bitcoin
+      const linkedGroup = groups.find((g) => g.sources.has('kraken'));
+      expect(linkedGroup).toBeDefined();
+      expect(linkedGroup!.transactions).toHaveLength(3);
+      expect(linkedGroup!.transactions.map((t) => t.id).sort()).toEqual([1, 2, 3]);
+      expect(linkedGroup!.sources).toEqual(new Set(['kraken', 'bitcoin']));
+      expect(linkedGroup!.linkChain).toHaveLength(1);
+      expect(linkedGroup!.linkChain[0]?.id).toBe('link-1');
+
+      // Find the isolated Bitcoin transaction
+      const isolatedGroup = groups.find((g) => !g.sources.has('kraken'));
+      expect(isolatedGroup).toBeDefined();
+      expect(isolatedGroup!.transactions).toHaveLength(1);
+      expect(isolatedGroup!.transactions[0]!.id).toBe(4);
+      expect(isolatedGroup!.linkChain).toHaveLength(0);
     });
 
     it('should group two transactions with a confirmed link', () => {
