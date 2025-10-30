@@ -13,8 +13,8 @@ vi.mock('@exitbook/data', async () => {
   };
 });
 
-vi.mock('@exitbook/ingestion', async () => {
-  const actual = await vi.importActual<typeof import('@exitbook/ingestion')>('@exitbook/ingestion');
+vi.mock('@exitbook/accounting', async () => {
+  const actual = await vi.importActual<typeof import('@exitbook/accounting')>('@exitbook/accounting');
   return {
     ...actual,
     PriceEnrichmentService: vi.fn(),
@@ -52,7 +52,7 @@ describe('PricesDeriveHandler', () => {
     const { TransactionRepository } = await import('@exitbook/data');
     (TransactionRepository as unknown as Mock).mockImplementation(() => mockTransactionRepo);
 
-    const { PriceEnrichmentService } = await import('@exitbook/ingestion');
+    const { PriceEnrichmentService } = await import('@exitbook/accounting');
     (PriceEnrichmentService as unknown as Mock).mockImplementation(() => mockPriceService);
 
     // Create handler
