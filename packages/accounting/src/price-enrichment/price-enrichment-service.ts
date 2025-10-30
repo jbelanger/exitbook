@@ -177,7 +177,18 @@ export class PriceEnrichmentService {
       logger.debug({ groupId, pricesExtracted: priceIndex.size }, 'Extracted known prices');
 
       // Pass 2-N: Iterative inference
-      const enrichedTxs = this.inferMultiPass(sortedTxs, priceIndex);
+      const inferredTxs = this.inferMultiPass(sortedTxs, priceIndex);
+
+      // Pass N+1: Propagate prices across confirmed links (NEW)
+      // This enables cross-platform price flow (exchange → blockchain → exchange)
+      // This happens AFTER multi-pass inference so transactions have all possible derived prices
+      const { pricesFromLinks, enrichedTransactions } = this.propagatePricesAcrossLinks(group, inferredTxs);
+      if (pricesFromLinks.length > 0) {
+        logger.debug({ groupId, linkPricesPropagated: pricesFromLinks.length }, 'Propagated prices across links');
+      }
+
+      // Use enriched transactions (with link-propagated prices) as final result
+      const enrichedTxs = enrichedTransactions;
 
       // Update database with enriched prices (only for transactions that need prices)
       let updatedCount = 0;
@@ -243,6 +254,147 @@ export class PriceEnrichmentService {
     }
 
     return priceIndex;
+  }
+
+  /**
+   * Propagate prices across confirmed transaction links
+   *
+   * This enables cross-platform price flow:
+   * - Exchange withdrawal → Blockchain deposit
+   * - Blockchain transfer → Blockchain receive
+   * - Exchange withdrawal → Exchange deposit
+   *
+   * Logic:
+   * 1. For each confirmed link, find source and target transactions
+   * 2. Match movements by asset (source outflow → target inflow)
+   * 3. Copy price from source movement to target movement
+   * 4. Set source to 'link-propagated'
+   *
+   * @param group - Transaction group with linkChain
+   * @param transactions - All transactions in the group
+   * @returns Object with propagated prices and enriched transactions
+   */
+  private propagatePricesAcrossLinks(
+    group: TransactionGroup,
+    transactions: UniversalTransaction[]
+  ): {
+    enrichedTransactions: UniversalTransaction[];
+    pricesFromLinks: { asset: string; priceAtTxTime: PriceAtTxTime }[];
+  } {
+    const { linkChain } = group;
+    const propagatedPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
+
+    // Build transaction lookup map for fast access
+    const txMap = new Map(transactions.map((tx) => [tx.id, tx]));
+
+    // Track enriched movements for each transaction
+    const enrichedMovements = new Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>();
+
+    for (const link of linkChain) {
+      const sourceTx = txMap.get(link.sourceTransactionId);
+      const targetTx = txMap.get(link.targetTransactionId);
+
+      if (!sourceTx || !targetTx) {
+        logger.warn(
+          {
+            linkId: link.id,
+            sourceId: link.sourceTransactionId,
+            targetId: link.targetTransactionId,
+          },
+          'Link references transactions not in group, skipping'
+        );
+        continue;
+      }
+
+      // Match movements: source outflows → target inflows
+      const sourceOutflows = sourceTx.movements.outflows ?? [];
+      const targetInflows = targetTx.movements.inflows ?? [];
+
+      // Track which target movements got prices
+      const targetMovementPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
+
+      for (const sourceMovement of sourceOutflows) {
+        // Skip if source movement doesn't have a price
+        if (!sourceMovement.priceAtTxTime) {
+          continue;
+        }
+
+        // Find matching target movement by asset
+        for (const targetMovement of targetInflows) {
+          if (targetMovement.asset === sourceMovement.asset) {
+            // Check if amounts are reasonably close (allow up to 10% difference for fees)
+            const sourceAmount = sourceMovement.amount.toNumber();
+            const targetAmount = targetMovement.amount.toNumber();
+            const amountDiff = Math.abs(sourceAmount - targetAmount);
+            const amountTolerance = sourceAmount * 0.1; // 10% tolerance
+
+            if (amountDiff <= amountTolerance) {
+              // Propagate price with 'link-propagated' source
+              const propagatedPrice: PriceAtTxTime = {
+                ...sourceMovement.priceAtTxTime,
+                source: 'link-propagated',
+                fetchedAt: new Date(), // Update fetch time to current
+              };
+
+              propagatedPrices.push({
+                asset: targetMovement.asset,
+                priceAtTxTime: propagatedPrice,
+              });
+
+              targetMovementPrices.push({
+                asset: targetMovement.asset,
+                priceAtTxTime: propagatedPrice,
+              });
+
+              logger.debug(
+                {
+                  sourceTransactionId: sourceTx.id,
+                  targetTransactionId: targetTx.id,
+                  asset: targetMovement.asset,
+                  price: sourceMovement.priceAtTxTime.price,
+                  linkType: link.linkType,
+                },
+                'Propagated price across link'
+              );
+
+              // Only match each target movement once
+              break;
+            }
+          }
+        }
+      }
+
+      // Apply propagated prices to target transaction movements
+      if (targetMovementPrices.length > 0) {
+        const enrichedInflows = this.enrichMovements(targetInflows, targetMovementPrices);
+        const targetOutflows = targetTx.movements.outflows ?? [];
+
+        enrichedMovements.set(targetTx.id, {
+          inflows: enrichedInflows,
+          outflows: targetOutflows,
+        });
+      }
+    }
+
+    // Return enriched transactions (with link-propagated prices applied)
+    const enrichedTransactions = transactions.map((tx) => {
+      const enriched = enrichedMovements.get(tx.id);
+      if (enriched) {
+        return {
+          ...tx,
+          movements: {
+            inflows: enriched.inflows,
+            outflows: enriched.outflows,
+          },
+        };
+      }
+      return tx;
+    });
+
+    return {
+      pricesFromLinks: propagatedPrices,
+      enrichedTransactions,
+    };
   }
 
   /**

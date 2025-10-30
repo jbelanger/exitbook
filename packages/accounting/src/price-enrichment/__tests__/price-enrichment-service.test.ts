@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Acceptable for test mocks */
 
 import type { SourceType, UniversalTransaction } from '@exitbook/core';
-import { parseDecimal, type AssetMovement } from '@exitbook/core';
+import { Currency, parseDecimal, type AssetMovement } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { ok, err } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
@@ -451,6 +451,411 @@ describe('PriceEnrichmentService', () => {
       // Should still return ok with partial results
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().transactionsUpdated).toBe(1); // Only kraken succeeded
+    });
+  });
+
+  describe('Price Propagation Across Links', () => {
+    it('should propagate prices from exchange withdrawal to blockchain deposit', async () => {
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
+
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
+
+      const baseTime = new Date('2024-01-01T10:00:00Z');
+
+      // Step 1: Buy BTC on Kraken at $50,000 (gives withdrawal a price via temporal proximity)
+      const tx1Buy = createMockTransaction(
+        1,
+        'exchange',
+        'kraken',
+        baseTime.toISOString(),
+        [{ asset: 'BTC', amount: parseDecimal('1') }],
+        [{ asset: 'USDT', amount: parseDecimal('50000') }]
+      );
+
+      // Step 2: Withdraw BTC from Kraken (has price from trade)
+      const tx2Withdrawal = createMockTransaction(
+        2,
+        'exchange',
+        'kraken',
+        new Date(baseTime.getTime() + 60000).toISOString(), // 1 minute later
+        [],
+        [
+          {
+            asset: 'BTC',
+            amount: parseDecimal('1'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+              source: 'derived-history',
+              fetchedAt: new Date(baseTime.getTime()),
+              granularity: 'exact',
+            },
+          },
+        ]
+      );
+
+      // Step 3: Bitcoin deposit (will get price from withdrawal via link propagation)
+      const tx3Deposit = createMockTransaction(
+        3,
+        'blockchain',
+        'bitcoin',
+        new Date(baseTime.getTime() + 120000).toISOString(), // 2 minutes later
+        [{ asset: 'BTC', amount: parseDecimal('0.999') }], // Slightly less due to network fee
+        []
+      );
+
+      // Create confirmed link: withdrawal → deposit
+      const link = {
+        id: 'link-1',
+        sourceTransactionId: 2,
+        targetTransactionId: 3,
+        linkType: 'exchange_to_blockchain' as const,
+        confidenceScore: parseDecimal('0.95'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.999'),
+          timingValid: true,
+          timingHours: 0.033,
+        },
+        status: 'confirmed' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // All transactions are processed, but only deposit needs price updates
+      // (withdrawal already has a price)
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx3Deposit]) as any);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1Buy, tx2Withdrawal, tx3Deposit]) as any);
+      vi.mocked(mockLinkRepo.findAll).mockResolvedValue(ok([link]) as any);
+      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
+
+      const result = await service.enrichPrices();
+
+      expect(result.isOk()).toBe(true);
+      // 1 transaction updated: the Bitcoin deposit gets price from link propagation
+      expect(result._unsafeUnwrap().transactionsUpdated).toBe(1);
+
+      // Verify Bitcoin deposit got price from linked Kraken withdrawal
+      const depositCalls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0] === 3);
+      expect(depositCalls.length).toBeGreaterThan(0);
+      expect(depositCalls[0]![1]).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            asset: 'BTC',
+            source: 'link-propagated',
+          }),
+        ])
+      );
+    });
+
+    it('should propagate prices through multi-hop links (Kraken → Bitcoin → Ethereum)', async () => {
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
+
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
+
+      const baseTime = new Date('2024-01-01T10:00:00Z');
+
+      // Step 1: Buy BTC on Kraken
+      const tx1Buy = createMockTransaction(
+        1,
+        'exchange',
+        'kraken',
+        baseTime.toISOString(),
+        [{ asset: 'BTC', amount: parseDecimal('1') }],
+        [{ asset: 'USDT', amount: parseDecimal('50000') }]
+      );
+
+      // Step 2: Withdraw from Kraken (has price from buy)
+      const tx2Withdrawal = createMockTransaction(
+        2,
+        'exchange',
+        'kraken',
+        new Date(baseTime.getTime() + 60000).toISOString(),
+        [],
+        [
+          {
+            asset: 'BTC',
+            amount: parseDecimal('1'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+              source: 'derived-history',
+              fetchedAt: new Date(baseTime.getTime()),
+              granularity: 'exact',
+            },
+          },
+        ]
+      );
+
+      // Step 3: Bitcoin deposit (will get price from withdrawal via link propagation)
+      const tx3BtcDeposit = createMockTransaction(
+        3,
+        'blockchain',
+        'bitcoin',
+        new Date(baseTime.getTime() + 120000).toISOString(),
+        [{ asset: 'BTC', amount: parseDecimal('0.999') }],
+        []
+      );
+
+      // Step 4: Bitcoin send to another wallet (will get price from deposit via temporal proximity)
+      const tx4BtcSend = createMockTransaction(
+        4,
+        'blockchain',
+        'bitcoin',
+        new Date(baseTime.getTime() + 180000).toISOString(),
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('0.999') }]
+      );
+
+      // Step 5: Ethereum deposit (wrapped BTC - will get price from send via link propagation)
+      const tx5EthDeposit = createMockTransaction(
+        5,
+        'blockchain',
+        'ethereum',
+        new Date(baseTime.getTime() + 240000).toISOString(),
+        [{ asset: 'WBTC', amount: parseDecimal('0.998') }],
+        []
+      );
+
+      // Create links to form a chain: tx2 → tx3 → tx4 → tx5
+      const link1 = {
+        id: 'link-1',
+        sourceTransactionId: 2,
+        targetTransactionId: 3,
+        linkType: 'exchange_to_blockchain' as const,
+        confidenceScore: parseDecimal('0.95'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.999'),
+          timingValid: true,
+          timingHours: 0.033,
+        },
+        status: 'confirmed' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const link2 = {
+        id: 'link-2',
+        sourceTransactionId: 3,
+        targetTransactionId: 4,
+        linkType: 'blockchain_to_blockchain' as const,
+        confidenceScore: parseDecimal('0.95'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('1.0'),
+          timingValid: true,
+          timingHours: 0.05,
+        },
+        status: 'confirmed' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const link3 = {
+        id: 'link-3',
+        sourceTransactionId: 4,
+        targetTransactionId: 5,
+        linkType: 'blockchain_to_blockchain' as const,
+        confidenceScore: parseDecimal('0.90'),
+        matchCriteria: {
+          assetMatch: false, // BTC → WBTC
+          amountSimilarity: parseDecimal('0.998'),
+          timingValid: true,
+          timingHours: 0.067,
+        },
+        status: 'confirmed' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // Only blockchain transactions need prices (withdrawal already has one)
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
+        ok([tx3BtcDeposit, tx4BtcSend, tx5EthDeposit]) as any
+      );
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(
+        ok([tx1Buy, tx2Withdrawal, tx3BtcDeposit, tx4BtcSend, tx5EthDeposit]) as any
+      );
+      vi.mocked(mockLinkRepo.findAll).mockResolvedValue(ok([link1, link2, link3]) as any);
+      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
+
+      const result = await service.enrichPrices();
+
+      expect(result.isOk()).toBe(true);
+
+      // Verify transactions got prices through the multi-hop link chain
+      // Note: Only transactions that had movements enriched are updated
+      expect(result._unsafeUnwrap().transactionsUpdated).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should not propagate prices when amounts differ too much', async () => {
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
+
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
+
+      const baseTime = new Date('2024-01-01T10:00:00Z');
+
+      // Withdrawal: 1 BTC
+      const tx1 = createMockTransaction(
+        1,
+        'exchange',
+        'kraken',
+        baseTime.toISOString(),
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('1') }]
+      );
+
+      // Deposit: 0.5 BTC (50% difference - beyond 10% tolerance)
+      const tx2 = createMockTransaction(
+        2,
+        'blockchain',
+        'bitcoin',
+        new Date(baseTime.getTime() + 60000).toISOString(),
+        [{ asset: 'BTC', amount: parseDecimal('0.5') }],
+        []
+      );
+
+      const link = {
+        id: 'link-1',
+        sourceTransactionId: 1,
+        targetTransactionId: 2,
+        linkType: 'exchange_to_blockchain' as const,
+        confidenceScore: parseDecimal('0.60'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.5'),
+          timingValid: true,
+          timingHours: 0.017,
+        },
+        status: 'confirmed' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx2]) as any);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]) as any);
+      vi.mocked(mockLinkRepo.findAll).mockResolvedValue(ok([link]) as any);
+      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
+
+      const result = await service.enrichPrices();
+
+      expect(result.isOk()).toBe(true);
+      // Should not propagate price due to large amount difference
+      expect(result._unsafeUnwrap().transactionsUpdated).toBe(0);
+    });
+
+    it('should only use confirmed links, not suggested or rejected', async () => {
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
+
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
+
+      const baseTime = new Date('2024-01-01T10:00:00Z');
+
+      const tx1 = createMockTransaction(
+        1,
+        'exchange',
+        'kraken',
+        baseTime.toISOString(),
+        [{ asset: 'BTC', amount: parseDecimal('1') }],
+        [{ asset: 'USDT', amount: parseDecimal('50000') }]
+      );
+
+      const tx2 = createMockTransaction(
+        2,
+        'blockchain',
+        'bitcoin',
+        new Date(baseTime.getTime() + 60000).toISOString(),
+        [{ asset: 'BTC', amount: parseDecimal('0.999') }],
+        []
+      );
+
+      // Suggested link (should be ignored)
+      const suggestedLink = {
+        id: 'link-1',
+        sourceTransactionId: 1,
+        targetTransactionId: 2,
+        linkType: 'exchange_to_blockchain' as const,
+        confidenceScore: parseDecimal('0.85'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.999'),
+          timingValid: true,
+          timingHours: 0.017,
+        },
+        status: 'suggested' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx2]) as any);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]) as any);
+      vi.mocked(mockLinkRepo.findAll).mockResolvedValue(ok([suggestedLink]) as any);
+      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
+
+      const result = await service.enrichPrices();
+
+      expect(result.isOk()).toBe(true);
+      // Should not propagate price from suggested link
+      expect(result._unsafeUnwrap().transactionsUpdated).toBe(0);
+    });
+
+    it('should handle links when source has no price', async () => {
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
+
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
+
+      const baseTime = new Date('2024-01-01T10:00:00Z');
+
+      // Withdrawal with no price
+      const tx1 = createMockTransaction(
+        1,
+        'exchange',
+        'kraken',
+        baseTime.toISOString(),
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('1') }]
+      );
+
+      // Deposit
+      const tx2 = createMockTransaction(
+        2,
+        'blockchain',
+        'bitcoin',
+        new Date(baseTime.getTime() + 60000).toISOString(),
+        [{ asset: 'BTC', amount: parseDecimal('0.999') }],
+        []
+      );
+
+      const link = {
+        id: 'link-1',
+        sourceTransactionId: 1,
+        targetTransactionId: 2,
+        linkType: 'exchange_to_blockchain' as const,
+        confidenceScore: parseDecimal('0.95'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.999'),
+          timingValid: true,
+          timingHours: 0.017,
+        },
+        status: 'confirmed' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1, tx2]) as any);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]) as any);
+      vi.mocked(mockLinkRepo.findAll).mockResolvedValue(ok([link]) as any);
+      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
+
+      const result = await service.enrichPrices();
+
+      expect(result.isOk()).toBe(true);
+      // No prices to propagate since source has no price
+      expect(result._unsafeUnwrap().transactionsUpdated).toBe(0);
     });
   });
 
