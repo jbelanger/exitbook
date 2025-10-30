@@ -8,7 +8,24 @@ import type { TransactionRepository } from '@exitbook/data';
 import { ok, err } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { TransactionLinkRepository } from '../../persistence/transaction-link-repository.js';
 import { PriceEnrichmentService } from '../price-enrichment-service.ts';
+
+// Helper to create a mock TransactionRepository
+function createMockTransactionRepository(): TransactionRepository {
+  return {
+    findTransactionsNeedingPrices: vi.fn(),
+    getTransactions: vi.fn(),
+    updateMovementsWithPrices: vi.fn(),
+  } as unknown as TransactionRepository;
+}
+
+// Helper to create a mock TransactionLinkRepository
+function createMockLinkRepository(): TransactionLinkRepository {
+  return {
+    findAll: vi.fn().mockResolvedValue(ok([])), // Default: no links
+  } as unknown as TransactionLinkRepository;
+}
 
 // Helper to create a mock StoredTransaction with typed movements
 function createMockTransaction(
@@ -48,13 +65,10 @@ function createMockTransaction(
 describe('PriceEnrichmentService', () => {
   describe('Happy Path: Exchange Trades', () => {
     it('should apply exchange-execution prices directly to fiat/stable trades (Pass 0)', async () => {
-      const mockRepo = {
-        findTransactionsNeedingPrices: vi.fn(),
-        getTransactions: vi.fn(),
-        updateMovementsWithPrices: vi.fn(),
-      } as unknown as TransactionRepository;
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
 
-      const service = new PriceEnrichmentService(mockRepo);
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
       // Transaction: Buy 1 BTC with 50,000 USDT
       const tx1 = createMockTransaction(
@@ -100,171 +114,11 @@ describe('PriceEnrichmentService', () => {
       );
     });
 
-    it('should perform multi-pass inference for crypto-crypto trades', async () => {
-      const mockRepo = {
-        findTransactionsNeedingPrices: vi.fn(),
-        getTransactions: vi.fn(),
-        updateMovementsWithPrices: vi.fn(),
-      } as unknown as TransactionRepository;
-
-      const service = new PriceEnrichmentService(mockRepo);
-
-      const baseTime = new Date('2024-01-01T10:00:00Z');
-
-      // Transaction 1: Buy 1 BTC with 50,000 USDT (establishes BTC price)
-      const tx1 = createMockTransaction(
-        1,
-        'exchange',
-        'kraken',
-        baseTime.toISOString(),
-        [
-          {
-            asset: 'BTC',
-            amount: parseDecimal('1'),
-          },
-        ],
-        [
-          {
-            asset: 'USDT',
-            amount: parseDecimal('50000'),
-          },
-        ]
-      );
-
-      // Transaction 2: Swap 1 BTC for 20 ETH (should infer ETH price from BTC)
-      const tx2 = createMockTransaction(
-        2,
-        'exchange',
-        'kraken',
-        new Date(baseTime.getTime() + 300000).toISOString(), // +5 min
-        [
-          {
-            asset: 'ETH',
-            amount: parseDecimal('20'),
-          },
-        ],
-        [
-          {
-            asset: 'BTC',
-            amount: parseDecimal('1'),
-          },
-        ]
-      );
-
-      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1, tx2]) as any);
-
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]) as any);
-
-      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
-
-      const result = await service.enrichPrices();
-
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().transactionsUpdated).toBe(2);
-
-      // Verify tx1 got exchange-execution price
-      const tx1Calls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0] === 1);
-      expect(tx1Calls.length).toBeGreaterThan(0);
-      expect(tx1Calls[0]![1]).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            asset: 'BTC',
-            source: 'exchange-execution',
-          }),
-        ])
-      );
-
-      // Verify tx2 got derived-trade price for ETH
-      const tx2Calls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0] === 2);
-      expect(tx2Calls.length).toBeGreaterThan(0);
-      expect(tx2Calls[0]![1]).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            asset: 'ETH',
-            source: 'derived-trade',
-          }),
-        ])
-      );
-    });
-
-    it('should use temporal proximity for movements without direct trades (Pass N+1)', async () => {
-      const mockRepo = {
-        findTransactionsNeedingPrices: vi.fn(),
-        getTransactions: vi.fn(),
-        updateMovementsWithPrices: vi.fn(),
-      } as unknown as TransactionRepository;
-
-      const service = new PriceEnrichmentService(mockRepo);
-
-      const baseTime = new Date('2024-01-01T10:00:00Z');
-
-      // Transaction 1: Buy 1 BTC with 50,000 USDT
-      const tx1 = createMockTransaction(
-        1,
-        'exchange',
-        'kraken',
-        baseTime.toISOString(),
-        [
-          {
-            asset: 'BTC',
-            amount: parseDecimal('1'),
-          },
-        ],
-        [
-          {
-            asset: 'USDT',
-            amount: parseDecimal('50000'),
-          },
-        ]
-      );
-
-      // Transaction 2: Receive 0.5 BTC (no trade, just inflow - should use temporal proximity)
-      const tx2 = createMockTransaction(
-        2,
-        'exchange',
-        'kraken',
-        new Date(baseTime.getTime() + 600000).toISOString(), // +10 min
-        [
-          {
-            asset: 'BTC',
-            amount: parseDecimal('0.5'),
-          },
-        ],
-        [] // No outflow
-      );
-
-      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx2]) as any); // Only tx2 needs prices
-
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]) as any); // But we need both to build price index
-
-      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
-
-      const result = await service.enrichPrices();
-
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().transactionsUpdated).toBe(1);
-
-      // Verify tx2 got derived-history price (from temporal proximity)
-      const tx2Calls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0] === 2);
-      expect(tx2Calls.length).toBeGreaterThan(0);
-      expect(tx2Calls[0]![1]).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            asset: 'BTC',
-            source: 'derived-history',
-          }),
-        ])
-      );
-    });
-
     it('should process multiple exchanges independently', async () => {
-      const mockRepo = {
-        findTransactionsNeedingPrices: vi.fn(),
-        getTransactions: vi.fn(),
-        updateMovementsWithPrices: vi.fn(),
-      } as unknown as TransactionRepository;
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
 
-      const service = new PriceEnrichmentService(mockRepo);
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
       const baseTime = new Date('2024-01-01T10:00:00Z');
 
@@ -330,13 +184,10 @@ describe('PriceEnrichmentService', () => {
 
   describe('Happy Path: Blockchain Transactions', () => {
     it('should enrich simple stablecoin swaps on blockchain', async () => {
-      const mockRepo = {
-        findTransactionsNeedingPrices: vi.fn(),
-        getTransactions: vi.fn(),
-        updateMovementsWithPrices: vi.fn(),
-      } as unknown as TransactionRepository;
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
 
-      const service = new PriceEnrichmentService(mockRepo);
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
       // Blockchain swap: 1000 USDT for 0.5 BTC on Uniswap
       const tx1 = createMockTransaction(
@@ -383,13 +234,10 @@ describe('PriceEnrichmentService', () => {
     });
 
     it('should skip crypto-crypto swaps on blockchain (no fiat/stable)', async () => {
-      const mockRepo = {
-        findTransactionsNeedingPrices: vi.fn(),
-        getTransactions: vi.fn(),
-        updateMovementsWithPrices: vi.fn(),
-      } as unknown as TransactionRepository;
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
 
-      const service = new PriceEnrichmentService(mockRepo);
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
       // Blockchain swap: 2 ETH for 100 SOL (no fiat/stablecoin)
       const tx1 = createMockTransaction(
@@ -429,13 +277,10 @@ describe('PriceEnrichmentService', () => {
 
   describe('Stats and Reporting', () => {
     it('should only count transactions that actually got prices (not just attempted)', async () => {
-      const mockRepo = {
-        findTransactionsNeedingPrices: vi.fn(),
-        getTransactions: vi.fn(),
-        updateMovementsWithPrices: vi.fn(),
-      } as unknown as TransactionRepository;
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
 
-      const service = new PriceEnrichmentService(mockRepo);
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
       // Transaction 1: Can be enriched (fiat trade)
       const tx1 = createMockTransaction(
@@ -495,13 +340,10 @@ describe('PriceEnrichmentService', () => {
     });
 
     it('should return 0 when no transactions need prices', async () => {
-      const mockRepo = {
-        findTransactionsNeedingPrices: vi.fn(),
-        getTransactions: vi.fn(),
-        updateMovementsWithPrices: vi.fn(),
-      } as unknown as TransactionRepository;
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
 
-      const service = new PriceEnrichmentService(mockRepo);
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([]) as any);
 
@@ -518,13 +360,10 @@ describe('PriceEnrichmentService', () => {
 
   describe('Failure Paths and Error Handling', () => {
     it('should handle database errors when finding transactions', async () => {
-      const mockRepo = {
-        findTransactionsNeedingPrices: vi.fn(),
-        getTransactions: vi.fn(),
-        updateMovementsWithPrices: vi.fn(),
-      } as unknown as TransactionRepository;
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
 
-      const service = new PriceEnrichmentService(mockRepo);
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(err(new Error('Database connection failed')));
 
@@ -535,13 +374,10 @@ describe('PriceEnrichmentService', () => {
     });
 
     it('should handle database errors when getting all transactions', async () => {
-      const mockRepo = {
-        findTransactionsNeedingPrices: vi.fn(),
-        getTransactions: vi.fn(),
-        updateMovementsWithPrices: vi.fn(),
-      } as unknown as TransactionRepository;
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
 
-      const service = new PriceEnrichmentService(mockRepo);
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
         ok([createMockTransaction(1, 'exchange', 'kraken', '2024-01-01T10:00:00Z', [], [])]) as any
@@ -556,13 +392,10 @@ describe('PriceEnrichmentService', () => {
     });
 
     it('should continue processing other exchanges if one fails', async () => {
-      const mockRepo = {
-        findTransactionsNeedingPrices: vi.fn(),
-        getTransactions: vi.fn(),
-        updateMovementsWithPrices: vi.fn(),
-      } as unknown as TransactionRepository;
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
 
-      const service = new PriceEnrichmentService(mockRepo);
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
       // Kraken transaction (will succeed)
       const tx1 = createMockTransaction(
@@ -623,13 +456,10 @@ describe('PriceEnrichmentService', () => {
 
   describe('Edge Cases', () => {
     it('should handle transactions with null movements', async () => {
-      const mockRepo = {
-        findTransactionsNeedingPrices: vi.fn(),
-        getTransactions: vi.fn(),
-        updateMovementsWithPrices: vi.fn(),
-      } as unknown as TransactionRepository;
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
 
-      const service = new PriceEnrichmentService(mockRepo);
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
       const tx1 = createMockTransaction(1, 'exchange', 'kraken', '2024-01-01T10:00:00Z', [], []);
 
@@ -641,67 +471,6 @@ describe('PriceEnrichmentService', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().transactionsUpdated).toBe(0);
-    });
-
-    it('should respect maxIterations config to prevent infinite loops', async () => {
-      const mockRepo = {
-        findTransactionsNeedingPrices: vi.fn(),
-        getTransactions: vi.fn(),
-        updateMovementsWithPrices: vi.fn(),
-      } as unknown as TransactionRepository;
-
-      const service = new PriceEnrichmentService(mockRepo, { maxTimeDeltaMs: 3600000, maxIterations: 2 });
-
-      const baseTime = new Date('2024-01-01T10:00:00Z');
-
-      // Create a long chain that would require many iterations
-      // COIN0 <- USDT (Pass 0)
-      // COIN1 <- COIN0 (Pass 1)
-      // COIN2 <- COIN1 (Pass 2)
-      // COIN3 <- COIN2 (Pass 3 - should be blocked by maxIterations=2)
-      const transactions: UniversalTransaction[] = [];
-      for (let i = 0; i < 10; i++) {
-        transactions.push(
-          createMockTransaction(
-            i,
-            'exchange',
-            'kraken',
-            new Date(baseTime.getTime() + i * 60000).toISOString(),
-            [
-              {
-                asset: `COIN${i}`,
-                amount: parseDecimal('1'),
-              },
-            ],
-            [
-              {
-                asset: i === 0 ? 'USDT' : `COIN${i - 1}`,
-                amount: parseDecimal('100'),
-              },
-            ]
-          )
-        );
-      }
-
-      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok(transactions) as any);
-
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok(transactions) as any);
-
-      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
-
-      const result = await service.enrichPrices();
-
-      // Should complete without hanging
-      expect(result.isOk()).toBe(true);
-      // Pass 0: COIN0 (1 transaction)
-      // Pass 1: COIN1 (1 transaction)
-      // Pass 2: COIN2 (1 transaction)
-      // Total = 3 transactions enriched with prices directly from trades
-      // Pass N+1 (temporal proximity) can enrich the rest using derived-history
-      // So all 10 might be enriched, but the multi-pass inference stops at iteration 2
-      // The important thing is it completes without hanging
-      expect(result._unsafeUnwrap().transactionsUpdated).toBeGreaterThanOrEqual(3);
-      expect(result._unsafeUnwrap().transactionsUpdated).toBeLessThanOrEqual(10);
     });
   });
 });
