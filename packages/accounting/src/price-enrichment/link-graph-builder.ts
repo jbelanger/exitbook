@@ -116,14 +116,15 @@ export class LinkGraphBuilder {
 
     // Initialize Union-Find with all transaction IDs
     const transactionIds = transactions.map((tx) => tx.id);
+    const transactionIdSet = new Set(transactionIds);
     const uf = new UnionFind(transactionIds);
 
     // Union all confirmed links
     for (const link of links) {
       if (link.status === 'confirmed') {
-        // Check that both transactions exist in our transaction set
-        const hasSource = transactions.some((tx) => tx.id === link.sourceTransactionId);
-        const hasTarget = transactions.some((tx) => tx.id === link.targetTransactionId);
+        // Check that both transactions exist in our transaction set (O(1) lookup with Set)
+        const hasSource = transactionIdSet.has(link.sourceTransactionId);
+        const hasTarget = transactionIdSet.has(link.targetTransactionId);
 
         if (hasSource && hasTarget) {
           uf.union(link.sourceTransactionId, link.targetTransactionId);

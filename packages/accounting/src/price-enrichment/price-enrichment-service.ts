@@ -14,7 +14,7 @@ import {
   extractTradeMovements,
   findClosestPrice,
   inferPriceFromTrade,
-} from './price-calculation-utils.ts';
+} from './price-calculation-utils.js';
 import type { TransactionGroup } from './types.js';
 
 const logger = getLogger('PriceEnrichmentService');
@@ -183,12 +183,23 @@ export class PriceEnrichmentService {
       // This enables cross-platform price flow (exchange → blockchain → exchange)
       // This happens AFTER multi-pass inference so transactions have all possible derived prices
       const { pricesFromLinks, enrichedTransactions } = this.propagatePricesAcrossLinks(group, inferredTxs);
+
+      let enrichedTxs = enrichedTransactions;
+
       if (pricesFromLinks.length > 0) {
         logger.debug({ groupId, linkPricesPropagated: pricesFromLinks.length }, 'Propagated prices across links');
-      }
 
-      // Use enriched transactions (with link-propagated prices) as final result
-      const enrichedTxs = enrichedTransactions;
+        // Add link-propagated prices to index so they can help other transactions in this run
+        for (const { asset, priceAtTxTime } of pricesFromLinks) {
+          if (!priceIndex.has(asset)) {
+            priceIndex.set(asset, []);
+          }
+          priceIndex.get(asset)!.push(priceAtTxTime);
+        }
+
+        // Run one more temporal proximity pass to use the newly propagated prices
+        enrichedTxs = this.fillGapsWithTemporalProximity(enrichedTransactions, priceIndex);
+      }
 
       // Update database with enriched prices (only for transactions that need prices)
       let updatedCount = 0;
@@ -330,10 +341,10 @@ export class PriceEnrichmentService {
 
             if (amountDiff <= amountTolerance) {
               // Propagate price with 'link-propagated' source
+              // Preserve original fetchedAt to maintain temporal proximity for future runs
               const propagatedPrice: PriceAtTxTime = {
                 ...sourceMovement.priceAtTxTime,
                 source: 'link-propagated',
-                fetchedAt: new Date(), // Update fetch time to current
               };
 
               propagatedPrices.push({
@@ -395,6 +406,64 @@ export class PriceEnrichmentService {
       pricesFromLinks: propagatedPrices,
       enrichedTransactions,
     };
+  }
+
+  /**
+   * Fill remaining price gaps using temporal proximity
+   */
+  private fillGapsWithTemporalProximity(
+    transactions: UniversalTransaction[],
+    priceIndex: Map<string, PriceAtTxTime[]>
+  ): UniversalTransaction[] {
+    const enrichedMovements = new Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>();
+
+    for (const tx of transactions) {
+      const inflows = tx.movements.inflows ?? [];
+      const outflows = tx.movements.outflows ?? [];
+      const timestamp = new Date(tx.datetime).getTime();
+
+      const allMovements = [...inflows, ...outflows];
+      const proximityPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
+
+      for (const movement of allMovements) {
+        if (movement.priceAtTxTime) {
+          continue; // Already has price
+        }
+
+        const closestPrice = findClosestPrice(movement.asset, timestamp, priceIndex, this.config.maxTimeDeltaMs);
+        if (closestPrice) {
+          proximityPrices.push({
+            asset: movement.asset,
+            priceAtTxTime: closestPrice,
+          });
+        }
+      }
+
+      if (proximityPrices.length > 0) {
+        const updatedInflows = this.enrichMovements(inflows, proximityPrices);
+        const updatedOutflows = this.enrichMovements(outflows, proximityPrices);
+
+        enrichedMovements.set(tx.id, {
+          inflows: updatedInflows,
+          outflows: updatedOutflows,
+        });
+      }
+    }
+
+    // Return transactions with enriched movements
+    return transactions.map((tx) => {
+      const enriched = enrichedMovements.get(tx.id);
+      if (enriched) {
+        return {
+          ...tx,
+          movements: {
+            inflows: enriched.inflows,
+            outflows: enriched.outflows,
+          },
+        };
+      }
+      return tx;
+    });
   }
 
   /**

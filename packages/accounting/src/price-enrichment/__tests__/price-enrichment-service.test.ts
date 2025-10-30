@@ -686,6 +686,21 @@ describe('PriceEnrichmentService', () => {
       // Verify transactions got prices through the multi-hop link chain
       // Note: Only transactions that had movements enriched are updated
       expect(result._unsafeUnwrap().transactionsUpdated).toBeGreaterThanOrEqual(1);
+
+      // Verify tx4 (Bitcoin send) got price via temporal proximity from tx3's link-propagated price
+      const tx4Calls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0] === 4);
+      expect(tx4Calls.length).toBeGreaterThan(0);
+      expect(tx4Calls[0]![1]).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            asset: 'BTC',
+            source: 'derived-history', // Temporal proximity fills with derived-history source
+            price: expect.objectContaining({
+              amount: parseDecimal('50000'),
+            }) as { amount: ReturnType<typeof parseDecimal> },
+          }),
+        ])
+      );
     });
 
     it('should not propagate prices when amounts differ too much', async () => {

@@ -44,7 +44,7 @@ pnpm run dev process --exchange kraken --session <id>
 pnpm run dev balance --exchange kraken --api-key YOUR_KEY --api-secret YOUR_SECRET
 pnpm run dev balance --blockchain bitcoin --address bc1q...
 
-# Derive prices from transaction history (fiat/stable trades)
+# Derive prices from transaction history (uses confirmed links for cross-platform price propagation)
 pnpm run dev prices derive
 
 # Fetch remaining prices from external providers
@@ -69,6 +69,7 @@ pnpm run dev list-blockchains
 
 - **apps/cli/** - Commander-based CLI (`exitbook-cli`)
 - **packages/ingestion/** - Importers, processors, blockchain/exchange adapters, balance fetching
+- **packages/accounting/** - Transaction analysis: linking, price derivation, cost basis
 - **packages/data/** - Kysely/SQLite storage, repositories, migrations
 - **packages/core/** - Domain types, Zod schemas, shared utilities
 - **packages/shared-logger/** - Pino structured logging
