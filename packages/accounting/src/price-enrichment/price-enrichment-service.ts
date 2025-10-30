@@ -376,8 +376,9 @@ export class PriceEnrichmentService {
       }
 
       // Apply propagated prices to target transaction movements
+      // Use overwriteDerivedHistory=true because link propagation is more direct/accurate
       if (targetMovementPrices.length > 0) {
-        const enrichedInflows = this.enrichMovements(targetInflows, targetMovementPrices);
+        const enrichedInflows = this.enrichMovements(targetInflows, targetMovementPrices, true);
         const targetOutflows = targetTx.movements.outflows ?? [];
 
         enrichedMovements.set(targetTx.id, {
@@ -650,18 +651,36 @@ export class PriceEnrichmentService {
 
   /**
    * Enrich movements with price data
+   *
+   * @param movements - Movements to enrich
+   * @param prices - Prices to apply
+   * @param overwriteDerivedHistory - If true, allow overwriting existing derived-history prices
+   *        This is useful for link propagation, which is more direct/accurate than temporal proximity
    */
   private enrichMovements(
     movements: AssetMovement[],
-    prices: { asset: string; priceAtTxTime: PriceAtTxTime }[]
+    prices: { asset: string; priceAtTxTime: PriceAtTxTime }[],
+    overwriteDerivedHistory = false
   ): AssetMovement[] {
     const priceMap = new Map(prices.map((p) => [p.asset, p.priceAtTxTime]));
 
     return movements.map((movement) => {
       const price = priceMap.get(movement.asset);
-      if (price && !movement.priceAtTxTime) {
+
+      if (!price) {
+        return movement;
+      }
+
+      // Always enrich if no existing price
+      if (!movement.priceAtTxTime) {
         return { ...movement, priceAtTxTime: price };
       }
+
+      // Optionally overwrite derived-history prices with more direct sources
+      if (overwriteDerivedHistory && movement.priceAtTxTime.source === 'derived-history') {
+        return { ...movement, priceAtTxTime: price };
+      }
+
       return movement;
     });
   }

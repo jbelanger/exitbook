@@ -80,7 +80,7 @@ describe('LinkGraphBuilder', () => {
       expect(groups).toEqual([]);
     });
 
-    it('should create single-transaction groups when no links exist', () => {
+    it('should create single-transaction groups when no links exist (different sources)', () => {
       const builder = new LinkGraphBuilder();
 
       const transactions: UniversalTransaction[] = [
@@ -106,7 +106,7 @@ describe('LinkGraphBuilder', () => {
 
       const groups = builder.buildLinkGraph(transactions, []);
 
-      // Each transaction should be in its own group
+      // Each transaction should be in its own group (different sources)
       expect(groups).toHaveLength(3);
 
       for (const group of groups) {
@@ -115,6 +115,108 @@ describe('LinkGraphBuilder', () => {
         expect(group.linkChain).toHaveLength(0);
         expect(group.groupId).toBeTruthy(); // Has a UUID
       }
+    });
+
+    it('should group same-source transactions together even without links (Phase 1 backward compatibility)', () => {
+      const builder = new LinkGraphBuilder();
+
+      const transactions: UniversalTransaction[] = [
+        // Kraken trade (buy BTC)
+        createTransaction({
+          id: 1,
+          source: 'kraken',
+          datetime: '2024-01-01T12:00:00.000Z',
+          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: 'USD', amount: '50000' }],
+        }),
+        // Kraken withdrawal (no link to blockchain yet)
+        createTransaction({
+          id: 2,
+          source: 'kraken',
+          datetime: '2024-01-01T13:00:00.000Z',
+          outflows: [{ asset: 'BTC', amount: '1.0' }],
+        }),
+        // Another Kraken transaction (internal transfer)
+        createTransaction({
+          id: 3,
+          source: 'kraken',
+          datetime: '2024-01-01T14:00:00.000Z',
+          inflows: [{ asset: 'ETH', amount: '10.0' }],
+        }),
+      ];
+
+      const groups = builder.buildLinkGraph(transactions, []);
+
+      // All Kraken transactions should be in ONE group (same source)
+      // This preserves Phase 1 behavior where prices propagate within exchange
+      expect(groups).toHaveLength(1);
+
+      const group = groups[0]!;
+      expect(group.transactions).toHaveLength(3);
+      expect(group.sources).toEqual(new Set(['kraken']));
+      expect(group.linkChain).toHaveLength(0); // No explicit links
+      expect(group.groupId).toBeTruthy();
+    });
+
+    it('should preserve same-source grouping while adding cross-platform links', () => {
+      const builder = new LinkGraphBuilder();
+
+      const transactions: UniversalTransaction[] = [
+        // Kraken trade
+        createTransaction({
+          id: 1,
+          source: 'kraken',
+          datetime: '2024-01-01T12:00:00.000Z',
+          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: 'USD', amount: '50000' }],
+        }),
+        // Kraken withdrawal (linked to blockchain)
+        createTransaction({
+          id: 2,
+          source: 'kraken',
+          datetime: '2024-01-01T13:00:00.000Z',
+          outflows: [{ asset: 'BTC', amount: '1.0' }],
+        }),
+        // Bitcoin deposit (receives withdrawal)
+        createTransaction({
+          id: 3,
+          source: 'bitcoin',
+          datetime: '2024-01-01T14:00:00.000Z',
+          inflows: [{ asset: 'BTC', amount: '1.0' }],
+        }),
+        // Bitcoin send (no link yet)
+        createTransaction({
+          id: 4,
+          source: 'bitcoin',
+          datetime: '2024-01-01T15:00:00.000Z',
+          outflows: [{ asset: 'BTC', amount: '0.5' }],
+        }),
+      ];
+
+      const links: TransactionLink[] = [
+        createTransactionLink({
+          id: 'link-1',
+          sourceTransactionId: 2, // Kraken withdrawal
+          targetTransactionId: 3, // Bitcoin deposit
+          linkType: 'exchange_to_blockchain',
+          status: 'confirmed',
+        }),
+      ];
+
+      const groups = builder.buildLinkGraph(transactions, links);
+
+      // All transactions should be in ONE group:
+      // - Kraken trade + withdrawal grouped by source
+      // - Kraken withdrawal → Bitcoin deposit linked explicitly
+      // - Bitcoin deposit + send grouped by source
+      // Result: All 4 transactions in one group
+      expect(groups).toHaveLength(1);
+
+      const group = groups[0]!;
+      expect(group.transactions).toHaveLength(4);
+      expect(group.sources).toEqual(new Set(['kraken', 'bitcoin']));
+      expect(group.linkChain).toHaveLength(1);
+      expect(group.linkChain[0]?.id).toBe('link-1');
     });
 
     it('should group two transactions with a confirmed link', () => {
@@ -396,12 +498,12 @@ describe('LinkGraphBuilder', () => {
           datetime: '2024-01-01T15:00:00.000Z',
           inflows: [{ asset: 'ETH', amount: '10.0' }],
         }),
-        // Unlinked transaction
+        // Unlinked transaction (different source to stay isolated)
         createTransaction({
           id: 5,
-          source: 'bitcoin',
+          source: 'solana',
           datetime: '2024-01-01T16:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '0.1' }],
+          outflows: [{ asset: 'SOL', amount: '100' }],
         }),
       ];
 

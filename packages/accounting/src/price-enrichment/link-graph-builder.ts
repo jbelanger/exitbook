@@ -98,9 +98,10 @@ export class LinkGraphBuilder {
    *
    * Algorithm:
    * 1. Initialize Union-Find with all transaction IDs
-   * 2. For each confirmed link, union source and target transaction IDs
-   * 3. Group transactions by their root representative
-   * 4. Build TransactionGroup objects with metadata
+   * 2. Seed: Union transactions from the same source (preserves Phase 1 behavior)
+   * 3. Enhance: Union confirmed cross-platform links (adds Phase 2 functionality)
+   * 4. Group transactions by their root representative
+   * 5. Build TransactionGroup objects with metadata
    *
    * Time Complexity: O(n log n) where n is the number of transactions
    *
@@ -119,7 +120,30 @@ export class LinkGraphBuilder {
     const transactionIdSet = new Set(transactionIds);
     const uf = new UnionFind(transactionIds);
 
-    // Union all confirmed links
+    // SEED: First, union all transactions from the same source (Phase 1 behavior)
+    // This ensures same-source transactions (e.g., Kraken trade + Kraken withdrawal)
+    // are grouped together even without explicit links
+    const txsBySource = new Map<string, number[]>();
+    for (const tx of transactions) {
+      if (!txsBySource.has(tx.source)) {
+        txsBySource.set(tx.source, []);
+      }
+      txsBySource.get(tx.source)!.push(tx.id);
+    }
+
+    // Union all transactions within each source
+    for (const txIds of txsBySource.values()) {
+      if (txIds.length > 1) {
+        // Connect all transactions to the first one in the source
+        const firstId = txIds[0]!;
+        for (let i = 1; i < txIds.length; i++) {
+          uf.union(firstId, txIds[i]!);
+        }
+      }
+    }
+
+    // ENHANCE: Then, union confirmed cross-platform links (Phase 2 functionality)
+    // This enables price propagation across different sources (exchange ↔ blockchain)
     for (const link of links) {
       if (link.status === 'confirmed') {
         // Check that both transactions exist in our transaction set (O(1) lookup with Set)
