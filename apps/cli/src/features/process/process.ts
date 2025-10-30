@@ -1,19 +1,16 @@
 import type { Command } from 'commander';
 
-import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.ts';
+import { withDatabaseAndHandler } from '../shared/command-execution.ts';
 import { ExitCodes } from '../shared/exit-codes.ts';
 import { OutputManager } from '../shared/output.ts';
 
 import type { ProcessResult } from './process-handler.ts';
 import { ProcessHandler } from './process-handler.ts';
-import { promptForProcessParams } from './process-prompts.ts';
-import type { ProcessCommandOptions } from './process-utils.ts';
-import { buildProcessParamsFromFlags } from './process-utils.ts';
 
 /**
- * Extended process command options (adds CLI-specific flags not needed by handler).
+ * Process command options.
  */
-export interface ExtendedProcessCommandOptions extends ProcessCommandOptions {
+export interface ProcessCommandOptions {
   json?: boolean | undefined;
 }
 
@@ -31,13 +28,9 @@ interface ProcessCommandResult {
 export function registerProcessCommand(program: Command): void {
   program
     .command('process')
-    .description('Transform raw imported data to universal transaction format')
-    .option('--exchange <name>', 'Exchange name (e.g., kraken, kucoin)')
-    .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, polkadot, bittensor)')
-    .option('--source <id>', 'Import source ID to process')
-    .option('--all', 'Process all pending raw data for this source')
+    .description('Process all pending raw data from all sources')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: ExtendedProcessCommandOptions) => {
+    .action(async (options: ProcessCommandOptions) => {
       await executeProcessCommand(options);
     });
 }
@@ -45,30 +38,20 @@ export function registerProcessCommand(program: Command): void {
 /**
  * Execute the process command.
  */
-async function executeProcessCommand(options: ExtendedProcessCommandOptions): Promise<void> {
+async function executeProcessCommand(options: ProcessCommandOptions): Promise<void> {
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    const params = await resolveCommandParams({
-      isInteractive: !options.exchange && !options.blockchain && !options.json,
-      output,
-      commandName: 'process',
-      promptFn: promptForProcessParams,
-      buildFromFlags: () => unwrapResult(buildProcessParamsFromFlags(options)),
-      confirmMessage: 'Start processing?',
-      cancelMessage: 'Processing cancelled',
-    });
-
     const spinner = output.spinner();
-    spinner?.start('Processing data...');
+    spinner?.start('Processing all pending data...');
 
-    const result = await withDatabaseAndHandler(ProcessHandler, params);
+    const result = await withDatabaseAndHandler(ProcessHandler, {});
 
     spinner?.stop();
 
     if (result.isErr()) {
       output.error('process', result.error, ExitCodes.GENERAL_ERROR);
-      return; // TypeScript needs this even though output.error never returns
+      return;
     }
 
     handleProcessSuccess(output, result.value);

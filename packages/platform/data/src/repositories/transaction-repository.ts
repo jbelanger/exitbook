@@ -164,8 +164,8 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         }
       }
 
-      // Order by creation time descending
-      query = query.orderBy('created_at', 'desc');
+      // Order by transaction datetime ascending (oldest to newest)
+      query = query.orderBy('transaction_datetime', 'asc');
 
       const rows = await query.execute();
 

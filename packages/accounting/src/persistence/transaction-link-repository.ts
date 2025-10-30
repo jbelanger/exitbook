@@ -220,6 +220,9 @@ export class TransactionLinkRepository extends BaseRepository {
         query = query.where('status', '=', status);
       }
 
+      // Order by creation time ascending (oldest to newest)
+      query = query.orderBy('created_at', 'asc');
+
       const rows = await query.execute();
 
       // Convert rows to domain models, failing fast on any parse errors

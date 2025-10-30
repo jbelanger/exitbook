@@ -8,13 +8,7 @@ import {
 } from '@exitbook/ingestion';
 import { BlockchainProviderManager, loadExplorerConfig } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
-import { err, ok, type Result } from 'neverthrow';
-
-import type { ProcessHandlerParams } from './process-utils.ts';
-import { validateProcessParams } from './process-utils.ts';
-
-// Re-export for convenience
-export type { ProcessHandlerParams };
+import { type Result } from 'neverthrow';
 
 const logger = getLogger('ProcessHandler');
 
@@ -58,44 +52,9 @@ export class ProcessHandler {
   /**
    * Execute the process operation.
    */
-  async execute(params: ProcessHandlerParams): Promise<Result<ProcessResult, Error>> {
-    try {
-      // Validate parameters
-      const validation = validateProcessParams(params);
-      if (validation.isErr()) {
-        return err(validation.error);
-      }
-
-      logger.info(
-        `Starting data processing from ${params.sourceName} (${params.sourceType}) to universal transaction format`
-      );
-
-      // Process raw data to transactions
-      const processResult = await this.processService.processRawDataToTransactions(
-        params.sourceName,
-        params.sourceType,
-        params.filters
-      );
-
-      if (processResult.isErr()) {
-        return err(processResult.error);
-      }
-
-      const result = processResult.value;
-
-      if (result.errors.length > 0) {
-        logger.warn(`Processing completed with ${result.errors.length} errors`);
-      } else {
-        logger.info(`Processing completed: ${result.processed} transactions processed`);
-      }
-
-      return ok({
-        processed: result.processed,
-        errors: result.errors,
-      });
-    } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
-    }
+  async execute(_params: Record<string, never>): Promise<Result<ProcessResult, Error>> {
+    logger.info('Processing all pending data from all sources');
+    return this.processService.processAllPending();
   }
 
   /**

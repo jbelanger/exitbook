@@ -61,6 +61,82 @@ export class TransactionProcessService {
   }
 
   /**
+   * Process all data sources that have pending raw data.
+   */
+  async processAllPending(): Promise<Result<ProcessResult, Error>> {
+    this.logger.info('Processing all data sources with pending records');
+
+    try {
+      // Load all pending raw data
+      const pendingDataResult = await this.rawDataRepository.load({
+        processingStatus: 'pending',
+      });
+
+      if (pendingDataResult.isErr()) {
+        return err(pendingDataResult.error);
+      }
+
+      const pendingData = pendingDataResult.value;
+
+      if (pendingData.length === 0) {
+        this.logger.info('No pending raw data found to process');
+        return ok({ errors: [], failed: 0, processed: 0 });
+      }
+
+      this.logger.info(`Found ${pendingData.length} pending records across all sources`);
+
+      // Get unique data source IDs
+      const dataSourceIds = [
+        ...new Set(pendingData.map((item) => item.dataSourceId).filter((id): id is number => id !== null)),
+      ];
+
+      this.logger.info(`Found ${dataSourceIds.length} data sources with pending records`);
+
+      // Load all data sources
+      const dataSourcesResult = await this.dataSourceRepository.findAll();
+      if (dataSourcesResult.isErr()) {
+        return err(dataSourcesResult.error);
+      }
+
+      const dataSources = dataSourcesResult.value.filter((ds) => dataSourceIds.includes(ds.id));
+
+      // Process each source
+      let totalProcessed = 0;
+      const allErrors: string[] = [];
+
+      for (const dataSource of dataSources) {
+        this.logger.info(`Processing source: ${dataSource.sourceId} (${dataSource.sourceType})`);
+
+        const result = await this.processRawDataToTransactions(dataSource.sourceId, dataSource.sourceType, {
+          dataSourceId: dataSource.id,
+        });
+
+        if (result.isErr()) {
+          const errorMsg = `Failed to process ${dataSource.sourceId}: ${result.error.message}`;
+          this.logger.error(errorMsg);
+          allErrors.push(errorMsg);
+          continue;
+        }
+
+        totalProcessed += result.value.processed;
+        allErrors.push(...result.value.errors);
+      }
+
+      this.logger.info(`Completed processing all sources: ${totalProcessed} transactions processed`);
+
+      return ok({
+        errors: allErrors,
+        failed: 0,
+        processed: totalProcessed,
+      });
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      this.logger.error(`Unexpected error processing all pending data: ${errorMessage}`);
+      return err(new Error(`Unexpected error processing all pending data: ${errorMessage}`));
+    }
+  }
+
+  /**
    * Process raw data from storage into UniversalTransaction format and save to database.
    */
   async processRawDataToTransactions(
