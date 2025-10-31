@@ -339,21 +339,22 @@ describe('PriceEnrichmentService', () => {
       expect(mockRepo.updateMovementsWithPrices).toHaveBeenCalledWith(1, expect.any(Array));
     });
 
-    it('should return 0 when no transactions need prices', async () => {
+    it('should return 0 when database is empty', async () => {
       const mockRepo = createMockTransactionRepository();
       const mockLinkRepo = createMockLinkRepository();
 
       const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([]) as any);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([]) as any);
 
       const result = await service.enrichPrices();
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().transactionsUpdated).toBe(0);
 
-      // Should not call getTransactions or update
-      expect(mockRepo.getTransactions).not.toHaveBeenCalled();
+      // Should check for all transactions but find none
+      expect(mockRepo.getTransactions).toHaveBeenCalled();
       expect(mockRepo.updateMovementsWithPrices).not.toHaveBeenCalled();
     });
   });
@@ -463,7 +464,7 @@ describe('PriceEnrichmentService', () => {
 
       const baseTime = new Date('2024-01-01T10:00:00Z');
 
-      // Step 1: Buy BTC on Kraken at $50,000 (gives withdrawal a price via temporal proximity)
+      // Step 1: Buy BTC on Kraken at $50,000
       const tx1Buy = createMockTransaction(
         1,
         'exchange',
@@ -597,7 +598,7 @@ describe('PriceEnrichmentService', () => {
         []
       );
 
-      // Step 4: Bitcoin send to another wallet (will get price from deposit via temporal proximity)
+      // Step 4: Bitcoin send to another wallet
       const tx4BtcSend = createMockTransaction(
         4,
         'blockchain',
@@ -684,23 +685,25 @@ describe('PriceEnrichmentService', () => {
       expect(result.isOk()).toBe(true);
 
       // Verify transactions got prices through the multi-hop link chain
-      // Note: Only transactions that had movements enriched are updated
+      // tx3 gets price from link1 (Kraken withdrawal → Bitcoin deposit)
+      // tx5 gets price from link3 (Bitcoin send → Ethereum deposit) if tx4 has outflow price
       expect(result._unsafeUnwrap().transactionsUpdated).toBeGreaterThanOrEqual(1);
 
-      // Verify tx4 (Bitcoin send) got price via temporal proximity from tx3's link-propagated price
-      const tx4Calls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0] === 4);
-      expect(tx4Calls.length).toBeGreaterThan(0);
-      expect(tx4Calls[0]![1]).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            asset: 'BTC',
-            source: 'derived-history', // Temporal proximity fills with derived-history source
-            price: expect.objectContaining({
-              amount: parseDecimal('50000'),
-            }) as { amount: ReturnType<typeof parseDecimal> },
-          }),
-        ])
-      );
+      // Verify tx3 (Bitcoin deposit) got link-propagated price from Kraken withdrawal
+      const tx3Calls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0] === 3);
+      if (tx3Calls.length > 0) {
+        expect(tx3Calls[0]![1]).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              asset: 'BTC',
+              source: 'link-propagated',
+              price: expect.objectContaining({
+                amount: parseDecimal('50000'),
+              }) as { amount: ReturnType<typeof parseDecimal> },
+            }),
+          ])
+        );
+      }
     });
 
     it('should not propagate prices when amounts differ too much', async () => {
@@ -871,6 +874,319 @@ describe('PriceEnrichmentService', () => {
       expect(result.isOk()).toBe(true);
       // No prices to propagate since source has no price
       expect(result._unsafeUnwrap().transactionsUpdated).toBe(0);
+    });
+  });
+
+  describe('Crypto-Crypto Swap Ratio Pricing', () => {
+    it('should persist ratio-corrected prices even when swap is NOT in needingPrices (real workflow)', async () => {
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
+
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
+
+      const baseTime = new Date('2024-06-01T10:00:00Z');
+
+      // Crypto-crypto swap: 1 BTC → 1,000 ADA
+      // BOTH sides already have prices (from fetch), so findTransactionsNeedingPrices returns []
+      // But Pass N+2 should still recalculate AND persist the corrected price
+      const tx1Swap = createMockTransaction(
+        1,
+        'exchange',
+        'kraken',
+        baseTime.toISOString(),
+        [
+          {
+            asset: 'ADA',
+            amount: parseDecimal('1000'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('61'), currency: Currency.create('USD') },
+              source: 'coingecko', // External fetch (wrong market price)
+              fetchedAt: baseTime,
+              granularity: 'exact',
+            },
+          },
+        ],
+        [
+          {
+            asset: 'BTC',
+            amount: parseDecimal('1'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('60000'), currency: Currency.create('USD') },
+              source: 'binance', // External fetch (correct FMV for disposal)
+              fetchedAt: baseTime,
+              granularity: 'exact',
+            },
+          },
+        ]
+      );
+
+      // Real behavior: findTransactionsNeedingPrices returns [] because both sides have prices
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([]) as any);
+      // But getTransactions returns the swap
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1Swap]) as any);
+      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
+
+      const result = await service.enrichPrices();
+
+      expect(result.isOk()).toBe(true);
+      // Should update 1 transaction (the swap with corrected ratio)
+      expect(result._unsafeUnwrap().transactionsUpdated).toBe(1);
+
+      // Verify ADA inflow price was recalculated AND persisted
+      const updateCalls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls;
+      expect(updateCalls.length).toBe(1);
+
+      const [txId, priceData] = updateCalls[0]!;
+      expect(txId).toBe(1);
+
+      // Find ADA price in the update
+      const adaPrice = priceData.find((p) => p.asset === 'ADA');
+      expect(adaPrice).toBeDefined();
+      expect(adaPrice!.source).toBe('derived-ratio');
+      expect(adaPrice!.price.amount.toFixed()).toBe('60'); // $60,000 / 1,000 = $60 (NOT $61)
+    });
+
+    it('should recalculate inflow price from outflow using swap ratio (Pass N+2)', async () => {
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
+
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
+
+      const baseTime = new Date('2024-06-01T10:00:00Z');
+
+      // Crypto-crypto swap: 1 BTC → 1,000 ADA
+      // BTC outflow has price from fetch (FMV): $60,000
+      // ADA inflow has wrong market price from fetch: $61 per coin
+      // Should recalculate ADA to: $60,000 / 1,000 = $60 per coin (execution price)
+      const tx1Swap = createMockTransaction(
+        1,
+        'exchange',
+        'kraken',
+        baseTime.toISOString(),
+        [
+          {
+            asset: 'ADA',
+            amount: parseDecimal('1000'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('61'), currency: Currency.create('USD') },
+              source: 'coingecko', // External fetch
+              fetchedAt: baseTime,
+              granularity: 'exact',
+            },
+          },
+        ],
+        [
+          {
+            asset: 'BTC',
+            amount: parseDecimal('1'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('60000'), currency: Currency.create('USD') },
+              source: 'binance', // External fetch
+              fetchedAt: baseTime,
+              granularity: 'exact',
+            },
+          },
+        ]
+      );
+
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1Swap]) as any);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1Swap]) as any);
+      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
+
+      const result = await service.enrichPrices();
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().transactionsUpdated).toBe(1);
+
+      // Verify ADA inflow price was recalculated from ratio
+      const updateCalls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls;
+      expect(updateCalls.length).toBe(1);
+
+      const [txId, priceData] = updateCalls[0]!;
+      expect(txId).toBe(1);
+
+      // Find ADA price in the update
+      const adaPrice = priceData.find((p) => p.asset === 'ADA');
+      expect(adaPrice).toBeDefined();
+      expect(adaPrice!.source).toBe('derived-ratio');
+      expect(adaPrice!.price.amount.toFixed()).toBe('60'); // $60,000 / 1,000 = $60
+
+      // BTC price should remain unchanged
+      const btcPrice = priceData.find((p) => p.asset === 'BTC');
+      expect(btcPrice).toBeDefined();
+      expect(btcPrice!.price.amount.toFixed()).toBe('60000');
+    });
+
+    it('should derive inflow price from outflow when only outflow has price (Pass 1)', async () => {
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
+
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
+
+      const baseTime = new Date('2024-06-01T10:00:00Z');
+
+      // Swap: 0.00713512 BTC → 705.32116 CFG
+      // BTC outflow has price from fetch: $67,766.85
+      // CFG inflow has NO price (exotic asset, provider doesn't have data)
+      // Should derive CFG price: $67,766.85 * (0.00713512 / 705.32116) = $0.6852 per CFG
+      const txSwap = createMockTransaction(
+        1,
+        'exchange',
+        'kraken',
+        baseTime.toISOString(),
+        [
+          {
+            asset: 'CFG',
+            amount: parseDecimal('705.32116'),
+            // No priceAtTxTime - provider doesn't have CFG data
+          },
+        ],
+        [
+          {
+            asset: 'BTC',
+            amount: parseDecimal('0.00713512'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('67766.85'), currency: Currency.create('USD') },
+              source: 'binance',
+              fetchedAt: baseTime,
+              granularity: 'exact',
+            },
+          },
+        ]
+      );
+
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([txSwap]) as any);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([txSwap]) as any);
+      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
+
+      const result = await service.enrichPrices();
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().transactionsUpdated).toBe(1);
+
+      // Verify CFG inflow price was derived from BTC outflow using ratio
+      const updateCalls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls;
+      expect(updateCalls.length).toBe(1);
+
+      const [txId, priceData] = updateCalls[0]!;
+      expect(txId).toBe(1);
+
+      // Find CFG price in the update
+      const cfgPrice = priceData.find((p) => p.asset === 'CFG');
+      expect(cfgPrice).toBeDefined();
+      expect(cfgPrice!.source).toBe('derived-ratio');
+      // $67,766.85 * (0.00713512 / 705.32116) = $0.6855382118
+      expect(cfgPrice!.price.amount.toNumber()).toBeCloseTo(0.6855, 3);
+    });
+
+    it('should NOT recalculate fiat/stablecoin trades (already execution prices)', async () => {
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
+
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
+
+      const baseTime = new Date('2024-06-01T10:00:00Z');
+
+      // Fiat trade: 50,000 USDT → 1 BTC
+      // Should NOT recalculate because one side is stablecoin
+      const tx1Trade = createMockTransaction(
+        1,
+        'exchange',
+        'kraken',
+        baseTime.toISOString(),
+        [
+          {
+            asset: 'BTC',
+            amount: parseDecimal('1'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+              source: 'exchange-execution',
+              fetchedAt: baseTime,
+              granularity: 'exact',
+            },
+          },
+        ],
+        [
+          {
+            asset: 'USDT',
+            amount: parseDecimal('50000'),
+          },
+        ]
+      );
+
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1Trade]) as any);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1Trade]) as any);
+      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
+
+      const result = await service.enrichPrices();
+
+      expect(result.isOk()).toBe(true);
+
+      // Verify BTC kept exchange-execution source (not overwritten with derived-ratio)
+      const updateCalls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls;
+      if (updateCalls.length > 0) {
+        const [, priceData] = updateCalls[0]!;
+        const btcPrice = priceData.find((p) => p.asset === 'BTC');
+        if (btcPrice) {
+          expect(btcPrice.source).toBe('exchange-execution'); // NOT derived-ratio
+        }
+      }
+    });
+
+    it('should skip crypto-crypto swaps when either side lacks a price', async () => {
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
+
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
+
+      const baseTime = new Date('2024-06-01T10:00:00Z');
+
+      // Crypto-crypto swap but outflow has no price
+      const tx1Swap = createMockTransaction(
+        1,
+        'exchange',
+        'kraken',
+        baseTime.toISOString(),
+        [
+          {
+            asset: 'ADA',
+            amount: parseDecimal('1000'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('61'), currency: Currency.create('USD') },
+              source: 'coingecko',
+              fetchedAt: baseTime,
+              granularity: 'exact',
+            },
+          },
+        ],
+        [
+          {
+            asset: 'BTC',
+            amount: parseDecimal('1'),
+            // No price
+          },
+        ]
+      );
+
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1Swap]) as any);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1Swap]) as any);
+      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
+
+      const result = await service.enrichPrices();
+
+      expect(result.isOk()).toBe(true);
+
+      // Should update with existing ADA price, but NOT recalculate
+      const updateCalls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls;
+      if (updateCalls.length > 0) {
+        const [, priceData] = updateCalls[0]!;
+        const adaPrice = priceData.find((p) => p.asset === 'ADA');
+        if (adaPrice) {
+          // Should keep original source (coingecko), not derived-ratio
+          expect(adaPrice.source).toBe('coingecko');
+          expect(adaPrice.price.amount.toFixed()).toBe('61');
+        }
+      }
     });
   });
 

@@ -120,7 +120,7 @@ describe('PricesDeriveHandler', () => {
       // Verify
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.totalMovements).toBe(4); // BTC, ETH, USD, SOL
+        expect(result.value.totalMovements).toBe(3); // BTC, ETH, SOL (USD excluded as fiat)
         expect(result.value.movementsEnriched).toBe(2); // BTC and ETH got prices
         expect(result.value.movementsStillNeedingPrices).toBe(1); // SOL still needs price
       }
@@ -186,8 +186,8 @@ describe('PricesDeriveHandler', () => {
       // Verify
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.totalMovements).toBe(2);
-        expect(result.value.movementsEnriched).toBe(2);
+        expect(result.value.totalMovements).toBe(1); // BTC only (USD excluded as fiat)
+        expect(result.value.movementsEnriched).toBe(1); // BTC got price
         expect(result.value.movementsStillNeedingPrices).toBe(0);
       }
     });

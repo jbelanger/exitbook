@@ -1,5 +1,5 @@
-import type { AssetMovement, Currency, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
-import { wrapError } from '@exitbook/core';
+import type { AssetMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
+import { Currency, parseDecimal, wrapError } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
@@ -9,57 +9,37 @@ import { err, ok } from 'neverthrow';
 import type { TransactionLinkRepository } from '../persistence/transaction-link-repository.js';
 
 import { LinkGraphBuilder } from './link-graph-builder.js';
-import {
-  calculatePriceFromTrade,
-  extractTradeMovements,
-  findClosestPrice,
-  inferPriceFromTrade,
-} from './price-calculation-utils.js';
+import { calculatePriceFromTrade, extractTradeMovements } from './price-calculation-utils.js';
 import type { TransactionGroup } from './types.js';
 
 const logger = getLogger('PriceEnrichmentService');
-
-export interface PriceEnrichmentConfig {
-  /**
-   * Maximum time delta in milliseconds to consider a price "close enough"
-   * Default: 1 hour (3600000ms)
-   */
-  maxTimeDeltaMs: number;
-
-  /**
-   * Maximum number of inference passes to prevent infinite loops
-   * Default: 10
-   */
-  maxIterations: number;
-}
 
 /**
  * Service for enriching transaction movements with price data
  * derived from the transaction data itself.
  *
- * Implements a multi-pass inference algorithm:
- * 1. Extract known prices from fiat/stablecoin trades
- * 2. Iteratively infer prices from crypto-crypto trades
- * 3. Fill remaining gaps using temporal proximity
+ * Implements a direct price enrichment algorithm:
+ * 1. Extract execution prices from fiat/stablecoin trades
+ * 2. Propagate prices across confirmed transaction links
+ * 3. Recalculate crypto-crypto swap ratios using fetched prices
  *
- * Phase 2 Enhancement (Link-Aware):
+ * Link-aware price propagation:
  * - Uses TransactionLinkRepository to fetch confirmed transaction links
  * - Groups linked transactions together via Union-Find algorithm
  * - Enables price propagation across platforms (exchange ↔ blockchain)
+ *
+ * Designed for use in a three-step workflow:
+ * - derive: Extract execution prices and propagate across links
+ * - fetch: Fill remaining gaps with market prices from external providers
+ * - derive: Recalculate crypto-crypto swap ratios for accurate cost basis
  */
 export class PriceEnrichmentService {
-  private readonly config: Required<PriceEnrichmentConfig>;
   private readonly linkGraphBuilder: LinkGraphBuilder;
 
   constructor(
     private readonly transactionRepository: TransactionRepository,
-    private readonly linkRepository: TransactionLinkRepository,
-    config?: PriceEnrichmentConfig
+    private readonly linkRepository: TransactionLinkRepository
   ) {
-    this.config = {
-      maxTimeDeltaMs: config?.maxTimeDeltaMs ?? 3_600_000, // 1 hour
-      maxIterations: config?.maxIterations ?? 10,
-    };
     this.linkGraphBuilder = new LinkGraphBuilder();
   }
 
@@ -79,16 +59,11 @@ export class PriceEnrichmentService {
 
       const transactions = needingPricesResult.value;
 
-      if (transactions.length === 0) {
-        logger.info('No transactions need price enrichment');
-        return ok({ transactionsUpdated: 0 });
-      }
+      // Track which transactions originally needed prices
+      const txIdsNeedingPrices = new Set(transactions.map((tx) => tx.id));
 
-      logger.info({ count: transactions.length }, 'Found transactions needing prices');
-
-      // Get full transaction data (we need ALL transactions to build price index,
-      // not just the ones needing prices, because already-priced fiat/stable trades
-      // serve as anchors for multi-pass inference)
+      // Get full transaction data - we must process ALL transactions even if none need prices
+      // because Pass N+2 recalculates ratios for swaps that already have fetched prices
       const allTransactionsResult = await this.transactionRepository.getTransactions();
       if (allTransactionsResult.isErr()) {
         return err(allTransactionsResult.error);
@@ -96,8 +71,15 @@ export class PriceEnrichmentService {
 
       const allTransactions = allTransactionsResult.value;
 
-      // Track which transactions need price updates (but process all for index building)
-      const txIdsNeedingPrices = new Set(transactions.map((tx) => tx.id));
+      if (allTransactions.length === 0) {
+        logger.info('No transactions in database');
+        return ok({ transactionsUpdated: 0 });
+      }
+
+      logger.info(
+        { totalTransactions: allTransactions.length, needingPrices: transactions.length },
+        'Starting price enrichment'
+      );
 
       // Fetch confirmed transaction links
       const linksResult = await this.linkRepository.findAll('confirmed');
@@ -165,48 +147,36 @@ export class PriceEnrichmentService {
         'Processing transaction group'
       );
 
-      // Sort by timestamp for temporal processing
+      // Sort by timestamp for chronological processing
       const sortedTxs = [...transactions].sort((a, b) => {
         const timeA = new Date(a.datetime).getTime();
         const timeB = new Date(b.datetime).getTime();
         return timeA - timeB;
       });
 
-      // Pass 1: Extract known prices from fiat/stablecoin trades
-      const priceIndex = this.extractKnownPrices(sortedTxs);
-      logger.debug({ groupId, pricesExtracted: priceIndex.size }, 'Extracted known prices');
+      // Apply direct price enrichment passes
+      const { transactions: inferredTxs, modifiedIds: directModifiedIds } = this.inferMultiPass(sortedTxs);
 
-      // Pass 2-N: Iterative inference
-      const inferredTxs = this.inferMultiPass(sortedTxs, priceIndex);
-
-      // Pass N+1: Propagate prices across confirmed links (NEW)
+      // Propagate prices across confirmed links
       // This enables cross-platform price flow (exchange → blockchain → exchange)
-      // This happens AFTER multi-pass inference so transactions have all possible derived prices
-      const { pricesFromLinks, enrichedTransactions } = this.propagatePricesAcrossLinks(group, inferredTxs);
+      const { enrichedTransactions, modifiedIds: linkModifiedIds } = this.propagatePricesAcrossLinks(
+        group,
+        inferredTxs
+      );
 
-      let enrichedTxs = enrichedTransactions;
+      const enrichedTxs = enrichedTransactions;
 
-      if (pricesFromLinks.length > 0) {
-        logger.debug({ groupId, linkPricesPropagated: pricesFromLinks.length }, 'Propagated prices across links');
+      // Combine all modified transaction IDs
+      const allModifiedIds = new Set([...directModifiedIds, ...linkModifiedIds]);
 
-        // Add link-propagated prices to index so they can help other transactions in this run
-        for (const { asset, priceAtTxTime } of pricesFromLinks) {
-          if (!priceIndex.has(asset)) {
-            priceIndex.set(asset, []);
-          }
-          priceIndex.get(asset)!.push(priceAtTxTime);
-        }
-
-        // Run one more temporal proximity pass to use the newly propagated prices
-        enrichedTxs = this.fillGapsWithTemporalProximity(enrichedTransactions, priceIndex);
-      }
-
-      // Update database with enriched prices (only for transactions that need prices)
+      // Update database with enriched prices
+      // Include both: (1) transactions that originally needed prices AND
+      // (2) transactions modified by link propagation or ratio recalculation
       let updatedCount = 0;
       let skippedCount = 0;
       for (const tx of enrichedTxs) {
-        // Only update transactions that originally needed prices
-        if (!txIdsNeedingPrices.has(tx.id)) {
+        // Skip if this transaction wasn't originally needing prices AND wasn't modified
+        if (!txIdsNeedingPrices.has(tx.id) && !allModifiedIds.has(tx.id)) {
           continue;
         }
 
@@ -237,37 +207,6 @@ export class PriceEnrichmentService {
   }
 
   /**
-   * Extract known prices from fiat/stablecoin trades
-   * Returns a price index: Map<asset, PriceAtTxTime[]>
-   */
-  private extractKnownPrices(transactions: UniversalTransaction[]): Map<string, PriceAtTxTime[]> {
-    const priceIndex = new Map<string, PriceAtTxTime[]>();
-
-    for (const tx of transactions) {
-      const timestamp = new Date(tx.datetime).getTime();
-
-      const trade = extractTradeMovements(tx.movements.inflows ?? [], tx.movements.outflows ?? [], timestamp);
-      if (!trade) {
-        continue;
-      }
-
-      const prices = calculatePriceFromTrade(trade);
-
-      for (const { asset, priceAtTxTime } of prices) {
-        if (!priceIndex.has(asset)) {
-          priceIndex.set(asset, []);
-        }
-        const assetPrices = priceIndex.get(asset);
-        if (assetPrices) {
-          assetPrices.push(priceAtTxTime);
-        }
-      }
-    }
-
-    return priceIndex;
-  }
-
-  /**
    * Propagate prices across confirmed transaction links
    *
    * This enables cross-platform price flow:
@@ -283,17 +222,16 @@ export class PriceEnrichmentService {
    *
    * @param group - Transaction group with linkChain
    * @param transactions - All transactions in the group
-   * @returns Object with propagated prices and enriched transactions
+   * @returns Object with enriched transactions and IDs of modified transactions
    */
   private propagatePricesAcrossLinks(
     group: TransactionGroup,
     transactions: UniversalTransaction[]
   ): {
     enrichedTransactions: UniversalTransaction[];
-    pricesFromLinks: { asset: string; priceAtTxTime: PriceAtTxTime }[];
+    modifiedIds: Set<number>;
   } {
     const { linkChain } = group;
-    const propagatedPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
 
     // Build transaction lookup map for fast access
     const txMap = new Map(transactions.map((tx) => [tx.id, tx]));
@@ -341,16 +279,10 @@ export class PriceEnrichmentService {
 
             if (amountDiff <= amountTolerance) {
               // Propagate price with 'link-propagated' source
-              // Preserve original fetchedAt to maintain temporal proximity for future runs
               const propagatedPrice: PriceAtTxTime = {
                 ...sourceMovement.priceAtTxTime,
                 source: 'link-propagated',
               };
-
-              propagatedPrices.push({
-                asset: targetMovement.asset,
-                priceAtTxTime: propagatedPrice,
-              });
 
               targetMovementPrices.push({
                 asset: targetMovement.asset,
@@ -403,83 +335,29 @@ export class PriceEnrichmentService {
       return tx;
     });
 
+    // Return modified transaction IDs (those that got link-propagated prices)
+    const modifiedIds = new Set(enrichedMovements.keys());
+
     return {
-      pricesFromLinks: propagatedPrices,
       enrichedTransactions,
+      modifiedIds,
     };
   }
 
   /**
-   * Fill remaining price gaps using temporal proximity
+   * Apply direct price enrichment: extract execution prices and recalculate ratios
    */
-  private fillGapsWithTemporalProximity(
-    transactions: UniversalTransaction[],
-    priceIndex: Map<string, PriceAtTxTime[]>
-  ): UniversalTransaction[] {
-    const enrichedMovements = new Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>();
-
-    for (const tx of transactions) {
-      const inflows = tx.movements.inflows ?? [];
-      const outflows = tx.movements.outflows ?? [];
-      const timestamp = new Date(tx.datetime).getTime();
-
-      const allMovements = [...inflows, ...outflows];
-      const proximityPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
-
-      for (const movement of allMovements) {
-        if (movement.priceAtTxTime) {
-          continue; // Already has price
-        }
-
-        const closestPrice = findClosestPrice(movement.asset, timestamp, priceIndex, this.config.maxTimeDeltaMs);
-        if (closestPrice) {
-          proximityPrices.push({
-            asset: movement.asset,
-            priceAtTxTime: closestPrice,
-          });
-        }
-      }
-
-      if (proximityPrices.length > 0) {
-        const updatedInflows = this.enrichMovements(inflows, proximityPrices);
-        const updatedOutflows = this.enrichMovements(outflows, proximityPrices);
-
-        enrichedMovements.set(tx.id, {
-          inflows: updatedInflows,
-          outflows: updatedOutflows,
-        });
-      }
-    }
-
-    // Return transactions with enriched movements
-    return transactions.map((tx) => {
-      const enriched = enrichedMovements.get(tx.id);
-      if (enriched) {
-        return {
-          ...tx,
-          movements: {
-            inflows: enriched.inflows,
-            outflows: enriched.outflows,
-          },
-        };
-      }
-      return tx;
-    });
-  }
-
-  /**
-   * Multi-pass inference: iteratively infer prices from crypto-crypto trades
-   */
-  private inferMultiPass(
-    transactions: UniversalTransaction[],
-    priceIndex: Map<string, PriceAtTxTime[]>
-  ): UniversalTransaction[] {
+  private inferMultiPass(transactions: UniversalTransaction[]): {
+    modifiedIds: Set<number>;
+    transactions: UniversalTransaction[];
+  } {
     // Track which transactions have been enriched with new movements
     const enrichedMovements = new Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>();
+    // Track modifications from Pass N+2 only (not Pass 0, which just applies to movements that need prices)
+    const modifiedByRatioRecalc = new Set<number>();
 
     // Pass 0: Apply exchange-execution prices from fiat/stable trades to their source movements
-    // This ensures these movements retain their 'exchange-execution' source instead of being
-    // overwritten later with 'derived-history' from Pass N+1 temporal proximity
+    // This ensures these movements retain their 'exchange-execution' source (authoritative)
     for (const tx of transactions) {
       const timestamp = new Date(tx.datetime).getTime();
       const inflows = tx.movements.inflows ?? [];
@@ -505,97 +383,128 @@ export class PriceEnrichmentService {
 
     logger.debug({ transactionsEnriched: enrichedMovements.size }, 'Pass 0: Applied exchange-execution prices');
 
-    let iteration = 0;
-    let pricesAddedInLastPass = 0;
-
-    do {
-      pricesAddedInLastPass = 0;
-      iteration++;
-
-      if (iteration > this.config.maxIterations) {
-        logger.warn({ iteration }, 'Reached max iterations, stopping inference');
-        break;
-      }
-
-      // Try to infer prices for each transaction
-      for (const tx of transactions) {
-        // Use enriched movements if available, otherwise use original
-        const enriched = enrichedMovements.get(tx.id);
-        const inflows = enriched ? enriched.inflows : (tx.movements.inflows ?? []);
-        const outflows = enriched ? enriched.outflows : (tx.movements.outflows ?? []);
-        const timestamp = new Date(tx.datetime).getTime();
-
-        const trade = extractTradeMovements(inflows, outflows, timestamp);
-        if (!trade) {
-          continue;
-        }
-
-        const inferredPrices = inferPriceFromTrade(trade, priceIndex, this.config.maxTimeDeltaMs);
-
-        if (inferredPrices.length > 0) {
-          // Add to price index for next iteration
-          for (const { asset, priceAtTxTime } of inferredPrices) {
-            if (!priceIndex.has(asset)) {
-              priceIndex.set(asset, []);
-            }
-            const assetPrices = priceIndex.get(asset);
-            if (assetPrices) {
-              assetPrices.push(priceAtTxTime);
-              pricesAddedInLastPass++;
-            }
-          }
-
-          // Update movements with new prices
-          const updatedInflows = this.enrichMovements(inflows, inferredPrices);
-          const updatedOutflows = this.enrichMovements(outflows, inferredPrices);
-
-          enrichedMovements.set(tx.id, {
-            inflows: updatedInflows,
-            outflows: updatedOutflows,
-          });
-        }
-      }
-
-      logger.debug({ iteration, pricesAdded: pricesAddedInLastPass }, 'Inference pass completed');
-    } while (pricesAddedInLastPass > 0);
-
-    // Pass N+1: Fill remaining gaps using temporal proximity
+    // Pass 1: Derive inflow price from outflow when only outflow has price
+    // This handles cases where price providers don't have data for exotic assets,
+    // but we can still calculate their price from the swap ratio.
+    let pricesDerivedFromOutflow = 0;
     for (const tx of transactions) {
       const enriched = enrichedMovements.get(tx.id);
       const inflows = enriched ? enriched.inflows : (tx.movements.inflows ?? []);
       const outflows = enriched ? enriched.outflows : (tx.movements.outflows ?? []);
       const timestamp = new Date(tx.datetime).getTime();
 
-      const allMovements = [...inflows, ...outflows];
-      const proximityPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
-
-      for (const movement of allMovements) {
-        if (movement.priceAtTxTime) {
-          continue; // Already has price
-        }
-
-        const closestPrice = findClosestPrice(movement.asset, timestamp, priceIndex, this.config.maxTimeDeltaMs);
-        if (closestPrice) {
-          proximityPrices.push({
-            asset: movement.asset,
-            priceAtTxTime: closestPrice,
-          });
-        }
+      const trade = extractTradeMovements(inflows, outflows, timestamp);
+      if (!trade) {
+        continue;
       }
 
-      if (proximityPrices.length > 0) {
-        const updatedInflows = this.enrichMovements(inflows, proximityPrices);
-        const updatedOutflows = this.enrichMovements(outflows, proximityPrices);
-
-        enrichedMovements.set(tx.id, {
-          inflows: updatedInflows,
-          outflows: updatedOutflows,
-        });
+      // Only process if outflow has price but inflow doesn't
+      if (trade.inflow.priceAtTxTime || !trade.outflow.priceAtTxTime) {
+        continue;
       }
+
+      // Calculate inflow price from outflow using swap ratio
+      const ratio = parseDecimal(trade.outflow.amount.toFixed()).dividedBy(parseDecimal(trade.inflow.amount.toFixed()));
+      const derivedPrice = parseDecimal(trade.outflow.priceAtTxTime.price.amount.toFixed()).times(ratio);
+
+      const ratioPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [
+        {
+          asset: trade.inflow.asset,
+          priceAtTxTime: {
+            price: {
+              amount: derivedPrice,
+              currency: trade.outflow.priceAtTxTime.price.currency,
+            },
+            source: 'derived-ratio',
+            fetchedAt: new Date(timestamp),
+            granularity: trade.outflow.priceAtTxTime.granularity,
+          },
+        },
+      ];
+
+      const updatedInflows = this.enrichMovements(inflows, ratioPrices);
+      const updatedOutflows = outflows;
+
+      enrichedMovements.set(tx.id, {
+        inflows: updatedInflows,
+        outflows: updatedOutflows,
+      });
+
+      modifiedByRatioRecalc.add(tx.id);
+      pricesDerivedFromOutflow++;
     }
 
-    // Return transactions with enriched movements
-    return transactions.map((tx) => {
+    logger.debug({ pricesDerivedFromOutflow }, 'Pass 1: Derived inflow prices from outflow using ratios');
+
+    // Pass N+2: Recalculate crypto-crypto swap ratios
+    // When both sides have prices but neither is fiat, recalculate the inflow (acquisition)
+    // side from the outflow (disposal) side using the swap ratio.
+    // This ensures we use execution price, not market price, for cost basis.
+    let swapsRecalculated = 0;
+    for (const tx of transactions) {
+      const enriched = enrichedMovements.get(tx.id);
+      const inflows = enriched ? enriched.inflows : (tx.movements.inflows ?? []);
+      const outflows = enriched ? enriched.outflows : (tx.movements.outflows ?? []);
+      const timestamp = new Date(tx.datetime).getTime();
+
+      const trade = extractTradeMovements(inflows, outflows, timestamp);
+      if (!trade) {
+        continue;
+      }
+
+      // Both sides must have prices
+      if (!trade.inflow.priceAtTxTime || !trade.outflow.priceAtTxTime) {
+        continue;
+      }
+
+      // Check if this is a crypto-crypto swap (neither side is fiat/stable)
+      const inflowCurrency = Currency.create(trade.inflow.asset);
+      const outflowCurrency = Currency.create(trade.outflow.asset);
+
+      if (inflowCurrency.isFiatOrStablecoin() || outflowCurrency.isFiatOrStablecoin()) {
+        continue; // Keep fiat-based prices (they're already execution prices)
+      }
+
+      // Both are crypto: recalculate inflow from outflow using swap ratio
+      // We trust the outflow price (disposal side) as it should be FMV from fetch
+      // Then calculate inflow (acquisition) from the ratio
+      const ratio = parseDecimal(trade.outflow.amount.toFixed()).dividedBy(parseDecimal(trade.inflow.amount.toFixed()));
+      const derivedPrice = parseDecimal(trade.outflow.priceAtTxTime.price.amount.toFixed()).times(ratio);
+
+      const ratioPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [
+        {
+          asset: trade.inflow.asset,
+          priceAtTxTime: {
+            price: {
+              amount: derivedPrice,
+              currency: trade.outflow.priceAtTxTime.price.currency,
+            },
+            source: 'derived-ratio',
+            fetchedAt: new Date(timestamp),
+            granularity: trade.outflow.priceAtTxTime.granularity,
+          },
+        },
+      ];
+
+      // Overwrite the fetched market price with ratio-based execution price
+      const updatedInflows = this.enrichMovements(inflows, ratioPrices, true);
+      const updatedOutflows = outflows; // Keep outflow prices (disposal FMV)
+
+      enrichedMovements.set(tx.id, {
+        inflows: updatedInflows,
+        outflows: updatedOutflows,
+      });
+
+      // Track that this transaction was modified by ratio recalculation
+      modifiedByRatioRecalc.add(tx.id);
+
+      swapsRecalculated++;
+    }
+
+    logger.debug({ swapsRecalculated }, 'Pass N+2: Recalculated crypto-crypto swap ratios');
+
+    // Return transactions with enriched movements and IDs of modified transactions
+    const enrichedTransactions = transactions.map((tx) => {
       const enriched = enrichedMovements.get(tx.id);
       if (enriched) {
         return {
@@ -608,6 +517,12 @@ export class PriceEnrichmentService {
       }
       return tx;
     });
+
+    // Return modified transaction IDs (only from Pass N+2, not Pass 0)
+    return {
+      transactions: enrichedTransactions,
+      modifiedIds: modifiedByRatioRecalc,
+    };
   }
 
   /**
@@ -654,13 +569,13 @@ export class PriceEnrichmentService {
    *
    * @param movements - Movements to enrich
    * @param prices - Prices to apply
-   * @param overwriteDerivedHistory - If true, allow overwriting existing derived-history prices
-   *        This is useful for link propagation, which is more direct/accurate than temporal proximity
+   * @param overwriteExisting - If true, overwrite existing prices (except exchange-execution)
+   *        Used for link propagation and ratio-based pricing
    */
   private enrichMovements(
     movements: AssetMovement[],
     prices: { asset: string; priceAtTxTime: PriceAtTxTime }[],
-    overwriteDerivedHistory = false
+    overwriteExisting = false
   ): AssetMovement[] {
     const priceMap = new Map(prices.map((p) => [p.asset, p.priceAtTxTime]));
 
@@ -676,8 +591,8 @@ export class PriceEnrichmentService {
         return { ...movement, priceAtTxTime: price };
       }
 
-      // Optionally overwrite derived-history prices with more direct sources
-      if (overwriteDerivedHistory && movement.priceAtTxTime.source === 'derived-history') {
+      // Optionally overwrite existing prices (except exchange-execution which is authoritative)
+      if (overwriteExisting && movement.priceAtTxTime.source !== 'exchange-execution') {
         return { ...movement, priceAtTxTime: price };
       }
 

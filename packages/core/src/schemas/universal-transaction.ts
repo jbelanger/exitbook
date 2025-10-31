@@ -52,7 +52,7 @@ export const MovementDirectionSchema = z.enum(['in', 'out', 'neutral']);
 
 export const PriceAtTxTimeSchema = z.object({
   price: MoneySchema,
-  source: z.string(),
+  source: z.string(), // exchange-execution | derived-trade | derived-ratio | link-propagated | <provider-name>
   fetchedAt: DateSchema,
   granularity: z.enum(['exact', 'minute', 'hour', 'day']).optional(),
 });
