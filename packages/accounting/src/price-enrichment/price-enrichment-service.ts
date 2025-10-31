@@ -404,8 +404,8 @@ export class PriceEnrichmentService {
       }
 
       // Calculate inflow price from outflow using swap ratio
-      const ratio = parseDecimal(trade.outflow.amount.toFixed()).dividedBy(parseDecimal(trade.inflow.amount.toFixed()));
-      const derivedPrice = parseDecimal(trade.outflow.priceAtTxTime.price.amount.toFixed()).times(ratio);
+      const ratio = trade.outflow.amount.dividedBy(trade.inflow.amount);
+      const derivedPrice = trade.outflow.priceAtTxTime.price.amount.times(ratio);
 
       const ratioPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [
         {
