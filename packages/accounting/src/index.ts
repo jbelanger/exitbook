@@ -7,6 +7,7 @@
 
 // Configuration
 export type { CostBasisConfig, FiatCurrency } from './config/cost-basis-config.js';
+export { getDefaultDateRange } from './config/cost-basis-config.js';
 
 // Domain types
 export type {
@@ -18,7 +19,12 @@ export type {
 } from './domain/types.js';
 
 // Services
-// export { CostBasisCalculator } from './services/cost-basis-calculator.js';
+export { LotMatcher } from './services/lot-matcher.js';
+export type { LotMatcherConfig, LotMatchResult, AssetLotMatchResult } from './services/lot-matcher.js';
+export { GainLossCalculator } from './services/gain-loss-calculator.js';
+export type { GainLossResult, AssetGainLossSummary, DisposalGainLoss } from './services/gain-loss-calculator.js';
+export { CostBasisCalculator } from './services/cost-basis-calculator.js';
+export type { CostBasisSummary } from './services/cost-basis-calculator.js';
 
 // Repositories
 // export { LotRepository } from './repositories/lot-repository.js';

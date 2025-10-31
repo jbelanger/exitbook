@@ -157,11 +157,14 @@ export class PriceEnrichmentService {
       // Apply direct price enrichment passes
       const { transactions: inferredTxs, modifiedIds: directModifiedIds } = this.inferMultiPass(sortedTxs);
 
+      // Propagate prices from movements to fees (same asset + timestamp)
+      const txsWithFeePrices = this.enrichFeePricesFromMovements(inferredTxs);
+
       // Propagate prices across confirmed links
       // This enables cross-platform price flow (exchange → blockchain → exchange)
       const { enrichedTransactions, modifiedIds: linkModifiedIds } = this.propagatePricesAcrossLinks(
         group,
-        inferredTxs
+        txsWithFeePrices
       );
 
       const enrichedTxs = enrichedTransactions;
@@ -526,14 +529,70 @@ export class PriceEnrichmentService {
   }
 
   /**
+   * Enrich fee movements with prices from regular movements
+   *
+   * Since fees occur at the same timestamp as the transaction, we can copy prices
+   * from inflows/outflows that share the same asset.
+   */
+  private enrichFeePricesFromMovements(transactions: UniversalTransaction[]): UniversalTransaction[] {
+    return transactions.map((tx) => {
+      const inflows = tx.movements.inflows ?? [];
+      const outflows = tx.movements.outflows ?? [];
+      const allMovements = [...inflows, ...outflows];
+
+      // Build price lookup map by asset
+      const pricesByAsset = new Map<string, PriceAtTxTime>();
+      for (const movement of allMovements) {
+        if (movement.priceAtTxTime && !pricesByAsset.has(movement.asset)) {
+          pricesByAsset.set(movement.asset, movement.priceAtTxTime);
+        }
+      }
+
+      // Enrich platform fee if needed
+      let platformFee = tx.fees.platform;
+      if (platformFee && !platformFee.priceAtTxTime) {
+        const price = pricesByAsset.get(platformFee.asset);
+        if (price) {
+          platformFee = { ...platformFee, priceAtTxTime: price };
+        }
+      }
+
+      // Enrich network fee if needed
+      let networkFee = tx.fees.network;
+      if (networkFee && !networkFee.priceAtTxTime) {
+        const price = pricesByAsset.get(networkFee.asset);
+        if (price) {
+          networkFee = { ...networkFee, priceAtTxTime: price };
+        }
+      }
+
+      // Return transaction with enriched fees if any changed
+      if (platformFee !== tx.fees.platform || networkFee !== tx.fees.network) {
+        return {
+          ...tx,
+          fees: {
+            platform: platformFee,
+            network: networkFee,
+          },
+        };
+      }
+
+      return tx;
+    });
+  }
+
+  /**
    * Update transaction in database with enriched price data
    */
   private async updateTransactionPrices(tx: UniversalTransaction): Promise<Result<void, Error>> {
     try {
       const inflows = tx.movements.inflows ?? [];
       const outflows = tx.movements.outflows ?? [];
+      const fees = [tx.fees.platform, tx.fees.network].filter(
+        (fee): fee is AssetMovement => fee !== undefined && fee !== null
+      );
 
-      // Collect all price data for update
+      // Collect all price data for update (including fees)
       const priceData: {
         asset: string;
         fetchedAt: Date;
@@ -542,7 +601,7 @@ export class PriceEnrichmentService {
         source: string;
       }[] = [];
 
-      for (const movement of [...inflows, ...outflows]) {
+      for (const movement of [...inflows, ...outflows, ...fees]) {
         if (movement.priceAtTxTime) {
           priceData.push({
             asset: movement.asset,

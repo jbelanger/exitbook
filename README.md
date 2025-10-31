@@ -76,7 +76,7 @@ pnpm dev -- process --blockchain bitcoin
 pnpm dev -- import --exchange kraken --csv-dir ./exports/kraken --process
 ```
 
-**What happens**: Each raw record is transformed into a `StoredTransaction` with standardized fields:
+**What happens**: Each raw record is transformed into a `UniversalTransaction` with standardized fields:
 
 - `transaction_datetime`: ISO 8601 timestamp
 - `movements_primary_asset`: Currency code (BTC, ETH, USDT, etc.)

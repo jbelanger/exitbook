@@ -11,8 +11,6 @@ import type {
   UniversalTransactionSchema,
 } from '../schemas/universal-transaction.ts';
 
-import type { SourceType } from './data-source.ts';
-
 export type MovementDirection = z.infer<typeof MovementDirectionSchema>;
 export type TransactionStatus = z.infer<typeof TransactionStatusSchema>;
 export type OperationCategory = z.infer<typeof OperationCategorySchema>;
@@ -28,21 +26,3 @@ export type AssetMovement = z.infer<typeof AssetMovementSchema>;
  * Write-side
  */
 export type UniversalTransaction = z.infer<typeof UniversalTransactionSchema>;
-
-/**
- * Represents a universal transaction after saving to the database
- * Includes database-specific concerns (IDs, timestamps, source tracking)
- * Read-side
- *
- * Note: Although UniversalTransaction.id is already number, we Omit and re-declare it
- * to emphasize that StoredTransaction.id is the database-assigned auto-increment ID,
- * whereas UniversalTransaction.id may come from different sources during processing.
- */
-export interface StoredTransaction extends Omit<UniversalTransaction, 'id'> {
-  id: number;
-  dataSourceId: number;
-  sourceId: string;
-  sourceType: SourceType;
-  createdAt: Date;
-  updatedAt?: Date | undefined;
-}
