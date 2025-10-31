@@ -10,6 +10,7 @@ export type { DatabaseSchema, TransactionLinksTable } from './schema/database-sc
 export type {
   StoredRawData,
   StoredDataSource,
+  StoredTransaction,
   SourceQuery as ImportSessionQuery,
   DataSourceUpdate,
 } from './types/data-types.ts';
