@@ -290,9 +290,18 @@ export class GainLossCalculator {
     assetSummaries: Map<string, AssetGainLossSummary>,
     disallowedLossCount: number
   ): Result<GainLossResult, Error> {
-    // Handle case where there are no assets
+    // Handle case where there are no crypto assets (e.g., fiat-only transactions)
+    // This is valid - return zeroed summary instead of error
     if (assetSummaries.size === 0) {
-      return err(new Error('Cannot aggregate with zero assets'));
+      return ok({
+        byAsset: new Map(),
+        totalProceeds: new Decimal(0),
+        totalCostBasis: new Decimal(0),
+        totalCapitalGainLoss: new Decimal(0),
+        totalTaxableGainLoss: new Decimal(0),
+        totalDisposalsProcessed: 0,
+        disallowedLossCount: 0,
+      });
     }
 
     // Get zero Decimal from first summary

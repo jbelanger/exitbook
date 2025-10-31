@@ -460,4 +460,195 @@ describe('LotMatcher - Fee Handling', () => {
       }
     });
   });
+
+  describe('Multiple movements of same asset (regression test for fee double-counting)', () => {
+    it('should allocate fees proportionally when multiple inflows of same asset exist', () => {
+      // Single transaction with TWO BTC inflows (e.g., batch purchase split across wallets)
+      // Inflow 1: 0.5 BTC @ $50,000 = $25,000 value
+      // Inflow 2: 0.5 BTC @ $50,000 = $25,000 value
+      // Total fee: $20
+      // Each inflow should get $10 (50% of total fee based on equal value)
+      const transactions: UniversalTransaction[] = [
+        {
+          id: 1,
+          externalId: 'tx1',
+          datetime: '2024-01-01T00:00:00Z',
+          timestamp: Date.parse('2024-01-01T00:00:00Z'),
+          source: 'test-exchange',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                asset: 'BTC',
+                amount: parseDecimal('0.5'),
+                priceAtTxTime: createPriceAtTxTime('50000'),
+              },
+              {
+                asset: 'BTC',
+                amount: parseDecimal('0.5'),
+                priceAtTxTime: createPriceAtTxTime('50000'),
+              },
+            ],
+            outflows: [
+              {
+                asset: 'USD',
+                amount: parseDecimal('50000'),
+                priceAtTxTime: createPriceAtTxTime('1'),
+              },
+            ],
+          },
+          fees: {
+            platform: {
+              asset: 'USD',
+              amount: parseDecimal('20'),
+              priceAtTxTime: createPriceAtTxTime('1'),
+            },
+          },
+          operation: {
+            category: 'trade',
+            type: 'buy',
+          },
+        },
+      ];
+
+      const result = matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        expect(btcResult).toBeDefined();
+        expect(btcResult!.lots).toHaveLength(2);
+
+        // First lot: 0.5 BTC with $10 fee allocation
+        const lot1 = btcResult!.lots[0]!;
+        expect(lot1.quantity.toString()).toBe('0.5');
+        // Cost basis: (0.5 * 50000 + 10) / 0.5 = 50020
+        expect(lot1.costBasisPerUnit.toString()).toBe('50020');
+        expect(lot1.totalCostBasis.toString()).toBe('25010');
+
+        // Second lot: 0.5 BTC with $10 fee allocation
+        const lot2 = btcResult!.lots[1]!;
+        expect(lot2.quantity.toString()).toBe('0.5');
+        // Cost basis: (0.5 * 50000 + 10) / 0.5 = 50020
+        expect(lot2.costBasisPerUnit.toString()).toBe('50020');
+        expect(lot2.totalCostBasis.toString()).toBe('25010');
+
+        // Total cost basis should be $50,020 (not $50,040 which would indicate double-counting)
+        const totalCostBasis = lot1.totalCostBasis.plus(lot2.totalCostBasis);
+        expect(totalCostBasis.toString()).toBe('50020');
+      }
+    });
+
+    it('should allocate fees proportionally when multiple outflows of same asset exist', () => {
+      // Setup: Buy 1 BTC for $50,000 (no fees)
+      // Then: Sell in two separate outflows with $30 total fee
+      // Outflow 1: 0.6 BTC @ $60,000 = $36,000 gross proceeds
+      // Outflow 2: 0.4 BTC @ $60,000 = $24,000 gross proceeds
+      // Fee allocation: 0.6 should get $18 (60%), 0.4 should get $12 (40%)
+      const transactions: UniversalTransaction[] = [
+        {
+          id: 1,
+          externalId: 'tx1',
+          datetime: '2024-01-01T00:00:00Z',
+          timestamp: Date.parse('2024-01-01T00:00:00Z'),
+          source: 'test-exchange',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                asset: 'BTC',
+                amount: parseDecimal('1'),
+                priceAtTxTime: createPriceAtTxTime('50000'),
+              },
+            ],
+            outflows: [
+              {
+                asset: 'USD',
+                amount: parseDecimal('50000'),
+                priceAtTxTime: createPriceAtTxTime('1'),
+              },
+            ],
+          },
+          fees: {},
+          operation: {
+            category: 'trade',
+            type: 'buy',
+          },
+        },
+        {
+          id: 2,
+          externalId: 'tx2',
+          datetime: '2024-02-01T00:00:00Z',
+          timestamp: Date.parse('2024-02-01T00:00:00Z'),
+          source: 'test-exchange',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                asset: 'USD',
+                amount: parseDecimal('60000'),
+                priceAtTxTime: createPriceAtTxTime('1'),
+              },
+            ],
+            outflows: [
+              {
+                asset: 'BTC',
+                amount: parseDecimal('0.6'),
+                priceAtTxTime: createPriceAtTxTime('60000'),
+              },
+              {
+                asset: 'BTC',
+                amount: parseDecimal('0.4'),
+                priceAtTxTime: createPriceAtTxTime('60000'),
+              },
+            ],
+          },
+          fees: {
+            platform: {
+              asset: 'USD',
+              amount: parseDecimal('30'),
+              priceAtTxTime: createPriceAtTxTime('1'),
+            },
+          },
+          operation: {
+            category: 'trade',
+            type: 'sell',
+          },
+        },
+      ];
+
+      const result = matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        expect(btcResult).toBeDefined();
+        expect(btcResult!.disposals).toHaveLength(2);
+
+        // First disposal: 0.6 BTC with $18 fee deduction (60% of $30)
+        const disposal1 = btcResult!.disposals[0]!;
+        expect(disposal1.quantityDisposed.toString()).toBe('0.6');
+        // Proceeds per unit: (0.6 * 60000 - 18) / 0.6 = 59970
+        expect(disposal1.proceedsPerUnit.toString()).toBe('59970');
+        expect(disposal1.totalProceeds.toString()).toBe('35982');
+
+        // Second disposal: 0.4 BTC with $12 fee deduction (40% of $30)
+        const disposal2 = btcResult!.disposals[1]!;
+        expect(disposal2.quantityDisposed.toString()).toBe('0.4');
+        // Proceeds per unit: (0.4 * 60000 - 12) / 0.4 = 59970
+        expect(disposal2.proceedsPerUnit.toString()).toBe('59970');
+        expect(disposal2.totalProceeds.toString()).toBe('23988');
+
+        // Total net proceeds should be $59,970 ($60,000 - $30 fee, not $59,940 which would indicate double-counting)
+        const totalProceeds = disposal1.totalProceeds.plus(disposal2.totalProceeds);
+        expect(totalProceeds.toString()).toBe('59970');
+      }
+    });
+  });
 });

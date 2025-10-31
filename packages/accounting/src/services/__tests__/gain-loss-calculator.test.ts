@@ -462,12 +462,21 @@ describe('GainLossCalculator', () => {
       }
     });
 
-    it('should return error for empty asset results', () => {
+    it('should return zeroed summary for empty asset results (fiat-only transactions)', () => {
+      // Valid case: user ran cost basis for a period with only fiat transactions
+      // Should return zeroed summary, not an error
       const result = calculator.calculate([], new USRules());
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('zero assets');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const gainLoss = result.value;
+        expect(gainLoss.byAsset.size).toBe(0);
+        expect(gainLoss.totalProceeds.toString()).toBe('0');
+        expect(gainLoss.totalCostBasis.toString()).toBe('0');
+        expect(gainLoss.totalCapitalGainLoss.toString()).toBe('0');
+        expect(gainLoss.totalTaxableGainLoss.toString()).toBe('0');
+        expect(gainLoss.totalDisposalsProcessed).toBe(0);
+        expect(gainLoss.disallowedLossCount).toBe(0);
       }
     });
 

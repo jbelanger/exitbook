@@ -178,9 +178,9 @@ export class LotMatcher {
     const quantity = inflow.amount;
     const basePrice = inflow.priceAtTxTime.price.amount;
 
-    // Calculate fees attributable to this acquisition
+    // Calculate fees attributable to this specific movement
     // Fees increase the cost basis (you paid more to acquire the asset)
-    const feeAmount = this.calculateFeesInFiat(transaction, inflow.asset);
+    const feeAmount = this.calculateFeesInFiat(transaction, inflow.asset, inflow);
 
     // Total cost basis = (quantity * price) + fees
     // Cost basis per unit = total cost basis / quantity
@@ -218,9 +218,9 @@ export class LotMatcher {
         (lot) => lot.asset === outflow.asset && (lot.status === 'open' || lot.status === 'partially_disposed')
       );
 
-      // Calculate fees attributable to this disposal
+      // Calculate fees attributable to this specific movement
       // Fees reduce the proceeds (you received less from the sale)
-      const feeAmount = this.calculateFeesInFiat(transaction, outflow.asset);
+      const feeAmount = this.calculateFeesInFiat(transaction, outflow.asset, outflow);
 
       // Gross proceeds = quantity * price
       // Net proceeds per unit = (gross proceeds - fees) / quantity
@@ -345,21 +345,23 @@ export class LotMatcher {
    *
    * Fees are allocated proportionally based on the fiat value of non-fiat crypto movements.
    * Fiat movements are excluded from the allocation since we don't track cost basis for fiat.
-   * For a transaction with multiple crypto assets, each asset gets a proportional share of the total fees.
+   * For a transaction with multiple movements (even of the same asset), each movement gets
+   * a proportional share of the total fees based on its value.
    *
    * @param transaction - Transaction containing fees
    * @param targetAsset - The asset to calculate fees for
-   * @returns Total fee amount in fiat (same currency as movement prices)
+   * @param targetMovement - The specific movement to calculate fees for
+   * @returns Fee amount in fiat attributable to this specific movement
    */
-  private calculateFeesInFiat(transaction: UniversalTransaction, targetAsset: string): Decimal {
+  private calculateFeesInFiat(
+    transaction: UniversalTransaction,
+    targetAsset: string,
+    targetMovement: AssetMovement
+  ): Decimal {
     // Collect all fees
-    const fees: AssetMovement[] = [];
-    if (transaction.fees.platform) {
-      fees.push(transaction.fees.platform);
-    }
-    if (transaction.fees.network) {
-      fees.push(transaction.fees.network);
-    }
+    const fees = [transaction.fees.platform, transaction.fees.network].filter(
+      (fee): fee is AssetMovement => fee !== undefined && fee !== null
+    );
 
     // If no fees, return zero
     if (fees.length === 0) {
@@ -391,30 +393,29 @@ export class LotMatcher {
       }
     });
 
-    let totalMovementValue = new Decimal(0);
-    let targetMovementValue = new Decimal(0);
+    // Calculate the value of the specific target movement
+    const targetMovementValue = targetMovement.priceAtTxTime
+      ? targetMovement.amount.times(targetMovement.priceAtTxTime.price.amount)
+      : new Decimal(0);
 
+    // Calculate total value of all non-fiat movements
+    let totalMovementValue = new Decimal(0);
     for (const movement of nonFiatMovements) {
       if (movement.priceAtTxTime) {
         const movementValue = movement.amount.times(movement.priceAtTxTime.price.amount);
         totalMovementValue = totalMovementValue.plus(movementValue);
-
-        if (movement.asset === targetAsset) {
-          targetMovementValue = targetMovementValue.plus(movementValue);
-        }
       }
     }
 
-    // If no non-fiat movements have values, split fees evenly among non-fiat assets
+    // If no non-fiat movements have values, split fees evenly among non-fiat movements
     if (totalMovementValue.isZero()) {
-      const movementsForAsset = nonFiatMovements.filter((m) => m.asset === targetAsset).length;
-      if (movementsForAsset === 0 || nonFiatMovements.length === 0) {
+      if (nonFiatMovements.length === 0) {
         return new Decimal(0);
       }
-      return totalFeeValue.dividedBy(nonFiatMovements.length).times(movementsForAsset);
+      return totalFeeValue.dividedBy(nonFiatMovements.length);
     }
 
-    // Allocate fees proportionally based on non-fiat movement value
+    // Allocate fees proportionally based on this specific movement's value
     return totalFeeValue.times(targetMovementValue).dividedBy(totalMovementValue);
   }
 }
