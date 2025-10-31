@@ -1,5 +1,5 @@
-import type { AssetMovement } from '@exitbook/core';
-import type { StoredTransaction } from '@exitbook/data';
+import { Currency, type AssetMovement, type UniversalTransaction } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -61,7 +61,7 @@ export class LotMatcher {
    * @param config - Matching configuration
    * @returns Result containing lots and disposals grouped by asset
    */
-  match(transactions: StoredTransaction[], config: LotMatcherConfig): Result<LotMatchResult, Error> {
+  match(transactions: UniversalTransaction[], config: LotMatcherConfig): Result<LotMatchResult, Error> {
     try {
       // Validate all transactions have prices
       const missingPrices = this.findTransactionsWithoutPrices(transactions);
@@ -107,22 +107,33 @@ export class LotMatcher {
    */
   private matchAsset(
     asset: string,
-    transactions: StoredTransaction[],
+    transactions: UniversalTransaction[],
     config: LotMatcherConfig
   ): Result<AssetLotMatchResult, Error> {
     try {
       // Sort transactions chronologically
       const sortedTransactions = [...transactions].sort(
-        (a, b) => new Date(a.transaction_datetime).getTime() - new Date(b.transaction_datetime).getTime()
+        (a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
       );
 
       const lots: AcquisitionLot[] = [];
       const disposals: LotDisposal[] = [];
 
+      // Skip fiat currencies - we only track cost basis for crypto assets
+      const assetCurrency = Currency.create(asset);
+      if (assetCurrency.isFiat()) {
+        return ok({
+          asset,
+          lots: [],
+          disposals: [],
+        });
+      }
+
       // Process each transaction
       for (const tx of sortedTransactions) {
         // Check inflows (acquisitions)
-        for (const inflow of tx.movements_inflows) {
+        const inflows = tx.movements.inflows || [];
+        for (const inflow of inflows) {
           if (inflow.asset === asset) {
             const lot = this.createLotFromInflow(tx, inflow, config);
             lots.push(lot);
@@ -130,7 +141,8 @@ export class LotMatcher {
         }
 
         // Check outflows (disposals)
-        for (const outflow of tx.movements_outflows) {
+        const outflows = tx.movements.outflows || [];
+        for (const outflow of outflows) {
           if (outflow.asset === asset) {
             const result = this.matchOutflowToLots(tx, outflow, lots, config);
             if (result.isErr()) {
@@ -155,8 +167,8 @@ export class LotMatcher {
    * Create an acquisition lot from an inflow movement
    */
   private createLotFromInflow(
-    transaction: StoredTransaction,
-    inflow: StoredTransaction['movements_inflows'][0],
+    transaction: UniversalTransaction,
+    inflow: AssetMovement,
     config: LotMatcherConfig
   ): AcquisitionLot {
     if (!inflow.priceAtTxTime) {
@@ -164,7 +176,16 @@ export class LotMatcher {
     }
 
     const quantity = inflow.amount;
-    const costBasisPerUnit = inflow.priceAtTxTime.price.amount;
+    const basePrice = inflow.priceAtTxTime.price.amount;
+
+    // Calculate fees attributable to this acquisition
+    // Fees increase the cost basis (you paid more to acquire the asset)
+    const feeAmount = this.calculateFeesInFiat(transaction, inflow.asset);
+
+    // Total cost basis = (quantity * price) + fees
+    // Cost basis per unit = total cost basis / quantity
+    const totalCostBasis = quantity.times(basePrice).plus(feeAmount);
+    const costBasisPerUnit = totalCostBasis.dividedBy(quantity);
 
     return createAcquisitionLot({
       id: uuidv4(),
@@ -174,7 +195,7 @@ export class LotMatcher {
       quantity,
       costBasisPerUnit,
       method: config.strategy.getName(),
-      transactionDate: new Date(transaction.transaction_datetime),
+      transactionDate: new Date(transaction.datetime),
     });
   }
 
@@ -182,8 +203,8 @@ export class LotMatcher {
    * Match an outflow (disposal) to existing acquisition lots
    */
   private matchOutflowToLots(
-    transaction: StoredTransaction,
-    outflow: StoredTransaction['movements_outflows'][0],
+    transaction: UniversalTransaction,
+    outflow: AssetMovement,
     allLots: AcquisitionLot[],
     config: LotMatcherConfig
   ): Result<LotDisposal[], Error> {
@@ -197,13 +218,23 @@ export class LotMatcher {
         (lot) => lot.asset === outflow.asset && (lot.status === 'open' || lot.status === 'partially_disposed')
       );
 
+      // Calculate fees attributable to this disposal
+      // Fees reduce the proceeds (you received less from the sale)
+      const feeAmount = this.calculateFeesInFiat(transaction, outflow.asset);
+
+      // Gross proceeds = quantity * price
+      // Net proceeds per unit = (gross proceeds - fees) / quantity
+      const grossProceeds = outflow.amount.times(outflow.priceAtTxTime.price.amount);
+      const netProceeds = grossProceeds.minus(feeAmount);
+      const proceedsPerUnit = netProceeds.dividedBy(outflow.amount);
+
       // Create disposal request
       const disposal = {
         transactionId: transaction.id,
         asset: outflow.asset,
         quantity: outflow.amount,
-        date: new Date(transaction.transaction_datetime),
-        proceedsPerUnit: outflow.priceAtTxTime.price.amount,
+        date: new Date(transaction.datetime),
+        proceedsPerUnit,
       };
 
       // Use strategy to match disposal to lots
@@ -242,19 +273,21 @@ export class LotMatcher {
   /**
    * Group transactions by asset (from both inflows and outflows)
    */
-  private groupTransactionsByAsset(transactions: StoredTransaction[]): Map<string, StoredTransaction[]> {
+  private groupTransactionsByAsset(transactions: UniversalTransaction[]): Map<string, UniversalTransaction[]> {
     const assetMap = new Map<string, Set<number>>();
 
     // Collect unique assets
     for (const tx of transactions) {
-      for (const inflow of tx.movements_inflows) {
+      const inflows = tx.movements.inflows || [];
+      for (const inflow of inflows) {
         if (!assetMap.has(inflow.asset)) {
           assetMap.set(inflow.asset, new Set());
         }
         assetMap.get(inflow.asset)!.add(tx.id);
       }
 
-      for (const outflow of tx.movements_outflows) {
+      const outflows = tx.movements.outflows || [];
+      for (const outflow of outflows) {
         if (!assetMap.has(outflow.asset)) {
           assetMap.set(outflow.asset, new Set());
         }
@@ -263,7 +296,7 @@ export class LotMatcher {
     }
 
     // Build map of asset -> transactions
-    const result = new Map<string, StoredTransaction[]>();
+    const result = new Map<string, UniversalTransaction[]>();
     for (const [asset, txIds] of assetMap) {
       const txsForAsset = transactions.filter((tx) => txIds.has(tx.id));
       result.set(asset, txsForAsset);
@@ -273,13 +306,115 @@ export class LotMatcher {
   }
 
   /**
-   * Find transactions that are missing price data on any movements
+   * Find transactions that are missing price data on any non-fiat movements
+   *
+   * Fiat currencies are excluded from validation since we don't track cost basis for them.
    */
-  private findTransactionsWithoutPrices(transactions: StoredTransaction[]): StoredTransaction[] {
+  private findTransactionsWithoutPrices(transactions: UniversalTransaction[]): UniversalTransaction[] {
     return transactions.filter((tx) => {
-      const inflowsWithoutPrice = tx.movements_inflows.some((m: AssetMovement) => !m.priceAtTxTime);
-      const outflowsWithoutPrice = tx.movements_outflows.some((m: AssetMovement) => !m.priceAtTxTime);
+      const inflows = tx.movements.inflows || [];
+      const outflows = tx.movements.outflows || [];
+
+      // Filter out fiat currencies - we only care about crypto asset prices
+      const nonFiatInflows = inflows.filter((m) => {
+        try {
+          return !Currency.create(m.asset).isFiat();
+        } catch {
+          // If we can't create a Currency, assume it's crypto
+          return true;
+        }
+      });
+
+      const nonFiatOutflows = outflows.filter((m) => {
+        try {
+          return !Currency.create(m.asset).isFiat();
+        } catch {
+          // If we can't create a Currency, assume it's crypto
+          return true;
+        }
+      });
+
+      const inflowsWithoutPrice = nonFiatInflows.some((m) => !m.priceAtTxTime);
+      const outflowsWithoutPrice = nonFiatOutflows.some((m) => !m.priceAtTxTime);
       return inflowsWithoutPrice || outflowsWithoutPrice;
     });
+  }
+
+  /**
+   * Calculate the fiat value of fees attributable to a specific asset movement
+   *
+   * Fees are allocated proportionally based on the fiat value of non-fiat crypto movements.
+   * Fiat movements are excluded from the allocation since we don't track cost basis for fiat.
+   * For a transaction with multiple crypto assets, each asset gets a proportional share of the total fees.
+   *
+   * @param transaction - Transaction containing fees
+   * @param targetAsset - The asset to calculate fees for
+   * @returns Total fee amount in fiat (same currency as movement prices)
+   */
+  private calculateFeesInFiat(transaction: UniversalTransaction, targetAsset: string): Decimal {
+    // Collect all fees
+    const fees: AssetMovement[] = [];
+    if (transaction.fees.platform) {
+      fees.push(transaction.fees.platform);
+    }
+    if (transaction.fees.network) {
+      fees.push(transaction.fees.network);
+    }
+
+    // If no fees, return zero
+    if (fees.length === 0) {
+      return new Decimal(0);
+    }
+
+    // Calculate total fee value in fiat
+    let totalFeeValue = new Decimal(0);
+    for (const fee of fees) {
+      if (fee.priceAtTxTime) {
+        const feeValue = fee.amount.times(fee.priceAtTxTime.price.amount);
+        totalFeeValue = totalFeeValue.plus(feeValue);
+      }
+      // If fee doesn't have a price, we can't include it in the calculation
+      // This is acceptable as it's conservative (understates basis/proceeds)
+    }
+
+    // Calculate total value of non-fiat movements to determine proportional allocation
+    // We exclude fiat currencies since we don't track cost basis for them
+    const inflows = transaction.movements.inflows || [];
+    const outflows = transaction.movements.outflows || [];
+    const allMovements = [...inflows, ...outflows];
+    const nonFiatMovements = allMovements.filter((m) => {
+      try {
+        return !Currency.create(m.asset).isFiat();
+      } catch {
+        // If we can't create a Currency, assume it's crypto
+        return true;
+      }
+    });
+
+    let totalMovementValue = new Decimal(0);
+    let targetMovementValue = new Decimal(0);
+
+    for (const movement of nonFiatMovements) {
+      if (movement.priceAtTxTime) {
+        const movementValue = movement.amount.times(movement.priceAtTxTime.price.amount);
+        totalMovementValue = totalMovementValue.plus(movementValue);
+
+        if (movement.asset === targetAsset) {
+          targetMovementValue = targetMovementValue.plus(movementValue);
+        }
+      }
+    }
+
+    // If no non-fiat movements have values, split fees evenly among non-fiat assets
+    if (totalMovementValue.isZero()) {
+      const movementsForAsset = nonFiatMovements.filter((m) => m.asset === targetAsset).length;
+      if (movementsForAsset === 0 || nonFiatMovements.length === 0) {
+        return new Decimal(0);
+      }
+      return totalFeeValue.dividedBy(nonFiatMovements.length).times(movementsForAsset);
+    }
+
+    // Allocate fees proportionally based on non-fiat movement value
+    return totalFeeValue.times(targetMovementValue).dividedBy(totalMovementValue);
   }
 }

@@ -125,7 +125,7 @@ class CostBasisCalculator {
     private readonly logger: Logger
   ) {}
 
-  async calculate(transactions: StoredTransaction[]): Promise<Result<CalculationResult, Error>> {
+  async calculate(transactions: UniversalTransaction[]): Promise<Result<CalculationResult, Error>> {
     // Phase 0: Link transactions (establish complete cost basis)
     const linkingResult = await this.linkTransfers(transactions);
     if (linkingResult.isErr()) {
@@ -144,7 +144,7 @@ class CostBasisCalculator {
     return ok(result);
   }
 
-  private async linkTransfers(transactions: StoredTransaction[]): Promise<Result<void, Error>> {
+  private async linkTransfers(transactions: UniversalTransaction[]): Promise<Result<void, Error>> {
     this.logger.info('Phase 0: Linking related transactions');
 
     const linkingService = new TransactionLinkingService(this.logger, DEFAULT_MATCHING_CONFIG);

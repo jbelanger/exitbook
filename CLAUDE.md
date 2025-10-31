@@ -286,7 +286,7 @@ KUCOIN_PASSPHRASE=...
 
 1. Create directory: `packages/ingestion/src/infrastructure/blockchains/<blockchain>/`
 2. Implement importer extending `BaseImporter`
-3. Implement processor with mapper from raw data to `StoredTransaction`
+3. Implement processor with mapper from raw data to `UniversalTransaction`
 4. Create provider API clients with Zod schemas
 5. Register provider using `@BlockchainProvider` decorator
 6. Add to `packages/ingestion/src/infrastructure/blockchains/registry/register-providers.ts`
@@ -296,7 +296,7 @@ KUCOIN_PASSPHRASE=...
 
 1. Create directory: `packages/ingestion/src/infrastructure/exchanges/<exchange>/`
 2. Implement importer extending `BaseImporter` (parse CSV or call API)
-3. Implement processor transforming raw data to `StoredTransaction`
+3. Implement processor transforming raw data to `UniversalTransaction`
 4. Create Zod schemas for validation
 5. Register in exchange registry
 
