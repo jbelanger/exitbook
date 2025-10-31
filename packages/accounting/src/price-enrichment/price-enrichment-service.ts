@@ -383,6 +383,59 @@ export class PriceEnrichmentService {
 
     logger.debug({ transactionsEnriched: enrichedMovements.size }, 'Pass 0: Applied exchange-execution prices');
 
+    // Pass 1: Derive inflow price from outflow when only outflow has price
+    // This handles cases where price providers don't have data for exotic assets,
+    // but we can still calculate their price from the swap ratio.
+    let pricesDerivedFromOutflow = 0;
+    for (const tx of transactions) {
+      const enriched = enrichedMovements.get(tx.id);
+      const inflows = enriched ? enriched.inflows : (tx.movements.inflows ?? []);
+      const outflows = enriched ? enriched.outflows : (tx.movements.outflows ?? []);
+      const timestamp = new Date(tx.datetime).getTime();
+
+      const trade = extractTradeMovements(inflows, outflows, timestamp);
+      if (!trade) {
+        continue;
+      }
+
+      // Only process if outflow has price but inflow doesn't
+      if (trade.inflow.priceAtTxTime || !trade.outflow.priceAtTxTime) {
+        continue;
+      }
+
+      // Calculate inflow price from outflow using swap ratio
+      const ratio = parseDecimal(trade.outflow.amount.toFixed()).dividedBy(parseDecimal(trade.inflow.amount.toFixed()));
+      const derivedPrice = parseDecimal(trade.outflow.priceAtTxTime.price.amount.toFixed()).times(ratio);
+
+      const ratioPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [
+        {
+          asset: trade.inflow.asset,
+          priceAtTxTime: {
+            price: {
+              amount: derivedPrice,
+              currency: trade.outflow.priceAtTxTime.price.currency,
+            },
+            source: 'derived-ratio',
+            fetchedAt: new Date(timestamp),
+            granularity: trade.outflow.priceAtTxTime.granularity,
+          },
+        },
+      ];
+
+      const updatedInflows = this.enrichMovements(inflows, ratioPrices);
+      const updatedOutflows = outflows;
+
+      enrichedMovements.set(tx.id, {
+        inflows: updatedInflows,
+        outflows: updatedOutflows,
+      });
+
+      modifiedByRatioRecalc.add(tx.id);
+      pricesDerivedFromOutflow++;
+    }
+
+    logger.debug({ pricesDerivedFromOutflow }, 'Pass 1: Derived inflow prices from outflow using ratios');
+
     // Pass N+2: Recalculate crypto-crypto swap ratios
     // When both sides have prices but neither is fiat, recalculate the inflow (acquisition)
     // side from the outflow (disposal) side using the swap ratio.

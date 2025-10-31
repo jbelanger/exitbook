@@ -1017,6 +1017,68 @@ describe('PriceEnrichmentService', () => {
       expect(btcPrice!.price.amount.toFixed()).toBe('60000');
     });
 
+    it('should derive inflow price from outflow when only outflow has price (Pass 1)', async () => {
+      const mockRepo = createMockTransactionRepository();
+      const mockLinkRepo = createMockLinkRepository();
+
+      const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
+
+      const baseTime = new Date('2024-06-01T10:00:00Z');
+
+      // Swap: 0.00713512 BTC → 705.32116 CFG
+      // BTC outflow has price from fetch: $67,766.85
+      // CFG inflow has NO price (exotic asset, provider doesn't have data)
+      // Should derive CFG price: $67,766.85 * (0.00713512 / 705.32116) = $0.6852 per CFG
+      const txSwap = createMockTransaction(
+        1,
+        'exchange',
+        'kraken',
+        baseTime.toISOString(),
+        [
+          {
+            asset: 'CFG',
+            amount: parseDecimal('705.32116'),
+            // No priceAtTxTime - provider doesn't have CFG data
+          },
+        ],
+        [
+          {
+            asset: 'BTC',
+            amount: parseDecimal('0.00713512'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('67766.85'), currency: Currency.create('USD') },
+              source: 'binance',
+              fetchedAt: baseTime,
+              granularity: 'exact',
+            },
+          },
+        ]
+      );
+
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([txSwap]) as any);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([txSwap]) as any);
+      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
+
+      const result = await service.enrichPrices();
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().transactionsUpdated).toBe(1);
+
+      // Verify CFG inflow price was derived from BTC outflow using ratio
+      const updateCalls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls;
+      expect(updateCalls.length).toBe(1);
+
+      const [txId, priceData] = updateCalls[0]!;
+      expect(txId).toBe(1);
+
+      // Find CFG price in the update
+      const cfgPrice = priceData.find((p) => p.asset === 'CFG');
+      expect(cfgPrice).toBeDefined();
+      expect(cfgPrice!.source).toBe('derived-ratio');
+      // $67,766.85 * (0.00713512 / 705.32116) = $0.6855382118
+      expect(cfgPrice!.price.amount.toNumber()).toBeCloseTo(0.6855, 3);
+    });
+
     it('should NOT recalculate fiat/stablecoin trades (already execution prices)', async () => {
       const mockRepo = createMockTransactionRepository();
       const mockLinkRepo = createMockLinkRepository();

@@ -1,6 +1,12 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
-import type { Currency, AssetMovement, UniversalTransaction, TransactionStatus } from '@exitbook/core';
-import { AssetMovementSchema, NoteMetadataSchema, TransactionMetadataSchema, wrapError } from '@exitbook/core';
+import type { AssetMovement, UniversalTransaction, TransactionStatus } from '@exitbook/core';
+import {
+  AssetMovementSchema,
+  Currency,
+  NoteMetadataSchema,
+  TransactionMetadataSchema,
+  wrapError,
+} from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import type { Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
@@ -238,6 +244,12 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             }
           }
 
+          // Skip fiat currencies - they don't need prices (they ARE the price)
+          const currency = Currency.create(movement.asset);
+          if (currency.isFiat()) {
+            return false;
+          }
+
           return !movement.priceAtTxTime;
         });
       });
@@ -298,11 +310,29 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       // Enrich movements with price data
       const enrichMovement = (movement: unknown) => {
-        const m = movement as { asset: string; priceAtTxTime?: unknown };
+        const m = movement as { asset: string; priceAtTxTime?: { source: string } };
         const price = priceMap.get(m.asset);
-        if (price && !m.priceAtTxTime) {
+
+        if (!price) {
+          return m;
+        }
+
+        // If no existing price, add it
+        if (!m.priceAtTxTime) {
           return { ...m, priceAtTxTime: price };
         }
+
+        // Never overwrite exchange-execution (authoritative)
+        if (m.priceAtTxTime.source === 'exchange-execution') {
+          return m;
+        }
+
+        // derived-ratio and link-propagated should overwrite provider prices
+        if (price.source === 'derived-ratio' || price.source === 'link-propagated') {
+          return { ...m, priceAtTxTime: price };
+        }
+
+        // Keep existing price
         return m;
       };
 

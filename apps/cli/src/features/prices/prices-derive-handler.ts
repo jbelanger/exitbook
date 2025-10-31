@@ -3,6 +3,7 @@
 
 import { PriceEnrichmentService, TransactionLinkRepository } from '@exitbook/accounting';
 import type { UniversalTransaction } from '@exitbook/core';
+import { Currency } from '@exitbook/core';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
@@ -100,6 +101,7 @@ export class PricesDeriveHandler {
 
   /**
    * Count total number of movements across all transactions
+   * Excludes fiat currencies as they don't need prices (they ARE the price)
    */
   private countAllMovements(transactions: UniversalTransaction[]): number {
     let count = 0;
@@ -107,7 +109,15 @@ export class PricesDeriveHandler {
     for (const tx of transactions) {
       const inflows = tx.movements.inflows ?? [];
       const outflows = tx.movements.outflows ?? [];
-      count += inflows.length + outflows.length;
+
+      for (const movement of [...inflows, ...outflows]) {
+        // Skip fiat currencies - they don't need prices
+        const currency = Currency.create(movement.asset);
+        if (currency.isFiat()) {
+          continue;
+        }
+        count++;
+      }
     }
 
     return count;
@@ -115,6 +125,7 @@ export class PricesDeriveHandler {
 
   /**
    * Count movements without prices across all transactions
+   * Excludes fiat currencies as they don't need prices (they ARE the price)
    */
   private countMovementsWithoutPrices(transactions: UniversalTransaction[]): number {
     let count = 0;
@@ -124,6 +135,12 @@ export class PricesDeriveHandler {
       const outflows = tx.movements.outflows ?? [];
 
       for (const movement of [...inflows, ...outflows]) {
+        // Skip fiat currencies - they don't need prices (they ARE the price)
+        const currency = Currency.create(movement.asset);
+        if (currency.isFiat()) {
+          continue;
+        }
+
         if (!movement.priceAtTxTime) {
           count++;
         }
