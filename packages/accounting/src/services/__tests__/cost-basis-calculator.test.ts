@@ -477,5 +477,293 @@ describe('CostBasisCalculator', () => {
       expect(longTermDisposal!.taxTreatmentCategory).toBe('long_term');
       expect(longTermDisposal!.holdingPeriodDays).toBeGreaterThanOrEqual(365);
     });
+
+    it('should disallow wash sale loss with fee allocation (US)', async () => {
+      // Integration test: wash sale + fee handling interaction
+      // Buy 1 BTC @ $50k (Jan 1)
+      // Sell 1 BTC @ $30k with $100 fee (Feb 1) - loss of $20,100
+      // Buy 0.5 BTC @ $32k with $50 fee (Feb 15) - triggers wash sale
+      // Expected: Loss disallowed, fees allocated correctly
+      const transactionWithFee = (
+        id: number,
+        datetime: string,
+        inflows: { amount: string; asset: string; price: string }[],
+        outflows: { amount: string; asset: string; price: string }[],
+        platformFee?: { amount: string; asset: string; price: string }
+      ): UniversalTransaction => {
+        const tx = createTransaction(id, datetime, inflows, outflows);
+        if (platformFee) {
+          tx.fees.platform = {
+            asset: platformFee.asset,
+            amount: new Decimal(platformFee.amount),
+            priceAtTxTime: {
+              price: { amount: new Decimal(platformFee.price), currency: Currency.create('CAD') },
+              source: 'test',
+              fetchedAt: new Date(datetime),
+              granularity: 'exact',
+            },
+          };
+        }
+        return tx;
+      };
+
+      const transactions: UniversalTransaction[] = [
+        // Buy 1 BTC @ $50k (Jan 1)
+        transactionWithFee(1, '2024-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '50000' }], []),
+        // Sell 1 BTC @ $30k with $100 fee (Feb 1) - creates loss
+        transactionWithFee(2, '2024-02-01T00:00:00Z', [], [{ asset: 'BTC', amount: '1', price: '30000' }], {
+          asset: 'CAD',
+          amount: '100',
+          price: '1',
+        }),
+        // Buy 0.5 BTC @ $32k with $50 fee (Feb 15) - triggers wash sale
+        transactionWithFee(3, '2024-02-15T00:00:00Z', [{ asset: 'BTC', amount: '0.5', price: '32000' }], [], {
+          asset: 'CAD',
+          amount: '50',
+          price: '1',
+        }),
+      ];
+
+      const disposalsSaved: LotDisposal[] = [];
+      const trackingRepository = {
+        ...mockRepository,
+        createDisposalsBulk: vi.fn().mockImplementation((disposals: LotDisposal[]) => {
+          disposalsSaved.push(...disposals);
+          return Promise.resolve(ok(disposals.length));
+        }),
+      } as unknown as CostBasisRepository;
+
+      const trackingCalculator = new CostBasisCalculator(trackingRepository);
+
+      const config: CostBasisConfig = {
+        method: 'fifo',
+        currency: 'CAD',
+        jurisdiction: 'US',
+        taxYear: 2024,
+      };
+
+      const result = await trackingCalculator.calculate(transactions, config, new USRules());
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const summary = result.value;
+
+        // Loss should be disallowed due to wash sale (taxable gain/loss = 0)
+        expect(summary.totalTaxableGainLoss.toString()).toBe('0');
+
+        // Verify fee was allocated correctly (increases cost basis on acquisition, reduces proceeds on disposal)
+        expect(disposalsSaved).toHaveLength(1);
+        const disposal = disposalsSaved[0];
+        expect(disposal).toBeDefined();
+
+        // Proceeds: $30,000 - $100 fee = $29,900
+        expect(disposal!.totalProceeds.toString()).toBe('29900');
+        // Cost basis: $50,000 (no fee on first acquisition)
+        expect(disposal!.totalCostBasis.toString()).toBe('50000');
+        // Capital loss: $29,900 - $50,000 = -$20,100
+        expect(disposal!.gainLoss.toString()).toBe('-20100');
+      }
+    });
+
+    it('should handle superficial loss with multi-asset fees (Canada)', async () => {
+      // Integration test: superficial loss + proportional fee allocation
+      // Buy BTC ($40k) + ETH ($20k) with $60 fee (Jan 1)
+      // Sell BTC at loss within window (Feb 1)
+      // Reacquire BTC (Feb 15) - triggers superficial loss
+      // Expected: BTC loss disallowed, ETH unaffected, fees allocated 2:1
+      const multiAssetTxWithFee = (
+        id: number,
+        datetime: string,
+        inflows: { amount: string; asset: string; price: string }[],
+        outflows: { amount: string; asset: string; price: string }[],
+        platformFee?: { amount: string; asset: string; price: string }
+      ): UniversalTransaction => {
+        const tx: UniversalTransaction = {
+          id,
+          externalId: `ext-${id}`,
+          datetime,
+          timestamp: new Date(datetime).getTime(),
+          source: 'test',
+          status: 'success',
+          movements: {
+            inflows: inflows.map((i) => ({
+              asset: i.asset,
+              amount: new Decimal(i.amount),
+              priceAtTxTime: {
+                price: { amount: new Decimal(i.price), currency: Currency.create('CAD') },
+                source: 'test',
+                fetchedAt: new Date(datetime),
+                granularity: 'exact',
+              },
+            })),
+            outflows: outflows.map((o) => ({
+              asset: o.asset,
+              amount: new Decimal(o.amount),
+              priceAtTxTime: {
+                price: { amount: new Decimal(o.price), currency: Currency.create('CAD') },
+                source: 'test',
+                fetchedAt: new Date(datetime),
+                granularity: 'exact',
+              },
+            })),
+          },
+          operation: { category: 'trade', type: inflows.length > 0 ? 'buy' : 'sell' },
+          fees: {},
+          metadata: {},
+        };
+
+        if (platformFee) {
+          tx.fees.platform = {
+            asset: platformFee.asset,
+            amount: new Decimal(platformFee.amount),
+            priceAtTxTime: {
+              price: { amount: new Decimal(platformFee.price), currency: Currency.create('CAD') },
+              source: 'test',
+              fetchedAt: new Date(datetime),
+              granularity: 'exact',
+            },
+          };
+        }
+
+        return tx;
+      };
+
+      const transactions: UniversalTransaction[] = [
+        // Buy BTC ($40k) + ETH ($20k) with $60 fee (Jan 1)
+        multiAssetTxWithFee(
+          1,
+          '2024-01-01T00:00:00Z',
+          [
+            { asset: 'BTC', amount: '1', price: '40000' },
+            { asset: 'ETH', amount: '10', price: '2000' },
+          ],
+          [],
+          { asset: 'CAD', amount: '60', price: '1' }
+        ),
+        // Sell BTC at loss (Feb 1)
+        createTransaction(2, '2024-02-01T00:00:00Z', [], [{ asset: 'BTC', amount: '1', price: '30000' }]),
+        // Reacquire BTC (Feb 15) - triggers superficial loss
+        createTransaction(3, '2024-02-15T00:00:00Z', [{ asset: 'BTC', amount: '0.5', price: '32000' }], []),
+        // Sell ETH at gain (no superficial loss)
+        createTransaction(4, '2024-03-01T00:00:00Z', [], [{ asset: 'ETH', amount: '10', price: '2500' }]),
+      ];
+
+      const config: CostBasisConfig = {
+        method: 'fifo',
+        currency: 'CAD',
+        jurisdiction: 'CA',
+        taxYear: 2024,
+      };
+
+      const result = await calculator.calculate(transactions, config, new CanadaRules());
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const summary = result.value;
+
+        // Fee allocation: BTC gets $40 (2/3), ETH gets $20 (1/3)
+        // BTC cost basis: $40,000 + $40 = $40,040
+        // ETH cost basis: $20,000 + $20 = $20,020
+
+        // BTC loss should be disallowed (superficial loss), no taxable loss
+        // ETH gain should still be taxable (not affected by BTC superficial loss)
+        // ETH proceeds: $25,000
+        // ETH cost basis: $20,020
+        // ETH gain: $4,980
+        // Canada 50% inclusion: $2,490
+        expect(summary.totalTaxableGainLoss.toNumber()).toBeCloseTo(2490, 0);
+      }
+    });
+
+    it('should correctly classify long-term gains with complex fee scenarios', async () => {
+      // Integration test: holding period classification + fee handling
+      // Buy 1 BTC @ $30k with $100 fee (Jan 1, 2023)
+      // Sell 0.5 BTC @ $50k with $200 fee (Jan 2, 2024) - 366 days = long-term
+      // Expected: Long-term classification, correct cost basis with fees
+      const txWithFee = (
+        id: number,
+        datetime: string,
+        inflows: { amount: string; asset: string; price: string }[],
+        outflows: { amount: string; asset: string; price: string }[],
+        platformFee?: { amount: string; asset: string; price: string }
+      ): UniversalTransaction => {
+        const tx = createTransaction(id, datetime, inflows, outflows);
+        if (platformFee) {
+          tx.fees.platform = {
+            asset: platformFee.asset,
+            amount: new Decimal(platformFee.amount),
+            priceAtTxTime: {
+              price: { amount: new Decimal(platformFee.price), currency: Currency.create('CAD') },
+              source: 'test',
+              fetchedAt: new Date(datetime),
+              granularity: 'exact',
+            },
+          };
+        }
+        return tx;
+      };
+
+      const transactions: UniversalTransaction[] = [
+        // Buy 1 BTC @ $30k with $100 fee (Jan 1, 2023)
+        txWithFee(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }], [], {
+          asset: 'CAD',
+          amount: '100',
+          price: '1',
+        }),
+        // Sell 0.5 BTC @ $50k with $200 fee (Jan 2, 2024) - 366 days = long-term
+        txWithFee(2, '2024-01-02T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '50000' }], {
+          asset: 'CAD',
+          amount: '200',
+          price: '1',
+        }),
+      ];
+
+      const disposalsSaved: LotDisposal[] = [];
+      const trackingRepository = {
+        ...mockRepository,
+        createDisposalsBulk: vi.fn().mockImplementation((disposals: LotDisposal[]) => {
+          disposalsSaved.push(...disposals);
+          return Promise.resolve(ok(disposals.length));
+        }),
+      } as unknown as CostBasisRepository;
+
+      const trackingCalculator = new CostBasisCalculator(trackingRepository);
+
+      const config: CostBasisConfig = {
+        method: 'fifo',
+        currency: 'CAD',
+        jurisdiction: 'US',
+        taxYear: 2024,
+      };
+
+      const result = await trackingCalculator.calculate(transactions, config, new USRules());
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const summary = result.value;
+
+        // Verify long-term classification
+        expect(disposalsSaved).toHaveLength(1);
+        const disposal = disposalsSaved[0];
+        expect(disposal).toBeDefined();
+        expect(disposal!.taxTreatmentCategory).toBe('long_term');
+        expect(disposal!.holdingPeriodDays).toBeGreaterThanOrEqual(365);
+
+        // Verify fee allocation
+        // Cost basis per unit: ($30,000 + $100) / 1 = $30,100
+        // Cost basis for 0.5 BTC: $30,100 * 0.5 = $15,050
+        expect(disposal!.costBasisPerUnit.toString()).toBe('30100');
+        expect(disposal!.totalCostBasis.toString()).toBe('15050');
+
+        // Proceeds: (0.5 * $50,000 - $200) = $24,800
+        expect(disposal!.totalProceeds.toString()).toBe('24800');
+
+        // Gain: $24,800 - $15,050 = $9,750
+        expect(disposal!.gainLoss.toString()).toBe('9750');
+        expect(summary.totalCapitalGainLoss.toString()).toBe('9750');
+        // US: 100% taxable
+        expect(summary.totalTaxableGainLoss.toString()).toBe('9750');
+      }
+    });
   });
 });
