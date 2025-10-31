@@ -199,20 +199,25 @@ export class GainLossCalculator {
       return false;
     }
 
-    // Find reacquisition dates: acquisition dates of lots that were acquired
-    // within the wash sale / superficial loss period around this disposal
-    const reacquisitionDates: Date[] = [];
+    // Calculate the maximum window we need to check
+    // Canada: 30 days before + 30 days after = 61 days total window
+    // US: 30 days after only, but we use 61 to be safe for all jurisdictions
+    const maxWindowDays = 61;
+    const windowStart = new Date(disposal.disposalDate);
+    windowStart.setDate(windowStart.getDate() - maxWindowDays);
+    const windowEnd = new Date(disposal.disposalDate);
+    windowEnd.setDate(windowEnd.getDate() + maxWindowDays);
 
-    for (const otherLot of allAssetLots) {
-      // Skip the lot being disposed
-      if (otherLot.id === disposal.lotId) {
-        continue;
-      }
-
-      // Check if this lot was acquired around the time of disposal
-      // The rules.isLossDisallowed method will determine if it's within the window
-      reacquisitionDates.push(otherLot.acquisitionDate);
-    }
+    // Filter to only lots acquired near the disposal date
+    const reacquisitionDates = allAssetLots
+      .filter((otherLot) => {
+        if (otherLot.id === disposal.lotId) {
+          return false; // Skip the lot being disposed
+        }
+        const acqDate = otherLot.acquisitionDate;
+        return acqDate >= windowStart && acqDate <= windowEnd;
+      })
+      .map((lot) => lot.acquisitionDate);
 
     return rules.isLossDisallowed(disposal.disposalDate, reacquisitionDates);
   }

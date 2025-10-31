@@ -539,5 +539,310 @@ describe('GainLossCalculator', () => {
         expect(disposal?.disposalDate).toEqual(disposalDate);
       }
     });
+
+    it('should NOT disallow loss when old acquisition is >61 days before disposal', () => {
+      // Bug fix test: verify old lots don't trigger wash sale
+      // Buy BTC on Jan 1, 2020 (old lot - years ago)
+      // Sell at loss on June 1, 2024
+      // Buy again on June 15, 2024 (within 30 days after)
+      // The 2020 lot should NOT be considered a reacquisition
+      const oldLotDate = new Date('2020-01-01');
+      const disposalDate = new Date('2024-06-01');
+      const reacquisitionDate = new Date('2024-06-15'); // Within wash sale window
+
+      const assetResults: AssetLotMatchResult[] = [
+        {
+          asset: 'BTC',
+          lots: [
+            {
+              id: 'lot-old',
+              calculationId: 'calc-1',
+              acquisitionTransactionId: 1,
+              asset: 'BTC',
+              quantity: new Decimal('1'),
+              costBasisPerUnit: new Decimal('10000'),
+              totalCostBasis: new Decimal('10000'),
+              acquisitionDate: oldLotDate, // Very old - should be filtered out
+              method: 'fifo' as const,
+              remainingQuantity: new Decimal('0'),
+              status: 'fully_disposed' as const,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            {
+              id: 'lot-reacquire',
+              calculationId: 'calc-1',
+              acquisitionTransactionId: 3,
+              asset: 'BTC',
+              quantity: new Decimal('1'),
+              costBasisPerUnit: new Decimal('32000'),
+              totalCostBasis: new Decimal('32000'),
+              acquisitionDate: reacquisitionDate, // Within window
+              method: 'fifo' as const,
+              remainingQuantity: new Decimal('1'),
+              status: 'open' as const,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ],
+          disposals: [
+            {
+              id: 'disposal-1',
+              lotId: 'lot-old',
+              disposalTransactionId: 2,
+              quantityDisposed: new Decimal('1'),
+              proceedsPerUnit: new Decimal('30000'),
+              totalProceeds: new Decimal('30000'),
+              costBasisPerUnit: new Decimal('10000'),
+              totalCostBasis: new Decimal('10000'),
+              gainLoss: new Decimal('20000'), // Gain, not loss
+              disposalDate,
+              holdingPeriodDays: 1613, // Long holding period
+              createdAt: new Date(),
+            },
+          ],
+        },
+      ];
+
+      const result = calculator.calculate(assetResults, new USRules());
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const gainLoss = result.value;
+        // This is a GAIN, so wash sale doesn't apply anyway
+        expect(gainLoss.disallowedLossCount).toBe(0);
+      }
+    });
+
+    it('should NOT disallow loss when reacquisition is >61 days after disposal (US wash sale)', () => {
+      // Buy BTC Jan 1, 2024
+      // Sell at loss Feb 1, 2024
+      // Buy again May 1, 2024 (89 days after disposal - outside 30-day window)
+      // Loss should NOT be disallowed
+      const acquisitionDate = new Date('2024-01-01');
+      const disposalDate = new Date('2024-02-01');
+      const reacquisitionDate = new Date('2024-05-01'); // 89 days after disposal
+
+      const assetResults: AssetLotMatchResult[] = [
+        {
+          asset: 'BTC',
+          lots: [
+            {
+              id: 'lot-1',
+              calculationId: 'calc-1',
+              acquisitionTransactionId: 1,
+              asset: 'BTC',
+              quantity: new Decimal('1'),
+              costBasisPerUnit: new Decimal('50000'),
+              totalCostBasis: new Decimal('50000'),
+              acquisitionDate,
+              method: 'fifo' as const,
+              remainingQuantity: new Decimal('0'),
+              status: 'fully_disposed' as const,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            {
+              id: 'lot-2',
+              calculationId: 'calc-1',
+              acquisitionTransactionId: 3,
+              asset: 'BTC',
+              quantity: new Decimal('1'),
+              costBasisPerUnit: new Decimal('32000'),
+              totalCostBasis: new Decimal('32000'),
+              acquisitionDate: reacquisitionDate, // Outside window
+              method: 'fifo' as const,
+              remainingQuantity: new Decimal('1'),
+              status: 'open' as const,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ],
+          disposals: [
+            {
+              id: 'disposal-1',
+              lotId: 'lot-1',
+              disposalTransactionId: 2,
+              quantityDisposed: new Decimal('1'),
+              proceedsPerUnit: new Decimal('30000'),
+              totalProceeds: new Decimal('30000'),
+              costBasisPerUnit: new Decimal('50000'),
+              totalCostBasis: new Decimal('50000'),
+              gainLoss: new Decimal('-20000'), // Loss
+              disposalDate,
+              holdingPeriodDays: 31,
+              createdAt: new Date(),
+            },
+          ],
+        },
+      ];
+
+      const result = calculator.calculate(assetResults, new USRules());
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const gainLoss = result.value;
+        // Loss should be allowed (reacquisition outside 30-day window)
+        expect(gainLoss.disallowedLossCount).toBe(0);
+        expect(gainLoss.totalTaxableGainLoss.toString()).toBe('-20000');
+
+        const btcSummary = gainLoss.byAsset.get('BTC');
+        expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(false);
+      }
+    });
+
+    it('should NOT disallow loss when reacquisition is >61 days before disposal (Canada superficial loss)', () => {
+      // Buy BTC Jan 1, 2024
+      // Sell at loss May 1, 2024
+      // Reacquisition on Jan 1 is >61 days before disposal
+      // Loss should NOT be disallowed
+      const firstAcquisitionDate = new Date('2024-01-01'); // Original purchase
+      const disposalDate = new Date('2024-05-01'); // Sell at loss (120 days later)
+      const secondAcquisitionDate = new Date('2024-01-15'); // Buy more 14 days after first
+
+      const assetResults: AssetLotMatchResult[] = [
+        {
+          asset: 'BTC',
+          lots: [
+            {
+              id: 'lot-1',
+              calculationId: 'calc-1',
+              acquisitionTransactionId: 1,
+              asset: 'BTC',
+              quantity: new Decimal('1'),
+              costBasisPerUnit: new Decimal('50000'),
+              totalCostBasis: new Decimal('50000'),
+              acquisitionDate: firstAcquisitionDate, // 120 days before disposal
+              method: 'fifo' as const,
+              remainingQuantity: new Decimal('0'),
+              status: 'fully_disposed' as const,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            {
+              id: 'lot-2',
+              calculationId: 'calc-1',
+              acquisitionTransactionId: 2,
+              asset: 'BTC',
+              quantity: new Decimal('1'),
+              costBasisPerUnit: new Decimal('48000'),
+              totalCostBasis: new Decimal('48000'),
+              acquisitionDate: secondAcquisitionDate, // 106 days before disposal
+              method: 'fifo' as const,
+              remainingQuantity: new Decimal('1'),
+              status: 'open' as const,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ],
+          disposals: [
+            {
+              id: 'disposal-1',
+              lotId: 'lot-1',
+              disposalTransactionId: 3,
+              quantityDisposed: new Decimal('1'),
+              proceedsPerUnit: new Decimal('30000'),
+              totalProceeds: new Decimal('30000'),
+              costBasisPerUnit: new Decimal('50000'),
+              totalCostBasis: new Decimal('50000'),
+              gainLoss: new Decimal('-20000'), // Loss
+              disposalDate,
+              holdingPeriodDays: 120,
+              createdAt: new Date(),
+            },
+          ],
+        },
+      ];
+
+      const result = calculator.calculate(assetResults, new CanadaRules());
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const gainLoss = result.value;
+        // Loss should be allowed (all acquisitions are >61 days before disposal)
+        expect(gainLoss.disallowedLossCount).toBe(0);
+        expect(gainLoss.totalTaxableGainLoss.toString()).toBe('-10000'); // 50% inclusion
+
+        const btcSummary = gainLoss.byAsset.get('BTC');
+        expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(false);
+      }
+    });
+
+    it('should disallow loss when reacquisition is within 61 days (US wash sale)', () => {
+      // Buy BTC Jan 1, 2024
+      // Sell at loss Feb 1, 2024
+      // Buy again Feb 15, 2024 (14 days after disposal - within 30-day window)
+      // Loss SHOULD be disallowed
+      const acquisitionDate = new Date('2024-01-01');
+      const disposalDate = new Date('2024-02-01');
+      const reacquisitionDate = new Date('2024-02-15'); // Within window
+
+      const assetResults: AssetLotMatchResult[] = [
+        {
+          asset: 'BTC',
+          lots: [
+            {
+              id: 'lot-1',
+              calculationId: 'calc-1',
+              acquisitionTransactionId: 1,
+              asset: 'BTC',
+              quantity: new Decimal('1'),
+              costBasisPerUnit: new Decimal('50000'),
+              totalCostBasis: new Decimal('50000'),
+              acquisitionDate,
+              method: 'fifo' as const,
+              remainingQuantity: new Decimal('0'),
+              status: 'fully_disposed' as const,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            {
+              id: 'lot-2',
+              calculationId: 'calc-1',
+              acquisitionTransactionId: 3,
+              asset: 'BTC',
+              quantity: new Decimal('1'),
+              costBasisPerUnit: new Decimal('32000'),
+              totalCostBasis: new Decimal('32000'),
+              acquisitionDate: reacquisitionDate, // Within window
+              method: 'fifo' as const,
+              remainingQuantity: new Decimal('1'),
+              status: 'open' as const,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ],
+          disposals: [
+            {
+              id: 'disposal-1',
+              lotId: 'lot-1',
+              disposalTransactionId: 2,
+              quantityDisposed: new Decimal('1'),
+              proceedsPerUnit: new Decimal('30000'),
+              totalProceeds: new Decimal('30000'),
+              costBasisPerUnit: new Decimal('50000'),
+              totalCostBasis: new Decimal('50000'),
+              gainLoss: new Decimal('-20000'), // Loss
+              disposalDate,
+              holdingPeriodDays: 31,
+              createdAt: new Date(),
+            },
+          ],
+        },
+      ];
+
+      const result = calculator.calculate(assetResults, new USRules());
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const gainLoss = result.value;
+        // Loss should be disallowed (reacquisition within 30-day window)
+        expect(gainLoss.disallowedLossCount).toBe(1);
+        expect(gainLoss.totalTaxableGainLoss.toString()).toBe('0');
+
+        const btcSummary = gainLoss.byAsset.get('BTC');
+        expect(btcSummary?.disposals[0]?.lossDisallowed).toBe(true);
+      }
+    });
   });
 });

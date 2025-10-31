@@ -793,4 +793,324 @@ describe('LotMatcher - Fee Handling', () => {
       }
     });
   });
+
+  describe('Zero-value fee allocation edge cases', () => {
+    it('should split fees evenly when all crypto movements have zero value (airdrop)', () => {
+      // Airdrop: Receive 100 XYZ tokens with $0 value, $5 network fee
+      // Fee should be split evenly among zero-value crypto movements
+      const transactions: UniversalTransaction[] = [
+        {
+          id: 1,
+          externalId: 'tx1',
+          datetime: '2024-01-01T00:00:00Z',
+          timestamp: Date.parse('2024-01-01T00:00:00Z'),
+          source: 'ethereum',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                asset: 'XYZ',
+                amount: parseDecimal('100'),
+                priceAtTxTime: createPriceAtTxTime('0'), // Zero value airdrop
+              },
+            ],
+            outflows: [],
+          },
+          fees: {
+            network: {
+              asset: 'ETH',
+              amount: parseDecimal('0.001'),
+              priceAtTxTime: createPriceAtTxTime('5000'), // $5 fee
+            },
+          },
+          operation: {
+            category: 'transfer',
+            type: 'deposit',
+          },
+        },
+      ];
+
+      const result = matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const xyzResult = result.value.assetResults.find((r) => r.asset === 'XYZ');
+        expect(xyzResult).toBeDefined();
+        expect(xyzResult!.lots).toHaveLength(1);
+
+        const lot = xyzResult!.lots[0]!;
+        expect(lot.quantity.toString()).toBe('100');
+        // Cost basis: $5 fee / 1 non-fiat movement = $5 total, or $0.05 per token
+        expect(lot.costBasisPerUnit.toString()).toBe('0.05');
+        expect(lot.totalCostBasis.toString()).toBe('5');
+      }
+    });
+
+    it('should split fees evenly among multiple zero-value crypto movements', () => {
+      // Receive 2 different airdrops in one transaction, both with $0 value
+      // $10 fee should be split evenly: $5 each
+      const transactions: UniversalTransaction[] = [
+        {
+          id: 1,
+          externalId: 'tx1',
+          datetime: '2024-01-01T00:00:00Z',
+          timestamp: Date.parse('2024-01-01T00:00:00Z'),
+          source: 'ethereum',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                asset: 'TOKEN_A',
+                amount: parseDecimal('100'),
+                priceAtTxTime: createPriceAtTxTime('0'), // Zero value
+              },
+              {
+                asset: 'TOKEN_B',
+                amount: parseDecimal('50'),
+                priceAtTxTime: createPriceAtTxTime('0'), // Zero value
+              },
+            ],
+            outflows: [],
+          },
+          fees: {
+            platform: {
+              asset: 'USD',
+              amount: parseDecimal('10'),
+              priceAtTxTime: createPriceAtTxTime('1'),
+            },
+          },
+          operation: {
+            category: 'transfer',
+            type: 'deposit',
+          },
+        },
+      ];
+
+      const result = matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const tokenAResult = result.value.assetResults.find((r) => r.asset === 'TOKEN_A');
+        const tokenBResult = result.value.assetResults.find((r) => r.asset === 'TOKEN_B');
+
+        expect(tokenAResult).toBeDefined();
+        expect(tokenBResult).toBeDefined();
+
+        // TOKEN_A: $10 / 2 movements = $5 fee allocation
+        const lotA = tokenAResult!.lots[0]!;
+        expect(lotA.quantity.toString()).toBe('100');
+        expect(lotA.totalCostBasis.toString()).toBe('5');
+        expect(lotA.costBasisPerUnit.toString()).toBe('0.05');
+
+        // TOKEN_B: $10 / 2 movements = $5 fee allocation
+        const lotB = tokenBResult!.lots[0]!;
+        expect(lotB.quantity.toString()).toBe('50');
+        expect(lotB.totalCostBasis.toString()).toBe('5');
+        expect(lotB.costBasisPerUnit.toString()).toBe('0.1');
+      }
+    });
+
+    it('should NOT allocate fee to fiat movements when all movements are zero-value', () => {
+      // Edge case: Zero-value crypto + fiat movement with $0 fee
+      // Fiat should not receive fee allocation (we don't track cost basis for fiat)
+      const transactions: UniversalTransaction[] = [
+        {
+          id: 1,
+          externalId: 'tx1',
+          datetime: '2024-01-01T00:00:00Z',
+          timestamp: Date.parse('2024-01-01T00:00:00Z'),
+          source: 'test-exchange',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                asset: 'XYZ',
+                amount: parseDecimal('100'),
+                priceAtTxTime: createPriceAtTxTime('0'), // Zero value
+              },
+            ],
+            outflows: [
+              {
+                asset: 'USD',
+                amount: parseDecimal('0'), // Zero-value fiat
+                priceAtTxTime: createPriceAtTxTime('1'),
+              },
+            ],
+          },
+          fees: {
+            platform: {
+              asset: 'USD',
+              amount: parseDecimal('5'),
+              priceAtTxTime: createPriceAtTxTime('1'),
+            },
+          },
+          operation: {
+            category: 'other',
+            type: 'airdrop',
+          },
+        },
+      ];
+
+      const result = matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const xyzResult = result.value.assetResults.find((r) => r.asset === 'XYZ');
+        expect(xyzResult).toBeDefined();
+
+        // XYZ should get the full $5 fee (only non-fiat movement)
+        const lot = xyzResult!.lots[0]!;
+        expect(lot.totalCostBasis.toString()).toBe('5');
+
+        // USD may appear in results but should have empty lots (fiat not tracked for cost basis)
+        const usdResult = result.value.assetResults.find((r) => r.asset === 'USD');
+        if (usdResult) {
+          expect(usdResult.lots).toHaveLength(0);
+          expect(usdResult.disposals).toHaveLength(0);
+        }
+      }
+    });
+
+    it('should return zero fee allocation when no crypto movements exist (fiat-only)', () => {
+      // All movements are fiat - no fee allocation needed
+      const transactions: UniversalTransaction[] = [
+        {
+          id: 1,
+          externalId: 'tx1',
+          datetime: '2024-01-01T00:00:00Z',
+          timestamp: Date.parse('2024-01-01T00:00:00Z'),
+          source: 'bank',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                asset: 'USD',
+                amount: parseDecimal('1000'),
+                priceAtTxTime: createPriceAtTxTime('1'),
+              },
+            ],
+            outflows: [
+              {
+                asset: 'CAD',
+                amount: parseDecimal('1350'),
+                priceAtTxTime: createPriceAtTxTime('1'),
+              },
+            ],
+          },
+          fees: {
+            platform: {
+              asset: 'USD',
+              amount: parseDecimal('5'),
+              priceAtTxTime: createPriceAtTxTime('1'),
+            },
+          },
+          operation: {
+            category: 'trade',
+            type: 'buy',
+          },
+        },
+      ];
+
+      const result = matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        // Fiat currencies may appear in results but with empty lots/disposals
+        const usdResult = result.value.assetResults.find((r) => r.asset === 'USD');
+        const cadResult = result.value.assetResults.find((r) => r.asset === 'CAD');
+
+        if (usdResult) {
+          expect(usdResult.lots).toHaveLength(0);
+          expect(usdResult.disposals).toHaveLength(0);
+        }
+
+        if (cadResult) {
+          expect(cadResult.lots).toHaveLength(0);
+          expect(cadResult.disposals).toHaveLength(0);
+        }
+
+        // No non-fiat crypto assets should exist
+        const nonFiatAssets = result.value.assetResults.filter((r) => r.asset !== 'USD' && r.asset !== 'CAD');
+        expect(nonFiatAssets).toHaveLength(0);
+      }
+    });
+
+    it('should use proportional allocation when some movements have value and others are zero', () => {
+      // Mixed: One crypto with value, one with zero value
+      // BTC: $50,000 value
+      // XYZ: $0 value
+      // Fee: $100
+      // BTC should get all the fee (100% of non-zero value)
+      const transactions: UniversalTransaction[] = [
+        {
+          id: 1,
+          externalId: 'tx1',
+          datetime: '2024-01-01T00:00:00Z',
+          timestamp: Date.parse('2024-01-01T00:00:00Z'),
+          source: 'test-exchange',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                asset: 'BTC',
+                amount: parseDecimal('1'),
+                priceAtTxTime: createPriceAtTxTime('50000'),
+              },
+              {
+                asset: 'XYZ',
+                amount: parseDecimal('100'),
+                priceAtTxTime: createPriceAtTxTime('0'), // Zero value
+              },
+            ],
+            outflows: [],
+          },
+          fees: {
+            platform: {
+              asset: 'USD',
+              amount: parseDecimal('100'),
+              priceAtTxTime: createPriceAtTxTime('1'),
+            },
+          },
+          operation: {
+            category: 'trade',
+            type: 'buy',
+          },
+        },
+      ];
+
+      const result = matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const xyzResult = result.value.assetResults.find((r) => r.asset === 'XYZ');
+
+        expect(btcResult).toBeDefined();
+        expect(xyzResult).toBeDefined();
+
+        // BTC gets all the fee ($100) since it has all the value
+        const btcLot = btcResult!.lots[0]!;
+        expect(btcLot.totalCostBasis.toString()).toBe('50100');
+
+        // XYZ gets $0 fee allocation (has no value in proportional calculation)
+        const xyzLot = xyzResult!.lots[0]!;
+        expect(xyzLot.totalCostBasis.toString()).toBe('0');
+      }
+    });
+  });
 });

@@ -443,10 +443,23 @@ export class LotMatcher {
     }
 
     // If no non-fiat movements have values, split fees evenly among non-fiat movements
+    // This handles edge cases like airdrops with $0 value or promotional credits
     if (totalMovementValue.isZero()) {
       if (nonFiatMovements.length === 0) {
         return ok(new Decimal(0));
       }
+
+      // Validate that the target movement is in the non-fiat movements list
+      const isTargetInNonFiat = nonFiatMovements.some(
+        (m) => m.asset === targetMovement.asset && m.amount.equals(targetMovement.amount)
+      );
+
+      if (!isTargetInNonFiat) {
+        // Target movement is fiat, so it shouldn't receive fee allocation
+        return ok(new Decimal(0));
+      }
+
+      // Split fees evenly among all non-fiat movements
       return ok(totalFeeValue.dividedBy(nonFiatMovements.length));
     }
 

@@ -128,10 +128,17 @@ export function buildCostBasisParamsFromFlags(options: CostBasisCommandOptions):
   }
   const taxYear = taxYearResult.value;
 
-  // Get or validate fiat currency
-  const currency = options.fiatCurrency
-    ? validateFiatCurrency(options.fiatCurrency).unwrapOr(getDefaultCurrency(jurisdiction))
-    : getDefaultCurrency(jurisdiction);
+  // Validate fiat currency if provided
+  let currency: FiatCurrency;
+  if (options.fiatCurrency) {
+    const currencyResult = validateFiatCurrency(options.fiatCurrency);
+    if (currencyResult.isErr()) {
+      return err(currencyResult.error);
+    }
+    currency = currencyResult.value;
+  } else {
+    currency = getDefaultCurrency(jurisdiction);
+  }
 
   // Parse custom dates or use defaults
   let startDate: Date;

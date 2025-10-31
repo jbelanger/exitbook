@@ -1,5 +1,6 @@
 import * as p from '@clack/prompts';
 import type { CostBasisConfig } from '@exitbook/accounting';
+import { getDefaultDateRange } from '@exitbook/accounting';
 
 import { handleCancellation, isCancelled } from '../shared/prompts.ts';
 
@@ -104,8 +105,8 @@ export async function promptForCostBasisParams(): Promise<CostBasisHandlerParams
     handleCancellation();
   }
 
-  let startDate: Date | undefined;
-  let endDate: Date | undefined;
+  let startDate: Date;
+  let endDate: Date;
 
   if (useCustomDates) {
     // Prompt for start date
@@ -142,6 +143,11 @@ export async function promptForCostBasisParams(): Promise<CostBasisHandlerParams
 
     startDate = new Date(startDateInput);
     endDate = new Date(endDateInput);
+  } else {
+    // Use default date range for jurisdiction (same as flag path)
+    const defaultRange = getDefaultDateRange(taxYear, jurisdiction);
+    startDate = defaultRange.startDate;
+    endDate = defaultRange.endDate;
   }
 
   // Build config object
