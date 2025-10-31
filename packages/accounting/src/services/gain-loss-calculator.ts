@@ -134,6 +134,9 @@ export class GainLossCalculator {
           // Get tax treatment category
           const taxTreatmentCategory = rules.classifyGain(disposal.holdingPeriodDays);
 
+          // Update disposal with tax treatment category for persistence
+          disposal.taxTreatmentCategory = taxTreatmentCategory;
+
           disposalGainLosses.push({
             disposalId: disposal.id,
             asset,

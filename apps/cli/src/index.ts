@@ -8,6 +8,7 @@ import { Command } from 'commander';
 import { registerBalanceCommand } from './features/balance/balance.ts';
 import { registerBenchmarkRateLimitCommand } from './features/benchmark-rate-limit/benchmark-rate-limit.ts';
 import { registerClearCommand } from './features/clear/clear.ts';
+import { registerCostBasisCommand } from './features/cost-basis/cost-basis.ts';
 import { registerExportCommand } from './features/export/export.ts';
 import { registerImportCommand } from './features/import/import.ts';
 import { registerLinkCommand } from './features/link/link.ts';
@@ -39,6 +40,9 @@ async function main() {
 
   // Clear command
   registerClearCommand(program);
+
+  // Cost basis command - calculate capital gains/losses
+  registerCostBasisCommand(program);
 
   // Balance command - fetch live balances from exchanges/blockchains
   registerBalanceCommand(program);

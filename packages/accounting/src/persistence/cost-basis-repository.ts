@@ -547,6 +547,9 @@ export class CostBasisRepository extends BaseRepository {
       if (updates.disposalsProcessed !== undefined) {
         updateValues.disposals_processed = updates.disposalsProcessed;
       }
+      if (updates.assetsProcessed !== undefined) {
+        updateValues.assets_processed = this.serializeToJson(updates.assetsProcessed) ?? '[]';
+      }
 
       const result = await this.db
         .updateTable('cost_basis_calculations')

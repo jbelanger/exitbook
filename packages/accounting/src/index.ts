@@ -7,6 +7,7 @@
 
 // Configuration
 export type { CostBasisConfig, FiatCurrency } from './config/cost-basis-config.js';
+export { getDefaultDateRange } from './config/cost-basis-config.js';
 
 // Domain types
 export type {

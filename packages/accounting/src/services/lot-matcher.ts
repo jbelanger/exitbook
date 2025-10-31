@@ -135,8 +135,11 @@ export class LotMatcher {
         const inflows = tx.movements.inflows || [];
         for (const inflow of inflows) {
           if (inflow.asset === asset) {
-            const lot = this.createLotFromInflow(tx, inflow, config);
-            lots.push(lot);
+            const lotResult = this.createLotFromInflow(tx, inflow, config);
+            if (lotResult.isErr()) {
+              return err(lotResult.error);
+            }
+            lots.push(lotResult.value);
           }
         }
 
@@ -170,9 +173,9 @@ export class LotMatcher {
     transaction: UniversalTransaction,
     inflow: AssetMovement,
     config: LotMatcherConfig
-  ): AcquisitionLot {
+  ): Result<AcquisitionLot, Error> {
     if (!inflow.priceAtTxTime) {
-      throw new Error(`Inflow missing priceAtTxTime: transaction ${transaction.id}, asset ${inflow.asset}`);
+      return err(new Error(`Inflow missing priceAtTxTime: transaction ${transaction.id}, asset ${inflow.asset}`));
     }
 
     const quantity = inflow.amount;
@@ -180,23 +183,29 @@ export class LotMatcher {
 
     // Calculate fees attributable to this specific movement
     // Fees increase the cost basis (you paid more to acquire the asset)
-    const feeAmount = this.calculateFeesInFiat(transaction, inflow.asset, inflow);
+    const feeResult = this.calculateFeesInFiat(transaction, inflow);
+    if (feeResult.isErr()) {
+      return err(feeResult.error);
+    }
+    const feeAmount = feeResult.value;
 
     // Total cost basis = (quantity * price) + fees
     // Cost basis per unit = total cost basis / quantity
     const totalCostBasis = quantity.times(basePrice).plus(feeAmount);
     const costBasisPerUnit = totalCostBasis.dividedBy(quantity);
 
-    return createAcquisitionLot({
-      id: uuidv4(),
-      calculationId: config.calculationId,
-      acquisitionTransactionId: transaction.id,
-      asset: inflow.asset,
-      quantity,
-      costBasisPerUnit,
-      method: config.strategy.getName(),
-      transactionDate: new Date(transaction.datetime),
-    });
+    return ok(
+      createAcquisitionLot({
+        id: uuidv4(),
+        calculationId: config.calculationId,
+        acquisitionTransactionId: transaction.id,
+        asset: inflow.asset,
+        quantity,
+        costBasisPerUnit,
+        method: config.strategy.getName(),
+        transactionDate: new Date(transaction.datetime),
+      })
+    );
   }
 
   /**
@@ -220,7 +229,11 @@ export class LotMatcher {
 
       // Calculate fees attributable to this specific movement
       // Fees reduce the proceeds (you received less from the sale)
-      const feeAmount = this.calculateFeesInFiat(transaction, outflow.asset, outflow);
+      const feeResult = this.calculateFeesInFiat(transaction, outflow);
+      if (feeResult.isErr()) {
+        return err(feeResult.error);
+      }
+      const feeAmount = feeResult.value;
 
       // Gross proceeds = quantity * price
       // Net proceeds per unit = (gross proceeds - fees) / quantity
@@ -349,15 +362,13 @@ export class LotMatcher {
    * a proportional share of the total fees based on its value.
    *
    * @param transaction - Transaction containing fees
-   * @param targetAsset - The asset to calculate fees for
    * @param targetMovement - The specific movement to calculate fees for
    * @returns Fee amount in fiat attributable to this specific movement
    */
   private calculateFeesInFiat(
     transaction: UniversalTransaction,
-    targetAsset: string,
     targetMovement: AssetMovement
-  ): Decimal {
+  ): Result<Decimal, Error> {
     // Collect all fees
     const fees = [transaction.fees.platform, transaction.fees.network].filter(
       (fee): fee is AssetMovement => fee !== undefined && fee !== null
@@ -365,7 +376,7 @@ export class LotMatcher {
 
     // If no fees, return zero
     if (fees.length === 0) {
-      return new Decimal(0);
+      return ok(new Decimal(0));
     }
 
     // Calculate total fee value in fiat
@@ -374,9 +385,33 @@ export class LotMatcher {
       if (fee.priceAtTxTime) {
         const feeValue = fee.amount.times(fee.priceAtTxTime.price.amount);
         totalFeeValue = totalFeeValue.plus(feeValue);
+      } else {
+        // Fallback for fees without prices:
+        // If fee is in fiat currency, use 1:1 conversion to target movement's price currency
+        const feeCurrency = Currency.create(fee.asset);
+        if (feeCurrency.isFiat() && targetMovement.priceAtTxTime) {
+          const targetPriceCurrency = targetMovement.priceAtTxTime.price.currency;
+          // If same currency, use 1:1. If different fiat, fail with clear error
+          if (feeCurrency.equals(targetPriceCurrency)) {
+            totalFeeValue = totalFeeValue.plus(fee.amount);
+          } else {
+            return err(
+              new Error(
+                `Fee in ${fee.asset} cannot be converted to ${targetPriceCurrency.toString()} without exchange rate. ` +
+                  `Transaction: ${transaction.id}, Fee amount: ${fee.amount.toString()}`
+              )
+            );
+          }
+        } else {
+          // Non-fiat fee without price - this is a data integrity error
+          return err(
+            new Error(
+              `Fee in ${fee.asset} missing priceAtTxTime. Cost basis calculation requires all crypto fees to be priced. ` +
+                `Transaction: ${transaction.id}, Fee amount: ${fee.amount.toString()}`
+            )
+          );
+        }
       }
-      // If fee doesn't have a price, we can't include it in the calculation
-      // This is acceptable as it's conservative (understates basis/proceeds)
     }
 
     // Calculate total value of non-fiat movements to determine proportional allocation
@@ -410,12 +445,12 @@ export class LotMatcher {
     // If no non-fiat movements have values, split fees evenly among non-fiat movements
     if (totalMovementValue.isZero()) {
       if (nonFiatMovements.length === 0) {
-        return new Decimal(0);
+        return ok(new Decimal(0));
       }
-      return totalFeeValue.dividedBy(nonFiatMovements.length);
+      return ok(totalFeeValue.dividedBy(nonFiatMovements.length));
     }
 
     // Allocate fees proportionally based on this specific movement's value
-    return totalFeeValue.times(targetMovementValue).dividedBy(totalMovementValue);
+    return ok(totalFeeValue.times(targetMovementValue).dividedBy(totalMovementValue));
   }
 }

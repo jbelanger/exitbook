@@ -280,7 +280,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       // Fetch current transaction by unique ID
       const tx = await this.db
         .selectFrom('transactions')
-        .select(['movements_inflows', 'movements_outflows'])
+        .select(['movements_inflows', 'movements_outflows', 'fees_platform', 'fees_network'])
         .where('id', '=', id)
         .executeTakeFirst();
 
@@ -288,9 +288,11 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         throw new Error(`Transaction ${id} not found`);
       }
 
-      // Parse movements
+      // Parse movements and fees
       const inflows = this.parseMovements(tx.movements_inflows as string | null);
       const outflows = this.parseMovements(tx.movements_outflows as string | null);
+      const platformFee = this.parseMovement(tx.fees_platform as string | null);
+      const networkFee = this.parseMovement(tx.fees_network as string | null);
 
       // Create price lookup map
       const priceMap = new Map(
@@ -338,13 +340,17 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       const enrichedInflows = inflows.map(enrichMovement);
       const enrichedOutflows = outflows.map(enrichMovement);
+      const enrichedPlatformFee = platformFee ? enrichMovement(platformFee) : null;
+      const enrichedNetworkFee = networkFee ? enrichMovement(networkFee) : null;
 
-      // Update transaction with enriched movements
+      // Update transaction with enriched movements and fees
       await this.db
         .updateTable('transactions')
         .set({
           movements_inflows: enrichedInflows.length > 0 ? this.serializeToJson(enrichedInflows) : null,
           movements_outflows: enrichedOutflows.length > 0 ? this.serializeToJson(enrichedOutflows) : null,
+          fees_platform: enrichedPlatformFee ? this.serializeToJson(enrichedPlatformFee) : null,
+          fees_network: enrichedNetworkFee ? this.serializeToJson(enrichedNetworkFee) : null,
           updated_at: this.getCurrentDateTimeForDB(),
         })
         .where('id', '=', id)
@@ -480,6 +486,37 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     } catch (error) {
       this.logger.warn({ error, jsonString }, 'Failed to parse movements JSON');
       return [];
+    }
+  }
+
+  /**
+   * Parse a single movement (used for fees)
+   */
+  private parseMovement(jsonString: string | null): AssetMovement | null {
+    if (!jsonString) {
+      return null;
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(jsonString);
+      const result = AssetMovementSchema.safeParse(parsed);
+
+      if (!result.success) {
+        this.logger.warn(
+          {
+            error: result.error.format(),
+            issues: result.error.issues,
+            jsonString: jsonString.substring(0, 200),
+          },
+          'Failed to validate movement JSON'
+        );
+        return null;
+      }
+
+      return result.data;
+    } catch (error) {
+      this.logger.warn({ error, jsonString }, 'Failed to parse movement JSON');
+      return null;
     }
   }
 

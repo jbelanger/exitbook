@@ -225,6 +225,7 @@ export class CostBasisCalculator {
       totalCostBasis: calculation.totalCostBasis,
       totalGainLoss: calculation.totalGainLoss,
       totalTaxableGainLoss: calculation.totalTaxableGainLoss,
+      assetsProcessed: calculation.assetsProcessed,
       lotsCreated: calculation.lotsCreated,
       disposalsProcessed: calculation.disposalsProcessed,
     });

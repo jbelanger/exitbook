@@ -651,4 +651,146 @@ describe('LotMatcher - Fee Handling', () => {
       }
     });
   });
+
+  describe('Fee handling edge cases', () => {
+    it('should fail when crypto fee is missing price', () => {
+      const transactions: UniversalTransaction[] = [
+        {
+          id: 1,
+          externalId: 'tx1',
+          datetime: '2024-01-01T00:00:00Z',
+          timestamp: Date.parse('2024-01-01T00:00:00Z'),
+          source: 'ethereum',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                asset: 'ETH',
+                amount: parseDecimal('1'),
+                priceAtTxTime: createPriceAtTxTime('3000'),
+              },
+            ],
+            outflows: [],
+          },
+          fees: {
+            network: {
+              asset: 'ETH',
+              amount: parseDecimal('0.001'),
+              // Missing priceAtTxTime - this should cause an error
+            },
+          },
+          operation: {
+            category: 'transfer',
+            type: 'deposit',
+          },
+        },
+      ];
+
+      const result = matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+      });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Fee in ETH missing priceAtTxTime');
+        expect(result.error.message).toContain('Transaction: 1');
+      }
+    });
+
+    it('should use 1:1 fallback for fiat fee in same currency as target movement', () => {
+      const transactions: UniversalTransaction[] = [
+        {
+          id: 1,
+          externalId: 'tx1',
+          datetime: '2024-01-01T00:00:00Z',
+          timestamp: Date.parse('2024-01-01T00:00:00Z'),
+          source: 'test-exchange',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                asset: 'BTC',
+                amount: parseDecimal('1'),
+                priceAtTxTime: createPriceAtTxTime('50000', 'USD'),
+              },
+            ],
+            outflows: [],
+          },
+          fees: {
+            platform: {
+              asset: 'USD',
+              amount: parseDecimal('100'),
+              // No priceAtTxTime - should use 1:1 fallback to USD
+            },
+          },
+          operation: {
+            category: 'trade',
+            type: 'buy',
+          },
+        },
+      ];
+
+      const result = matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        expect(btcResult).toBeDefined();
+        expect(btcResult!.lots).toHaveLength(1);
+
+        const lot = btcResult!.lots[0]!;
+        // Cost basis should include the $100 USD fee using 1:1 conversion
+        expect(lot.costBasisPerUnit.toString()).toBe('50100');
+      }
+    });
+
+    it('should fail when fiat fee currency differs from target movement price currency', () => {
+      const transactions: UniversalTransaction[] = [
+        {
+          id: 1,
+          externalId: 'tx1',
+          datetime: '2024-01-01T00:00:00Z',
+          timestamp: Date.parse('2024-01-01T00:00:00Z'),
+          source: 'test-exchange',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                asset: 'BTC',
+                amount: parseDecimal('1'),
+                priceAtTxTime: createPriceAtTxTime('50000', 'USD'),
+              },
+            ],
+            outflows: [],
+          },
+          fees: {
+            platform: {
+              asset: 'CAD',
+              amount: parseDecimal('100'),
+              // No priceAtTxTime and different currency - should fail
+            },
+          },
+          operation: {
+            category: 'trade',
+            type: 'buy',
+          },
+        },
+      ];
+
+      const result = matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+      });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Fee in CAD cannot be converted to USD');
+        expect(result.error.message).toContain('without exchange rate');
+      }
+    });
+  });
 });

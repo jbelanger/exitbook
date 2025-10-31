@@ -6,6 +6,7 @@ import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CostBasisConfig } from '../../config/cost-basis-config.js';
+import type { LotDisposal } from '../../domain/schemas.js';
 import { CanadaRules } from '../../jurisdictions/canada-rules.js';
 import { USRules } from '../../jurisdictions/us-rules.js';
 import type { CostBasisRepository } from '../../persistence/cost-basis-repository.js';
@@ -386,6 +387,95 @@ describe('CostBasisCalculator', () => {
           disposalsProcessed: 1,
         })
       );
+    });
+
+    it('should persist assetsProcessed to database (Issue #2 fix)', async () => {
+      const transactions: UniversalTransaction[] = [
+        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
+        createTransaction(2, '2023-01-01T00:00:00Z', [{ asset: 'ETH', amount: '10', price: '2000' }]),
+        createTransaction(3, '2023-06-01T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '40000' }]),
+        createTransaction(4, '2023-06-01T00:00:00Z', [], [{ asset: 'ETH', amount: '5', price: '2500' }]),
+      ];
+
+      const trackingRepository = {
+        ...mockRepository,
+        updateCalculation: vi.fn().mockResolvedValue(ok(true)),
+      } as unknown as CostBasisRepository;
+
+      const trackingCalculator = new CostBasisCalculator(trackingRepository);
+
+      const config: CostBasisConfig = {
+        method: 'fifo',
+        currency: 'CAD',
+        jurisdiction: 'US',
+        taxYear: 2023,
+      };
+
+      const result = await trackingCalculator.calculate(transactions, config, new USRules());
+
+      expect(result.isOk()).toBe(true);
+
+      // Verify updateCalculation was called with assetsProcessed
+      expect(trackingRepository.updateCalculation).toHaveBeenCalledWith(
+        expect.any(String) as string,
+        expect.objectContaining({
+          assetsProcessed: expect.arrayContaining(['BTC', 'ETH']) as string[],
+        })
+      );
+
+      // Verify the call includes the array
+      const updateCall = (trackingRepository.updateCalculation as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(updateCall).toBeDefined();
+      const updates = updateCall?.[1] as { assetsProcessed?: string[] };
+      expect(updates.assetsProcessed).toHaveLength(2);
+      expect(updates.assetsProcessed).toContain('BTC');
+      expect(updates.assetsProcessed).toContain('ETH');
+    });
+
+    it('should save tax classifications to lot_disposals (Issue #3 fix)', async () => {
+      const transactions: UniversalTransaction[] = [
+        // Buy 1 BTC
+        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
+        // Sell 0.5 BTC after 180 days (short-term for US)
+        createTransaction(2, '2023-06-30T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '40000' }]),
+        // Sell 0.5 BTC after 400 days (long-term for US)
+        createTransaction(3, '2024-02-05T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '45000' }]),
+      ];
+
+      const disposalsSaved: LotDisposal[] = [];
+      const trackingRepository = {
+        ...mockRepository,
+        createDisposalsBulk: vi.fn().mockImplementation((disposals: LotDisposal[]) => {
+          disposalsSaved.push(...disposals);
+          return Promise.resolve(ok(disposals.length));
+        }),
+      } as unknown as CostBasisRepository;
+
+      const trackingCalculator = new CostBasisCalculator(trackingRepository);
+
+      const config: CostBasisConfig = {
+        method: 'fifo',
+        currency: 'CAD',
+        jurisdiction: 'US',
+        taxYear: 2023,
+      };
+
+      const result = await trackingCalculator.calculate(transactions, config, new USRules());
+
+      expect(result.isOk()).toBe(true);
+      expect(disposalsSaved).toHaveLength(2);
+
+      // Check first disposal (short-term)
+      const shortTermDisposal = disposalsSaved[0];
+      expect(shortTermDisposal).toBeDefined();
+      expect(shortTermDisposal!.taxTreatmentCategory).toBe('short_term');
+      expect(shortTermDisposal!.holdingPeriodDays).toBeLessThan(365);
+
+      // Check second disposal (long-term)
+      const longTermDisposal = disposalsSaved[1];
+      expect(longTermDisposal).toBeDefined();
+      expect(longTermDisposal!.taxTreatmentCategory).toBe('long_term');
+      expect(longTermDisposal!.holdingPeriodDays).toBeGreaterThanOrEqual(365);
     });
   });
 });
