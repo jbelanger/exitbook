@@ -4,22 +4,6 @@ import type { Selectable, Insertable, Updateable } from 'kysely';
 
 import type { ExternalTransactionDataTable, DataSourcesTable, TransactionsTable } from '../schema/database-schema.ts';
 
-// Raw transaction type from database (with JSON strings)
-// type OriginalTransaction = Selectable<TransactionsTable>;
-
-// Transaction types using Kysely schema
-// StoredTransaction has movements and fees deserialized from JSON strings to typed objects
-// export type StoredTransaction = Omit<
-//   OriginalTransaction,
-//   'movements_inflows' | 'movements_outflows' | 'fees_network' | 'fees_platform' | 'fees_total'
-// > & {
-//   fees_network: AssetMovement | null;
-//   fees_platform: AssetMovement | null;
-//   fees_total: Money | null;
-//   movements_inflows: AssetMovement[];
-//   movements_outflows: AssetMovement[];
-// };
-
 export type NewTransaction = Insertable<TransactionsTable>;
 export type TransactionUpdate = Updateable<TransactionsTable>;
 
