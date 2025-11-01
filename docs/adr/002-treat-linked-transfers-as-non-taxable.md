@@ -59,6 +59,22 @@ The system already has the necessary components:
 
 ---
 
+## User Mental Model
+
+From a user's perspective, the workflow is straightforward:
+
+1. **Import transactions** from exchanges and blockchains
+2. **Review suggested links** between related transactions (withdrawals and deposits)
+3. **Confirm or reject links** based on whether they represent the same funds moving
+4. **Calculate cost basis** - The system automatically:
+   - Treats confirmed links as non-taxable transfers (preserves original cost basis)
+   - Treats unlinked movements as taxable sales/purchases
+   - Only taxes the fees paid during transfers
+
+Users don't need to understand transfer chains, lot transfers, or variance calculations. They simply link transactions that represent the same money moving between their accounts and get correct tax treatment.
+
+---
+
 ## Decision
 
 We will extend the existing lot matcher to be **transfer-aware** by consulting confirmed transaction links during chronological processing. Transfers are treated as non-taxable movements that preserve cost basis, while fees are properly handled as taxable disposals or cost basis adjustments.
@@ -644,71 +660,35 @@ interface UniversalTransaction {
 }
 ```
 
-**Critical Implementation Detail: Fee Identification**
+**Fee Identification Rule**
 
-The linkage between third-asset fee outflows and their parent transactions MUST be explicit, not assumed:
+An outflow is a transfer fee only if it matches an explicit fee field in the transaction:
 
 ```typescript
-/**
- * Identify if an outflow is a fee for a transfer
- *
- * CORRECT: Match against explicit fee fields in transaction
- */
 private findTransferUsingFee(
   tx: UniversalTransaction,
   outflow: AssetMovement
 ): { chainId: string; asset: string } | null {
 
-  // Find transfer chain for this transaction
   const chain = this.transferProjection.findChainBySource(tx.id);
   if (!chain) return null;
 
-  // Check if outflow matches transaction's explicit platform fee
+  // Match against explicit fee fields only
   const platformFee = tx.fees.platform;
-  if (
-    platformFee &&
-    platformFee.asset === outflow.asset &&
-    platformFee.amount.equals(outflow.amount)
-  ) {
-    return {
-      chainId: chain.id,
-      asset: chain.asset
-    };
+  if (platformFee && platformFee.asset === outflow.asset && platformFee.amount.equals(outflow.amount)) {
+    return { chainId: chain.id, asset: chain.asset };
   }
 
-  // Check network fee (rare for third-asset, but possible)
   const networkFee = tx.fees.network;
-  if (
-    networkFee &&
-    networkFee.asset === outflow.asset &&
-    networkFee.amount.equals(outflow.amount)
-  ) {
-    return {
-      chainId: chain.id,
-      asset: chain.asset
-    };
+  if (networkFee && networkFee.asset === outflow.asset && networkFee.amount.equals(outflow.amount)) {
+    return { chainId: chain.id, asset: chain.asset };
   }
 
   return null;
 }
 ```
 
-**WRONG Approach (Do Not Implement)**:
-
-```typescript
-// ❌ INCORRECT: Assumes any BNB outflow during BTC transfer is a fee
-if (chain.asset === 'BTC' && outflow.asset === 'BNB') {
-  return { chainId: chain.id, asset: 'BTC' }; // WRONG!
-}
-```
-
-**Rationale**: Fee identification must be explicit to handle complex scenarios correctly:
-
-- User withdraws BTC and simultaneously swaps BNB → different transactions
-- User pays BNB fee for BTC withdrawal → fee is in `tx.fees.platform`
-- User sends BNB to another wallet during BTC withdrawal → separate outflow, not a fee
-
-The transaction's fee fields are the single source of truth. Importers and processors MUST populate these fields correctly from the source data.
+The transaction's fee fields (`tx.fees.platform`, `tx.fees.network`) are the single source of truth. Outflows that don't match these fields are treated as normal disposals, not transfer fees.
 
 **Importer/Processor Responsibilities**:
 

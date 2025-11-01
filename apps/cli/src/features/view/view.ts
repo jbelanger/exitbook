@@ -3,13 +3,13 @@
 
 import type { Command } from 'commander';
 
-import { registerViewLinksCommand } from './view-links.ts';
 import { registerViewPricesCommand } from './view-prices.ts';
 import { registerViewSessionsCommand } from './view-sessions.ts';
 import { registerViewTransactionsCommand } from './view-transactions.ts';
 
 /**
  * Register the view command with all subcommands.
+ * Note: view links moved to links view subcommand
  */
 export function registerViewCommand(program: Command): void {
   const view = program.command('view').description('Inspect imported and processed data');
@@ -17,6 +17,5 @@ export function registerViewCommand(program: Command): void {
   // Register subcommands
   registerViewSessionsCommand(view);
   registerViewTransactionsCommand(view);
-  registerViewLinksCommand(view);
   registerViewPricesCommand(view);
 }
