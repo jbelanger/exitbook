@@ -3,8 +3,8 @@ import type { DataSourceRepository } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { ViewSessionsHandler } from '../view-sessions-handler.ts';
-import type { ViewSessionsParams } from '../view-sessions-utils.ts';
+import { ViewSessionsHandler } from '../sessions-view-handler.ts';
+import type { ViewSessionsParams } from '../sessions-view-utils.ts';
 
 describe('ViewSessionsHandler', () => {
   let mockSessionRepo: DataSourceRepository;
@@ -62,9 +62,9 @@ describe('ViewSessionsHandler', () => {
       expect(result.isOk()).toBe(true);
       const value = result._unsafeUnwrap();
 
-      expect(value.count).toBe(2);
-      expect(value.sessions).toHaveLength(2);
-      expect(value.sessions[0]).toEqual({
+      expect(value?.count).toBe(2);
+      expect(value?.sessions).toHaveLength(2);
+      expect(value?.sessions[0]).toEqual({
         id: 1,
         source_id: 'kraken',
         source_type: 'exchange',

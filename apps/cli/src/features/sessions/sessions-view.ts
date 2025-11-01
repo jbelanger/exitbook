@@ -5,12 +5,12 @@ import type { Command } from 'commander';
 
 import { ExitCodes } from '../shared/exit-codes.ts';
 import { OutputManager } from '../shared/output.ts';
+import type { ViewCommandResult } from '../shared/view-utils.ts';
+import { buildViewMeta } from '../shared/view-utils.ts';
 
-import { ViewSessionsHandler } from './view-sessions-handler.ts';
-import type { SessionInfo, ViewSessionsParams, ViewSessionsResult } from './view-sessions-utils.ts';
-import { formatSessionsListForDisplay } from './view-sessions-utils.ts';
-import type { ViewCommandResult } from './view-utils.ts';
-import { buildViewMeta } from './view-utils.ts';
+import { ViewSessionsHandler } from './sessions-view-handler.ts';
+import type { SessionInfo, ViewSessionsParams, ViewSessionsResult } from './sessions-view-utils.ts';
+import { formatSessionsListForDisplay } from './sessions-view-utils.ts';
 
 /**
  * Extended command options (adds CLI-specific flags).
@@ -25,21 +25,21 @@ export interface ExtendedViewSessionsCommandOptions extends ViewSessionsParams {
 type ViewSessionsCommandResult = ViewCommandResult<SessionInfo[]>;
 
 /**
- * Register the view sessions subcommand.
+ * Register the sessions view subcommand.
  */
-export function registerViewSessionsCommand(viewCommand: Command): void {
-  viewCommand
-    .command('sessions')
+export function registerSessionsViewCommand(sessionsCommand: Command): void {
+  sessionsCommand
+    .command('view')
     .description('View import sessions')
     .addHelpText(
       'after',
       `
 Examples:
-  $ exitbook view sessions                        # View all import sessions
-  $ exitbook view sessions --source kraken        # View Kraken import sessions
-  $ exitbook view sessions --status completed     # View successful imports
-  $ exitbook view sessions --status failed        # View failed imports
-  $ exitbook view sessions --limit 10             # View latest 10 sessions
+  $ exitbook sessions view                        # View all import sessions
+  $ exitbook sessions view --source kraken        # View Kraken import sessions
+  $ exitbook sessions view --status completed     # View successful imports
+  $ exitbook sessions view --status failed        # View failed imports
+  $ exitbook sessions view --limit 10             # View latest 10 sessions
 
 Common Usage:
   - Monitor import job history and success rates

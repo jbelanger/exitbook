@@ -5,12 +5,12 @@ import type { Command } from 'commander';
 
 import { ExitCodes } from '../shared/exit-codes.ts';
 import { OutputManager } from '../shared/output.ts';
+import type { ViewCommandResult } from '../shared/view-utils.ts';
+import { buildViewMeta } from '../shared/view-utils.ts';
 
-import { ViewTransactionsHandler } from './view-transactions-handler.ts';
-import type { TransactionInfo, ViewTransactionsParams, ViewTransactionsResult } from './view-transactions-utils.ts';
-import { formatTransactionsListForDisplay } from './view-transactions-utils.ts';
-import type { ViewCommandResult } from './view-utils.ts';
-import { buildViewMeta } from './view-utils.ts';
+import { ViewTransactionsHandler } from './transactions-view-handler.ts';
+import type { TransactionInfo, ViewTransactionsParams, ViewTransactionsResult } from './transactions-view-utils.ts';
+import { formatTransactionsListForDisplay } from './transactions-view-utils.ts';
 
 /**
  * Extended command options (adds CLI-specific flags).
@@ -25,23 +25,23 @@ export interface ExtendedViewTransactionsCommandOptions extends ViewTransactions
 type ViewTransactionsCommandResult = ViewCommandResult<TransactionInfo[]>;
 
 /**
- * Register the view transactions subcommand.
+ * Register the transactions view subcommand.
  */
-export function registerViewTransactionsCommand(viewCommand: Command): void {
-  viewCommand
-    .command('transactions')
+export function registerTransactionsViewCommand(transactionsCommand: Command): void {
+  transactionsCommand
+    .command('view')
     .description('View processed transactions')
     .addHelpText(
       'after',
       `
 Examples:
-  $ exitbook view transactions                            # View latest 50 transactions
-  $ exitbook view transactions --limit 100                # View latest 100 transactions
-  $ exitbook view transactions --asset BTC                # View Bitcoin transactions only
-  $ exitbook view transactions --source kraken            # View Kraken transactions
-  $ exitbook view transactions --since 2024-01-01         # View transactions from Jan 2024
-  $ exitbook view transactions --operation-type trade     # View trades only
-  $ exitbook view transactions --no-price                 # Find transactions missing price data
+  $ exitbook transactions view                            # View latest 50 transactions
+  $ exitbook transactions view --limit 100                # View latest 100 transactions
+  $ exitbook transactions view --asset BTC                # View Bitcoin transactions only
+  $ exitbook transactions view --source kraken            # View Kraken transactions
+  $ exitbook transactions view --since 2024-01-01         # View transactions from Jan 2024
+  $ exitbook transactions view --operation-type trade     # View trades only
+  $ exitbook transactions view --no-price                 # Find transactions missing price data
 
 Common Usage:
   - Review recent trading activity across all exchanges

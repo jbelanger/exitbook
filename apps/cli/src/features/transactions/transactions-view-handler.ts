@@ -6,8 +6,9 @@ import type { TransactionRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
-import type { ViewTransactionsParams, ViewTransactionsResult } from './view-transactions-utils.ts';
-import { parseDate } from './view-utils.ts';
+import { parseDate } from '../shared/view-utils.ts';
+
+import type { ViewTransactionsParams, ViewTransactionsResult } from './transactions-view-utils.ts';
 
 /**
  * Handler for viewing transactions.

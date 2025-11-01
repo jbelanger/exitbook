@@ -3,7 +3,7 @@
 import type { UniversalTransaction } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { CommonViewFilters } from '../view/view-utils.ts';
+import type { CommonViewFilters } from '../shared/view-utils.ts';
 
 /**
  * Gap category types for filtering.

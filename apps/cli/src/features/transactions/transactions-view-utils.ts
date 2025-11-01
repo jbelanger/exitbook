@@ -2,7 +2,7 @@
 
 import type { SourceType } from '@exitbook/core';
 
-import type { CommonViewFilters } from './view-utils.ts';
+import type { CommonViewFilters } from '../shared/view-utils.ts';
 
 /**
  * Parameters for view transactions command.

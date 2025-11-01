@@ -5,7 +5,7 @@ import type { Command } from 'commander';
 
 import { ExitCodes } from '../shared/exit-codes.ts';
 import { OutputManager } from '../shared/output.ts';
-import { buildViewMeta, type ViewCommandResult } from '../view/view-utils.ts';
+import { buildViewMeta, type ViewCommandResult } from '../shared/view-utils.ts';
 
 import { LinksViewHandler } from './links-view-handler.ts';
 import type { LinkInfo, LinksViewParams, LinksViewResult } from './links-view-utils.ts';

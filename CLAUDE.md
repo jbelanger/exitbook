@@ -44,11 +44,29 @@ pnpm run dev process --exchange kraken --session <id>
 pnpm run dev balance --exchange kraken --api-key YOUR_KEY --api-secret YOUR_SECRET
 pnpm run dev balance --blockchain bitcoin --address bc1q...
 
+# View import sessions
+pnpm run dev sessions view --source kraken --status completed
+
+# View processed transactions
+pnpm run dev transactions view --asset BTC --limit 100
+
+# View price coverage statistics
+pnpm run dev prices view --asset BTC --missing-only
+
 # Derive prices from transaction history (uses confirmed links for cross-platform price propagation)
 pnpm run dev prices derive
 
 # Fetch remaining prices from external providers
-pnpm run dev prices fetch
+pnpm run dev prices fetch --asset BTC --interactive
+
+# View transaction links
+pnpm run dev links view --status suggested
+
+# Run linking algorithm
+pnpm run dev links run
+
+# View data quality gaps
+pnpm run dev gaps view --category fees
 
 # Export transactions
 pnpm run dev export --exchange kraken --format csv --output ./reports/kraken.csv

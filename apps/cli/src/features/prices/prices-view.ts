@@ -5,17 +5,20 @@ import type { Command } from 'commander';
 
 import { ExitCodes } from '../shared/exit-codes.ts';
 import { OutputManager } from '../shared/output.ts';
+import type { ViewCommandResult } from '../shared/view-utils.ts';
+import { buildViewMeta } from '../shared/view-utils.ts';
 
-import { ViewPricesHandler } from './view-prices-handler.ts';
-import type { PriceCoverageInfo, ViewPricesParams, ViewPricesResult } from './view-prices-utils.ts';
-import { formatPriceCoverageListForDisplay } from './view-prices-utils.ts';
-import type { ViewCommandResult } from './view-utils.ts';
-import { buildViewMeta } from './view-utils.ts';
+import { ViewPricesHandler } from './prices-view-handler.ts';
+import type { PriceCoverageInfo, ViewPricesParams, ViewPricesResult } from './prices-view-utils.ts';
+import { formatPriceCoverageListForDisplay } from './prices-view-utils.ts';
 
 /**
  * Extended command options (adds CLI-specific flags).
  */
 export interface ExtendedViewPricesCommandOptions extends ViewPricesParams {
+  source?: string | undefined;
+  asset?: string | undefined;
+  missingOnly?: boolean | undefined;
   json?: boolean | undefined;
 }
 
@@ -28,20 +31,20 @@ type ViewPricesCommandResult = ViewCommandResult<{
 }>;
 
 /**
- * Register the view prices subcommand.
+ * Register the prices view subcommand.
  */
-export function registerViewPricesCommand(viewCommand: Command): void {
-  viewCommand
-    .command('prices')
+export function registerPricesViewCommand(pricesCommand: Command): void {
+  pricesCommand
+    .command('view')
     .description('View price coverage statistics')
     .addHelpText(
       'after',
       `
 Examples:
-  $ exitbook view prices                    # View price coverage for all assets
-  $ exitbook view prices --asset BTC        # View price coverage for Bitcoin only
-  $ exitbook view prices --missing-only     # Show only assets missing price data
-  $ exitbook view prices --source kraken    # View coverage for Kraken transactions
+  $ exitbook prices view                    # View price coverage for all assets
+  $ exitbook prices view --asset BTC        # View price coverage for Bitcoin only
+  $ exitbook prices view --missing-only     # Show only assets missing price data
+  $ exitbook prices view --source kraken    # View coverage for Kraken transactions
 
 Common Usage:
   - Identify which assets need price data before generating tax reports
@@ -67,7 +70,6 @@ async function executeViewPricesCommand(options: ExtendedViewPricesCommandOption
   try {
     // Build params from options
     const params: ViewPricesParams = {
-      source: options.source,
       asset: options.asset,
       missingOnly: options.missingOnly,
     };
@@ -102,7 +104,10 @@ async function executeViewPricesCommand(options: ExtendedViewPricesCommandOption
       return;
     }
 
-    handleViewPricesSuccess(output, result.value, params, spinner);
+    // Only call handleViewPricesSuccess if result is Ok
+    if (result.isOk()) {
+      handleViewPricesSuccess(output, result.value, params, spinner);
+    }
   } catch (error) {
     resetLoggerContext();
     output.error('view-prices', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
@@ -129,7 +134,6 @@ function handleViewPricesSuccess(
 
   // Prepare result data for JSON mode
   const filters: Record<string, unknown> = {};
-  if (params.source) filters.source = params.source;
   if (params.asset) filters.asset = params.asset;
   if (params.missingOnly) filters.missingOnly = params.missingOnly;
 

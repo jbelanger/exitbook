@@ -5,7 +5,7 @@ import type { Command } from 'commander';
 
 import { ExitCodes } from '../shared/exit-codes.ts';
 import { OutputManager } from '../shared/output.ts';
-import { buildViewMeta, type ViewCommandResult } from '../view/view-utils.ts';
+import { buildViewMeta, type ViewCommandResult } from '../shared/view-utils.ts';
 
 import { GapsViewHandler } from './gaps-view-handler.ts';
 import type { FeeGapAnalysis, GapCategory, GapsViewParams, GapsViewResult } from './gaps-view-utils.ts';
