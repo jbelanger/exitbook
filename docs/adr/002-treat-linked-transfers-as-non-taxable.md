@@ -574,22 +574,29 @@ class TransferChainDetector {
         // (Reuses existing providers like CoinGecko which have fiat rates)
         const fxRate = this.getFxRateToUSD(platformFee.asset, tx.datetime);
 
+        // Missing FX rate: Use zero for normalized amount (graceful degradation)
+        // This maintains accuracy and allows partial calculations
+        const normalizedAmount = fxRate.isOk() ? platformFee.amount.times(fxRate.value) : new Decimal(0);
+
         if (fxRate.isErr()) {
-          // Missing FX rate - will be handled by price validation later
           this.logger.warn(
-            { currency: platformFee.asset, tx: tx.id },
-            'Missing FX rate for external fee - will require manual entry'
+            {
+              currency: platformFee.asset,
+              amount: platformFee.amount.toString(),
+              tx: tx.id,
+              date: tx.datetime,
+            },
+            'Missing FX rate for external fee - using zero for cost basis adjustment. ' +
+              'This understates cost basis and may overstate capital gains. ' +
+              'Add FX rate via price enrichment to correct calculation.'
           );
         }
-
-        const rate = fxRate.isOk() ? fxRate.value : new Decimal(1); // Default 1:1 if missing
-        const normalizedAmount = platformFee.amount.times(rate);
 
         fees.push({
           amount: platformFee.amount,
           currency: platformFee.asset,
           normalizedAmount,
-          fxRate: fxRate.isOk() ? rate : undefined,
+          fxRate: fxRate.isOk() ? fxRate.value : undefined,
           fxSource: fxRate.isOk() ? 'price_enrichment' : undefined,
         });
       }
@@ -608,8 +615,8 @@ Third-asset fees (e.g., using BNB to pay for BTC withdrawal) are handled as sepa
 // When processing BNB transactions:
 for (const outflow of tx.movements.outflows.filter(o => o.asset === 'BNB')) {
 
-  // Check if this outflow is a fee for a transfer
-  const feeForTransfer = this.findTransferUsingFee(tx.id, outflow);
+  // Check if this outflow matches an explicit fee field for a transfer
+  const feeForTransfer = this.findTransferUsingFee(tx, outflow);
 
   if (feeForTransfer) {
     // Create disposal with transfer fee metadata
@@ -621,7 +628,7 @@ for (const outflow of tx.movements.outflows.filter(o => o.asset === 'BNB')) {
       primaryAsset: feeForTransfer.asset  // e.g., "BTC"
     };
   } else {
-    // Normal disposal
+    // Normal disposal (not a fee)
   }
 }
 ```
@@ -636,6 +643,102 @@ interface UniversalTransaction {
   };
 }
 ```
+
+**Critical Implementation Detail: Fee Identification**
+
+The linkage between third-asset fee outflows and their parent transactions MUST be explicit, not assumed:
+
+```typescript
+/**
+ * Identify if an outflow is a fee for a transfer
+ *
+ * CORRECT: Match against explicit fee fields in transaction
+ */
+private findTransferUsingFee(
+  tx: UniversalTransaction,
+  outflow: AssetMovement
+): { chainId: string; asset: string } | null {
+
+  // Find transfer chain for this transaction
+  const chain = this.transferProjection.findChainBySource(tx.id);
+  if (!chain) return null;
+
+  // Check if outflow matches transaction's explicit platform fee
+  const platformFee = tx.fees.platform;
+  if (
+    platformFee &&
+    platformFee.asset === outflow.asset &&
+    platformFee.amount.equals(outflow.amount)
+  ) {
+    return {
+      chainId: chain.id,
+      asset: chain.asset
+    };
+  }
+
+  // Check network fee (rare for third-asset, but possible)
+  const networkFee = tx.fees.network;
+  if (
+    networkFee &&
+    networkFee.asset === outflow.asset &&
+    networkFee.amount.equals(outflow.amount)
+  ) {
+    return {
+      chainId: chain.id,
+      asset: chain.asset
+    };
+  }
+
+  return null;
+}
+```
+
+**WRONG Approach (Do Not Implement)**:
+
+```typescript
+// ❌ INCORRECT: Assumes any BNB outflow during BTC transfer is a fee
+if (chain.asset === 'BTC' && outflow.asset === 'BNB') {
+  return { chainId: chain.id, asset: 'BTC' }; // WRONG!
+}
+```
+
+**Rationale**: Fee identification must be explicit to handle complex scenarios correctly:
+
+- User withdraws BTC and simultaneously swaps BNB → different transactions
+- User pays BNB fee for BTC withdrawal → fee is in `tx.fees.platform`
+- User sends BNB to another wallet during BTC withdrawal → separate outflow, not a fee
+
+The transaction's fee fields are the single source of truth. Importers and processors MUST populate these fields correctly from the source data.
+
+**Importer/Processor Responsibilities**:
+
+When implementing exchange or blockchain importers:
+
+1. Parse fee information from source data (CSV columns, API response fields)
+2. Populate `tx.fees.network` for blockchain network fees
+3. Populate `tx.fees.platform` for exchange/platform fees
+4. Ensure fee `AssetMovement` objects include correct asset and amount
+5. Include corresponding outflow in `tx.movements.outflows` (the actual asset movement)
+
+Example (Binance BTC withdrawal with BNB fee):
+
+```typescript
+{
+  movements: {
+    outflows: [
+      { asset: 'BTC', amount: new Decimal('1.0') },    // Primary transfer
+      { asset: 'BNB', amount: new Decimal('0.01') }    // Fee deduction
+    ]
+  },
+  fees: {
+    platform: { asset: 'BNB', amount: new Decimal('0.01') }  // Links to outflow
+  }
+}
+```
+
+The lot matcher will match the BNB outflow to `fees.platform`, create a taxable disposal, and mark it as a transfer fee.
+
+**Data Quality Risk**: If importers fail to populate fee fields correctly, legitimate fees will be misclassified as normal disposals (incorrect tax calculation). Mitigation: Clear importer documentation + optional post-import validation service to flag suspicious patterns (e.g., BNB outflow during BTC withdrawal without matching fee field).
 
 ### Price Handling
 
@@ -652,27 +755,46 @@ async calculate(...): Promise<Result<CostBasisSummary, Error>> {
     d => d.priceStatus === 'missing'
   );
 
-  if (missingPrices.length > 0) {
+  // Identify transfer fees with missing FX rates
+  const missingFxRates = transferChains
+    .flatMap(chain => chain.externalFees)
+    .filter(fee => !fee.fxRate);
+
+  if (missingPrices.length > 0 || missingFxRates.length > 0) {
     this.logger.warn(
-      { count: missingPrices.length },
-      'Some disposals missing price data - results incomplete'
+      {
+        missingPrices: missingPrices.length,
+        missingFxRates: missingFxRates.length
+      },
+      'Some disposals or fees missing price/FX data - results incomplete'
     );
 
     // Mark calculation as partial
     calculation.status = 'partial';
-    calculation.warnings = [{
-      type: 'missing_prices',
-      count: missingPrices.length,
-      disposals: missingPrices.map(d => ({
-        txId: d.disposalTransactionId,
-        asset: d.asset,
-        amount: d.quantityDisposed
-      }))
-    }];
+    calculation.warnings = [
+      ...(missingPrices.length > 0 ? [{
+        type: 'missing_prices',
+        count: missingPrices.length,
+        disposals: missingPrices.map(d => ({
+          txId: d.disposalTransactionId,
+          asset: d.asset,
+          amount: d.quantityDisposed
+        }))
+      }] : []),
+      ...(missingFxRates.length > 0 ? [{
+        type: 'missing_fx_rates',
+        count: missingFxRates.length,
+        fees: missingFxRates.map(f => ({
+          amount: f.amount,
+          currency: f.currency
+        }))
+      }] : [])
+    ];
   }
 
   // Continue calculation with available data
   // Zero proceeds for missing prices (conservative)
+  // Zero normalized amount for missing FX rates (conservative)
 }
 ```
 
@@ -681,19 +803,26 @@ Report clearly shows what's missing:
 ```
 Cost Basis Calculation Summary
 ==============================
-Status: Partial (2 prices missing)
+Status: Partial (2 crypto prices missing, 1 FX rate missing)
 
 Disposals: 45 total
 ├─ Complete: 43 (prices available)
 └─ Missing prices: 2 ⚠️
 
-Missing Prices:
+Missing Crypto Prices:
 - BTC @ 2024-02-01 12:00:00 UTC (tx #12345, network fee: 0.0005 BTC)
 - ETH @ 2024-03-15 08:30:00 UTC (tx #67890, platform fee: 0.01 ETH)
 
-Impact: Capital gains may be understated by ~$35 (estimated)
+Missing FX Rates:
+- EUR 1.50 @ 2024-02-01 12:00:00 UTC (tx #12345, platform fee)
 
-To add prices: pnpm run dev prices add --asset BTC --date "2024-02-01T12:00:00Z" --price 60000
+Impact:
+- Capital gains may be understated by ~$35 (missing crypto prices)
+- Cost basis understated by ~$1.60 (missing FX rates) - may result in overpaid tax
+
+To add prices:
+  pnpm run dev prices add --asset BTC --date "2024-02-01T12:00:00Z" --price 60000
+  pnpm run dev prices add --asset EUR --date "2024-02-01T12:00:00Z" --price 1.08
 ```
 
 ---
@@ -828,6 +957,19 @@ interface AssetMovement {
 
 For transfer chains, we track FX rates in `FeeEntry[]` within transfer chains. This is **transfer-scoped** and sufficient for MVP.
 
+**FX Rate Handling Strategy**:
+
+- **When FX rate is available**: Convert foreign currency fee to USD using the rate, add to cost basis
+- **When FX rate is missing**: Use zero for normalized amount
+  - Logs warning with full context (currency, amount, transaction, date)
+  - Reports missing FX rates clearly in calculation summary
+  - User can add rate via price enrichment and recalculate
+- **Rationale**:
+  - **Tax Compliance Priority**: Zero normalized amount means lower cost basis → higher capital gains → higher tax liability. This is "conservative" from a **tax authority perspective** - we cannot accidentally understate tax obligations.
+  - **User Impact**: Users may pay more tax than necessary until they provide the FX rate. However, this is transparent and correctable, whereas a 1:1 default would silently introduce errors that could violate tax regulations.
+  - **Consistency**: Aligns with graceful degradation pattern used for missing crypto prices (zero proceeds when price missing).
+  - **Auditability**: Clear reporting shows exactly what's missing, enabling users to make informed decisions about data completeness vs. calculation accuracy.
+
 **Future work**: Extend FX tracking to entire `AssetMovement` schema (separate ADR, broader impact).
 
 **MVP FX Rate Source**: Reuse existing price enrichment service (CoinGecko has fiat rates).
@@ -946,17 +1088,19 @@ Links: 2 confirmed links (≥95% confidence)
 
 ⚠️ **Link Quality Dependency**: Requires confirmed links ≥95% confidence (mitigated by manual review)
 ⚠️ **Database Changes**: Two new tables (transfer_chains, lot_transfers), both calculation-scoped
-⚠️ **Price Data Dependency**: Missing FX rates reduce accuracy (mitigated by clear reporting)
+⚠️ **Price Data Dependency**: Missing FX rates excluded from cost basis using zero (tax-compliant graceful degradation with clear reporting)
 ⚠️ **Rounding Tolerance**: 0.01% threshold may need tuning for high-precision assets
 ⚠️ **Calculation Rebuild Cost**: Chains rebuilt each run (acceptable for MVP, can optimize later)
 
 ### Negative
 
 ❌ **Processing Complexity**: Lot matcher must handle transfer logic alongside normal acquisitions/disposals
-❌ **Third-Asset Fee Detection**: Requires analyzing fee movements across different assets
+❌ **Third-Asset Fee Detection**: Requires explicit matching of outflows to transaction fee fields (strong dependency on importer data quality)
+❌ **Importer Data Quality**: Incorrect fee field population causes misclassified disposals; requires clear documentation and optional validation tooling
 ❌ **Testing Scope**: Need comprehensive tests for transfer scenarios and edge cases
 ❌ **Conservative Rejection**: Strict validation may reject valid edge cases (airdrops, bonuses) requiring manual handling
 ❌ **FX Rate Scope**: Only tracks FX rates for transfer fees, not entire AssetMovement schema (future work needed)
+❌ **Tax-Compliant FX Handling**: Missing FX rates use zero (understates cost basis → may overstate tax liability). Prioritizes compliance over user benefit; correctable by adding rates.
 
 ---
 
@@ -984,13 +1128,14 @@ Links: 2 confirmed links (≥95% confidence)
 2. ✅ Implement `handleTransferSource()` - creates lot transfers + fee disposals
 3. ✅ Implement `createLotFromTransfer()` - creates lots with inherited basis
 4. ✅ Update `matchAsset()` to skip intermediate transactions
-5. ✅ Handle third-asset fees via metadata
-6. ✅ Add graceful price handling (partial results)
+5. ✅ Implement `findTransferUsingFee()` - explicit matching of outflows to transaction fee fields (NOT assumption-based)
+6. ✅ Add graceful price/FX handling (partial results with zero for missing rates)
 7. ✅ Write integration tests:
    - Simple transfer with crypto fee
-   - Simple transfer with external fee
+   - Simple transfer with external fee (including missing FX rate)
    - Multi-hop transfer
-   - Third-asset fee scenario
+   - Third-asset fee scenario (explicit fee field matching)
+   - Third-asset fee rejection (outflow without matching fee field)
    - Missing price graceful degradation
 
 **Deliverable**: Cost basis calculation correctly handles transfers
@@ -1018,6 +1163,7 @@ These are workflow enhancements, not prerequisites:
 - **Manual price entry CLI**: `prices add` command for missing prices
 - **Transfer analysis report**: Detailed breakdown of all transfers
 - **Multi-currency external fees**: Support non-USD fiat fees
+- **Import validation service**: Post-import checks for suspicious patterns (e.g., fee asset outflows without matching fee fields)
 
 ---
 
@@ -1095,6 +1241,19 @@ TransferChain {
 Binance withdrawal: 1 BTC
 Network fee: None (Binance covers)
 Platform fee: 0.01 BNB (deducted from BNB balance)
+
+Transaction structure:
+{
+  movements: {
+    outflows: [
+      { asset: 'BTC', amount: 1.0 },
+      { asset: 'BNB', amount: 0.01 }
+    ]
+  },
+  fees: {
+    platform: { asset: 'BNB', amount: 0.01 }  // Explicit fee field
+  }
+}
 ```
 
 **Processing**:
@@ -1107,8 +1266,14 @@ handleTransferSource(tx #200, outflow: 1 BTC, chain) {
 
 // Process BNB outflow separately
 matchOutflowToLots(tx #200, outflow: 0.01 BNB) {
+  // Check if this outflow matches a fee field
+  const feeForTransfer = findTransferUsingFee(tx, outflow);
+  // Returns { chainId: chain.id, asset: 'BTC' } because:
+  //   tx.fees.platform.asset === 'BNB' && tx.fees.platform.amount === 0.01
+
   createDisposal(lot #70, 0.01 BNB, metadata: {
     transferFee: true,
+    transferChainId: feeForTransfer.chainId,
     feeType: 'third_asset_fee',
     primaryAsset: 'BTC'
   })
@@ -1118,7 +1283,7 @@ matchOutflowToLots(tx #200, outflow: 0.01 BNB) {
 **Result**:
 
 - BTC transfer: 1 BTC (non-taxable)
-- BNB disposal: 0.01 BNB (taxable)
+- BNB disposal: 0.01 BNB (taxable, marked as transfer fee)
 
 ---
 
