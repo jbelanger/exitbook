@@ -45,6 +45,7 @@ export const OperationTypeSchema = z.enum([
   'refund',
   'vote',
   'proposal',
+  'airdrop',
 ]);
 
 // Movement direction schema

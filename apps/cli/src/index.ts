@@ -10,6 +10,7 @@ import { registerBenchmarkRateLimitCommand } from './features/benchmark-rate-lim
 import { registerClearCommand } from './features/clear/clear.ts';
 import { registerCostBasisCommand } from './features/cost-basis/cost-basis.ts';
 import { registerExportCommand } from './features/export/export.ts';
+import { registerGapsCommand } from './features/gaps/gaps.ts';
 import { registerImportCommand } from './features/import/import.ts';
 import { registerLinksCommand } from './features/links/links.ts';
 import { registerListBlockchainsCommand } from './features/list-blockchains/list-blockchains.ts';
@@ -37,6 +38,9 @@ async function main() {
 
   // Links command - unified transaction link management (run, view, confirm, reject)
   registerLinksCommand(program);
+
+  // Gaps command - data quality inspection (view fees, prices, links, validation gaps)
+  registerGapsCommand(program);
 
   // Clear command
   registerClearCommand(program);

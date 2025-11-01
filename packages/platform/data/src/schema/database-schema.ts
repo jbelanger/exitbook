@@ -128,6 +128,7 @@ export interface TransactionsTable {
     | 'refund'
     | 'vote'
     | 'proposal'
+    | 'airdrop'
     | null;
 
   // Blockchain metadata
