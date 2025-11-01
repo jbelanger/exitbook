@@ -9,1114 +9,918 @@
 
 ## Context and Problem Statement
 
-The cost basis calculator currently treats **all asset movements as taxable events**:
+The cost basis calculator currently treats all asset movements as taxable events. When a user transfers cryptocurrency between their own accounts (exchange → wallet, wallet → wallet, wallet → exchange), the system incorrectly:
 
-- Inflows (deposits/receives) → Create acquisition lots
-- Outflows (withdrawals/sends) → Create disposals that trigger capital gains/losses
+1. Creates a **taxable disposal** at the source (triggering phantom capital gains/losses)
+2. Creates a **new acquisition** at the target (breaking the cost basis chain)
 
-This creates **incorrect tax treatment** for transfers between a user's own accounts (exchange → wallet, wallet → wallet, wallet → exchange), which are **non-taxable events** in most tax jurisdictions.
+This violates tax regulations in most jurisdictions, where self-to-self transfers are **non-taxable movements**.
 
-### The Problem: Transfers Treated as Taxable Disposals
-
-**Scenario: User transfers BTC from Kraken to their personal wallet**
+### Example Problem
 
 ```
-Jan 1, 2024:   Buy 1 BTC @ $50,000 on Kraken
-               ✅ Cost basis: $50,000
+Jan 1:  Buy 1 BTC @ $50,000 on Kraken
+        ✅ Cost basis: $50,000
 
-Feb 1, 2024:   Withdraw 1 BTC from Kraken (BTC @ $60,000)
-               - Network fee: 0.0005 BTC
-               - Platform fee: $1.50
-               ❌ CURRENT: Entire 1 BTC treated as DISPOSAL
-               ❌ Creates $10,000 capital gain (WRONG!)
+Feb 1:  Withdraw 1 BTC from Kraken (BTC @ $60,000)
+        Network fee: 0.0005 BTC
+        Platform fee: $1.50
 
-Feb 1, 2024:   Receive 0.9995 BTC in wallet
-               ❌ CURRENT: Treated as NEW ACQUISITION at $60,000
-               ❌ Breaks cost basis chain from original purchase
+        ❌ CURRENT BEHAVIOR:
+        - Disposal: 1 BTC @ $60,000 = $60,000 proceeds
+        - Capital gain: $10,000 (WRONG!)
+        - New acquisition: 0.9995 BTC @ $60,000 (WRONG!)
+
+        ✅ CORRECT BEHAVIOR:
+        - Transfer: 0.9995 BTC (non-taxable)
+        - Disposal: 0.0005 BTC fee @ $60,000 = $30 proceeds (taxable)
+        - New lot: 0.9995 BTC @ $50,015.03/BTC ($50,000 + $1.50 fees)
 ```
 
-**Current Cost Basis Chain (INCORRECT)**:
+### Tax Compliance Requirements
 
-```
-Kraken lot:    1 BTC @ $50,000  →  [DISPOSED] → $10,000 gain ❌
-Wallet lot:    0.9995 BTC @ $60,000 (new cost basis) ❌
-```
+**United States (IRS)**: Transfers between own wallets are not taxable. Network fees paid in crypto are taxable disposals.
 
-**Correct Cost Basis Chain (SHOULD BE)**:
+**Canada (CRA)**: Self-transfers are not dispositions. Fees may be added to cost basis or treated as disposals.
 
-```
-Kraken lot:    1 BTC @ $50,000  →  [TRANSFERRED] → No gain/loss ✅
-               ├─ 0.0005 BTC network fee → [DISPOSED] → Taxable ✅
-               └─ $1.50 platform fee → Added to cost basis ✅
-Wallet lot:    0.9995 BTC @ $50,000 + $1.50 = $50,001.50 total ✅
-```
+**United Kingdom (HMRC)**: Self-transfers are not disposals for CGT. Fees paid in crypto may constitute disposals.
 
-### Tax Treatment Requirements
+**European Union**: Most member states treat self-to-self transfers as non-taxable.
 
-According to tax regulations in major jurisdictions:
+### Existing Infrastructure
 
-- **United States (IRS)**: Transfers between your own wallets are not taxable events. Only trades, sales, and exchanges trigger capital gains. Network fees paid in crypto are taxable disposals.
-- **Canada (CRA)**: Moving cryptocurrency between your own accounts is not a disposition. Cost basis carries forward. Transaction fees are expenses that may be deductible or added to cost basis.
-- **United Kingdom (HMRC)**: Transfers between your own wallets are not disposals for Capital Gains Tax purposes. Fees paid in crypto may constitute disposals.
-- **European Union**: Most member states treat self-to-self transfers as non-taxable movements.
+The system already has the necessary components:
 
-### Infrastructure Already in Place
+- **Transaction Linking** (`packages/accounting/src/linking/`) - Detects related transactions with confidence scoring
+- **Link Graph Builder** - Groups transitively linked transactions using Union-Find
+- **Lot Matcher** (`packages/accounting/src/services/lot-matcher.ts`) - Chronologically processes transactions, creates lots and disposals
 
-The system **already has** the necessary infrastructure:
-
-✅ **Transaction Linking** (`packages/accounting/src/linking/`)
-
-- Detects and links related transactions based on asset, amount, timing, addresses
-- Confidence scoring with auto-confirmation for high-confidence matches
-- Status tracking: `suggested`, `confirmed`, `rejected`
-
-✅ **Link Graph Builder** (`packages/accounting/src/price-enrichment/link-graph-builder.ts`)
-
-- Uses Union-Find algorithm to group transitively linked transactions
-- Groups entire multi-hop transfer chains together
-- Already used for price propagation across platforms
-
-❌ **Missing**: Cost basis calculator doesn't use links to identify non-taxable transfers
+**What's missing**: The lot matcher doesn't consult transaction links to identify transfers.
 
 ---
 
 ## Decision
 
-We will **introduce a transfer graph preprocessing stage** that analyzes confirmed transaction links and produces explicit `TransferEvent` aggregates. These events are then consumed by the cost basis calculator to handle transfers as **non-taxable movements** rather than taxable disposals and acquisitions.
+We will extend the existing lot matcher to be **transfer-aware** by consulting confirmed transaction links during chronological processing. Transfers are treated as non-taxable movements that preserve cost basis, while fees are properly handled as taxable disposals or cost basis adjustments.
 
-### Key Principles
+### Core Principles
 
-1. **Separation of Concerns**: Transfer detection is decoupled from cost basis calculation through a clean event interface.
-
-2. **Multi-hop First-Class**: Transfer chains (exchange → blockchain → exchange) are detected and rolled up to the final destination explicitly. Intermediate transactions are excluded from lot matching.
-
-3. **Cost Basis Preservation**: The original cost basis flows through transfers via TransferEvent fields, prorated by the amount received.
-
-4. **Complex Fee Support**:
-   - Crypto fees (paid in same asset): Create taxable disposals
-   - External fees (fiat): Increase cost basis of received asset
-   - Third-asset fees (e.g., BNB for BTC withdrawal): Create separate taxable disposals
-   - **Hybrid scenarios**: Multiple fee types can occur simultaneously
-
-5. **Explicit State Tracking**: Transfer events track their processing state (`pending` → `source_processed` → `completed`) to prevent misuse of incomplete data.
-
-6. **Link Quality Assurance**: Only confirmed links with ≥95% confidence are used for cost basis calculations.
-
-7. **Price Data Requirements**: Calculation blocks if prices are missing for fee disposals. Manual price entry command provided.
-
-8. **Separate Tracking**: Transfers are tracked separately from disposals in dedicated tables to maintain a complete audit trail.
-
-9. **Strategy-Aware**: The lot matching strategy (FIFO/LIFO) determines which lots are transferred when multiple lots exist.
-
-10. **Explicit Ordering**: Source transactions MUST be processed before target transactions. The system fails fast with clear errors if this constraint is violated.
+1. **Minimal Persistence**: Store only transfer chain facts for audit/reproducibility, no state machines
+2. **Single-Pass Processing**: Extend existing chronological lot matching, no separate preprocessing stage
+3. **Simple Schema**: Reuse existing `LotDisposal` table for all disposals (including transfer fees)
+4. **Cost Basis Preservation**: Original cost basis flows through transfers via lot references
+5. **Fee Taxonomy**:
+   - **Crypto fees** (same asset): Taxable disposals from source lots
+   - **External fees** (fiat): Added to target cost basis
+   - **Third-asset fees** (e.g., BNB for BTC): Taxable disposals from separate lots
+6. **Link Quality**: Only confirmed links ≥95% confidence used
+7. **Graceful Degradation**: Calculate what's possible, report missing prices clearly
+8. **Chronological Ordering**: Existing sort guarantees source processed before target
 
 ---
 
 ## Architecture
 
-### Three-Stage Pipeline
+### Transfer Chain Storage (Calculation-Scoped)
 
-```
-Stage 1: Transfer Graph Analysis
-├─ Input: UniversalTransaction[], TransactionLink[] (≥95% confidence)
-├─ Process: Group transitively linked transactions
-├─ Detect: Simple (1:1) and multi-hop transfer patterns
-├─ Rollup: Multi-hop chains collapse to final destination
-├─ Fee Analysis:
-│  ├─ Crypto fees (same asset): amount difference
-│  ├─ External fees (fiat): from transaction metadata
-│  └─ Third-asset fees: detected from fee movements
-└─ Output: TransferEvent[] (state=pending, cost basis empty)
+Transfer chains are **calculation-scoped** - they are rebuilt fresh for each cost basis calculation run from the current state of confirmed transaction links. This ensures:
 
-Stage 2: Lot Matching (Modified)
-├─ Input: UniversalTransaction[], TransferEvent[]
-├─ Skip: Intermediate transactions in multi-hop chains
-├─ Process: Match transactions to lots using strategy (FIFO/LIFO)
-├─ Source Processing:
-│  ├─ Create disposal for crypto fees (taxable)
-│  ├─ Create disposal for third-asset fees (taxable)
-│  ├─ Calculate and populate cost basis on TransferEvent
-│  └─ Update state: pending → source_processed
-├─ Target Processing:
-│  ├─ Read cost basis from TransferEvent (fail if missing)
-│  ├─ Add external fees to cost basis
-│  └─ Update state: source_processed → completed
-├─ Price Validation:
-│  └─ Block if any fee disposal has zero proceeds
-└─ Output: AcquisitionLot[], LotDisposal[], LotTransfer[], ThirdAssetFeeDisposal[]
-
-Stage 3: Gain/Loss Calculation (Unchanged)
-├─ Input: LotDisposal[] (includes all fee disposals)
-├─ Process: Apply jurisdiction rules
-└─ Output: Capital gains/losses for tax reporting
-```
-
-### Why This Approach?
-
-**Leverages Existing Infrastructure:**
-
-- `LinkGraphBuilder` already groups transitively linked transactions
-- `TransactionGroup` represents complete transfer chains
-- Reuses proven Union-Find algorithm
-
-**Clean Boundaries:**
-
-- Transfer detection is independent and reusable
-- Accounting layer receives events, not raw links
-- No mutation of linking domain objects
-- Cost basis flows through explicit TransferEvent fields
-
-**Multi-Hop Native:**
-
-- Handles exchange→blockchain→exchange chains
-- Collapses to final destination transaction
-- Intermediate transactions excluded from lot matching
-- Accumulates fees across all hops
-
-**Tax Compliant:**
-
-- Fees paid in crypto (same or different asset) are properly treated as taxable disposals
-- External fiat fees increase cost basis
-- Original acquisition dates preserved through transfers
-- Hybrid fee scenarios fully supported
-
-**Explicit State Machine:**
-
-- Transfer events track processing state
-- Prevents using incomplete cost basis data
-- Clear error messages for state violations
-
----
-
-## Link Quality Assurance
-
-Transaction linking is **critical infrastructure** for this feature. Incorrect links will cause incorrect tax calculations.
-
-### Confidence Threshold
-
-- **Auto-confirmation**: Links with ≥95% confidence are automatically confirmed
-- **Manual review**: Links with 85-94% confidence remain `suggested` status
-- **Rejection**: Links with <85% confidence are not used
-
-### Link Quality Requirements
-
-For a link to be used in cost basis calculation:
-
-1. **Status**: Must be `confirmed`
-2. **Confidence**: Must be ≥95% (for auto-confirmed links)
-3. **Asset match**: Source outflow asset must match target inflow asset
-4. **Amount reasonable**: Within 10% variance (accounts for fees)
-5. **Timing reasonable**: Target within 24 hours of source (blockchain finality)
-
-### User Review Workflow
-
-Before cost basis calculation:
-
-1. **Link detection** runs automatically during import/processing
-2. **User reviews** suggested links via CLI:
-   ```bash
-   pnpm run dev links review --status suggested
-   pnpm run dev links confirm <link-id>
-   pnpm run dev links reject <link-id>
-   ```
-3. **Cost basis calculation** only uses confirmed links
-
-### Audit Trail
-
-All links log their matching criteria:
-
-- `metadata.matchedFields`: Which fields contributed to confidence
-- `metadata.confidenceBreakdown`: Score per matching criterion
-- `metadata.confirmedBy`: 'auto' or 'user'
-- `metadata.confirmedAt`: ISO 8601 timestamp
-
-### Validation
-
-Link sanity checks before use:
-
-- Source and target transactions exist
-- Asset symbols normalized (BTC = XBT = bitcoin)
-- No circular links (A→B→A)
-- No duplicate links for same transaction pair
-
----
-
-## Price Data Requirements
-
-Accurate price data is **required** for calculating proceeds on fee disposals. Missing prices result in incomplete tax calculations.
-
-### Blocking Behavior
-
-Cost basis calculation will **fail** if:
-
-- Any crypto fee disposal has zero proceeds (missing price)
-- Any third-asset fee disposal has zero proceeds (missing price)
-
-Error message includes:
-
-- Transaction ID and date
-- Asset symbol
-- Required price timestamp
-- Suggested price sources
-
-### Price Resolution Order
-
-For fee disposal proceeds:
-
-1. **Transaction metadata**: Use `fiatValue / amount` if present
-2. **Price enrichment service**: Use derived or fetched prices
-3. **Manual entry**: User provides price via CLI
-4. **Fallback**: Zero proceeds, block calculation
-
-### Manual Price Entry Command
-
-New CLI command for adding missing prices:
-
-```bash
-# Add single price
-pnpm run dev prices add --asset BTC --date "2024-02-01T12:00:00Z" --price 60000
-
-# Add from CSV (batch)
-pnpm run dev prices import --csv ./missing-prices.csv
-
-# Re-run calculation after adding prices
-pnpm run dev cost-basis calculate --recalculate
-```
-
-CSV format:
-
-```csv
-asset,timestamp,price_usd
-BTC,2024-02-01T12:00:00Z,60000.00
-ETH,2024-02-01T12:00:00Z,3200.00
-```
-
-### Price Status Tracking
-
-Each disposal tracks price availability:
+- Chains always reflect the current link state (no sync issues)
+- Perfect reproducibility (each calculation stores its chains for audit)
+- Simple lifecycle (no versioning, invalidation, or stale data)
 
 ```typescript
-export interface LotDisposal {
-  // ... existing fields ...
-  priceStatus: 'available' | 'estimated' | 'manual' | 'missing';
-  priceSource?: string; // e.g., "transaction_metadata", "coingecko", "manual_entry"
+/**
+ * Fee entry with currency tracking for external fees
+ */
+interface FeeEntry {
+  amount: Decimal;
+  currency: string; // Original currency (USD, EUR, etc.)
+  normalizedAmount: Decimal; // Converted to USD for cost basis
+  fxRate?: Decimal; // Exchange rate used (if conversion occurred)
+  fxSource?: string; // Where FX rate came from (e.g., "coingecko", "manual")
+}
+
+/**
+ * Transfer chain - facts about a linked transfer
+ *
+ * Lifecycle:
+ * 1. Built fresh at start of each cost basis calculation
+ * 2. Stored with calculation_id for audit trail
+ * 3. Never updated (immutable within calculation)
+ * 4. Next calculation rebuilds from current link state
+ */
+interface TransferChain {
+  id: string;
+  calculationId: string; // Which cost basis calculation this chain belongs to
+  asset: string;
+
+  // Transaction IDs
+  sourceTransactionId: number;
+  targetTransactionId: number;
+  intermediateTransactionIds: number[]; // For multi-hop chains
+
+  // Amounts (for validation)
+  sourceAmount: Decimal;
+  targetAmount: Decimal;
+
+  // Fees (for processing)
+  cryptoFee: Decimal; // Paid in transferred asset (taxable disposal)
+  externalFees: FeeEntry[]; // Fiat/multi-currency fees (added to cost basis)
+
+  // Variance tracking (for edge cases)
+  variance: Decimal; // Difference not explained by fees
+  varianceType?: 'rounding' | 'target_exceeds_source' | 'fee_mismatch';
+
+  // Link provenance
+  linkIds: string[]; // TransactionLink IDs forming this chain
+
+  createdAt: Date;
 }
 ```
 
-### User-Facing Reports
-
-Calculation summary includes:
-
-```
-Cost Basis Calculation Summary
-==============================
-Disposals: 45 total
-├─ Complete: 40 (prices available)
-├─ Manual prices: 3 (user-provided)
-└─ Missing prices: 2 (REQUIRES ATTENTION)
-
-Missing Prices:
-- BTC @ 2024-02-01 12:00:00 UTC (tx #12345, network fee)
-- ETH @ 2024-03-15 08:30:00 UTC (tx #67890, platform fee)
-
-Run: pnpm run dev prices add --help
-```
-
----
-
-## Timestamp Handling
-
-Chronological transaction ordering is **required** for correct FIFO/LIFO lot matching.
-
-### Ordering Rules
-
-Transactions sorted by:
-
-1. **Primary**: `datetime` field (ISO 8601 timestamp)
-2. **Tiebreaker**: `id` field (transaction ID, stable sort)
-
-### Timestamp Normalization
-
-All transaction timestamps normalized during import:
-
-- Convert to UTC
-- Precision: Seconds (milliseconds preserved but not used for ordering)
-- Validation: No future dates, no dates before 2009-01-03 (Bitcoin genesis)
-
-### Same-Second Transactions
-
-When multiple transactions have the same timestamp:
-
-- Use transaction ID as tiebreaker (ascending)
-- Ensures deterministic, reproducible ordering
-- Prevents ambiguity in FIFO/LIFO calculations
-
-Example:
-
-```
-datetime                  id    order
-2024-02-01T12:00:00Z     105      1  (lower ID processed first)
-2024-02-01T12:00:00Z     107      2
-2024-02-01T12:00:01Z     103      3  (newer timestamp)
-```
-
-### Exchange vs Blockchain Timing
-
-**Known issue**: Exchange timestamps (trade execution) may differ from blockchain timestamps (block confirmation) by minutes/hours.
-
-**Mitigation**: Transaction linking uses 24-hour window to account for this variance. User can manually adjust timestamps if needed:
-
-```bash
-pnpm run dev transactions adjust-time --id 12345 --datetime "2024-02-01T12:05:00Z"
-```
-
----
-
-## Implementation
-
-### 1. Updated Transfer Event Schema
+**Calculation Workflow**:
 
 ```typescript
-// packages/accounting/src/transfers/schemas.ts
+async calculate(...) {
+  const calculationId = uuidv4();
 
-import { DateSchema, DecimalSchema } from '@exitbook/core';
-import { z } from 'zod';
+  // 1. Load current confirmed links
+  const confirmedLinks = await linkRepo.findConfirmed();
 
-/**
- * Processing state of transfer event
- */
-export const TransferProcessingStateSchema = z.enum([
-  'pending', // Created in Stage 1, cost basis not yet calculated
-  'source_processed', // Source transaction processed, cost basis populated
-  'completed', // Target transaction processed successfully
-]);
-
-/**
- * Type of transfer event
- */
-export const TransferEventTypeSchema = z.enum([
-  'simple', // 1 source → 1 target (most common)
-  'multi_hop', // source → intermediate(s) → target (collapsed to endpoints)
-]);
-
-/**
- * Fee entry for transfers
- * Supports multiple simultaneous fees (hybrid scenarios)
- */
-export const TransferFeeSchema = z.object({
-  // Fee asset (e.g., "BTC" for crypto fee, "USD" for fiat fee, "BNB" for third-asset fee)
-  asset: z.string(),
-
-  // Fee amount in the asset
-  amount: DecimalSchema,
-
-  // Fee type determines tax treatment
-  type: z.enum([
-    'crypto_fee', // Fee paid in same asset as transfer (taxable disposal)
-    'external_fee', // Fee paid in fiat (increases cost basis)
-    'third_asset_fee', // Fee paid in different crypto (separate taxable disposal)
-  ]),
-
-  // Fiat value (required for external_fee and third_asset_fee)
-  fiatValue: DecimalSchema.optional(),
-});
-
-export type TransferFee = z.infer<typeof TransferFeeSchema>;
-
-/**
- * Transfer event schema (REVISED)
- *
- * Supports complex fee scenarios:
- * - Multiple fees on one transfer (e.g., 0.0005 BTC network + $1.50 platform)
- * - Fees paid in third asset (e.g., BNB for BTC withdrawal)
- * - Hybrid combinations of above
- *
- * Processing lifecycle:
- * 1. Stage 1: Created with state=pending, costBasisPerUnit=undefined
- * 2. Stage 2 (source): Populated with cost basis, state=source_processed
- * 3. Stage 2 (target): Uses cost basis, state=completed
- */
-export const TransferEventSchema = z
-  .object({
-    id: z.string().uuid(),
-    asset: z.string(), // Primary asset being transferred
-
-    // Processing state (explicit state machine)
-    processingState: TransferProcessingStateSchema,
-
-    // Source transaction (where assets leave)
-    sourceTransactionId: z.number().int().positive(),
-    sourceAmount: DecimalSchema,
-
-    // Target transaction (where assets arrive) - FINAL destination for multi-hop
-    targetTransactionId: z.number().int().positive(),
-    targetAmount: DecimalSchema,
-
-    // For multi-hop: intermediate transaction IDs between source and target
-    // These transactions are SKIPPED during lot matching to avoid double-counting
-    intermediateTransactionIds: z.array(z.number().int().positive()).default([]),
-
-    // Fee analysis (REVISED: supports multiple fees)
-    fees: z.array(TransferFeeSchema).default([]),
-
-    // Event type
-    eventType: TransferEventTypeSchema,
-
-    // All link IDs forming the chain
-    linkChain: z.array(z.string()),
-
-    // Cost basis (populated during source transaction processing in Stage 2)
-    // REQUIRED before target transaction can be processed
-    costBasisPerUnit: DecimalSchema.optional(),
-    totalCostBasis: DecimalSchema.optional(),
-
-    createdAt: DateSchema,
-    updatedAt: DateSchema,
-    metadata: z.record(z.string(), z.unknown()).optional(),
-  })
-  .refine(
-    (data) => {
-      // Validate state transitions
-      if (data.processingState === 'pending') {
-        // Pending: cost basis must be empty
-        return !data.costBasisPerUnit && !data.totalCostBasis;
-      }
-      if (data.processingState === 'source_processed' || data.processingState === 'completed') {
-        // Processed states: cost basis must be populated
-        return data.costBasisPerUnit && data.totalCostBasis;
-      }
-      return true;
-    },
-    {
-      message: 'Processing state must match cost basis population: pending=empty, source_processed/completed=populated',
-    }
-  )
-  .refine(
-    (data) => {
-      // Validate fee types
-      for (const fee of data.fees) {
-        if (fee.type === 'crypto_fee' && fee.asset !== data.asset) {
-          return false; // Crypto fee must be in same asset as transfer
-        }
-        if ((fee.type === 'external_fee' || fee.type === 'third_asset_fee') && !fee.fiatValue) {
-          return false; // External and third-asset fees require fiat value
-        }
-      }
-      return true;
-    },
-    {
-      message: 'Fee types must be consistent: crypto_fee in same asset, external/third_asset with fiatValue',
-    }
+  // 2. Build fresh chains for THIS calculation
+  const chainResult = transferChainDetector.detect(
+    transactions,
+    confirmedLinks,
+    calculationId
   );
+  if (chainResult.isErr()) return err(chainResult.error);
 
-export type TransferEvent = z.infer<typeof TransferEventSchema>;
-```
+  // 3. Use chains during lot matching
+  const matchResult = lotMatcher.match(transactions, config, chainResult.value);
 
-### 2. Third-Asset Fee Disposal Schema
-
-```typescript
-// packages/accounting/src/domain/schemas.ts
-
-/**
- * Disposal created for fees paid in a different crypto asset
- * Example: Using BNB to pay withdrawal fee for BTC
- *
- * These are tracked separately from regular disposals for clarity
- */
-export const ThirdAssetFeeDisposalSchema = z.object({
-  id: z.string().uuid(),
-  transferEventId: z.string().uuid(), // Associated transfer event
-  disposalTransactionId: z.number().int().positive(),
-
-  // Fee asset (different from transfer asset)
-  feeAsset: z.string(),
-  feeAmount: DecimalSchema,
-
-  // Lot information (which lot the fee came from)
-  lotId: z.string().uuid(),
-  costBasisPerUnit: DecimalSchema,
-  totalCostBasis: DecimalSchema,
-
-  // Proceeds (market value at time of fee payment)
-  proceedsPerUnit: DecimalSchema,
-  totalProceeds: DecimalSchema,
-  priceStatus: z.enum(['available', 'estimated', 'manual', 'missing']),
-  priceSource: z.string().optional(),
-
-  disposalDate: DateSchema,
-  createdAt: DateSchema,
-  metadata: z.record(z.string(), z.unknown()).optional(),
-});
-
-export type ThirdAssetFeeDisposal = z.infer<typeof ThirdAssetFeeDisposalSchema>;
-```
-
-### 3. Modified Transfer Graph Analyzer
-
-The analyzer is updated to detect multiple fee types:
-
-```typescript
-// packages/accounting/src/transfers/transfer-graph-analyzer.ts
-
-/**
- * Analyze fee structure to determine all fees
- *
- * Returns array of fees (supports hybrid scenarios)
- */
-private analyzeFees(
-  sourceTx: UniversalTransaction,
-  targetTx: UniversalTransaction,
-  asset: string,
-  sourceAmount: Decimal,
-  targetAmount: Decimal
-): TransferFee[] {
-  const fees: TransferFee[] = [];
-
-  // 1. Check for crypto fee (amount difference in transferred asset)
-  const amountDifference = sourceAmount.minus(targetAmount);
-  if (amountDifference.isPositive()) {
-    fees.push({
-      asset,
-      amount: amountDifference,
-      type: 'crypto_fee',
-    });
-  }
-
-  // 2. Check for external fiat fees from transaction metadata
-  const fiatFees = this.extractFiatFees(sourceTx);
-  if (fiatFees.isPositive()) {
-    fees.push({
-      asset: 'USD', // Assume USD for now, TODO: multi-currency support
-      amount: fiatFees,
-      type: 'external_fee',
-      fiatValue: fiatFees,
-    });
-  }
-
-  // 3. Check for third-asset fees (e.g., BNB for BTC withdrawal)
-  const thirdAssetFees = this.extractThirdAssetFees(sourceTx, asset);
-  fees.push(...thirdAssetFees);
-
-  return fees;
+  // 4. Store chains with calculation for audit trail
+  await chainRepo.createForCalculation(calculationId, chainResult.value);
 }
+```
 
-/**
- * Extract fees paid in a different crypto asset
- */
-private extractThirdAssetFees(
+### Transfer-Aware Lot Matcher (Single Pass)
+
+Extend existing `LotMatcher.matchAsset()` to consult transfer chains:
+
+```typescript
+class LotMatcher {
+  match(
+    transactions: UniversalTransaction[],
+    config: LotMatcherConfig,
+    transferChains: TransferChain[] = []
+  ): Result<LotMatchResult, Error> {
+    // Build lookup projection (in-memory, deterministic)
+    const projection = new TransferProjection(transferChains);
+
+    for (const tx of sortedTransactions) {
+      // Skip intermediate transactions in multi-hop chains
+      if (projection.isIntermediate(tx.id)) {
+        continue;
+      }
+
+      // Process outflows
+      for (const outflow of tx.movements.outflows) {
+        const chain = projection.findChainBySource(tx.id, outflow.asset);
+
+        if (chain) {
+          // TRANSFER SOURCE: Create lot transfer + fee disposal
+          this.handleTransferSource(tx, outflow, chain, lots, config);
+        } else {
+          // NORMAL DISPOSAL: Existing logic
+          this.matchOutflowToLots(tx, outflow, lots, config);
+        }
+      }
+
+      // Process inflows
+      for (const inflow of tx.movements.inflows) {
+        const chain = projection.findChainByTarget(tx.id, inflow.asset);
+
+        if (chain) {
+          // TRANSFER TARGET: Create lot with inherited basis
+          this.createLotFromTransfer(tx, inflow, chain, lots, config);
+        } else {
+          // NORMAL ACQUISITION: Existing logic
+          this.createLotFromInflow(tx, inflow, config);
+        }
+      }
+    }
+  }
+}
+```
+
+### Transfer Source Handling
+
+```typescript
+private handleTransferSource(
   tx: UniversalTransaction,
-  transferAsset: string
-): TransferFee[] {
-  const fees: TransferFee[] = [];
+  outflow: AssetMovement,
+  chain: TransferChain,
+  lots: AcquisitionLot[],
+  config: LotMatcherConfig
+): Result<void, Error> {
 
-  // Check transaction fee movements for different assets
-  const feeMovements = tx.movements.fees || [];
+  // Match lots for the transfer (non-taxable)
+  const transferAmount = outflow.amount.minus(chain.cryptoFee);
+  const matchedLots = config.strategy.matchDisposal(
+    { quantity: transferAmount, asset: outflow.asset, ... },
+    openLots
+  );
 
-  for (const fee of feeMovements) {
-    // Skip if fee is in the same asset (handled as crypto_fee)
-    if (fee.asset === transferAsset) {
-      continue;
-    }
+  // Create LotTransfer records (non-taxable)
+  for (const match of matchedLots) {
+    lotTransfers.push({
+      sourceLotId: match.lotId,
+      transferChainId: chain.id,
+      quantityTransferred: match.quantityDisposed,
+      costBasisPerUnit: match.costBasisPerUnit,
+      // Used to create target lot later
+    });
 
-    // This is a third-asset fee (e.g., BNB for BTC withdrawal)
-    fees.push({
-      asset: fee.asset,
-      amount: fee.amount,
-      type: 'third_asset_fee',
-      fiatValue: fee.fiatValue,
+    // Update lot status
+    lot.remainingQuantity -= match.quantityDisposed;
+  }
+
+  // Create disposal for crypto fee (taxable)
+  if (chain.cryptoFee.gt(0)) {
+    const feeDisposal = config.strategy.matchDisposal(
+      { quantity: chain.cryptoFee, ... },
+      openLots
+    );
+
+    disposals.push({
+      ...feeDisposal,
+      metadata: {
+        transferFee: true,
+        transferChainId: chain.id
+      }
     });
   }
 
-  return fees;
+  // Third-asset fees handled separately (they're different assets)
+  // Will be matched when processing that asset's outflows
 }
 ```
 
-### 4. Modified LotMatcher for Complex Fees
-
-Updated `handleTransferOut()` to process all fee types:
-
-```typescript
-// packages/accounting/src/services/lot-matcher.ts
-
-private handleTransferOut(
-  transaction: UniversalTransaction,
-  outflow: AssetMovement,
-  transferEvent: TransferEvent,
-  allLots: AcquisitionLot[],
-  config: LotMatcherConfig
-): Result<{
-  transfers: LotTransfer[];
-  cryptoFeeDisposal?: LotDisposal;
-  thirdAssetFeeDisposals: ThirdAssetFeeDisposal[];
-}, Error> {
-  // Verify state transition
-  if (transferEvent.processingState !== 'pending') {
-    return err(new Error(
-      `Transfer event ${transferEvent.id} state is ${transferEvent.processingState}, expected pending. ` +
-      `This indicates duplicate or out-of-order processing.`
-    ));
-  }
-
-  // ... existing lot matching logic ...
-
-  // Process fees by type
-  let cryptoFeeDisposal: LotDisposal | undefined;
-  const thirdAssetFeeDisposals: ThirdAssetFeeDisposal[] = [];
-
-  for (const fee of transferEvent.fees) {
-    if (fee.type === 'crypto_fee') {
-      // Crypto fee: create disposal from transfer lots (already handled above)
-      // ... existing crypto fee logic ...
-    } else if (fee.type === 'external_fee') {
-      // External fee: add to cost basis (handled in createLotFromTransfer)
-      // No disposal created
-    } else if (fee.type === 'third_asset_fee') {
-      // Third-asset fee: create separate disposal
-      const feeDisposalResult = this.createThirdAssetFeeDisposal(
-        transaction,
-        fee,
-        transferEvent,
-        allLots,
-        config
-      );
-      if (feeDisposalResult.isErr()) return err(feeDisposalResult.error);
-      thirdAssetFeeDisposals.push(feeDisposalResult.value);
-    }
-  }
-
-  // UPDATE STATE: pending → source_processed
-  transferEvent.processingState = 'source_processed';
-  transferEvent.costBasisPerUnit = avgCostBasisPerUnit;
-  transferEvent.totalCostBasis = totalTransferCostBasis;
-  transferEvent.updatedAt = new Date();
-
-  return ok({ transfers, cryptoFeeDisposal, thirdAssetFeeDisposals });
-}
-
-/**
- * Create disposal for fee paid in different crypto asset
- */
-private createThirdAssetFeeDisposal(
-  transaction: UniversalTransaction,
-  fee: TransferFee,
-  transferEvent: TransferEvent,
-  allLots: AcquisitionLot[],
-  config: LotMatcherConfig
-): Result<ThirdAssetFeeDisposal, Error> {
-  // Find open lots for the fee asset
-  const openLots = allLots.filter(
-    lot => lot.asset === fee.asset &&
-           (lot.status === 'open' || lot.status === 'partially_disposed')
-  );
-
-  if (openLots.length === 0) {
-    return err(new Error(
-      `No open lots available for third-asset fee: ${fee.amount} ${fee.asset} ` +
-      `in transaction ${transaction.id}. Cannot create fee disposal.`
-    ));
-  }
-
-  // Use strategy to match which lot to use
-  const disposal = {
-    transactionId: transaction.id,
-    asset: fee.asset,
-    quantity: fee.amount,
-    date: new Date(transaction.datetime),
-    proceedsPerUnit: new Decimal(0), // Will be calculated from price
-  };
-
-  const lotDisposals = config.strategy.matchDisposal(disposal, openLots);
-
-  if (lotDisposals.length === 0) {
-    return err(new Error(`Failed to match lot for third-asset fee disposal`));
-  }
-
-  // Take first lot disposal (should only be one for fee)
-  const lotDisposal = lotDisposals[0];
-  const lot = openLots.find(l => l.id === lotDisposal.lotId);
-
-  if (!lot) {
-    return err(new Error(`Lot ${lotDisposal.lotId} not found`));
-  }
-
-  // Update lot
-  lot.remainingQuantity = lot.remainingQuantity.minus(fee.amount);
-  if (lot.remainingQuantity.isZero()) {
-    lot.status = 'fully_disposed';
-  } else {
-    lot.status = 'partially_disposed';
-  }
-  lot.updatedAt = new Date();
-
-  // Calculate proceeds from price
-  const priceResult = this.getAssetPrice(transaction, fee.asset);
-
-  let priceStatus: 'available' | 'estimated' | 'manual' | 'missing';
-  let priceSource: string | undefined;
-  let price: Decimal;
-
-  if (priceResult.isOk()) {
-    price = priceResult.value.price;
-    priceStatus = priceResult.value.status;
-    priceSource = priceResult.value.source;
-  } else {
-    // Price missing - block calculation
-    price = new Decimal(0);
-    priceStatus = 'missing';
-    this.logger.error(
-      { txId: transaction.id, asset: fee.asset, amount: fee.amount.toString() },
-      'Missing price for third-asset fee disposal - calculation will be blocked'
-    );
-  }
-
-  const proceeds = price.times(fee.amount);
-
-  return ok({
-    id: uuidv4(),
-    transferEventId: transferEvent.id,
-    disposalTransactionId: transaction.id,
-    feeAsset: fee.asset,
-    feeAmount: fee.amount,
-    lotId: lot.id,
-    costBasisPerUnit: lot.costBasisPerUnit,
-    totalCostBasis: lot.costBasisPerUnit.times(fee.amount),
-    proceedsPerUnit: price,
-    totalProceeds: proceeds,
-    priceStatus,
-    priceSource,
-    disposalDate: new Date(transaction.datetime),
-    createdAt: new Date(),
-    metadata: {
-      transferFee: true,
-      thirdAssetFee: true,
-    },
-  });
-}
-```
-
-### 5. Target Transaction Processing
-
-When processing target transaction, update state:
+### Transfer Target Handling
 
 ```typescript
 private createLotFromTransfer(
-  transaction: UniversalTransaction,
+  tx: UniversalTransaction,
   inflow: AssetMovement,
-  transferEvent: TransferEvent,
+  chain: TransferChain,
+  lots: AcquisitionLot[],
   config: LotMatcherConfig
 ): Result<AcquisitionLot, Error> {
-  // Verify state
-  if (transferEvent.processingState !== 'source_processed') {
-    return err(new Error(
-      `Transfer event ${transferEvent.id} state is ${transferEvent.processingState}, ` +
-      `expected source_processed. Source transaction ${transferEvent.sourceTransactionId} ` +
-      `must be processed before target transaction ${transaction.id}.`
-    ));
+
+  // Find lot transfers for this chain
+  const transfers = lotTransfers.filter(t => t.transferChainId === chain.id);
+
+  // Calculate weighted average cost basis from source lots
+  let totalCostBasis = new Decimal(0);
+  let totalQuantity = new Decimal(0);
+
+  for (const transfer of transfers) {
+    totalCostBasis = totalCostBasis.plus(
+      transfer.costBasisPerUnit.times(transfer.quantityTransferred)
+    );
+    totalQuantity = totalQuantity.plus(transfer.quantityTransferred);
   }
 
-  // Cost basis should be populated
-  if (!transferEvent.costBasisPerUnit || !transferEvent.totalCostBasis) {
-    return err(new Error(
-      `Transfer event ${transferEvent.id} is missing cost basis despite being in ` +
-      `source_processed state. This indicates a bug in source processing.`
-    ));
+  // Add external fees to cost basis (sum normalized amounts from all fee entries)
+  for (const fee of chain.externalFees) {
+    totalCostBasis = totalCostBasis.plus(fee.normalizedAmount);
   }
 
-  const transferredCostBasisPerUnit = transferEvent.costBasisPerUnit;
-
-  // Add external fees to cost basis
-  let adjustedCostBasis = transferredCostBasisPerUnit;
-
-  for (const fee of transferEvent.fees) {
-    if (fee.type === 'external_fee' && fee.fiatValue) {
-      // Spread external fee cost across received amount
-      const feePerUnit = fee.fiatValue.dividedBy(inflow.amount);
-      adjustedCostBasis = adjustedCostBasis.plus(feePerUnit);
-    }
-  }
-
-  // UPDATE STATE: source_processed → completed
-  transferEvent.processingState = 'completed';
-  transferEvent.updatedAt = new Date();
+  // Create new lot with inherited + adjusted cost basis
+  const costBasisPerUnit = totalCostBasis.dividedBy(inflow.amount);
 
   return ok(createAcquisitionLot({
-    id: uuidv4(),
-    calculationId: config.calculationId,
-    acquisitionTransactionId: transaction.id,
+    acquisitionTransactionId: tx.id,
     asset: inflow.asset,
     quantity: inflow.amount,
-    costBasisPerUnit: adjustedCostBasis,
-    method: config.strategy.getName(),
-    transactionDate: new Date(transaction.datetime),
+    costBasisPerUnit,
+    metadata: {
+      transferReceived: true,
+      transferChainId: chain.id,
+      sourceLotIds: transfers.map(t => t.sourceLotId)
+    }
   }));
 }
 ```
 
-### 6. Price Validation
+### Multi-Hop Transfer Chains
 
-Before completing calculation, validate all fee disposals have prices:
+Multi-hop chains (exchange → blockchain → exchange) are collapsed to source + target:
 
-```typescript
-// packages/accounting/src/services/cost-basis-calculator.ts
+```
+Kraken (tx #100) → Blockchain (tx #101) → Coinbase (tx #102)
 
-async calculate(
-  transactions: UniversalTransaction[],
-  config: CostBasisConfig,
-  rules: IJurisdictionRules
-): Promise<Result<CostBasisSummary, Error>> {
-  // ... stages 1-2 ...
+TransferChain:
+  sourceTransactionId: 100
+  targetTransactionId: 102
+  intermediateTransactionIds: [101]
 
-  // VALIDATION: Check for missing prices
-  const allDisposals = lotMatchResult.assetResults.flatMap(r => r.disposals);
-  const missingPrices = allDisposals.filter(d => d.priceStatus === 'missing');
-
-  if (missingPrices.length > 0) {
-    const errorDetails = missingPrices.map(d => {
-      const tx = transactions.find(t => t.id === d.disposalTransactionId);
-      return `- ${d.asset} @ ${tx?.datetime || 'unknown date'} (tx #${d.disposalTransactionId})`;
-    }).join('\n');
-
-    const errorMessage =
-      `Cost basis calculation blocked due to missing price data.\n\n` +
-      `Missing prices for ${missingPrices.length} fee disposal(s):\n` +
-      `${errorDetails}\n\n` +
-      `Resolution:\n` +
-      `1. Run: pnpm run dev prices fetch (try fetching from external sources)\n` +
-      `2. Or add manually: pnpm run dev prices add --asset <ASSET> --date <DATE> --price <PRICE>\n` +
-      `3. Then re-run: pnpm run dev cost-basis calculate`;
-
-    await this.updateCalculationStatus(calculationId, 'failed', errorMessage);
-    return err(new Error(errorMessage));
-  }
-
-  // ... continue with stage 3 ...
-}
+Processing:
+  tx #100: Create lot transfer + fee disposal
+  tx #101: SKIP (intermediate)
+  tx #102: Create lot from transfer
 ```
 
-### 7. Database Schema Updates
+The Union-Find algorithm in `LinkGraphBuilder` already handles transitive linking.
+
+---
+
+## Implementation Details
+
+### Database Schema
+
+**New table: `transfer_chains`** (calculation-scoped)
 
 ```sql
--- Migration: packages/data/src/migrations/001_initial_schema.ts
-
--- Updated table: transfer_events (with processing state and fees array)
-CREATE TABLE transfer_events (
+CREATE TABLE transfer_chains (
   id TEXT PRIMARY KEY,
+  calculation_id TEXT NOT NULL REFERENCES cost_basis_calculations(id) ON DELETE CASCADE,
   asset TEXT NOT NULL,
 
-  -- Processing state (explicit state machine)
-  processing_state TEXT NOT NULL DEFAULT 'pending',
+  -- Transaction references
+  source_transaction_id INTEGER NOT NULL REFERENCES transactions(id),
+  target_transaction_id INTEGER NOT NULL REFERENCES transactions(id),
+  intermediate_transaction_ids TEXT,  -- JSON array of integers
 
-  -- Source and target transactions
-  source_transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+  -- Amounts (stored as TEXT for Decimal precision)
   source_amount TEXT NOT NULL,
-  target_transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
   target_amount TEXT NOT NULL,
+  crypto_fee TEXT NOT NULL,
 
-  -- Multi-hop support
-  intermediate_transaction_ids TEXT, -- JSON array
+  -- External fees (JSON array of FeeEntry objects)
+  -- Example: [{"amount":"1.50","currency":"USD","normalizedAmount":"1.50","fxRate":"1.0","fxSource":"manual"}]
+  external_fees_json TEXT NOT NULL DEFAULT '[]',
 
-  -- Fee analysis (REVISED: stored as JSON array of TransferFee objects)
-  fees_json TEXT NOT NULL DEFAULT '[]',
+  -- Variance tracking (for edge cases)
+  variance TEXT NOT NULL DEFAULT '0',
+  variance_type TEXT,  -- 'rounding', 'target_exceeds_source', 'fee_mismatch'
 
-  -- Event type
-  event_type TEXT NOT NULL,
+  -- Link provenance
+  link_ids TEXT NOT NULL,  -- JSON array of link IDs
 
-  -- Link chain
-  link_chain_json TEXT NOT NULL,
-
-  -- Cost basis (populated during Stage 2)
-  cost_basis_per_unit TEXT,
-  total_cost_basis TEXT,
-
-  -- Timestamps
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  metadata_json TEXT,
 
-  CONSTRAINT transfer_events_amounts_positive CHECK (
+  CONSTRAINT transfer_chains_amounts_positive CHECK (
     CAST(source_amount AS REAL) > 0 AND
     CAST(target_amount AS REAL) > 0
   ),
-  CONSTRAINT transfer_events_type_valid CHECK (
-    event_type IN ('simple', 'multi_hop')
-  ),
-  CONSTRAINT transfer_events_state_valid CHECK (
-    processing_state IN ('pending', 'source_processed', 'completed')
+  CONSTRAINT transfer_chains_variance_type_valid CHECK (
+    variance_type IS NULL OR
+    variance_type IN ('rounding', 'target_exceeds_source', 'fee_mismatch')
   )
 );
 
--- Indexes for transfer_events
-CREATE INDEX idx_transfer_events_source ON transfer_events(source_transaction_id);
-CREATE INDEX idx_transfer_events_target ON transfer_events(target_transaction_id);
-CREATE INDEX idx_transfer_events_asset ON transfer_events(asset);
-CREATE INDEX idx_transfer_events_type ON transfer_events(event_type);
-CREATE INDEX idx_transfer_events_state ON transfer_events(processing_state);
+CREATE INDEX idx_transfer_chains_calculation ON transfer_chains(calculation_id);
+CREATE INDEX idx_transfer_chains_source ON transfer_chains(source_transaction_id);
+CREATE INDEX idx_transfer_chains_target ON transfer_chains(target_transaction_id);
+CREATE INDEX idx_transfer_chains_asset ON transfer_chains(asset);
+```
 
--- New table: third_asset_fee_disposals
-CREATE TABLE third_asset_fee_disposals (
-  id TEXT PRIMARY KEY,
-  transfer_event_id TEXT NOT NULL REFERENCES transfer_events(id) ON DELETE CASCADE,
-  disposal_transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+**New table: `lot_transfers`** (calculation-scoped)
 
-  -- Fee details
-  fee_asset TEXT NOT NULL,
-  fee_amount TEXT NOT NULL,
-
-  -- Lot information
-  lot_id TEXT NOT NULL REFERENCES acquisition_lots(id) ON DELETE CASCADE,
-  cost_basis_per_unit TEXT NOT NULL,
-  total_cost_basis TEXT NOT NULL,
-
-  -- Proceeds
-  proceeds_per_unit TEXT NOT NULL,
-  total_proceeds TEXT NOT NULL,
-  price_status TEXT NOT NULL,
-  price_source TEXT,
-
-  -- Timestamps
-  disposal_date TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  metadata_json TEXT,
-
-  CONSTRAINT third_asset_fee_amount_positive CHECK (CAST(fee_amount AS REAL) > 0),
-  CONSTRAINT third_asset_fee_price_status_valid CHECK (
-    price_status IN ('available', 'estimated', 'manual', 'missing')
-  )
-);
-
--- Indexes for third_asset_fee_disposals
-CREATE INDEX idx_third_asset_fee_transfer ON third_asset_fee_disposals(transfer_event_id);
-CREATE INDEX idx_third_asset_fee_disposal_tx ON third_asset_fee_disposals(disposal_transaction_id);
-CREATE INDEX idx_third_asset_fee_lot ON third_asset_fee_disposals(lot_id);
-CREATE INDEX idx_third_asset_fee_asset ON third_asset_fee_disposals(fee_asset);
-CREATE INDEX idx_third_asset_fee_date ON third_asset_fee_disposals(disposal_date);
-
--- Updated table: lot_disposals (add price status tracking)
-ALTER TABLE lot_disposals ADD COLUMN price_status TEXT NOT NULL DEFAULT 'available';
-ALTER TABLE lot_disposals ADD COLUMN price_source TEXT;
-
--- Update existing lot_transfers table (unchanged from original)
+```sql
 CREATE TABLE lot_transfers (
   id TEXT PRIMARY KEY,
-  source_lot_id TEXT NOT NULL REFERENCES acquisition_lots(id) ON DELETE CASCADE,
-  transfer_event_id TEXT NOT NULL REFERENCES transfer_events(id) ON DELETE CASCADE,
-  source_transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
-  target_transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+  calculation_id TEXT NOT NULL REFERENCES cost_basis_calculations(id) ON DELETE CASCADE,
+  source_lot_id TEXT NOT NULL REFERENCES acquisition_lots(id),
+  transfer_chain_id TEXT NOT NULL REFERENCES transfer_chains(id),
+  source_transaction_id INTEGER NOT NULL REFERENCES transactions(id),
+  target_transaction_id INTEGER NOT NULL REFERENCES transactions(id),
+
   quantity_transferred TEXT NOT NULL,
   cost_basis_per_unit TEXT NOT NULL,
   total_cost_basis TEXT NOT NULL,
+
   transfer_date TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  metadata_json TEXT,
-  CONSTRAINT lot_transfers_quantity_positive CHECK (CAST(quantity_transferred AS REAL) > 0),
-  CONSTRAINT lot_transfers_cost_basis_nonnegative CHECK (CAST(cost_basis_per_unit AS REAL) >= 0)
+
+  CONSTRAINT lot_transfers_quantity_positive CHECK (
+    CAST(quantity_transferred AS REAL) > 0
+  )
 );
 
--- Indexes for lot_transfers (unchanged)
+CREATE INDEX idx_lot_transfers_calculation ON lot_transfers(calculation_id);
 CREATE INDEX idx_lot_transfers_source_lot ON lot_transfers(source_lot_id);
-CREATE INDEX idx_lot_transfers_event ON lot_transfers(transfer_event_id);
-CREATE INDEX idx_lot_transfers_source_tx ON lot_transfers(source_transaction_id);
-CREATE INDEX idx_lot_transfers_target_tx ON lot_transfers(target_transaction_id);
+CREATE INDEX idx_lot_transfers_chain ON lot_transfers(transfer_chain_id);
 CREATE INDEX idx_lot_transfers_date ON lot_transfers(transfer_date);
+```
+
+**Updated table: `lot_disposals`** (add metadata for transfer fees)
+
+```sql
+ALTER TABLE lot_disposals ADD COLUMN metadata_json TEXT;
+
+-- Example metadata for transfer fee disposal:
+{
+  "transferFee": true,
+  "transferChainId": "uuid-here",
+  "feeType": "crypto_fee" | "third_asset_fee"
+}
+```
+
+### Transfer Chain Detection
+
+Create a service that analyzes confirmed links to build transfer chains:
+
+```typescript
+/**
+ * Transfer Chain Detector
+ *
+ * Analyzes confirmed transaction links to identify transfer chains.
+ * Uses existing LinkGraphBuilder for transitive grouping.
+ */
+class TransferChainDetector {
+  detect(
+    transactions: UniversalTransaction[],
+    confirmedLinks: TransactionLink[],
+    calculationId: string
+  ): Result<TransferChain[], Error> {
+    // Use existing LinkGraphBuilder
+    const graphBuilder = new LinkGraphBuilder();
+    const groups = graphBuilder.buildGroups(transactions, confirmedLinks);
+
+    const chains: TransferChain[] = [];
+
+    for (const group of groups) {
+      // Sort transactions chronologically
+      const sorted = group.transactions.sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+
+      const source = sorted[0];
+      const target = sorted[sorted.length - 1];
+      const intermediates = sorted.slice(1, -1);
+
+      // Analyze fees from transaction metadata (returns Result)
+      const feeAnalysis = this.analyzeFees(source, target, group.asset, calculationId);
+
+      // Propagate errors from fee analysis
+      if (feeAnalysis.isErr()) {
+        return err(feeAnalysis.error);
+      }
+
+      const { cryptoFee, externalFees, variance, varianceType } = feeAnalysis.value;
+
+      chains.push({
+        id: uuidv4(),
+        calculationId,
+        asset: group.asset,
+        sourceTransactionId: source.id,
+        targetTransactionId: target.id,
+        intermediateTransactionIds: intermediates.map((t) => t.id),
+        sourceAmount: this.getOutflowAmount(source, group.asset),
+        targetAmount: this.getInflowAmount(target, group.asset),
+        cryptoFee,
+        externalFees,
+        variance,
+        varianceType,
+        linkIds: group.links.map((l) => l.id),
+        createdAt: new Date(),
+      });
+    }
+
+    return ok(chains);
+  }
+
+  private analyzeFees(
+    source: UniversalTransaction,
+    target: UniversalTransaction,
+    asset: string,
+    calculationId: string
+  ): Result<
+    {
+      cryptoFee: Decimal;
+      externalFees: FeeEntry[];
+      variance: Decimal;
+      varianceType?: 'rounding' | 'target_exceeds_source' | 'fee_mismatch';
+    },
+    Error
+  > {
+    const sourceAmount = this.getOutflowAmount(source, asset);
+    const targetAmount = this.getInflowAmount(target, asset);
+    const difference = sourceAmount.minus(targetAmount);
+
+    // STRICT VALIDATION: Target exceeds source (airdrop, bonus, error)
+    if (difference.isNegative()) {
+      return err(
+        new Error(
+          `Transfer chain rejected: target amount (${targetAmount}) exceeds source amount (${sourceAmount}) ` +
+            `for asset ${asset}. This may indicate an airdrop, bonus, or data error. ` +
+            `Source tx: ${source.id}, Target tx: ${target.id}. ` +
+            `To handle this case, manually split into separate transactions or verify data integrity.`
+        )
+      );
+    }
+
+    // Calculate variance percentage
+    const variancePercent = sourceAmount.isZero() ? new Decimal(0) : difference.div(sourceAmount).times(100);
+
+    // Rounding tolerance: 0.01% of source amount
+    if (variancePercent.lt(0.01)) {
+      // Negligible difference - treat as rounding error
+      return ok({
+        cryptoFee: new Decimal(0),
+        externalFees: this.extractExternalFees(source, calculationId),
+        variance: difference,
+        varianceType: 'rounding',
+      });
+    }
+
+    // STRICT VALIDATION: Variance exceeds 10% threshold
+    if (variancePercent.gt(10)) {
+      return err(
+        new Error(
+          `Transfer chain rejected: variance (${variancePercent.toFixed(2)}%) exceeds 10% threshold. ` +
+            `Source: ${sourceAmount} ${asset}, Target: ${targetAmount} ${asset}, ` +
+            `Difference: ${difference} ${asset}. This may indicate incorrect linking or data error. ` +
+            `Source tx: ${source.id}, Target tx: ${target.id}.`
+        )
+      );
+    }
+
+    // Normal case: difference is crypto fee
+    return ok({
+      cryptoFee: difference,
+      externalFees: this.extractExternalFees(source, calculationId),
+      variance: new Decimal(0),
+    });
+  }
+
+  /**
+   * Extract external fees with currency tracking
+   *
+   * For MVP: Normalize all fees to USD using existing price enrichment service
+   * Future: Dedicated FX rate provider for fiat-to-fiat conversions
+   */
+  private extractExternalFees(tx: UniversalTransaction, calculationId: string): FeeEntry[] {
+    const fees: FeeEntry[] = [];
+
+    // Check transaction fee fields for fiat fees
+    const platformFee = tx.fees.platform;
+    if (platformFee) {
+      const currency = Currency.create(platformFee.asset);
+
+      if (currency.isFiat()) {
+        // Get FX rate from price enrichment service
+        // (Reuses existing providers like CoinGecko which have fiat rates)
+        const fxRate = this.getFxRateToUSD(platformFee.asset, tx.datetime);
+
+        if (fxRate.isErr()) {
+          // Missing FX rate - will be handled by price validation later
+          this.logger.warn(
+            { currency: platformFee.asset, tx: tx.id },
+            'Missing FX rate for external fee - will require manual entry'
+          );
+        }
+
+        const rate = fxRate.isOk() ? fxRate.value : new Decimal(1); // Default 1:1 if missing
+        const normalizedAmount = platformFee.amount.times(rate);
+
+        fees.push({
+          amount: platformFee.amount,
+          currency: platformFee.asset,
+          normalizedAmount,
+          fxRate: fxRate.isOk() ? rate : undefined,
+          fxSource: fxRate.isOk() ? 'price_enrichment' : undefined,
+        });
+      }
+    }
+
+    return fees;
+  }
+}
+```
+
+### Third-Asset Fees
+
+Third-asset fees (e.g., using BNB to pay for BTC withdrawal) are handled as separate disposals when processing the fee asset:
+
+```typescript
+// When processing BNB transactions:
+for (const outflow of tx.movements.outflows.filter(o => o.asset === 'BNB')) {
+
+  // Check if this outflow is a fee for a transfer
+  const feeForTransfer = this.findTransferUsingFee(tx.id, outflow);
+
+  if (feeForTransfer) {
+    // Create disposal with transfer fee metadata
+    const disposal = config.strategy.matchDisposal(...);
+    disposal.metadata = {
+      transferFee: true,
+      transferChainId: feeForTransfer.chainId,
+      feeType: 'third_asset_fee',
+      primaryAsset: feeForTransfer.asset  // e.g., "BTC"
+    };
+  } else {
+    // Normal disposal
+  }
+}
+```
+
+Third-asset fee movements are identified from transaction fee fields:
+
+```typescript
+interface UniversalTransaction {
+  fees: {
+    network?: AssetMovement; // Often same asset
+    platform?: AssetMovement; // Could be fiat or third asset
+  };
+}
+```
+
+### Price Handling
+
+**Graceful degradation** instead of blocking:
+
+```typescript
+async calculate(...): Promise<Result<CostBasisSummary, Error>> {
+
+  // ... lot matching ...
+
+  // Identify disposals missing prices
+  const allDisposals = lotMatchResult.assetResults.flatMap(r => r.disposals);
+  const missingPrices = allDisposals.filter(
+    d => d.priceStatus === 'missing'
+  );
+
+  if (missingPrices.length > 0) {
+    this.logger.warn(
+      { count: missingPrices.length },
+      'Some disposals missing price data - results incomplete'
+    );
+
+    // Mark calculation as partial
+    calculation.status = 'partial';
+    calculation.warnings = [{
+      type: 'missing_prices',
+      count: missingPrices.length,
+      disposals: missingPrices.map(d => ({
+        txId: d.disposalTransactionId,
+        asset: d.asset,
+        amount: d.quantityDisposed
+      }))
+    }];
+  }
+
+  // Continue calculation with available data
+  // Zero proceeds for missing prices (conservative)
+}
+```
+
+Report clearly shows what's missing:
+
+```
+Cost Basis Calculation Summary
+==============================
+Status: Partial (2 prices missing)
+
+Disposals: 45 total
+├─ Complete: 43 (prices available)
+└─ Missing prices: 2 ⚠️
+
+Missing Prices:
+- BTC @ 2024-02-01 12:00:00 UTC (tx #12345, network fee: 0.0005 BTC)
+- ETH @ 2024-03-15 08:30:00 UTC (tx #67890, platform fee: 0.01 ETH)
+
+Impact: Capital gains may be understated by ~$35 (estimated)
+
+To add prices: pnpm run dev prices add --asset BTC --date "2024-02-01T12:00:00Z" --price 60000
 ```
 
 ---
 
-## Reporting and Visibility
+## Link Quality and Validation
 
-### Multi-Hop Chain Display
+### Confidence Threshold
 
-Intermediate transactions are visible but de-emphasized:
+Transaction links must meet quality bar:
 
-```
-Transaction List (with transfers)
-═══════════════════════════════════════════════════════════
-ID    Date                Type         Amount        Status
-12345 2024-02-01 12:00   Withdrawal   1.0000 BTC    Transfer (source)
-                                      └─ Network fee: 0.0005 BTC (taxable)
-                                      └─ Platform fee: $1.50 (to cost basis)
-                                      └─ BNB fee: 0.01 BNB (taxable)
+- **Status**: `confirmed` (user-approved or auto-confirmed)
+- **Confidence**: ≥95% (enforced by linking service)
+- **Asset match**: Source outflow = target inflow asset
+- **Amount reasonable**: Target within 10% of source (allows for fees)
+- **Timing reasonable**: Target within 24 hours of source
 
-12346 2024-02-01 12:05   Deposit      0.9995 BTC    [Intermediate - click to expand]
+### Link Review Workflow
 
-12347 2024-02-01 14:30   Deposit      0.9995 BTC    Transfer (target)
-                                      └─ Received: 0.9995 BTC
-                                      └─ Cost basis: $50,001.50 (inherited + fees)
-```
+Before running cost basis calculation:
 
-Expanded view shows full chain:
+```bash
+# Review suggested links
+pnpm run dev links review --status suggested
 
-```
-Transfer Chain Details
-═══════════════════════════════════════════════════════════
-Transfer ID: abc-123-def
-Type: Multi-hop (3 transactions)
-Asset: BTC
+# Confirm or reject
+pnpm run dev links confirm <link-id>
+pnpm run dev links reject <link-id>
 
-Source: Kraken (tx #12345)
-├─ Sent: 1.0000 BTC
-├─ Fees:
-│  ├─ Network (BTC): 0.0005 BTC → Disposal @ $60,000 = $30 proceeds
-│  ├─ Platform (USD): $1.50 → Added to cost basis
-│  └─ BNB: 0.01 BNB → Disposal @ $550 = $5.50 proceeds
-└─ Cost basis: $50,000 (from original lot #789)
-
-Hop 1: Blockchain (tx #12346) [SKIPPED IN ACCOUNTING]
-├─ Received: 0.9995 BTC
-└─ Status: Intermediate transaction, not processed
-
-Target: Personal Wallet (tx #12347)
-├─ Received: 0.9995 BTC
-├─ Cost basis: $50,001.50 total ($50,015.03 per BTC)
-│  └─ Inherited: $50,000 (from source)
-│  └─ Platform fee: $1.50
-└─ New lot created: #890
+# Run calculation (uses only confirmed links)
+pnpm run dev cost-basis calculate
 ```
 
-### Calculation Summary
+Only confirmed links are used to detect transfer chains. Suggested links are ignored for cost basis.
+
+### Validation During Chain Detection
+
+```typescript
+private validateChain(chain: TransferChain): Result<void, Error> {
+
+  // Amount reconciliation: source ≈ target + crypto_fee
+  const expectedTarget = chain.sourceAmount.minus(chain.cryptoFee);
+  const variance = expectedTarget.minus(chain.targetAmount).abs();
+  const variancePercent = variance.div(chain.sourceAmount).times(100);
+
+  if (variancePercent.gt(10)) {
+    return err(new Error(
+      `Transfer chain amounts don't reconcile: ` +
+      `source ${chain.sourceAmount}, target ${chain.targetAmount}, ` +
+      `fee ${chain.cryptoFee}, variance ${variancePercent.toFixed(2)}%`
+    ));
+  }
+
+  // Verify all transactions exist
+  const allTxIds = [
+    chain.sourceTransactionId,
+    chain.targetTransactionId,
+    ...chain.intermediateTransactionIds
+  ];
+
+  for (const txId of allTxIds) {
+    if (!transactions.find(t => t.id === txId)) {
+      return err(new Error(`Transaction ${txId} not found in chain`));
+    }
+  }
+
+  return ok(undefined);
+}
+```
+
+---
+
+## Foreign Exchange Rate Tracking
+
+### Broader Context
+
+While this ADR focuses on transfer chains, the **FX rate tracking problem affects the entire cost basis system**, not just transfer fees. This is a foundational data modeling concern.
+
+### Current Limitation
+
+The existing `AssetMovement` schema lacks FX rate metadata:
+
+```typescript
+// Current (missing FX tracking)
+interface AssetMovement {
+  asset: string;
+  amount: Decimal;
+  priceAtTxTime?: {
+    price: {
+      amount: Decimal; // e.g., $60,000 (but what if movement is in EUR?)
+      currency: Currency; // e.g., USD
+    };
+  };
+}
+```
+
+**Problem**: When a movement is denominated in a non-USD fiat currency (EUR, CAD, etc.), we normalize to USD for cost basis but **lose the original currency and conversion rate used**. This affects:
+
+1. **Transfer external fees** (this ADR) - EUR platform fee converted to USD
+2. **Multi-currency trades** - Buying BTC with EUR on European exchange
+3. **Fiat deposits/withdrawals** - Moving CAD to/from exchange
+4. **Cross-border transactions** - Any movement involving non-USD fiat
+
+### Proposed Enhancement (Out of Scope)
+
+Add FX rate tracking to `AssetMovement`:
+
+```typescript
+interface AssetMovement {
+  asset: string;
+  amount: Decimal;
+  priceAtTxTime?: {
+    price: {
+      amount: Decimal;
+      currency: Currency;
+    };
+    // NEW: FX rate metadata
+    fxRateToUSD?: Decimal; // If normalized from foreign fiat
+    fxSource?: string; // Where rate came from (e.g., "ecb", "manual")
+    fxTimestamp?: Date; // When rate was fetched
+  };
+}
+```
+
+**Benefits**:
+
+- Complete audit trail for multi-currency scenarios
+- Reproducible calculations across years (same FX rates)
+- Transparency for tax authorities (show which rates were used)
+- Support for users with non-USD home currencies
+
+### MVP Approach (This ADR)
+
+For transfer chains, we track FX rates in `FeeEntry[]` within transfer chains. This is **transfer-scoped** and sufficient for MVP.
+
+**Future work**: Extend FX tracking to entire `AssetMovement` schema (separate ADR, broader impact).
+
+**MVP FX Rate Source**: Reuse existing price enrichment service (CoinGecko has fiat rates).
+
+**Future enhancement**: Dedicated FX rate provider (ECB, Fixer.io) for more accurate fiat-to-fiat conversions with official rates.
+
+---
+
+## Reporting
+
+### Transfer-Aware Reports
 
 ```
 Cost Basis Calculation Summary
-══════════════════════════════════════════════════════════
+==============================
 Period: 2024-01-01 to 2024-12-31
 Method: FIFO
 Jurisdiction: United States (IRS)
 
 Transactions Processed: 1,234 total
 ├─ Acquisitions: 567
+│  ├─ Purchases: 532
+│  └─ Transfers received: 35
 ├─ Disposals: 445
-├─ Transfers: 222 (non-taxable)
-└─ Skipped (intermediate): 35
+│  ├─ Sales/trades: 410
+│  └─ Transfer fees: 35
+└─ Transfers: 35 chains (non-taxable)
+   ├─ Simple (1:1): 28
+   ├─ Multi-hop: 7
+   └─ Intermediates skipped: 12
 
-Transfers: 222 events
-├─ Simple (1:1): 180
-├─ Multi-hop: 42
-└─ Fee breakdown:
-   ├─ Crypto fees (taxable): 156 disposals
-   ├─ External fees (to cost basis): 89 items
-   └─ Third-asset fees (taxable): 23 disposals
-
-Lots Created: 567
-├─ From purchases: 532
-├─ From transfers: 222
-└─ Remaining open: 145
+Lots: 567 created
+├─ Open: 145
+├─ Partially disposed: 89
+└─ Fully disposed: 333
 
 Disposals: 445 total
-├─ Sales/trades: 266
-├─ Transfer fees (crypto): 156
-├─ Transfer fees (third-asset): 23
-└─ Price status:
-   ├─ Available: 440
-   ├─ Manual entry: 3
-   └─ Missing: 2 ⚠️  BLOCKED CALCULATION
+├─ Sales/trades: 410
+│  ├─ Short-term gains: $45,230.50
+│  ├─ Long-term gains: $12,450.00
+│  └─ Losses: ($3,200.00)
+└─ Transfer fees: 35
+   ├─ Crypto fees: 28 ($1,450.00 proceeds)
+   └─ Third-asset fees: 7 ($235.00 proceeds)
 
-Tax Events:
-├─ Capital gains: $45,230.50 (short-term)
-├─ Capital gains: $12,450.00 (long-term)
-└─ Capital losses: ($3,200.00)
+Tax Summary:
+├─ Total capital gains: $54,910.50
+├─ Total capital losses: ($3,200.00)
+└─ Net capital gains: $51,710.50
+```
 
-⚠️  Action Required: 2 fee disposals missing prices
-Run: pnpm run dev cost-basis report --missing-prices
+### Transfer Chain Detail View
+
+```bash
+pnpm run dev transfers show <chain-id>
+```
+
+```
+Transfer Chain: abc-123-def
+═══════════════════════════════════════════════
+
+Asset: BTC
+Type: Multi-hop (3 transactions)
+Status: Processed
+
+Source: Kraken (tx #12345) - 2024-02-01 12:00:00 UTC
+├─ Sent: 1.0000 BTC
+├─ Crypto fee: 0.0005 BTC (network fee)
+├─ External fee: $1.50 (platform fee)
+└─ Lots used:
+   └─ Lot #789: 1.0000 BTC @ $50,000.00 (acquired 2024-01-01)
+
+Intermediate: Blockchain (tx #12346) - 2024-02-01 12:05:00 UTC
+├─ Received: 0.9995 BTC
+└─ Status: Skipped (intermediate transaction)
+
+Target: Personal Wallet (tx #12347) - 2024-02-01 14:30:00 UTC
+├─ Received: 0.9995 BTC
+├─ Cost basis: $50,001.50 total
+│  ├─ Inherited from lot #789: $50,000.00
+│  └─ External fees added: $1.50
+└─ Created lot #890: 0.9995 BTC @ $50,015.03/BTC
+
+Tax Impact:
+├─ Transfer: Non-taxable (0.9995 BTC)
+└─ Fee disposal: 0.0005 BTC
+   ├─ Proceeds: $30.00 (@ $60,000/BTC)
+   ├─ Cost basis: $25.00
+   └─ Gain: $5.00 (short-term)
+
+Links: 2 confirmed links (≥95% confidence)
+├─ Link #1: tx #12345 → tx #12346 (96.5% confidence)
+└─ Link #2: tx #12346 → tx #12347 (98.2% confidence)
 ```
 
 ---
@@ -1125,113 +929,248 @@ Run: pnpm run dev cost-basis report --missing-prices
 
 ### Positive
 
-✅ **Tax Accuracy**: Transfers no longer create phantom capital gains/losses
-✅ **Cost Basis Preservation**: Original cost basis flows correctly through transfers, prorated by amount received
-✅ **Complex Fee Support**:
-
-- Crypto fees (same asset) properly treated as taxable disposals
-- External fees (fiat) properly increase cost basis
-- Third-asset fees (e.g., BNB) create separate taxable disposals
-- Hybrid scenarios (multiple simultaneous fees) fully supported
-  ✅ **Explicit State Machine**: Processing state tracked, prevents misuse of incomplete data
-  ✅ **Link Quality Assurance**: 95% confidence threshold with manual review workflow
-  ✅ **Price Data Validation**: Blocks calculation if prices missing, provides clear resolution steps
-  ✅ **Complete Audit Trail**: Transfer events, lot transfers, and fee disposals tracked separately
-  ✅ **Regulatory Compliance**: Aligns with tax treatment in US, CA, UK, EU
-  ✅ **Multi-hop Support**: Chains collapse to final destination with intermediate transactions excluded
-  ✅ **Clean Architecture**: Transfer detection decoupled from cost basis calculation
-  ✅ **Reuses Infrastructure**: Leverages existing LinkGraphBuilder and Union-Find algorithm
-  ✅ **Deterministic Ordering**: Transaction ID tiebreaker ensures reproducible calculations
+✅ **Tax Accuracy**: Transfers no longer create phantom gains/losses
+✅ **Simple Architecture**: Extends existing lot matcher, no complex state machines
+✅ **Calculation-Scoped**: Chains rebuilt per calculation, always reflect current link state
+✅ **Audit Trail**: Persisted chains enable debugging and reproducibility per calculation
+✅ **Cost Basis Preservation**: Original acquisition dates and basis flow through transfers
+✅ **Fee Compliance**: All fee types properly classified (crypto fees → disposals, fiat fees → cost basis)
+✅ **FX Rate Tracking**: External fees tracked with currency metadata for multi-currency support
+✅ **Multi-Hop Support**: Transitively linked chains handled automatically
+✅ **Reuses Infrastructure**: LinkGraphBuilder, chronological ordering, lot matching strategy, price enrichment
+✅ **Graceful Degradation**: Partial calculations possible with clear reporting
+✅ **Strict Validation**: Returns errors for edge cases (target > source, variance > 10%) enabling future improvements
+✅ **Regulatory Compliance**: Aligns with IRS, CRA, HMRC, EU tax treatment
 
 ### Neutral
 
-⚠️ **Requires High-Confidence Links**: Only confirmed links ≥95% confidence used for cost basis
-⚠️ **Database Migration**: Three new tables and schema updates required
-⚠️ **Test Coverage**: Comprehensive tests needed for complex fee scenarios
-⚠️ **Processing Order**: Source transactions MUST be processed before targets (enforced at runtime with clear errors)
-⚠️ **Manual Intervention**: Users may need to review suggested links and add missing prices
+⚠️ **Link Quality Dependency**: Requires confirmed links ≥95% confidence (mitigated by manual review)
+⚠️ **Database Changes**: Two new tables (transfer_chains, lot_transfers), both calculation-scoped
+⚠️ **Price Data Dependency**: Missing FX rates reduce accuracy (mitigated by clear reporting)
+⚠️ **Rounding Tolerance**: 0.01% threshold may need tuning for high-precision assets
+⚠️ **Calculation Rebuild Cost**: Chains rebuilt each run (acceptable for MVP, can optimize later)
 
 ### Negative
 
-❌ **Additional Storage**: Three new tables (transfer_events, lot_transfers, third_asset_fee_disposals)
-❌ **Processing Overhead**: Transfer graph analysis adds preprocessing step
-❌ **Link Quality Dependency**: Incorrect links cause incorrect cost basis (mitigated by 95% threshold and manual review)
-❌ **Price Data Dependency**: Calculation blocks if fee disposal prices missing (provides clear resolution via manual entry)
-❌ **Increased Complexity**: Fee analysis supports multiple simultaneous fee types
-❌ **State Mutation**: TransferEvent objects are mutated during Stage 2 (but state is explicitly tracked)
+❌ **Processing Complexity**: Lot matcher must handle transfer logic alongside normal acquisitions/disposals
+❌ **Third-Asset Fee Detection**: Requires analyzing fee movements across different assets
+❌ **Testing Scope**: Need comprehensive tests for transfer scenarios and edge cases
+❌ **Conservative Rejection**: Strict validation may reject valid edge cases (airdrops, bonuses) requiring manual handling
+❌ **FX Rate Scope**: Only tracks FX rates for transfer fees, not entire AssetMovement schema (future work needed)
 
 ---
 
 ## Implementation Plan
 
-### Phase 1: Schema & Infrastructure (Week 1)
+### Phase 1: Schema & Chain Detection (Week 1)
 
-1. Update `TransferEvent` schema with `processingState` and `fees[]`
-2. Create `ThirdAssetFeeDisposal` schema
-3. Add `priceStatus` to `LotDisposal` schema
-4. Update database migration with new tables and fields
-5. Add Zod validation for state transitions and fee types
+**Goal**: Detect and persist transfer chains
 
-### Phase 2: Transfer Graph Analyzer (Week 2)
+1. ✅ Create `transfer_chains` table migration
+2. ✅ Create `lot_transfers` table migration
+3. ✅ Update `lot_disposals` table (add `metadata_json`)
+4. ✅ Implement `TransferChainDetector` service
+5. ✅ Implement `TransferProjection` (in-memory lookup)
+6. ✅ Add Zod schemas for transfer chain validation
+7. ✅ Write unit tests for chain detection and validation
 
-1. Update `TransferGraphAnalyzer.analyzeFees()` to return array
-2. Implement third-asset fee detection logic
-3. Support hybrid fee scenarios (crypto + external + third-asset)
-4. Add unit tests for all fee type combinations
-5. Add unit tests for state validation
+**Deliverable**: Transfer chains detected and stored, ready for consumption
 
-### Phase 3: Lot Matching Updates (Week 2-3)
+### Phase 2: Transfer-Aware Lot Matching (Week 2)
 
-1. Update `handleTransferOut()` for explicit state transitions
-2. Implement `createThirdAssetFeeDisposal()`
-3. Update `createLotFromTransfer()` for state validation
-4. Add price validation logic
-5. Add tests for complex fee processing
-6. Add tests for state transition violations
+**Goal**: Extend lot matcher to handle transfers
 
-### Phase 4: Price Management (Week 3)
-
-1. Implement `prices add` CLI command
-2. Implement `prices import` CLI command (CSV batch)
-3. Add price status tracking to repository
-4. Implement missing price validation in calculator
-5. Add user-facing error messages with resolution steps
-6. Add tests for price blocking and manual entry
-
-### Phase 5: Link Quality (Week 4)
-
-1. Update linking service to enforce 95% threshold
-2. Implement `links review` CLI command
-3. Implement `links confirm` CLI command
-4. Implement `links reject` CLI command
-5. Add link validation checks
-6. Add audit trail logging
-
-### Phase 6: Integration & Testing (Week 4-5)
-
-1. Integrate all components into `CostBasisCalculator`
-2. Add comprehensive integration tests:
+1. ✅ Extend `LotMatcher.match()` to accept transfer chains
+2. ✅ Implement `handleTransferSource()` - creates lot transfers + fee disposals
+3. ✅ Implement `createLotFromTransfer()` - creates lots with inherited basis
+4. ✅ Update `matchAsset()` to skip intermediate transactions
+5. ✅ Handle third-asset fees via metadata
+6. ✅ Add graceful price handling (partial results)
+7. ✅ Write integration tests:
    - Simple transfer with crypto fee
    - Simple transfer with external fee
-   - Simple transfer with third-asset fee (BNB)
-   - Hybrid scenario (all three fee types)
-   - Multi-hop transfer with fees
-   - State transition violations
-   - Missing price blocking
-   - Link quality validation
-3. Test FIFO/LIFO strategies with transfers
-4. Test timestamp tiebreaking
-5. Performance testing with large datasets
+   - Multi-hop transfer
+   - Third-asset fee scenario
+   - Missing price graceful degradation
 
-### Phase 7: Reporting & Documentation (Week 5)
+**Deliverable**: Cost basis calculation correctly handles transfers
 
-1. Update calculation summary to show transfer breakdown
-2. Implement detailed transfer chain view
-3. Add missing price report
-4. Update CLI help text
-5. Write user documentation for link review workflow
-6. Write user documentation for manual price entry
-7. Update ADR based on implementation findings
+### Phase 3: Reporting & Validation (Week 3)
+
+**Goal**: User-facing reports and validation
+
+1. ✅ Update `CostBasisSummary` to include transfer metrics
+2. ✅ Implement transfer chain detail view
+3. ✅ Add missing price report
+4. ✅ Add transfer validation checks
+5. ✅ Update CLI help text
+6. ✅ End-to-end testing with real transaction data
+7. ✅ Performance testing with large datasets
+8. ✅ Documentation updates
+
+**Deliverable**: Production-ready feature with clear reporting
+
+### Optional Follow-Ups (Separate Track)
+
+These are workflow enhancements, not prerequisites:
+
+- **Link review CLI**: Enhanced UI for reviewing suggested links
+- **Manual price entry CLI**: `prices add` command for missing prices
+- **Transfer analysis report**: Detailed breakdown of all transfers
+- **Multi-currency external fees**: Support non-USD fiat fees
+
+---
+
+## Example Scenarios
+
+### Scenario 1: Simple Transfer with Crypto Fee
+
+**Setup**:
+
+```
+Kraken withdrawal: 1 BTC
+Network fee: 0.0005 BTC (deducted)
+Platform fee: None
+```
+
+**Processing**:
+
+```typescript
+// Source (Kraken withdrawal)
+handleTransferSource(tx #100, outflow: 1 BTC, chain) {
+  // Transfer 0.9995 BTC (non-taxable)
+  createLotTransfer(lot #50, 0.9995 BTC, costBasis: $50,000)
+
+  // Dispose 0.0005 BTC fee (taxable)
+  createDisposal(lot #50, 0.0005 BTC, proceeds: $30)
+}
+
+// Target (wallet receive)
+createLotFromTransfer(tx #101, inflow: 0.9995 BTC, chain) {
+  // Create lot with inherited basis
+  createLot(0.9995 BTC, costBasisPerUnit: $50,005.00)
+}
+```
+
+**Result**:
+
+- Transfer: 0.9995 BTC (non-taxable)
+- Disposal: 0.0005 BTC @ $60,000 = $30 proceeds, $25 cost basis, $5 gain
+- New lot: 0.9995 BTC @ $50,005/BTC
+
+### Scenario 2: Multi-Hop Transfer
+
+**Setup**:
+
+```
+Kraken → Blockchain → Coinbase
+  tx #100      tx #101      tx #102
+  1 BTC       0.9995 BTC   0.9995 BTC
+```
+
+**Chain Detection**:
+
+```typescript
+TransferChain {
+  sourceTransactionId: 100,
+  targetTransactionId: 102,
+  intermediateTransactionIds: [101],
+  cryptoFee: 0.0005 BTC
+}
+```
+
+**Processing**:
+
+```typescript
+// tx #100: Source processing (create transfers + fee disposal)
+// tx #101: SKIP (intermediate)
+// tx #102: Target processing (create lot with inherited basis)
+```
+
+### Scenario 3: Third-Asset Fee
+
+**Setup**:
+
+```
+Binance withdrawal: 1 BTC
+Network fee: None (Binance covers)
+Platform fee: 0.01 BNB (deducted from BNB balance)
+```
+
+**Processing**:
+
+```typescript
+// Process BTC transfer
+handleTransferSource(tx #200, outflow: 1 BTC, chain) {
+  createLotTransfer(lot #60, 1 BTC)  // No crypto fee
+}
+
+// Process BNB outflow separately
+matchOutflowToLots(tx #200, outflow: 0.01 BNB) {
+  createDisposal(lot #70, 0.01 BNB, metadata: {
+    transferFee: true,
+    feeType: 'third_asset_fee',
+    primaryAsset: 'BTC'
+  })
+}
+```
+
+**Result**:
+
+- BTC transfer: 1 BTC (non-taxable)
+- BNB disposal: 0.01 BNB (taxable)
+
+---
+
+## Validation & Edge Case Handling
+
+### Strict Validation Thresholds
+
+The system uses **conservative validation** to ensure tax accuracy, returning explicit errors for edge cases that require manual review:
+
+| Validation             | Threshold        | Action              | Rationale                                     |
+| ---------------------- | ---------------- | ------------------- | --------------------------------------------- |
+| **Target > Source**    | Any negative fee | ❌ Reject chain     | Indicates airdrop, bonus, or data error       |
+| **Rounding tolerance** | < 0.01% variance | ✅ Accept (fee = 0) | Negligible difference, likely precision issue |
+| **Fee variance**       | 0.01% - 10%      | ✅ Accept as fee    | Normal network/platform fees                  |
+| **Excessive variance** | > 10% variance   | ❌ Reject chain     | Likely incorrect linking or data error        |
+
+### Error Messages (Clear Improvement Paths)
+
+All validation errors include:
+
+- ✅ **Clear description** of what failed
+- ✅ **Transaction IDs** for investigation
+- ✅ **Suggested actions** for resolution
+- ✅ **Future improvement path** (manual split, data correction, etc.)
+
+Example error:
+
+```
+Transfer chain rejected: target amount (1.05 BTC) exceeds source amount (1.0 BTC)
+for asset BTC. This may indicate an airdrop, bonus, or data error.
+Source tx: 12345, Target tx: 12346.
+
+To handle this case, manually split into separate transactions or verify data integrity.
+```
+
+### Edge Cases Deferred to Future Work
+
+The following scenarios are intentionally **rejected in MVP** with clear error messages, enabling future enhancement:
+
+1. **Target exceeds source** - Airdrops/bonuses during transfer
+   - Future: Auto-split into transfer + separate acquisition
+
+2. **Multi-currency external fees** - Multiple fiat currencies on one tx
+   - Future: Enhanced to handle after broader FX tracking
+
+3. **Crypto fee rebates** - Receiving crypto as fee discount
+   - Future: Handle as separate income/acquisition
+
+4. **High variance transfers** - >10% fee (some blockchains/exchanges)
+   - Future: Configurable per-asset tolerance thresholds
+
+This approach prioritizes **accuracy over flexibility** for MVP, with explicit extension points for future iterations.
 
 ---
 
@@ -1248,81 +1187,6 @@ Run: pnpm run dev cost-basis report --missing-prices
 - [IRS Virtual Currency Guidance](https://www.irs.gov/businesses/small-businesses-self-employed/virtual-currencies)
 - [CRA Cryptocurrency Guide](https://www.canada.ca/en/revenue-agency/programs/about-canada-revenue-agency-cra/compliance/digital-currency/cryptocurrency-guide.html)
 - [HMRC Cryptoassets Manual](https://www.gov.uk/hmrc-internal-manuals/cryptoassets-manual)
-- Transaction Linking README: `packages/accounting/src/linking/README.md`
+- Transaction Linking: `packages/accounting/src/linking/`
 - Link Graph Builder: `packages/accounting/src/price-enrichment/link-graph-builder.ts`
-- Price Enrichment Service: `packages/accounting/src/price-enrichment/price-enrichment-service.ts`
-
----
-
-## Appendix: Fee Scenarios & Examples
-
-### Scenario 1: Simple Transfer with Crypto Fee
-
-```
-Withdraw 1 BTC from Kraken to wallet
-- Network fee: 0.0005 BTC (deducted from amount)
-- Platform fee: None
-
-Result:
-- Transfer: 0.9995 BTC (non-taxable)
-- Disposal: 0.0005 BTC @ $60,000 = $30 proceeds (taxable)
-- New lot: 0.9995 BTC with inherited cost basis
-```
-
-### Scenario 2: Hybrid Fee (Crypto + Fiat)
-
-```
-Withdraw 1 BTC from Kraken to wallet
-- Network fee: 0.0005 BTC (deducted from amount)
-- Platform fee: $1.50 (charged to credit card)
-
-Result:
-- Transfer: 0.9995 BTC (non-taxable)
-- Disposal: 0.0005 BTC @ $60,000 = $30 proceeds (taxable)
-- New lot: 0.9995 BTC with cost basis = $50,000 + $1.50 = $50,001.50
-```
-
-### Scenario 3: Third-Asset Fee
-
-```
-Withdraw 1 BTC from Binance to wallet
-- Network fee: None (Binance covers it)
-- Platform fee: 0.01 BNB (deducted from BNB balance)
-
-Result:
-- Transfer: 1 BTC (non-taxable)
-- Disposal: 0.01 BNB @ $550 = $5.50 proceeds (taxable)
-- New lot: 1 BTC with inherited cost basis
-```
-
-### Scenario 4: All Three Fee Types
-
-```
-Withdraw 1 BTC from hybrid exchange to wallet
-- Network fee: 0.0005 BTC (deducted from amount)
-- Platform fee: $1.50 (fiat)
-- Priority fee: 0.01 BNB (faster withdrawal)
-
-Result:
-- Transfer: 0.9995 BTC (non-taxable)
-- Disposal: 0.0005 BTC @ $60,000 = $30 proceeds (taxable)
-- Disposal: 0.01 BNB @ $550 = $5.50 proceeds (taxable)
-- New lot: 0.9995 BTC with cost basis = $50,000 + $1.50 = $50,001.50
-```
-
-### Scenario 5: Multi-Hop with Fees
-
-```
-Transfer from Kraken → Blockchain → Personal Wallet
-Hop 1: Kraken withdrawal
-- Network fee: 0.0005 BTC
-- Platform fee: $1.50
-
-Hop 2: Blockchain to wallet (no additional fees)
-
-Result:
-- Transfer: 0.9995 BTC (non-taxable, collapsed to final destination)
-- Disposal: 0.0005 BTC @ $60,000 = $30 proceeds (taxable)
-- New lot: 0.9995 BTC with cost basis = $50,000 + $1.50 = $50,001.50
-- Intermediate transaction (blockchain) skipped in accounting
-```
+- Lot Matcher: `packages/accounting/src/services/lot-matcher.ts`
