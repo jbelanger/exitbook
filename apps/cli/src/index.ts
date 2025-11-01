@@ -10,12 +10,14 @@ import { registerBenchmarkRateLimitCommand } from './features/benchmark-rate-lim
 import { registerClearCommand } from './features/clear/clear.ts';
 import { registerCostBasisCommand } from './features/cost-basis/cost-basis.ts';
 import { registerExportCommand } from './features/export/export.ts';
+import { registerGapsCommand } from './features/gaps/gaps.ts';
 import { registerImportCommand } from './features/import/import.ts';
-import { registerLinkCommand } from './features/link/link.ts';
+import { registerLinksCommand } from './features/links/links.ts';
 import { registerListBlockchainsCommand } from './features/list-blockchains/list-blockchains.ts';
 import { registerPricesCommand } from './features/prices/prices.ts';
 import { registerProcessCommand } from './features/process/process.ts';
-import { registerViewCommand } from './features/view/view.ts';
+import { registerSessionsCommand } from './features/sessions/sessions.ts';
+import { registerTransactionsCommand } from './features/transactions/transactions.ts';
 
 // Initialize all providers at startup
 initializeProviders();
@@ -35,8 +37,20 @@ async function main() {
   // Process command - refactored with @clack/prompts (Phase 3)
   registerProcessCommand(program);
 
-  // Link command - transaction linking for cost basis propagation
-  registerLinkCommand(program);
+  // Links command - unified transaction link management (run, view, confirm, reject)
+  registerLinksCommand(program);
+
+  // Gaps command - data quality inspection (view fees, prices, links, validation gaps)
+  registerGapsCommand(program);
+
+  // Sessions command - import session management (view session history)
+  registerSessionsCommand(program);
+
+  // Transactions command - processed transaction management (view transactions)
+  registerTransactionsCommand(program);
+
+  // Prices command - price management (view, derive, fetch)
+  registerPricesCommand(program);
 
   // Clear command
   registerClearCommand(program);
@@ -55,12 +69,6 @@ async function main() {
 
   // Benchmark rate limit command - refactored with @clack/prompts (Phase 3)
   registerBenchmarkRateLimitCommand(program);
-
-  // Prices command
-  registerPricesCommand(program);
-
-  // View command - unified inspection interface
-  registerViewCommand(program);
 
   // Status command
   program

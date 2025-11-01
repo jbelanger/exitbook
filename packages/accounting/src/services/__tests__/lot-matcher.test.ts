@@ -951,7 +951,7 @@ describe('LotMatcher - Fee Handling', () => {
             },
           },
           operation: {
-            category: 'other',
+            category: 'transfer',
             type: 'airdrop',
           },
         },
