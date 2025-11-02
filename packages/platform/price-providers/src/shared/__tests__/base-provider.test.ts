@@ -27,7 +27,7 @@ class TestPriceProvider extends BasePriceProvider {
     requiresApiKey: false,
     capabilities: {
       supportedOperations: ['fetchPrice'],
-      supportedCurrencies: ['USD', 'EUR'],
+      supportedAssetTypes: ['crypto'],
       rateLimit: {
         burstLimit: 10,
         requestsPerHour: 1000,
@@ -220,7 +220,7 @@ describe('BasePriceProvider', () => {
         requiresApiKey: false,
         capabilities: {
           supportedOperations: ['fetchPrice'],
-          supportedCurrencies: ['USD', 'EUR'],
+          supportedAssetTypes: ['crypto'],
           rateLimit: {
             burstLimit: 10,
             requestsPerHour: 1000,

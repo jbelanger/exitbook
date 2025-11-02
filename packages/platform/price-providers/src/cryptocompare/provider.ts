@@ -121,7 +121,8 @@ export class CryptoCompareProvider extends BasePriceProvider {
     // Provider metadata
     this.metadata = {
       capabilities: {
-        supportedCurrencies: ['USD', 'EUR', 'GBP', 'JPY'],
+        supportedAssetTypes: ['crypto'],
+        supportedAssets: undefined, // Supports thousands of cryptocurrencies
         supportedOperations: ['fetchPrice'],
         rateLimit: {
           burstLimit: rateLimit.burstLimit,

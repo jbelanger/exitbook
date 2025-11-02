@@ -37,7 +37,8 @@ export abstract class BasePriceProvider implements IPriceProvider {
     const now = new Date();
 
     // Validate time range (pure function - pass now explicitly)
-    const timeError = validateQueryTimeRange(query.timestamp, now);
+    // Pass isFiat flag to allow historical dates for fiat currencies
+    const timeError = validateQueryTimeRange(query.timestamp, now, query.asset.isFiat());
     if (timeError) {
       return err(new Error(timeError));
     }

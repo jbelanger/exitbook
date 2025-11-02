@@ -112,7 +112,8 @@ export class BinanceProvider extends BasePriceProvider {
     // Provider metadata
     this.metadata = {
       capabilities: {
-        supportedCurrencies: ['USD', 'USDT', 'BUSD', 'EUR', 'GBP'],
+        supportedAssetTypes: ['crypto'],
+        supportedAssets: undefined, // Discovers pairs via API (thousands of trading pairs)
         supportedOperations: ['fetchPrice'],
         rateLimit: {
           burstLimit: rateLimit.burstLimit,

@@ -6,6 +6,7 @@
 
 // Shared types and interfaces
 export type {
+  AssetType,
   IPriceProvider,
   PriceQuery,
   PriceData,

@@ -71,7 +71,7 @@ describe('PriceProviderManager', () => {
       ),
       getMetadata: () => ({
         capabilities: {
-          supportedCurrencies: ['USD'],
+          supportedAssetTypes: ['crypto'],
           supportedOperations: (options.operations || ['fetchPrice']) as ('fetchPrice' | 'fetchHistoricalRange')[],
           rateLimit: mockRateLimit,
         },

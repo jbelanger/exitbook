@@ -159,8 +159,10 @@ export class PriceProviderManager {
   ): Promise<Result<FailoverResult<T>, Error>> {
     const now = Date.now();
 
-    // Extract timestamp from query for granularity-based provider selection
+    // Extract timestamp and asset info from query for provider selection
     const timestamp = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.timestamp;
+    const assetSymbol = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.asset.toString();
+    const isFiat = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.asset.isFiat();
 
     // Select providers using pure function
     const scoredProviders = ProviderManagerUtils.selectProvidersForOperation(
@@ -169,7 +171,9 @@ export class PriceProviderManager {
       this.circuitStates,
       operationType,
       now,
-      timestamp
+      timestamp,
+      assetSymbol,
+      isFiat
     );
 
     if (scoredProviders.length === 0) {

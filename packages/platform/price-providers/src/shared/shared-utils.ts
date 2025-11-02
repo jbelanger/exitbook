@@ -178,16 +178,24 @@ export function formatPrice(price: number, currency = 'USD'): string {
  * Returns error message if invalid, undefined if valid
  *
  * Pure function - takes current time as parameter for testability
+ *
+ * @param timestamp - The timestamp to validate
+ * @param now - Current time (for testing)
+ * @param isFiat - Whether this is a fiat currency query (allows historical dates before crypto era)
  */
-export function validateQueryTimeRange(timestamp: Date, now: Date = new Date()): string | undefined {
-  const minDate = new Date('2009-01-03'); // Bitcoin genesis block
+export function validateQueryTimeRange(timestamp: Date, now: Date = new Date(), isFiat = false): string | undefined {
+  const minDate = isFiat
+    ? new Date('1999-01-01') // ECB/Frankfurter historical data starts 1999
+    : new Date('2009-01-03'); // Bitcoin genesis block
 
   if (timestamp > now) {
     return `Cannot fetch future prices: ${timestamp.toISOString()}`;
   }
 
   if (timestamp < minDate) {
-    return `Timestamp before crypto era: ${timestamp.toISOString()}`;
+    return isFiat
+      ? `Timestamp before FX historical data: ${timestamp.toISOString()}`
+      : `Timestamp before crypto era: ${timestamp.toISOString()}`;
   }
 
   return undefined;

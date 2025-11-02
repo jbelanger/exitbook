@@ -230,8 +230,8 @@ describe('Binance Provider E2E', () => {
     expect(metadata.name).toBe('binance');
     expect(metadata.displayName).toBe('Binance');
     expect(metadata.requiresApiKey).toBe(false);
-    expect(metadata.capabilities.supportedCurrencies).toContain('USDT');
-    expect(metadata.capabilities.supportedCurrencies).toContain('USD');
+    expect(metadata.capabilities.supportedAssetTypes).toContain('crypto');
+    expect(metadata.capabilities.supportedAssets).toBeUndefined();
     expect(metadata.capabilities.supportedOperations).toContain('fetchPrice');
 
     // Check granularity support

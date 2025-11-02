@@ -206,6 +206,17 @@ Multi-provider architecture with intelligent failover:
 
 Migrations in `packages/data/src/migrations/` run automatically via `initializeDatabase()`.
 
+### Multi-Currency & FX Rate Handling
+
+**All prices normalized to USD during enrichment** (not at import). Two separate conversions:
+
+1. **Storage normalization** (enrichment phase): EUR/CAD → USD via FX providers, stored with metadata
+2. **Display conversion** (report generation): USD → CAD/EUR using historical rates (ephemeral, not stored)
+
+**FX providers** integrated into `packages/platform/price-providers` (same as crypto price providers). FX rates cached in same `prices.db`.
+
+See ADR-003 and Issue #153 for details.
+
 ## Critical Patterns
 
 ### Result Type (neverthrow)

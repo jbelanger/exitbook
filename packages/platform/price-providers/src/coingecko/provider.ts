@@ -149,7 +149,8 @@ export class CoinGeckoProvider extends BasePriceProvider {
     // Provider metadata
     this.metadata = {
       capabilities: {
-        supportedCurrencies: ['USD', 'EUR', 'GBP', 'JPY', 'BTC', 'ETH'],
+        supportedAssetTypes: ['crypto'],
+        supportedAssets: undefined, // Synced from API (top 5000 coins by market cap)
         supportedOperations: ['fetchPrice'],
         rateLimit: {
           burstLimit: rateLimit.burstLimit,

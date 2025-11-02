@@ -408,8 +408,8 @@ describe('BinanceProvider', () => {
     expect(metadata.name).toBe('binance');
     expect(metadata.displayName).toBe('Binance');
     expect(metadata.requiresApiKey).toBe(false);
-    expect(metadata.capabilities.supportedCurrencies).toContain('USD');
-    expect(metadata.capabilities.supportedCurrencies).toContain('USDT');
+    expect(metadata.capabilities.supportedAssetTypes).toContain('crypto');
+    expect(metadata.capabilities.supportedAssets).toBeUndefined();
     expect(metadata.capabilities.supportedOperations).toContain('fetchPrice');
     expect(metadata.capabilities.granularitySupport).toHaveLength(2);
     expect(metadata.capabilities.granularitySupport?.[0]?.granularity).toBe('minute');

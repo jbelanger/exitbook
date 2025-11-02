@@ -52,10 +52,14 @@ export const OperationTypeSchema = z.enum([
 export const MovementDirectionSchema = z.enum(['in', 'out', 'neutral']);
 
 export const PriceAtTxTimeSchema = z.object({
-  price: MoneySchema,
+  price: MoneySchema, // Always in USD after normalization (storage currency)
   source: z.string(), // exchange-execution | derived-trade | derived-ratio | link-propagated | <provider-name>
   fetchedAt: DateSchema,
   granularity: z.enum(['exact', 'minute', 'hour', 'day']).optional(),
+  // FX rate metadata (populated when original currency was converted to USD)
+  fxRateToUSD: DecimalSchema.optional(), // Exchange rate used (e.g., 1.08 for EUR to USD)
+  fxSource: z.string().optional(), // Source of FX rate (e.g., "ecb", "coingecko", "manual")
+  fxTimestamp: DateSchema.optional(), // When FX rate was fetched
 });
 
 // Asset movement schema
