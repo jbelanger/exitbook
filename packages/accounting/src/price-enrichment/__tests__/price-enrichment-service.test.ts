@@ -64,13 +64,13 @@ function createMockTransaction(
 
 describe('PriceEnrichmentService', () => {
   describe('Happy Path: Exchange Trades', () => {
-    it('should apply exchange-execution prices directly to fiat/stable trades (Pass 0)', async () => {
+    it('should apply exchange-execution prices directly to USD trades (Pass 0)', async () => {
       const mockRepo = createMockTransactionRepository();
       const mockLinkRepo = createMockLinkRepository();
 
       const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
-      // Transaction: Buy 1 BTC with 50,000 USDT
+      // Transaction: Buy 1 BTC with 50,000 USD (actual USD, not stablecoin)
       const tx1 = createMockTransaction(
         1,
         'exchange',
@@ -84,7 +84,7 @@ describe('PriceEnrichmentService', () => {
         ],
         [
           {
-            asset: 'USDT',
+            asset: 'USD',
             amount: parseDecimal('50000'),
           },
         ]
@@ -122,7 +122,7 @@ describe('PriceEnrichmentService', () => {
 
       const baseTime = new Date('2024-01-01T10:00:00Z');
 
-      // Kraken: BTC = 50,000 USDT
+      // Kraken: BTC = 50,000 USD
       const tx1 = createMockTransaction(
         1,
         'exchange',
@@ -136,13 +136,13 @@ describe('PriceEnrichmentService', () => {
         ],
         [
           {
-            asset: 'USDT',
+            asset: 'USD',
             amount: parseDecimal('50000'),
           },
         ]
       );
 
-      // KuCoin: BTC = 50,100 USDT (different price!)
+      // KuCoin: BTC = 50,100 USD (different price!)
       const tx2 = createMockTransaction(
         2,
         'exchange',
@@ -156,7 +156,7 @@ describe('PriceEnrichmentService', () => {
         ],
         [
           {
-            asset: 'USDT',
+            asset: 'USD',
             amount: parseDecimal('50100'),
           },
         ]
@@ -183,13 +183,14 @@ describe('PriceEnrichmentService', () => {
   });
 
   describe('Happy Path: Blockchain Transactions', () => {
-    it('should enrich simple stablecoin swaps on blockchain', async () => {
+    it('should enrich USD trades on blockchain', async () => {
       const mockRepo = createMockTransactionRepository();
       const mockLinkRepo = createMockLinkRepository();
 
       const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
-      // Blockchain swap: 1000 USDT for 0.5 BTC on Uniswap
+      // Blockchain swap: 25000 USD for 0.5 BTC on blockchain
+      // (This could represent a wrapped USD token that's actual USD, not a stablecoin)
       const tx1 = createMockTransaction(
         1,
         'blockchain',
@@ -203,7 +204,7 @@ describe('PriceEnrichmentService', () => {
         ],
         [
           {
-            asset: 'USDT',
+            asset: 'USD',
             amount: parseDecimal('25000'),
           },
         ]
@@ -282,7 +283,7 @@ describe('PriceEnrichmentService', () => {
 
       const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
-      // Transaction 1: Can be enriched (fiat trade)
+      // Transaction 1: Can be enriched (USD trade)
       const tx1 = createMockTransaction(
         1,
         'exchange',
@@ -296,7 +297,7 @@ describe('PriceEnrichmentService', () => {
         ],
         [
           {
-            asset: 'USDT',
+            asset: 'USD',
             amount: parseDecimal('50000'),
           },
         ]
@@ -412,7 +413,7 @@ describe('PriceEnrichmentService', () => {
         ],
         [
           {
-            asset: 'USDT',
+            asset: 'USD',
             amount: parseDecimal('50000'),
           },
         ]
@@ -432,7 +433,7 @@ describe('PriceEnrichmentService', () => {
         ],
         [
           {
-            asset: 'USDT',
+            asset: 'USD',
             amount: parseDecimal('60000'),
           },
         ]

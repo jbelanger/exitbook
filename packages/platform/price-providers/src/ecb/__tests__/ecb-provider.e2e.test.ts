@@ -51,7 +51,7 @@ describe('ECB Provider E2E', () => {
     }
 
     // Create provider (no API key required)
-    const providerResult = createECBProvider(db, {});
+    const providerResult = createECBProvider(db);
 
     if (providerResult.isErr()) {
       throw providerResult.error;

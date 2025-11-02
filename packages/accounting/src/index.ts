@@ -51,3 +51,5 @@ export { DEFAULT_MATCHING_CONFIG } from './linking/matching-utils.js';
 export { TransactionLinkRepository } from './persistence/transaction-link-repository.js';
 export { CostBasisRepository } from './persistence/cost-basis-repository.js';
 export { PriceEnrichmentService } from './price-enrichment/price-enrichment-service.ts';
+export { PriceNormalizationService } from './price-enrichment/price-normalization-service.ts';
+export type { NormalizeResult } from './price-enrichment/price-normalization-service.ts';

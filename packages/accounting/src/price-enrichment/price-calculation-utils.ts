@@ -41,19 +41,24 @@ export function extractTradeMovements(
 }
 
 /**
- * Calculate price from trade movements when one side is fiat/stablecoin
- * Returns price for the non-fiat currency in terms of the fiat currency
+ * Calculate price from trade movements when one side is actual USD
+ * Returns price for the non-USD currency in terms of USD
+ *
+ * IMPORTANT: Only derives from actual USD, not stablecoins or other fiat
+ * - USD trades ✅ (derive execution price)
+ * - EUR/CAD/GBP trades ❌ (normalized to USD in Stage 1 via FX providers)
+ * - USDC/USDT/DAI trades ❌ (fetched in Stage 3 to capture de-peg events)
  *
  * Logic:
- * - If outflow is fiat/stablecoin: price of inflow = outflow amount / inflow amount
- * - If inflow is fiat/stablecoin: price of outflow = inflow amount / outflow amount
- * - If both are fiat/stablecoin: return price for both (useful for stablecoin swaps)
- * - If neither is fiat/stablecoin: return undefined (can't determine price)
+ * - If outflow is USD: price of inflow = outflow amount / inflow amount
+ * - If inflow is USD: price of outflow = inflow amount / outflow amount
+ * - If both are USD: skip (same currency)
+ * - If neither is USD: return empty (can't derive)
  *
- * Example: Buy 1 BTC with 50,000 USDT
- *   - Outflow: 50,000 USDT (fiat/stablecoin)
+ * Example: Buy 1 BTC with 50,000 USD
+ *   - Outflow: 50,000 USD (actual USD)
  *   - Inflow: 1 BTC (crypto)
- *   - Price: 50,000 USDT/BTC
+ *   - Price: 50,000 USD/BTC
  */
 export function calculatePriceFromTrade(movements: TradeMovements): { asset: string; priceAtTxTime: PriceAtTxTime }[] {
   const { inflow, outflow, timestamp } = movements;
@@ -61,18 +66,23 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
   const inflowCurrency = Currency.create(inflow.asset);
   const outflowCurrency = Currency.create(outflow.asset);
 
-  const inflowIsFiatOrStable = inflowCurrency.isFiatOrStablecoin();
-  const outflowIsFiatOrStable = outflowCurrency.isFiatOrStablecoin();
+  // Only derive from actual USD (not stablecoins, not other fiat)
+  const inflowIsUSD = inflowCurrency.toString() === 'USD';
+  const outflowIsUSD = outflowCurrency.toString() === 'USD';
 
-  // Neither side is fiat/stablecoin - can't determine price
-  if (!inflowIsFiatOrStable && !outflowIsFiatOrStable) {
+  // Neither side is USD - can't derive price
+  // This includes:
+  // - EUR trades (normalized separately in Stage 1)
+  // - USDC trades (fetched separately in Stage 3 with actual historical prices)
+  // - Crypto-crypto swaps (handled by Pass N+2)
+  if (!inflowIsUSD && !outflowIsUSD) {
     return [];
   }
 
   const results: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
 
-  // Outflow is fiat/stablecoin - calculate price of inflow
-  if (outflowIsFiatOrStable) {
+  // Outflow is USD - calculate price of inflow
+  if (outflowIsUSD && !inflowIsUSD) {
     const price = parseDecimal(outflow.amount.toFixed()).dividedBy(parseDecimal(inflow.amount.toFixed()));
 
     results.push({
@@ -86,8 +96,8 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
     });
   }
 
-  // Inflow is fiat/stablecoin - calculate price of outflow
-  if (inflowIsFiatOrStable) {
+  // Inflow is USD - calculate price of outflow
+  if (inflowIsUSD && !outflowIsUSD) {
     const price = parseDecimal(inflow.amount.toFixed()).dividedBy(parseDecimal(outflow.amount.toFixed()));
 
     results.push({
@@ -100,6 +110,9 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
       },
     });
   }
+
+  // Both sides are USD - skip (same currency, no price derivation needed)
+  // This case is theoretically impossible but handle for completeness
 
   return results;
 }

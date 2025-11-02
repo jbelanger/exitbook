@@ -33,8 +33,8 @@ Problem: Violates separation of concerns
 ```
 Import: Buy 1 BTC for 50,000 USDC
 Question: Treat USDC as USD (1:1 peg) or fetch actual rate?
-Current proposal: Unclear
-Problem: No distinction between USD-equivalent and non-USD currencies
+Decision: Fetch actual historical prices to avoid de-peg issues
+Rationale: Historical events (UST collapse, USDC de-peg to $0.98 in March 2023)
 ```
 
 **Scenario 3: Tax report in CAD**
@@ -86,9 +86,9 @@ We will treat **FX rate fetching as price enrichment**, not import normalization
    - **Storage normalization** (EUR/CAD → USD): Done during enrichment, stored in DB with audit trail
    - **Display conversion** (USD → CAD/EUR): Done during report generation, ephemeral, uses historical rates
 
-4. **USD-equivalent assets**: Only derive prices from USD or USD stablecoins
-   - USD ✅
-   - USDC, USDT, DAI ✅ (assume 1:1 peg)
+4. **USD-equivalent assets**: Only derive prices from actual USD
+   - USD ✅ (only actual USD)
+   - USDC, USDT, DAI ❌ (treat as crypto assets, fetch in Stage 3 to avoid de-peg issues)
    - EUR, CAD, GBP ❌ (need FX conversion first)
 
 5. **Historical FX rates**: Always use transaction date rates, never current rates
@@ -132,9 +132,10 @@ We will treat **FX rate fetching as price enrichment**, not import normalization
 │ • Convert to USD, populate fxRateToUSD metadata            │
 │                                                             │
 │ Stage 2: derive                                             │
-│ • Extract prices from USD/stablecoin trades                │
+│ • Extract prices from USD trades only                      │
 │ • Propagate via transaction links                          │
 │ • SKIP non-USD fiat (normalized in Stage 1)                │
+│ • SKIP stablecoins (fetched in Stage 3 to avoid de-peg)    │
 │                                                             │
 │ Stage 3: fetch                                              │
 │ • Fetch missing crypto prices from providers               │
@@ -211,10 +212,6 @@ VALUES ('BTC', 'USD', '2023-01-15T10:00:00Z', '50000', 'coingecko', 'minute');
 -- FX rate (same schema!)
 INSERT INTO prices (asset_symbol, currency, timestamp, price, source_provider, granularity)
 VALUES ('EUR', 'USD', '2023-01-15T00:00:00Z', '1.08', 'ecb', 'day');
-
--- USD stablecoin "rate"
-INSERT INTO prices (asset_symbol, currency, timestamp, price, source_provider, granularity)
-VALUES ('USDC', 'USD', '2023-01-15T10:00:00Z', '1.0', 'stablecoin-peg', 'exact');
 ```
 
 Existing `PriceAtTxTime` schema already has FX metadata fields:
@@ -325,9 +322,9 @@ pnpm run dev prices enrich [options]
 
 **Stage 2: Derive** (UPDATED)
 
-- Only extract from USD-equivalent assets (USD, USDC, USDT, DAI)
+- Only extract from actual USD (no stablecoins to avoid de-peg issues)
 - Propagate via transaction links
-- Update `calculatePriceFromTrade` to check `isUsdEquivalent()`
+- Update `calculatePriceFromTrade` to check `currency === 'USD'`
 - Handler: `PricesDeriveHandler`
 
 **Stage 3: Fetch** (UNCHANGED)
@@ -550,9 +547,9 @@ export class CostBasisReportGenerator {
    - Update movements with USD prices + FX metadata
 
 2. Update `price-calculation-utils.ts`:
-   - Add `isUsdEquivalent()` helper
-   - Update `calculatePriceFromTrade()` to only derive from USD-equivalent
-   - Add stablecoin peg assumptions (USDC/USDT/DAI = 1.0 USD)
+   - Update `calculatePriceFromTrade()` to only derive from actual USD
+   - Check `currency === 'USD'` before deriving prices
+   - Stablecoins treated as crypto assets, fetched in Stage 3
 
 3. Create unified `prices enrich` command:
    - Run normalize → derive → fetch in sequence
@@ -563,7 +560,7 @@ export class CostBasisReportGenerator {
    - Unit tests for normalize logic
    - Integration tests for full enrichment pipeline
    - Test EUR/CAD trades normalize to USD
-   - Test USDC trades derive correctly
+   - Test stablecoin prices fetched (not derived) to capture de-peg events
 
 ### Phase 3: Cost Basis Updates
 
@@ -630,8 +627,8 @@ export class CostBasisReportGenerator {
 2. **Historical rate gaps**: Provider may not have rates for old dates
    - Mitigation: Manual rate entry, clear error messages
 
-3. **Stablecoin de-peg events**: 1:1 USD assumption may be wrong (e.g., UST collapse, USDC March 2023)
-   - Mitigation: Can fetch actual stablecoin prices if needed, metadata tracks assumption
+3. **Stablecoin de-peg events**: Historical de-peg events require actual price data (e.g., UST collapse, USDC de-peg to $0.98 in March 2023)
+   - Mitigation: Stablecoins treated as crypto assets, fetched in Stage 3 with actual historical prices
 
 4. **Timezone handling**: FX rates are daily, but crypto transactions timestamped to minute
    - Mitigation: Use UTC midnight for daily rates, document granularity in metadata
