@@ -45,7 +45,7 @@ describe('CostBasisCalculator', () => {
         asset: i.asset,
         amount: new Decimal(i.amount),
         priceAtTxTime: {
-          price: { amount: new Decimal(i.price), currency: Currency.create('CAD') },
+          price: { amount: new Decimal(i.price), currency: Currency.create('USD') },
           source: 'test',
           fetchedAt: new Date(datetime),
           granularity: 'exact',
@@ -55,7 +55,7 @@ describe('CostBasisCalculator', () => {
         asset: o.asset,
         amount: new Decimal(o.amount),
         priceAtTxTime: {
-          price: { amount: new Decimal(o.price), currency: Currency.create('CAD') },
+          price: { amount: new Decimal(o.price), currency: Currency.create('USD') },
           source: 'test',
           fetchedAt: new Date(datetime),
           granularity: 'exact',
@@ -230,7 +230,7 @@ describe('CostBasisCalculator', () => {
               asset: 'BTC',
               amount: new Decimal('1'),
               priceAtTxTime: {
-                price: { amount: new Decimal('30000'), currency: Currency.create('CAD') },
+                price: { amount: new Decimal('30000'), currency: Currency.create('USD') },
                 source: 'test',
                 fetchedAt: new Date('2023-01-01'),
                 granularity: 'exact',
@@ -497,7 +497,7 @@ describe('CostBasisCalculator', () => {
             asset: platformFee.asset,
             amount: new Decimal(platformFee.amount),
             priceAtTxTime: {
-              price: { amount: new Decimal(platformFee.price), currency: Currency.create('CAD') },
+              price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
               source: 'test',
               fetchedAt: new Date(datetime),
               granularity: 'exact',
@@ -512,13 +512,13 @@ describe('CostBasisCalculator', () => {
         transactionWithFee(1, '2024-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '50000' }], []),
         // Sell 1 BTC @ $30k with $100 fee (Feb 1) - creates loss
         transactionWithFee(2, '2024-02-01T00:00:00Z', [], [{ asset: 'BTC', amount: '1', price: '30000' }], {
-          asset: 'CAD',
+          asset: 'USD',
           amount: '100',
           price: '1',
         }),
         // Buy 0.5 BTC @ $32k with $50 fee (Feb 15) - triggers wash sale
         transactionWithFee(3, '2024-02-15T00:00:00Z', [{ asset: 'BTC', amount: '0.5', price: '32000' }], [], {
-          asset: 'CAD',
+          asset: 'USD',
           amount: '50',
           price: '1',
         }),
@@ -590,7 +590,7 @@ describe('CostBasisCalculator', () => {
               asset: i.asset,
               amount: new Decimal(i.amount),
               priceAtTxTime: {
-                price: { amount: new Decimal(i.price), currency: Currency.create('CAD') },
+                price: { amount: new Decimal(i.price), currency: Currency.create('USD') },
                 source: 'test',
                 fetchedAt: new Date(datetime),
                 granularity: 'exact',
@@ -600,7 +600,7 @@ describe('CostBasisCalculator', () => {
               asset: o.asset,
               amount: new Decimal(o.amount),
               priceAtTxTime: {
-                price: { amount: new Decimal(o.price), currency: Currency.create('CAD') },
+                price: { amount: new Decimal(o.price), currency: Currency.create('USD') },
                 source: 'test',
                 fetchedAt: new Date(datetime),
                 granularity: 'exact',
@@ -617,7 +617,7 @@ describe('CostBasisCalculator', () => {
             asset: platformFee.asset,
             amount: new Decimal(platformFee.amount),
             priceAtTxTime: {
-              price: { amount: new Decimal(platformFee.price), currency: Currency.create('CAD') },
+              price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
               source: 'test',
               fetchedAt: new Date(datetime),
               granularity: 'exact',
@@ -638,7 +638,7 @@ describe('CostBasisCalculator', () => {
             { asset: 'ETH', amount: '10', price: '2000' },
           ],
           [],
-          { asset: 'CAD', amount: '60', price: '1' }
+          { asset: 'USD', amount: '60', price: '1' }
         ),
         // Sell BTC at loss (Feb 1)
         createTransaction(2, '2024-02-01T00:00:00Z', [], [{ asset: 'BTC', amount: '1', price: '30000' }]),
@@ -675,6 +675,234 @@ describe('CostBasisCalculator', () => {
       }
     });
 
+    it('should reject transactions with non-USD prices (EUR)', async () => {
+      const transactionsWithEUR: UniversalTransaction[] = [
+        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
+        // This transaction has EUR price instead of USD
+        {
+          id: 2,
+          externalId: 'ext-2',
+          datetime: '2023-06-01T00:00:00Z',
+          timestamp: new Date('2023-06-01').getTime(),
+          source: 'test',
+          status: 'success',
+          movements: {
+            inflows: [],
+            outflows: [
+              {
+                asset: 'BTC',
+                amount: new Decimal('0.5'),
+                priceAtTxTime: {
+                  price: { amount: new Decimal('35000'), currency: Currency.create('EUR') },
+                  source: 'test',
+                  fetchedAt: new Date('2023-06-01'),
+                  granularity: 'exact',
+                },
+              },
+            ],
+          },
+          operation: { category: 'trade', type: 'sell' },
+          fees: {},
+          metadata: {},
+        },
+      ];
+
+      const config: CostBasisConfig = {
+        method: 'fifo',
+        currency: 'CAD',
+        jurisdiction: 'US',
+        taxYear: 2023,
+      };
+
+      const result = await calculator.calculate(transactionsWithEUR, config, new USRules());
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('non-USD prices');
+        expect(result.error.message).toContain('prices enrich');
+        expect(result.error.message).toContain('EUR');
+        expect(result.error.message).toContain('ext-2');
+      }
+    });
+
+    it('should reject transactions with non-USD prices in fees', async () => {
+      const transactionWithEURFee: UniversalTransaction = {
+        id: 1,
+        externalId: 'ext-1',
+        datetime: '2023-01-01T00:00:00Z',
+        timestamp: new Date('2023-01-01').getTime(),
+        source: 'test',
+        status: 'success',
+        movements: {
+          inflows: [
+            {
+              asset: 'BTC',
+              amount: new Decimal('1'),
+              priceAtTxTime: {
+                price: { amount: new Decimal('30000'), currency: Currency.create('USD') },
+                source: 'test',
+                fetchedAt: new Date('2023-01-01'),
+                granularity: 'exact',
+              },
+            },
+          ],
+          outflows: [],
+        },
+        operation: { category: 'trade', type: 'buy' },
+        fees: {
+          platform: {
+            asset: 'EUR',
+            amount: new Decimal('10'),
+            priceAtTxTime: {
+              price: { amount: new Decimal('10'), currency: Currency.create('EUR') },
+              source: 'test',
+              fetchedAt: new Date('2023-01-01'),
+              granularity: 'exact',
+            },
+          },
+        },
+        metadata: {},
+      };
+
+      const config: CostBasisConfig = {
+        method: 'fifo',
+        currency: 'CAD',
+        jurisdiction: 'US',
+        taxYear: 2023,
+      };
+
+      const result = await calculator.calculate([transactionWithEURFee], config, new USRules());
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('non-USD prices');
+        expect(result.error.message).toContain('EUR');
+      }
+    });
+
+    it('should accept transactions with all USD prices', async () => {
+      const transactionsWithUSD: UniversalTransaction[] = [
+        {
+          id: 1,
+          externalId: 'ext-1',
+          datetime: '2023-01-01T00:00:00Z',
+          timestamp: new Date('2023-01-01').getTime(),
+          source: 'test',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                asset: 'BTC',
+                amount: new Decimal('1'),
+                priceAtTxTime: {
+                  price: { amount: new Decimal('30000'), currency: Currency.create('USD') },
+                  source: 'test',
+                  fetchedAt: new Date('2023-01-01'),
+                  granularity: 'exact',
+                },
+              },
+            ],
+            outflows: [],
+          },
+          operation: { category: 'trade', type: 'buy' },
+          fees: {},
+          metadata: {},
+        },
+        {
+          id: 2,
+          externalId: 'ext-2',
+          datetime: '2023-06-01T00:00:00Z',
+          timestamp: new Date('2023-06-01').getTime(),
+          source: 'test',
+          status: 'success',
+          movements: {
+            inflows: [],
+            outflows: [
+              {
+                asset: 'BTC',
+                amount: new Decimal('0.5'),
+                priceAtTxTime: {
+                  price: { amount: new Decimal('40000'), currency: Currency.create('USD') },
+                  source: 'test',
+                  fetchedAt: new Date('2023-06-01'),
+                  granularity: 'exact',
+                },
+              },
+            ],
+          },
+          operation: { category: 'trade', type: 'sell' },
+          fees: {},
+          metadata: {},
+        },
+      ];
+
+      const config: CostBasisConfig = {
+        method: 'fifo',
+        currency: 'CAD',
+        jurisdiction: 'US',
+        taxYear: 2023,
+      };
+
+      const result = await calculator.calculate(transactionsWithUSD, config, new USRules());
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.lotsCreated).toBe(1);
+        expect(result.value.disposalsProcessed).toBe(1);
+      }
+    });
+
+    it('should list up to 5 examples of non-USD movements', async () => {
+      // Create 7 transactions with non-USD prices
+      const transactionsWithMultipleEUR: UniversalTransaction[] = [];
+      for (let i = 1; i <= 7; i++) {
+        transactionsWithMultipleEUR.push({
+          id: i,
+          externalId: `ext-${i}`,
+          datetime: '2023-01-01T00:00:00Z',
+          timestamp: new Date('2023-01-01').getTime(),
+          source: 'test',
+          status: 'success',
+          movements: {
+            inflows: [
+              {
+                asset: 'BTC',
+                amount: new Decimal('1'),
+                priceAtTxTime: {
+                  price: { amount: new Decimal('30000'), currency: Currency.create('EUR') },
+                  source: 'test',
+                  fetchedAt: new Date('2023-01-01'),
+                  granularity: 'exact',
+                },
+              },
+            ],
+            outflows: [],
+          },
+          operation: { category: 'trade', type: 'buy' },
+          fees: {},
+          metadata: {},
+        });
+      }
+
+      const config: CostBasisConfig = {
+        method: 'fifo',
+        currency: 'CAD',
+        jurisdiction: 'US',
+        taxYear: 2023,
+      };
+
+      const result = await calculator.calculate(transactionsWithMultipleEUR, config, new USRules());
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('7 movement(s)');
+        expect(result.error.message).toContain('First 5 example(s)');
+        // Should show 5 examples, not all 7
+        const examples = result.error.message.match(/ext-\d+/g);
+        expect(examples).toHaveLength(5);
+      }
+    });
+
     it('should correctly classify long-term gains with complex fee scenarios', async () => {
       // Integration test: holding period classification + fee handling
       // Buy 1 BTC @ $30k with $100 fee (Jan 1, 2023)
@@ -693,7 +921,7 @@ describe('CostBasisCalculator', () => {
             asset: platformFee.asset,
             amount: new Decimal(platformFee.amount),
             priceAtTxTime: {
-              price: { amount: new Decimal(platformFee.price), currency: Currency.create('CAD') },
+              price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
               source: 'test',
               fetchedAt: new Date(datetime),
               granularity: 'exact',
@@ -706,13 +934,13 @@ describe('CostBasisCalculator', () => {
       const transactions: UniversalTransaction[] = [
         // Buy 1 BTC @ $30k with $100 fee (Jan 1, 2023)
         txWithFee(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }], [], {
-          asset: 'CAD',
+          asset: 'USD',
           amount: '100',
           price: '1',
         }),
         // Sell 0.5 BTC @ $50k with $200 fee (Jan 2, 2024) - 366 days = long-term
         txWithFee(2, '2024-01-02T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '50000' }], {
-          asset: 'CAD',
+          asset: 'USD',
           amount: '200',
           price: '1',
         }),
