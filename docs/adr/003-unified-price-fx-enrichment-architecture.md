@@ -1,7 +1,8 @@
 # ADR 003: Unified Price and FX Rate Enrichment Architecture
 
 **Date**: 2025-11-01
-**Status**: Proposed
+**Status**: Accepted
+**Implementation Date**: 2025-11-03
 **Deciders**: Joel Belanger (maintainer)
 **Tags**: pricing, fx-rates, multi-currency, enrichment, architecture
 
@@ -86,10 +87,10 @@ We will treat **FX rate fetching as price enrichment**, not import normalization
    - **Storage normalization** (EUR/CAD → USD): Done during enrichment, stored in DB with audit trail
    - **Display conversion** (USD → CAD/EUR): Done during report generation, ephemeral, uses historical rates
 
-4. **USD-equivalent assets**: Only derive prices from actual USD
-   - USD ✅ (only actual USD)
-   - USDC, USDT, DAI ❌ (treat as crypto assets, fetch in Stage 3 to avoid de-peg issues)
-   - EUR, CAD, GBP ❌ (need FX conversion first)
+4. **Execution price derivation**: Extract prices from fiat trades (USD + non-USD)
+   - USD trades ✅ (highest confidence, marked as 'exchange-execution')
+   - EUR/CAD/GBP trades ✅ (derive in native currency as 'fiat-execution-tentative', then normalize to USD)
+   - USDC, USDT, DAI ❌ (treat as crypto assets, fetch in Stage 3 to avoid missing de-peg events)
 
 5. **Historical FX rates**: Always use transaction date rates, never current rates
    - Critical for tax accuracy
@@ -126,22 +127,32 @@ We will treat **FX rate fetching as price enrichment**, not import normalization
 │ ENRICH PHASE (Price Normalization)                         │
 │ ALL external data fetching happens here                    │
 ├─────────────────────────────────────────────────────────────┤
-│ Stage 1: normalize                                          │
+│ Stage 1: derive (first pass)                                │
+│ • Extract prices from USD trades (highest confidence)      │
+│ • Extract prices from non-USD fiat trades (EUR, CAD, GBP)  │
+│   - Fiat gets identity price (1 CAD = 1 CAD)               │
+│   - Crypto gets price in fiat currency (100 XLM = 50 CAD)  │
+│   - Marked as 'fiat-execution-tentative' (priority 0)      │
+│ • Propagate prices via transaction links                   │
+│ • Stamp identity prices on fiat movements                  │
+│                                                             │
+│ Stage 2: normalize                                          │
 │ • Find non-USD fiat prices (EUR, CAD, GBP)                 │
 │ • Fetch FX rates via PriceProviderManager                  │
 │ • Convert to USD, populate fxRateToUSD metadata            │
-│                                                             │
-│ Stage 2: derive                                             │
-│ • Extract prices from USD trades only                      │
-│ • Propagate via transaction links                          │
-│ • SKIP non-USD fiat (normalized in Stage 1)                │
-│ • SKIP stablecoins (fetched in Stage 3 to avoid de-peg)    │
+│ • Upgrade source: 'fiat-execution-tentative' (priority 0)  │
+│   → 'derived-ratio' (priority 2)                           │
 │                                                             │
 │ Stage 3: fetch                                              │
-│ • Fetch missing crypto prices from providers               │
-│ • Always in USD                                             │
+│ • Fetch missing crypto prices from external providers      │
+│ • Always in USD (source: provider name, priority 1)        │
+│ • Cannot overwrite derived-ratio prices (priority 2)       │
 │                                                             │
-│ Result: All prices in USD with audit trail                 │
+│ Stage 4: derive (second pass)                               │
+│ • Use newly fetched/normalized prices for ratio calcs      │
+│ • Propagate via links (Pass 1 + Pass N+2)                  │
+│                                                             │
+│ Result: All prices in USD with full audit trail            │
 └─────────────────────────────────────────────────────────────┘
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -179,12 +190,16 @@ packages/platform/price-providers/
 │  │  └─ provider.ts
 │  ├─ binance/            # Crypto prices
 │  │  └─ provider.ts
-│  ├─ ecb/                # ← NEW: FX rates (European Central Bank)
+│  ├─ ecb/                # FX rates (European Central Bank)
 │  │  ├─ provider.ts      # Implements IPriceProvider (same interface!)
 │  │  ├─ schemas.ts
 │  │  └─ __tests__/
-│  ├─ bank-of-canada/     # ← NEW: FX rates (CAD/USD)
+│  ├─ bank-of-canada/     # FX rates (CAD/USD)
 │  │  ├─ provider.ts
+│  │  ├─ schemas.ts
+│  │  └─ __tests__/
+│  ├─ frankfurter/        # FX rates (ECB data, 31 currencies)
+│  │  ├─ provider.ts      # Simpler API than ECB, more currencies
 │  │  ├─ schemas.ts
 │  │  └─ __tests__/
 │  ├─ shared/
@@ -256,17 +271,19 @@ export class ECBProvider extends BasePriceProvider {
     displayName: 'European Central Bank',
     capabilities: {
       supportedOperations: ['fetchPrice'],
-      supportedCurrencies: ['USD'],
+      supportedAssetTypes: ['fiat'],
+      supportedAssets: ['EUR'], // ECB only provides EUR as base currency
       rateLimit: {
-        requestsPerSecond: 1,
+        requestsPerSecond: 0.2, // ~12 per minute
         requestsPerMinute: 10,
-        requestsPerHour: 100,
+        requestsPerHour: 300,
         burstLimit: 5,
       },
       granularitySupport: [
         {
           granularity: 'day',
-          maxHistoryDays: undefined, // Back to 1999
+          maxHistoryDays: undefined, // Historical data back to 1999
+          limitation: 'ECB provides daily exchange rates (no intraday granularity)',
         },
       ],
     },
@@ -276,126 +293,213 @@ export class ECBProvider extends BasePriceProvider {
   protected async fetchPriceInternal(query: PriceQuery): Promise<Result<PriceData, Error>> {
     const { asset, currency, timestamp } = query;
 
-    // Validate: asset must be fiat, currency must be USD
-    if (!asset.isFiat()) {
-      return err(new Error(`ECB only supports fiat currencies, got ${asset}`));
+    // Validate: asset must be EUR, currency must be USD
+    if (asset.toString() !== 'EUR') {
+      return err(new Error(`ECB only supports EUR as base currency, got ${asset}`));
     }
     if (currency.toString() !== 'USD') {
       return err(new Error(`ECB only supports USD target, got ${currency}`));
     }
 
-    // Fetch from ECB API
-    const response = await this.httpClient.get(
-      `https://data-api.ecb.europa.eu/service/data/EXR/D.${asset}.${currency}.SP00.A`,
-      { params: { startPeriod: formatDate(timestamp), endPeriod: formatDate(timestamp) } }
-    );
+    // Build flow reference for ECB SDMX API
+    const flowRef = buildECBFlowRef(asset.toString(), currency.toString());
+    const dateStr = formatECBDate(timestamp);
 
-    const rate = parseECBResponse(response);
-
-    return ok({
-      asset,
-      currency,
-      timestamp,
-      price: rate.toNumber(),
-      source: 'ecb',
-      fetchedAt: new Date(),
-      granularity: 'day',
+    // Fetch from ECB SDMX API
+    const response = await this.httpClient.get(flowRef, {
+      params: {
+        startPeriod: dateStr,
+        endPeriod: dateStr,
+        format: 'jsondata',
+      },
     });
+
+    // Transform and validate response
+    const transformResult = transformECBResponse(response, asset, currency, timestamp);
+    if (transformResult.isErr()) {
+      return err(transformResult.error);
+    }
+
+    return ok(transformResult.value);
   }
 }
 ```
 
 ### Enrichment Command Structure
 
-Single unified command with three stages:
+Single unified command with four-stage pipeline:
 
 ```bash
 pnpm run dev prices enrich [options]
 ```
 
-**Stage 1: Normalize** (NEW)
+**Stage 1: Derive (First Pass)**
+
+- Extract prices from USD trades (highest confidence)
+- Extract prices from non-USD fiat trades (EUR, CAD, etc.)
+  - Fiat gets identity price (1 CAD = 1 CAD)
+  - Crypto gets price in fiat currency (marked as 'fiat-execution-tentative')
+- Propagate prices via transaction links
+- Service: `PriceEnrichmentService`
+
+**Stage 2: Normalize**
 
 - Find movements with non-USD fiat prices
-- Fetch FX rates via `PriceProviderManager`
-- Convert to USD, populate FX metadata
-- Handler: `PricesNormalizeHandler`
+- Fetch FX rates via `PriceProviderManager` (tries ECB → Bank of Canada → Frankfurter)
+- Convert to USD, populate fxRateToUSD metadata
+- Upgrade source: 'fiat-execution-tentative' → 'derived-ratio' (priority 2)
+- Service: `PriceNormalizationService`
 
-**Stage 2: Derive** (UPDATED)
+**Stage 3: Fetch**
 
-- Only extract from actual USD (no stablecoins to avoid de-peg issues)
-- Propagate via transaction links
-- Update `calculatePriceFromTrade` to check `currency === 'USD'`
-- Handler: `PricesDeriveHandler`
-
-**Stage 3: Fetch** (UNCHANGED)
-
-- Fetch missing crypto prices from providers
+- Fetch missing crypto prices from external providers
+- Always in USD (source: provider name, priority 1)
+- Cannot overwrite derived-ratio prices (priority 2)
 - Handler: `PricesFetchHandler`
 
-Options:
+**Stage 4: Derive (Second Pass)**
 
-- `--asset <symbol>`: Filter by specific asset
-- `--interactive`: Enable manual price entry
-- `--skip-normalize`: Skip FX conversion (for testing)
-- `--skip-derive`: Skip price extraction (for testing)
-- `--skip-fetch`: Skip external provider fetching (for testing)
+- Use newly fetched/normalized prices for ratio calculations
+- Propagate via transaction links (Pass 1 + Pass N+2)
+- Service: `PriceEnrichmentService`
 
-### FxRateProvider (Thin Wrapper)
+**Unified Handler**: `PricesEnrichHandler` (orchestrates all stages)
 
-Simplified to delegate to unified price provider infrastructure:
+**Options**:
+
+- `--asset <symbol>`: Filter by specific asset (repeatable)
+- `--interactive`: Enable manual price/FX entry when providers fail
+- `--derive-only`: Only run derivation stages (skip normalize/fetch)
+- `--normalize-only`: Only run normalization stage (skip derive/fetch)
+- `--fetch-only`: Only run fetch stage (skip derive/normalize)
+
+### FX Rate Provider Architecture
+
+Clean Architecture pattern with interface-based design:
+
+**Interface** (`packages/accounting/src/price-enrichment/fx-rate-provider.interface.ts`):
 
 ```typescript
-// packages/accounting/src/services/fx-rate-provider.ts
+/**
+ * Provider for FX rates - defines contract without coupling to implementations
+ */
+export interface IFxRateProvider {
+  /**
+   * Get FX rate to convert from source currency to USD
+   * @returns FX rate data with audit trail
+   */
+  getRateToUSD(sourceCurrency: Currency, timestamp: Date): Promise<Result<FxRateData, Error>>;
 
-export class FxRateProvider {
+  /**
+   * Get FX rate to convert from USD to target currency
+   * Used for report generation (e.g., USD capital gains → CAD for Canadian tax reports)
+   * @returns Inverted FX rate data with audit trail
+   */
+  getRateFromUSD(targetCurrency: Currency, timestamp: Date): Promise<Result<FxRateData, Error>>;
+}
+
+export interface FxRateData {
+  rate: Decimal;
+  source: string; // e.g., 'ecb', 'bank-of-canada', 'user-provided'
+  fetchedAt: Date;
+}
+```
+
+**Standard Implementation** (`packages/accounting/src/price-enrichment/standard-fx-rate-provider.ts`):
+
+```typescript
+/**
+ * Standard implementation that delegates to PriceProviderManager
+ * Manager tries providers in order: ECB → Bank of Canada → Frankfurter
+ */
+export class StandardFxRateProvider implements IFxRateProvider {
+  constructor(private readonly priceManager: PriceProviderManager) {}
+
+  async getRateToUSD(sourceCurrency: Currency, timestamp: Date): Promise<Result<FxRateData, Error>> {
+    // Fetch FX rate from provider manager (with automatic failover)
+    const fxRateResult = await this.priceManager.fetchPrice({
+      asset: sourceCurrency,
+      currency: Currency.create('USD'),
+      timestamp,
+    });
+
+    if (fxRateResult.isErr()) {
+      return err(new Error(`Failed to fetch FX rate for ${sourceCurrency} → USD: ${fxRateResult.error.message}`));
+    }
+
+    const fxData = fxRateResult.value.data;
+
+    return ok({
+      rate: fxData.price,
+      source: fxData.source,
+      fetchedAt: fxData.fetchedAt,
+    });
+  }
+
+  async getRateFromUSD(targetCurrency: Currency, timestamp: Date): Promise<Result<FxRateData, Error>> {
+    // Fetch target → USD and invert the rate
+    // Example: CAD → USD = 0.74, so USD → CAD = 1/0.74 = 1.35
+    const fxRateResult = await this.priceManager.fetchPrice({
+      asset: targetCurrency,
+      currency: Currency.create('USD'),
+      timestamp,
+    });
+
+    if (fxRateResult.isErr()) {
+      return err(new Error(`Failed to fetch FX rate for USD → ${targetCurrency}: ${fxRateResult.error.message}`));
+    }
+
+    const fxData = fxRateResult.value.data;
+    const rateToUsd = fxData.price;
+    const rateFromUsd = new Decimal(1).div(rateToUsd);
+
+    return ok({
+      rate: rateFromUsd,
+      source: fxData.source,
+      fetchedAt: fxData.fetchedAt,
+    });
+  }
+}
+```
+
+**Interactive Implementation** (`apps/cli/src/features/prices/interactive-fx-rate-provider.ts`):
+
+```typescript
+/**
+ * CLI-layer wrapper that prompts user for manual FX rate entry
+ * when underlying provider fails. Implements decorator pattern.
+ */
+export class InteractiveFxRateProvider implements IFxRateProvider {
   constructor(
-    private priceManager: PriceProviderManager, // Unified manager
-    private manualRates: Map<string, Decimal> = new Map()
+    private readonly underlyingProvider: IFxRateProvider, // Typically StandardFxRateProvider
+    private readonly interactive: boolean
   ) {}
 
-  async getRateToUSD(sourceCurrency: string, datetime: Date): Promise<Result<FxRate, Error>> {
-    const currency = Currency.create(sourceCurrency);
+  async getRateToUSD(sourceCurrency: Currency, timestamp: Date): Promise<Result<FxRateData, Error>> {
+    // Try underlying provider first (ECB, Bank of Canada, Frankfurter)
+    const result = await this.underlyingProvider.getRateToUSD(sourceCurrency, timestamp);
 
-    // USD doesn't need conversion
-    if (currency.toString() === 'USD') {
-      return ok({ rate: parseDecimal('1'), source: 'identity', timestamp: datetime });
+    // If successful or not interactive, return as-is
+    if (result.isOk() || !this.interactive) {
+      return result;
     }
 
-    // Check manual rates first
-    const manualRate = this.manualRates.get(currency.toString());
-    if (manualRate) {
-      return ok({ rate: manualRate, source: 'manual', timestamp: datetime });
+    // Interactive mode: prompt user for manual entry
+    const manualRate = await promptManualFxRate(sourceCurrency.toString(), 'USD', timestamp);
+
+    if (!manualRate) {
+      return result; // User declined, return original error
     }
 
-    // Delegate to price provider manager
-    // Manager tries: ECB → BankOfCanada → Fixer (with failover)
-    const priceResult = await this.priceManager.fetchPrice({
-      asset: currency,
-      currency: Currency.create('USD'),
-      timestamp: datetime,
-    });
-
-    if (priceResult.isErr()) return err(priceResult.error);
-
-    const priceData = priceResult.value.data;
+    // User provided manual rate
     return ok({
-      rate: parseDecimal(priceData.price.toString()),
-      source: priceData.source,
-      timestamp: priceData.fetchedAt,
+      rate: manualRate.rate,
+      source: 'user-provided',
+      fetchedAt: new Date(),
     });
   }
 
-  async getRateFromUSD(targetCurrency: string, datetime: Date): Promise<Result<FxRate, Error>> {
-    // For USD → CAD, invert the EUR → USD rate
-    const usdRate = await this.getRateToUSD(targetCurrency, datetime);
-    if (usdRate.isErr()) return err(usdRate.error);
-
-    return ok({
-      rate: parseDecimal('1').dividedBy(usdRate.value.rate),
-      source: `inverse-${usdRate.value.source}`,
-      timestamp: datetime,
-    });
-  }
+  // getRateFromUSD follows same pattern (try provider → prompt if needed)
 }
 ```
 
@@ -407,37 +511,50 @@ Validate all prices are USD before calculation:
 // packages/accounting/src/services/cost-basis-calculator.ts
 
 export class CostBasisCalculator {
-  async calculate(transactions: UniversalTransaction[], config: CostBasisConfig) {
-    // Pre-flight validation: ensure all prices in USD
-    const nonUsdPrices = this.findNonUsdPrices(transactions);
+  constructor(private readonly repository: CostBasisRepository) {
+    this.lotMatcher = new LotMatcher();
+    this.gainLossCalculator = new GainLossCalculator();
+  }
 
-    if (nonUsdPrices.length > 0) {
+  async calculate(
+    transactions: UniversalTransaction[],
+    config: CostBasisConfig,
+    rules: IJurisdictionRules
+  ): Promise<Result<CostBasisSummary, Error>> {
+    // Pre-flight validation: ensure all prices are in USD
+    const nonUsdMovements = this.findMovementsWithNonUsdPrices(transactions);
+
+    if (nonUsdMovements.length > 0) {
+      const exampleCount = Math.min(5, nonUsdMovements.length);
+      const examples = nonUsdMovements
+        .slice(0, exampleCount)
+        .map((m) => `  - Transaction ${m.transactionId} (${m.datetime}): ${m.asset} with price in ${m.currency}`)
+        .join('\n');
+
       return err(
         new Error(
-          `Found ${nonUsdPrices.length} movements with non-USD prices. ` +
-            `Run \`prices enrich\` first to normalize all prices to USD. ` +
-            `Non-USD movements: ${nonUsdPrices
-              .map((p) => `${p.txId}:${p.asset}:${p.currency}`)
-              .slice(0, 5)
-              .join(', ')}`
+          `Found ${nonUsdMovements.length} movement(s) with non-USD prices. ` +
+            `Run 'prices enrich' to normalize all prices to USD first.\n\n` +
+            `First ${exampleCount} example(s):\n${examples}`
         )
       );
     }
 
-    // Calculate purely in USD (no conversions needed)
-    return this.calculateInternal(transactions, config);
+    // Calculate cost basis with lot matching, gain/loss calculations, and jurisdiction rules
+    // ... (implementation continues)
   }
 
-  private findNonUsdPrices(
+  private findMovementsWithNonUsdPrices(
     transactions: UniversalTransaction[]
-  ): Array<{ txId: number; asset: string; currency: string }> {
-    const nonUsd: Array<{ txId: number; asset: string; currency: string }> = [];
+  ): Array<{ transactionId: number; datetime: string; asset: string; currency: string }> {
+    const nonUsd: Array<{ transactionId: number; datetime: string; asset: string; currency: string }> = [];
 
     for (const tx of transactions) {
       for (const movement of [...(tx.movements.inflows || []), ...(tx.movements.outflows || [])]) {
         if (movement.priceAtTxTime && movement.priceAtTxTime.price.currency.toString() !== 'USD') {
           nonUsd.push({
-            txId: tx.id,
+            transactionId: tx.id,
+            datetime: tx.datetime,
             asset: movement.asset,
             currency: movement.priceAtTxTime.price.currency.toString(),
           });
@@ -457,47 +574,79 @@ Convert USD amounts to display currency using historical rates:
 ```typescript
 // packages/accounting/src/reports/cost-basis-report-generator.ts
 
+export interface ReportGeneratorConfig {
+  displayCurrency: string; // e.g., 'USD', 'CAD', 'EUR', 'GBP'
+  calculationId: string; // Reference to completed cost basis calculation
+}
+
 export class CostBasisReportGenerator {
   constructor(
-    private calculator: CostBasisCalculator,
-    private fxProvider: FxRateProvider
+    private readonly repository: CostBasisRepository,
+    private readonly fxProvider: IFxRateProvider
   ) {}
 
-  async generateReport(
-    transactions: UniversalTransaction[],
-    config: { displayCurrency: 'USD' | 'CAD' | 'EUR' | 'GBP'; method: 'FIFO' | 'LIFO'; taxYear: number }
-  ): Promise<Result<CostBasisReport, Error>> {
-    // Calculate cost basis in USD
-    const resultsResult = await this.calculator.calculate(transactions, config);
-    if (resultsResult.isErr()) return err(resultsResult.error);
+  async generateReport(config: ReportGeneratorConfig): Promise<Result<CostBasisReport, Error>> {
+    const { calculationId, displayCurrency } = config;
 
-    const results = resultsResult.value;
+    // Load calculation from repository
+    const calculationResult = await this.repository.findCalculationById(calculationId);
+    if (calculationResult.isErr()) return err(calculationResult.error);
 
-    // If display currency is USD, return as-is
-    if (config.displayCurrency === 'USD') {
-      return ok({ results, displayCurrency: 'USD' });
+    const calculation = calculationResult.value;
+    if (!calculation) {
+      return err(new Error(`Calculation ${calculationId} not found`));
     }
 
-    // Convert to display currency using historical rates
-    const converted = [];
-    const fxRateCache = new Map<string, FxRate>(); // date → rate cache
+    // Load all disposals for this calculation
+    const disposalsResult = await this.repository.findDisposalsByCalculationId(calculationId);
+    if (disposalsResult.isErr()) return err(disposalsResult.error);
 
-    for (const result of results) {
-      const dateKey = result.transaction.datetime.split('T')[0]; // Daily granularity
+    const disposals = disposalsResult.value;
+
+    // If display currency is USD, no conversion needed
+    if (displayCurrency === 'USD') {
+      return this.generateUsdReport(calculation, disposals);
+    }
+
+    // Convert each disposal to display currency
+    const convertedDisposalsResult = await this.convertDisposals(disposals, displayCurrency);
+    if (convertedDisposalsResult.isErr()) return err(convertedDisposalsResult.error);
+
+    const convertedDisposals = convertedDisposalsResult.value;
+
+    // Calculate summary totals in display currency
+    const summary = this.calculateSummary(convertedDisposals);
+
+    return ok({
+      calculationId,
+      displayCurrency,
+      originalCurrency: 'USD',
+      disposals: convertedDisposals,
+      summary,
+    });
+  }
+
+  private async convertDisposals(
+    disposals: LotDisposal[],
+    displayCurrency: string
+  ): Promise<Result<ConvertedLotDisposal[], Error>> {
+    const converted: ConvertedLotDisposal[] = [];
+    const fxRateCache = new Map<string, FxRateData>(); // date → rate cache
+
+    for (const disposal of disposals) {
+      const dateKey = disposal.disposalDate.split('T')[0]; // Daily granularity
 
       // Check cache first
       let fxRate = fxRateCache.get(dateKey);
       if (!fxRate) {
-        // Fetch USD → CAD rate for this transaction's date
+        // Fetch USD → display currency rate for this disposal's date (historical rate!)
         const rateResult = await this.fxProvider.getRateFromUSD(
-          config.displayCurrency,
-          new Date(result.transaction.datetime) // Historical, NOT today!
+          Currency.create(displayCurrency),
+          new Date(disposal.disposalDate)
         );
 
         if (rateResult.isErr()) {
-          return err(
-            new Error(`Missing FX rate for ${config.displayCurrency} on ${dateKey}: ${rateResult.error.message}`)
-          );
+          return err(new Error(`Missing FX rate for ${displayCurrency} on ${dateKey}: ${rateResult.error.message}`));
         }
 
         fxRate = rateResult.value;
@@ -506,94 +655,113 @@ export class CostBasisReportGenerator {
 
       // Convert all USD amounts to display currency
       converted.push({
-        ...result,
-        costBasis: result.costBasis.times(fxRate.rate),
-        proceeds: result.proceeds?.times(fxRate.rate),
-        capitalGain: result.capitalGain?.times(fxRate.rate),
-        fxRate, // Include for audit trail
+        ...disposal,
+        proceeds: disposal.proceeds.times(fxRate.rate),
+        costBasis: disposal.costBasis.times(fxRate.rate),
+        gainLoss: disposal.gainLoss.times(fxRate.rate),
+        fxConversion: {
+          // Metadata for audit trail
+          rate: fxRate.rate,
+          source: fxRate.source,
+          fetchedAt: fxRate.fetchedAt,
+          originalCurrency: 'USD',
+          targetCurrency: displayCurrency,
+        },
       });
     }
 
-    return ok({ results: converted, displayCurrency: config.displayCurrency });
+    return ok(converted);
   }
 }
 ```
 
 ---
 
-## Implementation Plan
+## Implementation Summary
 
-### Phase 1: Unified Provider Infrastructure
+This architecture has been fully implemented as of 2025-11-03. The following modules were delivered:
 
-1. Add FX providers to `packages/platform/price-providers`:
-   - ECB provider (EUR/USD)
-   - Bank of Canada provider (CAD/USD)
-   - Update factory to register FX providers
+### Unified Price Provider Infrastructure
 
-2. Update `PriceProviderManager` to handle fiat assets:
-   - Add fiat currency detection
-   - Route to appropriate provider (ECB for EUR, BoC for CAD)
+**FX Providers** (`packages/platform/price-providers/src/`):
 
-3. Tests:
-   - Unit tests for ECB/BoC providers
-   - Integration tests for unified manager with FX providers
-   - E2E tests fetching actual FX rates
+- `ecb/provider.ts` - European Central Bank (EUR→USD, daily rates back to 1999)
+- `bank-of-canada/provider.ts` - Bank of Canada (CAD→USD, daily rates)
+- `frankfurter/provider.ts` - Frankfurter API (31 currencies, ECB data source, no API key)
 
-### Phase 2: Enrichment Pipeline
+**Provider Management**:
 
-1. Create `PricesNormalizeHandler`:
-   - Find movements with non-USD fiat prices
-   - Fetch FX rates via `PriceProviderManager`
-   - Update movements with USD prices + FX metadata
+- `shared/factory.ts` - Auto-registers all providers (crypto + FX)
+- `shared/provider-manager.ts` - Unified manager with automatic failover
+- All FX providers implement same `IPriceProvider` interface as crypto providers
+- Single prices database (`./data/prices.db`) stores both crypto prices and FX rates
 
-2. Update `price-calculation-utils.ts`:
-   - Update `calculatePriceFromTrade()` to only derive from actual USD
-   - Check `currency === 'USD'` before deriving prices
-   - Stablecoins treated as crypto assets, fetched in Stage 3
+### Four-Stage Enrichment Pipeline
 
-3. Create unified `prices enrich` command:
-   - Run normalize → derive → fetch in sequence
-   - Support `--skip-*` flags for testing
-   - Progress reporting across all stages
+**Orchestration** (`apps/cli/src/features/prices/`):
 
-4. Tests:
-   - Unit tests for normalize logic
-   - Integration tests for full enrichment pipeline
-   - Test EUR/CAD trades normalize to USD
-   - Test stablecoin prices fetched (not derived) to capture de-peg events
+- `prices-enrich-handler.ts` - Orchestrates derive → normalize → fetch → re-derive pipeline
+- `prices-enrich.ts` - CLI command with `--derive-only`, `--normalize-only`, `--fetch-only` flags
 
-### Phase 3: Cost Basis Updates
+**Stage 1: Derive** (`packages/accounting/src/price-enrichment/`):
 
-1. Add pre-flight validation to `CostBasisCalculator`:
-   - Check all prices are USD before calculating
-   - Return clear error with guidance
+- `price-enrichment-service.ts` - Extracts prices from trades (USD + non-USD fiat)
+- `price-calculation-utils.ts` - Trade detection, price calculation, fiat identity stamping
+  - USD trades: Marked as 'exchange-execution' (highest confidence)
+  - Non-USD fiat trades: Marked as 'fiat-execution-tentative' (priority 0, will be upgraded)
 
-2. Update `FxRateProvider`:
-   - Inject `PriceProviderManager` instead of direct API clients
-   - Implement `getRateFromUSD()` for report generation
+**Stage 2: Normalize** (`packages/accounting/src/price-enrichment/`):
 
-3. Tests:
-   - Test pre-flight validation catches non-USD prices
-   - Test error messages guide user to run enrichment
+- `price-normalization-service.ts` - Converts non-USD fiat prices to USD
+- Upgrades source: 'fiat-execution-tentative' → 'derived-ratio' (priority 2)
+- Populates FX metadata (rate, source, timestamp)
 
-### Phase 4: Report Generation
+**Stage 3: Fetch** (`apps/cli/src/features/prices/`):
 
-1. Update report generators to support display currency:
-   - Accept `displayCurrency` config parameter
-   - Fetch historical FX rates per transaction date
-   - Cache same-day rates for performance
+- `prices-handler.ts` - Fetches missing crypto prices from external providers
+- Priority system ensures derived-ratio prices (priority 2) not overwritten by provider prices (priority 1)
 
-2. Tests:
-   - Test USD→CAD conversion using historical rates
-   - Test date-specific rate caching
-   - Verify tax calculations match jurisdiction rules
+**Stage 4: Re-derive** (`packages/accounting/src/price-enrichment/`):
 
-### Phase 5: Documentation
+- Second pass of `PriceEnrichmentService` using newly fetched/normalized prices
+- Ratio calculations and link propagation (Pass 1 + Pass N+2)
 
-1. Update CLAUDE.md (concise summary)
-2. Create ADR-003 (this document)
-3. Update Issue #153 with refined implementation plan
-4. Add examples to development guide
+### FX Rate Provider Architecture
+
+**Interface** (`packages/accounting/src/price-enrichment/`):
+
+- `fx-rate-provider.interface.ts` - Clean Architecture: domain layer defines contract
+- `IFxRateProvider` with `getRateToUSD()` and `getRateFromUSD()` methods
+- `FxRateData` includes audit trail (rate, source, fetchedAt)
+
+**Implementations**:
+
+- `standard-fx-rate-provider.ts` - Delegates to `PriceProviderManager` (tries ECB → BoC → Frankfurter)
+- `apps/cli/src/features/prices/interactive-fx-rate-provider.ts` - CLI wrapper that prompts for manual entry on failure
+
+### Cost Basis Integration
+
+**Pre-flight Validation** (`packages/accounting/src/services/`):
+
+- `cost-basis-calculator.ts` - `findMovementsWithNonUsdPrices()` validation before calculation
+- Returns detailed error with examples if non-USD prices detected
+- Requires jurisdiction rules (`IJurisdictionRules`) for tax calculations
+
+**Report Generation** (`packages/accounting/src/reports/`):
+
+- `cost-basis-report-generator.ts` - Repository-backed, uses `ReportGeneratorConfig`
+- Converts USD amounts to display currency using historical rates
+- Per-transaction FX conversion with date-specific rate caching
+- Full FX metadata in output for audit trail
+
+### Testing & Quality
+
+All modules include comprehensive test coverage:
+
+- Unit tests for providers, services, utilities
+- Integration tests for enrichment pipeline
+- E2E tests with real API calls
+- Test fixtures for EUR/CAD trades, stablecoin de-peg scenarios
 
 ---
 
@@ -633,14 +801,14 @@ export class CostBasisReportGenerator {
 4. **Timezone handling**: FX rates are daily, but crypto transactions timestamped to minute
    - Mitigation: Use UTC midnight for daily rates, document granularity in metadata
 
-### Migration Path
+### Migration Path (Completed)
 
-No breaking changes - this is additive:
+Implementation was fully backward-compatible with no breaking changes:
 
-1. Existing data works unchanged (prices already have currency field)
-2. New `prices enrich` command available alongside existing commands
-3. Cost basis pre-flight validation added, but doesn't break existing workflows
-4. FX providers optional - system works without them (manual rates supported)
+1. Existing data worked unchanged (prices table already had currency field)
+2. `prices enrich` command added alongside existing commands
+3. Cost basis pre-flight validation guides users to run enrichment when needed
+4. Interactive mode supports manual rate entry when providers unavailable
 
 ---
 
