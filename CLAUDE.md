@@ -53,11 +53,13 @@ pnpm run dev transactions view --asset BTC --limit 100
 # View price coverage statistics
 pnpm run dev prices view --asset BTC --missing-only
 
-# Derive prices from transaction history (uses confirmed links for cross-platform price propagation)
-pnpm run dev prices derive
+# Enrich prices via 4-stage pipeline (derive → normalize → fetch → re-derive)
+pnpm run dev prices enrich
 
-# Fetch remaining prices from external providers
-pnpm run dev prices fetch --asset BTC --interactive
+# Or run individual stages
+pnpm run dev prices enrich --derive-only
+pnpm run dev prices enrich --normalize-only
+pnpm run dev prices enrich --fetch-only --asset BTC --interactive
 
 # View transaction links
 pnpm run dev links view --status suggested
@@ -208,14 +210,21 @@ Migrations in `packages/data/src/migrations/` run automatically via `initializeD
 
 ### Multi-Currency & FX Rate Handling
 
-**All prices normalized to USD during enrichment** (not at import). Two separate conversions:
+**All prices normalized to USD during enrichment** (not at import). Four-stage enrichment pipeline:
+
+1. **Derive**: Extract prices from USD and non-USD fiat trades (execution prices)
+2. **Normalize**: Convert non-USD fiat prices to USD via FX providers (ECB → BoC → Frankfurter)
+3. **Fetch**: Get crypto prices from external providers
+4. **Re-derive**: Propagate newly fetched/normalized prices via transaction links
+
+Two separate conversions:
 
 1. **Storage normalization** (enrichment phase): EUR/CAD → USD via FX providers, stored with metadata
 2. **Display conversion** (report generation): USD → CAD/EUR using historical rates (ephemeral, not stored)
 
 **FX providers** integrated into `packages/platform/price-providers` (same as crypto price providers). FX rates cached in same `prices.db`.
 
-See ADR-003 and Issue #153 for details.
+See ADR-003 for architecture details.
 
 ## Critical Patterns
 
