@@ -7,6 +7,7 @@
 import type { Currency } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
+import { CoinNotFoundError } from '../shared/errors.js';
 import { roundTimestampByGranularity, validateRawPrice } from '../shared/shared-utils.js';
 import type { PriceData } from '../shared/types/index.js';
 
@@ -25,6 +26,18 @@ export function transformPriceResponse(
   fetchedAt: Date
 ): Result<PriceData, Error> {
   const rawPrice = response[currency.toString()];
+
+  // Check if price is missing or 0 - indicates asset not found
+  if (rawPrice === undefined || rawPrice === 0) {
+    return err(
+      new CoinNotFoundError(
+        `CryptoCompare does not have current price data for ${asset.toString()}`,
+        asset.toString(),
+        'cryptocompare',
+        { currency: currency.toString() }
+      )
+    );
+  }
 
   // Validate price using shared helper
   const priceResult = validateRawPrice(rawPrice, asset, 'CryptoCompare');
@@ -101,9 +114,11 @@ export function transformHistoricalResponse(
   // Check if Data structure exists
   if (!response.Data || !response.Data.Data || response.Data.Data.length === 0) {
     return err(
-      new Error(
-        `CryptoCompare has no historical data for ${asset.toString()}. ` +
-          `Asset may not be listed on CryptoCompare. ${response.Message ? `Message: ${response.Message}` : ''}`
+      new CoinNotFoundError(
+        `CryptoCompare has no historical data for ${asset.toString()}${response.Message ? `: ${response.Message}` : ''}`,
+        asset.toString(),
+        'cryptocompare',
+        { currency: currency.toString() }
       )
     );
   }
@@ -113,7 +128,24 @@ export function transformHistoricalResponse(
 
   if (!dataPoint) {
     return err(
-      new Error(`CryptoCompare: no data found for ${asset.toString()} at ${timestamp.toISOString().split('T')[0]}`)
+      new CoinNotFoundError(
+        `CryptoCompare has no data for ${asset.toString()} at ${timestamp.toISOString().split('T')[0]}`,
+        asset.toString(),
+        'cryptocompare',
+        { currency: currency.toString(), timestamp }
+      )
+    );
+  }
+
+  // Check if price is 0 - CryptoCompare returns 0 when they don't have data
+  if (dataPoint.close === 0) {
+    return err(
+      new CoinNotFoundError(
+        `CryptoCompare does not have price data for ${asset.toString()} on ${timestamp.toISOString().split('T')[0]}`,
+        asset.toString(),
+        'cryptocompare',
+        { currency: currency.toString(), timestamp }
+      )
     );
   }
 

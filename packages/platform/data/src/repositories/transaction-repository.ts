@@ -436,36 +436,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   }
 
   /**
-   * Parse a single movement (used for fees)
-   */
-  private parseMovement(jsonString: string | null): AssetMovement | null {
-    if (!jsonString) {
-      return null;
-    }
-
-    try {
-      const parsed: unknown = JSON.parse(jsonString);
-      const result = AssetMovementSchema.safeParse(parsed);
-
-      if (!result.success) {
-        this.logger.warn(
-          {
-            issues: result.error.issues,
-            jsonString: jsonString.substring(0, 200),
-          },
-          'Failed to validate movement JSON'
-        );
-        return null;
-      }
-
-      return result.data;
-    } catch (error) {
-      this.logger.warn({ error, jsonString }, 'Failed to parse movement JSON');
-      return null;
-    }
-  }
-
-  /**
    * Parse fee from JSON string stored in database
    * Fees are stored as AssetMovement objects: { asset: string, amount: string, priceAtTxTime: PriceAtTxTime | undefined }
    */

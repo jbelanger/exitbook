@@ -189,8 +189,11 @@ export class BinanceProvider extends BasePriceProvider {
 
     // Try each quote asset until one succeeds
     let lastError: Error | undefined;
+    const attemptedSymbols: string[] = [];
+
     for (const quoteAsset of quoteAssets) {
       const symbol = buildBinanceSymbol(asset, quoteAsset);
+      attemptedSymbols.push(symbol);
       this.logger.debug({ symbol, quoteAsset }, 'Trying Binance symbol');
 
       const result = await this.fetchKline(symbol, interval, timestamp, asset, currency, granularity, now);
@@ -209,9 +212,16 @@ export class BinanceProvider extends BasePriceProvider {
       return err(result.error);
     }
 
-    // If all quote assets failed, return the last error
+    // If all quote assets failed, return consolidated error message
     if (lastError) {
-      return err(lastError);
+      return err(
+        new CoinNotFoundError(
+          `Binance does not have data for ${asset.toString()} (tried: ${attemptedSymbols.join(', ')})`,
+          asset.toString(),
+          'binance',
+          { currency: currency.toString() }
+        )
+      );
     }
 
     return err(new Error(`Failed to fetch price for ${asset.toString()}`));
@@ -236,6 +246,36 @@ export class BinanceProvider extends BasePriceProvider {
     // Fetch from API
     const httpResult = await this.httpClient.get<unknown>(`/api/v3/klines?${searchParams.toString()}`);
     if (httpResult.isErr()) {
+      // Check if error message contains Binance error response
+      // HTTP client returns errors as: "HTTP 400: {json body}"
+      const errorMatch = httpResult.error.message.match(/HTTP \d+: (\{.+\})/);
+      if (errorMatch && errorMatch[1]) {
+        try {
+          const parsedError = JSON.parse(errorMatch[1]) as unknown;
+          const errorParse = BinanceErrorResponseSchema.safeParse(parsedError);
+          if (errorParse.success) {
+            const errorCode = errorParse.data.code;
+            const errorMsg = errorParse.data.msg;
+
+            // Check for specific error types
+            if (isBinanceCoinNotFoundError(errorCode)) {
+              return err(
+                new CoinNotFoundError(
+                  `Binance does not have data for ${asset.toString()} with symbol ${symbol}: ${errorMsg}`,
+                  asset.toString(),
+                  'binance',
+                  { currency: currency.toString() }
+                )
+              );
+            }
+
+            return err(new Error(`Binance API error (${errorCode}): ${errorMsg}`));
+          }
+        } catch {
+          // If parsing fails, fall through to return original error
+        }
+      }
+
       return err(httpResult.error);
     }
     const rawResponse = httpResult.value;

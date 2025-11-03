@@ -15,6 +15,7 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import { CoinNotFoundError } from './errors.js';
 import * as ProviderManagerUtils from './provider-manager-utils.js';
 import { createCacheKey } from './shared-utils.ts';
 import type { IPriceProvider, PriceData, PriceQuery, ProviderHealth, ProviderManagerConfig } from './types/index.js';
@@ -207,15 +208,6 @@ export class PriceProviderManager {
       attemptNumber++;
       const circuitState = this.getOrCreateCircuitState(metadata.name);
 
-      // Log provider attempt
-      if (attemptNumber === 1) {
-        logger.debug(`Using provider ${metadata.name} for ${operationType}`);
-      } else {
-        logger.info(
-          `Switching to provider ${metadata.name} for ${operationType} - Reason: ${attemptNumber === 2 ? 'primary_failed' : 'multiple_failures'}, AttemptNumber: ${attemptNumber}, PreviousError: ${lastError?.message}`
-        );
-      }
-
       // Check circuit breaker
       const hasOthers = ProviderManagerUtils.hasAvailableProviders(
         scoredProviders.slice(attemptNumber).map((sp) => sp.provider),
@@ -255,6 +247,18 @@ export class PriceProviderManager {
           ProviderManagerUtils.updateHealthMetrics(health, true, responseTime, Date.now())
         );
 
+        // Log success at debug level (successes are expected, only failures need visibility)
+        logger.debug(
+          {
+            provider: metadata.name,
+            asset: assetSymbol,
+            responseTime,
+            attemptNumber,
+            totalProviders: scoredProviders.length,
+          },
+          `✓ Provider ${metadata.name} (${attemptNumber}/${scoredProviders.length})`
+        );
+
         // Cache single query results
         if (!Array.isArray(queryOrQueries) && !Array.isArray(result.value)) {
           const cacheKey = createCacheKey(queryOrQueries, this.config.defaultCurrency);
@@ -272,14 +276,35 @@ export class PriceProviderManager {
         lastError = error as Error;
         const responseTime = Date.now() - startTime;
 
-        if (attemptNumber < scoredProviders.length) {
-          logger.warn(`Provider ${metadata.name} failed, trying next provider: ${lastError.message}`);
-        } else {
-          logger.error(`All providers failed for ${operationType}: ${lastError.message}`);
+        // Distinguish between expected failures (coin not found) and actual failures
+        const isCoinNotFound = lastError instanceof CoinNotFoundError;
+        const isLastProvider = attemptNumber === scoredProviders.length;
+
+        // Log the outcome of this provider
+        logger.info(
+          {
+            provider: metadata.name,
+            asset: assetSymbol,
+            attemptNumber,
+            totalProviders: scoredProviders.length,
+            errorType: lastError.name,
+          },
+          `✗ Provider ${metadata.name} (${attemptNumber}/${scoredProviders.length}): ${lastError.message}`
+        );
+
+        // If this was the last provider, log a summary
+        if (isLastProvider) {
+          logger.warn(
+            { asset: assetSymbol, totalProviders: scoredProviders.length },
+            `All ${scoredProviders.length} provider(s) failed for ${assetSymbol || 'asset'}`
+          );
         }
 
         // Record failure - update circuit and health (pure functions produce new state)
-        this.circuitStates.set(metadata.name, recordFailure(circuitState, Date.now()));
+        // Only count as circuit breaker failure if it's NOT a coin not found error
+        if (!isCoinNotFound) {
+          this.circuitStates.set(metadata.name, recordFailure(circuitState, Date.now()));
+        }
         this.healthStatus.set(
           metadata.name,
           ProviderManagerUtils.updateHealthMetrics(health, false, responseTime, Date.now(), lastError.message)
@@ -289,8 +314,13 @@ export class PriceProviderManager {
       }
     }
 
-    // All providers failed - return the last error encountered
-    return err(lastError || new Error(`All price providers failed for ${operationType}`));
+    // All providers failed - return descriptive error
+    const providerNames = scoredProviders.map((sp) => sp.metadata.name).join(', ');
+    const errorMsg = assetSymbol
+      ? `All ${scoredProviders.length} provider(s) failed for ${assetSymbol} (tried: ${providerNames})`
+      : `All ${scoredProviders.length} provider(s) failed for ${operationType} (tried: ${providerNames})`;
+
+    return err(lastError ? new Error(errorMsg) : new Error(`All price providers failed for ${operationType}`));
   }
 
   /**

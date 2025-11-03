@@ -22,6 +22,7 @@ import {
   transformSimplePriceResponse,
 } from './coingecko-utils.js';
 import {
+  CoinGeckoErrorResponseSchema,
   CoinGeckoHistoricalPriceResponseSchema,
   CoinGeckoMarketsSchema,
   CoinGeckoSimplePriceResponseSchema,
@@ -406,6 +407,31 @@ export class CoinGeckoProvider extends BasePriceProvider {
         },
       });
       if (httpResult.isErr()) {
+        // Parse CoinGecko error responses
+        const errorMatch = httpResult.error.message.match(/HTTP \d+: (\{.+\})/);
+        if (errorMatch && errorMatch[1]) {
+          try {
+            const parsedError = JSON.parse(errorMatch[1]) as unknown;
+            const errorParse = CoinGeckoErrorResponseSchema.safeParse(parsedError);
+
+            if (errorParse.success) {
+              // Check for coin not found errors
+              if (errorParse.data.error.includes('not found') || errorParse.data.status?.error_code === 404) {
+                return err(
+                  new CoinNotFoundError(
+                    `CoinGecko does not have data for coin ID: ${coinId}`,
+                    asset.toString(),
+                    'coingecko',
+                    { currency: currency.toString() }
+                  )
+                );
+              }
+            }
+          } catch {
+            // If parsing fails, fall through to return original error
+          }
+        }
+
         return err(httpResult.error);
       }
       const rawResponse = httpResult.value;
@@ -430,7 +456,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
     const isIntradayRequest =
       timestamp.getUTCHours() !== 0 || timestamp.getUTCMinutes() !== 0 || timestamp.getUTCSeconds() !== 0;
     if (isIntradayRequest) {
-      this.logger.warn(
+      this.logger.debug(
         { asset: asset.toString(), timestamp },
         'CoinGecko historical API only provides daily prices - intraday granularity not available'
       );
@@ -448,6 +474,44 @@ export class CoinGeckoProvider extends BasePriceProvider {
       },
     });
     if (httpResult.isErr()) {
+      // Parse CoinGecko error responses for better error messages
+      // HTTP client returns errors as: "HTTP 401: {json body}"
+      const errorMatch = httpResult.error.message.match(/HTTP \d+: (\{.+\})/);
+      if (errorMatch && errorMatch[1]) {
+        try {
+          const parsedError = JSON.parse(errorMatch[1]) as unknown;
+          const errorParse = CoinGeckoErrorResponseSchema.safeParse(parsedError);
+
+          if (errorParse.success) {
+            // Check for date range limitation (error_code 10012)
+            if (errorParse.data.status?.error_code === 10012) {
+              const errorMsg = errorParse.data.status.error_message || 'Date out of range for free tier';
+              return err(
+                new CoinNotFoundError(`CoinGecko free tier limitation: ${errorMsg}`, asset.toString(), 'coingecko', {
+                  currency: currency.toString(),
+                  timestamp,
+                  suggestion: 'Upgrade to paid plan or use another provider for historical data > 365 days',
+                })
+              );
+            }
+
+            // Check for coin not found errors
+            if (errorParse.data.error.includes('not found') || errorParse.data.status?.error_code === 404) {
+              return err(
+                new CoinNotFoundError(
+                  `CoinGecko does not have data for coin ID: ${coinId}`,
+                  asset.toString(),
+                  'coingecko',
+                  { currency: currency.toString() }
+                )
+              );
+            }
+          }
+        } catch {
+          // If parsing fails, fall through to return original error
+        }
+      }
+
       return err(httpResult.error);
     }
     const rawResponse = httpResult.value;
