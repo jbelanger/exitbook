@@ -21,3 +21,25 @@ export class CoinNotFoundError extends Error {
     this.name = 'CoinNotFoundError';
   }
 }
+
+/**
+ * Error thrown when price data is unavailable due to provider limitations
+ * (e.g., date out of range, rate limits, tier restrictions)
+ * This is a recoverable error that can be handled interactively
+ */
+export class PriceDataUnavailableError extends Error {
+  constructor(
+    message: string,
+    public readonly asset: string,
+    public readonly provider: string,
+    public readonly reason: 'date-out-of-range' | 'rate-limit' | 'tier-limitation' | 'other',
+    public readonly details?: {
+      currency?: string;
+      suggestion?: string;
+      timestamp?: Date;
+    }
+  ) {
+    super(message);
+    this.name = 'PriceDataUnavailableError';
+  }
+}

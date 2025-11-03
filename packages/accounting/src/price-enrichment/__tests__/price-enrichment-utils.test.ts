@@ -59,7 +59,7 @@ describe('inferMultiPass', () => {
       expect(btcMovement?.priceAtTxTime?.granularity).toBe('exact');
     });
 
-    it('should NOT extract price from EUR trade (normalized separately)', () => {
+    it('should extract execution price from EUR trade (in native EUR, normalized to USD later)', () => {
       const tx = createTransaction(
         1,
         [{ asset: 'BTC', amount: parseDecimal('1.0') }],
@@ -68,8 +68,18 @@ describe('inferMultiPass', () => {
 
       const result = inferMultiPass([tx]);
 
+      // BTC should get price in EUR with tentative source (upgraded to derived-ratio after normalization)
       const btcMovement = result.transactions[0]?.movements.inflows?.[0];
-      expect(btcMovement?.priceAtTxTime).toBeUndefined();
+      expect(btcMovement?.priceAtTxTime?.source).toBe('fiat-execution-tentative');
+      expect(btcMovement?.priceAtTxTime?.price.amount.toFixed()).toBe('40000');
+      expect(btcMovement?.priceAtTxTime?.price.currency.toString()).toBe('EUR');
+      expect(btcMovement?.priceAtTxTime?.granularity).toBe('exact');
+
+      // EUR should get identity price (1 EUR = 1 EUR) with tentative source
+      const eurMovement = result.transactions[0]?.movements.outflows?.[0];
+      expect(eurMovement?.priceAtTxTime?.source).toBe('fiat-execution-tentative');
+      expect(eurMovement?.priceAtTxTime?.price.amount.toFixed()).toBe('1');
+      expect(eurMovement?.priceAtTxTime?.price.currency.toString()).toBe('EUR');
     });
 
     it('should NOT extract price from USDC trade (fetched separately)', () => {

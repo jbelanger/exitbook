@@ -15,7 +15,7 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { CoinNotFoundError } from './errors.js';
+import { CoinNotFoundError, PriceDataUnavailableError } from './errors.js';
 import * as ProviderManagerUtils from './provider-manager-utils.js';
 import { createCacheKey } from './shared-utils.ts';
 import type { IPriceProvider, PriceData, PriceQuery, ProviderHealth, ProviderManagerConfig } from './types/index.js';
@@ -202,6 +202,7 @@ export class PriceProviderManager {
 
     let lastError: Error | undefined;
     let attemptNumber = 0;
+    let allErrorsAreRecoverable = true; // CoinNotFoundError or PriceDataUnavailableError
 
     // Try each provider in order
     for (const { provider, metadata, health } of scoredProviders) {
@@ -276,9 +277,15 @@ export class PriceProviderManager {
         lastError = error as Error;
         const responseTime = Date.now() - startTime;
 
-        // Distinguish between expected failures (coin not found) and actual failures
-        const isCoinNotFound = lastError instanceof CoinNotFoundError;
+        // Distinguish between recoverable failures and actual failures
+        const isRecoverableError =
+          lastError instanceof CoinNotFoundError || lastError instanceof PriceDataUnavailableError;
         const isLastProvider = attemptNumber === scoredProviders.length;
+
+        // Track if all errors are recoverable (can prompt user in interactive mode)
+        if (!isRecoverableError) {
+          allErrorsAreRecoverable = false;
+        }
 
         // Log the outcome of this provider
         logger.info(
@@ -301,8 +308,8 @@ export class PriceProviderManager {
         }
 
         // Record failure - update circuit and health (pure functions produce new state)
-        // Only count as circuit breaker failure if it's NOT a coin not found error
-        if (!isCoinNotFound) {
+        // Only count as circuit breaker failure if it's NOT a recoverable error
+        if (!isRecoverableError) {
           this.circuitStates.set(metadata.name, recordFailure(circuitState, Date.now()));
         }
         this.healthStatus.set(
@@ -314,8 +321,31 @@ export class PriceProviderManager {
       }
     }
 
-    // All providers failed - return descriptive error
+    // All providers failed - preserve recoverable error types if all failures were recoverable
     const providerNames = scoredProviders.map((sp) => sp.metadata.name).join(', ');
+
+    if (allErrorsAreRecoverable) {
+      if (lastError instanceof CoinNotFoundError) {
+        return err(
+          new CoinNotFoundError(
+            `All ${scoredProviders.length} provider(s) failed for ${assetSymbol || 'asset'} (tried: ${providerNames})`,
+            assetSymbol || 'unknown',
+            providerNames
+          )
+        );
+      } else if (lastError instanceof PriceDataUnavailableError) {
+        return err(
+          new PriceDataUnavailableError(
+            `All ${scoredProviders.length} provider(s) failed for ${assetSymbol || 'asset'} (tried: ${providerNames})`,
+            assetSymbol || 'unknown',
+            providerNames,
+            lastError.reason,
+            lastError.details
+          )
+        );
+      }
+    }
+
     const errorMsg = assetSymbol
       ? `All ${scoredProviders.length} provider(s) failed for ${assetSymbol} (tried: ${providerNames})`
       : `All ${scoredProviders.length} provider(s) failed for ${operationType} (tried: ${providerNames})`;

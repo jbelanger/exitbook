@@ -1,9 +1,19 @@
 /**
- * Handler for prices enrich command - orchestrates three-stage enrichment pipeline
+ * Handler for prices enrich command - orchestrates four-stage enrichment pipeline
  *
- * Stage 1: Normalize - Convert non-USD fiat prices to USD using FX providers
- * Stage 2: Derive - Extract prices from USD trades and propagate via links
+ * Stage 1: Derive - Extract prices from trades (USD + non-USD fiat) and propagate via links
+ * Stage 2: Normalize - Convert non-USD fiat prices to USD using FX providers
  * Stage 3: Fetch - Fetch missing crypto prices from external providers
+ * Stage 4: Derive (2nd pass) - Use newly fetched/normalized prices for ratio calculations
+ *
+ * Order is critical:
+ * - Derive creates initial prices (including fiat-execution-tentative for CAD/EUR trades)
+ * - Normalize converts fiat prices to USD and upgrades fiat-execution-tentative → derived-ratio (priority 2)
+ * - Fetch fills remaining gaps with provider USD prices (priority 1, cannot overwrite priority 2)
+ * - Derive (2nd pass) calculates ratios and propagates prices using fetched/normalized data
+ *
+ * This stage ordering ensures that execution prices from non-USD fiat trades are preserved
+ * and not overwritten by provider prices during fetch.
  *
  * This is the recommended workflow for price enrichment, combining all stages
  * in a single command. Individual stages can be run separately via --normalize-only,
@@ -55,14 +65,17 @@ export interface PricesEnrichOptions {
  * Result of the complete enrichment pipeline
  */
 export interface PricesEnrichResult {
-  /** Stage 1 results (normalization) */
-  normalize?: NormalizeResult | undefined;
-
-  /** Stage 2 results (derivation) */
+  /** Stage 1 results (derivation - first pass) */
   derive?: { transactionsUpdated: number } | undefined;
 
-  /** Stage 3 results (fetch) */
+  /** Stage 2 results (normalization - FX conversion) */
+  normalize?: NormalizeResult | undefined;
+
+  /** Stage 3 results (fetch from providers) */
   fetch?: PricesFetchResult | undefined;
+
+  /** Stage 4 results (derivation - second pass) */
+  derive2?: { transactionsUpdated: number } | undefined;
 }
 
 /**
@@ -103,7 +116,7 @@ export class PricesEnrichHandler {
 
       const result: PricesEnrichResult = {};
 
-      // Initialize price provider manager (needed for Stage 1 and Stage 3)
+      // Initialize price provider manager (needed for Stage 2 and Stage 3)
       if (stages.normalize || stages.fetch) {
         const managerResult = await createDefaultPriceProviderManager();
 
@@ -114,9 +127,31 @@ export class PricesEnrichHandler {
         this.priceManager = managerResult.value;
       }
 
-      // Stage 1: Normalize (FX conversion: EUR/CAD → USD)
+      // Stage 1: Derive (extract from trades: USD + non-USD fiat, propagate via links)
+      if (stages.derive) {
+        logger.info('Stage 1: Deriving prices from trades (USD + fiat)');
+
+        const enrichmentService = new PriceEnrichmentService(this.transactionRepo, this.linkRepo);
+        const deriveResult = await enrichmentService.enrichPrices();
+
+        if (deriveResult.isErr()) {
+          logger.error({ error: deriveResult.error }, 'Stage 1 (derive) failed');
+          return err(deriveResult.error);
+        }
+
+        result.derive = deriveResult.value;
+
+        logger.info(
+          {
+            transactionsUpdated: result.derive.transactionsUpdated,
+          },
+          'Stage 1 (derive) completed'
+        );
+      }
+
+      // Stage 2: Normalize (FX conversion: CAD/EUR → USD, upgrade fiat-execution-tentative → derived-ratio)
       if (stages.normalize) {
-        logger.info('Stage 1: Normalizing non-USD fiat prices to USD');
+        logger.info('Stage 2: Normalizing non-USD fiat prices to USD');
 
         if (!this.priceManager) {
           return err(new Error('Price manager not initialized'));
@@ -132,7 +167,7 @@ export class PricesEnrichHandler {
         const normalizeResult = await normalizeService.normalize();
 
         if (normalizeResult.isErr()) {
-          logger.error({ error: normalizeResult.error }, 'Stage 1 (normalize) failed');
+          logger.error({ error: normalizeResult.error }, 'Stage 2 (normalize) failed');
           return err(normalizeResult.error);
         }
 
@@ -144,29 +179,7 @@ export class PricesEnrichHandler {
             skipped: result.normalize.movementsSkipped,
             failures: result.normalize.failures,
           },
-          'Stage 1 (normalize) completed'
-        );
-      }
-
-      // Stage 2: Derive (extract from USD trades, propagate via links)
-      if (stages.derive) {
-        logger.info('Stage 2: Deriving prices from USD trades');
-
-        const enrichmentService = new PriceEnrichmentService(this.transactionRepo, this.linkRepo);
-        const deriveResult = await enrichmentService.enrichPrices();
-
-        if (deriveResult.isErr()) {
-          logger.error({ error: deriveResult.error }, 'Stage 2 (derive) failed');
-          return err(deriveResult.error);
-        }
-
-        result.derive = deriveResult.value;
-
-        logger.info(
-          {
-            transactionsUpdated: result.derive.transactionsUpdated,
-          },
-          'Stage 2 (derive) completed'
+          'Stage 2 (normalize) completed'
         );
       }
 
@@ -194,6 +207,29 @@ export class PricesEnrichHandler {
             failures: result.fetch.stats.failures,
           },
           'Stage 3 (fetch) completed'
+        );
+      }
+
+      // Stage 4: Derive (second pass) - use newly fetched/normalized prices
+      // Run derive again if we ran fetch or normalize (which added new prices)
+      if (stages.derive && (stages.fetch || stages.normalize)) {
+        logger.info('Stage 4: Re-deriving prices using fetched/normalized data (Pass 1 + Pass N+2)');
+
+        const enrichmentService = new PriceEnrichmentService(this.transactionRepo, this.linkRepo);
+        const secondDeriveResult = await enrichmentService.enrichPrices();
+
+        if (secondDeriveResult.isErr()) {
+          logger.error({ error: secondDeriveResult.error }, 'Stage 4 (2nd derive) failed');
+          return err(secondDeriveResult.error);
+        }
+
+        result.derive2 = secondDeriveResult.value;
+
+        logger.info(
+          {
+            transactionsUpdated: result.derive2.transactionsUpdated,
+          },
+          'Stage 4 (2nd derive) completed'
         );
       }
 

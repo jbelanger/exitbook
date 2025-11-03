@@ -70,6 +70,7 @@ export function validateAssetFilter(asset: string | string[] | undefined): Resul
 /**
  * Extract unique assets from a transaction's movements that need prices
  * Filters out fiat currencies as they don't need price fetching
+ * Treats 'fiat-execution-tentative' prices as still needing fetch (fallback for Stage 2 failures)
  */
 export function extractAssetsNeedingPrices(tx: UniversalTransaction): Result<string[], Error> {
   const allMovements: AssetMovement[] = [
@@ -83,10 +84,16 @@ export function extractAssetsNeedingPrices(tx: UniversalTransaction): Result<str
     return err(new Error(`Transaction ${tx.id} has no movements`));
   }
 
-  // Get unique assets that don't already have prices
+  // Get unique assets that don't already have prices or have tentative non-USD prices
   const assetsNeedingPrices = new Set<string>();
   for (const movement of allMovements) {
-    if (!movement.priceAtTxTime) {
+    // Movement needs price if:
+    // 1. No price at all, OR
+    // 2. Price source is 'fiat-execution-tentative' (not yet normalized to USD)
+    // This ensures Stage 3 fetch runs as fallback if Stage 2 FX normalization fails
+    const needsPrice = !movement.priceAtTxTime || movement.priceAtTxTime.source === 'fiat-execution-tentative';
+
+    if (needsPrice) {
       // Skip fiat currencies - they don't need price fetching
       const currency = Currency.create(movement.asset);
       if (!currency.isFiat()) {

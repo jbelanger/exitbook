@@ -95,11 +95,15 @@ describe('calculatePriceFromTrade', () => {
 
     const result = calculatePriceFromTrade(trade);
 
-    expect(result).toHaveLength(1);
+    expect(result).toHaveLength(2);
     expect(result[0]!.asset).toBe('ETH');
     expect(result[0]!.priceAtTxTime.price.amount.toFixed()).toBe('3000');
     expect(result[0]!.priceAtTxTime.price.currency.toString()).toBe('USD');
     expect(result[0]!.priceAtTxTime.source).toBe('exchange-execution');
+    // Also stamps USD identity price
+    expect(result[1]!.asset).toBe('USD');
+    expect(result[1]!.priceAtTxTime.price.amount.toFixed()).toBe('1');
+    expect(result[1]!.priceAtTxTime.source).toBe('exchange-execution');
   });
 
   it('should NOT derive prices for stablecoin swap (use Stage 3 instead)', () => {
@@ -159,15 +163,21 @@ describe('calculatePriceFromTrade', () => {
 
     const result = calculatePriceFromTrade(trade);
 
-    expect(result).toHaveLength(1);
+    expect(result).toHaveLength(2);
     expect(result[0]!.asset).toBe('BTC');
     expect(result[0]!.priceAtTxTime.price.amount.toFixed()).toBe('50000');
     expect(result[0]!.priceAtTxTime.price.currency.toString()).toBe('USD');
+    // Also stamps USD identity price
+    expect(result[1]!.asset).toBe('USD');
+    expect(result[1]!.priceAtTxTime.price.amount.toFixed()).toBe('1');
+    expect(result[1]!.priceAtTxTime.source).toBe('exchange-execution');
   });
 
-  it('should NOT derive price for EUR trade (normalized separately in Stage 1)', () => {
+  it('should derive price for EUR trade in native currency (then normalized to USD in Stage 1)', () => {
     // Buy 1 BTC with 40,000 EUR
-    // EUR trades are normalized to USD in Stage 1 via FX providers
+    // Pass 0: Derive prices in EUR with 'fiat-execution-tentative' (priority 0)
+    // Stage 1: Normalize to USD and upgrade to 'derived-ratio' (priority 2)
+    // If Stage 1 fails, Stage 3 providers (priority 1) can overwrite
     const trade = {
       inflow: {
         asset: 'BTC',
@@ -182,13 +192,29 @@ describe('calculatePriceFromTrade', () => {
 
     const result = calculatePriceFromTrade(trade);
 
-    // Should return empty - EUR is normalized separately
-    expect(result).toHaveLength(0);
+    // Should return 2 prices: EUR (identity) and BTC (in EUR)
+    expect(result).toHaveLength(2);
+
+    // EUR gets identity price (1 EUR = 1 EUR) with tentative source
+    const eurPrice = result.find((r) => r.asset === 'EUR');
+    expect(eurPrice).toBeDefined();
+    expect(eurPrice!.priceAtTxTime.price.amount.toFixed()).toBe('1');
+    expect(eurPrice!.priceAtTxTime.price.currency.toString()).toBe('EUR');
+    expect(eurPrice!.priceAtTxTime.source).toBe('fiat-execution-tentative');
+
+    // BTC gets price in EUR (40,000 EUR / 1 BTC) with tentative source
+    const btcPrice = result.find((r) => r.asset === 'BTC');
+    expect(btcPrice).toBeDefined();
+    expect(btcPrice!.priceAtTxTime.price.amount.toFixed()).toBe('40000');
+    expect(btcPrice!.priceAtTxTime.price.currency.toString()).toBe('EUR');
+    expect(btcPrice!.priceAtTxTime.source).toBe('fiat-execution-tentative');
   });
 
-  it('should NOT derive price for CAD trade (normalized separately in Stage 1)', () => {
+  it('should derive price for CAD trade in native currency (then normalized to USD in Stage 1)', () => {
     // Buy 1 BTC with 65,000 CAD
-    // CAD trades are normalized to USD in Stage 1 via FX providers
+    // Pass 0: Derive prices in CAD with 'fiat-execution-tentative' (priority 0)
+    // Stage 1: Normalize to USD and upgrade to 'derived-ratio' (priority 2)
+    // If Stage 1 fails, Stage 3 providers (priority 1) can overwrite
     const trade = {
       inflow: {
         asset: 'BTC',
@@ -203,8 +229,22 @@ describe('calculatePriceFromTrade', () => {
 
     const result = calculatePriceFromTrade(trade);
 
-    // Should return empty - CAD is normalized separately
-    expect(result).toHaveLength(0);
+    // Should return 2 prices: CAD (identity) and BTC (in CAD)
+    expect(result).toHaveLength(2);
+
+    // CAD gets identity price (1 CAD = 1 CAD) with tentative source
+    const cadPrice = result.find((r) => r.asset === 'CAD');
+    expect(cadPrice).toBeDefined();
+    expect(cadPrice!.priceAtTxTime.price.amount.toFixed()).toBe('1');
+    expect(cadPrice!.priceAtTxTime.price.currency.toString()).toBe('CAD');
+    expect(cadPrice!.priceAtTxTime.source).toBe('fiat-execution-tentative');
+
+    // BTC gets price in CAD (65,000 CAD / 1 BTC) with tentative source
+    const btcPrice = result.find((r) => r.asset === 'BTC');
+    expect(btcPrice).toBeDefined();
+    expect(btcPrice!.priceAtTxTime.price.amount.toFixed()).toBe('65000');
+    expect(btcPrice!.priceAtTxTime.price.currency.toString()).toBe('CAD');
+    expect(btcPrice!.priceAtTxTime.source).toBe('fiat-execution-tentative');
   });
 
   it('should calculate price for USD buy trade (actual USD only)', () => {
@@ -223,11 +263,15 @@ describe('calculatePriceFromTrade', () => {
 
     const result = calculatePriceFromTrade(trade);
 
-    expect(result).toHaveLength(1);
+    expect(result).toHaveLength(2);
     expect(result[0]!.asset).toBe('BTC');
     expect(result[0]!.priceAtTxTime.price.amount.toFixed()).toBe('50000');
     expect(result[0]!.priceAtTxTime.price.currency.toString()).toBe('USD');
     expect(result[0]!.priceAtTxTime.source).toBe('exchange-execution');
     expect(result[0]!.priceAtTxTime.granularity).toBe('exact');
+    // Also stamps USD identity price
+    expect(result[1]!.asset).toBe('USD');
+    expect(result[1]!.priceAtTxTime.price.amount.toFixed()).toBe('1');
+    expect(result[1]!.priceAtTxTime.source).toBe('exchange-execution');
   });
 });

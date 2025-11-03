@@ -24,4 +24,4 @@ export { createPriceProviders, getAvailableProviderNames, createPriceProviderMan
 export type { ProviderFactoryConfig, ProviderName, PriceProviderManagerFactoryConfig } from './shared/factory.js';
 
 // Error types
-export { CoinNotFoundError } from './shared/errors.js';
+export { CoinNotFoundError, PriceDataUnavailableError } from './shared/errors.js';

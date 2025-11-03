@@ -1,12 +1,6 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
 import type { AssetMovement, UniversalTransaction, TransactionStatus } from '@exitbook/core';
-import {
-  AssetMovementSchema,
-  Currency,
-  NoteMetadataSchema,
-  TransactionMetadataSchema,
-  wrapError,
-} from '@exitbook/core';
+import { AssetMovementSchema, NoteMetadataSchema, TransactionMetadataSchema, wrapError } from '@exitbook/core';
 import type { Selectable, Updateable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -244,7 +238,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           ...(tx.fees.network ? [tx.fees.network] : []),
         ];
 
-        // Check if any movement is missing priceAtTxTime
+        // Check if any movement is missing priceAtTxTime or has tentative non-USD price
         return allMovements.some((movement) => {
           // If asset filter is provided, only check movements matching the filter
           if (assetFilter && assetFilter.length > 0) {
@@ -253,13 +247,14 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             }
           }
 
-          // Skip fiat currencies - they don't need prices (they ARE the price)
-          const currency = Currency.create(movement.asset);
-          if (currency.isFiat()) {
-            return false;
-          }
-
-          return !movement.priceAtTxTime;
+          // Movement needs price if:
+          // 1. No price at all, OR
+          // 2. Price source is 'fiat-execution-tentative' (not yet normalized to USD)
+          // This ensures Stage 3 fetch runs as fallback if Stage 2 FX normalization fails
+          //
+          // Note: We do NOT skip fiat currencies here because Pass 0 needs to stamp identity
+          // prices on fiat movements (1 USD = 1 USD, 1 CAD = 1 CAD, etc.)
+          return !movement.priceAtTxTime || movement.priceAtTxTime.source === 'fiat-execution-tentative';
         });
       });
 

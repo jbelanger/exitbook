@@ -11,7 +11,7 @@ import type { PricesDB } from '../persistence/database.ts';
 import { PriceRepository } from '../persistence/repositories/price-repository.js';
 import { ProviderRepository } from '../persistence/repositories/provider-repository.js';
 import { BasePriceProvider } from '../shared/base-provider.js';
-import { CoinNotFoundError } from '../shared/errors.js';
+import { CoinNotFoundError, PriceDataUnavailableError } from '../shared/errors.js';
 import { createProviderHttpClient, type ProviderRateLimitConfig } from '../shared/shared-utils.js';
 import type { PriceData, PriceQuery, ProviderMetadata } from '../shared/types/index.js';
 
@@ -416,7 +416,8 @@ export class CoinGeckoProvider extends BasePriceProvider {
 
             if (errorParse.success) {
               // Check for coin not found errors
-              if (errorParse.data.error.includes('not found') || errorParse.data.status?.error_code === 404) {
+              const errorMessage = typeof errorParse.data.error === 'string' ? errorParse.data.error : '';
+              if (errorMessage.includes('not found') || errorParse.data.status?.error_code === 404) {
                 return err(
                   new CoinNotFoundError(
                     `CoinGecko does not have data for coin ID: ${coinId}`,
@@ -483,20 +484,32 @@ export class CoinGeckoProvider extends BasePriceProvider {
           const errorParse = CoinGeckoErrorResponseSchema.safeParse(parsedError);
 
           if (errorParse.success) {
+            const { error, status } = errorParse.data;
+
+            // Extract status from either format
+            const statusObj = typeof error === 'object' ? error.status : status;
+            const errorString = typeof error === 'string' ? error : '';
+
             // Check for date range limitation (error_code 10012)
-            if (errorParse.data.status?.error_code === 10012) {
-              const errorMsg = errorParse.data.status.error_message || 'Date out of range for free tier';
+            if (statusObj?.error_code === 10012) {
+              const errorMsg = statusObj.error_message || 'Date out of range for free tier';
               return err(
-                new CoinNotFoundError(`CoinGecko free tier limitation: ${errorMsg}`, asset.toString(), 'coingecko', {
-                  currency: currency.toString(),
-                  timestamp,
-                  suggestion: 'Upgrade to paid plan or use another provider for historical data > 365 days',
-                })
+                new PriceDataUnavailableError(
+                  `CoinGecko free tier limitation: ${errorMsg}`,
+                  asset.toString(),
+                  'coingecko',
+                  'tier-limitation',
+                  {
+                    currency: currency.toString(),
+                    timestamp,
+                    suggestion: 'Upgrade to paid plan or use another provider for historical data > 365 days',
+                  }
+                )
               );
             }
 
             // Check for coin not found errors
-            if (errorParse.data.error.includes('not found') || errorParse.data.status?.error_code === 404) {
+            if (errorString.includes('not found') || statusObj?.error_code === 404) {
               return err(
                 new CoinNotFoundError(
                   `CoinGecko does not have data for coin ID: ${coinId}`,

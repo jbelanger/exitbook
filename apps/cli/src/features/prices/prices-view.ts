@@ -129,7 +129,7 @@ function handleViewPricesSuccess(
 
   // Display text output
   if (output.isTextMode()) {
-    console.log(formatPriceCoverageListForDisplay(result));
+    console.log(formatPriceCoverageListForDisplay(result, params.missingOnly));
   }
 
   // Prepare result data for JSON mode

@@ -13,7 +13,7 @@ import type { AssetMovement, PriceAtTxTime, UniversalTransaction } from '@exitbo
 import { Currency, parseDecimal } from '@exitbook/core';
 
 import { enrichMovementsWithPrices } from './movement-enrichment-utils.js';
-import { calculatePriceFromTrade, extractTradeMovements } from './price-calculation-utils.js';
+import { calculatePriceFromTrade, extractTradeMovements, stampFiatIdentityPrices } from './price-calculation-utils.js';
 import type { TransactionGroup } from './types.js';
 
 /**
@@ -47,10 +47,15 @@ export interface PropagatePricesResult {
 }
 
 /**
- * Pass 0: Apply exchange-execution prices from fiat/stable trades
+ * Pass 0: Apply prices from fiat trades and stamp identity prices on fiat movements
  *
- * This ensures movements retain their 'exchange-execution' source (most authoritative).
- * Only processes simple trades (1 inflow + 1 outflow) where one side is actual USD.
+ * Two sub-passes:
+ * 1. Process simple trades (1 inflow + 1 outflow) where one side is fiat currency:
+ *    - USD trades: Get 'exchange-execution' source (priority 3 - highest, already in USD)
+ *    - Non-USD fiat trades (CAD/EUR/etc): Get 'fiat-execution-tentative' source (priority 0 - lowest)
+ *      → Stage 1 upgrades to 'derived-ratio' (priority 2) upon successful normalization
+ *      → If normalization fails, Stage 3 providers (priority 1) can overwrite
+ * 2. Stamp identity prices on any remaining fiat movements (deposits, withdrawals, fees)
  *
  * @param transactions - Transactions to process
  * @returns PassResult with enriched movements (no modifiedIds tracking for Pass 0)
@@ -63,21 +68,36 @@ function applyExchangeExecutionPrices(transactions: UniversalTransaction[]): Pas
     const inflows = tx.movements.inflows ?? [];
     const outflows = tx.movements.outflows ?? [];
 
+    // Sub-pass 1: Handle trade pricing
     const trade = extractTradeMovements(inflows, outflows, timestamp);
-    if (!trade) {
-      continue;
+    let currentInflows = inflows;
+    let currentOutflows = outflows;
+
+    if (trade) {
+      const tradePrices = calculatePriceFromTrade(trade);
+
+      if (tradePrices.length > 0) {
+        const pricesMap = new Map(tradePrices.map((p) => [p.asset, p.priceAtTxTime]));
+        currentInflows = enrichMovementsWithPrices(inflows, pricesMap);
+        currentOutflows = enrichMovementsWithPrices(outflows, pricesMap);
+      }
     }
 
-    const prices = calculatePriceFromTrade(trade);
+    // Sub-pass 2: Stamp identity prices on any remaining unpriced fiat movements
+    const allMovements = [...currentInflows, ...currentOutflows];
+    const fiatIdentityPrices = stampFiatIdentityPrices(allMovements, timestamp);
 
-    if (prices.length > 0) {
-      const pricesMap = new Map(prices.map((p) => [p.asset, p.priceAtTxTime]));
-      const updatedInflows = enrichMovementsWithPrices(inflows, pricesMap);
-      const updatedOutflows = enrichMovementsWithPrices(outflows, pricesMap);
+    if (fiatIdentityPrices.length > 0) {
+      const fiatPricesMap = new Map(fiatIdentityPrices.map((p) => [p.asset, p.priceAtTxTime]));
+      currentInflows = enrichMovementsWithPrices(currentInflows, fiatPricesMap);
+      currentOutflows = enrichMovementsWithPrices(currentOutflows, fiatPricesMap);
+    }
 
+    // Only store if we modified something
+    if (currentInflows !== inflows || currentOutflows !== outflows) {
       enrichedMovements.set(tx.id, {
-        inflows: updatedInflows,
-        outflows: updatedOutflows,
+        inflows: currentInflows,
+        outflows: currentOutflows,
       });
     }
   }
@@ -395,13 +415,15 @@ export function propagatePricesAcrossLinks(
  * Enrich fee movements with prices from regular movements
  *
  * Since fees occur at the same timestamp as the transaction, we can copy prices
- * from inflows/outflows that share the same asset.
+ * from inflows/outflows that share the same asset. For fiat fees that still don't
+ * have prices after copying, stamp identity prices.
  *
  * @param transactions - Transactions to enrich
  * @returns Transactions with enriched fee prices
  */
 export function enrichFeePricesFromMovements(transactions: UniversalTransaction[]): UniversalTransaction[] {
   return transactions.map((tx) => {
+    const timestamp = new Date(tx.datetime).getTime();
     const inflows = tx.movements.inflows ?? [];
     const outflows = tx.movements.outflows ?? [];
     const allMovements = [...inflows, ...outflows];
@@ -429,6 +451,22 @@ export function enrichFeePricesFromMovements(transactions: UniversalTransaction[
       const price = pricesByAsset.get(networkFee.asset);
       if (price) {
         networkFee = { ...networkFee, priceAtTxTime: price };
+      }
+    }
+
+    // Stamp identity prices on any remaining fiat fees
+    const fees = [platformFee, networkFee].filter((f): f is AssetMovement => f !== undefined);
+    const fiatFeeIdentityPrices = stampFiatIdentityPrices(fees, timestamp);
+
+    if (fiatFeeIdentityPrices.length > 0) {
+      const fiatPricesMap = new Map(fiatFeeIdentityPrices.map((p) => [p.asset, p.priceAtTxTime]));
+
+      if (platformFee && !platformFee.priceAtTxTime && fiatPricesMap.has(platformFee.asset)) {
+        platformFee = { ...platformFee, priceAtTxTime: fiatPricesMap.get(platformFee.asset)! };
+      }
+
+      if (networkFee && !networkFee.priceAtTxTime && fiatPricesMap.has(networkFee.asset)) {
+        networkFee = { ...networkFee, priceAtTxTime: fiatPricesMap.get(networkFee.asset)! };
       }
     }
 

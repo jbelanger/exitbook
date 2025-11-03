@@ -111,6 +111,9 @@ export function validateFxRate(rate: Decimal): Result<void, Error> {
  * Converts a price from non-USD fiat to USD and populates FX metadata fields
  * for audit trail.
  *
+ * If the original source was 'fiat-execution-tentative' (non-USD fiat trade),
+ * upgrades it to 'derived-ratio' upon successful normalization.
+ *
  * @param original - Original price data (e.g., EUR price)
  * @param fxRate - FX conversion rate (e.g., EUR→USD rate of 1.08)
  * @param fxSource - Source of FX rate (e.g., 'ecb', 'bank-of-canada')
@@ -126,12 +129,16 @@ export function createNormalizedPrice(
   const originalAmount = original.price.amount;
   const usdAmount = originalAmount.times(fxRate);
 
+  // Upgrade source from tentative to derived-ratio on successful normalization
+  const upgradedSource = original.source === 'fiat-execution-tentative' ? 'derived-ratio' : original.source;
+
   return {
     ...original,
     price: {
       amount: usdAmount,
       currency: Currency.create('USD'),
     },
+    source: upgradedSource,
     // FX metadata for audit trail
     fxRateToUSD: fxRate,
     fxSource,

@@ -329,7 +329,7 @@ describe('BinanceProvider', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error).toBeInstanceOf(CoinNotFoundError);
-      expect(result.error.message).toContain('returned no data');
+      expect(result.error.message).toContain('Binance does not have data for BTC');
     }
   });
 

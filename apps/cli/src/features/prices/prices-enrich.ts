@@ -1,10 +1,11 @@
 /**
  * Command registration for prices enrich subcommand
  *
- * Unified price enrichment pipeline with three sequential stages:
- * 1. Normalize - Convert non-USD fiat prices to USD using FX providers
- * 2. Derive - Extract prices from USD trades and propagate via links
- * 3. Fetch - Fetch missing crypto prices from external providers
+ * Unified price enrichment pipeline with four sequential stages:
+ * 1. Derive - Extract prices from trades (USD + fiat) and propagate via links
+ * 2. Fetch - Fetch missing crypto prices from external providers
+ * 3. Normalize - Convert non-USD fiat prices to USD using FX providers
+ * 4. Derive (2nd pass) - Use newly fetched/normalized prices for ratio calculations
  */
 
 import { configureLogger, resetLoggerContext } from '@exitbook/shared-logger';
@@ -28,14 +29,6 @@ export interface ExtendedPricesEnrichCommandOptions extends PricesEnrichOptions 
  * Result data for prices enrich command (JSON mode)
  */
 interface PricesEnrichCommandResult {
-  normalize?:
-    | {
-        errors: string[];
-        failures: number;
-        movementsNormalized: number;
-        movementsSkipped: number;
-      }
-    | undefined;
   derive?:
     | {
         transactionsUpdated: number;
@@ -59,6 +52,19 @@ interface PricesEnrichCommandResult {
         };
       }
     | undefined;
+  normalize?:
+    | {
+        errors: string[];
+        failures: number;
+        movementsNormalized: number;
+        movementsSkipped: number;
+      }
+    | undefined;
+  derive2?:
+    | {
+        transactionsUpdated: number;
+      }
+    | undefined;
 }
 
 /**
@@ -67,7 +73,7 @@ interface PricesEnrichCommandResult {
 export function registerPricesEnrichCommand(pricesCommand: Command): void {
   pricesCommand
     .command('enrich')
-    .description('Enrich prices via normalize → derive → fetch pipeline')
+    .description('Enrich prices via derive → fetch → normalize pipeline')
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH). Can be specified multiple times.', collect, [])
     .option('--interactive', 'Enable interactive mode for manual entry when prices/FX rates unavailable')
     .option('--normalize-only', 'Only run normalization stage (FX conversion)')
@@ -148,10 +154,17 @@ function handlePricesEnrichSuccess(
     console.log('Price Enrichment Results:');
     console.log('=============================');
 
-    // Stage 1: Normalize
+    // Stage 1: Derive
+    if (result.derive) {
+      console.log('');
+      console.log('Stage 1: Derive (Trades)');
+      console.log(`  Transactions updated: ${result.derive.transactionsUpdated}`);
+    }
+
+    // Stage 2: Normalize
     if (result.normalize) {
       console.log('');
-      console.log('Stage 1: Normalize (FX Conversion)');
+      console.log('Stage 2: Normalize (FX Conversion)');
       console.log(`  Movements normalized: ${result.normalize.movementsNormalized}`);
       console.log(`  Movements skipped: ${result.normalize.movementsSkipped}`);
       console.log(`  Failures: ${result.normalize.failures}`);
@@ -163,13 +176,6 @@ function handlePricesEnrichSuccess(
           console.warn(`    - ${error}`);
         }
       }
-    }
-
-    // Stage 2: Derive
-    if (result.derive) {
-      console.log('');
-      console.log('Stage 2: Derive (USD Trades)');
-      console.log(`  Transactions updated: ${result.derive.transactionsUpdated}`);
     }
 
     // Stage 3: Fetch
@@ -206,13 +212,21 @@ function handlePricesEnrichSuccess(
         }
       }
     }
+
+    // Stage 4: Derive (second pass)
+    if (result.derive2) {
+      console.log('');
+      console.log('Stage 4: Derive (Second Pass)');
+      console.log(`  Transactions updated: ${result.derive2.transactionsUpdated}`);
+    }
   }
 
   // Prepare result data for JSON mode
   const resultData: PricesEnrichCommandResult = {
-    normalize: result.normalize,
     derive: result.derive,
     fetch: result.fetch,
+    normalize: result.normalize,
+    derive2: result.derive2,
   };
 
   // Output success
@@ -226,16 +240,20 @@ function handlePricesEnrichSuccess(
 function buildCompletionMessage(result: PricesEnrichResult): string {
   const parts: string[] = [];
 
-  if (result.normalize) {
-    parts.push(`${result.normalize.movementsNormalized} normalized`);
-  }
-
   if (result.derive) {
     parts.push(`${result.derive.transactionsUpdated} derived`);
   }
 
   if (result.fetch) {
     parts.push(`${result.fetch.stats.movementsUpdated} fetched`);
+  }
+
+  if (result.normalize) {
+    parts.push(`${result.normalize.movementsNormalized} normalized`);
+  }
+
+  if (result.derive2) {
+    parts.push(`${result.derive2.transactionsUpdated} re-derived`);
   }
 
   return `Price enrichment complete - ${parts.join(', ')}`;

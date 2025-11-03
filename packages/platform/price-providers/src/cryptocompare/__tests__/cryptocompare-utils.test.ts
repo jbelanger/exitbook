@@ -54,8 +54,7 @@ describe('transformPriceResponse', () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error.message).toContain('CryptoCompare price for BTC');
-      expect(result.error.message).toContain('not found');
+      expect(result.error.message).toContain('CryptoCompare does not have current price data for BTC');
     }
   });
 
@@ -70,9 +69,7 @@ describe('transformPriceResponse', () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error.message).toContain('CryptoCompare price for CFG');
-      expect(result.error.message).toContain('invalid');
-      expect(result.error.message).toContain('must be positive');
+      expect(result.error.message).toContain('CryptoCompare does not have current price data for CFG');
     }
   });
 
@@ -336,9 +333,7 @@ describe('transformHistoricalResponse', () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error.message).toContain('price for BTC');
-      expect(result.error.message).toContain('invalid');
-      expect(result.error.message).toContain('must be positive');
+      expect(result.error.message).toContain('CryptoCompare does not have price data for BTC on 1970-01-01');
     }
   });
 

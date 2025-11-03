@@ -33,18 +33,18 @@ export class ViewPricesHandler {
     const { coverageMap, uniqueTransactionIds } = this.calculatePriceCoverage(transactions, params.asset);
 
     // Convert map to array and sort by asset name
-    let coverageArray = Array.from(coverageMap.values()).sort((a, b) => a.asset.localeCompare(b.asset));
+    const allCoverageArray = Array.from(coverageMap.values()).sort((a, b) => a.asset.localeCompare(b.asset));
 
-    // Filter by missing-only if requested
-    if (params.missingOnly) {
-      coverageArray = coverageArray.filter((c) => c.missing_price > 0);
-    }
+    // Calculate summary statistics from ALL coverage data (before filtering)
+    const summary = this.calculateSummary(allCoverageArray, uniqueTransactionIds);
 
-    // Calculate summary statistics from unique transaction IDs to avoid double-counting
-    const summary = this.calculateSummary(coverageArray, uniqueTransactionIds);
+    // Filter by missing-only if requested (for display purposes)
+    const displayCoverageArray = params.missingOnly
+      ? allCoverageArray.filter((c) => c.missing_price > 0)
+      : allCoverageArray;
 
     const result: ViewPricesResult = {
-      coverage: coverageArray,
+      coverage: displayCoverageArray,
       summary,
     };
 

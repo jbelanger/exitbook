@@ -13,10 +13,11 @@ import type { AssetMovement, PriceAtTxTime } from '@exitbook/core';
  * Price source priority levels
  */
 const PRICE_SOURCE_PRIORITY = {
-  'exchange-execution': 3, // Highest - actual trade execution price
-  'derived-ratio': 2, // Medium - calculated from swap ratios
+  'exchange-execution': 3, // Highest - actual trade execution price (USD only)
+  'derived-ratio': 2, // Medium - calculated from swap ratios, or upgraded from fiat-execution-tentative
   'link-propagated': 2, // Medium - propagated via transaction links
-  // All other sources (provider names like 'coingecko', 'binance', etc.) = 1 (lowest)
+  // All provider sources (coingecko, binance, etc.) = 1
+  'fiat-execution-tentative': 0, // Lowest - non-USD fiat trade, pending normalization to USD
 } as const;
 
 /**

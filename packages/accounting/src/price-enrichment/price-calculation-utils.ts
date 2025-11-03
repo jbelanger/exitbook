@@ -41,24 +41,24 @@ export function extractTradeMovements(
 }
 
 /**
- * Calculate price from trade movements when one side is actual USD
- * Returns price for the non-USD currency in terms of USD
+ * Calculate price from trade movements when one side is fiat currency
+ * Returns prices for both sides in the native fiat currency
  *
- * IMPORTANT: Only derives from actual USD, not stablecoins or other fiat
- * - USD trades ✅ (derive execution price)
- * - EUR/CAD/GBP trades ❌ (normalized to USD in Stage 1 via FX providers)
- * - USDC/USDT/DAI trades ❌ (fetched in Stage 3 to capture de-peg events)
+ * Handles two cases:
+ * 1. USD trades: Derive execution price in USD (highest confidence)
+ * 2. Non-USD fiat trades: Derive prices in native currency (EUR, CAD, etc.)
+ *    - Fiat gets identity price (1 CAD = 1 CAD)
+ *    - Crypto gets price in that fiat currency
+ *    - Stage 1 normalization then converts to USD via FX providers
  *
- * Logic:
- * - If outflow is USD: price of inflow = outflow amount / inflow amount
- * - If inflow is USD: price of outflow = inflow amount / outflow amount
- * - If both are USD: skip (same currency)
- * - If neither is USD: return empty (can't derive)
+ * Does NOT handle:
+ * - Stablecoin trades (fetched in Stage 3 to capture de-peg events)
+ * - Crypto-crypto swaps (handled by Pass N+2 after fetching market prices)
  *
- * Example: Buy 1 BTC with 50,000 USD
- *   - Outflow: 50,000 USD (actual USD)
- *   - Inflow: 1 BTC (crypto)
- *   - Price: 50,000 USD/BTC
+ * Examples:
+ * - Buy 1 BTC with 50,000 USD: BTC = 50,000 USD/BTC
+ * - Buy 100 XLM with 50 CAD: CAD = 1 CAD/CAD, XLM = 0.5 CAD/XLM
+ *   (Then Stage 1 converts: 1 CAD → 0.75 USD, 0.5 CAD → 0.375 USD)
  */
 export function calculatePriceFromTrade(movements: TradeMovements): { asset: string; priceAtTxTime: PriceAtTxTime }[] {
   const { inflow, outflow, timestamp } = movements;
@@ -66,53 +66,182 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
   const inflowCurrency = Currency.create(inflow.asset);
   const outflowCurrency = Currency.create(outflow.asset);
 
-  // Only derive from actual USD (not stablecoins, not other fiat)
   const inflowIsUSD = inflowCurrency.toString() === 'USD';
   const outflowIsUSD = outflowCurrency.toString() === 'USD';
-
-  // Neither side is USD - can't derive price
-  // This includes:
-  // - EUR trades (normalized separately in Stage 1)
-  // - USDC trades (fetched separately in Stage 3 with actual historical prices)
-  // - Crypto-crypto swaps (handled by Pass N+2)
-  if (!inflowIsUSD && !outflowIsUSD) {
-    return [];
-  }
+  const inflowIsFiat = inflowCurrency.isFiat();
+  const outflowIsFiat = outflowCurrency.isFiat();
 
   const results: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
 
-  // Outflow is USD - calculate price of inflow
-  if (outflowIsUSD && !inflowIsUSD) {
-    const price = parseDecimal(outflow.amount.toFixed()).dividedBy(parseDecimal(inflow.amount.toFixed()));
+  // Case 1: USD trades (highest priority - most authoritative)
+  if (inflowIsUSD || outflowIsUSD) {
+    // Outflow is USD - calculate price of inflow in USD + stamp USD identity price
+    if (outflowIsUSD && !inflowIsUSD) {
+      const price = parseDecimal(outflow.amount.toFixed()).dividedBy(parseDecimal(inflow.amount.toFixed()));
+
+      results.push(
+        {
+          asset: inflow.asset,
+          priceAtTxTime: {
+            price: { amount: price, currency: outflowCurrency },
+            source: 'exchange-execution',
+            fetchedAt: new Date(timestamp),
+            granularity: 'exact',
+          },
+        },
+        {
+          asset: outflow.asset, // USD
+          priceAtTxTime: {
+            price: { amount: parseDecimal('1'), currency: outflowCurrency },
+            source: 'exchange-execution',
+            fetchedAt: new Date(timestamp),
+            granularity: 'exact',
+          },
+        }
+      );
+    }
+
+    // Inflow is USD - calculate price of outflow in USD + stamp USD identity price
+    if (inflowIsUSD && !outflowIsUSD) {
+      const price = parseDecimal(inflow.amount.toFixed()).dividedBy(parseDecimal(outflow.amount.toFixed()));
+
+      results.push(
+        {
+          asset: outflow.asset,
+          priceAtTxTime: {
+            price: { amount: price, currency: inflowCurrency },
+            source: 'exchange-execution',
+            fetchedAt: new Date(timestamp),
+            granularity: 'exact',
+          },
+        },
+        {
+          asset: inflow.asset, // USD
+          priceAtTxTime: {
+            price: { amount: parseDecimal('1'), currency: inflowCurrency },
+            source: 'exchange-execution',
+            fetchedAt: new Date(timestamp),
+            granularity: 'exact',
+          },
+        }
+      );
+    }
+
+    return results;
+  }
+
+  // Case 2: Non-USD fiat trades (CAD, EUR, GBP, etc.)
+  // One side must be fiat, other must be crypto
+  // Use 'fiat-execution-tentative' (priority 0) so Stage 3 providers can overwrite if normalization fails
+  // Stage 1 will upgrade to 'derived-ratio' (priority 2) upon successful USD normalization
+  if (inflowIsFiat && !outflowIsFiat) {
+    // Fiat inflow + crypto outflow (e.g., sell BTC for 50,000 CAD)
+    // Assign: CAD = 1 CAD/CAD, BTC = 50,000/1 = 50,000 CAD/BTC
+    const fiatPrice = parseDecimal('1'); // Identity price for fiat
+    const cryptoPrice = parseDecimal(inflow.amount.toFixed()).dividedBy(parseDecimal(outflow.amount.toFixed()));
+
+    results.push(
+      {
+        asset: inflow.asset,
+        priceAtTxTime: {
+          price: { amount: fiatPrice, currency: inflowCurrency },
+          source: 'fiat-execution-tentative',
+          fetchedAt: new Date(timestamp),
+          granularity: 'exact',
+        },
+      },
+      {
+        asset: outflow.asset,
+        priceAtTxTime: {
+          price: { amount: cryptoPrice, currency: inflowCurrency },
+          source: 'fiat-execution-tentative',
+          fetchedAt: new Date(timestamp),
+          granularity: 'exact',
+        },
+      }
+    );
+
+    return results;
+  }
+
+  if (outflowIsFiat && !inflowIsFiat) {
+    // Fiat outflow + crypto inflow (e.g., buy 100 XLM with 50 CAD)
+    // Assign: CAD = 1 CAD/CAD, XLM = 50/100 = 0.5 CAD/XLM
+    const fiatPrice = parseDecimal('1'); // Identity price for fiat
+    const cryptoPrice = parseDecimal(outflow.amount.toFixed()).dividedBy(parseDecimal(inflow.amount.toFixed()));
+
+    results.push(
+      {
+        asset: outflow.asset,
+        priceAtTxTime: {
+          price: { amount: fiatPrice, currency: outflowCurrency },
+          source: 'fiat-execution-tentative',
+          fetchedAt: new Date(timestamp),
+          granularity: 'exact',
+        },
+      },
+      {
+        asset: inflow.asset,
+        priceAtTxTime: {
+          price: { amount: cryptoPrice, currency: outflowCurrency },
+          source: 'fiat-execution-tentative',
+          fetchedAt: new Date(timestamp),
+          granularity: 'exact',
+        },
+      }
+    );
+
+    return results;
+  }
+
+  // Case 3: Neither side is fiat - can't derive execution price
+  // This includes:
+  // - Stablecoin trades (USDC, USDT, DAI) - fetch in Stage 3
+  // - Crypto-crypto swaps (BTC/ETH) - handle in Pass N+2
+  return results;
+}
+
+/**
+ * Stamp identity prices on fiat movements that don't have prices yet
+ * Handles single-leg fiat movements (deposits, withdrawals, fees) that don't go through trade pricing
+ *
+ * Examples:
+ * - CAD deposit: 1 CAD = 1 CAD (tentative, will be normalized to USD)
+ * - USD withdrawal: 1 USD = 1 USD (final price, no normalization needed)
+ * - EUR fee: 1 EUR = 1 EUR (tentative, will be normalized to USD)
+ */
+export function stampFiatIdentityPrices(
+  movements: AssetMovement[],
+  timestamp: number
+): { asset: string; priceAtTxTime: PriceAtTxTime }[] {
+  const results: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
+
+  for (const movement of movements) {
+    // Skip if already has price
+    if (movement.priceAtTxTime) {
+      continue;
+    }
+
+    const currency = Currency.create(movement.asset);
+
+    // Only stamp prices on fiat currencies
+    if (!currency.isFiat()) {
+      continue;
+    }
+
+    const isUSD = currency.toString() === 'USD';
 
     results.push({
-      asset: inflow.asset,
+      asset: movement.asset,
       priceAtTxTime: {
-        price: { amount: price, currency: outflowCurrency },
-        source: 'exchange-execution',
+        price: { amount: parseDecimal('1'), currency },
+        // USD gets 'exchange-execution' (final), non-USD gets 'fiat-execution-tentative' (will be normalized)
+        source: isUSD ? 'exchange-execution' : 'fiat-execution-tentative',
         fetchedAt: new Date(timestamp),
         granularity: 'exact',
       },
     });
   }
-
-  // Inflow is USD - calculate price of outflow
-  if (inflowIsUSD && !outflowIsUSD) {
-    const price = parseDecimal(inflow.amount.toFixed()).dividedBy(parseDecimal(outflow.amount.toFixed()));
-
-    results.push({
-      asset: outflow.asset,
-      priceAtTxTime: {
-        price: { amount: price, currency: inflowCurrency },
-        source: 'exchange-execution',
-        fetchedAt: new Date(timestamp),
-        granularity: 'exact',
-      },
-    });
-  }
-
-  // Both sides are USD - skip (same currency, no price derivation needed)
-  // This case is theoretically impossible but handle for completeness
 
   return results;
 }
