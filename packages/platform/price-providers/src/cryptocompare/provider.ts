@@ -210,7 +210,7 @@ export class CryptoCompareProvider extends BasePriceProvider {
         return err(new Error(`Invalid price response: ${parseResult.error.message}`));
       }
 
-      // Transform using pure function
+      // Transform
       const priceDataResult = transformPriceResponse(parseResult.data, asset, timestamp, currency, now);
       if (priceDataResult.isErr()) {
         return err(priceDataResult.error);
@@ -262,7 +262,7 @@ export class CryptoCompareProvider extends BasePriceProvider {
       return err(new Error(`CryptoCompare API error: ${errorMessage}`));
     }
 
-    // Transform using pure function
+    // Transform
     const priceDataResult = transformHistoricalResponse(parseResult.data, asset, timestamp, currency, now, granularity);
     if (priceDataResult.isErr()) {
       return err(priceDataResult.error);

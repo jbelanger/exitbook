@@ -1,8 +1,8 @@
 // Pure business logic for prices command
 // All functions are pure and testable
 
-import { Currency, type AssetMovement } from '@exitbook/core';
-import type { TransactionNeedingPrice } from '@exitbook/data';
+import { Currency, type AssetMovement, type UniversalTransaction } from '@exitbook/core';
+import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/platform-price-providers';
 import type { PriceQuery } from '@exitbook/platform-price-providers';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -71,8 +71,13 @@ export function validateAssetFilter(asset: string | string[] | undefined): Resul
  * Extract unique assets from a transaction's movements that need prices
  * Filters out fiat currencies as they don't need price fetching
  */
-export function extractAssetsNeedingPrices(tx: TransactionNeedingPrice): Result<string[], Error> {
-  const allMovements: AssetMovement[] = [...(tx.movementsInflows ?? []), ...(tx.movementsOutflows ?? [])];
+export function extractAssetsNeedingPrices(tx: UniversalTransaction): Result<string[], Error> {
+  const allMovements: AssetMovement[] = [
+    ...(tx.movements.inflows ?? []),
+    ...(tx.movements.outflows ?? []),
+    ...(tx.fees.platform ? [tx.fees.platform] : []),
+    ...(tx.fees.network ? [tx.fees.network] : []),
+  ];
 
   if (allMovements.length === 0) {
     return err(new Error(`Transaction ${tx.id} has no movements`));
@@ -98,18 +103,18 @@ export function extractAssetsNeedingPrices(tx: TransactionNeedingPrice): Result<
  * Always fetches prices in USD regardless of transaction currency
  */
 export function createPriceQuery(
-  tx: TransactionNeedingPrice,
+  tx: UniversalTransaction,
   asset: string,
   targetCurrency = 'USD'
 ): Result<PriceQuery, Error> {
-  if (!tx.transactionDatetime) {
+  if (!tx.datetime) {
     return err(new Error(`Transaction ${tx.id} has no transaction datetime`));
   }
 
   // Parse datetime
-  const timestamp = new Date(tx.transactionDatetime);
+  const timestamp = new Date(tx.datetime);
   if (isNaN(timestamp.getTime())) {
-    return err(new Error(`Transaction ${tx.id} has invalid datetime: ${tx.transactionDatetime}`));
+    return err(new Error(`Transaction ${tx.id} has invalid datetime: ${tx.datetime}`));
   }
 
   return ok({
@@ -137,4 +142,45 @@ export function initializeStats(): PriceFetchStats {
     skipped: 0,
     transactionsFound: 0,
   };
+}
+
+/**
+ * Create default price provider manager with all providers enabled
+ *
+ * This factory centralizes the provider configuration to eliminate duplication
+ * between PricesEnrichHandler and PricesFetchHandler.
+ *
+ * @returns Result with initialized price provider manager
+ */
+export async function createDefaultPriceProviderManager(): Promise<Result<PriceProviderManager, Error>> {
+  return createPriceProviderManager({
+    providers: {
+      databasePath: './data/prices.db',
+      // Crypto price providers
+      coingecko: {
+        enabled: true,
+        apiKey: process.env.COINGECKO_API_KEY,
+        useProApi: process.env.COINGECKO_USE_PRO_API === 'true',
+      },
+      cryptocompare: {
+        enabled: true,
+        apiKey: process.env.CRYPTOCOMPARE_API_KEY,
+      },
+      // FX rate providers
+      ecb: {
+        enabled: true,
+      },
+      'bank-of-canada': {
+        enabled: true,
+      },
+      frankfurter: {
+        enabled: true,
+      },
+    },
+    manager: {
+      defaultCurrency: 'USD',
+      maxConsecutiveFailures: 3,
+      cacheTtlSeconds: 3600,
+    },
+  });
 }

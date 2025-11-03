@@ -1,4 +1,4 @@
-import { Currency } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -117,7 +117,7 @@ describe('BasePriceProvider', () => {
           asset: Currency.create('BTC'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
-          price: 43000,
+          price: parseDecimal('43000'),
           source: 'test-provider',
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         })
@@ -145,7 +145,7 @@ describe('BasePriceProvider', () => {
           asset: Currency.create('BTC'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
-          price: -100, // Invalid negative price
+          price: parseDecimal('-100'), // Invalid negative price
           source: 'test-provider',
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         })
@@ -169,7 +169,7 @@ describe('BasePriceProvider', () => {
         asset: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
-        price: 43000,
+        price: parseDecimal('43000'),
         source: 'test-provider',
         fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
       };
@@ -238,7 +238,7 @@ describe('BasePriceProvider', () => {
         asset: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
-        price: 43000,
+        price: parseDecimal('43000'),
         source: 'test-provider',
         fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
       };
@@ -318,7 +318,7 @@ describe('BasePriceProvider', () => {
         asset: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
-        price: 43000,
+        price: parseDecimal('43000'),
         source: 'test-provider',
         fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
       };
@@ -338,7 +338,7 @@ describe('BasePriceProvider', () => {
         asset: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
-        price: 43000,
+        price: parseDecimal('43000'),
         source: 'test-provider',
         fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
       };

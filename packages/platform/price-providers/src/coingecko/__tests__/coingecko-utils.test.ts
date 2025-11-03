@@ -1,4 +1,4 @@
-import { Currency } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -68,7 +68,7 @@ describe('transformHistoricalResponse', () => {
       expect(result.value).toEqual({
         asset: Currency.create('BTC'),
         timestamp: new Date('2024-01-01T00:00:00Z'), // Rounded to day
-        price: 30123.45,
+        price: parseDecimal('30123.45'),
         currency: Currency.create('USD'),
         source: 'coingecko',
         fetchedAt,
@@ -188,7 +188,7 @@ describe('transformSimplePriceResponse', () => {
       expect(result.value).toEqual({
         asset: Currency.create('BTC'),
         timestamp,
-        price: 30123.45,
+        price: parseDecimal('30123.45'),
         currency: Currency.create('USD'),
         source: 'coingecko',
         fetchedAt,

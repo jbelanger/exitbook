@@ -4,7 +4,7 @@
  * Pure function tests - no mocks needed
  */
 
-import { Currency } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -118,7 +118,7 @@ describe('transformFrankfurterResponse', () => {
       expect(result.value).toEqual({
         asset,
         timestamp,
-        price: 1.0856,
+        price: parseDecimal('1.0856'),
         currency: targetCurrency,
         source: 'frankfurter',
         fetchedAt,
@@ -144,7 +144,7 @@ describe('transformFrankfurterResponse', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.price).toBe(1.0856);
+      expect(result.value.price).toEqual(parseDecimal('1.0856'));
       expect(result.value.currency.toString()).toBe('USD');
     }
   });
@@ -165,7 +165,7 @@ describe('transformFrankfurterResponse', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.asset.toString()).toBe('CAD');
-      expect(result.value.price).toBe(0.7456);
+      expect(result.value.price).toEqual(parseDecimal('0.7456'));
     }
   });
 
@@ -185,7 +185,7 @@ describe('transformFrankfurterResponse', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.asset.toString()).toBe('GBP');
-      expect(result.value.price).toBe(1.2734);
+      expect(result.value.price).toEqual(parseDecimal('1.2734'));
     }
   });
 

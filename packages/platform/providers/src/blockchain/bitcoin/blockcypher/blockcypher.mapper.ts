@@ -52,7 +52,7 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
       normalized.blockId = rawData.block_hash;
     }
     if (rawData.fees > 0) {
-      const btcFee = parseDecimal(rawData.fees.toString()).div(100000000).toString();
+      const btcFee = parseDecimal(rawData.fees.toString()).div(100000000).toFixed();
       normalized.feeAmount = btcFee;
       normalized.feeCurrency = 'BTC';
     }

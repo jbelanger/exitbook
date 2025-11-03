@@ -113,7 +113,7 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
     // - THETA transfers are mapped as token_transfer, so amounts should be normalized (not wei)
     // - TFUEL transfers are mapped as native transfer, so amounts should stay in wei
     const amountFormatted = isThetaTransfer
-      ? amount.dividedBy(parseDecimal('10').pow(THETA_DECIMALS)).toString()
+      ? amount.dividedBy(parseDecimal('10').pow(THETA_DECIMALS)).toFixed()
       : amount.toFixed(0); // Use toFixed(0) to avoid scientific notation
 
     const transaction: EvmTransaction = {

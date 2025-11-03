@@ -119,7 +119,7 @@ function detectFeeIssuesInTransaction(tx: UniversalTransaction): FeeGapIssue[] {
       issue_type: 'fee_without_price',
       description: 'Network fee exists but has no price data',
       asset: tx.fees.network?.asset,
-      amount: tx.fees.network?.amount.toString(),
+      amount: tx.fees.network?.amount.toFixed(),
       suggestion: 'Run `exitbook prices fetch` to populate missing prices',
     });
   }
@@ -133,7 +133,7 @@ function detectFeeIssuesInTransaction(tx: UniversalTransaction): FeeGapIssue[] {
       issue_type: 'fee_without_price',
       description: 'Platform fee exists but has no price data',
       asset: tx.fees.platform?.asset,
-      amount: tx.fees.platform?.amount.toString(),
+      amount: tx.fees.platform?.amount.toFixed(),
       suggestion: 'Run `exitbook prices fetch` to populate missing prices',
     });
   }
@@ -180,7 +180,7 @@ function detectFeeIssuesInTransaction(tx: UniversalTransaction): FeeGapIssue[] {
           issue_type: 'fee_in_movements',
           description: 'Transaction note mentions fees but movement is not in fee fields',
           asset: outflow.asset,
-          amount: outflow.amount.toString(),
+          amount: outflow.amount.toFixed(),
           suggestion: 'Review processor to map this outflow to appropriate fee field',
         });
       }

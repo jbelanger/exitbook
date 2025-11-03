@@ -415,7 +415,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
         return err(new Error(`Invalid simple price response: ${parseResult.error.message}`));
       }
 
-      // Transform using pure function
+      // Transform
       const priceDataResult = transformSimplePriceResponse(parseResult.data, coinId, asset, timestamp, currency, now);
       if (priceDataResult.isErr()) {
         return err(priceDataResult.error);
@@ -457,7 +457,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
       return err(new Error(`Invalid historical price response: ${parseResult.error.message}`));
     }
 
-    // Transform using pure function
+    // Transform
     const priceDataResult = transformHistoricalResponse(parseResult.data, asset, timestamp, currency, now);
     if (priceDataResult.isErr()) {
       return err(priceDataResult.error);

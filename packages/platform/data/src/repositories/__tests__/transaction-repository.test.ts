@@ -1,4 +1,4 @@
-import { Currency, parseDecimal } from '@exitbook/core';
+import { Currency, parseDecimal, type UniversalTransaction } from '@exitbook/core';
 import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -204,8 +204,8 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
     await db.destroy();
   });
 
-  it('should add price when movement has no price', async () => {
-    // Create transaction with movement without price
+  it('should persist enriched movements and fees with prices', async () => {
+    // Create transaction with movements and fees without prices
     await db
       .insertInto('transactions')
       .values({
@@ -219,25 +219,55 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
         operation_type: 'swap',
         raw_normalized_data: '{}',
         movements_inflows: JSON.stringify([{ asset: 'BTC', amount: '1.0' }]),
+        fees_network: JSON.stringify({ asset: 'BTC', amount: '0.0001' }),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .execute();
 
-    // Add price
-    const result = await repository.updateMovementsWithPrices(1, [
-      {
-        asset: 'BTC',
-        price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
-        source: 'coingecko',
-        fetchedAt: new Date(),
-        granularity: 'hour',
+    // Build enriched transaction (repository just persists what it's told)
+    const enrichedTx: UniversalTransaction = {
+      id: 1,
+      externalId: 'tx-1',
+      datetime: new Date().toISOString(),
+      timestamp: Date.now(),
+      source: 'kraken',
+      status: 'success',
+      operation: { category: 'trade', type: 'swap' },
+      movements: {
+        inflows: [
+          {
+            asset: 'BTC',
+            amount: parseDecimal('1.0'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+              source: 'coingecko',
+              fetchedAt: new Date(),
+              granularity: 'hour' as const,
+            },
+          },
+        ],
+        outflows: [],
       },
-    ]);
+      fees: {
+        network: {
+          asset: 'BTC',
+          amount: parseDecimal('0.0001'),
+          priceAtTxTime: {
+            price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+            source: 'coingecko',
+            fetchedAt: new Date(),
+            granularity: 'hour' as const,
+          },
+        },
+      },
+    };
+
+    const result = await repository.updateMovementsWithPrices(enrichedTx);
 
     expect(result.isOk()).toBe(true);
 
-    // Verify price was added
+    // Verify movements and fees were persisted correctly
     const tx = await db.selectFrom('transactions').selectAll().where('id', '=', 1).executeTakeFirst();
     const inflows = JSON.parse(tx!.movements_inflows as string) as {
       amount: string;
@@ -249,252 +279,58 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
         source: string;
       };
     }[];
+    const networkFee = JSON.parse(tx!.fees_network as string) as {
+      amount: string;
+      asset: string;
+      priceAtTxTime?: {
+        fetchedAt: string;
+        granularity: string;
+        price: { amount: string; currency: string };
+        source: string;
+      };
+    };
+
     expect(inflows[0]).toBeDefined();
     expect(inflows[0]?.priceAtTxTime).toBeDefined();
     expect(inflows[0]?.priceAtTxTime?.source).toBe('coingecko');
     expect(inflows[0]?.priceAtTxTime?.price.amount).toBe('50000');
+
+    // Verify fees were enriched
+    expect(networkFee.priceAtTxTime).toBeDefined();
+    expect(networkFee.priceAtTxTime?.source).toBe('coingecko');
+    expect(networkFee.priceAtTxTime?.price.amount).toBe('50000');
   });
 
-  it('should NOT overwrite exchange-execution price (authoritative)', async () => {
-    // Create transaction with exchange-execution price
-    await db
-      .insertInto('transactions')
-      .values({
-        id: 1,
-        data_source_id: 1,
-        source_id: 'kraken',
-        source_type: 'exchange',
-        external_id: 'tx-1',
-        transaction_status: 'success',
-        transaction_datetime: new Date().toISOString(),
-        operation_type: 'swap',
-        raw_normalized_data: '{}',
-        movements_inflows: JSON.stringify([
+  it('should return error when transaction ID does not exist', async () => {
+    const enrichedTx: UniversalTransaction = {
+      id: 999, // Non-existent ID
+      externalId: 'tx-999',
+      datetime: new Date().toISOString(),
+      timestamp: Date.now(),
+      source: 'kraken',
+      status: 'success',
+      operation: { category: 'trade', type: 'swap' },
+      movements: {
+        inflows: [
           {
             asset: 'BTC',
-            amount: '1.0',
+            amount: parseDecimal('1.0'),
             priceAtTxTime: {
-              price: { amount: '50000', currency: 'USD' },
-              source: 'exchange-execution',
-              fetchedAt: new Date().toISOString(),
-              granularity: 'exact',
-            },
-          },
-        ]),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .execute();
-
-    // Attempt to overwrite with derived-ratio
-    const result = await repository.updateMovementsWithPrices(1, [
-      {
-        asset: 'BTC',
-        price: { amount: parseDecimal('48000'), currency: Currency.create('USD') },
-        source: 'derived-ratio',
-        fetchedAt: new Date(),
-        granularity: 'exact',
-      },
-    ]);
-
-    expect(result.isOk()).toBe(true);
-
-    // Verify exchange-execution price was NOT overwritten
-    const tx = await db.selectFrom('transactions').selectAll().where('id', '=', 1).executeTakeFirst();
-    const inflows = JSON.parse(tx!.movements_inflows as string) as {
-      amount: string;
-      asset: string;
-      priceAtTxTime?: {
-        fetchedAt: string;
-        granularity: string;
-        price: { amount: string; currency: string };
-        source: string;
-      };
-    }[];
-    expect(inflows[0]).toBeDefined();
-    expect(inflows[0]?.priceAtTxTime).toBeDefined();
-    expect(inflows[0]?.priceAtTxTime?.source).toBe('exchange-execution');
-    expect(inflows[0]?.priceAtTxTime?.price.amount).toBe('50000');
-  });
-
-  it('should overwrite provider price with derived-ratio', async () => {
-    // Create transaction with provider price
-    await db
-      .insertInto('transactions')
-      .values({
-        id: 1,
-        data_source_id: 1,
-        source_id: 'kraken',
-        source_type: 'exchange',
-        external_id: 'tx-1',
-        transaction_status: 'success',
-        transaction_datetime: new Date().toISOString(),
-        operation_type: 'swap',
-        raw_normalized_data: '{}',
-        movements_inflows: JSON.stringify([
-          {
-            asset: 'BTC',
-            amount: '1.0',
-            priceAtTxTime: {
-              price: { amount: '50000', currency: 'USD' },
+              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
               source: 'coingecko',
-              fetchedAt: new Date().toISOString(),
-              granularity: 'hour',
+              fetchedAt: new Date(),
+              granularity: 'hour' as const,
             },
           },
-        ]),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .execute();
-
-    // Overwrite with derived-ratio
-    const result = await repository.updateMovementsWithPrices(1, [
-      {
-        asset: 'BTC',
-        price: { amount: parseDecimal('48000'), currency: Currency.create('USD') },
-        source: 'derived-ratio',
-        fetchedAt: new Date(),
-        granularity: 'exact',
+        ],
+        outflows: [],
       },
-    ]);
+      fees: {},
+    };
 
-    expect(result.isOk()).toBe(true);
+    const result = await repository.updateMovementsWithPrices(enrichedTx);
 
-    // Verify provider price was overwritten with derived-ratio
-    const tx = await db.selectFrom('transactions').selectAll().where('id', '=', 1).executeTakeFirst();
-    const inflows = JSON.parse(tx!.movements_inflows as string) as {
-      amount: string;
-      asset: string;
-      priceAtTxTime?: {
-        fetchedAt: string;
-        granularity: string;
-        price: { amount: string; currency: string };
-        source: string;
-      };
-    }[];
-    expect(inflows[0]?.priceAtTxTime).toBeDefined();
-    expect(inflows[0]?.priceAtTxTime?.source).toBe('derived-ratio');
-    expect(inflows[0]?.priceAtTxTime?.price.amount).toBe('48000');
-  });
-
-  it('should overwrite provider price with link-propagated', async () => {
-    // Create transaction with provider price
-    await db
-      .insertInto('transactions')
-      .values({
-        id: 1,
-        data_source_id: 1,
-        source_id: 'kraken',
-        source_type: 'exchange',
-        external_id: 'tx-1',
-        transaction_status: 'success',
-        transaction_datetime: new Date().toISOString(),
-        operation_type: 'swap',
-        raw_normalized_data: '{}',
-        movements_inflows: JSON.stringify([
-          {
-            asset: 'ETH',
-            amount: '10.0',
-            priceAtTxTime: {
-              price: { amount: '3000', currency: 'USD' },
-              source: 'cryptocompare',
-              fetchedAt: new Date().toISOString(),
-              granularity: 'hour',
-            },
-          },
-        ]),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .execute();
-
-    // Overwrite with link-propagated
-    const result = await repository.updateMovementsWithPrices(1, [
-      {
-        asset: 'ETH',
-        price: { amount: parseDecimal('3100'), currency: Currency.create('USD') },
-        source: 'link-propagated',
-        fetchedAt: new Date(),
-        granularity: 'exact',
-      },
-    ]);
-
-    expect(result.isOk()).toBe(true);
-
-    // Verify provider price was overwritten with link-propagated
-    const tx = await db.selectFrom('transactions').selectAll().where('id', '=', 1).executeTakeFirst();
-    const inflows = JSON.parse(tx!.movements_inflows as string) as {
-      amount: string;
-      asset: string;
-      priceAtTxTime?: {
-        fetchedAt: string;
-        granularity: string;
-        price: { amount: string; currency: string };
-        source: string;
-      };
-    }[];
-    expect(inflows[0]?.priceAtTxTime?.source).toBe('link-propagated');
-    expect(inflows[0]?.priceAtTxTime?.price?.amount).toBe('3100');
-  });
-
-  it('should NOT overwrite provider price with another provider price', async () => {
-    // Create transaction with coingecko price
-    await db
-      .insertInto('transactions')
-      .values({
-        id: 1,
-        data_source_id: 1,
-        source_id: 'kraken',
-        source_type: 'exchange',
-        external_id: 'tx-1',
-        transaction_status: 'success',
-        transaction_datetime: new Date().toISOString(),
-        operation_type: 'swap',
-        raw_normalized_data: '{}',
-        movements_inflows: JSON.stringify([
-          {
-            asset: 'BTC',
-            amount: '1.0',
-            priceAtTxTime: {
-              price: { amount: '50000', currency: 'USD' },
-              source: 'coingecko',
-              fetchedAt: new Date().toISOString(),
-              granularity: 'hour',
-            },
-          },
-        ]),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .execute();
-
-    // Attempt to overwrite with binance price
-    const result = await repository.updateMovementsWithPrices(1, [
-      {
-        asset: 'BTC',
-        price: { amount: parseDecimal('49000'), currency: Currency.create('USD') },
-        source: 'binance',
-        fetchedAt: new Date(),
-        granularity: 'minute',
-      },
-    ]);
-
-    expect(result.isOk()).toBe(true);
-
-    // Verify coingecko price was NOT overwritten
-    const tx = await db.selectFrom('transactions').selectAll().where('id', '=', 1).executeTakeFirst();
-    const inflows = JSON.parse(tx!.movements_inflows as string) as {
-      amount: string;
-      asset: string;
-      priceAtTxTime?: {
-        fetchedAt: string;
-        granularity: string;
-        price: { amount: string; currency: string };
-        source: string;
-      };
-    }[];
-    expect(inflows[0]?.priceAtTxTime?.source).toBe('coingecko');
-    expect(inflows[0]?.priceAtTxTime?.price?.amount).toBe('50000');
+    expect(result.isErr()).toBe(true);
+    expect(result.isErr() && result.error.message).toContain('Transaction 999 not found');
   });
 });

@@ -5,6 +5,7 @@
  */
 
 import type { Currency } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -88,7 +89,7 @@ export function transformECBResponse(
   return ok({
     asset,
     timestamp,
-    price: rate,
+    price: parseDecimal(rate.toString()),
     currency,
     source: 'ecb',
     fetchedAt,

@@ -7,7 +7,7 @@
 
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 
-import { Currency } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -53,7 +53,7 @@ describe('PriceProviderManager', () => {
       asset: Currency.create('BTC'),
       currency: Currency.create('USD'),
       fetchedAt: new Date('2024-01-15T12:00:00Z'),
-      price: 50000,
+      price: parseDecimal('50000'),
       source: name,
       timestamp: new Date('2024-01-15T12:00:00Z'),
     };

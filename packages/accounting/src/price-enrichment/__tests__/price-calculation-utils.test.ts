@@ -57,8 +57,10 @@ describe('extractTradeMovements', () => {
 });
 
 describe('calculatePriceFromTrade', () => {
-  it('should calculate price for BTC-USDT buy (crypto-stable)', () => {
+  it('should NOT derive price for BTC-USDT buy (stablecoin - use Stage 3 instead)', () => {
     // Buy 1 BTC with 50,000 USDT
+    // USDT is a stablecoin, not actual USD
+    // Stablecoins are fetched in Stage 3 to capture de-peg events
     const trade = {
       inflow: {
         asset: 'BTC',
@@ -73,13 +75,8 @@ describe('calculatePriceFromTrade', () => {
 
     const result = calculatePriceFromTrade(trade);
 
-    expect(result).toHaveLength(1);
-    expect(result[0]).toBeDefined();
-    expect(result[0]!.asset).toBe('BTC');
-    expect(result[0]!.priceAtTxTime.price.amount.toFixed()).toBe('50000');
-    expect(result[0]!.priceAtTxTime.price.currency.toString()).toBe('USDT');
-    expect(result[0]!.priceAtTxTime.source).toBe('exchange-execution');
-    expect(result[0]!.priceAtTxTime.granularity).toBe('exact');
+    // Should return empty - stablecoins are NOT treated as USD
+    expect(result).toHaveLength(0);
   });
 
   it('should calculate price for ETH-USD sell (crypto-fiat)', () => {
@@ -105,8 +102,10 @@ describe('calculatePriceFromTrade', () => {
     expect(result[0]!.priceAtTxTime.source).toBe('exchange-execution');
   });
 
-  it('should calculate prices for both sides in stablecoin swap', () => {
+  it('should NOT derive prices for stablecoin swap (use Stage 3 instead)', () => {
     // Swap 1000 USDT for 999.5 USDC
+    // Stablecoins are NOT treated as USD - they need actual historical prices
+    // from Stage 3 to capture de-peg events
     const trade = {
       inflow: {
         asset: 'USDC',
@@ -121,18 +120,8 @@ describe('calculatePriceFromTrade', () => {
 
     const result = calculatePriceFromTrade(trade);
 
-    expect(result).toHaveLength(2);
-
-    // USDC price in USDT
-    expect(result[0]!.asset).toBe('USDC');
-    // 1000 / 999.5 = 1.0005002501250625...
-    expect(result[0]!.priceAtTxTime.price.amount.toFixed()).toMatch(/^1\.00050025012506253126563281/);
-    expect(result[0]!.priceAtTxTime.price.currency.toString()).toBe('USDT');
-
-    // USDT price in USDC
-    expect(result[1]!.asset).toBe('USDT');
-    expect(result[1]!.priceAtTxTime.price.amount.toFixed()).toBe('0.9995');
-    expect(result[1]!.priceAtTxTime.price.currency.toString()).toBe('USDC');
+    // Should return empty - stablecoins are NOT treated as USD
+    expect(result).toHaveLength(0);
   });
 
   it('should return empty array for crypto-crypto trade (no fiat/stable)', () => {
@@ -154,15 +143,15 @@ describe('calculatePriceFromTrade', () => {
     expect(result).toHaveLength(0);
   });
 
-  it('should handle fractional amounts correctly', () => {
-    // Buy 0.5 BTC with 25,000 USDT
+  it('should handle fractional amounts correctly for USD trades', () => {
+    // Buy 0.5 BTC with 25,000 USD (actual USD, not stablecoin)
     const trade = {
       inflow: {
         asset: 'BTC',
         amount: parseDecimal('0.5'),
       },
       outflow: {
-        asset: 'USDT',
+        asset: 'USD',
         amount: parseDecimal('25000'),
       },
       timestamp: 1234567890000,
@@ -173,6 +162,72 @@ describe('calculatePriceFromTrade', () => {
     expect(result).toHaveLength(1);
     expect(result[0]!.asset).toBe('BTC');
     expect(result[0]!.priceAtTxTime.price.amount.toFixed()).toBe('50000');
-    expect(result[0]!.priceAtTxTime.price.currency.toString()).toBe('USDT');
+    expect(result[0]!.priceAtTxTime.price.currency.toString()).toBe('USD');
+  });
+
+  it('should NOT derive price for EUR trade (normalized separately in Stage 1)', () => {
+    // Buy 1 BTC with 40,000 EUR
+    // EUR trades are normalized to USD in Stage 1 via FX providers
+    const trade = {
+      inflow: {
+        asset: 'BTC',
+        amount: parseDecimal('1'),
+      },
+      outflow: {
+        asset: 'EUR',
+        amount: parseDecimal('40000'),
+      },
+      timestamp: 1234567890000,
+    };
+
+    const result = calculatePriceFromTrade(trade);
+
+    // Should return empty - EUR is normalized separately
+    expect(result).toHaveLength(0);
+  });
+
+  it('should NOT derive price for CAD trade (normalized separately in Stage 1)', () => {
+    // Buy 1 BTC with 65,000 CAD
+    // CAD trades are normalized to USD in Stage 1 via FX providers
+    const trade = {
+      inflow: {
+        asset: 'BTC',
+        amount: parseDecimal('1'),
+      },
+      outflow: {
+        asset: 'CAD',
+        amount: parseDecimal('65000'),
+      },
+      timestamp: 1234567890000,
+    };
+
+    const result = calculatePriceFromTrade(trade);
+
+    // Should return empty - CAD is normalized separately
+    expect(result).toHaveLength(0);
+  });
+
+  it('should calculate price for USD buy trade (actual USD only)', () => {
+    // Buy 1 BTC with 50,000 USD (actual USD)
+    const trade = {
+      inflow: {
+        asset: 'BTC',
+        amount: parseDecimal('1'),
+      },
+      outflow: {
+        asset: 'USD',
+        amount: parseDecimal('50000'),
+      },
+      timestamp: 1234567890000,
+    };
+
+    const result = calculatePriceFromTrade(trade);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]!.asset).toBe('BTC');
+    expect(result[0]!.priceAtTxTime.price.amount.toFixed()).toBe('50000');
+    expect(result[0]!.priceAtTxTime.price.currency.toString()).toBe('USD');
+    expect(result[0]!.priceAtTxTime.source).toBe('exchange-execution');
+    expect(result[0]!.priceAtTxTime.granularity).toBe('exact');
   });
 });

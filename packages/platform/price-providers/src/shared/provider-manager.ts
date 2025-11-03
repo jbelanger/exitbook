@@ -164,7 +164,7 @@ export class PriceProviderManager {
     const assetSymbol = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.asset.toString();
     const isFiat = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.asset.isFiat();
 
-    // Select providers using pure function
+    // Select providers
     const scoredProviders = ProviderManagerUtils.selectProvidersForOperation(
       this.providers,
       this.healthStatus,
@@ -203,7 +203,7 @@ export class PriceProviderManager {
         );
       }
 
-      // Check circuit breaker using pure function
+      // Check circuit breaker
       const hasOthers = ProviderManagerUtils.hasAvailableProviders(
         scoredProviders.slice(attemptNumber).map((sp) => sp.provider),
         this.circuitStates,

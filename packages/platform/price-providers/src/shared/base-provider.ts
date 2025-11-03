@@ -102,7 +102,7 @@ export abstract class BasePriceProvider implements IPriceProvider {
     const validationError = validatePriceData(priceData, new Date());
     if (validationError) {
       this.logger.warn(
-        { error: validationError, asset: priceData.asset.toString(), price: priceData.price },
+        { error: validationError, asset: priceData.asset.toString(), price: priceData.price.toFixed() },
         'Refusing to cache invalid price data'
       );
       return;

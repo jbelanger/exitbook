@@ -121,7 +121,7 @@ describe('FxRateProvider', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.convertedAmount.toString()).toBe('54000'); // 50000 * 1.08
+        expect(result.value.convertedAmount.toFixed()).toBe('54000'); // 50000 * 1.08
         expect(result.value.fxRate.toString()).toBe('1.08');
         expect(result.value.fxSource).toBe('manual');
       }
@@ -135,7 +135,7 @@ describe('FxRateProvider', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.convertedAmount.toString()).toBe('1000');
+        expect(result.value.convertedAmount.toFixed()).toBe('1000');
         expect(result.value.fxRate.toString()).toBe('1');
         expect(result.value.fxSource).toBe('identity');
       }
@@ -159,7 +159,7 @@ describe('FxRateProvider', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.convertedAmount.toString()).toBe('1.628145'); // 1.5 * 1.08543
+        expect(result.value.convertedAmount.toFixed()).toBe('1.628145'); // 1.5 * 1.08543
       }
     });
   });

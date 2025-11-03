@@ -1,21 +1,23 @@
 // Imperative shell for prices command
 // Manages resources (database, price providers) and orchestrates business logic
 
-import { Currency, parseDecimal } from '@exitbook/core';
+import { Currency } from '@exitbook/core';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
-import {
-  CoinNotFoundError,
-  createPriceProviderManager,
-  type PriceProviderManager,
-} from '@exitbook/platform-price-providers';
+import { CoinNotFoundError, type PriceProviderManager } from '@exitbook/platform-price-providers';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import { promptManualPrice } from './prices-prompts.ts';
 import type { PricesFetchCommandOptions, PricesFetchResult } from './prices-utils.ts';
-import { validateAssetFilter, extractAssetsNeedingPrices, createPriceQuery, initializeStats } from './prices-utils.ts';
+import {
+  createDefaultPriceProviderManager,
+  createPriceQuery,
+  extractAssetsNeedingPrices,
+  initializeStats,
+  validateAssetFilter,
+} from './prices-utils.ts';
 
 const logger = getLogger('PricesHandler');
 
@@ -35,28 +37,8 @@ export class PricesFetchHandler {
    * Execute prices fetch command
    */
   async execute(options: PricesFetchCommandOptions): Promise<Result<PricesFetchResult, Error>> {
-    // Initialize price provider manager with combined factory
-    // Note: API keys are read from process.env by the factory
-    // We explicitly pass them here to ensure they're available even if env loading has issues
-    const managerResult = await createPriceProviderManager({
-      providers: {
-        databasePath: './data/prices.db',
-        coingecko: {
-          enabled: true,
-          apiKey: process.env.COINGECKO_API_KEY,
-          useProApi: process.env.COINGECKO_USE_PRO_API === 'true',
-        },
-        cryptocompare: {
-          enabled: true,
-          apiKey: process.env.CRYPTOCOMPARE_API_KEY,
-        },
-      },
-      manager: {
-        defaultCurrency: 'USD',
-        maxConsecutiveFailures: 3,
-        cacheTtlSeconds: 3600,
-      },
-    });
+    // Initialize price provider manager using shared factory
+    const managerResult = await createDefaultPriceProviderManager();
 
     if (managerResult.isErr()) {
       return err(managerResult.error);
@@ -208,7 +190,7 @@ export class PricesFetchHandler {
           fetchedAt: priceData.fetchedAt,
           granularity: priceData.granularity,
           price: {
-            amount: parseDecimal(priceData.price.toString()),
+            amount: priceData.price,
             currency: priceData.currency,
           },
           source: priceData.source,
@@ -217,7 +199,46 @@ export class PricesFetchHandler {
 
       // Update transaction movements with all fetched prices
       if (fetchedPrices.length > 0) {
-        const updateResult = await this.transactionRepo.updateMovementsWithPrices(tx.id, fetchedPrices);
+        // Build price map from fetched prices
+        const pricesMap = new Map(
+          fetchedPrices.map((fp) => [
+            fp.asset,
+            {
+              price: fp.price,
+              source: fp.source,
+              fetchedAt: fp.fetchedAt,
+              granularity: fp.granularity,
+            },
+          ])
+        );
+
+        // Enrich all movements (inflows, outflows, and fees) with priority rules
+        const { enrichMovementsWithPrices } = await import('@exitbook/accounting');
+        const enrichedInflows = enrichMovementsWithPrices(tx.movements.inflows ?? [], pricesMap);
+        const enrichedOutflows = enrichMovementsWithPrices(tx.movements.outflows ?? [], pricesMap);
+
+        // Enrich fees if present
+        const enrichedPlatformFee = tx.fees.platform
+          ? enrichMovementsWithPrices([tx.fees.platform], pricesMap)[0]
+          : undefined;
+        const enrichedNetworkFee = tx.fees.network
+          ? enrichMovementsWithPrices([tx.fees.network], pricesMap)[0]
+          : undefined;
+
+        // Build enriched transaction
+        const enrichedTx = {
+          ...tx,
+          movements: {
+            inflows: enrichedInflows,
+            outflows: enrichedOutflows,
+          },
+          fees: {
+            platform: enrichedPlatformFee,
+            network: enrichedNetworkFee,
+          },
+        };
+
+        const updateResult = await this.transactionRepo.updateMovementsWithPrices(enrichedTx);
 
         if (updateResult.isErr()) {
           logger.error(`Failed to update movements for transaction ${tx.id}: ${updateResult.error.message}`);

@@ -72,10 +72,10 @@ export function selectBinanceInterval(timestamp: Date): { granularity: 'minute' 
  *
  * We use close price for consistency with other providers
  * Close price is at index 4 in the kline tuple
+ * Returns as string to preserve precision for Decimal conversion
  */
-export function extractClosePriceFromKline(kline: BinanceKline): number {
-  const closePrice = kline[4]; // Close price (string)
-  return Number.parseFloat(closePrice);
+export function extractClosePriceFromKline(kline: BinanceKline): string {
+  return kline[4]; // Close price (string)
 }
 
 /**

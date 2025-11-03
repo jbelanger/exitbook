@@ -1,4 +1,5 @@
 import type { Currency } from '@exitbook/core';
+import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 
 /**
@@ -34,7 +35,16 @@ export type PriceGranularity = 'exact' | HistoricalGranularity;
 export interface PriceData {
   asset: Currency;
   timestamp: Date;
-  price: number;
+  price: Decimal;
+  /**
+   * Currency denomination of the price
+   *
+   * Target: Always USD after enrichment (per ADR-003)
+   * Current: May be USDT/BUSD from Binance (used as USD proxy)
+   *
+   * Note: Stablecoin prices (USDT, USDC) should eventually be converted
+   * to actual USD to capture de-peg events, but this is not yet implemented.
+   */
   currency: Currency;
   source: string; // Provider name
   fetchedAt: Date;
