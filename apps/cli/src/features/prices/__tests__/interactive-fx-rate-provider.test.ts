@@ -47,7 +47,7 @@ describe('InteractiveFxRateProvider', () => {
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.value.rate.toString()).toBe('1.08');
+          expect(result.value.rate.toFixed()).toBe('1.08');
           expect(result.value.source).toBe('ecb');
         }
 
@@ -89,7 +89,7 @@ describe('InteractiveFxRateProvider', () => {
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.value.rate.toString()).toBe('1.1');
+          expect(result.value.rate.toFixed()).toBe('1.1');
           expect(result.value.source).toBe('user-provided');
         }
 
@@ -134,7 +134,7 @@ describe('InteractiveFxRateProvider', () => {
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.value.rate.toString()).toBe('1.35');
+          expect(result.value.rate.toFixed()).toBe('1.35');
           expect(result.value.source).toBe('bank-of-canada');
         }
 
@@ -176,7 +176,7 @@ describe('InteractiveFxRateProvider', () => {
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.value.rate.toString()).toBe('1.37');
+          expect(result.value.rate.toFixed()).toBe('1.37');
           expect(result.value.source).toBe('user-provided');
         }
 

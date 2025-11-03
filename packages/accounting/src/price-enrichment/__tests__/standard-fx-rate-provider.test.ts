@@ -52,7 +52,7 @@ describe('StandardFxRateProvider', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.rate.toString()).toBe('1.08');
+        expect(result.value.rate.toFixed()).toBe('1.08');
         expect(result.value.source).toBe('ecb');
         expect(result.value.fetchedAt).toEqual(mockFetchedAt);
       }
@@ -88,7 +88,7 @@ describe('StandardFxRateProvider', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.rate.toString()).toBe('0.74');
+        expect(result.value.rate.toFixed()).toBe('0.74');
         expect(result.value.source).toBe('bank-of-canada');
         expect(result.value.fetchedAt).toEqual(mockFetchedAt);
       }
@@ -135,7 +135,7 @@ describe('StandardFxRateProvider', () => {
       if (result.isOk()) {
         // 1 / 0.74 = 1.351351351...
         const expected = new Decimal(1).div(new Decimal('0.74'));
-        expect(result.value.rate.toString()).toBe(expected.toString());
+        expect(result.value.rate.toFixed()).toBe(expected.toFixed());
         expect(result.value.source).toBe('bank-of-canada');
         expect(result.value.fetchedAt).toEqual(mockFetchedAt);
       }
@@ -175,7 +175,7 @@ describe('StandardFxRateProvider', () => {
       if (result.isOk()) {
         // 1 / 1.08 = 0.925925925...
         const expected = new Decimal(1).div(new Decimal('1.08'));
-        expect(result.value.rate.toString()).toBe(expected.toString());
+        expect(result.value.rate.toFixed()).toBe(expected.toFixed());
         expect(result.value.source).toBe('ecb');
       }
     });
@@ -247,11 +247,11 @@ describe('StandardFxRateProvider', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const expected = new Decimal(1).div(mockRate);
-        expect(result.value.rate.toString()).toBe(expected.toString());
+        expect(result.value.rate.toFixed()).toBe(expected.toFixed());
 
         // Verify round-trip: rate * inverted ≈ 1
         const roundTrip = mockRate.mul(result.value.rate);
-        expect(roundTrip.toDecimalPlaces(10).toString()).toBe('1');
+        expect(roundTrip.toDecimalPlaces(10).toFixed()).toBe('1');
       }
     });
   });
@@ -293,7 +293,7 @@ describe('StandardFxRateProvider', () => {
 
         // toUsd * fromUsd should equal 1
         const product = toUsd.mul(fromUsd);
-        expect(product.toDecimalPlaces(10).toString()).toBe('1');
+        expect(product.toDecimalPlaces(10).toFixed()).toBe('1');
       }
     });
   });
