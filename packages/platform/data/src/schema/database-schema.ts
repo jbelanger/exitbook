@@ -99,6 +99,9 @@ export interface TransactionsTable {
   note_message: string | null;
   note_metadata: JSONString | null;
 
+  // Accounting exclusions
+  excluded_from_accounting: boolean; // Skip from price enrichment and cost basis (e.g., scam tokens)
+
   // Audit trail
   raw_normalized_data: JSONString; // Keep for debugging/audit
 

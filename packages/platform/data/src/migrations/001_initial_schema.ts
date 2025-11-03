@@ -68,6 +68,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('note_severity', 'text')
     .addColumn('note_message', 'text')
     .addColumn('note_metadata', 'text')
+    .addColumn('excluded_from_accounting', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('raw_normalized_data', 'text', (col) => col.notNull())
     // Structured movements
     .addColumn('movements_inflows', 'text')
@@ -95,6 +96,13 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .on('transactions')
     .columns(['data_source_id', 'external_id'])
     .unique()
+    .execute();
+
+  // Create index for accounting exclusions (for fast filtering of scam tokens, test data, etc.)
+  await db.schema
+    .createIndex('idx_transactions_excluded_from_accounting')
+    .on('transactions')
+    .column('excluded_from_accounting')
     .execute();
 
   // Create token_metadata table

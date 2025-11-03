@@ -65,6 +65,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
           note_severity: transaction.note?.severity,
           note_type: transaction.note?.type,
+          excluded_from_accounting: transaction.note?.type === 'SCAM_TOKEN',
           raw_normalized_data: rawDataJson,
           source_id: transaction.source,
           source_type: transaction.blockchain ? 'blockchain' : 'exchange',
@@ -103,6 +104,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             note_metadata: (eb) => eb.ref('excluded.note_metadata'),
             note_severity: (eb) => eb.ref('excluded.note_severity'),
             note_type: (eb) => eb.ref('excluded.note_type'),
+            excluded_from_accounting: (eb) => eb.ref('excluded.excluded_from_accounting'),
             raw_normalized_data: (eb) => eb.ref('excluded.raw_normalized_data'),
             to_address: (eb) => eb.ref('excluded.to_address'),
             transaction_datetime: (eb) => eb.ref('excluded.transaction_datetime'),
@@ -159,6 +161,12 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         }
       }
 
+      // By default, exclude transactions marked as excluded_from_accounting (scam tokens, etc.)
+      // unless explicitly requested
+      if (!filters?.includeExcluded) {
+        query = query.where('excluded_from_accounting', '=', false);
+      }
+
       // Order by transaction datetime ascending (oldest to newest)
       query = query.orderBy('transaction_datetime', 'asc');
 
@@ -208,7 +216,12 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       const query = this.db
         .selectFrom('transactions')
         .selectAll()
-        .where((eb) => eb.or([eb('movements_inflows', 'is not', null), eb('movements_outflows', 'is not', null)]));
+        .where((eb) =>
+          eb.and([
+            eb.or([eb('movements_inflows', 'is not', null), eb('movements_outflows', 'is not', null)]),
+            eb('excluded_from_accounting', '=', false),
+          ])
+        );
 
       const rows = await query.execute();
 

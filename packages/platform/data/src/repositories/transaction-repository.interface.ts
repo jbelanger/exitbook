@@ -11,6 +11,8 @@ export interface TransactionFilters {
   since?: number | undefined;
   /** Filter by data source session ID */
   sessionId?: number | undefined;
+  /** Include transactions excluded from accounting (scam tokens, test data, etc.). Defaults to false. */
+  includeExcluded?: boolean | undefined;
 }
 
 /**
