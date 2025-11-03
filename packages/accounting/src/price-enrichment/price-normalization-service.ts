@@ -23,7 +23,6 @@ import { Currency, wrapError } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import type { PriceProviderManager } from '@exitbook/platform-price-providers';
 import { getLogger } from '@exitbook/shared-logger';
-import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -324,41 +323,8 @@ export class PriceNormalizationService {
    */
   private async updateTransactionPrices(tx: UniversalTransaction): Promise<Result<void, Error>> {
     try {
-      const inflows = tx.movements.inflows ?? [];
-      const outflows = tx.movements.outflows ?? [];
-
-      // Collect all price data for update
-      const priceData: {
-        asset: string;
-        fetchedAt: Date;
-        fxRateToUSD?: Decimal | undefined;
-        fxSource?: string | undefined;
-        fxTimestamp?: Date | undefined;
-        granularity?: 'exact' | 'minute' | 'hour' | 'day' | undefined;
-        price: { amount: Decimal; currency: Currency };
-        source: string;
-      }[] = [];
-
-      for (const movement of [...inflows, ...outflows]) {
-        if (movement.priceAtTxTime) {
-          priceData.push({
-            asset: movement.asset,
-            price: movement.priceAtTxTime.price as { amount: Decimal; currency: Currency },
-            source: movement.priceAtTxTime.source,
-            fetchedAt: movement.priceAtTxTime.fetchedAt,
-            granularity: movement.priceAtTxTime.granularity,
-            fxRateToUSD: movement.priceAtTxTime.fxRateToUSD,
-            fxSource: movement.priceAtTxTime.fxSource,
-            fxTimestamp: movement.priceAtTxTime.fxTimestamp,
-          });
-        }
-      }
-
-      if (priceData.length === 0) {
-        return ok();
-      }
-
-      return await this.transactionRepository.updateMovementsWithPrices(tx.id, priceData);
+      // Pass the complete enriched transaction to the repository
+      return await this.transactionRepository.updateMovementsWithPrices(tx);
     } catch (error) {
       return wrapError(error, `Failed to update transaction ${tx.id}`);
     }

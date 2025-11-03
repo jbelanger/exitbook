@@ -1,8 +1,7 @@
 // Pure business logic for prices command
 // All functions are pure and testable
 
-import { Currency, type AssetMovement } from '@exitbook/core';
-import type { TransactionNeedingPrice } from '@exitbook/data';
+import { Currency, type AssetMovement, type UniversalTransaction } from '@exitbook/core';
 import type { PriceQuery } from '@exitbook/platform-price-providers';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -71,8 +70,13 @@ export function validateAssetFilter(asset: string | string[] | undefined): Resul
  * Extract unique assets from a transaction's movements that need prices
  * Filters out fiat currencies as they don't need price fetching
  */
-export function extractAssetsNeedingPrices(tx: TransactionNeedingPrice): Result<string[], Error> {
-  const allMovements: AssetMovement[] = [...(tx.movementsInflows ?? []), ...(tx.movementsOutflows ?? [])];
+export function extractAssetsNeedingPrices(tx: UniversalTransaction): Result<string[], Error> {
+  const allMovements: AssetMovement[] = [
+    ...(tx.movements.inflows ?? []),
+    ...(tx.movements.outflows ?? []),
+    ...(tx.fees.platform ? [tx.fees.platform] : []),
+    ...(tx.fees.network ? [tx.fees.network] : []),
+  ];
 
   if (allMovements.length === 0) {
     return err(new Error(`Transaction ${tx.id} has no movements`));
@@ -98,18 +102,18 @@ export function extractAssetsNeedingPrices(tx: TransactionNeedingPrice): Result<
  * Always fetches prices in USD regardless of transaction currency
  */
 export function createPriceQuery(
-  tx: TransactionNeedingPrice,
+  tx: UniversalTransaction,
   asset: string,
   targetCurrency = 'USD'
 ): Result<PriceQuery, Error> {
-  if (!tx.transactionDatetime) {
+  if (!tx.datetime) {
     return err(new Error(`Transaction ${tx.id} has no transaction datetime`));
   }
 
   // Parse datetime
-  const timestamp = new Date(tx.transactionDatetime);
+  const timestamp = new Date(tx.datetime);
   if (isNaN(timestamp.getTime())) {
-    return err(new Error(`Transaction ${tx.id} has invalid datetime: ${tx.transactionDatetime}`));
+    return err(new Error(`Transaction ${tx.id} has invalid datetime: ${tx.datetime}`));
   }
 
   return ok({

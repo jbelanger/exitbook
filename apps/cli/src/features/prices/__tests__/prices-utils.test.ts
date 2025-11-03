@@ -1,5 +1,4 @@
-import { Currency, parseDecimal } from '@exitbook/core';
-import type { TransactionNeedingPrice } from '@exitbook/data';
+import { Currency, parseDecimal, type UniversalTransaction } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { initializeStats, extractAssetsNeedingPrices, createPriceQuery, validateAssetFilter } from '../prices-utils.ts';
@@ -113,11 +112,19 @@ describe('validateAssetFilter', () => {
 
 describe('extractAssetsNeedingPrices', () => {
   it('should extract unique assets from movements and filter out fiat currencies', () => {
-    const tx: TransactionNeedingPrice = {
+    const tx: UniversalTransaction = {
       id: 1,
-      transactionDatetime: '2024-01-15T12:00:00.000Z',
-      movementsInflows: [{ asset: 'BTC', amount: parseDecimal('1') }],
-      movementsOutflows: [{ asset: 'USD', amount: parseDecimal('50000') }],
+      datetime: '2024-01-15T12:00:00.000Z',
+      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
+      source: 'test',
+      status: 'success',
+      externalId: 'test-1',
+      operation: { category: 'trade', type: 'buy' },
+      movements: {
+        inflows: [{ asset: 'BTC', amount: parseDecimal('1') }],
+        outflows: [{ asset: 'USD', amount: parseDecimal('50000') }],
+      },
+      fees: {},
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -131,21 +138,29 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should return only assets without prices', () => {
-    const tx: TransactionNeedingPrice = {
+    const tx: UniversalTransaction = {
       id: 1,
-      transactionDatetime: '2024-01-15T12:00:00.000Z',
-      movementsInflows: [
-        {
-          asset: 'BTC',
-          amount: parseDecimal('1'),
-          priceAtTxTime: {
-            price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
-            source: 'coingecko',
-            fetchedAt: new Date(),
+      datetime: '2024-01-15T12:00:00.000Z',
+      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
+      source: 'test',
+      status: 'success',
+      externalId: 'test-1',
+      operation: { category: 'trade', type: 'buy' },
+      movements: {
+        inflows: [
+          {
+            asset: 'BTC',
+            amount: parseDecimal('1'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+              source: 'coingecko',
+              fetchedAt: new Date(),
+            },
           },
-        },
-      ],
-      movementsOutflows: [{ asset: 'ETH', amount: parseDecimal('10') }],
+        ],
+        outflows: [{ asset: 'ETH', amount: parseDecimal('10') }],
+      },
+      fees: {},
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -159,11 +174,19 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should reject transaction with no movements', () => {
-    const tx: TransactionNeedingPrice = {
+    const tx: UniversalTransaction = {
       id: 1,
-      transactionDatetime: '2024-01-15T12:00:00.000Z',
-      movementsInflows: [],
-      movementsOutflows: [],
+      datetime: '2024-01-15T12:00:00.000Z',
+      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
+      source: 'test',
+      status: 'success',
+      externalId: 'test-1',
+      operation: { category: 'trade', type: 'buy' },
+      movements: {
+        inflows: [],
+        outflows: [],
+      },
+      fees: {},
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -175,11 +198,19 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should deduplicate assets across inflows and outflows', () => {
-    const tx: TransactionNeedingPrice = {
+    const tx: UniversalTransaction = {
       id: 1,
-      transactionDatetime: '2024-01-15T12:00:00.000Z',
-      movementsInflows: [{ asset: 'BTC', amount: parseDecimal('1') }],
-      movementsOutflows: [{ asset: 'BTC', amount: parseDecimal('0.5') }],
+      datetime: '2024-01-15T12:00:00.000Z',
+      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
+      source: 'test',
+      status: 'success',
+      externalId: 'test-1',
+      operation: { category: 'trade', type: 'buy' },
+      movements: {
+        inflows: [{ asset: 'BTC', amount: parseDecimal('1') }],
+        outflows: [{ asset: 'BTC', amount: parseDecimal('0.5') }],
+      },
+      fees: {},
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -192,19 +223,27 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should filter out all common fiat currencies', () => {
-    const tx: TransactionNeedingPrice = {
+    const tx: UniversalTransaction = {
       id: 1,
-      transactionDatetime: '2024-01-15T12:00:00.000Z',
-      movementsInflows: [
-        { asset: 'BTC', amount: parseDecimal('1') },
-        { asset: 'ETH', amount: parseDecimal('10') },
-      ],
-      movementsOutflows: [
-        { asset: 'USD', amount: parseDecimal('50000') },
-        { asset: 'EUR', amount: parseDecimal('45000') },
-        { asset: 'CAD', amount: parseDecimal('65000') },
-        { asset: 'GBP', amount: parseDecimal('40000') },
-      ],
+      datetime: '2024-01-15T12:00:00.000Z',
+      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
+      source: 'test',
+      status: 'success',
+      externalId: 'test-1',
+      operation: { category: 'trade', type: 'buy' },
+      movements: {
+        inflows: [
+          { asset: 'BTC', amount: parseDecimal('1') },
+          { asset: 'ETH', amount: parseDecimal('10') },
+        ],
+        outflows: [
+          { asset: 'USD', amount: parseDecimal('50000') },
+          { asset: 'EUR', amount: parseDecimal('45000') },
+          { asset: 'CAD', amount: parseDecimal('65000') },
+          { asset: 'GBP', amount: parseDecimal('40000') },
+        ],
+      },
+      fees: {},
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -222,11 +261,19 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should return empty array when only fiat currencies need prices', () => {
-    const tx: TransactionNeedingPrice = {
+    const tx: UniversalTransaction = {
       id: 1,
-      transactionDatetime: '2024-01-15T12:00:00.000Z',
-      movementsInflows: [{ asset: 'USD', amount: parseDecimal('1000') }],
-      movementsOutflows: [{ asset: 'EUR', amount: parseDecimal('900') }],
+      datetime: '2024-01-15T12:00:00.000Z',
+      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
+      source: 'test',
+      status: 'success',
+      externalId: 'test-1',
+      operation: { category: 'trade', type: 'buy' },
+      movements: {
+        inflows: [{ asset: 'USD', amount: parseDecimal('1000') }],
+        outflows: [{ asset: 'EUR', amount: parseDecimal('900') }],
+      },
+      fees: {},
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -240,11 +287,19 @@ describe('extractAssetsNeedingPrices', () => {
 
 describe('createPriceQuery', () => {
   it('should create price query for asset', () => {
-    const tx: TransactionNeedingPrice = {
+    const tx: UniversalTransaction = {
       id: 1,
-      transactionDatetime: '2024-01-15T12:00:00.000Z',
-      movementsInflows: [],
-      movementsOutflows: [],
+      datetime: '2024-01-15T12:00:00.000Z',
+      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
+      source: 'test',
+      status: 'success',
+      externalId: 'test-1',
+      operation: { category: 'trade', type: 'buy' },
+      movements: {
+        inflows: [],
+        outflows: [],
+      },
+      fees: {},
     };
 
     const result = createPriceQuery(tx, 'BTC');
@@ -258,11 +313,19 @@ describe('createPriceQuery', () => {
   });
 
   it('should use default USD currency', () => {
-    const tx: TransactionNeedingPrice = {
+    const tx: UniversalTransaction = {
       id: 1,
-      transactionDatetime: '2024-01-15T12:00:00.000Z',
-      movementsInflows: [],
-      movementsOutflows: [],
+      datetime: '2024-01-15T12:00:00.000Z',
+      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
+      source: 'test',
+      status: 'success',
+      externalId: 'test-1',
+      operation: { category: 'trade', type: 'buy' },
+      movements: {
+        inflows: [],
+        outflows: [],
+      },
+      fees: {},
     };
 
     const result = createPriceQuery(tx, 'ETH');
@@ -274,11 +337,19 @@ describe('createPriceQuery', () => {
   });
 
   it('should accept custom target currency', () => {
-    const tx: TransactionNeedingPrice = {
+    const tx: UniversalTransaction = {
       id: 1,
-      transactionDatetime: '2024-01-15T12:00:00.000Z',
-      movementsInflows: [],
-      movementsOutflows: [],
+      datetime: '2024-01-15T12:00:00.000Z',
+      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
+      source: 'test',
+      status: 'success',
+      externalId: 'test-1',
+      operation: { category: 'trade', type: 'buy' },
+      movements: {
+        inflows: [],
+        outflows: [],
+      },
+      fees: {},
     };
 
     const result = createPriceQuery(tx, 'BTC', 'EUR');
@@ -290,11 +361,19 @@ describe('createPriceQuery', () => {
   });
 
   it('should reject transaction without datetime', () => {
-    const tx: TransactionNeedingPrice = {
+    const tx: UniversalTransaction = {
       id: 1,
-      transactionDatetime: '',
-      movementsInflows: [],
-      movementsOutflows: [],
+      datetime: '',
+      timestamp: 0,
+      source: 'test',
+      status: 'success',
+      externalId: 'test-1',
+      operation: { category: 'trade', type: 'buy' },
+      movements: {
+        inflows: [],
+        outflows: [],
+      },
+      fees: {},
     };
 
     const result = createPriceQuery(tx, 'BTC');
@@ -306,11 +385,19 @@ describe('createPriceQuery', () => {
   });
 
   it('should reject transaction with invalid datetime', () => {
-    const tx: TransactionNeedingPrice = {
+    const tx: UniversalTransaction = {
       id: 1,
-      transactionDatetime: 'invalid-date',
-      movementsInflows: [],
-      movementsOutflows: [],
+      datetime: 'invalid-date',
+      timestamp: 0,
+      source: 'test',
+      status: 'success',
+      externalId: 'test-1',
+      operation: { category: 'trade', type: 'buy' },
+      movements: {
+        inflows: [],
+        outflows: [],
+      },
+      fees: {},
     };
 
     const result = createPriceQuery(tx, 'BTC');

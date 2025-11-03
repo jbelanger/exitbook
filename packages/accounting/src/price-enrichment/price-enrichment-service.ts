@@ -2,7 +2,6 @@ import type { AssetMovement, PriceAtTxTime, UniversalTransaction } from '@exitbo
 import { Currency, parseDecimal, wrapError } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
-import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -583,41 +582,14 @@ export class PriceEnrichmentService {
 
   /**
    * Update transaction in database with enriched price data
+   *
+   * The transaction passed in already has enriched movements with correct priorities
+   * applied by the multi-pass algorithm. Just persist it directly.
    */
   private async updateTransactionPrices(tx: UniversalTransaction): Promise<Result<void, Error>> {
     try {
-      const inflows = tx.movements.inflows ?? [];
-      const outflows = tx.movements.outflows ?? [];
-      const fees = [tx.fees.platform, tx.fees.network].filter(
-        (fee): fee is AssetMovement => fee !== undefined && fee !== null
-      );
-
-      // Collect all price data for update (including fees)
-      const priceData: {
-        asset: string;
-        fetchedAt: Date;
-        granularity?: 'exact' | 'minute' | 'hour' | 'day' | undefined;
-        price: { amount: Decimal; currency: Currency };
-        source: string;
-      }[] = [];
-
-      for (const movement of [...inflows, ...outflows, ...fees]) {
-        if (movement.priceAtTxTime) {
-          priceData.push({
-            asset: movement.asset,
-            price: movement.priceAtTxTime.price as { amount: Decimal; currency: Currency },
-            source: movement.priceAtTxTime.source,
-            fetchedAt: movement.priceAtTxTime.fetchedAt,
-            granularity: movement.priceAtTxTime.granularity,
-          });
-        }
-      }
-
-      if (priceData.length === 0) {
-        return ok();
-      }
-
-      return await this.transactionRepository.updateMovementsWithPrices(tx.id, priceData);
+      // Persist the complete enriched transaction
+      return await this.transactionRepository.updateMovementsWithPrices(tx);
     } catch (error) {
       return wrapError(error, `Failed to update transaction ${tx.id}`);
     }

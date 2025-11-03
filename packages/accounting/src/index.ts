@@ -53,3 +53,4 @@ export { CostBasisRepository } from './persistence/cost-basis-repository.js';
 export { PriceEnrichmentService } from './price-enrichment/price-enrichment-service.ts';
 export { PriceNormalizationService } from './price-enrichment/price-normalization-service.ts';
 export type { NormalizeResult } from './price-enrichment/price-normalization-service.ts';
+export { enrichMovementWithPrice, enrichMovementsWithPrices } from './price-enrichment/movement-enrichment-utils.ts';

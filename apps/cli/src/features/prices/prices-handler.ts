@@ -217,7 +217,46 @@ export class PricesFetchHandler {
 
       // Update transaction movements with all fetched prices
       if (fetchedPrices.length > 0) {
-        const updateResult = await this.transactionRepo.updateMovementsWithPrices(tx.id, fetchedPrices);
+        // Build price map from fetched prices
+        const pricesMap = new Map(
+          fetchedPrices.map((fp) => [
+            fp.asset,
+            {
+              price: fp.price,
+              source: fp.source,
+              fetchedAt: fp.fetchedAt,
+              granularity: fp.granularity,
+            },
+          ])
+        );
+
+        // Enrich all movements (inflows, outflows, and fees) with priority rules
+        const { enrichMovementsWithPrices } = await import('@exitbook/accounting');
+        const enrichedInflows = enrichMovementsWithPrices(tx.movements.inflows ?? [], pricesMap);
+        const enrichedOutflows = enrichMovementsWithPrices(tx.movements.outflows ?? [], pricesMap);
+
+        // Enrich fees if present
+        const enrichedPlatformFee = tx.fees.platform
+          ? enrichMovementsWithPrices([tx.fees.platform], pricesMap)[0]
+          : undefined;
+        const enrichedNetworkFee = tx.fees.network
+          ? enrichMovementsWithPrices([tx.fees.network], pricesMap)[0]
+          : undefined;
+
+        // Build enriched transaction
+        const enrichedTx = {
+          ...tx,
+          movements: {
+            inflows: enrichedInflows,
+            outflows: enrichedOutflows,
+          },
+          fees: {
+            platform: enrichedPlatformFee,
+            network: enrichedNetworkFee,
+          },
+        };
+
+        const updateResult = await this.transactionRepo.updateMovementsWithPrices(enrichedTx);
 
         if (updateResult.isErr()) {
           logger.error(`Failed to update movements for transaction ${tx.id}: ${updateResult.error.message}`);

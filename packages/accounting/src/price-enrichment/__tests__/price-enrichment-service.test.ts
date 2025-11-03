@@ -102,16 +102,24 @@ describe('PriceEnrichmentService', () => {
       expect(result._unsafeUnwrap()).toEqual({ transactionsUpdated: 1 });
 
       // Verify that updateMovementsWithPrices was called with exchange-execution source
-      expect(mockRepo.updateMovementsWithPrices).toHaveBeenCalledWith(
-        1,
-        expect.arrayContaining([
-          expect.objectContaining({
-            asset: 'BTC',
-            source: 'exchange-execution',
-            granularity: 'exact',
-          }),
-        ])
-      );
+      expect(mockRepo.updateMovementsWithPrices).toHaveBeenCalledTimes(1);
+      const call = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls[0];
+      expect(call).toBeDefined();
+      if (call && call[0] !== undefined) {
+        const tx = call[0];
+        expect(tx.id).toBe(1);
+        expect(tx.movements.inflows).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              asset: 'BTC',
+              priceAtTxTime: expect.objectContaining({
+                source: 'exchange-execution',
+                granularity: 'exact',
+              }) as Partial<AssetMovement['priceAtTxTime']>,
+            }),
+          ])
+        );
+      }
     });
 
     it('should process multiple exchanges independently', async () => {
@@ -174,11 +182,11 @@ describe('PriceEnrichmentService', () => {
       expect(result._unsafeUnwrap().transactionsUpdated).toBe(2);
 
       // Verify each exchange got its own price
-      const tx1Calls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0] === 1);
-      expect(tx1Calls[0]![1][0]!.price.amount.toFixed()).toBe('50000');
+      const tx1Calls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0].id === 1);
+      expect(tx1Calls[0]![0].movements.inflows![0]!.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
 
-      const tx2Calls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0] === 2);
-      expect(tx2Calls[0]![1][0]!.price.amount.toFixed()).toBe('50100');
+      const tx2Calls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0].id === 2);
+      expect(tx2Calls[0]![0].movements.inflows![0]!.priceAtTxTime?.price.amount.toFixed()).toBe('50100');
     });
   });
 
@@ -222,16 +230,24 @@ describe('PriceEnrichmentService', () => {
       expect(result._unsafeUnwrap().transactionsUpdated).toBe(1);
 
       // Verify BTC got exchange-execution price (even though it's blockchain)
-      expect(mockRepo.updateMovementsWithPrices).toHaveBeenCalledWith(
-        1,
-        expect.arrayContaining([
-          expect.objectContaining({
-            asset: 'BTC',
-            source: 'exchange-execution',
-            granularity: 'exact',
-          }),
-        ])
-      );
+      expect(mockRepo.updateMovementsWithPrices).toHaveBeenCalledTimes(1);
+      const call = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls[0];
+      if (call !== undefined && call[0] !== undefined) {
+        const tx = call[0];
+
+        expect(tx.id).toBe(1);
+        expect(tx.movements.inflows).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              asset: 'BTC',
+              priceAtTxTime: expect.objectContaining({
+                source: 'exchange-execution',
+                granularity: 'exact',
+              }) as Partial<AssetMovement['priceAtTxTime']>,
+            }),
+          ])
+        );
+      }
     });
 
     it('should skip crypto-crypto swaps on blockchain (no fiat/stable)', async () => {
@@ -337,7 +353,12 @@ describe('PriceEnrichmentService', () => {
 
       // Verify only tx1 was updated
       expect(mockRepo.updateMovementsWithPrices).toHaveBeenCalledTimes(1);
-      expect(mockRepo.updateMovementsWithPrices).toHaveBeenCalledWith(1, expect.any(Array));
+      const firstCall = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls[0];
+      expect(firstCall).toBeDefined();
+      if (firstCall) {
+        const tx = firstCall[0];
+        expect(tx.id).toBe(1);
+      }
     });
 
     it('should return 0 when database is empty', async () => {
@@ -538,13 +559,15 @@ describe('PriceEnrichmentService', () => {
       expect(result._unsafeUnwrap().transactionsUpdated).toBe(1);
 
       // Verify Bitcoin deposit got price from linked Kraken withdrawal
-      const depositCalls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0] === 3);
+      const depositCalls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0].id === 3);
       expect(depositCalls.length).toBeGreaterThan(0);
-      expect(depositCalls[0]![1]).toEqual(
+      expect(depositCalls[0]![0].movements.inflows).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             asset: 'BTC',
-            source: 'link-propagated',
+            priceAtTxTime: expect.objectContaining({
+              source: 'link-propagated',
+            }) as Partial<AssetMovement['priceAtTxTime']>,
           }),
         ])
       );
@@ -691,16 +714,18 @@ describe('PriceEnrichmentService', () => {
       expect(result._unsafeUnwrap().transactionsUpdated).toBeGreaterThanOrEqual(1);
 
       // Verify tx3 (Bitcoin deposit) got link-propagated price from Kraken withdrawal
-      const tx3Calls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0] === 3);
+      const tx3Calls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls.filter((call) => call[0].id === 3);
       if (tx3Calls.length > 0) {
-        expect(tx3Calls[0]![1]).toEqual(
+        expect(tx3Calls[0]![0].movements.inflows).toEqual(
           expect.arrayContaining([
             expect.objectContaining({
               asset: 'BTC',
-              source: 'link-propagated',
-              price: expect.objectContaining({
-                amount: parseDecimal('50000'),
-              }) as { amount: ReturnType<typeof parseDecimal> },
+              priceAtTxTime: expect.objectContaining({
+                source: 'link-propagated',
+                price: expect.objectContaining({
+                  amount: parseDecimal('50000'),
+                }) as Partial<AssetMovement>,
+              }) as AssetMovement['priceAtTxTime'],
             }),
           ])
         );
@@ -937,14 +962,14 @@ describe('PriceEnrichmentService', () => {
       const updateCalls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls;
       expect(updateCalls.length).toBe(1);
 
-      const [txId, priceData] = updateCalls[0]!;
-      expect(txId).toBe(1);
+      const tx = updateCalls[0]![0];
+      expect(tx.id).toBe(1);
 
-      // Find ADA price in the update
-      const adaPrice = priceData.find((p) => p.asset === 'ADA');
-      expect(adaPrice).toBeDefined();
-      expect(adaPrice!.source).toBe('derived-ratio');
-      expect(adaPrice!.price.amount.toFixed()).toBe('60'); // $60,000 / 1,000 = $60 (NOT $61)
+      // Find ADA price in the inflows
+      const adaMovement = tx.movements.inflows?.find((m) => m.asset === 'ADA');
+      expect(adaMovement).toBeDefined();
+      expect(adaMovement!.priceAtTxTime?.source).toBe('derived-ratio');
+      expect(adaMovement!.priceAtTxTime?.price.amount.toFixed()).toBe('60'); // $60,000 / 1,000 = $60 (NOT $61)
     });
 
     it('should recalculate inflow price from outflow using swap ratio (Pass N+2)', async () => {
@@ -1003,19 +1028,19 @@ describe('PriceEnrichmentService', () => {
       const updateCalls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls;
       expect(updateCalls.length).toBe(1);
 
-      const [txId, priceData] = updateCalls[0]!;
-      expect(txId).toBe(1);
+      const tx = updateCalls[0]![0];
+      expect(tx.id).toBe(1);
 
-      // Find ADA price in the update
-      const adaPrice = priceData.find((p) => p.asset === 'ADA');
-      expect(adaPrice).toBeDefined();
-      expect(adaPrice!.source).toBe('derived-ratio');
-      expect(adaPrice!.price.amount.toFixed()).toBe('60'); // $60,000 / 1,000 = $60
+      // Find ADA price in the inflows
+      const adaMovement = tx.movements.inflows?.find((m) => m.asset === 'ADA');
+      expect(adaMovement).toBeDefined();
+      expect(adaMovement!.priceAtTxTime?.source).toBe('derived-ratio');
+      expect(adaMovement!.priceAtTxTime?.price.amount.toFixed()).toBe('60'); // $60,000 / 1,000 = $60
 
-      // BTC price should remain unchanged
-      const btcPrice = priceData.find((p) => p.asset === 'BTC');
-      expect(btcPrice).toBeDefined();
-      expect(btcPrice!.price.amount.toFixed()).toBe('60000');
+      // BTC price should remain unchanged in outflows
+      const btcMovement = tx.movements.outflows?.find((m) => m.asset === 'BTC');
+      expect(btcMovement).toBeDefined();
+      expect(btcMovement!.priceAtTxTime?.price.amount.toFixed()).toBe('60000');
     });
 
     it('should derive inflow price from outflow when only outflow has price (Pass 1)', async () => {
@@ -1069,15 +1094,15 @@ describe('PriceEnrichmentService', () => {
       const updateCalls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls;
       expect(updateCalls.length).toBe(1);
 
-      const [txId, priceData] = updateCalls[0]!;
-      expect(txId).toBe(1);
+      const tx = updateCalls[0]![0];
+      expect(tx.id).toBe(1);
 
-      // Find CFG price in the update
-      const cfgPrice = priceData.find((p) => p.asset === 'CFG');
-      expect(cfgPrice).toBeDefined();
-      expect(cfgPrice!.source).toBe('derived-ratio');
+      // Find CFG price in the inflows
+      const cfgMovement = tx.movements.inflows?.find((m) => m.asset === 'CFG');
+      expect(cfgMovement).toBeDefined();
+      expect(cfgMovement!.priceAtTxTime?.source).toBe('derived-ratio');
       // $67,766.85 * (0.00713512 / 705.32116) = $0.6855382118
-      expect(cfgPrice!.price.amount.toNumber()).toBeCloseTo(0.6855, 3);
+      expect(cfgMovement!.priceAtTxTime?.price.amount.toNumber()).toBeCloseTo(0.6855, 3);
     });
 
     it('should NOT recalculate fiat/stablecoin trades (already execution prices)', async () => {
@@ -1126,10 +1151,12 @@ describe('PriceEnrichmentService', () => {
       // Verify BTC kept exchange-execution source (not overwritten with derived-ratio)
       const updateCalls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls;
       if (updateCalls.length > 0) {
-        const [, priceData] = updateCalls[0]!;
-        const btcPrice = priceData.find((p) => p.asset === 'BTC');
-        if (btcPrice) {
-          expect(btcPrice.source).toBe('exchange-execution'); // NOT derived-ratio
+        const tx = updateCalls[0]![0];
+        const btcMovement = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? [])].find(
+          (m) => m.asset === 'BTC'
+        );
+        if (btcMovement) {
+          expect(btcMovement.priceAtTxTime?.source).toBe('exchange-execution'); // NOT derived-ratio
         }
       }
     });
@@ -1180,12 +1207,14 @@ describe('PriceEnrichmentService', () => {
       // Should update with existing ADA price, but NOT recalculate
       const updateCalls = vi.mocked(mockRepo.updateMovementsWithPrices).mock.calls;
       if (updateCalls.length > 0) {
-        const [, priceData] = updateCalls[0]!;
-        const adaPrice = priceData.find((p) => p.asset === 'ADA');
-        if (adaPrice) {
+        const tx = updateCalls[0]![0];
+        const adaMovement = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? [])].find(
+          (m) => m.asset === 'ADA'
+        );
+        if (adaMovement) {
           // Should keep original source (coingecko), not derived-ratio
-          expect(adaPrice.source).toBe('coingecko');
-          expect(adaPrice.price.amount.toFixed()).toBe('61');
+          expect(adaMovement.priceAtTxTime?.source).toBe('coingecko');
+          expect(adaMovement.priceAtTxTime?.price.amount.toFixed()).toBe('61');
         }
       }
     });

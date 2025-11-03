@@ -7,8 +7,7 @@ import {
   TransactionMetadataSchema,
   wrapError,
 } from '@exitbook/core';
-import type { Decimal } from 'decimal.js';
-import type { Selectable } from 'kysely';
+import type { Selectable, Updateable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
@@ -19,16 +18,6 @@ import type { KyselyDB } from '../storage/database.js';
 
 import { BaseRepository } from './base-repository.js';
 import type { ITransactionRepository, TransactionFilters } from './transaction-repository.interface.ts';
-
-/**
- * Transaction record needing price data for its movements
- */
-export interface TransactionNeedingPrice {
-  id: number;
-  transactionDatetime: string;
-  movementsInflows: AssetMovement[];
-  movementsOutflows: AssetMovement[];
-}
 
 /**
  * Kysely-based repository for transaction database operations.
@@ -211,29 +200,36 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   }
 
   /**
-   * Find transactions with movements that need price data
+   * Find transactions with movements or fees that need price data
    * Optionally filter by specific asset(s)
    */
-  async findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<TransactionNeedingPrice[], Error>> {
+  async findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransaction[], Error>> {
     try {
       const query = this.db
         .selectFrom('transactions')
-        .select(['id', 'transaction_datetime', 'movements_inflows', 'movements_outflows'])
+        .selectAll()
         .where((eb) => eb.or([eb('movements_inflows', 'is not', null), eb('movements_outflows', 'is not', null)]));
 
-      const results = await query.execute();
+      const rows = await query.execute();
 
-      // Parse movements once, then filter for those needing prices
-      const parsedTransactions = results.map((tx) => ({
-        id: tx.id,
-        movementsInflows: this.parseMovements(tx.movements_inflows as string | null),
-        movementsOutflows: this.parseMovements(tx.movements_outflows as string | null),
-        transactionDatetime: tx.transaction_datetime,
-      }));
+      // Convert rows to domain models
+      const transactions: UniversalTransaction[] = [];
+      for (const row of rows) {
+        const result = this.toUniversalTransaction(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        transactions.push(result.value);
+      }
 
-      // Filter transactions that have movements without priceAtTxTime
-      const transactionsNeedingPrices = parsedTransactions.filter((tx) => {
-        const allMovements = [...tx.movementsInflows, ...tx.movementsOutflows];
+      // Filter transactions that have movements or fees without priceAtTxTime
+      const transactionsNeedingPrices = transactions.filter((tx) => {
+        const allMovements = [
+          ...(tx.movements.inflows ?? []),
+          ...(tx.movements.outflows ?? []),
+          ...(tx.fees.platform ? [tx.fees.platform] : []),
+          ...(tx.fees.network ? [tx.fees.network] : []),
+        ];
 
         // Check if any movement is missing priceAtTxTime
         return allMovements.some((movement) => {
@@ -261,100 +257,38 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   }
 
   /**
-   * Update a transaction's movements with price data
-   * Enriches the movements JSON with priceAtTxTime for specified assets
-   * @param id - The unique ID of the transaction
-   * @param priceData - Price data to enrich movements with
+   * Update a transaction's movements and fees with enriched price data
+   * @param transaction - The enriched transaction with price data
    */
-  async updateMovementsWithPrices(
-    id: number,
-    priceData: {
-      asset: string;
-      fetchedAt: Date;
-      granularity?: 'exact' | 'minute' | 'hour' | 'day' | undefined;
-      price: { amount: Decimal; currency: Currency };
-      source: string;
-    }[]
-  ) {
+  async updateMovementsWithPrices(transaction: UniversalTransaction): Promise<Result<void, Error>> {
     try {
-      // Fetch current transaction by unique ID
-      const tx = await this.db
-        .selectFrom('transactions')
-        .select(['movements_inflows', 'movements_outflows', 'fees_platform', 'fees_network'])
-        .where('id', '=', id)
-        .executeTakeFirst();
+      const inflows = transaction.movements.inflows ?? [];
+      const outflows = transaction.movements.outflows ?? [];
 
-      if (!tx) {
-        throw new Error(`Transaction ${id} not found`);
-      }
-
-      // Parse movements and fees
-      const inflows = this.parseMovements(tx.movements_inflows as string | null);
-      const outflows = this.parseMovements(tx.movements_outflows as string | null);
-      const platformFee = this.parseMovement(tx.fees_platform as string | null);
-      const networkFee = this.parseMovement(tx.fees_network as string | null);
-
-      // Create price lookup map
-      const priceMap = new Map(
-        priceData.map((p) => [
-          p.asset,
-          {
-            fetchedAt: p.fetchedAt,
-            granularity: p.granularity,
-            price: {
-              amount: p.price.amount,
-              currency: p.price.currency,
-            },
-            source: p.source,
-          },
-        ])
-      );
-
-      // Enrich movements with price data
-      const enrichMovement = (movement: unknown) => {
-        const m = movement as { asset: string; priceAtTxTime?: { source: string } };
-        const price = priceMap.get(m.asset);
-
-        if (!price) {
-          return m;
-        }
-
-        // If no existing price, add it
-        if (!m.priceAtTxTime) {
-          return { ...m, priceAtTxTime: price };
-        }
-
-        // Never overwrite exchange-execution (authoritative)
-        if (m.priceAtTxTime.source === 'exchange-execution') {
-          return m;
-        }
-
-        // derived-ratio and link-propagated should overwrite provider prices
-        if (price.source === 'derived-ratio' || price.source === 'link-propagated') {
-          return { ...m, priceAtTxTime: price };
-        }
-
-        // Keep existing price
-        return m;
+      // Build update object using Kysely's Updateable type
+      const updateData: Partial<Updateable<TransactionsTable>> = {
+        movements_inflows: (inflows.length > 0 ? this.serializeToJson(inflows) : null) as string | null,
+        movements_outflows: (outflows.length > 0 ? this.serializeToJson(outflows) : null) as string | null,
+        fees_platform: (transaction.fees.platform ? this.serializeToJson(transaction.fees.platform) : null) as
+          | string
+          | null,
+        fees_network: (transaction.fees.network ? this.serializeToJson(transaction.fees.network) : null) as
+          | string
+          | null,
+        updated_at: this.getCurrentDateTimeForDB(),
       };
 
-      const enrichedInflows = inflows.map(enrichMovement);
-      const enrichedOutflows = outflows.map(enrichMovement);
-      const enrichedPlatformFee = platformFee ? enrichMovement(platformFee) : null;
-      const enrichedNetworkFee = networkFee ? enrichMovement(networkFee) : null;
-
       // Update transaction with enriched movements and fees
-      await this.db
+      const result = await this.db
         .updateTable('transactions')
-        .set({
-          movements_inflows: enrichedInflows.length > 0 ? this.serializeToJson(enrichedInflows) : null,
-          movements_outflows: enrichedOutflows.length > 0 ? this.serializeToJson(enrichedOutflows) : null,
-          fees_platform: enrichedPlatformFee ? this.serializeToJson(enrichedPlatformFee) : null,
-          fees_network: enrichedNetworkFee ? this.serializeToJson(enrichedNetworkFee) : null,
-          updated_at: this.getCurrentDateTimeForDB(),
-        })
-        .where('id', '=', id)
-        .execute();
+        .set(updateData)
+        .where('id', '=', transaction.id)
+        .executeTakeFirst();
+
+      // Verify transaction exists (0 rows updated means ID was invalid)
+      if (result.numUpdatedRows === 0n) {
+        return err(new Error(`Transaction ${transaction.id} not found`));
+      }
 
       // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined for clarity
       return ok(undefined);
