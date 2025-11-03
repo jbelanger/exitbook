@@ -45,4 +45,16 @@ export interface IFxRateProvider {
    * @returns FX rate data or error
    */
   getRateToUSD(sourceCurrency: Currency, timestamp: Date): Promise<Result<FxRateData, Error>>;
+
+  /**
+   * Get FX rate to convert from USD to target currency
+   *
+   * Used for report generation to display amounts in user's preferred currency.
+   * For example, converting USD capital gains to CAD for Canadian tax reports.
+   *
+   * @param targetCurrency - Currency to convert to (e.g., CAD, EUR)
+   * @param timestamp - Transaction date to get historical rate
+   * @returns FX rate data or error
+   */
+  getRateFromUSD(targetCurrency: Currency, timestamp: Date): Promise<Result<FxRateData, Error>>;
 }

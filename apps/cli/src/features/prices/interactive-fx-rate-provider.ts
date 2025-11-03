@@ -55,4 +55,34 @@ export class InteractiveFxRateProvider implements IFxRateProvider {
       fetchedAt: new Date(), // Current time for manual entry
     });
   }
+
+  async getRateFromUSD(targetCurrency: Currency, timestamp: Date): Promise<Result<FxRateData, Error>> {
+    // Try underlying provider first (fetches and inverts automatically)
+    const result = await this.underlyingProvider.getRateFromUSD(targetCurrency, timestamp);
+
+    // If successful, return immediately
+    if (result.isOk()) {
+      return result;
+    }
+
+    // If not interactive, return the error
+    if (!this.interactive) {
+      return result;
+    }
+
+    // Interactive mode: prompt user for manual entry (USD → target)
+    const manualRate = await promptManualFxRate('USD', targetCurrency.toString(), timestamp);
+
+    // User declined to provide manual rate
+    if (!manualRate) {
+      return result; // Return original error
+    }
+
+    // User provided manual rate - return it
+    return ok({
+      rate: manualRate.rate,
+      source: manualRate.source,
+      fetchedAt: new Date(), // Current time for manual entry
+    });
+  }
 }
