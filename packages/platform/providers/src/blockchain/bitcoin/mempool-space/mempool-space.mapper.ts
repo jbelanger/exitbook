@@ -57,7 +57,7 @@ export class MempoolSpaceTransactionMapper extends BaseRawDataMapper<MempoolTran
       normalized.blockId = rawData.status.block_hash;
     }
     if (rawData.fee > 0) {
-      const btcFee = parseDecimal(rawData.fee.toString()).div(100000000).toString();
+      const btcFee = parseDecimal(rawData.fee.toString()).div(100000000).toFixed();
       normalized.feeAmount = btcFee;
       normalized.feeCurrency = 'BTC';
     }

@@ -53,11 +53,13 @@ pnpm run dev transactions view --asset BTC --limit 100
 # View price coverage statistics
 pnpm run dev prices view --asset BTC --missing-only
 
-# Derive prices from transaction history (uses confirmed links for cross-platform price propagation)
-pnpm run dev prices derive
+# Enrich prices via 4-stage pipeline (derive → normalize → fetch → re-derive)
+pnpm run dev prices enrich
 
-# Fetch remaining prices from external providers
-pnpm run dev prices fetch --asset BTC --interactive
+# Or run individual stages
+pnpm run dev prices enrich --derive-only
+pnpm run dev prices enrich --normalize-only
+pnpm run dev prices enrich --fetch-only --asset BTC --interactive
 
 # View transaction links
 pnpm run dev links view --status suggested
@@ -206,6 +208,24 @@ Multi-provider architecture with intelligent failover:
 
 Migrations in `packages/data/src/migrations/` run automatically via `initializeDatabase()`.
 
+### Multi-Currency & FX Rate Handling
+
+**All prices normalized to USD during enrichment** (not at import). Four-stage enrichment pipeline:
+
+1. **Derive**: Extract prices from USD and non-USD fiat trades (execution prices)
+2. **Normalize**: Convert non-USD fiat prices to USD via FX providers (ECB → BoC → Frankfurter)
+3. **Fetch**: Get crypto prices from external providers
+4. **Re-derive**: Propagate newly fetched/normalized prices via transaction links
+
+Two separate conversions:
+
+1. **Storage normalization** (enrichment phase): EUR/CAD → USD via FX providers, stored with metadata
+2. **Display conversion** (report generation): USD → CAD/EUR using historical rates (ephemeral, not stored)
+
+**FX providers** integrated into `packages/platform/price-providers` (same as crypto price providers). FX rates cached in same `prices.db`.
+
+See ADR-003 for architecture details.
+
 ## Critical Patterns
 
 ### Result Type (neverthrow)
@@ -270,6 +290,8 @@ logger.debug({ metadata }, 'debug message');
 - **Simplicity Over DRY:** Follow DRY (Don't Repeat Yourself) principles, but not at the expense of KISS (Keep It Simple, Stupid). Prefer simple, readable code over complex abstractions that eliminate minor duplication. Some repetition is acceptable if it makes code more straightforward and maintainable.
 - **Developer Experience:** When developing packages, prioritize a simple and clean developer experience. APIs should be intuitive, error messages helpful, and setup minimal. Consider the ergonomics of how other developers will consume and work with the package.
 - **Meaningful Comments Only:** Add comments only when they provide meaningful context that cannot be expressed through code itself. Avoid stating the obvious or documenting refactoring changes (e.g., "changed X to Y"). Prefer self-documenting code through clear naming and structure. Use comments to explain why, not what.
+- **Decimal.js Import:** Always use named import for Decimal: `import { Decimal } from 'decimal.js'` (NOT `import Decimal from 'decimal.js'`)
+- **Decimal String Conversion:** Never use `toString()` on Decimal values as it outputs scientific notation for very large/small numbers. Always use `toFixed()` (without parameters) instead for string representation
 - **Context Management:** Monitor token usage throughout conversations. When context usage exceeds 125,000 tokens, warn the user and propose breaking the remaining work into sub-tasks, suggesting which sub-task to tackle first (after clearing history with `/clear`).
 
 ## Environment Variables

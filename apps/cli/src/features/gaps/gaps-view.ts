@@ -90,7 +90,7 @@ async function executeGapsViewCommand(options: ExtendedGapsViewCommandOptions): 
     // Initialize repositories
     const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
 
-    const database = await initializeDatabase(false);
+    const database = await initializeDatabase();
     const txRepo = new TransactionRepository(database);
 
     const handler = new GapsViewHandler(txRepo);

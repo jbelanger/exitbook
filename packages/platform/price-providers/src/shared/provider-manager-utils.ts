@@ -119,6 +119,31 @@ export function supportsOperation(metadata: ProviderMetadata, operationType: str
 }
 
 /**
+ * Check if provider supports the requested asset
+ * Pure function - determines if provider can price a specific asset
+ *
+ * @param metadata - Provider metadata with capabilities
+ * @param assetSymbol - Asset symbol to check (e.g., 'BTC', 'EUR', 'CAD')
+ * @param isFiat - Whether the asset is a fiat currency
+ * @returns true if provider supports this asset
+ */
+export function supportsAsset(metadata: ProviderMetadata, assetSymbol: string, isFiat: boolean): boolean {
+  // Check asset type first (crypto vs fiat)
+  const assetType = isFiat ? 'fiat' : 'crypto';
+  if (!metadata.capabilities.supportedAssetTypes.includes(assetType)) {
+    return false;
+  }
+
+  // If supportedAssets is undefined/empty, provider supports all assets of that type
+  if (!metadata.capabilities.supportedAssets || metadata.capabilities.supportedAssets.length === 0) {
+    return true;
+  }
+
+  // Otherwise, check if specific asset is in the list
+  return metadata.capabilities.supportedAssets.includes(assetSymbol);
+}
+
+/**
  * Select and order providers based on scores and capabilities
  * Pure function - no side effects, deterministic ordering
  */
@@ -128,7 +153,9 @@ export function selectProvidersForOperation(
   circuitMap: Map<string, CircuitState>,
   operationType: string,
   now: number,
-  timestamp?: Date
+  timestamp?: Date,
+  assetSymbol?: string,
+  isFiat?: boolean
 ): {
   health: ProviderHealth;
   metadata: ProviderMetadata;
@@ -149,6 +176,13 @@ export function selectProvidersForOperation(
       // Skip if doesn't support operation
       if (!supportsOperation(metadata, operationType)) {
         return;
+      }
+
+      // Skip if doesn't support the requested asset
+      if (assetSymbol !== undefined && isFiat !== undefined) {
+        if (!supportsAsset(metadata, assetSymbol, isFiat)) {
+          return;
+        }
       }
 
       return {

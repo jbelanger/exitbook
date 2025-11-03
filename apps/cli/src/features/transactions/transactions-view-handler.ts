@@ -27,10 +27,11 @@ export class ViewTransactionsHandler {
     const filters = {
       ...(params.source && { sourceId: params.source }),
       ...(since && { since }),
+      includeExcluded: true, // Show all transactions including scam tokens in view
     };
 
     // Fetch transactions from repository
-    const txResult = await this.txRepo.getTransactions(Object.keys(filters).length > 0 ? filters : undefined);
+    const txResult = await this.txRepo.getTransactions(filters);
 
     if (txResult.isErr()) {
       return wrapError(txResult.error, 'Failed to fetch transactions');

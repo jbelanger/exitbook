@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 import * as ProviderManagerUtils from '../provider-manager-utils.ts';
 import type {
+  AssetType,
   IPriceProvider,
   ProviderHealth,
   ProviderMetadata,
@@ -51,7 +52,7 @@ describe('scoreProvider', () => {
 
   const createMockMetadata = (overrides?: Partial<ProviderMetadata>): ProviderMetadata => ({
     capabilities: {
-      supportedCurrencies: ['USD'],
+      supportedAssetTypes: ['crypto'],
       supportedOperations: ['fetchPrice'],
       rateLimit: mockRateLimit,
     },
@@ -190,7 +191,7 @@ describe('calculateGranularityBonus', () => {
     capabilities: {
       granularitySupport,
       rateLimit: mockRateLimit,
-      supportedCurrencies: ['USD'],
+      supportedAssetTypes: ['crypto'],
       supportedOperations: ['fetchPrice'],
     },
     displayName: 'Test',
@@ -384,7 +385,7 @@ describe('supportsOperation', () => {
   it('should return true when operation is supported', () => {
     const metadata: ProviderMetadata = {
       capabilities: {
-        supportedCurrencies: ['USD'],
+        supportedAssetTypes: ['crypto'],
         supportedOperations: ['fetchPrice'],
         rateLimit: mockRateLimit,
       },
@@ -399,7 +400,7 @@ describe('supportsOperation', () => {
   it('should return false when operation is not supported', () => {
     const metadata: ProviderMetadata = {
       capabilities: {
-        supportedCurrencies: ['USD'],
+        supportedAssetTypes: ['crypto'],
         supportedOperations: ['fetchPrice'],
         rateLimit: mockRateLimit,
       },
@@ -430,7 +431,7 @@ describe('selectProvidersForOperation', () => {
       capabilities: {
         granularitySupport,
         rateLimit: mockRateLimit,
-        supportedCurrencies: ['USD'],
+        supportedAssetTypes: ['crypto'],
         supportedOperations: operations as PriceProviderOperation[],
       },
       displayName: name,
@@ -763,6 +764,264 @@ describe('selectProvidersForOperation', () => {
       expect(selected[1]?.score).toBe(110);
     });
   });
+
+  describe('asset type filtering', () => {
+    const mockRateLimit = {
+      burstLimit: 1,
+      requestsPerHour: 600,
+      requestsPerMinute: 10,
+      requestsPerSecond: 0.17,
+    };
+
+    const createMockProviderWithAssetType = (
+      name: string,
+      assetTypes: AssetType[],
+      supportedAssets?: string[]
+    ): IPriceProvider => ({
+      fetchPrice: async () => Promise.resolve({ isErr: () => true, isOk: () => false } as Result<PriceData, Error>),
+      getMetadata: () => ({
+        capabilities: {
+          supportedAssetTypes: assetTypes,
+          supportedOperations: ['fetchPrice'] as PriceProviderOperation[],
+          supportedAssets,
+          rateLimit: mockRateLimit,
+        },
+        displayName: name,
+        name,
+        requiresApiKey: false,
+      }),
+    });
+
+    it('should filter out fiat providers when requesting crypto asset', () => {
+      const binance = createMockProviderWithAssetType('binance', ['crypto']);
+      const ecb = createMockProviderWithAssetType('ecb', ['fiat'], ['EUR']);
+      const providers = [binance, ecb];
+
+      const healthMap = new Map<string, ProviderHealth>([
+        ['binance', ProviderManagerUtils.createInitialHealth()],
+        ['ecb', ProviderManagerUtils.createInitialHealth()],
+      ]);
+
+      const circuitMap = new Map([
+        ['binance', createInitialCircuitState()],
+        ['ecb', createInitialCircuitState()],
+      ]);
+
+      const selected = ProviderManagerUtils.selectProvidersForOperation(
+        providers,
+        healthMap,
+        circuitMap,
+        'fetchPrice',
+        Date.now(),
+        undefined,
+        'BTC', // Crypto asset
+        false // isFiat = false
+      );
+
+      // Only binance should be selected
+      expect(selected).toHaveLength(1);
+      expect(selected[0]?.metadata.name).toBe('binance');
+    });
+
+    it('should filter out crypto providers when requesting fiat asset', () => {
+      const binance = createMockProviderWithAssetType('binance', ['crypto']);
+      const ecb = createMockProviderWithAssetType('ecb', ['fiat'], ['EUR']);
+      const providers = [binance, ecb];
+
+      const healthMap = new Map<string, ProviderHealth>([
+        ['binance', ProviderManagerUtils.createInitialHealth()],
+        ['ecb', ProviderManagerUtils.createInitialHealth()],
+      ]);
+
+      const circuitMap = new Map([
+        ['binance', createInitialCircuitState()],
+        ['ecb', createInitialCircuitState()],
+      ]);
+
+      const selected = ProviderManagerUtils.selectProvidersForOperation(
+        providers,
+        healthMap,
+        circuitMap,
+        'fetchPrice',
+        Date.now(),
+        undefined,
+        'EUR', // Fiat asset
+        true // isFiat = true
+      );
+
+      // Only ECB should be selected
+      expect(selected).toHaveLength(1);
+      expect(selected[0]?.metadata.name).toBe('ecb');
+    });
+
+    it('should filter by specific supported assets', () => {
+      const ecb = createMockProviderWithAssetType('ecb', ['fiat'], ['EUR']);
+      const boc = createMockProviderWithAssetType('bank-of-canada', ['fiat'], ['CAD']);
+      const providers = [ecb, boc];
+
+      const healthMap = new Map<string, ProviderHealth>([
+        ['ecb', ProviderManagerUtils.createInitialHealth()],
+        ['bank-of-canada', ProviderManagerUtils.createInitialHealth()],
+      ]);
+
+      const circuitMap = new Map([
+        ['ecb', createInitialCircuitState()],
+        ['bank-of-canada', createInitialCircuitState()],
+      ]);
+
+      // Request EUR - only ECB should match
+      const selectedEUR = ProviderManagerUtils.selectProvidersForOperation(
+        providers,
+        healthMap,
+        circuitMap,
+        'fetchPrice',
+        Date.now(),
+        undefined,
+        'EUR',
+        true
+      );
+
+      expect(selectedEUR).toHaveLength(1);
+      expect(selectedEUR[0]?.metadata.name).toBe('ecb');
+
+      // Request CAD - only BoC should match
+      const selectedCAD = ProviderManagerUtils.selectProvidersForOperation(
+        providers,
+        healthMap,
+        circuitMap,
+        'fetchPrice',
+        Date.now(),
+        undefined,
+        'CAD',
+        true
+      );
+
+      expect(selectedCAD).toHaveLength(1);
+      expect(selectedCAD[0]?.metadata.name).toBe('bank-of-canada');
+    });
+
+    it('should include universal providers (no supportedAssets list)', () => {
+      const binance = createMockProviderWithAssetType('binance', ['crypto']); // Universal crypto
+      const coingecko = createMockProviderWithAssetType('coingecko', ['crypto']); // Universal crypto
+      const providers = [binance, coingecko];
+
+      const healthMap = new Map<string, ProviderHealth>([
+        ['binance', ProviderManagerUtils.createInitialHealth()],
+        ['coingecko', ProviderManagerUtils.createInitialHealth()],
+      ]);
+
+      const circuitMap = new Map([
+        ['binance', createInitialCircuitState()],
+        ['coingecko', createInitialCircuitState()],
+      ]);
+
+      // Both should support any crypto asset
+      const selected = ProviderManagerUtils.selectProvidersForOperation(
+        providers,
+        healthMap,
+        circuitMap,
+        'fetchPrice',
+        Date.now(),
+        undefined,
+        'RANDOMCOIN',
+        false
+      );
+
+      expect(selected).toHaveLength(2);
+    });
+
+    it('should work without asset filtering when asset parameters not provided', () => {
+      const binance = createMockProviderWithAssetType('binance', ['crypto']);
+      const ecb = createMockProviderWithAssetType('ecb', ['fiat'], ['EUR']);
+      const providers = [binance, ecb];
+
+      const healthMap = new Map<string, ProviderHealth>([
+        ['binance', ProviderManagerUtils.createInitialHealth()],
+        ['ecb', ProviderManagerUtils.createInitialHealth()],
+      ]);
+
+      const circuitMap = new Map([
+        ['binance', createInitialCircuitState()],
+        ['ecb', createInitialCircuitState()],
+      ]);
+
+      // No asset filtering - should return all providers
+      const selected = ProviderManagerUtils.selectProvidersForOperation(
+        providers,
+        healthMap,
+        circuitMap,
+        'fetchPrice',
+        Date.now()
+        // No assetSymbol or isFiat parameters
+      );
+
+      expect(selected).toHaveLength(2);
+    });
+
+    it('should combine asset type and granularity filtering', () => {
+      // Crypto provider with minute data
+      const binance = createMockProviderWithAssetType('binance', ['crypto']);
+      // Update to add granularity support
+      binance.getMetadata = () => ({
+        capabilities: {
+          supportedAssetTypes: ['crypto'],
+          supportedOperations: ['fetchPrice'] as PriceProviderOperation[],
+          rateLimit: mockRateLimit,
+          granularitySupport: [{ granularity: 'minute', maxHistoryDays: 365 }],
+        },
+        displayName: 'binance',
+        name: 'binance',
+        requiresApiKey: false,
+      });
+
+      // Fiat provider with daily data
+      const ecb = createMockProviderWithAssetType('ecb', ['fiat'], ['EUR']);
+      ecb.getMetadata = () => ({
+        capabilities: {
+          supportedAssetTypes: ['fiat'],
+          supportedOperations: ['fetchPrice'] as PriceProviderOperation[],
+          supportedAssets: ['EUR'],
+          rateLimit: mockRateLimit,
+          granularitySupport: [{ granularity: 'day', maxHistoryDays: undefined }],
+        },
+        displayName: 'ecb',
+        name: 'ecb',
+        requiresApiKey: false,
+      });
+
+      const providers = [binance, ecb];
+
+      const healthMap = new Map<string, ProviderHealth>([
+        ['binance', ProviderManagerUtils.createInitialHealth()],
+        ['ecb', ProviderManagerUtils.createInitialHealth()],
+      ]);
+
+      const circuitMap = new Map([
+        ['binance', createInitialCircuitState()],
+        ['ecb', createInitialCircuitState()],
+      ]);
+
+      const now = Date.now();
+      const yesterday = new Date(now - 24 * 60 * 60 * 1000);
+      yesterday.setUTCHours(14, 30, 0, 0); // Intraday
+
+      // Request crypto with intraday timestamp - should only get binance with minute bonus
+      const selected = ProviderManagerUtils.selectProvidersForOperation(
+        providers,
+        healthMap,
+        circuitMap,
+        'fetchPrice',
+        now,
+        yesterday,
+        'BTC',
+        false
+      );
+
+      expect(selected).toHaveLength(1);
+      expect(selected[0]?.metadata.name).toBe('binance');
+      expect(selected[0]?.score).toBeGreaterThan(120); // Has minute granularity bonus
+    });
+  });
 });
 
 describe('hasAvailableProviders', () => {
@@ -777,7 +1036,7 @@ describe('hasAvailableProviders', () => {
     fetchPrice: async () => Promise.resolve({ isErr: () => true, isOk: () => false } as Result<PriceData, Error>),
     getMetadata: () => ({
       capabilities: {
-        supportedCurrencies: ['USD'],
+        supportedAssetTypes: ['crypto'],
         supportedOperations: ['fetchPrice'],
         rateLimit: mockRateLimit,
       },
@@ -996,7 +1255,7 @@ describe('buildProviderSelectionDebugInfo', () => {
         },
         metadata: {
           capabilities: {
-            supportedCurrencies: ['USD'],
+            supportedAssetTypes: ['crypto'] as AssetType[],
             supportedOperations: ['fetchPrice'] as PriceProviderOperation[],
             rateLimit: mockRateLimit,
           },
@@ -1028,5 +1287,177 @@ describe('buildProviderSelectionDebugInfo', () => {
       name: 'test',
       score: 150,
     });
+  });
+});
+
+describe('supportsAsset', () => {
+  const mockRateLimit = {
+    burstLimit: 1,
+    requestsPerHour: 600,
+    requestsPerMinute: 10,
+    requestsPerSecond: 0.17,
+  };
+
+  it('should return false when asset type is not supported', () => {
+    // Crypto-only provider
+    const metadata: ProviderMetadata = {
+      capabilities: {
+        supportedAssetTypes: ['crypto'],
+        supportedOperations: ['fetchPrice'],
+        rateLimit: mockRateLimit,
+      },
+      displayName: 'Binance',
+      name: 'binance',
+      requiresApiKey: false,
+    };
+
+    // Try to check fiat currency
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'EUR', true)).toBe(false);
+  });
+
+  it('should return true when provider supports asset type and has no specific asset list', () => {
+    // Universal crypto provider
+    const metadata: ProviderMetadata = {
+      capabilities: {
+        supportedAssetTypes: ['crypto'],
+        supportedOperations: ['fetchPrice'],
+        rateLimit: mockRateLimit,
+        supportedAssets: undefined, // Universal
+      },
+      displayName: 'Binance',
+      name: 'binance',
+      requiresApiKey: false,
+    };
+
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'BTC', false)).toBe(true);
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'ETH', false)).toBe(true);
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'RANDOMCOIN', false)).toBe(true);
+  });
+
+  it('should return true when asset is in supportedAssets list', () => {
+    // ECB-like provider with EUR only
+    const metadata: ProviderMetadata = {
+      capabilities: {
+        supportedAssetTypes: ['fiat'],
+        supportedOperations: ['fetchPrice'],
+        rateLimit: mockRateLimit,
+        supportedAssets: ['EUR'],
+      },
+      displayName: 'ECB',
+      name: 'ecb',
+      requiresApiKey: false,
+    };
+
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'EUR', true)).toBe(true);
+  });
+
+  it('should return false when asset is not in supportedAssets list', () => {
+    // ECB-like provider with EUR only
+    const metadata: ProviderMetadata = {
+      capabilities: {
+        supportedAssetTypes: ['fiat'],
+        supportedOperations: ['fetchPrice'],
+        rateLimit: mockRateLimit,
+        supportedAssets: ['EUR'],
+      },
+      displayName: 'ECB',
+      name: 'ecb',
+      requiresApiKey: false,
+    };
+
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'CAD', true)).toBe(false);
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'GBP', true)).toBe(false);
+  });
+
+  it('should return false when trying to check crypto on fiat provider', () => {
+    // Fiat-only provider
+    const metadata: ProviderMetadata = {
+      capabilities: {
+        supportedAssetTypes: ['fiat'],
+        supportedOperations: ['fetchPrice'],
+        rateLimit: mockRateLimit,
+        supportedAssets: ['CAD'],
+      },
+      displayName: 'Bank of Canada',
+      name: 'bank-of-canada',
+      requiresApiKey: false,
+    };
+
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'BTC', false)).toBe(false);
+  });
+
+  it('should return false when trying to check fiat on crypto provider', () => {
+    // Crypto-only provider
+    const metadata: ProviderMetadata = {
+      capabilities: {
+        supportedAssetTypes: ['crypto'],
+        supportedOperations: ['fetchPrice'],
+        rateLimit: mockRateLimit,
+      },
+      displayName: 'Binance',
+      name: 'binance',
+      requiresApiKey: false,
+    };
+
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'EUR', true)).toBe(false);
+  });
+
+  it('should support both crypto and fiat for multi-type providers', () => {
+    // Hypothetical universal provider supporting both
+    const metadata: ProviderMetadata = {
+      capabilities: {
+        supportedAssetTypes: ['crypto', 'fiat'],
+        supportedOperations: ['fetchPrice'],
+        rateLimit: mockRateLimit,
+      },
+      displayName: 'Universal Provider',
+      name: 'universal',
+      requiresApiKey: false,
+    };
+
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'BTC', false)).toBe(true);
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'EUR', true)).toBe(true);
+  });
+
+  it('should return true for empty supportedAssets array (universal for that type)', () => {
+    // Provider with empty array = universal for that asset type
+    const metadata: ProviderMetadata = {
+      capabilities: {
+        supportedAssetTypes: ['crypto'],
+        supportedOperations: ['fetchPrice'],
+        rateLimit: mockRateLimit,
+        supportedAssets: [],
+      },
+      displayName: 'Test',
+      name: 'test',
+      requiresApiKey: false,
+    };
+
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'BTC', false)).toBe(true);
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'ANYTHING', false)).toBe(true);
+  });
+
+  it('should handle Bank of Canada provider correctly (CAD only)', () => {
+    const metadata: ProviderMetadata = {
+      capabilities: {
+        supportedAssetTypes: ['fiat'],
+        supportedOperations: ['fetchPrice'],
+        rateLimit: mockRateLimit,
+        supportedAssets: ['CAD'],
+      },
+      displayName: 'Bank of Canada',
+      name: 'bank-of-canada',
+      requiresApiKey: false,
+    };
+
+    // Should support CAD
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'CAD', true)).toBe(true);
+
+    // Should not support other fiat
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'EUR', true)).toBe(false);
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'USD', true)).toBe(false);
+
+    // Should not support crypto
+    expect(ProviderManagerUtils.supportsAsset(metadata, 'BTC', false)).toBe(false);
   });
 });

@@ -6,6 +6,7 @@
 
 // Shared types and interfaces
 export type {
+  AssetType,
   IPriceProvider,
   PriceQuery,
   PriceData,
@@ -23,4 +24,4 @@ export { createPriceProviders, getAvailableProviderNames, createPriceProviderMan
 export type { ProviderFactoryConfig, ProviderName, PriceProviderManagerFactoryConfig } from './shared/factory.js';
 
 // Error types
-export { CoinNotFoundError } from './shared/errors.js';
+export { CoinNotFoundError, PriceDataUnavailableError } from './shared/errors.js';

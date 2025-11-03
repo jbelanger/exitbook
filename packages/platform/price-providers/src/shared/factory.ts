@@ -8,9 +8,12 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import { createBankOfCanadaProvider } from '../bank-of-canada/provider.ts';
 import { createBinanceProvider } from '../binance/provider.ts';
 import { createCoinGeckoProvider } from '../coingecko/provider.ts';
 import { createCryptoCompareProvider } from '../cryptocompare/provider.ts';
+import { createECBProvider } from '../ecb/provider.ts';
+import { createFrankfurterProvider } from '../frankfurter/provider.ts';
 import type { PricesDB } from '../persistence/database.ts';
 import { createPricesDatabase, initializePricesDatabase } from '../persistence/database.ts';
 
@@ -29,14 +32,15 @@ const logger = getLogger('PriceProviderFactory');
  * Type-safe: All factories must match the expected signature
  */
 const PROVIDER_FACTORIES = {
+  'bank-of-canada': (db: PricesDB, _config: unknown) => createBankOfCanadaProvider(db),
   binance: (db: PricesDB, config: unknown) =>
     createBinanceProvider(db, config as Parameters<typeof createBinanceProvider>[1]),
   coingecko: (db: PricesDB, config: unknown) =>
     createCoinGeckoProvider(db, config as Parameters<typeof createCoinGeckoProvider>[1]),
   cryptocompare: (db: PricesDB, config: unknown) =>
     createCryptoCompareProvider(db, config as Parameters<typeof createCryptoCompareProvider>[1]),
-  // Future providers just add here:
-  // coinmarketcap: (db, config) => createCoinMarketCapProvider(db, config as CoinMarketCapProviderConfig),
+  ecb: (db: PricesDB, _config: unknown) => createECBProvider(db),
+  frankfurter: (db: PricesDB, _config: unknown) => createFrankfurterProvider(db),
 } as const satisfies Record<string, (db: PricesDB, config: unknown) => Result<IPriceProvider, Error>>;
 
 export type ProviderName = keyof typeof PROVIDER_FACTORIES;
@@ -47,6 +51,9 @@ export type ProviderName = keyof typeof PROVIDER_FACTORIES;
 export interface ProviderFactoryConfig {
   /** Path to prices database file (defaults to ./data/prices.db) */
   databasePath?: string | undefined;
+  'bank-of-canada'?: {
+    enabled?: boolean | undefined;
+  };
   binance?: {
     enabled?: boolean | undefined;
   };
@@ -59,8 +66,12 @@ export interface ProviderFactoryConfig {
     apiKey?: string | undefined;
     enabled?: boolean | undefined;
   };
-  // Future providers:
-  // coinmarketcap?: { ... };
+  ecb?: {
+    enabled?: boolean | undefined;
+  };
+  frankfurter?: {
+    enabled?: boolean | undefined;
+  };
 }
 
 /**

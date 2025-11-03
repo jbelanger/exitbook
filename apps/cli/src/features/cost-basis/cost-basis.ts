@@ -1,3 +1,4 @@
+import type { CostBasisReport } from '@exitbook/accounting';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 import type { Decimal } from 'decimal.js';
@@ -105,22 +106,33 @@ async function executeCostBasisCommand(options: ExtendedCostBasisCommandOptions)
  * Handle successful cost basis calculation.
  */
 function handleCostBasisSuccess(output: OutputManager, costBasisResult: CostBasisResult): void {
-  const { summary, missingPricesWarning } = costBasisResult;
+  const { summary, missingPricesWarning, report } = costBasisResult;
 
   // Display results in text mode
   if (output.isTextMode()) {
     output.outro('✨ Cost basis calculation complete!');
     console.log(''); // Add spacing before results
-    displayCostBasisResults(summary, missingPricesWarning);
+    displayCostBasisResults(summary, report, missingPricesWarning);
   }
 
   // Prepare result data for JSON mode
+  // Use converted amounts if report exists, otherwise use original USD amounts
+  const currency = summary.calculation.config.currency;
+  const totals = report
+    ? report.summary
+    : {
+        totalProceeds: summary.calculation.totalProceeds,
+        totalCostBasis: summary.calculation.totalCostBasis,
+        totalGainLoss: summary.calculation.totalGainLoss,
+        totalTaxableGainLoss: summary.calculation.totalTaxableGainLoss,
+      };
+
   const resultData: CostBasisCommandResult = {
     calculationId: summary.calculation.id,
     method: summary.calculation.config.method,
     jurisdiction: summary.calculation.config.jurisdiction,
     taxYear: summary.calculation.config.taxYear,
-    currency: summary.calculation.config.currency,
+    currency,
     dateRange: {
       startDate: summary.calculation.startDate ? (summary.calculation.startDate.toISOString().split('T')[0] ?? '') : '',
       endDate: summary.calculation.endDate ? (summary.calculation.endDate.toISOString().split('T')[0] ?? '') : '',
@@ -130,10 +142,10 @@ function handleCostBasisSuccess(output: OutputManager, costBasisResult: CostBasi
       disposalsProcessed: summary.disposalsProcessed,
       assetsProcessed: summary.assetsProcessed,
       transactionsProcessed: summary.calculation.transactionsProcessed,
-      totalProceeds: summary.calculation.totalProceeds.toString(),
-      totalCostBasis: summary.calculation.totalCostBasis.toString(),
-      totalGainLoss: summary.calculation.totalGainLoss.toString(),
-      totalTaxableGainLoss: summary.calculation.totalTaxableGainLoss.toString(),
+      totalProceeds: totals.totalProceeds.toFixed(),
+      totalCostBasis: totals.totalCostBasis.toFixed(),
+      totalGainLoss: totals.totalGainLoss.toFixed(),
+      totalTaxableGainLoss: totals.totalTaxableGainLoss.toFixed(),
     },
     missingPricesWarning,
   };
@@ -145,7 +157,11 @@ function handleCostBasisSuccess(output: OutputManager, costBasisResult: CostBasi
 /**
  * Display cost basis results in the console.
  */
-function displayCostBasisResults(summary: CostBasisResult['summary'], missingPricesWarning?: string): void {
+function displayCostBasisResults(
+  summary: CostBasisResult['summary'],
+  report?: CostBasisReport,
+  missingPricesWarning?: string
+): void {
   const { calculation, lotsCreated, disposalsProcessed, assetsProcessed } = summary;
 
   logger.info('\nCost Basis Calculation Results');
@@ -168,21 +184,44 @@ function displayCostBasisResults(summary: CostBasisResult['summary'], missingPri
   logger.info(`✓ Disposals processed: ${disposalsProcessed}`);
   console.log(''); // Add spacing
 
+  // Use converted amounts if report exists, otherwise use original USD amounts
+  const displayCurrency = calculation.config.currency;
+  const totals = report
+    ? report.summary
+    : {
+        totalProceeds: calculation.totalProceeds,
+        totalCostBasis: calculation.totalCostBasis,
+        totalGainLoss: calculation.totalGainLoss,
+        totalTaxableGainLoss: calculation.totalTaxableGainLoss,
+      };
+
   logger.info('Financial Summary');
   logger.info('------------------');
-  logger.info(`Total Proceeds: ${formatCurrency(calculation.totalProceeds, calculation.config.currency)}`);
-  logger.info(`Total Cost Basis: ${formatCurrency(calculation.totalCostBasis, calculation.config.currency)}`);
-  logger.info(`Capital Gain/Loss: ${formatCurrency(calculation.totalGainLoss, calculation.config.currency)}`);
-  logger.info(`Taxable Gain/Loss: ${formatCurrency(calculation.totalTaxableGainLoss, calculation.config.currency)}`);
+  logger.info(`Total Proceeds: ${formatCurrency(totals.totalProceeds, displayCurrency)}`);
+  logger.info(`Total Cost Basis: ${formatCurrency(totals.totalCostBasis, displayCurrency)}`);
+  logger.info(`Capital Gain/Loss: ${formatCurrency(totals.totalGainLoss, displayCurrency)}`);
+  logger.info(`Taxable Gain/Loss: ${formatCurrency(totals.totalTaxableGainLoss, displayCurrency)}`);
+
+  // Show FX conversion note if applicable
+  if (report && report.displayCurrency !== 'USD') {
+    console.log(''); // Add spacing
+    logger.info(
+      `Note: Amounts converted from USD to ${report.displayCurrency} using historical rates at disposal time`
+    );
+    logger.info(
+      `      Original USD totals: Proceeds=${formatCurrency(report.originalSummary.totalProceeds, 'USD')}, ` +
+        `Gain/Loss=${formatCurrency(report.originalSummary.totalGainLoss, 'USD')}`
+    );
+  }
 
   // Show jurisdiction-specific note
   if (calculation.config.jurisdiction === 'CA') {
     console.log(''); // Add spacing
-    logger.info('Note: Canadian tax rules applied (50% capital gains inclusion rate)');
+    logger.info('Tax Rules: Canadian tax rules applied (50% capital gains inclusion rate)');
   } else if (calculation.config.jurisdiction === 'US') {
     console.log(''); // Add spacing
-    logger.info('Note: US tax rules applied (short-term vs long-term classification)');
-    logger.info('      Review lot disposals for holding period classifications');
+    logger.info('Tax Rules: US tax rules applied (short-term vs long-term classification)');
+    logger.info('           Review lot disposals for holding period classifications');
   }
 
   // Show warning if any transactions were excluded

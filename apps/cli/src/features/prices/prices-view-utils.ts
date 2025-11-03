@@ -61,7 +61,7 @@ export function formatPriceCoverageForDisplay(coverage: PriceCoverageInfo): stri
 /**
  * Format price coverage list for text display.
  */
-export function formatPriceCoverageListForDisplay(result: ViewPricesResult): string {
+export function formatPriceCoverageListForDisplay(result: ViewPricesResult, missingOnly?: boolean): string {
   const lines: string[] = [];
 
   lines.push('');
@@ -70,7 +70,13 @@ export function formatPriceCoverageListForDisplay(result: ViewPricesResult): str
   lines.push('');
 
   if (result.coverage.length === 0) {
-    lines.push('No transaction data found.');
+    if (missingOnly && result.summary.total_transactions > 0) {
+      lines.push('✓ All assets have complete price coverage!');
+      lines.push('');
+      lines.push(`Analyzed ${result.summary.total_transactions} transactions with 100% price coverage.`);
+    } else {
+      lines.push('No transaction data found.');
+    }
   } else {
     for (const coverage of result.coverage) {
       lines.push(formatPriceCoverageForDisplay(coverage));

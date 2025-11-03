@@ -59,12 +59,11 @@ export class ExportHandler {
       const filters = {
         ...(params.sourceName && { sourceId: params.sourceName }),
         ...(params.since && { since: params.since }),
+        includeExcluded: true, // Include all transactions in exports
       };
 
       // Fetch transactions from database
-      const transactionsResult = await this.transactionRepository.getTransactions(
-        Object.keys(filters).length > 0 ? filters : undefined
-      );
+      const transactionsResult = await this.transactionRepository.getTransactions(filters);
 
       if (transactionsResult.isErr()) {
         return err(new Error(`Failed to retrieve transactions: ${transactionsResult.error.message}`));

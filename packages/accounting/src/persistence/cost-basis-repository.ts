@@ -417,6 +417,35 @@ export class CostBasisRepository extends BaseRepository {
     }
   }
 
+  /**
+   * Find all disposals for a calculation (via lot join)
+   */
+  async findDisposalsByCalculationId(calculationId: string): Promise<Result<LotDisposal[], Error>> {
+    try {
+      const rows = await this.db
+        .selectFrom('lot_disposals')
+        .innerJoin('acquisition_lots', 'lot_disposals.lot_id', 'acquisition_lots.id')
+        .selectAll('lot_disposals')
+        .where('acquisition_lots.calculation_id', '=', calculationId)
+        .orderBy('lot_disposals.disposal_date', 'asc')
+        .execute();
+
+      const disposals: LotDisposal[] = [];
+      for (const row of rows) {
+        const result = this.toLotDisposal(row as StoredLotDisposal);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        disposals.push(result.value);
+      }
+
+      return ok(disposals);
+    } catch (error) {
+      this.logger.error({ error, calculationId }, 'Failed to find disposals by calculation ID');
+      return wrapError(error, 'Failed to find disposals by calculation ID');
+    }
+  }
+
   // ==================== COST BASIS CALCULATIONS ====================
 
   /**

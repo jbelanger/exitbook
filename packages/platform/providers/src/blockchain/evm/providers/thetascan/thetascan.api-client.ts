@@ -231,7 +231,7 @@ export class ThetaScanApiClient extends BaseApiClient {
           // Convert from smallest units to decimal
           balanceDecimal = parseDecimal(balanceData.balance?.toString() || '0')
             .div(parseDecimal('10').pow(balanceData.token_decimals))
-            .toString();
+            .toFixed();
         } else {
           // No decimals available, keep in smallest units
           balanceDecimal = String(balanceData.balance || '0');

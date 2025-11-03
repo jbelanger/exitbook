@@ -56,7 +56,7 @@ export class TatumBitcoinTransactionMapper extends BaseRawDataMapper<TatumBitcoi
       normalized.blockId = rawData.block;
     }
     if (rawData.fee > 0) {
-      const btcFee = parseDecimal(rawData.fee.toString()).div(100000000).toString();
+      const btcFee = parseDecimal(rawData.fee.toFixed()).div(100000000).toFixed();
       normalized.feeAmount = btcFee;
       normalized.feeCurrency = 'BTC';
     }

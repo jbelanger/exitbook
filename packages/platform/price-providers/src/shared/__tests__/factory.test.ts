@@ -29,7 +29,7 @@ vi.mock('../../coingecko/provider.js', () => ({
     value: {
       getMetadata: () => ({
         capabilities: {
-          supportedCurrencies: ['USD'],
+          supportedAssetTypes: ['crypto'],
           supportedOperations: ['fetchPrice'],
           rateLimit: {
             burstLimit: 1,
@@ -61,7 +61,7 @@ vi.mock('../../cryptocompare/provider.js', () => ({
     value: {
       getMetadata: () => ({
         capabilities: {
-          supportedCurrencies: ['USD'],
+          supportedAssetTypes: ['crypto'],
           supportedOperations: ['fetchPrice'],
           rateLimit: {
             burstLimit: 5,
@@ -86,7 +86,7 @@ vi.mock('../../binance/provider.js', () => ({
     value: {
       getMetadata: () => ({
         capabilities: {
-          supportedCurrencies: ['USD', 'USDT', 'BUSD'],
+          supportedAssetTypes: ['crypto'],
           supportedOperations: ['fetchPrice'],
           rateLimit: {
             burstLimit: 50,
@@ -97,6 +97,83 @@ vi.mock('../../binance/provider.js', () => ({
         },
         displayName: 'Binance',
         name: 'binance',
+        requiresApiKey: false,
+      }),
+    },
+  })),
+}));
+
+// Mock ECB provider creation
+vi.mock('../../ecb/provider.js', () => ({
+  createECBProvider: vi.fn(() => ({
+    isErr: () => false,
+    isOk: () => true,
+    value: {
+      getMetadata: () => ({
+        capabilities: {
+          supportedAssetTypes: ['fiat'],
+          supportedOperations: ['fetchPrice'],
+          supportedAssets: ['EUR'], // ECB only supports EUR as base currency
+          rateLimit: {
+            burstLimit: 5,
+            requestsPerHour: 300,
+            requestsPerMinute: 10,
+            requestsPerSecond: 0.2,
+          },
+        },
+        displayName: 'European Central Bank',
+        name: 'ecb',
+        requiresApiKey: false,
+      }),
+    },
+  })),
+}));
+
+// Mock Bank of Canada provider creation
+vi.mock('../../bank-of-canada/provider.js', () => ({
+  createBankOfCanadaProvider: vi.fn(() => ({
+    isErr: () => false,
+    isOk: () => true,
+    value: {
+      getMetadata: () => ({
+        capabilities: {
+          supportedAssetTypes: ['fiat'],
+          supportedOperations: ['fetchPrice'],
+          supportedAssets: ['CAD'],
+          rateLimit: {
+            burstLimit: 5,
+            requestsPerHour: 300,
+            requestsPerMinute: 10,
+            requestsPerSecond: 0.2,
+          },
+        },
+        displayName: 'Bank of Canada',
+        name: 'bank-of-canada',
+        requiresApiKey: false,
+      }),
+    },
+  })),
+}));
+
+// Mock Frankfurter provider creation
+vi.mock('../../frankfurter/provider.js', () => ({
+  createFrankfurterProvider: vi.fn(() => ({
+    isErr: () => false,
+    isOk: () => true,
+    value: {
+      getMetadata: () => ({
+        capabilities: {
+          supportedAssetTypes: ['fiat'],
+          supportedOperations: ['fetchPrice'],
+          rateLimit: {
+            burstLimit: 5,
+            requestsPerHour: 1000,
+            requestsPerMinute: 50,
+            requestsPerSecond: 1,
+          },
+        },
+        displayName: 'Frankfurter',
+        name: 'frankfurter',
         requiresApiKey: false,
       }),
     },
@@ -130,11 +207,14 @@ describe('createPriceProviders', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       const providers = result.value;
-      // All providers (Binance, CoinGecko, CryptoCompare) are enabled by default
-      expect(providers).toHaveLength(3);
-      expect(providers[0]?.getMetadata().name).toBe('binance');
-      expect(providers[1]?.getMetadata().name).toBe('coingecko');
-      expect(providers[2]?.getMetadata().name).toBe('cryptocompare');
+      // All providers (bank-of-canada, binance, coingecko, cryptocompare, ecb, frankfurter) are enabled by default
+      expect(providers).toHaveLength(6);
+      expect(providers[0]?.getMetadata().name).toBe('bank-of-canada');
+      expect(providers[1]?.getMetadata().name).toBe('binance');
+      expect(providers[2]?.getMetadata().name).toBe('coingecko');
+      expect(providers[3]?.getMetadata().name).toBe('cryptocompare');
+      expect(providers[4]?.getMetadata().name).toBe('ecb');
+      expect(providers[5]?.getMetadata().name).toBe('frankfurter');
     }
   });
 
@@ -185,9 +265,12 @@ describe('createPriceProviders', () => {
 
   it('should respect enabled: false', async () => {
     const result = await createPriceProviders({
+      'bank-of-canada': { enabled: false },
       binance: { enabled: false },
       coingecko: { enabled: false },
       cryptocompare: { enabled: false },
+      ecb: { enabled: false },
+      frankfurter: { enabled: false },
     });
 
     // Should return error when no providers are enabled
@@ -203,8 +286,8 @@ describe('createPriceProviders', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       const providers = result.value;
-      // CoinGecko is at index 1 (after Binance)
-      const coinGeckoProvider = providers[1];
+      // CoinGecko is at index 2 (after bank-of-canada and binance)
+      const coinGeckoProvider = providers[2];
 
       // CoinGecko provider has initialize() hook
       // eslint-disable-next-line @typescript-eslint/unbound-method -- Extracting method for vitest mock assertion
@@ -223,7 +306,7 @@ describe('createPriceProviders', () => {
       ok({
         metadata: {
           capabilities: {
-            supportedCurrencies: ['USD'],
+            supportedAssetTypes: ['crypto'],
             supportedOperations: ['fetchPrice'],
             rateLimit: {
               burstLimit: 1,
@@ -241,7 +324,7 @@ describe('createPriceProviders', () => {
         providerRepo: {},
         getMetadata: () => ({
           capabilities: {
-            supportedCurrencies: ['USD'],
+            supportedAssetTypes: ['crypto'],
             supportedOperations: ['fetchPrice'],
             rateLimit: {
               burstLimit: 1,
@@ -266,10 +349,13 @@ describe('createPriceProviders', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       const providers = result.value;
-      // Binance and CryptoCompare should succeed (CoinGecko failed initialization)
-      expect(providers).toHaveLength(2);
-      expect(providers[0]?.getMetadata().name).toBe('binance');
-      expect(providers[1]?.getMetadata().name).toBe('cryptocompare');
+      // bank-of-canada, binance, cryptocompare, ecb, and frankfurter should succeed (CoinGecko failed initialization)
+      expect(providers).toHaveLength(5);
+      expect(providers[0]?.getMetadata().name).toBe('bank-of-canada');
+      expect(providers[1]?.getMetadata().name).toBe('binance');
+      expect(providers[2]?.getMetadata().name).toBe('cryptocompare');
+      expect(providers[3]?.getMetadata().name).toBe('ecb');
+      expect(providers[4]?.getMetadata().name).toBe('frankfurter');
     }
   });
 });
@@ -277,10 +363,13 @@ describe('createPriceProviders', () => {
 describe('getAvailableProviderNames', () => {
   it('should return available providers dynamically', () => {
     const names = getAvailableProviderNames();
+    expect(names).toContain('bank-of-canada');
     expect(names).toContain('binance');
     expect(names).toContain('coingecko');
     expect(names).toContain('cryptocompare');
-    expect(names).toHaveLength(3);
+    expect(names).toContain('ecb');
+    expect(names).toContain('frankfurter');
+    expect(names).toHaveLength(6);
   });
 });
 
@@ -346,9 +435,12 @@ describe('createPriceProviderManager', () => {
   it('should return error if provider creation fails', async () => {
     const result = await createPriceProviderManager({
       providers: {
+        'bank-of-canada': { enabled: false },
         binance: { enabled: false },
         coingecko: { enabled: false },
         cryptocompare: { enabled: false },
+        ecb: { enabled: false },
+        frankfurter: { enabled: false },
       },
     });
 

@@ -34,6 +34,7 @@ vi.mock('../coingecko-utils.js', async () => {
 
 import { Currency } from '@exitbook/core';
 
+import { createTestPriceData } from '../../__tests__/test-helpers.js';
 // Import after mocks so they receive mocked dependencies
 import { CoinGeckoProvider } from '../provider.ts';
 
@@ -95,14 +96,14 @@ describe('CoinGeckoProvider', () => {
   });
 
   it('returns cached price without hitting the API', async () => {
-    const cachedPrice: PriceData = {
+    const cachedPrice: PriceData = createTestPriceData({
       asset: Currency.create('BTC'),
       currency: Currency.create('USD'),
       price: 30123.45,
       timestamp: defaultTimestamp,
       source: 'coingecko',
       fetchedAt: new Date('2024-01-01T01:00:00Z'),
-    };
+    });
 
     priceRepoMocks.getPrice.mockResolvedValueOnce(ok(cachedPrice));
 
@@ -129,14 +130,14 @@ describe('CoinGeckoProvider', () => {
       },
     };
 
-    const expectedPrice: PriceData = {
+    const expectedPrice: PriceData = createTestPriceData({
       asset: Currency.create('BTC'),
       currency: Currency.create('USD'),
       price: 30200,
       timestamp: defaultTimestamp,
       source: 'coingecko',
       fetchedAt: new Date('2024-01-01T02:00:00Z'),
-    };
+    });
 
     httpClientGet.mockResolvedValueOnce(ok(apiResponse));
     mockTransformSimplePriceResponse.mockReturnValueOnce(ok(expectedPrice));
@@ -183,14 +184,14 @@ describe('CoinGeckoProvider', () => {
       },
     };
 
-    const expectedPrice: PriceData = {
+    const expectedPrice: PriceData = createTestPriceData({
       asset: Currency.create('BTC'),
       currency: Currency.create('USD'),
       price: 9000,
       timestamp: historicalTimestamp,
       source: 'coingecko',
       fetchedAt: new Date('2020-05-22T00:00:00Z'),
-    };
+    });
 
     httpClientGet.mockResolvedValueOnce(ok(apiResponse));
     mockTransformHistoricalResponse.mockReturnValueOnce(ok(expectedPrice));

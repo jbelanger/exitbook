@@ -598,7 +598,7 @@ class TransferChainDetector {
           this.logger.warn(
             {
               currency: platformFee.asset,
-              amount: platformFee.amount.toString(),
+              amount: platformFee.amount.toFixed(),
               tx: tx.id,
               date: tx.datetime,
             },

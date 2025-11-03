@@ -47,7 +47,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const { TransactionLinkRepository: TLRepo, CostBasisRepository: CBRepo } = await import('@exitbook/accounting');
     const { RawDataRepository: RDRepo, DataSourceRepository: DSRepo } = await import('@exitbook/ingestion');
 
-    const database = await initializeDatabase(false);
+    const database = await initializeDatabase();
     const txRepo = new TxRepo(database);
     const tlRepo = new TLRepo(database);
     const cbRepo = new CBRepo(database);

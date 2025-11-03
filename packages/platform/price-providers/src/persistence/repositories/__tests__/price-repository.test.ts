@@ -1,4 +1,4 @@
-import { Currency } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { PriceData } from '../../../shared/types/index.js';
@@ -49,7 +49,7 @@ describe('PriceRepository', () => {
         asset: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
-        price: 43000,
+        price: parseDecimal('43000'),
         source: 'test-provider',
         fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
       };
@@ -65,7 +65,7 @@ describe('PriceRepository', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toBeDefined();
-        expect(result.value?.price).toBe(43000);
+        expect(result.value?.price).toEqual(parseDecimal('43000'));
         expect(result.value?.asset.toString()).toBe('BTC');
         expect(result.value?.currency.toString()).toBe('USD');
       }
@@ -76,7 +76,7 @@ describe('PriceRepository', () => {
         asset: Currency.create('ETH'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
-        price: 2500,
+        price: parseDecimal('2500'),
         source: 'test-provider',
         fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
       };
@@ -92,7 +92,7 @@ describe('PriceRepository', () => {
 
       expect(result1.isOk()).toBe(true);
       if (result1.isOk()) {
-        expect(result1.value?.price).toBe(2500);
+        expect(result1.value?.price).toEqual(parseDecimal('2500'));
       }
 
       const result2 = await repository.getPrice(
@@ -103,7 +103,7 @@ describe('PriceRepository', () => {
 
       expect(result2.isOk()).toBe(true);
       if (result2.isOk()) {
-        expect(result2.value?.price).toBe(2500);
+        expect(result2.value?.price).toEqual(parseDecimal('2500'));
       }
     });
 
@@ -112,7 +112,7 @@ describe('PriceRepository', () => {
         asset: Currency.create('btc'),
         currency: Currency.create('usd'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
-        price: 43000,
+        price: parseDecimal('43000'),
         source: 'test-provider',
         fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
       };
@@ -127,7 +127,7 @@ describe('PriceRepository', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value?.price).toBe(43000);
+        expect(result.value?.price).toEqual(parseDecimal('43000'));
       }
     });
   });
@@ -138,7 +138,7 @@ describe('PriceRepository', () => {
         asset: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
-        price: 43000,
+        price: parseDecimal('43000'),
         source: 'test-provider',
         fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
       };
@@ -155,7 +155,7 @@ describe('PriceRepository', () => {
 
       expect(getResult.isOk()).toBe(true);
       if (getResult.isOk()) {
-        expect(getResult.value?.price).toBe(43000);
+        expect(getResult.value?.price).toEqual(parseDecimal('43000'));
       }
     });
 
@@ -164,7 +164,7 @@ describe('PriceRepository', () => {
         asset: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
-        price: 43000,
+        price: parseDecimal('43000'),
         source: 'provider1',
         fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
       };
@@ -175,7 +175,7 @@ describe('PriceRepository', () => {
         asset: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
-        price: 43500,
+        price: parseDecimal('43500'),
         source: 'provider2',
         fetchedAt: new Date('2024-01-15T14:00:00.000Z'),
       };
@@ -190,7 +190,7 @@ describe('PriceRepository', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value?.price).toBe(43500); // Updated price
+        expect(result.value?.price).toEqual(parseDecimal('43500')); // Updated price
         expect(result.value?.source).toBe('provider2');
       }
     });
@@ -200,7 +200,7 @@ describe('PriceRepository', () => {
         asset: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
-        price: 43000,
+        price: parseDecimal('43000'),
         source: 'coingecko',
         fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
       };
@@ -224,7 +224,7 @@ describe('PriceRepository', () => {
         asset: Currency.create('ETH'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T14:30:45.123Z'),
-        price: 2500,
+        price: parseDecimal('2500'),
         source: 'test-provider',
         fetchedAt: new Date('2024-01-15T14:30:45.123Z'),
       };
@@ -240,7 +240,7 @@ describe('PriceRepository', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value?.price).toBe(2500);
+        expect(result.value?.price).toEqual(parseDecimal('2500'));
       }
     });
   });
@@ -252,7 +252,7 @@ describe('PriceRepository', () => {
           asset: Currency.create('BTC'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
-          price: 43000,
+          price: parseDecimal('43000'),
           source: 'test-provider',
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         },
@@ -260,7 +260,7 @@ describe('PriceRepository', () => {
           asset: Currency.create('ETH'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
-          price: 2500,
+          price: parseDecimal('2500'),
           source: 'test-provider',
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         },
@@ -268,7 +268,7 @@ describe('PriceRepository', () => {
           asset: Currency.create('SOL'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
-          price: 100,
+          price: parseDecimal('100'),
           source: 'test-provider',
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         },
@@ -283,7 +283,7 @@ describe('PriceRepository', () => {
         const getResult = await repository.getPrice(price.asset, price.currency, price.timestamp);
         expect(getResult.isOk()).toBe(true);
         if (getResult.isOk()) {
-          expect(getResult.value?.price).toBe(price.price);
+          expect(getResult.value?.price).toEqual(price.price);
         }
       }
     });
@@ -294,7 +294,7 @@ describe('PriceRepository', () => {
           asset: Currency.create('BTC'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
-          price: 43000,
+          price: parseDecimal('43000'),
           source: 'coingecko',
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         },
@@ -302,7 +302,7 @@ describe('PriceRepository', () => {
           asset: Currency.create('ETH'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
-          price: 2500,
+          price: parseDecimal('2500'),
           source: 'coingecko',
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         },
@@ -325,7 +325,7 @@ describe('PriceRepository', () => {
           asset: Currency.create(`TOKEN${i}`),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
-          price: i * 100,
+          price: parseDecimal((i * 100).toString()),
           source: 'test-provider',
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         });
@@ -345,7 +345,7 @@ describe('PriceRepository', () => {
           asset: Currency.create('BTC'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-10T00:00:00.000Z'),
-          price: 40000,
+          price: parseDecimal('40000'),
           source: 'test-provider',
           fetchedAt: new Date('2024-01-10T12:00:00.000Z'),
         },
@@ -353,7 +353,7 @@ describe('PriceRepository', () => {
           asset: Currency.create('BTC'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
-          price: 43000,
+          price: parseDecimal('43000'),
           source: 'test-provider',
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         },
@@ -361,7 +361,7 @@ describe('PriceRepository', () => {
           asset: Currency.create('BTC'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-20T00:00:00.000Z'),
-          price: 45000,
+          price: parseDecimal('45000'),
           source: 'test-provider',
           fetchedAt: new Date('2024-01-20T12:00:00.000Z'),
         },
@@ -381,7 +381,7 @@ describe('PriceRepository', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toHaveLength(1);
-        expect(result.value[0]?.price).toBe(43000);
+        expect(result.value[0]?.price).toEqual(parseDecimal('43000'));
       }
     });
 
@@ -397,9 +397,9 @@ describe('PriceRepository', () => {
       if (result.isOk()) {
         expect(result.value).toHaveLength(3);
         // Should be sorted by timestamp ascending
-        expect(result.value[0]?.price).toBe(40000);
-        expect(result.value[1]?.price).toBe(43000);
-        expect(result.value[2]?.price).toBe(45000);
+        expect(result.value[0]?.price).toEqual(parseDecimal('40000'));
+        expect(result.value[1]?.price).toEqual(parseDecimal('43000'));
+        expect(result.value[2]?.price).toEqual(parseDecimal('45000'));
       }
     });
 
@@ -447,7 +447,7 @@ describe('PriceRepository', () => {
         asset: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
-        price: 43000,
+        price: parseDecimal('43000'),
         source: 'test-provider',
         fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
       };
@@ -467,7 +467,7 @@ describe('PriceRepository', () => {
         asset: Currency.create('ETH'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
-        price: 2500,
+        price: parseDecimal('2500'),
         source: 'test-provider',
         fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
       };

@@ -1,14 +1,7 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
 import type { AssetMovement, UniversalTransaction, TransactionStatus } from '@exitbook/core';
-import {
-  AssetMovementSchema,
-  Currency,
-  NoteMetadataSchema,
-  TransactionMetadataSchema,
-  wrapError,
-} from '@exitbook/core';
-import type { Decimal } from 'decimal.js';
-import type { Selectable } from 'kysely';
+import { AssetMovementSchema, NoteMetadataSchema, TransactionMetadataSchema, wrapError } from '@exitbook/core';
+import type { Selectable, Updateable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
@@ -19,16 +12,6 @@ import type { KyselyDB } from '../storage/database.js';
 
 import { BaseRepository } from './base-repository.js';
 import type { ITransactionRepository, TransactionFilters } from './transaction-repository.interface.ts';
-
-/**
- * Transaction record needing price data for its movements
- */
-export interface TransactionNeedingPrice {
-  id: number;
-  transactionDatetime: string;
-  movementsInflows: AssetMovement[];
-  movementsOutflows: AssetMovement[];
-}
 
 /**
  * Kysely-based repository for transaction database operations.
@@ -76,6 +59,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
           note_severity: transaction.note?.severity,
           note_type: transaction.note?.type,
+          excluded_from_accounting: transaction.note?.type === 'SCAM_TOKEN',
           raw_normalized_data: rawDataJson,
           source_id: transaction.source,
           source_type: transaction.blockchain ? 'blockchain' : 'exchange',
@@ -114,6 +98,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             note_metadata: (eb) => eb.ref('excluded.note_metadata'),
             note_severity: (eb) => eb.ref('excluded.note_severity'),
             note_type: (eb) => eb.ref('excluded.note_type'),
+            excluded_from_accounting: (eb) => eb.ref('excluded.excluded_from_accounting'),
             raw_normalized_data: (eb) => eb.ref('excluded.raw_normalized_data'),
             to_address: (eb) => eb.ref('excluded.to_address'),
             transaction_datetime: (eb) => eb.ref('excluded.transaction_datetime'),
@@ -170,6 +155,12 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         }
       }
 
+      // By default, exclude transactions marked as excluded_from_accounting (scam tokens, etc.)
+      // unless explicitly requested
+      if (!filters?.includeExcluded) {
+        query = query.where('excluded_from_accounting', '=', false);
+      }
+
       // Order by transaction datetime ascending (oldest to newest)
       query = query.orderBy('transaction_datetime', 'asc');
 
@@ -211,31 +202,43 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   }
 
   /**
-   * Find transactions with movements that need price data
+   * Find transactions with movements or fees that need price data
    * Optionally filter by specific asset(s)
    */
-  async findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<TransactionNeedingPrice[], Error>> {
+  async findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransaction[], Error>> {
     try {
       const query = this.db
         .selectFrom('transactions')
-        .select(['id', 'transaction_datetime', 'movements_inflows', 'movements_outflows'])
-        .where((eb) => eb.or([eb('movements_inflows', 'is not', null), eb('movements_outflows', 'is not', null)]));
+        .selectAll()
+        .where((eb) =>
+          eb.and([
+            eb.or([eb('movements_inflows', 'is not', null), eb('movements_outflows', 'is not', null)]),
+            eb('excluded_from_accounting', '=', false),
+          ])
+        );
 
-      const results = await query.execute();
+      const rows = await query.execute();
 
-      // Parse movements once, then filter for those needing prices
-      const parsedTransactions = results.map((tx) => ({
-        id: tx.id,
-        movementsInflows: this.parseMovements(tx.movements_inflows as string | null),
-        movementsOutflows: this.parseMovements(tx.movements_outflows as string | null),
-        transactionDatetime: tx.transaction_datetime,
-      }));
+      // Convert rows to domain models
+      const transactions: UniversalTransaction[] = [];
+      for (const row of rows) {
+        const result = this.toUniversalTransaction(row);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        transactions.push(result.value);
+      }
 
-      // Filter transactions that have movements without priceAtTxTime
-      const transactionsNeedingPrices = parsedTransactions.filter((tx) => {
-        const allMovements = [...tx.movementsInflows, ...tx.movementsOutflows];
+      // Filter transactions that have movements or fees without priceAtTxTime
+      const transactionsNeedingPrices = transactions.filter((tx) => {
+        const allMovements = [
+          ...(tx.movements.inflows ?? []),
+          ...(tx.movements.outflows ?? []),
+          ...(tx.fees.platform ? [tx.fees.platform] : []),
+          ...(tx.fees.network ? [tx.fees.network] : []),
+        ];
 
-        // Check if any movement is missing priceAtTxTime
+        // Check if any movement is missing priceAtTxTime or has tentative non-USD price
         return allMovements.some((movement) => {
           // If asset filter is provided, only check movements matching the filter
           if (assetFilter && assetFilter.length > 0) {
@@ -244,13 +247,14 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             }
           }
 
-          // Skip fiat currencies - they don't need prices (they ARE the price)
-          const currency = Currency.create(movement.asset);
-          if (currency.isFiat()) {
-            return false;
-          }
-
-          return !movement.priceAtTxTime;
+          // Movement needs price if:
+          // 1. No price at all, OR
+          // 2. Price source is 'fiat-execution-tentative' (not yet normalized to USD)
+          // This ensures Stage 3 fetch runs as fallback if Stage 2 FX normalization fails
+          //
+          // Note: We do NOT skip fiat currencies here because Pass 0 needs to stamp identity
+          // prices on fiat movements (1 USD = 1 USD, 1 CAD = 1 CAD, etc.)
+          return !movement.priceAtTxTime || movement.priceAtTxTime.source === 'fiat-execution-tentative';
         });
       });
 
@@ -261,100 +265,38 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   }
 
   /**
-   * Update a transaction's movements with price data
-   * Enriches the movements JSON with priceAtTxTime for specified assets
-   * @param id - The unique ID of the transaction
-   * @param priceData - Price data to enrich movements with
+   * Update a transaction's movements and fees with enriched price data
+   * @param transaction - The enriched transaction with price data
    */
-  async updateMovementsWithPrices(
-    id: number,
-    priceData: {
-      asset: string;
-      fetchedAt: Date;
-      granularity?: 'exact' | 'minute' | 'hour' | 'day' | undefined;
-      price: { amount: Decimal; currency: Currency };
-      source: string;
-    }[]
-  ) {
+  async updateMovementsWithPrices(transaction: UniversalTransaction): Promise<Result<void, Error>> {
     try {
-      // Fetch current transaction by unique ID
-      const tx = await this.db
-        .selectFrom('transactions')
-        .select(['movements_inflows', 'movements_outflows', 'fees_platform', 'fees_network'])
-        .where('id', '=', id)
-        .executeTakeFirst();
+      const inflows = transaction.movements.inflows ?? [];
+      const outflows = transaction.movements.outflows ?? [];
 
-      if (!tx) {
-        throw new Error(`Transaction ${id} not found`);
-      }
-
-      // Parse movements and fees
-      const inflows = this.parseMovements(tx.movements_inflows as string | null);
-      const outflows = this.parseMovements(tx.movements_outflows as string | null);
-      const platformFee = this.parseMovement(tx.fees_platform as string | null);
-      const networkFee = this.parseMovement(tx.fees_network as string | null);
-
-      // Create price lookup map
-      const priceMap = new Map(
-        priceData.map((p) => [
-          p.asset,
-          {
-            fetchedAt: p.fetchedAt,
-            granularity: p.granularity,
-            price: {
-              amount: p.price.amount,
-              currency: p.price.currency,
-            },
-            source: p.source,
-          },
-        ])
-      );
-
-      // Enrich movements with price data
-      const enrichMovement = (movement: unknown) => {
-        const m = movement as { asset: string; priceAtTxTime?: { source: string } };
-        const price = priceMap.get(m.asset);
-
-        if (!price) {
-          return m;
-        }
-
-        // If no existing price, add it
-        if (!m.priceAtTxTime) {
-          return { ...m, priceAtTxTime: price };
-        }
-
-        // Never overwrite exchange-execution (authoritative)
-        if (m.priceAtTxTime.source === 'exchange-execution') {
-          return m;
-        }
-
-        // derived-ratio and link-propagated should overwrite provider prices
-        if (price.source === 'derived-ratio' || price.source === 'link-propagated') {
-          return { ...m, priceAtTxTime: price };
-        }
-
-        // Keep existing price
-        return m;
+      // Build update object using Kysely's Updateable type
+      const updateData: Partial<Updateable<TransactionsTable>> = {
+        movements_inflows: (inflows.length > 0 ? this.serializeToJson(inflows) : null) as string | null,
+        movements_outflows: (outflows.length > 0 ? this.serializeToJson(outflows) : null) as string | null,
+        fees_platform: (transaction.fees.platform ? this.serializeToJson(transaction.fees.platform) : null) as
+          | string
+          | null,
+        fees_network: (transaction.fees.network ? this.serializeToJson(transaction.fees.network) : null) as
+          | string
+          | null,
+        updated_at: this.getCurrentDateTimeForDB(),
       };
 
-      const enrichedInflows = inflows.map(enrichMovement);
-      const enrichedOutflows = outflows.map(enrichMovement);
-      const enrichedPlatformFee = platformFee ? enrichMovement(platformFee) : null;
-      const enrichedNetworkFee = networkFee ? enrichMovement(networkFee) : null;
-
       // Update transaction with enriched movements and fees
-      await this.db
+      const result = await this.db
         .updateTable('transactions')
-        .set({
-          movements_inflows: enrichedInflows.length > 0 ? this.serializeToJson(enrichedInflows) : null,
-          movements_outflows: enrichedOutflows.length > 0 ? this.serializeToJson(enrichedOutflows) : null,
-          fees_platform: enrichedPlatformFee ? this.serializeToJson(enrichedPlatformFee) : null,
-          fees_network: enrichedNetworkFee ? this.serializeToJson(enrichedNetworkFee) : null,
-          updated_at: this.getCurrentDateTimeForDB(),
-        })
-        .where('id', '=', id)
-        .execute();
+        .set(updateData)
+        .where('id', '=', transaction.id)
+        .executeTakeFirst();
+
+      // Verify transaction exists (0 rows updated means ID was invalid)
+      if (result.numUpdatedRows === 0n) {
+        return err(new Error(`Transaction ${transaction.id} not found`));
+      }
 
       // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined for clarity
       return ok(undefined);
@@ -473,7 +415,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       if (!result.success) {
         this.logger.warn(
           {
-            error: result.error.format(),
             issues: result.error.issues,
             jsonString: jsonString.substring(0, 200),
           },
@@ -486,37 +427,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     } catch (error) {
       this.logger.warn({ error, jsonString }, 'Failed to parse movements JSON');
       return [];
-    }
-  }
-
-  /**
-   * Parse a single movement (used for fees)
-   */
-  private parseMovement(jsonString: string | null): AssetMovement | null {
-    if (!jsonString) {
-      return null;
-    }
-
-    try {
-      const parsed: unknown = JSON.parse(jsonString);
-      const result = AssetMovementSchema.safeParse(parsed);
-
-      if (!result.success) {
-        this.logger.warn(
-          {
-            error: result.error.format(),
-            issues: result.error.issues,
-            jsonString: jsonString.substring(0, 200),
-          },
-          'Failed to validate movement JSON'
-        );
-        return null;
-      }
-
-      return result.data;
-    } catch (error) {
-      this.logger.warn({ error, jsonString }, 'Failed to parse movement JSON');
-      return null;
     }
   }
 

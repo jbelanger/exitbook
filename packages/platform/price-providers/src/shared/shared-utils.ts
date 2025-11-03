@@ -6,26 +6,39 @@
  */
 
 import type { Currency } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import { HttpClient } from '@exitbook/platform-http';
+import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import type { PriceData, PriceQuery } from './types/index.ts';
 
 /**
- * Validate a raw price value from an API response
+ * Validate a raw price value from an API response and convert to Decimal
  *
- * @param price - Raw price value (may be undefined or invalid)
+ * @param price - Raw price value (string, number, or undefined from API)
  * @param asset - Asset being priced
  * @param context - Context for error message (e.g., provider name, coin ID)
- * @returns Ok with price if valid, Err if invalid
+ * @returns Ok with Decimal price if valid, Err if invalid
  */
-export function validateRawPrice(price: number | undefined, asset: Currency, context: string): Result<number, Error> {
-  if (price === undefined || price <= 0) {
+export function validateRawPrice(
+  price: string | number | undefined,
+  asset: Currency,
+  context: string
+): Result<Decimal, Error> {
+  // Convert number to string to preserve precision in decimal conversion
+  // Note: For APIs returning JSON numbers (e.g., CoinGecko), precision is already
+  // limited by IEEE 754. For APIs returning strings (e.g., Binance), we preserve full precision.
+  const priceValue = typeof price === 'number' ? price.toString() : price;
+  const decimal = parseDecimal(priceValue);
+
+  if (decimal.lessThanOrEqualTo(0)) {
     const reason = price === undefined ? 'not found' : `invalid (${price}, must be positive)`;
     return err(new Error(`${context} price for ${asset.toString()}: ${reason}`));
   }
-  return ok(price);
+
+  return ok(decimal);
 }
 
 /**
@@ -98,12 +111,12 @@ export function isSameDay(date1: Date, date2: Date): boolean {
  * Pure function - takes current time as parameter for testability
  */
 export function validatePriceData(data: PriceData, now: Date = new Date()): string | undefined {
-  if (data.price <= 0) {
-    return `Invalid price: ${data.price} (must be positive)`;
+  if (data.price.lessThanOrEqualTo(0)) {
+    return `Invalid price: ${data.price.toFixed()} (must be positive)`;
   }
 
-  if (data.price > 1e12) {
-    return `Suspicious price: ${data.price} (unreasonably high)`;
+  if (data.price.greaterThan(1e12)) {
+    return `Suspicious price: ${data.price.toFixed()} (unreasonably high)`;
   }
 
   if (data.timestamp > now) {
@@ -158,17 +171,18 @@ export function deduplicatePrices(prices: PriceData[]): PriceData[] {
 /**
  * Calculate percentage difference between two prices
  */
-export function calculatePriceChange(oldPrice: number, newPrice: number): number {
-  if (oldPrice === 0) return 0;
-  return ((newPrice - oldPrice) / oldPrice) * 100;
+export function calculatePriceChange(oldPrice: Decimal, newPrice: Decimal): Decimal {
+  if (oldPrice.isZero()) return parseDecimal('0');
+  return newPrice.minus(oldPrice).dividedBy(oldPrice).times(100);
 }
 
 /**
  * Format price for display with appropriate decimal places
  */
-export function formatPrice(price: number, currency = 'USD'): string {
+export function formatPrice(price: Decimal, currency = 'USD'): string {
   // Use more decimals for low-value assets
-  const decimals = price < 0.01 ? 8 : price < 1 ? 6 : 2;
+  const priceNum = price.toNumber();
+  const decimals = priceNum < 0.01 ? 8 : priceNum < 1 ? 6 : 2;
 
   return `${currency} ${price.toFixed(decimals)}`;
 }
@@ -178,16 +192,24 @@ export function formatPrice(price: number, currency = 'USD'): string {
  * Returns error message if invalid, undefined if valid
  *
  * Pure function - takes current time as parameter for testability
+ *
+ * @param timestamp - The timestamp to validate
+ * @param now - Current time (for testing)
+ * @param isFiat - Whether this is a fiat currency query (allows historical dates before crypto era)
  */
-export function validateQueryTimeRange(timestamp: Date, now: Date = new Date()): string | undefined {
-  const minDate = new Date('2009-01-03'); // Bitcoin genesis block
+export function validateQueryTimeRange(timestamp: Date, now: Date = new Date(), isFiat = false): string | undefined {
+  const minDate = isFiat
+    ? new Date('1999-01-01') // ECB/Frankfurter historical data starts 1999
+    : new Date('2009-01-03'); // Bitcoin genesis block
 
   if (timestamp > now) {
     return `Cannot fetch future prices: ${timestamp.toISOString()}`;
   }
 
   if (timestamp < minDate) {
-    return `Timestamp before crypto era: ${timestamp.toISOString()}`;
+    return isFiat
+      ? `Timestamp before FX historical data: ${timestamp.toISOString()}`
+      : `Timestamp before crypto era: ${timestamp.toISOString()}`;
   }
 
   return undefined;

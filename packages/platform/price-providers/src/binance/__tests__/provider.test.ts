@@ -46,6 +46,7 @@ vi.mock('../binance-utils.js', async () => {
 
 import { Currency } from '@exitbook/core';
 
+import { createTestPriceData } from '../../__tests__/test-helpers.js';
 import { CoinNotFoundError } from '../../shared/errors.js';
 // Import after mocks so they receive mocked dependencies
 import { BinanceProvider } from '../provider.ts';
@@ -94,7 +95,7 @@ describe('BinanceProvider', () => {
   });
 
   it('returns cached price without hitting the API', async () => {
-    const cachedPrice: PriceData = {
+    const cachedPrice: PriceData = createTestPriceData({
       asset: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       price: 43000,
@@ -102,7 +103,7 @@ describe('BinanceProvider', () => {
       source: 'binance',
       fetchedAt: new Date('2024-01-01T01:00:00Z'),
       granularity: 'minute',
-    };
+    });
 
     priceRepoMocks.getPrice.mockResolvedValueOnce(ok(cachedPrice));
 
@@ -138,7 +139,7 @@ describe('BinanceProvider', () => {
       ],
     ];
 
-    const expectedPrice: PriceData = {
+    const expectedPrice: PriceData = createTestPriceData({
       asset: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       price: 43050,
@@ -146,7 +147,7 @@ describe('BinanceProvider', () => {
       source: 'binance',
       fetchedAt: new Date(),
       granularity: 'minute',
-    };
+    });
 
     mockSelectBinanceInterval.mockReturnValue({ interval: '1m', granularity: 'minute' });
     mockMapCurrencyToBinanceQuote.mockReturnValue(['USDT']);
@@ -215,7 +216,7 @@ describe('BinanceProvider', () => {
       ],
     ];
 
-    const expectedPrice: PriceData = {
+    const expectedPrice: PriceData = createTestPriceData({
       asset: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       fetchedAt: new Date(),
@@ -223,7 +224,7 @@ describe('BinanceProvider', () => {
       price: 43050,
       source: 'binance',
       timestamp: defaultTimestamp,
-    };
+    });
 
     httpClientGet.mockResolvedValueOnce(ok(klineResponse));
     mockTransformBinanceKlineResponse.mockReturnValue(ok(expectedPrice));
@@ -328,7 +329,7 @@ describe('BinanceProvider', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error).toBeInstanceOf(CoinNotFoundError);
-      expect(result.error.message).toContain('returned no data');
+      expect(result.error.message).toContain('Binance does not have data for BTC');
     }
   });
 
@@ -408,8 +409,8 @@ describe('BinanceProvider', () => {
     expect(metadata.name).toBe('binance');
     expect(metadata.displayName).toBe('Binance');
     expect(metadata.requiresApiKey).toBe(false);
-    expect(metadata.capabilities.supportedCurrencies).toContain('USD');
-    expect(metadata.capabilities.supportedCurrencies).toContain('USDT');
+    expect(metadata.capabilities.supportedAssetTypes).toContain('crypto');
+    expect(metadata.capabilities.supportedAssets).toBeUndefined();
     expect(metadata.capabilities.supportedOperations).toContain('fetchPrice');
     expect(metadata.capabilities.granularitySupport).toHaveLength(2);
     expect(metadata.capabilities.granularitySupport?.[0]?.granularity).toBe('minute');

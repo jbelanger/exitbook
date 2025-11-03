@@ -93,7 +93,7 @@ async function executeViewTransactionsCommand(options: ExtendedViewTransactionsC
     // Initialize repository
     const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
 
-    const database = await initializeDatabase(false);
+    const database = await initializeDatabase();
     const txRepo = new TransactionRepository(database);
 
     const handler = new ViewTransactionsHandler(txRepo);

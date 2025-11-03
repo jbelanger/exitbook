@@ -1,10 +1,9 @@
 // Unified prices command for managing cryptocurrency prices
-// Provides a single namespace for price operations (view, derive, fetch)
+// Provides a single namespace for price operations (view, enrich)
 
 import type { Command } from 'commander';
 
-import { registerPricesDeriveCommand } from './prices-derive.ts';
-import { registerPricesFetchCommand } from './prices-fetch.ts';
+import { registerPricesEnrichCommand } from './prices-enrich.ts';
 import { registerPricesViewCommand } from './prices-view.ts';
 
 /**
@@ -12,14 +11,12 @@ import { registerPricesViewCommand } from './prices-view.ts';
  *
  * Structure:
  *   prices view                 - View price coverage statistics
- *   prices derive               - Derive prices from transaction history
- *   prices fetch                - Fetch prices from external providers
+ *   prices enrich               - Unified enrichment pipeline (derive → normalize → fetch → re-derive)
  */
 export function registerPricesCommand(program: Command): void {
-  const prices = program.command('prices').description('Manage cryptocurrency prices (view, derive, fetch)');
+  const prices = program.command('prices').description('Manage cryptocurrency prices (view, enrich)');
 
   // Register subcommands
   registerPricesViewCommand(prices);
-  registerPricesDeriveCommand(prices);
-  registerPricesFetchCommand(prices);
+  registerPricesEnrichCommand(prices);
 }

@@ -11,7 +11,7 @@ import type { PricesDB } from '../persistence/database.ts';
 import { PriceRepository } from '../persistence/repositories/price-repository.js';
 import { ProviderRepository } from '../persistence/repositories/provider-repository.js';
 import { BasePriceProvider } from '../shared/base-provider.js';
-import { CoinNotFoundError } from '../shared/errors.js';
+import { CoinNotFoundError, PriceDataUnavailableError } from '../shared/errors.js';
 import { createProviderHttpClient, type ProviderRateLimitConfig } from '../shared/shared-utils.js';
 import type { PriceData, PriceQuery, ProviderMetadata } from '../shared/types/index.js';
 
@@ -22,6 +22,7 @@ import {
   transformSimplePriceResponse,
 } from './coingecko-utils.js';
 import {
+  CoinGeckoErrorResponseSchema,
   CoinGeckoHistoricalPriceResponseSchema,
   CoinGeckoMarketsSchema,
   CoinGeckoSimplePriceResponseSchema,
@@ -149,7 +150,8 @@ export class CoinGeckoProvider extends BasePriceProvider {
     // Provider metadata
     this.metadata = {
       capabilities: {
-        supportedCurrencies: ['USD', 'EUR', 'GBP', 'JPY', 'BTC', 'ETH'],
+        supportedAssetTypes: ['crypto'],
+        supportedAssets: undefined, // Synced from API (top 5000 coins by market cap)
         supportedOperations: ['fetchPrice'],
         rateLimit: {
           burstLimit: rateLimit.burstLimit,
@@ -405,6 +407,32 @@ export class CoinGeckoProvider extends BasePriceProvider {
         },
       });
       if (httpResult.isErr()) {
+        // Parse CoinGecko error responses
+        const errorMatch = httpResult.error.message.match(/HTTP \d+: (\{.+\})/);
+        if (errorMatch && errorMatch[1]) {
+          try {
+            const parsedError = JSON.parse(errorMatch[1]) as unknown;
+            const errorParse = CoinGeckoErrorResponseSchema.safeParse(parsedError);
+
+            if (errorParse.success) {
+              // Check for coin not found errors
+              const errorMessage = typeof errorParse.data.error === 'string' ? errorParse.data.error : '';
+              if (errorMessage.includes('not found') || errorParse.data.status?.error_code === 404) {
+                return err(
+                  new CoinNotFoundError(
+                    `CoinGecko does not have data for coin ID: ${coinId}`,
+                    asset.toString(),
+                    'coingecko',
+                    { currency: currency.toString() }
+                  )
+                );
+              }
+            }
+          } catch {
+            // If parsing fails, fall through to return original error
+          }
+        }
+
         return err(httpResult.error);
       }
       const rawResponse = httpResult.value;
@@ -414,7 +442,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
         return err(new Error(`Invalid simple price response: ${parseResult.error.message}`));
       }
 
-      // Transform using pure function
+      // Transform
       const priceDataResult = transformSimplePriceResponse(parseResult.data, coinId, asset, timestamp, currency, now);
       if (priceDataResult.isErr()) {
         return err(priceDataResult.error);
@@ -429,7 +457,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
     const isIntradayRequest =
       timestamp.getUTCHours() !== 0 || timestamp.getUTCMinutes() !== 0 || timestamp.getUTCSeconds() !== 0;
     if (isIntradayRequest) {
-      this.logger.warn(
+      this.logger.debug(
         { asset: asset.toString(), timestamp },
         'CoinGecko historical API only provides daily prices - intraday granularity not available'
       );
@@ -447,6 +475,56 @@ export class CoinGeckoProvider extends BasePriceProvider {
       },
     });
     if (httpResult.isErr()) {
+      // Parse CoinGecko error responses for better error messages
+      // HTTP client returns errors as: "HTTP 401: {json body}"
+      const errorMatch = httpResult.error.message.match(/HTTP \d+: (\{.+\})/);
+      if (errorMatch && errorMatch[1]) {
+        try {
+          const parsedError = JSON.parse(errorMatch[1]) as unknown;
+          const errorParse = CoinGeckoErrorResponseSchema.safeParse(parsedError);
+
+          if (errorParse.success) {
+            const { error, status } = errorParse.data;
+
+            // Extract status from either format
+            const statusObj = typeof error === 'object' ? error.status : status;
+            const errorString = typeof error === 'string' ? error : '';
+
+            // Check for date range limitation (error_code 10012)
+            if (statusObj?.error_code === 10012) {
+              const errorMsg = statusObj.error_message || 'Date out of range for free tier';
+              return err(
+                new PriceDataUnavailableError(
+                  `CoinGecko free tier limitation: ${errorMsg}`,
+                  asset.toString(),
+                  'coingecko',
+                  'tier-limitation',
+                  {
+                    currency: currency.toString(),
+                    timestamp,
+                    suggestion: 'Upgrade to paid plan or use another provider for historical data > 365 days',
+                  }
+                )
+              );
+            }
+
+            // Check for coin not found errors
+            if (errorString.includes('not found') || statusObj?.error_code === 404) {
+              return err(
+                new CoinNotFoundError(
+                  `CoinGecko does not have data for coin ID: ${coinId}`,
+                  asset.toString(),
+                  'coingecko',
+                  { currency: currency.toString() }
+                )
+              );
+            }
+          }
+        } catch {
+          // If parsing fails, fall through to return original error
+        }
+      }
+
       return err(httpResult.error);
     }
     const rawResponse = httpResult.value;
@@ -456,7 +534,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
       return err(new Error(`Invalid historical price response: ${parseResult.error.message}`));
     }
 
-    // Transform using pure function
+    // Transform
     const priceDataResult = transformHistoricalResponse(parseResult.data, asset, timestamp, currency, now);
     if (priceDataResult.isErr()) {
       return err(priceDataResult.error);

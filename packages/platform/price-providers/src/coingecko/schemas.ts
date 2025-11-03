@@ -67,9 +67,19 @@ export type CoinGeckoSimplePriceResponse = z.infer<typeof CoinGeckoSimplePriceRe
 
 /**
  * CoinGecko error response
+ * Handles both formats by making error field flexible
  */
 export const CoinGeckoErrorResponseSchema = z.object({
-  error: z.string(),
+  error: z.union([
+    z.string(),
+    z.object({
+      status: z.object({
+        timestamp: z.string().optional(),
+        error_code: z.number(),
+        error_message: z.string(),
+      }),
+    }),
+  ]),
   status: z
     .object({
       error_code: z.number().optional(),

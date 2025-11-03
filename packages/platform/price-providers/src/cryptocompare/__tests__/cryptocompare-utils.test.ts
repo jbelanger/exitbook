@@ -4,7 +4,7 @@
  * Pure function tests - no mocks needed
  */
 
-import { Currency } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -34,7 +34,7 @@ describe('transformPriceResponse', () => {
       expect(result.value).toEqual({
         asset,
         timestamp,
-        price: 30000,
+        price: parseDecimal('30000'),
         currency,
         source: 'cryptocompare',
         fetchedAt,
@@ -54,8 +54,7 @@ describe('transformPriceResponse', () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error.message).toContain('CryptoCompare price for BTC');
-      expect(result.error.message).toContain('not found');
+      expect(result.error.message).toContain('CryptoCompare does not have current price data for BTC');
     }
   });
 
@@ -70,9 +69,7 @@ describe('transformPriceResponse', () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error.message).toContain('CryptoCompare price for CFG');
-      expect(result.error.message).toContain('invalid');
-      expect(result.error.message).toContain('must be positive');
+      expect(result.error.message).toContain('CryptoCompare does not have current price data for CFG');
     }
   });
 
@@ -216,7 +213,7 @@ describe('transformHistoricalResponse', () => {
       expect(result.value).toEqual({
         asset,
         timestamp: new Date(2000 * 1000 - 20 * 1000), // Rounded to minute (1970-01-01T00:33:00Z)
-        price: 108, // close price at time 2000
+        price: parseDecimal('108'), // close price at time 2000
         currency,
         source: 'cryptocompare',
         fetchedAt,
@@ -336,9 +333,7 @@ describe('transformHistoricalResponse', () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error.message).toContain('price for BTC');
-      expect(result.error.message).toContain('invalid');
-      expect(result.error.message).toContain('must be positive');
+      expect(result.error.message).toContain('CryptoCompare does not have price data for BTC on 1970-01-01');
     }
   });
 

@@ -86,7 +86,7 @@ async function executeViewPricesCommand(options: ExtendedViewPricesCommandOption
     // Initialize repository
     const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
 
-    const database = await initializeDatabase(false);
+    const database = await initializeDatabase();
     const txRepo = new TransactionRepository(database);
 
     const handler = new ViewPricesHandler(txRepo);
@@ -129,7 +129,7 @@ function handleViewPricesSuccess(
 
   // Display text output
   if (output.isTextMode()) {
-    console.log(formatPriceCoverageListForDisplay(result));
+    console.log(formatPriceCoverageListForDisplay(result, params.missingOnly));
   }
 
   // Prepare result data for JSON mode

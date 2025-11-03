@@ -398,7 +398,7 @@ export class LotMatcher {
             return err(
               new Error(
                 `Fee in ${fee.asset} cannot be converted to ${targetPriceCurrency.toString()} without exchange rate. ` +
-                  `Transaction: ${transaction.id}, Fee amount: ${fee.amount.toString()}`
+                  `Transaction: ${transaction.id}, Fee amount: ${fee.amount.toFixed()}`
               )
             );
           }
@@ -407,7 +407,7 @@ export class LotMatcher {
           return err(
             new Error(
               `Fee in ${fee.asset} missing priceAtTxTime. Cost basis calculation requires all crypto fees to be priced. ` +
-                `Transaction: ${transaction.id}, Fee amount: ${fee.amount.toString()}`
+                `Transaction: ${transaction.id}, Fee amount: ${fee.amount.toFixed()}`
             )
           );
         }

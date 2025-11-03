@@ -1,4 +1,5 @@
 import type { Currency } from '@exitbook/core';
+import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 
 /**
@@ -34,7 +35,17 @@ export type PriceGranularity = 'exact' | HistoricalGranularity;
 export interface PriceData {
   asset: Currency;
   timestamp: Date;
-  price: number;
+  price: Decimal;
+  /**
+   * Currency denomination of the price
+   *
+   * Always USD (per ADR-003)
+   *
+   * BasePriceProvider automatically converts stablecoin-denominated prices
+   * (USDT, USDC, etc.) to USD to capture de-peg events. Providers may fetch
+   * prices in stablecoin pairs internally, but the returned data is always
+   * normalized to USD.
+   */
   currency: Currency;
   source: string; // Provider name
   fetchedAt: Date;
@@ -75,15 +86,43 @@ export interface GranularitySupport {
 }
 
 /**
+ * Asset types that providers can support
+ */
+export type AssetType = 'crypto' | 'fiat';
+
+/**
  * Provider capabilities metadata
  */
 export interface ProviderCapabilities {
   /** Operations supported by this provider */
   supportedOperations: PriceProviderOperation[];
-  /** Supported currencies */
-  supportedCurrencies: string[];
+
+  /** Asset types this provider supports (crypto, fiat, or both) */
+  supportedAssetTypes: AssetType[];
+
+  /**
+   * Specific assets this provider can price (SOURCE assets in query)
+   *
+   * If undefined/empty: Provider supports ALL assets of the declared supportedAssetTypes
+   * If specified: Provider only supports these specific assets
+   *
+   * Note: All providers return prices denominated in USD (per ADR-003)
+   *
+   * Examples:
+   * - AlphaVantage: undefined = supports all fiat currencies
+   * - ECB: ['EUR', 'GBP', 'JPY', ...] = supports ~30 European/major currencies
+   * - Bank of Canada: ['CAD'] = only Canadian dollar
+   * - CoinGecko: undefined = synced from API, supports top 5000+ coins
+   *
+   * For query { asset: 'EUR', currency: 'USD', timestamp: ... }:
+   * - supportedAssetTypes must include 'fiat'
+   * - supportedAssets must include 'EUR' (or be undefined for universal provider)
+   */
+  supportedAssets?: string[] | undefined;
+
   /** Rate limit configuration */
   rateLimit: ProviderRateLimit;
+
   /** Granularity support - defines what historical data precision is available */
   granularitySupport?: GranularitySupport[] | undefined;
 }
