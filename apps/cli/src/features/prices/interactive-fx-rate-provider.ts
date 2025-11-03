@@ -11,7 +11,7 @@ import type { Currency } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
-import { promptManualFxRate } from '../features/prices/prices-prompts.ts';
+import { promptManualFxRate } from './prices-prompts.ts';
 
 /**
  * Interactive FX rate provider
