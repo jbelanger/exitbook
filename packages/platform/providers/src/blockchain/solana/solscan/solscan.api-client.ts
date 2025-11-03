@@ -122,7 +122,7 @@ export class SolscanApiClient extends BaseApiClient {
 
     // Convert from lamports to SOL (1 SOL = 10^9 lamports)
     const lamports = response.data.lamports || '0';
-    const balanceSOL = parseDecimal(lamports).div(parseDecimal('10').pow(9)).toString();
+    const balanceSOL = parseDecimal(lamports).div(parseDecimal('10').pow(9)).toFixed();
 
     this.logger.debug(
       `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceSOL}`

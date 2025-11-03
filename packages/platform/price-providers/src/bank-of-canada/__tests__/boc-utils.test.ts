@@ -62,17 +62,14 @@ describe('transformBoCResponse', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      // CAD/USD = 1 / 1.3500 = 0.7407407407407407
-      expect(result.value).toEqual({
-        asset,
-        timestamp,
-        price: 1 / 1.35,
-        currency,
-        source: 'bank-of-canada',
-        fetchedAt,
-        granularity: 'day',
-      });
-      expect(result.value.price).toBeCloseTo(0.7407, 4);
+      // CAD/USD = 1 / 1.3500 = 0.7407407407407407...
+      expect(result.value.asset).toBe(asset);
+      expect(result.value.timestamp).toEqual(timestamp);
+      expect(result.value.currency).toBe(currency);
+      expect(result.value.source).toBe('bank-of-canada');
+      expect(result.value.fetchedAt).toEqual(fetchedAt);
+      expect(result.value.granularity).toBe('day');
+      expect(result.value.price.toNumber()).toBeCloseTo(0.7407, 4);
     }
   });
 
@@ -166,7 +163,7 @@ describe('transformBoCResponse', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       // CAD/USD = 1 / 1.34567891
-      expect(result.value.price).toBeCloseTo(0.7431, 4);
+      expect(result.value.price.toNumber()).toBeCloseTo(0.7431, 4);
     }
   });
 
@@ -188,7 +185,7 @@ describe('transformBoCResponse', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.price).toBeCloseTo(0.7143, 4);
+      expect(result.value.price.toNumber()).toBeCloseTo(0.7143, 4);
     }
   });
 
@@ -208,9 +205,9 @@ describe('transformBoCResponse', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.price).toBeCloseTo(0.755, 4);
-      expect(result.value.price).toBeGreaterThan(0);
-      expect(result.value.price).toBeLessThan(1); // CAD typically worth less than USD
+      expect(result.value.price.toNumber()).toBeCloseTo(0.755, 4);
+      expect(result.value.price.toNumber()).toBeGreaterThan(0);
+      expect(result.value.price.toNumber()).toBeLessThan(1); // CAD typically worth less than USD
     }
   });
 
@@ -237,7 +234,7 @@ describe('transformBoCResponse', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       // Should use 1.3500, not 1.3600
-      expect(result.value.price).toBeCloseTo(0.7407, 4);
+      expect(result.value.price.toNumber()).toBeCloseTo(0.7407, 4);
     }
   });
 });

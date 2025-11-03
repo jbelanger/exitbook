@@ -19,7 +19,7 @@
  */
 
 import type { AssetMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
-import { Currency, parseDecimal, wrapError } from '@exitbook/core';
+import { Currency, wrapError } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import type { PriceProviderManager } from '@exitbook/platform-price-providers';
 import { getLogger } from '@exitbook/shared-logger';
@@ -287,10 +287,10 @@ export class PriceNormalizationService {
     }
 
     const fxData = fxRateResult.value.data;
-    const fxRate = parseDecimal(fxData.price.toString());
+    const fxRate = fxData.price;
 
     // Convert price to USD
-    const usdAmount = parseDecimal(sourceAmount.toFixed()).times(fxRate);
+    const usdAmount = sourceAmount.times(fxRate);
 
     // Create normalized price with FX metadata
     const normalizedPrice: PriceAtTxTime = {

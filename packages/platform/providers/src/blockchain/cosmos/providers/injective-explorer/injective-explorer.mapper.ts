@@ -62,7 +62,7 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
     ) {
       const firstFee = rawData.gas_fee.amount[0];
       if (firstFee && firstFee.amount && firstFee.denom) {
-        feeAmount = parseDecimal(firstFee.amount).div(Math.pow(10, 18)).toString();
+        feeAmount = parseDecimal(firstFee.amount).div(Math.pow(10, 18)).toFixed();
         feeCurrency = this.formatDenom(firstFee.denom);
       }
     }
@@ -113,7 +113,7 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
         if (message.value.amount && Array.isArray(message.value.amount) && message.value.amount.length > 0) {
           const transferAmount = message.value.amount[0];
           if (transferAmount) {
-            amount = parseDecimal(transferAmount.amount).div(Math.pow(10, 18)).toString();
+            amount = parseDecimal(transferAmount.amount).div(Math.pow(10, 18)).toFixed();
             currency = this.formatDenom(transferAmount.denom);
             tokenType = 'native';
             tokenSymbol = currency;
@@ -139,7 +139,7 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
         sourcePort = message.value.source_port;
 
         if (message.value.token) {
-          amount = parseDecimal(message.value.token.amount).div(Math.pow(10, 18)).toString();
+          amount = parseDecimal(message.value.token.amount).div(Math.pow(10, 18)).toFixed();
           currency = this.formatDenom(message.value.token.denom);
           tokenType = 'ibc';
           tokenSymbol = currency;
@@ -167,7 +167,7 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
           if (message.value.funds && Array.isArray(message.value.funds) && message.value.funds.length > 0) {
             const fund = message.value.funds[0];
             if (fund && fund.amount && fund.denom) {
-              amount = parseDecimal(fund.amount).div(Math.pow(10, 18)).toString();
+              amount = parseDecimal(fund.amount).div(Math.pow(10, 18)).toFixed();
               currency = this.formatDenom(fund.denom);
               tokenType = 'native';
               tokenSymbol = currency;
@@ -219,7 +219,7 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
 
           // Extract amount from the withdrawal
           if (messageValue.amount && messageValue.amount.amount && messageValue.amount.denom) {
-            amount = parseDecimal(messageValue.amount.amount).div(Math.pow(10, 18)).toString();
+            amount = parseDecimal(messageValue.amount.amount).div(Math.pow(10, 18)).toFixed();
             currency = this.formatDenom(messageValue.amount.denom);
             tokenType = 'native';
             tokenSymbol = currency;
@@ -264,7 +264,7 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
             } else if (typeof (messageValue.amount as InjectiveAmount)?.amount === 'string') {
               amountValue = (messageValue.amount as InjectiveAmount).amount;
             }
-            amount = parseDecimal(amountValue).div(Math.pow(10, 18)).toString();
+            amount = parseDecimal(amountValue).div(Math.pow(10, 18)).toFixed();
             currency = 'INJ';
             tokenAddress = messageValue.token_contract;
             tokenType = 'native';

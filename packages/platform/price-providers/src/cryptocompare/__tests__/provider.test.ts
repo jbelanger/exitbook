@@ -31,7 +31,7 @@ vi.mock('../cryptocompare-utils.js', async () => {
   };
 });
 
-import { Currency } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 
 // Import after mocks so they receive mocked dependencies
 import { CryptoCompareProvider } from '../provider.ts';
@@ -81,7 +81,7 @@ describe('CryptoCompareProvider', () => {
       const cachedPrice: PriceData = {
         asset: Currency.create('BTC'),
         currency: Currency.create('USD'),
-        price: 30123.45,
+        price: parseDecimal('30123.45'),
         timestamp: defaultTimestamp,
         source: 'cryptocompare',
         fetchedAt: new Date('2024-01-01T01:00:00Z'),
@@ -113,7 +113,7 @@ describe('CryptoCompareProvider', () => {
       const expectedPrice: PriceData = {
         asset: Currency.create('BTC'),
         currency: Currency.create('USD'),
-        price: 30200,
+        price: parseDecimal('30200'),
         timestamp: defaultTimestamp,
         source: 'cryptocompare',
         fetchedAt: new Date('2024-01-01T02:00:00Z'),
@@ -176,7 +176,7 @@ describe('CryptoCompareProvider', () => {
       const expectedPrice: PriceData = {
         asset: Currency.create('BTC'),
         currency: Currency.create('USD'),
-        price: 9000,
+        price: parseDecimal('9000'),
         timestamp: historicalTimestamp,
         source: 'cryptocompare',
         fetchedAt: new Date('2020-05-22T00:00:00Z'),
@@ -221,7 +221,7 @@ describe('CryptoCompareProvider', () => {
       const expectedPrice: PriceData = {
         asset: Currency.create('BTC'),
         currency: Currency.create('USD'),
-        price: 30200,
+        price: parseDecimal('30200'),
         timestamp: defaultTimestamp,
         source: 'cryptocompare',
         fetchedAt: new Date('2024-01-01T02:00:00Z'),

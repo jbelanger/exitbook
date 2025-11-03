@@ -531,7 +531,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     }
 
     try {
-      return parseDecimal(amountPlanck).dividedBy(parseDecimal('10').pow(this.chainConfig.nativeDecimals)).toString();
+      return parseDecimal(amountPlanck).dividedBy(parseDecimal('10').pow(this.chainConfig.nativeDecimals)).toFixed();
     } catch (error) {
       this.logger.warn(`Unable to normalize amount: ${String(error)}`);
       return '0';

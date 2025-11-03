@@ -13,7 +13,7 @@
  */
 
 import type { Currency } from '@exitbook/core';
-import { wrapError } from '@exitbook/core';
+import { parseDecimal, wrapError } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/platform-http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -146,7 +146,7 @@ export class FrankfurterProvider extends BasePriceProvider {
         return ok({
           asset,
           timestamp,
-          price: 1.0,
+          price: parseDecimal('1'),
           currency,
           source: 'frankfurter',
           fetchedAt: new Date(),

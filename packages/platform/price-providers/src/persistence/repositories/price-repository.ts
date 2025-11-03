@@ -2,7 +2,7 @@
  * Price repository - manages cached price data
  */
 
-import { Currency } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
@@ -111,7 +111,7 @@ export class PriceRepository {
           asset_symbol: priceData.asset.toString(),
           currency: priceData.currency.toString(),
           timestamp: timestampStr,
-          price: priceData.price.toString(),
+          price: priceData.price.toFixed(),
           source_provider: priceData.source,
           provider_coin_id: providerCoinId ?? undefined,
           granularity: priceData.granularity ?? undefined,
@@ -119,7 +119,7 @@ export class PriceRepository {
         })
         .onConflict((oc) =>
           oc.columns(['asset_symbol', 'currency', 'timestamp']).doUpdateSet({
-            price: priceData.price.toString(),
+            price: priceData.price.toFixed(),
             source_provider: priceData.source,
             provider_coin_id: providerCoinId ?? undefined,
             granularity: priceData.granularity ?? undefined,
@@ -228,7 +228,7 @@ export class PriceRepository {
       asset: Currency.create(record.asset_symbol),
       currency: Currency.create(record.currency),
       timestamp: new Date(record.timestamp),
-      price: parseFloat(record.price),
+      price: parseDecimal(record.price),
       source: record.source_provider,
       fetchedAt: new Date(record.fetched_at),
       granularity: record.granularity as 'minute' | 'hour' | 'day' | undefined,

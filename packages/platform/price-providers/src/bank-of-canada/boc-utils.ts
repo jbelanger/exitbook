@@ -5,6 +5,8 @@
  */
 
 import type { Currency } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -46,17 +48,17 @@ export function transformBoCResponse(
     return err(new Error('Empty observation in Bank of Canada response'));
   }
 
-  // Extract rate value
+  // Extract rate value (preserve precision by using Decimal from string)
   const rateStr = observation.FXUSDCAD.v;
-  const rate = Number.parseFloat(rateStr);
+  const usdCadRate = parseDecimal(rateStr);
 
-  if (Number.isNaN(rate) || rate <= 0) {
+  if (usdCadRate.lessThanOrEqualTo(0)) {
     return err(new Error(`Invalid exchange rate: ${rateStr}`));
   }
 
   // Bank of Canada provides USD/CAD rate
   // We need CAD/USD (reciprocal) for consistency with other providers
-  const cadToUsdRate = 1 / rate;
+  const cadToUsdRate = new Decimal(1).dividedBy(usdCadRate);
 
   return ok({
     asset,

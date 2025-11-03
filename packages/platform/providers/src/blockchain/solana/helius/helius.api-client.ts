@@ -246,7 +246,7 @@ export class HeliusApiClient extends BaseApiClient {
     // Convert from lamports to SOL (1 SOL = 10^9 lamports)
     const balanceSOL = parseDecimal(response.result.value?.toString() || '0')
       .div(parseDecimal('10').pow(9))
-      .toString();
+      .toFixed();
 
     this.logger.debug(
       `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceSOL}`

@@ -287,7 +287,7 @@ function convertRawBalance(balance: RawBalanceData): { amount: string; currency:
     amount = balance.decimalAmount;
   } else if (balance.rawAmount !== undefined && balance.decimals !== undefined) {
     try {
-      amount = parseDecimal(balance.rawAmount).div(parseDecimal('10').pow(balance.decimals)).toString();
+      amount = parseDecimal(balance.rawAmount).div(parseDecimal('10').pow(balance.decimals)).toFixed();
     } catch {
       amount = balance.rawAmount;
     }

@@ -53,7 +53,7 @@ export class BlockchainComTransactionMapper extends BaseRawDataMapper<Blockchain
       normalized.blockHeight = rawData.block_height;
     }
     if (rawData.fee > 0) {
-      const btcFee = parseDecimal(rawData.fee.toString()).div(100000000).toString();
+      const btcFee = parseDecimal(rawData.fee.toString()).div(100000000).toFixed();
       normalized.feeAmount = btcFee;
       normalized.feeCurrency = 'BTC';
     }

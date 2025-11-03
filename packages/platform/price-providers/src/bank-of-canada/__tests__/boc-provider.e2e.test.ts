@@ -1,6 +1,7 @@
 import { Currency } from '@exitbook/core';
 import { configureLogger } from '@exitbook/shared-logger';
 import Database from 'better-sqlite3';
+import { Decimal } from 'decimal.js';
 import { Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -78,9 +79,9 @@ describe('Bank of Canada Provider E2E', () => {
       const priceData = result.value;
       expect(priceData.asset.toString()).toBe('CAD');
       expect(priceData.currency.toString()).toBe('USD');
-      expect(priceData.price).toBeGreaterThan(0);
-      expect(priceData.price).toBeGreaterThan(0.5); // CAD typically worth more than 0.5 USD
-      expect(priceData.price).toBeLessThan(1); // CAD typically worth less than 1 USD
+      expect(priceData.price.greaterThan(0)).toBe(true);
+      expect(priceData.price.greaterThan(0.5)).toBe(true); // CAD typically worth more than 0.5 USD
+      expect(priceData.price.lessThan(1)).toBe(true); // CAD typically worth less than 1 USD
       expect(priceData.source).toBe('bank-of-canada');
       expect(priceData.granularity).toBe('day');
     }
@@ -99,7 +100,7 @@ describe('Bank of Canada Provider E2E', () => {
       const priceData = result.value;
       expect(priceData.asset.toString()).toBe('CAD');
       expect(priceData.currency.toString()).toBe('USD');
-      expect(priceData.price).toBeGreaterThan(0);
+      expect(priceData.price.greaterThan(0)).toBe(true);
       expect(priceData.source).toBe('bank-of-canada');
       expect(priceData.granularity).toBe('day');
     }
@@ -118,7 +119,7 @@ describe('Bank of Canada Provider E2E', () => {
       const priceData = result.value;
       expect(priceData.asset.toString()).toBe('CAD');
       expect(priceData.currency.toString()).toBe('USD');
-      expect(priceData.price).toBeGreaterThan(0);
+      expect(priceData.price.greaterThan(0)).toBe(true);
       expect(priceData.source).toBe('bank-of-canada');
     }
   }, 30000);
@@ -237,9 +238,9 @@ describe('Bank of Canada Provider E2E', () => {
       const priceData = result.value;
       // Verify the inversion makes sense
       // If CAD/USD is 0.75, then USD/CAD should be 1.33
-      const expectedUsdCad = 1 / priceData.price;
-      expect(expectedUsdCad).toBeGreaterThan(1); // USD/CAD typically > 1
-      expect(expectedUsdCad).toBeLessThan(2); // USD/CAD typically < 2
+      const expectedUsdCad = new Decimal(1).dividedBy(priceData.price);
+      expect(expectedUsdCad.greaterThan(1)).toBe(true); // USD/CAD typically > 1
+      expect(expectedUsdCad.lessThan(2)).toBe(true); // USD/CAD typically < 2
     }
   }, 30000);
 });

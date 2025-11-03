@@ -336,7 +336,7 @@ export class MoralisApiClient extends BaseApiClient {
     const balances: RawBalanceData[] = [];
     for (const balance of rawBalances) {
       // Convert from smallest units to decimal string
-      const balanceDecimal = parseDecimal(balance.balance).div(parseDecimal('10').pow(balance.decimals)).toString();
+      const balanceDecimal = parseDecimal(balance.balance).div(parseDecimal('10').pow(balance.decimals)).toFixed();
 
       balances.push({
         rawAmount: balance.balance,

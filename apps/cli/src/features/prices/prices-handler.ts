@@ -1,7 +1,7 @@
 // Imperative shell for prices command
 // Manages resources (database, price providers) and orchestrates business logic
 
-import { Currency, parseDecimal } from '@exitbook/core';
+import { Currency } from '@exitbook/core';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
 import {
@@ -208,7 +208,7 @@ export class PricesFetchHandler {
           fetchedAt: priceData.fetchedAt,
           granularity: priceData.granularity,
           price: {
-            amount: parseDecimal(priceData.price.toString()),
+            amount: priceData.price,
             currency: priceData.currency,
           },
           source: priceData.source,

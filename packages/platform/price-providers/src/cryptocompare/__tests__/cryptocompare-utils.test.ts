@@ -4,7 +4,7 @@
  * Pure function tests - no mocks needed
  */
 
-import { Currency } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -34,7 +34,7 @@ describe('transformPriceResponse', () => {
       expect(result.value).toEqual({
         asset,
         timestamp,
-        price: 30000,
+        price: parseDecimal('30000'),
         currency,
         source: 'cryptocompare',
         fetchedAt,
@@ -216,7 +216,7 @@ describe('transformHistoricalResponse', () => {
       expect(result.value).toEqual({
         asset,
         timestamp: new Date(2000 * 1000 - 20 * 1000), // Rounded to minute (1970-01-01T00:33:00Z)
-        price: 108, // close price at time 2000
+        price: parseDecimal('108'), // close price at time 2000
         currency,
         source: 'cryptocompare',
         fetchedAt,

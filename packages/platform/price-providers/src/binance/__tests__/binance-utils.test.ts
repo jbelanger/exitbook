@@ -4,7 +4,7 @@
  * Pure function tests - no mocks needed
  */
 
-import { Currency } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -141,7 +141,7 @@ describe('extractClosePriceFromKline', () => {
 
     const result = extractClosePriceFromKline(kline);
 
-    expect(result).toBe(0.015771);
+    expect(result).toBe('0.01577100');
   });
 
   it('extracts integer close price', () => {
@@ -162,7 +162,7 @@ describe('extractClosePriceFromKline', () => {
 
     const result = extractClosePriceFromKline(kline);
 
-    expect(result).toBe(47500);
+    expect(result).toBe('47500.00');
   });
 
   it('handles very small prices', () => {
@@ -183,7 +183,7 @@ describe('extractClosePriceFromKline', () => {
 
     const result = extractClosePriceFromKline(kline);
 
-    expect(result).toBe(0.00000015);
+    expect(result).toBe('0.00000015');
   });
 });
 
@@ -216,7 +216,7 @@ describe('transformBinanceKlineResponse', () => {
       expect(result.value).toEqual({
         asset,
         timestamp: new Date('2024-01-01T12:34:00Z'), // Rounded to minute
-        price: 47500,
+        price: parseDecimal('47500'),
         currency,
         source: 'binance',
         fetchedAt,
@@ -253,7 +253,7 @@ describe('transformBinanceKlineResponse', () => {
       expect(result.value).toEqual({
         asset,
         timestamp: new Date('2024-01-15T00:00:00Z'), // Rounded to day
-        price: 3550,
+        price: parseDecimal('3550'),
         currency,
         source: 'binance',
         fetchedAt,

@@ -4,7 +4,7 @@
  * Pure function tests - no mocks needed
  */
 
-import { Currency } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { buildECBFlowRef, formatECBDate, transformECBResponse } from '../ecb-utils.js';
@@ -99,7 +99,7 @@ describe('transformECBResponse', () => {
       expect(result.value).toEqual({
         asset,
         timestamp,
-        price: 1.0856,
+        price: parseDecimal('1.0856'),
         currency,
         source: 'ecb',
         fetchedAt,
@@ -288,7 +288,7 @@ describe('transformECBResponse', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       // Should use the first series key
-      expect(result.value.price).toBe(1.0856);
+      expect(result.value.price.toNumber()).toBe(1.0856);
     }
   });
 
@@ -316,7 +316,7 @@ describe('transformECBResponse', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.price).toBe(0.000123);
+      expect(result.value.price.toNumber()).toBe(0.000123);
     }
   });
 
@@ -344,7 +344,7 @@ describe('transformECBResponse', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.price).toBe(156.789);
+      expect(result.value.price.toNumber()).toBe(156.789);
     }
   });
 });

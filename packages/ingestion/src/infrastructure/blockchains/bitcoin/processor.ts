@@ -83,7 +83,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
                       asset: 'BTC',
                       // Subtract fee from outflow to avoid double-counting
                       // walletInput already includes the fee, so we remove it here
-                      amount: parseDecimal(parseDecimal(fundFlow.walletInput).minus(feeAmount).toString()),
+                      amount: parseDecimal(fundFlow.walletInput).minus(feeAmount),
                     },
                   ]
                 : [],
