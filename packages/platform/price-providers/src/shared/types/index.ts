@@ -39,11 +39,12 @@ export interface PriceData {
   /**
    * Currency denomination of the price
    *
-   * Target: Always USD after enrichment (per ADR-003)
-   * Current: May be USDT/BUSD from Binance (used as USD proxy)
+   * Always USD (per ADR-003)
    *
-   * Note: Stablecoin prices (USDT, USDC) should eventually be converted
-   * to actual USD to capture de-peg events, but this is not yet implemented.
+   * BasePriceProvider automatically converts stablecoin-denominated prices
+   * (USDT, USDC, etc.) to USD to capture de-peg events. Providers may fetch
+   * prices in stablecoin pairs internally, but the returned data is always
+   * normalized to USD.
    */
   currency: Currency;
   source: string; // Provider name

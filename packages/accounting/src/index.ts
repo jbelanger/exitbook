@@ -35,6 +35,11 @@ export type { IJurisdictionRules } from './jurisdictions/base-rules.js';
 export { CanadaRules } from './jurisdictions/canada-rules.js';
 export { USRules } from './jurisdictions/us-rules.js';
 
+// Reports
+export type { CostBasisReport, ConvertedLotDisposal, FxConversionMetadata } from './reports/types.js';
+export { CostBasisReportGenerator } from './reports/cost-basis-report-generator.js';
+export type { ReportGeneratorConfig } from './reports/cost-basis-report-generator.js';
+
 // Transaction linking
 export type {
   LinkType,

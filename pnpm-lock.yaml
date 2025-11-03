@@ -187,6 +187,28 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/env:
+    dependencies:
+      zod:
+        specifier: ^4.1.12
+        version: 4.1.12
+    devDependencies:
+      '@types/node':
+        specifier: ^24.7.2
+        version: 24.7.2
+      prettier:
+        specifier: ^3.6.2
+        version: 3.6.2
+      tsconfig:
+        specifier: workspace:*
+        version: link:../shared/tsconfig
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.5
+        version: 3.2.4(@types/node@24.7.2)(@vitest/ui@3.2.4)(jiti@2.6.1)(tsx@4.20.6)(yaml@2.8.1)
+
   packages/ingestion:
     dependencies:
       '@exitbook/core':
@@ -235,6 +257,9 @@ importers:
       '@exitbook/core':
         specifier: workspace:*
         version: link:../../core
+      '@exitbook/env':
+        specifier: workspace:*
+        version: link:../../env
       '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../logger
@@ -365,6 +390,9 @@ importers:
       '@exitbook/core':
         specifier: workspace:*
         version: link:../../core
+      '@exitbook/env':
+        specifier: workspace:*
+        version: link:../../env
       '@exitbook/platform-http':
         specifier: workspace:*
         version: link:../http

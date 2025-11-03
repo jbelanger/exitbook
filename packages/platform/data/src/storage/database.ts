@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import { getDataDirectory } from '@exitbook/env';
 import { getLogger } from '@exitbook/shared-logger';
 import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect } from 'kysely';
@@ -53,7 +54,7 @@ function wrapSqliteDatabase(db: Database.Database): Database.Database {
  * Create and configure database instance
  */
 export function createDatabase(dbPath?: string): Kysely<DatabaseSchema> {
-  const defaultPath = path.join(process.cwd(), 'data', 'transactions.db');
+  const defaultPath = path.join(getDataDirectory(), 'transactions.db');
   const finalPath = dbPath || defaultPath;
 
   // Ensure data directory exists

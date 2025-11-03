@@ -10,9 +10,10 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { isErrorWithMessage, wrapError } from '@exitbook/core';
+import { getDataDirectory } from '@exitbook/env';
 import { getLogger } from '@exitbook/shared-logger';
 import Database from 'better-sqlite3';
-import { Kysely, Migrator, SqliteDialect, FileMigrationProvider } from 'kysely';
+import { FileMigrationProvider, Kysely, Migrator, SqliteDialect } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -29,7 +30,7 @@ const __dirname = path.dirname(__filename);
  */
 export function createPricesDatabase(dbPath?: string): Result<Kysely<PricesDatabase>, Error> {
   try {
-    const defaultPath = path.join(process.cwd(), 'data', 'prices.db');
+    const defaultPath = path.join(getDataDirectory(), 'prices.db');
     const finalPath = dbPath || defaultPath;
 
     // Ensure data directory exists

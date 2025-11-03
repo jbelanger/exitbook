@@ -1,8 +1,16 @@
-import type { CostBasisSummary } from '@exitbook/accounting';
-import { CanadaRules, CostBasisCalculator, CostBasisRepository, USRules } from '@exitbook/accounting';
+import type { CostBasisReport, CostBasisSummary } from '@exitbook/accounting';
+import {
+  CanadaRules,
+  CostBasisCalculator,
+  CostBasisReportGenerator,
+  CostBasisRepository,
+  StandardFxRateProvider,
+  USRules,
+} from '@exitbook/accounting';
 import { Currency, type UniversalTransaction } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import { TransactionRepository } from '@exitbook/data';
+import { createPriceProviderManager } from '@exitbook/platform-price-providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -22,6 +30,8 @@ export interface CostBasisResult {
   summary: CostBasisSummary;
   /** Warning if any transactions are missing prices */
   missingPricesWarning?: string | undefined;
+  /** Report with display currency conversion (if displayCurrency != USD) */
+  report?: CostBasisReport | undefined;
 }
 
 /**
@@ -133,13 +143,51 @@ export class CostBasisHandler {
         'Cost basis calculation completed'
       );
 
-      // Build result with optional warning
+      // Generate report with display currency conversion if needed
+      let report: CostBasisReport | undefined;
+      if (config.currency !== 'USD') {
+        logger.info({ displayCurrency: config.currency }, 'Generating report with currency conversion');
+
+        // Create price provider manager and FX rate provider
+        const priceManagerResult = await createPriceProviderManager();
+        if (priceManagerResult.isErr()) {
+          return err(new Error(`Failed to create price provider manager: ${priceManagerResult.error.message}`));
+        }
+
+        const priceManager = priceManagerResult.value;
+        const fxProvider = new StandardFxRateProvider(priceManager);
+
+        // Generate report
+        const reportGenerator = new CostBasisReportGenerator(this.costBasisRepository, fxProvider);
+        const reportResult = await reportGenerator.generateReport({
+          calculationId: summary.calculation.id,
+          displayCurrency: config.currency,
+        });
+
+        if (reportResult.isErr()) {
+          return err(reportResult.error);
+        }
+
+        report = reportResult.value;
+
+        logger.info(
+          {
+            calculationId: summary.calculation.id,
+            displayCurrency: config.currency,
+            disposalsConverted: report.disposals.length,
+          },
+          'Report generation completed'
+        );
+      }
+
+      // Build result with optional warning and report
       const result: CostBasisResult = {
         summary,
         missingPricesWarning:
           missingPricesCount > 0
             ? `${missingPricesCount} transactions were excluded due to missing prices. Run 'exitbook prices fetch' to populate missing prices.`
             : undefined,
+        report,
       };
 
       return ok(result);

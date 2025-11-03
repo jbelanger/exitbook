@@ -3,6 +3,7 @@
  *
  */
 
+import { Currency } from '@exitbook/core';
 import {
   createInitialCircuitState,
   recordFailure,
@@ -97,7 +98,19 @@ export class PriceProviderManager {
     }
 
     // Execute with failover
-    return this.executeWithFailover(async (provider) => provider.fetchPrice(query), 'fetchPrice', query);
+    const result = await this.executeWithFailover(async (provider) => provider.fetchPrice(query), 'fetchPrice', query);
+
+    if (result.isErr()) {
+      return result;
+    }
+
+    // Convert stablecoin-denominated prices to USD
+    // Skip if we're pricing a stablecoin itself (avoid recursion)
+    if (result.value.data.currency.isStablecoin() && !query.asset.isStablecoin()) {
+      return await this.convertStablecoinPriceToUSD(result.value, query.timestamp);
+    }
+
+    return result;
   }
 
   /**
@@ -302,5 +315,91 @@ export class PriceProviderManager {
         this.requestCache.delete(key);
       }
     }
+  }
+
+  /**
+   * Convert stablecoin-denominated price to USD
+   *
+   * When providers return prices in USDT/USDC (e.g., BTC/USDT from Binance),
+   * this method fetches the stablecoin's USD price using all available providers
+   * and converts accordingly.
+   *
+   * This captures de-peg events where stablecoins deviate from $1.00.
+   *
+   * Fallback strategy:
+   * 1. Try to fetch historical stablecoin/USD rate from any provider
+   * 2. If unavailable, assume 1:1 parity (log warning)
+   *
+   * @param result - Failover result with stablecoin-denominated price
+   * @param timestamp - Original query timestamp
+   * @returns Failover result with price converted to USD
+   */
+  private async convertStablecoinPriceToUSD(
+    result: FailoverResult<PriceData>,
+    timestamp: Date
+  ): Promise<Result<FailoverResult<PriceData>, Error>> {
+    const { data: priceData, providerName } = result;
+    const stablecoin = priceData.currency;
+    const originalSource = priceData.source;
+
+    logger.debug(
+      {
+        asset: priceData.asset.toString(),
+        stablecoin: stablecoin.toString(),
+        originalPrice: priceData.price.toFixed(),
+        originalProvider: providerName,
+      },
+      'Converting stablecoin-denominated price to USD'
+    );
+
+    // Fetch stablecoin/USD rate using recursive call to fetchPrice
+    // This tries ALL providers with automatic failover
+    // Safe because we check !query.asset.isStablecoin() before calling this method
+    const stablecoinPriceResult = await this.fetchPrice({
+      asset: stablecoin,
+      currency: Currency.create('USD'),
+      timestamp,
+    });
+
+    let conversionRate = priceData.price;
+    let conversionSource = 'assumed-parity';
+
+    if (stablecoinPriceResult.isOk()) {
+      // Successfully fetched stablecoin rate - use it for conversion
+      conversionRate = priceData.price.times(stablecoinPriceResult.value.data.price);
+      conversionSource = `${originalSource}+${stablecoin.toLowerCase()}-rate`;
+
+      logger.debug(
+        {
+          stablecoin: stablecoin.toString(),
+          stablecoinRate: stablecoinPriceResult.value.data.price.toFixed(),
+          stablecoinProvider: stablecoinPriceResult.value.providerName,
+          convertedPrice: conversionRate.toFixed(),
+        },
+        'Applied stablecoin conversion rate'
+      );
+    } else {
+      // Failed to fetch stablecoin rate - assume 1:1 parity
+      logger.warn(
+        {
+          stablecoin: stablecoin.toString(),
+          asset: priceData.asset.toString(),
+          error: stablecoinPriceResult.error.message,
+        },
+        'Failed to fetch stablecoin rate, assuming 1:1 parity with USD'
+      );
+      // conversionRate is already set to priceData.price (1:1 conversion)
+      conversionSource = `${originalSource}+assumed-${stablecoin.toLowerCase()}-parity`;
+    }
+
+    return ok({
+      data: {
+        ...priceData,
+        price: conversionRate,
+        currency: Currency.create('USD'),
+        source: conversionSource,
+      },
+      providerName,
+    });
   }
 }
