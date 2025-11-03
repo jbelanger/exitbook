@@ -302,6 +302,64 @@ describe('createNormalizedPrice', () => {
     // 1234.56 * 0.74 = 913.5744
     expect(result.price.amount.toFixed()).toBe('913.5744');
   });
+
+  it('upgrades fiat-execution-tentative to derived-ratio after normalization', () => {
+    const original: PriceAtTxTime = {
+      price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
+      source: 'fiat-execution-tentative', // Tentative source from non-USD fiat trade
+      fetchedAt: new Date('2023-01-15T10:00:00Z'),
+      granularity: 'exact',
+    };
+
+    const fxRate = new Decimal('1.08');
+    const fxSource = 'ecb';
+    const fxTimestamp = new Date('2023-01-15T10:00:00Z');
+
+    const result = createNormalizedPrice(original, fxRate, fxSource, fxTimestamp);
+
+    // Should upgrade source from tentative to derived-ratio
+    expect(result.source).toBe('derived-ratio');
+    expect(result.fxRateToUSD?.toString()).toBe('1.08');
+    expect(result.fxSource).toBe('ecb');
+  });
+
+  it('preserves non-tentative sources after normalization', () => {
+    const original: PriceAtTxTime = {
+      price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
+      source: 'exchange-execution', // Non-tentative source
+      fetchedAt: new Date('2023-01-15T10:00:00Z'),
+      granularity: 'exact',
+    };
+
+    const fxRate = new Decimal('1.08');
+    const fxSource = 'ecb';
+    const fxTimestamp = new Date('2023-01-15T10:00:00Z');
+
+    const result = createNormalizedPrice(original, fxRate, fxSource, fxTimestamp);
+
+    // Should keep original source
+    expect(result.source).toBe('exchange-execution');
+    expect(result.fxRateToUSD?.toString()).toBe('1.08');
+  });
+
+  it('handles edge case: very low VND rate', () => {
+    const original: PriceAtTxTime = {
+      price: { amount: parseDecimal('1000000'), currency: Currency.create('VND') },
+      source: 'exchange-execution',
+      fetchedAt: new Date('2023-01-15T10:00:00Z'),
+      granularity: 'exact',
+    };
+
+    const fxRate = new Decimal('0.00004'); // VND → USD
+    const fxSource = 'provider';
+    const fxTimestamp = new Date('2023-01-15T10:00:00Z');
+
+    const result = createNormalizedPrice(original, fxRate, fxSource, fxTimestamp);
+
+    // 1,000,000 VND * 0.00004 = 40 USD
+    expect(result.price.amount.toFixed()).toBe('40');
+    expect(result.price.currency.toString()).toBe('USD');
+  });
 });
 
 describe('movementNeedsNormalization', () => {

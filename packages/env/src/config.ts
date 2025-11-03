@@ -3,7 +3,7 @@ import path from 'node:path';
 import { z } from 'zod';
 
 const envSchema = z.object({
-  EXITBOOK_DATA_DIR: z.string().min(1).optional(),
+  EXITBOOK_DATA_DIR: z.string().min(1).or(z.undefined()),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
 
