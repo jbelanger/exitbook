@@ -281,7 +281,7 @@ export class BinanceProvider extends BasePriceProvider {
       );
     }
 
-    // Transform using pure function
+    // Transform
     const priceDataResult = transformBinanceKlineResponse(klines[0]!, asset, timestamp, currency, now, granularity);
     if (priceDataResult.isErr()) {
       return err(priceDataResult.error);

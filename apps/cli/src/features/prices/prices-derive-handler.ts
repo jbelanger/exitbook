@@ -2,13 +2,13 @@
 // Wraps PriceEnrichmentService to deduce prices from transaction history
 
 import { PriceEnrichmentService, TransactionLinkRepository } from '@exitbook/accounting';
-import type { UniversalTransaction } from '@exitbook/core';
-import { Currency } from '@exitbook/core';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
+
+import { countAllMovements, countMovementsWithoutPrices } from './prices-derive-utils.ts';
 
 const logger = getLogger('PricesDeriveHandler');
 
@@ -58,7 +58,7 @@ export class PricesDeriveHandler {
         return err(beforeResult.error);
       }
 
-      const movementsBeforeEnrichment = this.countMovementsWithoutPrices(beforeResult.value);
+      const movementsBeforeEnrichment = countMovementsWithoutPrices(beforeResult.value);
 
       // Call existing price enrichment service
       const enrichmentResult = await this.priceService.enrichPrices();
@@ -76,8 +76,8 @@ export class PricesDeriveHandler {
       }
 
       const allTransactions = afterResult.value;
-      const movementsAfterEnrichment = this.countMovementsWithoutPrices(allTransactions);
-      const totalMovements = this.countAllMovements(allTransactions);
+      const movementsAfterEnrichment = countMovementsWithoutPrices(allTransactions);
+      const totalMovements = countAllMovements(allTransactions);
 
       const movementsEnriched = movementsBeforeEnrichment - movementsAfterEnrichment;
       const movementsStillNeedingPrices = movementsAfterEnrichment;
@@ -97,56 +97,5 @@ export class PricesDeriveHandler {
    */
   destroy(): void {
     // No resources to cleanup
-  }
-
-  /**
-   * Count total number of movements across all transactions
-   * Excludes fiat currencies as they don't need prices (they ARE the price)
-   */
-  private countAllMovements(transactions: UniversalTransaction[]): number {
-    let count = 0;
-
-    for (const tx of transactions) {
-      const inflows = tx.movements.inflows ?? [];
-      const outflows = tx.movements.outflows ?? [];
-
-      for (const movement of [...inflows, ...outflows]) {
-        // Skip fiat currencies - they don't need prices
-        const currency = Currency.create(movement.asset);
-        if (currency.isFiat()) {
-          continue;
-        }
-        count++;
-      }
-    }
-
-    return count;
-  }
-
-  /**
-   * Count movements without prices across all transactions
-   * Excludes fiat currencies as they don't need prices (they ARE the price)
-   */
-  private countMovementsWithoutPrices(transactions: UniversalTransaction[]): number {
-    let count = 0;
-
-    for (const tx of transactions) {
-      const inflows = tx.movements.inflows ?? [];
-      const outflows = tx.movements.outflows ?? [];
-
-      for (const movement of [...inflows, ...outflows]) {
-        // Skip fiat currencies - they don't need prices (they ARE the price)
-        const currency = Currency.create(movement.asset);
-        if (currency.isFiat()) {
-          continue;
-        }
-
-        if (!movement.priceAtTxTime) {
-          count++;
-        }
-      }
-    }
-
-    return count;
   }
 }

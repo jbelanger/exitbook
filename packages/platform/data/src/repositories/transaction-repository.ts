@@ -407,7 +407,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       if (!result.success) {
         this.logger.warn(
           {
-            error: result.error.format(),
             issues: result.error.issues,
             jsonString: jsonString.substring(0, 200),
           },
@@ -438,7 +437,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       if (!result.success) {
         this.logger.warn(
           {
-            error: result.error.format(),
             issues: result.error.issues,
             jsonString: jsonString.substring(0, 200),
           },

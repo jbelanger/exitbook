@@ -38,7 +38,7 @@ describe('enrichMovementWithPrice', () => {
 
     expect(result.priceAtTxTime).toBeDefined();
     expect(result.priceAtTxTime?.source).toBe('coingecko');
-    expect(result.priceAtTxTime?.price.amount.toString()).toBe('50000');
+    expect(result.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
   });
 
   it('should NOT overwrite exchange-execution price (highest priority)', () => {
@@ -48,7 +48,7 @@ describe('enrichMovementWithPrice', () => {
     const result = enrichMovementWithPrice(movement, newPrice);
 
     expect(result.priceAtTxTime?.source).toBe('exchange-execution');
-    expect(result.priceAtTxTime?.price.amount.toString()).toBe('50000');
+    expect(result.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
   });
 
   it('should overwrite provider price with derived-ratio', () => {
@@ -58,7 +58,7 @@ describe('enrichMovementWithPrice', () => {
     const result = enrichMovementWithPrice(movement, newPrice);
 
     expect(result.priceAtTxTime?.source).toBe('derived-ratio');
-    expect(result.priceAtTxTime?.price.amount.toString()).toBe('48000');
+    expect(result.priceAtTxTime?.price.amount.toFixed()).toBe('48000');
   });
 
   it('should overwrite provider price with link-propagated', () => {
@@ -68,7 +68,7 @@ describe('enrichMovementWithPrice', () => {
     const result = enrichMovementWithPrice(movement, newPrice);
 
     expect(result.priceAtTxTime?.source).toBe('link-propagated');
-    expect(result.priceAtTxTime?.price.amount.toString()).toBe('51000');
+    expect(result.priceAtTxTime?.price.amount.toFixed()).toBe('51000');
   });
 
   it('should NOT overwrite provider price with another provider price', () => {
@@ -79,7 +79,7 @@ describe('enrichMovementWithPrice', () => {
 
     // Keep original provider price (same priority level)
     expect(result.priceAtTxTime?.source).toBe('coingecko');
-    expect(result.priceAtTxTime?.price.amount.toString()).toBe('50000');
+    expect(result.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
   });
 
   it('should NOT overwrite derived-ratio with provider price', () => {
@@ -90,7 +90,7 @@ describe('enrichMovementWithPrice', () => {
 
     // Keep higher priority price
     expect(result.priceAtTxTime?.source).toBe('derived-ratio');
-    expect(result.priceAtTxTime?.price.amount.toString()).toBe('50000');
+    expect(result.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
   });
 
   it('should NOT overwrite link-propagated with provider price', () => {
@@ -101,7 +101,7 @@ describe('enrichMovementWithPrice', () => {
 
     // Keep higher priority price
     expect(result.priceAtTxTime?.source).toBe('link-propagated');
-    expect(result.priceAtTxTime?.price.amount.toString()).toBe('50000');
+    expect(result.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
   });
 
   it('should allow derived-ratio to overwrite itself (re-enrichment)', () => {
@@ -112,7 +112,7 @@ describe('enrichMovementWithPrice', () => {
 
     // New derived-ratio should overwrite old derived-ratio (enables re-running enrichment)
     expect(result.priceAtTxTime?.source).toBe('derived-ratio');
-    expect(result.priceAtTxTime?.price.amount.toString()).toBe('51000');
+    expect(result.priceAtTxTime?.price.amount.toFixed()).toBe('51000');
   });
 
   it('should allow link-propagated to overwrite itself (re-enrichment)', () => {
@@ -123,7 +123,7 @@ describe('enrichMovementWithPrice', () => {
 
     // New link-propagated should overwrite old link-propagated (enables re-running enrichment)
     expect(result.priceAtTxTime?.source).toBe('link-propagated');
-    expect(result.priceAtTxTime?.price.amount.toString()).toBe('52000');
+    expect(result.priceAtTxTime?.price.amount.toFixed()).toBe('52000');
   });
 
   it('should allow derived-ratio to overwrite link-propagated (same priority)', () => {
@@ -134,7 +134,7 @@ describe('enrichMovementWithPrice', () => {
 
     // derived-ratio should overwrite link-propagated (both priority 2)
     expect(result.priceAtTxTime?.source).toBe('derived-ratio');
-    expect(result.priceAtTxTime?.price.amount.toString()).toBe('51000');
+    expect(result.priceAtTxTime?.price.amount.toFixed()).toBe('51000');
   });
 
   it('should allow link-propagated to overwrite derived-ratio (same priority)', () => {
@@ -145,7 +145,7 @@ describe('enrichMovementWithPrice', () => {
 
     // link-propagated should overwrite derived-ratio (both priority 2)
     expect(result.priceAtTxTime?.source).toBe('link-propagated');
-    expect(result.priceAtTxTime?.price.amount.toString()).toBe('52000');
+    expect(result.priceAtTxTime?.price.amount.toFixed()).toBe('52000');
   });
 });
 
@@ -182,9 +182,9 @@ describe('enrichMovementsWithPrices', () => {
     const enriched = enrichMovementsWithPrices(movements, pricesMap);
 
     expect(enriched[0]?.priceAtTxTime?.source).toBe('coingecko');
-    expect(enriched[0]?.priceAtTxTime?.price.amount.toString()).toBe('50000');
+    expect(enriched[0]?.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
     expect(enriched[1]?.priceAtTxTime?.source).toBe('binance');
-    expect(enriched[1]?.priceAtTxTime?.price.amount.toString()).toBe('3000');
+    expect(enriched[1]?.priceAtTxTime?.price.amount.toFixed()).toBe('3000');
     expect(enriched[2]?.priceAtTxTime).toBeUndefined(); // No price for SOL
   });
 
@@ -237,10 +237,10 @@ describe('enrichMovementsWithPrices', () => {
 
     // BTC: exchange-execution should NOT be overwritten
     expect(enriched[0]?.priceAtTxTime?.source).toBe('exchange-execution');
-    expect(enriched[0]?.priceAtTxTime?.price.amount.toString()).toBe('50000');
+    expect(enriched[0]?.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
 
     // ETH: coingecko should be overwritten by link-propagated
     expect(enriched[1]?.priceAtTxTime?.source).toBe('link-propagated');
-    expect(enriched[1]?.priceAtTxTime?.price.amount.toString()).toBe('3100');
+    expect(enriched[1]?.priceAtTxTime?.price.amount.toFixed()).toBe('3100');
   });
 });

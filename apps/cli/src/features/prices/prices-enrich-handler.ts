@@ -10,17 +10,24 @@
  * --derive-only, or --fetch-only for granular control.
  */
 
-import { PriceEnrichmentService, PriceNormalizationService, TransactionLinkRepository } from '@exitbook/accounting';
-import type { NormalizeResult } from '@exitbook/accounting';
+import {
+  PriceEnrichmentService,
+  PriceNormalizationService,
+  StandardFxRateProvider,
+  TransactionLinkRepository,
+} from '@exitbook/accounting';
+import type { IFxRateProvider, NormalizeResult } from '@exitbook/accounting';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
-import { createPriceProviderManager } from '@exitbook/platform-price-providers';
 import type { PriceProviderManager } from '@exitbook/platform-price-providers';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import { InteractiveFxRateProvider } from '../../lib/interactive-fx-rate-provider.ts';
+
 import { PricesFetchHandler } from './prices-handler.ts';
+import { createDefaultPriceProviderManager } from './prices-utils.ts';
 import type { PricesFetchResult } from './prices-utils.ts';
 
 const logger = getLogger('PricesEnrichHandler');
@@ -99,34 +106,7 @@ export class PricesEnrichHandler {
 
       // Initialize price provider manager (needed for Stage 1 and Stage 3)
       if (stages.normalize || stages.fetch) {
-        const managerResult = await createPriceProviderManager({
-          providers: {
-            databasePath: './data/prices.db',
-            coingecko: {
-              enabled: true,
-              apiKey: process.env.COINGECKO_API_KEY,
-              useProApi: process.env.COINGECKO_USE_PRO_API === 'true',
-            },
-            cryptocompare: {
-              enabled: true,
-              apiKey: process.env.CRYPTOCOMPARE_API_KEY,
-            },
-            ecb: {
-              enabled: true,
-            },
-            'bank-of-canada': {
-              enabled: true,
-            },
-            frankfurter: {
-              enabled: true,
-            },
-          },
-          manager: {
-            defaultCurrency: 'USD',
-            maxConsecutiveFailures: 3,
-            cacheTtlSeconds: 3600,
-          },
-        });
+        const managerResult = await createDefaultPriceProviderManager();
 
         if (managerResult.isErr()) {
           return err(managerResult.error);
@@ -143,10 +123,14 @@ export class PricesEnrichHandler {
           return err(new Error('Price manager not initialized'));
         }
 
-        const normalizeService = new PriceNormalizationService(this.transactionRepo, this.priceManager);
-        const normalizeResult = await normalizeService.normalize(
-          options.interactive !== undefined ? { interactive: options.interactive } : undefined
-        );
+        // Create FX rate provider with appropriate behavior
+        const standardProvider = new StandardFxRateProvider(this.priceManager);
+        const fxRateProvider: IFxRateProvider = options.interactive
+          ? new InteractiveFxRateProvider(standardProvider, true)
+          : standardProvider;
+
+        const normalizeService = new PriceNormalizationService(this.transactionRepo, fxRateProvider);
+        const normalizeResult = await normalizeService.normalize();
 
         if (normalizeResult.isErr()) {
           logger.error({ error: normalizeResult.error }, 'Stage 1 (normalize) failed');

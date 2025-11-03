@@ -4,18 +4,20 @@
 import { Currency } from '@exitbook/core';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
-import {
-  CoinNotFoundError,
-  createPriceProviderManager,
-  type PriceProviderManager,
-} from '@exitbook/platform-price-providers';
+import { CoinNotFoundError, type PriceProviderManager } from '@exitbook/platform-price-providers';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import { promptManualPrice } from './prices-prompts.ts';
 import type { PricesFetchCommandOptions, PricesFetchResult } from './prices-utils.ts';
-import { validateAssetFilter, extractAssetsNeedingPrices, createPriceQuery, initializeStats } from './prices-utils.ts';
+import {
+  createDefaultPriceProviderManager,
+  createPriceQuery,
+  extractAssetsNeedingPrices,
+  initializeStats,
+  validateAssetFilter,
+} from './prices-utils.ts';
 
 const logger = getLogger('PricesHandler');
 
@@ -35,28 +37,8 @@ export class PricesFetchHandler {
    * Execute prices fetch command
    */
   async execute(options: PricesFetchCommandOptions): Promise<Result<PricesFetchResult, Error>> {
-    // Initialize price provider manager with combined factory
-    // Note: API keys are read from process.env by the factory
-    // We explicitly pass them here to ensure they're available even if env loading has issues
-    const managerResult = await createPriceProviderManager({
-      providers: {
-        databasePath: './data/prices.db',
-        coingecko: {
-          enabled: true,
-          apiKey: process.env.COINGECKO_API_KEY,
-          useProApi: process.env.COINGECKO_USE_PRO_API === 'true',
-        },
-        cryptocompare: {
-          enabled: true,
-          apiKey: process.env.CRYPTOCOMPARE_API_KEY,
-        },
-      },
-      manager: {
-        defaultCurrency: 'USD',
-        maxConsecutiveFailures: 3,
-        cacheTtlSeconds: 3600,
-      },
-    });
+    // Initialize price provider manager using shared factory
+    const managerResult = await createDefaultPriceProviderManager();
 
     if (managerResult.isErr()) {
       return err(managerResult.error);

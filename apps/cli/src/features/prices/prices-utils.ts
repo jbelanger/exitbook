@@ -2,6 +2,7 @@
 // All functions are pure and testable
 
 import { Currency, type AssetMovement, type UniversalTransaction } from '@exitbook/core';
+import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/platform-price-providers';
 import type { PriceQuery } from '@exitbook/platform-price-providers';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -141,4 +142,45 @@ export function initializeStats(): PriceFetchStats {
     skipped: 0,
     transactionsFound: 0,
   };
+}
+
+/**
+ * Create default price provider manager with all providers enabled
+ *
+ * This factory centralizes the provider configuration to eliminate duplication
+ * between PricesEnrichHandler and PricesFetchHandler.
+ *
+ * @returns Result with initialized price provider manager
+ */
+export async function createDefaultPriceProviderManager(): Promise<Result<PriceProviderManager, Error>> {
+  return createPriceProviderManager({
+    providers: {
+      databasePath: './data/prices.db',
+      // Crypto price providers
+      coingecko: {
+        enabled: true,
+        apiKey: process.env.COINGECKO_API_KEY,
+        useProApi: process.env.COINGECKO_USE_PRO_API === 'true',
+      },
+      cryptocompare: {
+        enabled: true,
+        apiKey: process.env.CRYPTOCOMPARE_API_KEY,
+      },
+      // FX rate providers
+      ecb: {
+        enabled: true,
+      },
+      'bank-of-canada': {
+        enabled: true,
+      },
+      frankfurter: {
+        enabled: true,
+      },
+    },
+    manager: {
+      defaultCurrency: 'USD',
+      maxConsecutiveFailures: 3,
+      cacheTtlSeconds: 3600,
+    },
+  });
 }

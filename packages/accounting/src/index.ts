@@ -53,4 +53,20 @@ export { CostBasisRepository } from './persistence/cost-basis-repository.js';
 export { PriceEnrichmentService } from './price-enrichment/price-enrichment-service.ts';
 export { PriceNormalizationService } from './price-enrichment/price-normalization-service.ts';
 export type { NormalizeResult } from './price-enrichment/price-normalization-service.ts';
+export type { IFxRateProvider, FxRateData } from './price-enrichment/fx-rate-provider.interface.ts';
+export { StandardFxRateProvider } from './price-enrichment/standard-fx-rate-provider.ts';
 export { enrichMovementWithPrice, enrichMovementsWithPrices } from './price-enrichment/movement-enrichment-utils.ts';
+export {
+  extractMovementsNeedingNormalization,
+  validateFxRate,
+  createNormalizedPrice,
+  movementNeedsNormalization,
+  classifyMovementPrice,
+} from './price-enrichment/price-normalization-utils.ts';
+export type { MovementsNeedingNormalization } from './price-enrichment/price-normalization-utils.ts';
+export {
+  inferMultiPass,
+  propagatePricesAcrossLinks,
+  enrichFeePricesFromMovements,
+} from './price-enrichment/price-enrichment-utils.ts';
+export type { InferMultiPassResult, PropagatePricesResult } from './price-enrichment/price-enrichment-utils.ts';

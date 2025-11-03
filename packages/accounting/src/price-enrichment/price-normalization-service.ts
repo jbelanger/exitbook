@@ -19,12 +19,19 @@
  */
 
 import type { AssetMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
-import { Currency, wrapError } from '@exitbook/core';
+import { wrapError } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
-import type { PriceProviderManager } from '@exitbook/platform-price-providers';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
+
+import type { IFxRateProvider } from './fx-rate-provider.interface.ts';
+import {
+  createNormalizedPrice,
+  extractMovementsNeedingNormalization,
+  movementNeedsNormalization,
+  validateFxRate,
+} from './price-normalization-utils.ts';
 
 const logger = getLogger('PriceNormalizationService');
 
@@ -51,7 +58,7 @@ export interface NormalizeResult {
 export class PriceNormalizationService {
   constructor(
     private readonly transactionRepository: TransactionRepository,
-    private readonly priceManager: PriceProviderManager
+    private readonly fxRateProvider: IFxRateProvider
   ) {}
 
   /**
@@ -60,17 +67,19 @@ export class PriceNormalizationService {
    * Process:
    * 1. Find all transactions with movements that have prices
    * 2. For each movement with non-USD fiat price:
-   *    a. Fetch FX rate via PriceProviderManager (EUR→USD at tx time)
+   *    a. Fetch FX rate via injected FxRateProvider (EUR→USD at tx time)
    *    b. Convert price.amount to USD
    *    c. Populate fxRateToUSD, fxSource, fxTimestamp metadata
    *    d. Update price.currency to 'USD'
    * 3. Skip crypto prices (they shouldn't exist yet, but log warning)
    * 4. Skip already-USD prices
    *
-   * @param options - Optional configuration
+   * Note: Interactive behavior (manual FX entry) is handled by injecting
+   * InteractiveFxRateProvider instead of StandardFxRateProvider.
+   *
    * @returns Result with normalization statistics
    */
-  async normalize(options?: { interactive?: boolean }): Promise<Result<NormalizeResult, Error>> {
+  async normalize(): Promise<Result<NormalizeResult, Error>> {
     try {
       logger.info('Starting price normalization (non-USD fiat → USD)');
 
@@ -95,7 +104,7 @@ export class PriceNormalizationService {
 
       // Process each transaction
       for (const tx of transactions) {
-        const normalizedTx = await this.normalizeTransaction(tx, result, options);
+        const normalizedTx = await this.normalizeTransaction(tx, result);
         if (normalizedTx) {
           transactionsToUpdate.set(tx.id, normalizedTx);
         }
@@ -134,64 +143,46 @@ export class PriceNormalizationService {
    */
   private async normalizeTransaction(
     tx: UniversalTransaction,
-    result: NormalizeResult,
-    options?: { interactive?: boolean }
+    result: NormalizeResult
   ): Promise<UniversalTransaction | undefined> {
     const inflows = tx.movements.inflows ?? [];
     const outflows = tx.movements.outflows ?? [];
-    const allMovements = [...inflows, ...outflows];
 
-    // Find movements needing normalization
-    const movementsNeedingNormalization: AssetMovement[] = [];
+    // Use pure function to classify movements
+    const classification = extractMovementsNeedingNormalization(tx);
 
-    for (const movement of allMovements) {
-      if (!movement.priceAtTxTime) {
-        continue; // No price to normalize
-      }
+    // Update stats for skipped movements
+    result.movementsSkipped += classification.skipped.length;
 
-      const priceCurrency = movement.priceAtTxTime.price.currency;
-
-      // Skip if already USD
-      if (priceCurrency.toString() === 'USD') {
-        result.movementsSkipped++;
-        continue;
-      }
-
-      // Check if this is a non-USD fiat currency
-      if (!priceCurrency.isFiat()) {
-        // Crypto currency in price field - this shouldn't happen, log warning
-        logger.warn(
-          {
-            txId: tx.id,
-            asset: movement.asset,
-            priceCurrency: priceCurrency.toString(),
-          },
-          'Found crypto currency in price field (unexpected - prices should be in fiat)'
-        );
-        result.movementsSkipped++;
-        continue;
-      }
-
-      // This is a non-USD fiat price that needs normalization
-      movementsNeedingNormalization.push(movement);
+    // Log warnings for crypto prices (shouldn't exist in price field)
+    for (const movement of classification.cryptoPrices) {
+      logger.warn(
+        {
+          txId: tx.id,
+          asset: movement.asset,
+          priceCurrency: movement.priceAtTxTime?.price.currency.toString(),
+        },
+        'Found crypto currency in price field (unexpected - prices should be in fiat)'
+      );
+      result.movementsSkipped++;
     }
 
     // If no movements need normalization, skip this transaction
-    if (movementsNeedingNormalization.length === 0) {
+    if (classification.needsNormalization.length === 0) {
       return undefined;
     }
 
     logger.debug(
       {
         txId: tx.id,
-        movementsToNormalize: movementsNeedingNormalization.length,
+        movementsToNormalize: classification.needsNormalization.length,
       },
       'Normalizing transaction'
     );
 
     // Normalize each movement
-    const normalizedInflows = await this.normalizeMovements(inflows, tx.datetime, result, options);
-    const normalizedOutflows = await this.normalizeMovements(outflows, tx.datetime, result, options);
+    const normalizedInflows = await this.normalizeMovements(inflows, tx.datetime, result);
+    const normalizedOutflows = await this.normalizeMovements(outflows, tx.datetime, result);
 
     // Return updated transaction
     return {
@@ -209,29 +200,22 @@ export class PriceNormalizationService {
   private async normalizeMovements(
     movements: AssetMovement[],
     txDatetime: string,
-    result: NormalizeResult,
-    options?: { interactive?: boolean }
+    result: NormalizeResult
   ): Promise<AssetMovement[]> {
     const normalized: AssetMovement[] = [];
 
     for (const movement of movements) {
-      if (!movement.priceAtTxTime) {
-        normalized.push(movement);
-        continue;
-      }
-
-      const priceCurrency = movement.priceAtTxTime.price.currency;
-
-      // Skip if already USD or not fiat
-      if (priceCurrency.toString() === 'USD' || !priceCurrency.isFiat()) {
+      // Use pure function to check if normalization needed
+      if (!movementNeedsNormalization(movement)) {
         normalized.push(movement);
         continue;
       }
 
       // Normalize this price
-      const normalizedPrice = await this.normalizePriceToUSD(movement.priceAtTxTime, new Date(txDatetime), options);
+      const normalizedPrice = await this.normalizePriceToUSD(movement.priceAtTxTime!, new Date(txDatetime));
 
       if (normalizedPrice.isErr()) {
+        const priceCurrency = movement.priceAtTxTime!.price.currency;
         logger.warn(
           {
             asset: movement.asset,
@@ -265,51 +249,41 @@ export class PriceNormalizationService {
    */
   private async normalizePriceToUSD(
     priceAtTxTime: PriceAtTxTime,
-    timestamp: Date,
-    _options?: { interactive?: boolean }
+    timestamp: Date
   ): Promise<Result<PriceAtTxTime, Error>> {
     const sourceCurrency = priceAtTxTime.price.currency;
     const sourceAmount = priceAtTxTime.price.amount;
 
-    // Fetch FX rate from provider manager
-    // The manager will try providers in order: ECB → Bank of Canada → Frankfurter
-    const fxRateResult = await this.priceManager.fetchPrice({
-      asset: sourceCurrency,
-      currency: Currency.create('USD'),
-      timestamp,
-    });
+    // Fetch FX rate via injected provider
+    // Provider might fetch from APIs or prompt user (depending on implementation)
+    const fxRateResult = await this.fxRateProvider.getRateToUSD(sourceCurrency, timestamp);
 
     if (fxRateResult.isErr()) {
+      return err(fxRateResult.error);
+    }
+
+    const fxData = fxRateResult.value;
+    const fxRate = fxData.rate;
+
+    // Validate FX rate
+    const validationResult = validateFxRate(fxRate);
+    if (validationResult.isErr()) {
       return err(
-        new Error(`Failed to fetch FX rate for ${sourceCurrency.toString()} → USD: ${fxRateResult.error.message}`)
+        new Error(
+          `Invalid FX rate for ${sourceCurrency.toString()} → USD: ${validationResult.error.message} (rate: ${fxRate.toString()}, source: ${fxData.source})`
+        )
       );
     }
 
-    const fxData = fxRateResult.value.data;
-    const fxRate = fxData.price;
-
-    // Convert price to USD
-    const usdAmount = sourceAmount.times(fxRate);
-
-    // Create normalized price with FX metadata
-    const normalizedPrice: PriceAtTxTime = {
-      ...priceAtTxTime,
-      price: {
-        amount: usdAmount,
-        currency: Currency.create('USD'),
-      },
-      // Populate FX metadata
-      fxRateToUSD: fxRate,
-      fxSource: fxData.source,
-      fxTimestamp: fxData.fetchedAt,
-    };
+    // Create normalized price
+    const normalizedPrice = createNormalizedPrice(priceAtTxTime, fxRate, fxData.source, fxData.fetchedAt);
 
     logger.debug(
       {
         originalCurrency: sourceCurrency.toString(),
-        originalAmount: sourceAmount.toString(),
+        originalAmount: sourceAmount.toFixed(),
         fxRate: fxRate.toString(),
-        usdAmount: usdAmount.toString(),
+        usdAmount: normalizedPrice.price.amount.toFixed(),
         fxSource: fxData.source,
       },
       'Normalized price to USD'
