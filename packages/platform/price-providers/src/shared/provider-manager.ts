@@ -422,7 +422,7 @@ export class PriceProviderManager {
     });
 
     let conversionRate = priceData.price;
-    let conversionSource = 'assumed-parity';
+    let conversionSource: string;
 
     if (stablecoinPriceResult.isOk()) {
       // Successfully fetched stablecoin rate - use it for conversion

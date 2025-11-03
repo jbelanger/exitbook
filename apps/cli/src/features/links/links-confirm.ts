@@ -64,7 +64,7 @@ async function executeLinksConfirmCommand(linkId: string, options: LinksConfirmC
     const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
     const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
-    const database = await initializeDatabase(false);
+    const database = await initializeDatabase();
     const linkRepo = new TransactionLinkRepository(database);
     const txRepo = new TransactionRepository(database);
 

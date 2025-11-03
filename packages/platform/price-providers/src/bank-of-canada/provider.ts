@@ -186,7 +186,6 @@ export class BankOfCanadaProvider extends BasePriceProvider {
       const httpResult = await this.httpClient.get<unknown>(`/observations/FXUSDCAD/json?${params.toString()}`);
 
       if (httpResult.isErr()) {
-        lastError = httpResult.error;
         // For HTTP errors, don't retry - fail immediately
         return err(httpResult.error);
       }

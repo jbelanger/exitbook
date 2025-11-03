@@ -187,7 +187,6 @@ export class ECBProvider extends BasePriceProvider {
       const httpResult = await this.httpClient.get<unknown>(`/${flowRef}?${params.toString()}`);
 
       if (httpResult.isErr()) {
-        lastError = httpResult.error;
         // For HTTP errors, don't retry - fail immediately
         return err(httpResult.error);
       }
