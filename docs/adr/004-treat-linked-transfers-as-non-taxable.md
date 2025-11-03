@@ -1,9 +1,13 @@
-# ADR 002: Treat Linked Transfers as Non-Taxable Events
+# ADR 004: Treat Linked Transfers as Non-Taxable Events
 
-**Date**: 2025-11-01
+**Date**: 2025-11-03
 **Status**: Proposed
 **Deciders**: Joel Belanger (maintainer)
 **Tags**: cost-basis, taxation, transfers, transaction-linking
+
+---
+
+**Prerequisites**: This ADR builds on ADR003 (Unified Price and FX Rate Enrichment Architecture). All external fees are assumed to have USD-normalized prices with FX metadata populated by the enrichment pipeline.
 
 ---
 
@@ -107,14 +111,15 @@ Transfer chains are **calculation-scoped** - they are rebuilt fresh for each cos
 
 ```typescript
 /**
- * Fee entry with currency tracking for external fees
+ * Fee entry referencing normalized price data from AssetMovement
+ *
+ * External fees are stored as AssetMovement with priceAtTxTime containing
+ * USD-normalized price + FX metadata (populated by ADR003 enrichment pipeline)
  */
 interface FeeEntry {
-  amount: Decimal;
-  currency: string; // Original currency (USD, EUR, etc.)
-  normalizedAmount: Decimal; // Converted to USD for cost basis
-  fxRate?: Decimal; // Exchange rate used (if conversion occurred)
-  fxSource?: string; // Where FX rate came from (e.g., "coingecko", "manual")
+  amount: Decimal; // Fee amount in original currency
+  asset: string; // Fee asset (USD, EUR, BTC, etc.)
+  priceAtTxTime: PriceAtTxTime; // USD price + FX metadata (from enrichment)
 }
 
 /**
@@ -308,9 +313,10 @@ private createLotFromTransfer(
     totalQuantity = totalQuantity.plus(transfer.quantityTransferred);
   }
 
-  // Add external fees to cost basis (sum normalized amounts from all fee entries)
+  // Add external fees to cost basis (use USD-normalized prices from enrichment)
   for (const fee of chain.externalFees) {
-    totalCostBasis = totalCostBasis.plus(fee.normalizedAmount);
+    const feeInUsd = fee.amount.times(fee.priceAtTxTime.price.amount);
+    totalCostBasis = totalCostBasis.plus(feeInUsd);
   }
 
   // Create new lot with inherited + adjusted cost basis
@@ -374,8 +380,8 @@ CREATE TABLE transfer_chains (
   target_amount TEXT NOT NULL,
   crypto_fee TEXT NOT NULL,
 
-  -- External fees (JSON array of FeeEntry objects)
-  -- Example: [{"amount":"1.50","currency":"USD","normalizedAmount":"1.50","fxRate":"1.0","fxSource":"manual"}]
+  -- External fees (JSON array of FeeEntry objects with embedded PriceAtTxTime)
+  -- Example: [{"amount":"1.50","asset":"EUR","priceAtTxTime":{"price":{"amount":"1.62","currency":"USD"},"source":"derived-ratio","fxRateToUSD":"1.08","fxSource":"ecb"}}]
   external_fees_json TEXT NOT NULL DEFAULT '[]',
 
   -- Variance tracking (for edge cases)
@@ -572,12 +578,12 @@ class TransferChainDetector {
   }
 
   /**
-   * Extract external fees with currency tracking
+   * Extract external fees from transaction
    *
-   * For MVP: Normalize all fees to USD using existing price enrichment service
-   * Future: Dedicated FX rate provider for fiat-to-fiat conversions
+   * Assumes fees already have priceAtTxTime populated by ADR003 enrichment pipeline.
+   * All prices normalized to USD with FX metadata during Stage 2 (normalization).
    */
-  private extractExternalFees(tx: UniversalTransaction, calculationId: string): FeeEntry[] {
+  private extractExternalFees(tx: UniversalTransaction): FeeEntry[] {
     const fees: FeeEntry[] = [];
 
     // Check transaction fee fields for fiat fees
@@ -586,34 +592,24 @@ class TransferChainDetector {
       const currency = Currency.create(platformFee.asset);
 
       if (currency.isFiat()) {
-        // Get FX rate from price enrichment service
-        // (Reuses existing providers like CoinGecko which have fiat rates)
-        const fxRate = this.getFxRateToUSD(platformFee.asset, tx.datetime);
-
-        // Missing FX rate: Use zero for normalized amount (graceful degradation)
-        // This maintains accuracy and allows partial calculations
-        const normalizedAmount = fxRate.isOk() ? platformFee.amount.times(fxRate.value) : new Decimal(0);
-
-        if (fxRate.isErr()) {
+        // Fee should already have USD-normalized price from enrichment
+        if (!platformFee.priceAtTxTime) {
           this.logger.warn(
             {
-              currency: platformFee.asset,
+              asset: platformFee.asset,
               amount: platformFee.amount.toFixed(),
-              tx: tx.id,
+              txId: tx.id,
               date: tx.datetime,
             },
-            'Missing FX rate for external fee - using zero for cost basis adjustment. ' +
-              'This understates cost basis and may overstate capital gains. ' +
-              'Add FX rate via price enrichment to correct calculation.'
+            'Platform fee missing priceAtTxTime - run "prices enrich" to normalize all prices to USD'
           );
+          return fees; // Skip this fee
         }
 
         fees.push({
           amount: platformFee.amount,
-          currency: platformFee.asset,
-          normalizedAmount,
-          fxRate: fxRate.isOk() ? fxRate.value : undefined,
-          fxSource: fxRate.isOk() ? 'price_enrichment' : undefined,
+          asset: platformFee.asset,
+          priceAtTxTime: platformFee.priceAtTxTime,
         });
       }
     }
@@ -722,88 +718,32 @@ The lot matcher will match the BNB outflow to `fees.platform`, create a taxable 
 
 ### Price Handling
 
-**Graceful degradation** instead of blocking:
+**Prerequisite**: All prices must be USD-normalized via `prices enrich` before cost basis calculation.
+
+Cost basis calculator validates this via pre-flight check (see ADR003 for validation logic):
 
 ```typescript
-async calculate(...): Promise<Result<CostBasisSummary, Error>> {
-
-  // ... lot matching ...
-
-  // Identify disposals missing prices
-  const allDisposals = lotMatchResult.assetResults.flatMap(r => r.disposals);
-  const missingPrices = allDisposals.filter(
-    d => d.priceStatus === 'missing'
+// Pre-flight validation in CostBasisCalculator
+const nonUsdMovements = this.findMovementsWithNonUsdPrices(transactions);
+if (nonUsdMovements.length > 0) {
+  return err(
+    new Error(
+      `Found ${nonUsdMovements.length} movement(s) with non-USD prices. ` +
+        `Run 'prices enrich' to normalize all prices to USD first.`
+    )
   );
-
-  // Identify transfer fees with missing FX rates
-  const missingFxRates = transferChains
-    .flatMap(chain => chain.externalFees)
-    .filter(fee => !fee.fxRate);
-
-  if (missingPrices.length > 0 || missingFxRates.length > 0) {
-    this.logger.warn(
-      {
-        missingPrices: missingPrices.length,
-        missingFxRates: missingFxRates.length
-      },
-      'Some disposals or fees missing price/FX data - results incomplete'
-    );
-
-    // Mark calculation as partial
-    calculation.status = 'partial';
-    calculation.warnings = [
-      ...(missingPrices.length > 0 ? [{
-        type: 'missing_prices',
-        count: missingPrices.length,
-        disposals: missingPrices.map(d => ({
-          txId: d.disposalTransactionId,
-          asset: d.asset,
-          amount: d.quantityDisposed
-        }))
-      }] : []),
-      ...(missingFxRates.length > 0 ? [{
-        type: 'missing_fx_rates',
-        count: missingFxRates.length,
-        fees: missingFxRates.map(f => ({
-          amount: f.amount,
-          currency: f.currency
-        }))
-      }] : [])
-    ];
-  }
-
-  // Continue calculation with available data
-  // Zero proceeds for missing prices (conservative)
-  // Zero normalized amount for missing FX rates (conservative)
 }
 ```
 
-Report clearly shows what's missing:
+**Graceful degradation (target state)**: If any movement or fee lacks `priceAtTxTime` after enrichment, the system should warn, continue, and record a partial result.
 
-```
-Cost Basis Calculation Summary
-==============================
-Status: Partial (2 crypto prices missing, 1 FX rate missing)
+> **Current implementation**: `LotMatcher` still throws when it encounters an inflow or outflow with a missing `priceAtTxTime`, and calculation statuses are limited to `pending` | `completed` | `failed`. Achieving the planned behavior requires (a) introducing a `partial` status on `CostBasisCalculation`, and (b) relaxing the matcher to record warnings instead of aborting. These follow-up changes are out of scope for ADR004’s initial code drop.
 
-Disposals: 45 total
-├─ Complete: 43 (prices available)
-└─ Missing prices: 2 ⚠️
+Planned transfer-specific handling (once the partial pathway exists):
 
-Missing Crypto Prices:
-- BTC @ 2024-02-01 12:00:00 UTC (tx #12345, network fee: 0.0005 BTC)
-- ETH @ 2024-03-15 08:30:00 UTC (tx #67890, platform fee: 0.01 ETH)
-
-Missing FX Rates:
-- EUR 1.50 @ 2024-02-01 12:00:00 UTC (tx #12345, platform fee)
-
-Impact:
-- Capital gains may be understated by ~$35 (missing crypto prices)
-- Cost basis understated by ~$1.60 (missing FX rates) - may result in overpaid tax
-
-To add prices:
-  pnpm run dev prices add --asset BTC --date "2024-02-01T12:00:00Z" --price 60000
-  pnpm run dev prices add --asset EUR --date "2024-02-01T12:00:00Z" --price 1.08
-```
+- External fees without `priceAtTxTime`: Skip fee, log warning, continue
+- Crypto fees without price: Standard disposal handling (same as any missing price)
+- Result status marked `partial` with detailed warnings
 
 ---
 
@@ -874,87 +814,28 @@ private validateChain(chain: TransferChain): Result<void, Error> {
 
 ---
 
-## Foreign Exchange Rate Tracking
+## Integration with ADR003 (Multi-Currency Pricing)
 
-### Broader Context
+Transfer chain logic consumes **USD-normalized prices** provided by the ADR003 enrichment pipeline. All external fees (EUR, CAD, GBP, etc.) have their `priceAtTxTime` populated during Stage 2 normalization with:
 
-While this ADR focuses on transfer chains, the **FX rate tracking problem affects the entire cost basis system**, not just transfer fees. This is a foundational data modeling concern.
+- `price.amount` - USD-normalized value
+- `price.currency` - Always USD after enrichment
+- `fxRateToUSD` - Exchange rate used (e.g., 1.08 for EUR→USD)
+- `fxSource` - FX provider (e.g., 'ecb', 'bank-of-canada', 'frankfurter')
+- `fxTimestamp` - When FX rate was fetched
 
-### Current Limitation
+**Transfer logic responsibilities**:
 
-The existing `AssetMovement` schema lacks FX rate metadata:
+1. Extract external fees from `tx.fees.platform` with `currency.isFiat()`
+2. Read `priceAtTxTime` from fee movement (assume already enriched)
+3. Calculate fee in USD: `fee.amount × fee.priceAtTxTime.price.amount`
+4. Add to target lot cost basis
 
-```typescript
-// Current (missing FX tracking)
-interface AssetMovement {
-  asset: string;
-  amount: Decimal;
-  priceAtTxTime?: {
-    price: {
-      amount: Decimal; // e.g., $60,000 (but what if movement is in EUR?)
-      currency: Currency; // e.g., USD
-    };
-  };
-}
-```
+**Prerequisite**: Run `prices enrich` before cost basis calculation to ensure all fees have USD-normalized prices.
 
-**Problem**: When a movement is denominated in a non-USD fiat currency (EUR, CAD, etc.), we normalize to USD for cost basis but **lose the original currency and conversion rate used**. This affects:
+**Graceful degradation**: If `priceAtTxTime` missing on a fee, log warning and skip that fee (conservative approach - understates cost basis, user corrects via enrichment).
 
-1. **Transfer external fees** (this ADR) - EUR platform fee converted to USD
-2. **Multi-currency trades** - Buying BTC with EUR on European exchange
-3. **Fiat deposits/withdrawals** - Moving CAD to/from exchange
-4. **Cross-border transactions** - Any movement involving non-USD fiat
-
-### Proposed Enhancement (Out of Scope)
-
-Add FX rate tracking to `AssetMovement`:
-
-```typescript
-interface AssetMovement {
-  asset: string;
-  amount: Decimal;
-  priceAtTxTime?: {
-    price: {
-      amount: Decimal;
-      currency: Currency;
-    };
-    // NEW: FX rate metadata
-    fxRateToUSD?: Decimal; // If normalized from foreign fiat
-    fxSource?: string; // Where rate came from (e.g., "ecb", "manual")
-    fxTimestamp?: Date; // When rate was fetched
-  };
-}
-```
-
-**Benefits**:
-
-- Complete audit trail for multi-currency scenarios
-- Reproducible calculations across years (same FX rates)
-- Transparency for tax authorities (show which rates were used)
-- Support for users with non-USD home currencies
-
-### MVP Approach (This ADR)
-
-For transfer chains, we track FX rates in `FeeEntry[]` within transfer chains. This is **transfer-scoped** and sufficient for MVP.
-
-**FX Rate Handling Strategy**:
-
-- **When FX rate is available**: Convert foreign currency fee to USD using the rate, add to cost basis
-- **When FX rate is missing**: Use zero for normalized amount
-  - Logs warning with full context (currency, amount, transaction, date)
-  - Reports missing FX rates clearly in calculation summary
-  - User can add rate via price enrichment and recalculate
-- **Rationale**:
-  - **Tax Compliance Priority**: Zero normalized amount means lower cost basis → higher capital gains → higher tax liability. This is "conservative" from a **tax authority perspective** - we cannot accidentally understate tax obligations.
-  - **User Impact**: Users may pay more tax than necessary until they provide the FX rate. However, this is transparent and correctable, whereas a 1:1 default would silently introduce errors that could violate tax regulations.
-  - **Consistency**: Aligns with graceful degradation pattern used for missing crypto prices (zero proceeds when price missing).
-  - **Auditability**: Clear reporting shows exactly what's missing, enabling users to make informed decisions about data completeness vs. calculation accuracy.
-
-**Future work**: Extend FX tracking to entire `AssetMovement` schema (separate ADR, broader impact).
-
-**MVP FX Rate Source**: Reuse existing price enrichment service (CoinGecko has fiat rates).
-
-**Future enhancement**: Dedicated FX rate provider (ECB, Fixer.io) for more accurate fiat-to-fiat conversions with official rates.
+See ADR003 for complete FX rate architecture, provider failover (ECB → Bank of Canada → Frankfurter), and enrichment pipeline details.
 
 ---
 
@@ -1057,9 +938,9 @@ Links: 2 confirmed links (≥95% confidence)
 ✅ **Audit Trail**: Persisted chains enable debugging and reproducibility per calculation
 ✅ **Cost Basis Preservation**: Original acquisition dates and basis flow through transfers
 ✅ **Fee Compliance**: All fee types properly classified (crypto fees → disposals, fiat fees → cost basis)
-✅ **FX Rate Tracking**: External fees tracked with currency metadata for multi-currency support
+✅ **Multi-Currency Support**: Consumes USD-normalized prices from ADR003 enrichment with full FX audit trail
 ✅ **Multi-Hop Support**: Transitively linked chains handled automatically
-✅ **Reuses Infrastructure**: LinkGraphBuilder, chronological ordering, lot matching strategy, price enrichment
+✅ **Reuses Infrastructure**: LinkGraphBuilder, chronological ordering, lot matching strategy, ADR003 enrichment
 ✅ **Graceful Degradation**: Partial calculations possible with clear reporting
 ✅ **Strict Validation**: Returns errors for edge cases (target > source, variance > 10%) enabling future improvements
 ✅ **Regulatory Compliance**: Aligns with IRS, CRA, HMRC, EU tax treatment
@@ -1068,7 +949,7 @@ Links: 2 confirmed links (≥95% confidence)
 
 ⚠️ **Link Quality Dependency**: Requires confirmed links ≥95% confidence (mitigated by manual review)
 ⚠️ **Database Changes**: Two new tables (transfer_chains, lot_transfers), both calculation-scoped
-⚠️ **Price Data Dependency**: Missing FX rates excluded from cost basis using zero (tax-compliant graceful degradation with clear reporting)
+⚠️ **Enrichment Prerequisite**: Requires `prices enrich` before calculation (validates via pre-flight check)
 ⚠️ **Rounding Tolerance**: 0.01% threshold may need tuning for high-precision assets
 ⚠️ **Calculation Rebuild Cost**: Chains rebuilt each run (acceptable for MVP, can optimize later)
 
@@ -1079,8 +960,6 @@ Links: 2 confirmed links (≥95% confidence)
 ❌ **Importer Data Quality**: Incorrect fee field population causes misclassified disposals; requires clear documentation and optional validation tooling
 ❌ **Testing Scope**: Need comprehensive tests for transfer scenarios and edge cases
 ❌ **Conservative Rejection**: Strict validation may reject valid edge cases (airdrops, bonuses) requiring manual handling
-❌ **FX Rate Scope**: Only tracks FX rates for transfer fees, not entire AssetMovement schema (future work needed)
-❌ **Tax-Compliant FX Handling**: Missing FX rates use zero (understates cost basis → may overstate tax liability). Prioritizes compliance over user benefit; correctable by adding rates.
 
 ---
 
@@ -1109,7 +988,7 @@ Links: 2 confirmed links (≥95% confidence)
 3. ✅ Implement `createLotFromTransfer()` - creates lots with inherited basis
 4. ✅ Update `matchAsset()` to skip intermediate transactions
 5. ✅ Implement `findTransferUsingFee()` - explicit matching of outflows to transaction fee fields (NOT assumption-based)
-6. ✅ Add graceful price/FX handling (partial results with zero for missing rates)
+6. ⏳ Add graceful price/FX handling (partial results with zero for missing rates)
 7. ✅ Write integration tests:
    - Simple transfer with crypto fee
    - Simple transfer with external fee (including missing FX rate)

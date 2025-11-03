@@ -40,14 +40,35 @@ pnpm run dev import --blockchain bitcoin --address bc1q... --process
 # Process raw data into normalized transactions
 pnpm run dev process --exchange kraken --session <id>
 
-# Derive prices from transaction history (fiat/stable trades)
-pnpm run dev prices derive
+# Check live balances (from exchange API or blockchain)
+pnpm run dev balance --exchange kraken --api-key YOUR_KEY --api-secret YOUR_SECRET
+pnpm run dev balance --blockchain bitcoin --address bc1q...
 
-# Fetch remaining prices from external providers
-pnpm run dev prices fetch
+# View import sessions
+pnpm run dev sessions view --source kraken --status completed
 
-# Verify balances
-pnpm run dev verify --exchange kraken --report
+# View processed transactions
+pnpm run dev transactions view --asset BTC --limit 100
+
+# View price coverage statistics
+pnpm run dev prices view --asset BTC --missing-only
+
+# Enrich prices via 4-stage pipeline (derive → normalize → fetch → re-derive)
+pnpm run dev prices enrich
+
+# Or run individual stages
+pnpm run dev prices enrich --derive-only
+pnpm run dev prices enrich --normalize-only
+pnpm run dev prices enrich --fetch-only --asset BTC --interactive
+
+# View transaction links
+pnpm run dev links view --status suggested
+
+# Run linking algorithm
+pnpm run dev links run
+
+# View data quality gaps
+pnpm run dev gaps view --category fees
 
 # Export transactions
 pnpm run dev export --exchange kraken --format csv --output ./reports/kraken.csv
@@ -67,38 +88,45 @@ pnpm run dev list-blockchains
 ### Monorepo Structure (pnpm workspaces)
 
 - **apps/cli/** - Commander-based CLI (`exitbook-cli`)
-- **packages/ingestion/** - Importers, processors, blockchain/exchange adapters
+- **packages/ingestion/** - Importers, processors, blockchain/exchange adapters, balance fetching
+- **packages/accounting/** - Transaction analysis: linking, price derivation, cost basis
 - **packages/data/** - Kysely/SQLite storage, repositories, migrations
-- **packages/balance/** - Balance calculation and verification services
 - **packages/core/** - Domain types, Zod schemas, shared utilities
 - **packages/shared-logger/** - Pino structured logging
 - **packages/shared-utils/** - HTTP client, config, retry logic
 
 ### Import Pipeline Architecture
 
-The system follows a three-phase data flow:
+The system follows a two-phase data flow with normalization integrated into import:
 
-**Phase 1: Import (Raw Data Fetch)**
+**Phase 1: Import (Fetch + Normalize)**
 
 - Importers (`infrastructure/blockchains/*/importer.ts` or `infrastructure/exchanges/*/importer.ts`)
 - Extend `BaseImporter`, implement `IImporter` interface
 - Fetch data from APIs or parse CSVs
-- Return `Result<ImportRunResult, Error>` with `rawData: ApiClientRawData[]`
-- Store in `external_transaction_data` table with `processing_status = 'pending'`
+- **API clients immediately normalize data using mappers** during fetch
+  - Each API client instantiates its mapper (e.g., `BlockstreamTransactionMapper`)
+  - Calls `mapper.map()` for each transaction during fetch
+  - Returns `TransactionWithRawData<T>[]` containing both `raw` and `normalized` data
+- Zod validation happens during normalization (fail-fast on invalid data)
+- Return `Result<ImportRunResult, Error>` with normalized transactions
+- Store **both** `raw_data` and `normalized_data` in `external_transaction_data` table with `processing_status = 'pending'`
 
-**Phase 2: Process (Normalization)**
+**Phase 2: Process (Transform to Universal Format)**
 
 - Processors (`infrastructure/blockchains/*/processor.ts` or `infrastructure/exchanges/*/processor.ts`)
-- Transform raw API payloads into universal `UniversalTransaction` format
+- Load **normalized data** from `external_transaction_data` (already validated)
+- Transform normalized payloads into universal `UniversalTransaction` format
 - Return `Result<UniversalTransaction[], Error>`
-- Handle data validation with Zod schemas
 - Upsert into `transactions` table (keyed by `external_id`)
 
-**Phase 3: Verify (Balance Reconciliation)**
+**Balance Checking (Separate Command)**
 
-- Balance calculation services aggregate inflows/outflows by currency
-- Compare calculated vs. live balances (live lookups not yet implemented)
-- Generate verification reports
+- Use `balance` command to fetch current live balances from exchanges or blockchains
+- For exchanges: requires API credentials (flags or `.env`)
+- For blockchains: requires wallet address
+- Returns unified balance snapshot with timestamp
+- Independent of import/process pipeline for flexibility
 
 ### Blockchain Provider System
 
@@ -180,6 +208,24 @@ Multi-provider architecture with intelligent failover:
 
 Migrations in `packages/data/src/migrations/` run automatically via `initializeDatabase()`.
 
+### Multi-Currency & FX Rate Handling
+
+**All prices normalized to USD during enrichment** (not at import). Four-stage enrichment pipeline:
+
+1. **Derive**: Extract prices from USD and non-USD fiat trades (execution prices)
+2. **Normalize**: Convert non-USD fiat prices to USD via FX providers (ECB → BoC → Frankfurter)
+3. **Fetch**: Get crypto prices from external providers
+4. **Re-derive**: Propagate newly fetched/normalized prices via transaction links
+
+Two separate conversions:
+
+1. **Storage normalization** (enrichment phase): EUR/CAD → USD via FX providers, stored with metadata
+2. **Display conversion** (report generation): USD → CAD/EUR using historical rates (ephemeral, not stored)
+
+**FX providers** integrated into `packages/platform/price-providers` (same as crypto price providers). FX rates cached in same `prices.db`.
+
+See ADR-003 for architecture details.
+
 ## Critical Patterns
 
 ### Result Type (neverthrow)
@@ -213,8 +259,9 @@ return ok(result.value);
 
 Runtime validation for all external data (API responses, CSV rows):
 
-- Schemas defined in `*.schemas.ts` files
-- Used in importers and processors for validation
+- Core domain schemas centralized in `packages/core/src/schemas/` (single source of truth)
+- Feature-specific schemas in `*.schemas.ts` files alongside implementation
+- Types re-exported from schemas via `packages/core/src/types/` to eliminate duplication
 - Type inference: `type Foo = z.infer<typeof FooSchema>`
 
 ### Logging (Pino)
@@ -232,6 +279,7 @@ logger.debug({ metadata }, 'debug message');
 
 ## Code Requirements
 
+- **No Technical Debt:** Stop and report architectural issues immediately before implementing. Fix foundational problems first rather than building on a weak base
 - Use `exactOptionalPropertyTypes` - add `| undefined` to optional properties
 - Add new tables/fields to initial migration (`001_initial_schema.ts`) - database is dropped during development, not versioned incrementally
 - Remove all legacy code paths and backward compatibility when refactoring - clean breaks only
@@ -242,6 +290,8 @@ logger.debug({ metadata }, 'debug message');
 - **Simplicity Over DRY:** Follow DRY (Don't Repeat Yourself) principles, but not at the expense of KISS (Keep It Simple, Stupid). Prefer simple, readable code over complex abstractions that eliminate minor duplication. Some repetition is acceptable if it makes code more straightforward and maintainable.
 - **Developer Experience:** When developing packages, prioritize a simple and clean developer experience. APIs should be intuitive, error messages helpful, and setup minimal. Consider the ergonomics of how other developers will consume and work with the package.
 - **Meaningful Comments Only:** Add comments only when they provide meaningful context that cannot be expressed through code itself. Avoid stating the obvious or documenting refactoring changes (e.g., "changed X to Y"). Prefer self-documenting code through clear naming and structure. Use comments to explain why, not what.
+- **Decimal.js Import:** Always use named import for Decimal: `import { Decimal } from 'decimal.js'` (NOT `import Decimal from 'decimal.js'`)
+- **Decimal String Conversion:** Never use `toString()` on Decimal values as it outputs scientific notation for very large/small numbers. Always use `toFixed()` (without parameters) instead for string representation
 - **Context Management:** Monitor token usage throughout conversations. When context usage exceeds 125,000 tokens, warn the user and propose breaking the remaining work into sub-tasks, suggesting which sub-task to tackle first (after clearing history with `/clear`).
 
 ## Environment Variables

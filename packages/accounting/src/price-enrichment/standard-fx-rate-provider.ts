@@ -22,7 +22,8 @@ export class StandardFxRateProvider implements IFxRateProvider {
 
   async getRateToUSD(sourceCurrency: Currency, timestamp: Date): Promise<Result<FxRateData, Error>> {
     // Fetch FX rate from provider manager
-    // The manager will try providers in order: ECB → Bank of Canada → Frankfurter
+    // ProviderManager scores candidates per request (asset support, health, granularity)
+    // so EUR typically hits ECB first, CAD hits Bank of Canada, with Frankfurter as fallback.
     const fxRateResult = await this.priceManager.fetchPrice({
       asset: sourceCurrency,
       currency: CurrencyClass.create('USD'),

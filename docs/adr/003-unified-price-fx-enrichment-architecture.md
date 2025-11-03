@@ -345,7 +345,7 @@ pnpm run dev prices enrich [options]
 **Stage 2: Normalize**
 
 - Find movements with non-USD fiat prices
-- Fetch FX rates via `PriceProviderManager` (tries ECB → Bank of Canada → Frankfurter)
+- Fetch FX rates via `PriceProviderManager`, which ranks providers by declared capabilities, asset support, and health metrics (e.g., EUR flows to ECB first, CAD to Bank of Canada, with Frankfurter as shared fallback)
 - Convert to USD, populate fxRateToUSD metadata
 - Upgrade source: 'fiat-execution-tentative' → 'derived-ratio' (priority 2)
 - Service: `PriceNormalizationService`
@@ -409,8 +409,10 @@ export interface FxRateData {
 
 ```typescript
 /**
- * Standard implementation that delegates to PriceProviderManager
- * Manager tries providers in order: ECB → Bank of Canada → Frankfurter
+ * Standard implementation that delegates to PriceProviderManager.
+ * The manager scores providers per request (asset, timestamp, health),
+ * so EUR calls prefer ECB, CAD prefers Bank of Canada, etc., with
+ * Frankfurter acting as a general fallback.
  */
 export class StandardFxRateProvider implements IFxRateProvider {
   constructor(private readonly priceManager: PriceProviderManager) {}
@@ -491,10 +493,10 @@ export class InteractiveFxRateProvider implements IFxRateProvider {
       return result; // User declined, return original error
     }
 
-    // User provided manual rate
+    // User provided manual rate using their chosen label
     return ok({
       rate: manualRate.rate,
-      source: 'user-provided',
+      source: manualRate.source,
       fetchedAt: new Date(),
     });
   }
@@ -875,7 +877,7 @@ Implementation was fully backward-compatible with no breaking changes:
 ## Related
 
 - **Issue #153**: Add FX rate tracking to AssetMovement for multi-currency support
-- **ADR-002**: Treat Linked Transfers as Non-Taxable Events (fee handling)
+- **ADR-004**: Treat Linked Transfers as Non-Taxable Events (fee handling)
 - **Issue #101**: Transaction linking (price propagation via links)
 - **Issue #96**: Cost basis calculations
 
