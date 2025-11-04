@@ -12,10 +12,11 @@ export { getDefaultDateRange } from './config/cost-basis-config.js';
 // Domain types
 export type {
   AcquisitionLot,
-  LotDisposal,
   CostBasisCalculation,
-  LotStatus,
   CalculationStatus,
+  LotDisposal,
+  LotStatus,
+  LotTransfer,
 } from './domain/types.js';
 
 // Services
@@ -34,6 +35,7 @@ export type { CostBasisSummary } from './services/cost-basis-calculator.js';
 export type { IJurisdictionRules } from './jurisdictions/base-rules.js';
 export { CanadaRules } from './jurisdictions/canada-rules.js';
 export { USRules } from './jurisdictions/us-rules.js';
+export { JURISDICTION_CONFIGS, getJurisdictionConfig } from './jurisdictions/jurisdiction-configs.js';
 
 // Reports
 export type { CostBasisReport, ConvertedLotDisposal, FxConversionMetadata } from './reports/types.js';
@@ -55,6 +57,7 @@ export { TransactionLinkingService } from './linking/transaction-linking-service
 export { DEFAULT_MATCHING_CONFIG } from './linking/matching-utils.js';
 export { TransactionLinkRepository } from './persistence/transaction-link-repository.js';
 export { CostBasisRepository } from './persistence/cost-basis-repository.js';
+export { LotTransferRepository } from './persistence/lot-transfer-repository.js';
 export { PriceEnrichmentService } from './price-enrichment/price-enrichment-service.ts';
 export { PriceNormalizationService } from './price-enrichment/price-normalization-service.ts';
 export type { NormalizeResult } from './price-enrichment/price-normalization-service.ts';
