@@ -4,8 +4,16 @@ import type { getLogger } from '@exitbook/shared-logger';
 import { ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
-import { DEFAULT_MATCHING_CONFIG, findPotentialMatches, shouldAutoConfirm } from './matching-utils.js';
-import type { LinkingResult, MatchingConfig, PotentialMatch, TransactionCandidate, TransactionLink } from './types.js';
+import {
+  convertToCandidates,
+  createTransactionLink,
+  deduplicateAndConfirm,
+  DEFAULT_MATCHING_CONFIG,
+  findPotentialMatches,
+  separateSourcesAndTargets,
+  validateLinkAmounts,
+} from './matching-utils.js';
+import type { LinkingResult, MatchingConfig, PotentialMatch, TransactionLink } from './types.js';
 
 /**
  * Service for linking related transactions (e.g., exchange withdrawals → blockchain deposits)
@@ -26,15 +34,15 @@ export class TransactionLinkingService {
     try {
       this.logger.info({ transactionCount: transactions.length }, 'Starting transaction linking process');
 
-      // Convert to candidates
-      const candidates = this.convertToCandidates(transactions);
+      // Convert to candidates (pure function)
+      const candidates = convertToCandidates(transactions);
       this.logger.debug({ candidateCount: candidates.length }, 'Converted transactions to candidates');
 
-      // Separate into sources (withdrawals) and targets (deposits)
-      const { sources, targets } = this.separateSourcesAndTargets(candidates);
+      // Separate into sources (withdrawals) and targets (deposits) (pure function)
+      const { sources, targets } = separateSourcesAndTargets(candidates);
       this.logger.info({ sourceCount: sources.length, targetCount: targets.length }, 'Separated sources and targets');
 
-      // Find matches
+      // Find matches (pure function)
       const allMatches: PotentialMatch[] = [];
       for (const source of sources) {
         const matches = findPotentialMatches(source, targets, this.config);
@@ -43,12 +51,35 @@ export class TransactionLinkingService {
 
       this.logger.info({ matchCount: allMatches.length }, 'Found potential matches');
 
-      // Deduplicate matches (one target can only match one source)
-      const { suggested, confirmed } = this.deduplicateAndConfirm(allMatches);
+      // Deduplicate matches (pure function)
+      const { suggested, confirmed } = deduplicateAndConfirm(allMatches, this.config);
 
-      // Convert to TransactionLink objects
-      const confirmedLinks = confirmed.map((match) => this.createTransactionLink(match, 'confirmed'));
-      const suggestedLinks = suggested; // Keep as PotentialMatch for now
+      // Convert to TransactionLink objects with validation (pure function with injected UUID/timestamp)
+      const now = new Date();
+      const confirmedLinks: TransactionLink[] = [];
+      for (const match of confirmed) {
+        const linkResult = createTransactionLink(match, 'confirmed', uuidv4(), now);
+        if (linkResult.isErr()) {
+          this.logger.warn(
+            { error: linkResult.error.message, match },
+            'Failed to create confirmed link due to validation error - skipping'
+          );
+          continue;
+        }
+        confirmedLinks.push(linkResult.value);
+      }
+
+      // Validate suggested matches (but don't fail - just filter out invalid ones)
+      const validSuggested: PotentialMatch[] = [];
+      for (const match of suggested) {
+        const validationResult = validateLinkAmounts(match.sourceTransaction.amount, match.targetTransaction.amount);
+        if (validationResult.isErr()) {
+          this.logger.debug({ error: validationResult.error.message, match }, 'Filtered out invalid suggested match');
+          continue;
+        }
+        validSuggested.push(match);
+      }
+      const suggestedLinks = validSuggested;
 
       // Calculate statistics
       const linkedMatches = [...confirmed, ...suggested];
@@ -79,145 +110,5 @@ export class TransactionLinkingService {
       this.logger.error({ error }, 'Failed to link transactions');
       return wrapError(error, 'Transaction linking failed');
     }
-  }
-
-  /**
-   * Convert stored transactions to transaction candidates for matching.
-   * Creates one candidate per asset movement (not just primary).
-   */
-  private convertToCandidates(transactions: UniversalTransaction[]): TransactionCandidate[] {
-    const candidates: TransactionCandidate[] = [];
-
-    for (const tx of transactions) {
-      // Create candidates for all inflows
-      for (const inflow of tx.movements.inflows ?? []) {
-        const candidate: TransactionCandidate = {
-          id: tx.id,
-          externalId: tx.externalId,
-          sourceId: tx.source,
-          sourceType: tx.blockchain ? 'blockchain' : 'exchange',
-          timestamp: new Date(tx.datetime),
-          asset: inflow.asset,
-          amount: inflow.amount,
-          direction: 'in',
-          fromAddress: tx.from,
-          toAddress: tx.to,
-        };
-        candidates.push(candidate);
-      }
-
-      // Create candidates for all outflows
-      for (const outflow of tx.movements.outflows ?? []) {
-        const candidate: TransactionCandidate = {
-          id: tx.id,
-          externalId: tx.externalId,
-          sourceId: tx.source,
-          sourceType: tx.blockchain ? 'blockchain' : 'exchange',
-          timestamp: new Date(tx.datetime),
-          asset: outflow.asset,
-          amount: outflow.amount,
-          direction: 'out',
-          fromAddress: tx.from,
-          toAddress: tx.to,
-        };
-        candidates.push(candidate);
-      }
-    }
-
-    return candidates;
-  }
-
-  /**
-   * Separate candidates into sources (outflows) and targets (inflows)
-   */
-  private separateSourcesAndTargets(candidates: TransactionCandidate[]): {
-    sources: TransactionCandidate[];
-    targets: TransactionCandidate[];
-  } {
-    const sources: TransactionCandidate[] = [];
-    const targets: TransactionCandidate[] = [];
-
-    for (const candidate of candidates) {
-      // Only consider specific operation types for linking
-      // Sources: withdrawals, sends
-      // Targets: deposits, receives
-
-      if (candidate.direction === 'out') {
-        sources.push(candidate);
-      } else if (candidate.direction === 'in') {
-        targets.push(candidate);
-      }
-    }
-
-    return { sources, targets };
-  }
-
-  /**
-   * Deduplicate matches and separate into confirmed vs suggested
-   * - One target can only match one source (highest confidence wins)
-   * - One source can only match one target (highest confidence wins)
-   * - Auto-confirm matches above threshold
-   */
-  private deduplicateAndConfirm(matches: PotentialMatch[]): {
-    confirmed: PotentialMatch[];
-    suggested: PotentialMatch[];
-  } {
-    // Sort all matches by confidence (highest first)
-    const sortedMatches = [...matches].sort((a, b) => b.confidenceScore.comparedTo(a.confidenceScore));
-
-    const usedSources = new Set<number>();
-    const usedTargets = new Set<number>();
-    const deduplicatedMatches: PotentialMatch[] = [];
-
-    // Greedily select matches, ensuring each source and target is used at most once
-    for (const match of sortedMatches) {
-      const sourceId = match.sourceTransaction.id;
-      const targetId = match.targetTransaction.id;
-
-      // Skip if either source or target is already used
-      if (usedSources.has(sourceId) || usedTargets.has(targetId)) {
-        continue;
-      }
-
-      // Accept this match
-      deduplicatedMatches.push(match);
-      usedSources.add(sourceId);
-      usedTargets.add(targetId);
-    }
-
-    const suggested: PotentialMatch[] = [];
-    const confirmed: PotentialMatch[] = [];
-
-    // Separate into confirmed vs suggested based on confidence threshold
-    for (const match of deduplicatedMatches) {
-      if (shouldAutoConfirm(match, this.config)) {
-        confirmed.push(match);
-      } else {
-        suggested.push(match);
-      }
-    }
-
-    return { suggested, confirmed };
-  }
-
-  /**
-   * Create a TransactionLink object from a potential match
-   */
-  private createTransactionLink(match: PotentialMatch, status: 'suggested' | 'confirmed'): TransactionLink {
-    const now = new Date();
-
-    return {
-      id: uuidv4(),
-      sourceTransactionId: match.sourceTransaction.id,
-      targetTransactionId: match.targetTransaction.id,
-      linkType: match.linkType,
-      confidenceScore: match.confidenceScore,
-      matchCriteria: match.matchCriteria,
-      status,
-      reviewedBy: status === 'confirmed' ? 'auto' : undefined,
-      reviewedAt: status === 'confirmed' ? now : undefined,
-      createdAt: now,
-      updatedAt: now,
-    };
   }
 }

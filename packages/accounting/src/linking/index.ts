@@ -21,11 +21,12 @@ export {
   LinkingResultSchema,
 } from './schemas.js';
 
-// Matching utilities
+// Matching and validation utilities (functional core)
 export {
   DEFAULT_MATCHING_CONFIG,
   calculateAmountSimilarity,
   calculateTimeDifferenceHours,
+  calculateVarianceMetadata,
   isTimingValid,
   determineLinkType,
   checkAddressMatch,
@@ -33,7 +34,12 @@ export {
   buildMatchCriteria,
   findPotentialMatches,
   shouldAutoConfirm,
+  validateLinkAmounts,
+  convertToCandidates,
+  separateSourcesAndTargets,
+  deduplicateAndConfirm,
+  createTransactionLink,
 } from './matching-utils.js';
 
-// Service
+// Service (imperative shell)
 export { TransactionLinkingService } from './transaction-linking-service.js';

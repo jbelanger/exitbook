@@ -46,17 +46,23 @@ function createTransaction(params: {
  * Helper to create a TransactionLink for testing
  */
 function createTransactionLink(params: {
+  asset?: string;
   confidenceScore?: string;
   id: string;
   linkType: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange';
+  sourceAmount?: string;
   sourceTransactionId: number;
   status: 'suggested' | 'confirmed' | 'rejected';
+  targetAmount?: string;
   targetTransactionId: number;
 }): TransactionLink {
   return {
     id: params.id,
     sourceTransactionId: params.sourceTransactionId,
     targetTransactionId: params.targetTransactionId,
+    asset: params.asset ?? 'BTC',
+    sourceAmount: parseDecimal(params.sourceAmount ?? '1.0'),
+    targetAmount: parseDecimal(params.targetAmount ?? '1.0'),
     linkType: params.linkType,
     confidenceScore: parseDecimal(params.confidenceScore ?? '0.95'),
     matchCriteria: {

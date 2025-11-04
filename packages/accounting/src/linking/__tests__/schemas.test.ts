@@ -53,7 +53,7 @@ describe('schemas', () => {
       const result = MatchCriteriaSchema.parse(criteria);
       expect(result.assetMatch).toBe(true);
       expect(result.amountSimilarity).toBeInstanceOf(Decimal);
-      expect(result.amountSimilarity.toString()).toBe('0.95');
+      expect(result.amountSimilarity.toFixed()).toBe('0.95');
       expect(result.timingValid).toBe(true);
       expect(result.timingHours).toBe(1.5);
       expect(result.addressMatch).toBe(true);
@@ -69,7 +69,7 @@ describe('schemas', () => {
 
       const result = MatchCriteriaSchema.parse(criteria);
       expect(result.assetMatch).toBe(false);
-      expect(result.amountSimilarity.toString()).toBe('0.85');
+      expect(result.amountSimilarity.toFixed()).toBe('0.85');
       expect(result.addressMatch).toBeUndefined();
     });
 
@@ -83,7 +83,7 @@ describe('schemas', () => {
 
       const result = MatchCriteriaSchema.parse(criteria);
       expect(result.amountSimilarity).toBeInstanceOf(Decimal);
-      expect(result.amountSimilarity.toString()).toBe('0.99');
+      expect(result.amountSimilarity.toFixed()).toBe('0.99');
     });
 
     it('should reject invalid criteria', () => {
@@ -112,6 +112,9 @@ describe('schemas', () => {
         id: 'link-123',
         sourceTransactionId: 1,
         targetTransactionId: 2,
+        asset: 'BTC',
+        sourceAmount: parseDecimal('1.0'),
+        targetAmount: parseDecimal('0.9995'),
         linkType: 'exchange_to_blockchain',
         confidenceScore: parseDecimal('0.95'),
         matchCriteria: {
@@ -133,6 +136,11 @@ describe('schemas', () => {
       expect(result.id).toBe('link-123');
       expect(result.sourceTransactionId).toBe(1);
       expect(result.targetTransactionId).toBe(2);
+      expect(result.asset).toBe('BTC');
+      expect(result.sourceAmount).toBeInstanceOf(Decimal);
+      expect(result.sourceAmount.toFixed()).toBe('1');
+      expect(result.targetAmount).toBeInstanceOf(Decimal);
+      expect(result.targetAmount.toFixed()).toBe('0.9995');
       expect(result.linkType).toBe('exchange_to_blockchain');
       expect(result.confidenceScore).toBeInstanceOf(Decimal);
       expect(result.status).toBe('confirmed');
@@ -146,6 +154,9 @@ describe('schemas', () => {
         id: 'link-456',
         sourceTransactionId: 3,
         targetTransactionId: 4,
+        asset: 'ETH',
+        sourceAmount: '10.0',
+        targetAmount: '9.98',
         linkType: 'blockchain_to_blockchain',
         confidenceScore: '0.88',
         matchCriteria: {
@@ -161,7 +172,11 @@ describe('schemas', () => {
 
       const result = TransactionLinkSchema.parse(link);
       expect(result.confidenceScore).toBeInstanceOf(Decimal);
-      expect(result.confidenceScore.toString()).toBe('0.88');
+      expect(result.confidenceScore.toFixed()).toBe('0.88');
+      expect(result.sourceAmount).toBeInstanceOf(Decimal);
+      expect(result.sourceAmount.toFixed()).toBe('10');
+      expect(result.targetAmount).toBeInstanceOf(Decimal);
+      expect(result.targetAmount.toFixed()).toBe('9.98');
       expect(result.reviewedBy).toBeUndefined();
       expect(result.reviewedAt).toBeUndefined();
       expect(result.metadata).toBeUndefined();
@@ -323,8 +338,8 @@ describe('schemas', () => {
 
       const result = PotentialMatchSchema.parse(match);
       expect(result.confidenceScore).toBeInstanceOf(Decimal);
-      expect(result.confidenceScore.toString()).toBe('0.9'); // Decimal drops trailing zeros
-      expect(result.matchCriteria.amountSimilarity.toString()).toBe('0.98');
+      expect(result.confidenceScore.toFixed()).toBe('0.9');
+      expect(result.matchCriteria.amountSimilarity.toFixed()).toBe('0.98');
     });
   });
 
@@ -354,9 +369,9 @@ describe('schemas', () => {
 
       const result = MatchingConfigSchema.parse(config);
       expect(result.minAmountSimilarity).toBeInstanceOf(Decimal);
-      expect(result.minAmountSimilarity.toString()).toBe('0.9'); // Decimal drops trailing zeros
-      expect(result.minConfidenceScore.toString()).toBe('0.6'); // Decimal drops trailing zeros
-      expect(result.autoConfirmThreshold.toString()).toBe('0.98');
+      expect(result.minAmountSimilarity.toFixed()).toBe('0.9');
+      expect(result.minConfidenceScore.toFixed()).toBe('0.6');
+      expect(result.autoConfirmThreshold.toFixed()).toBe('0.98');
     });
 
     it('should reject negative maxTimingWindowHours', () => {
@@ -420,6 +435,9 @@ describe('schemas', () => {
       id,
       sourceTransactionId: sourceId,
       targetTransactionId: targetId,
+      asset: 'BTC',
+      sourceAmount: parseDecimal('1.0'),
+      targetAmount: parseDecimal('1.0'),
       linkType: 'exchange_to_blockchain' as const,
       confidenceScore: parseDecimal('0.95'),
       matchCriteria: {
@@ -512,7 +530,7 @@ describe('schemas', () => {
 
       const result = MatchingConfigSchema.parse(config);
       expect(result.minAmountSimilarity).toBeInstanceOf(Decimal);
-      expect(result.minAmountSimilarity.toString()).toBe('0.95');
+      expect(result.minAmountSimilarity.toFixed()).toBe('0.95');
     });
 
     it('should keep Decimal as Decimal', () => {
@@ -539,7 +557,7 @@ describe('schemas', () => {
 
       const result = MatchCriteriaSchema.parse(criteria);
       expect(result.amountSimilarity).toBeInstanceOf(Decimal);
-      expect(result.amountSimilarity.toString()).toBe('0.000001');
+      expect(result.amountSimilarity.toFixed()).toBe('0.000001');
     });
 
     it('should handle very large numbers', () => {
