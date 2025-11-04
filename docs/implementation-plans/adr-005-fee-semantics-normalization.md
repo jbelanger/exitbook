@@ -63,7 +63,7 @@ export const AssetMovementSchema = z.object({
 
   // Amount fields
   grossAmount: DecimalSchema,          // Amount venue debited/credited (REQUIRED)
-  netAmount: DecimalSchema.optional(), // Amount on-chain (defaults to grossAmount if omitted)
+  netAmount: DecimalSchema.optional(), // Amount on-chain (repository defaults to grossAmount during save)
 
   // Deprecated fields
   amount: DecimalSchema.optional(),    // DEPRECATED: Use grossAmount instead. Kept for query compatibility only.
@@ -92,16 +92,22 @@ export const FeeMovementSchema = z.object({
 
   // Price metadata
   priceAtTxTime: PriceAtTxTimeSchema.optional(),
-});
+}).refine(
+  (data) => !(data.settlement === 'on-chain' && data.scope === 'platform'),
+  {
+    message: 'Invalid fee: settlement="on-chain" with scope="platform" - platform fees are charged off-chain by the venue',
+    path: ['settlement']
+  }
+);
 
 // Update UniversalTransactionSchema fees structure
 fees: z.array(FeeMovementSchema).default([]),
 ```
 
-**Validation Rules:**
+**Validation Rules (enforced in schema):**
 
 - `settlement='on-chain'` + `scope='network'` → Valid (gas fees)
-- `settlement='on-chain'` + `scope='platform'` → **Invalid** (platform fees don't go on-chain)
+- `settlement='on-chain'` + `scope='platform'` → **Invalid** (blocked by schema `.refine()` - platform fees don't go on-chain)
 - `settlement='balance'` + `scope='platform'` → Valid (exchange withdrawal fees)
 - `settlement='balance'` + `scope='network'` → Unusual but valid (exchange paying gas on behalf)
 
@@ -209,32 +215,6 @@ function normalizeMovement(movement: AssetMovement): Result<AssetMovement, Error
     // but is NOT populated or used - all code must use grossAmount/netAmount
   });
 }
-
-/**
- * Validate fee has required semantics
- * Returns error on missing fields or invalid combinations
- */
-function validateFeeSemantics(fee: FeeMovement): Result<void, Error> {
-  if (!fee.scope) {
-    return err(new Error(`Fee missing required 'scope' field. Asset: ${fee.asset}, amount: ${fee.amount}`));
-  }
-  if (!fee.settlement) {
-    return err(new Error(`Fee missing required 'settlement' field. Asset: ${fee.asset}, amount: ${fee.amount}`));
-  }
-
-  // Validate settlement makes sense for scope
-  if (fee.settlement === 'on-chain' && fee.scope === 'platform') {
-    return err(
-      new Error(
-        `Invalid fee: settlement='on-chain' with scope='platform' - ` +
-          `platform fees are charged off-chain by the venue. ` +
-          `Asset: ${fee.asset}, amount: ${fee.amount}`
-      )
-    );
-  }
-
-  return ok(undefined);
-}
 ```
 
 ### 2.2 Update saveTransaction()
@@ -265,13 +245,6 @@ async saveTransaction(transaction: UniversalTransaction, dataSourceId: number) {
       normalizedOutflows.push(result.value);
     }
 
-    // Validate fees have required semantics
-    for (const fee of transaction.fees ?? []) {
-      const validationResult = validateFeeSemantics(fee);
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
-      }
-    }
 
     const rawDataJson = this.serializeToJson(transaction) ?? '{}';
 
@@ -344,6 +317,10 @@ private parseMovements(jsonString: string | null): Result<AssetMovement[], Error
 
 /**
  * Parse fees array from JSON column
+ *
+ * Schema validation via FeeMovementSchema.refine() ensures:
+ * - Required fields (scope, settlement) are present
+ * - Invalid combinations are rejected (e.g., on-chain + platform)
  */
 private parseFees(jsonString: string | null): Result<FeeMovement[], Error> {
   if (!jsonString) {
@@ -356,14 +333,6 @@ private parseFees(jsonString: string | null): Result<FeeMovement[], Error> {
 
     if (!result.success) {
       return err(new Error(`Failed to parse fees JSON: ${result.error.message}`));
-    }
-
-    // Validate all fees have required semantics
-    for (const fee of result.data) {
-      const validationResult = validateFeeSemantics(fee);
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
-      }
     }
 
     return ok(result.data);
