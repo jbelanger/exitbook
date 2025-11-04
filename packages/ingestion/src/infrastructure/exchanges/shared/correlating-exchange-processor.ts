@@ -85,8 +85,8 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
 
         movements: {
           inflows: fundFlow.inflows.map((inflow) => {
-            const gross = parseDecimal(inflow.grossAmount ?? inflow.amount);
-            const net = parseDecimal(inflow.netAmount ?? inflow.grossAmount ?? inflow.amount);
+            const gross = parseDecimal(inflow.grossAmount);
+            const net = parseDecimal(inflow.netAmount ?? inflow.grossAmount);
 
             return {
               asset: inflow.asset,
@@ -96,8 +96,8 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
           }),
 
           outflows: fundFlow.outflows.map((outflow) => {
-            const gross = parseDecimal(outflow.grossAmount ?? outflow.amount);
-            const net = parseDecimal(outflow.netAmount ?? outflow.grossAmount ?? outflow.amount);
+            const gross = parseDecimal(outflow.grossAmount);
+            const net = parseDecimal(outflow.netAmount ?? outflow.grossAmount);
 
             return {
               asset: outflow.asset,
@@ -282,8 +282,8 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         note: {
           message: fundFlow.classificationUncertainty,
           metadata: {
-            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+            inflows: inflows.map((i) => ({ amount: i.grossAmount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.grossAmount, asset: o.asset })),
           },
           severity: 'info',
           type: 'classification_uncertain',
@@ -299,8 +299,8 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
       note: {
         message: 'Unable to determine transaction classification using confident patterns.',
         metadata: {
-          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          inflows: inflows.map((i) => ({ amount: i.grossAmount, asset: i.asset })),
+          outflows: outflows.map((o) => ({ amount: o.grossAmount, asset: o.asset })),
         },
         severity: 'warning',
         type: 'classification_failed',
@@ -327,8 +327,8 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
    * Select primary movement (largest inflow, or largest outflow if no inflows).
    */
   private selectPrimaryMovement(
-    consolidatedInflows: { amount: string; asset: string }[],
-    consolidatedOutflows: { amount: string; asset: string }[]
+    consolidatedInflows: MovementInput[],
+    consolidatedOutflows: MovementInput[]
   ): { amount: string; asset: string } {
     let primary = {
       amount: '0',
@@ -338,32 +338,32 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     const largestInflow = consolidatedInflows
       .sort((a, b) => {
         try {
-          return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
+          return parseDecimal(b.grossAmount).comparedTo(parseDecimal(a.grossAmount));
         } catch {
           return 0;
         }
       })
-      .find((inflow) => !parseDecimal(inflow.amount).isZero());
+      .find((inflow) => !parseDecimal(inflow.grossAmount).isZero());
 
     if (largestInflow) {
       primary = {
-        amount: largestInflow.amount,
+        amount: largestInflow.grossAmount,
         asset: largestInflow.asset,
       };
     } else {
       const largestOutflow = consolidatedOutflows
         .sort((a, b) => {
           try {
-            return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
+            return parseDecimal(b.grossAmount).comparedTo(parseDecimal(a.grossAmount));
           } catch {
             return 0;
           }
         })
-        .find((outflow) => !parseDecimal(outflow.amount).isZero());
+        .find((outflow) => !parseDecimal(outflow.grossAmount).isZero());
 
       if (largestOutflow) {
         primary = {
-          amount: largestOutflow.amount,
+          amount: largestOutflow.grossAmount,
           asset: largestOutflow.asset,
         };
       }
@@ -376,8 +376,8 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
    * Detect if classification may be uncertain due to complex fund flow.
    */
   private detectClassificationUncertainty(
-    consolidatedInflows: { amount: string; asset: string }[],
-    consolidatedOutflows: { amount: string; asset: string }[]
+    consolidatedInflows: MovementInput[],
+    consolidatedOutflows: MovementInput[]
   ): string | undefined {
     if (consolidatedInflows.length > 1 || consolidatedOutflows.length > 1) {
       return `Complex transaction with ${consolidatedOutflows.length} outflow(s) and ${consolidatedInflows.length} inflow(s). May be multi-asset swap or batch operation.`;
@@ -413,7 +413,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
 
     for (const movement of movements) {
       const existing = assetMap.get(movement.asset);
-      const amount = parseDecimal(movement.amount);
+      const amount = parseDecimal(movement.grossAmount);
       const grossAmount = movement.grossAmount ? parseDecimal(movement.grossAmount) : amount;
       const netAmount = movement.netAmount ? parseDecimal(movement.netAmount) : grossAmount;
 

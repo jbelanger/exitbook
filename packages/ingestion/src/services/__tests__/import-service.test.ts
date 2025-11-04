@@ -68,7 +68,7 @@ const mockExchangeImportFn = vi.fn().mockResolvedValue(
 
 // Mock exchange importer factory
 vi.mock('../../infrastructure/exchanges/shared/exchange-importer-factory.ts', () => ({
-  createExchangeImporter: (sourceId: string, _params: any) => {
+  createExchangeImporter: (sourceId: string, _params: ImportParams) => {
     if (sourceId === 'kraken') {
       return ok({
         import: mockExchangeImportFn,

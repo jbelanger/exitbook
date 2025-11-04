@@ -1,4 +1,10 @@
-import { Currency, type AssetMovement, type PriceAtTxTime, type UniversalTransaction } from '@exitbook/core';
+import {
+  Currency,
+  type AssetMovement,
+  type FeeMovement,
+  type PriceAtTxTime,
+  type UniversalTransaction,
+} from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
@@ -197,6 +203,164 @@ export function filterTransactionsWithoutPrices(transactions: UniversalTransacti
 }
 
 /**
+ * Convert all fees to their total fiat value
+ *
+ * Handles fees with prices directly, and fiat fees without prices using 1:1 conversion
+ * when they match the target movement's price currency.
+ */
+function calculateTotalFeeValueInFiat(
+  fees: Pick<FeeMovement, 'amount' | 'asset' | 'priceAtTxTime'>[],
+  targetMovement: AssetMovement,
+  transactionId: number
+): Result<Decimal, Error> {
+  let totalFeeValue = new Decimal(0);
+
+  for (const fee of fees) {
+    if (fee.priceAtTxTime) {
+      // Fee has price - use it directly
+      const feeValue = fee.amount.times(fee.priceAtTxTime.price.amount);
+      totalFeeValue = totalFeeValue.plus(feeValue);
+    } else {
+      // Fee has no price - try fallback conversion
+      const feeCurrency = Currency.create(fee.asset);
+      if (feeCurrency.isFiat() && targetMovement.priceAtTxTime) {
+        const targetPriceCurrency = targetMovement.priceAtTxTime.price.currency;
+        if (feeCurrency.equals(targetPriceCurrency)) {
+          // Same fiat currency - use 1:1 conversion
+          totalFeeValue = totalFeeValue.plus(fee.amount);
+        } else {
+          // Different fiat currencies - need FX rate
+          return err(
+            new Error(
+              `Fee in ${fee.asset} cannot be converted to ${targetPriceCurrency.toString()} without exchange rate. ` +
+                `Transaction: ${transactionId}, Fee amount: ${fee.amount.toFixed()}`
+            )
+          );
+        }
+      } else {
+        // Non-fiat fee without price - data integrity error
+        return err(
+          new Error(
+            `Fee in ${fee.asset} missing priceAtTxTime. Cost basis calculation requires all crypto fees to be priced. ` +
+              `Transaction: ${transactionId}, Fee amount: ${fee.amount.toFixed()}`
+          )
+        );
+      }
+    }
+  }
+
+  return ok(totalFeeValue);
+}
+
+/**
+ * Calculate fiat values for target movement and all non-fiat movements
+ *
+ * Returns the target movement's value and the sum of all non-fiat movement values.
+ * Uses grossAmount for inflows and netAmount (defaulting to grossAmount) for outflows.
+ */
+function calculateMovementValues(
+  transaction: UniversalTransaction,
+  targetMovement: AssetMovement,
+  isInflow: boolean
+): {
+  nonFiatMovements: AssetMovement[];
+  targetAmount: Decimal;
+  targetMovementValue: Decimal;
+  totalMovementValue: Decimal;
+} {
+  const inflows = transaction.movements.inflows || [];
+  const outflows = transaction.movements.outflows || [];
+  const allMovements = [...inflows, ...outflows];
+
+  // Filter to non-fiat movements only (we track cost basis for crypto, not fiat)
+  const nonFiatMovements = allMovements.filter((m) => {
+    try {
+      return !Currency.create(m.asset).isFiat();
+    } catch {
+      return true; // If we can't determine, assume crypto
+    }
+  });
+
+  // Calculate target movement amount (grossAmount for acquisitions, netAmount for disposals)
+  const targetAmount = isInflow ? targetMovement.grossAmount : (targetMovement.netAmount ?? targetMovement.grossAmount);
+  const targetMovementValue = targetMovement.priceAtTxTime
+    ? new Decimal(targetAmount).times(targetMovement.priceAtTxTime.price.amount)
+    : new Decimal(0);
+
+  // Calculate total value of all non-fiat movements
+  let totalMovementValue = new Decimal(0);
+  for (const movement of nonFiatMovements) {
+    if (movement.priceAtTxTime) {
+      const movementAmount = inflows.includes(movement)
+        ? movement.grossAmount
+        : (movement.netAmount ?? movement.grossAmount);
+      const movementValue = new Decimal(movementAmount).times(movement.priceAtTxTime.price.amount);
+      totalMovementValue = totalMovementValue.plus(movementValue);
+    }
+  }
+
+  return {
+    nonFiatMovements,
+    targetAmount,
+    targetMovementValue,
+    totalMovementValue,
+  };
+}
+
+/**
+ * Allocate fees proportionally across non-fiat movements
+ *
+ * **Standard case**: When movements have non-zero values, allocate proportionally:
+ *   - Fee share = (target value / total value) × total fees
+ *
+ * **Edge case (zero values)**: When all movements have zero value, split evenly:
+ *   - If no non-fiat movements exist, return 0
+ *   - If target is not in non-fiat list, return 0 (e.g., fiat movement)
+ *   - Otherwise, split equally: total fees / count of non-fiat movements
+ *
+ * This handles scenarios like:
+ *   - Airdrops or new token launches where initial price is $0
+ *   - Transactions where prices haven't been fetched yet
+ *   - Fiat movements that should not receive fee allocation
+ */
+function allocateFeesProportionally(
+  totalFeeValue: Decimal,
+  values: {
+    nonFiatMovements: AssetMovement[];
+    targetAmount: Decimal;
+    targetMovementValue: Decimal;
+    totalMovementValue: Decimal;
+  },
+  targetMovement: AssetMovement,
+  inflows: AssetMovement[]
+): Decimal {
+  // Standard case: proportional allocation based on value
+  if (!values.totalMovementValue.isZero()) {
+    return totalFeeValue.times(values.targetMovementValue).dividedBy(values.totalMovementValue);
+  }
+
+  // Edge case: all movements have zero value
+  // Return 0 if no non-fiat movements to allocate to
+  if (values.nonFiatMovements.length === 0) {
+    return new Decimal(0);
+  }
+
+  // Check if target movement is in the non-fiat list
+  // (prevents allocating fees to fiat movements)
+  const isTargetInNonFiat = values.nonFiatMovements.some((m) => {
+    const mAmount = inflows.includes(m) ? m.grossAmount : (m.netAmount ?? m.grossAmount);
+    return m.asset === targetMovement.asset && new Decimal(mAmount).equals(new Decimal(values.targetAmount));
+  });
+
+  if (!isTargetInNonFiat) {
+    return new Decimal(0);
+  }
+
+  // Split fees equally among all non-fiat movements
+  return totalFeeValue.dividedBy(values.nonFiatMovements.length);
+}
+
+/**
  * Calculate the fiat value of fees attributable to a specific asset movement
  *
  * For INFLOWS (acquisitions):
@@ -236,94 +400,20 @@ export function calculateFeesInFiat(
   }
 
   // Calculate total fee value in fiat
-  let totalFeeValue = new Decimal(0);
-  for (const fee of relevantFees) {
-    if (fee.priceAtTxTime) {
-      const feeValue = fee.amount.times(fee.priceAtTxTime.price.amount);
-      totalFeeValue = totalFeeValue.plus(feeValue);
-    } else {
-      // Fallback for fees without prices:
-      // If fee is in fiat currency, use 1:1 conversion to target movement's price currency
-      const feeCurrency = Currency.create(fee.asset);
-      if (feeCurrency.isFiat() && targetMovement.priceAtTxTime) {
-        const targetPriceCurrency = targetMovement.priceAtTxTime.price.currency;
-        // If same currency, use 1:1. If different fiat, fail with clear error
-        if (feeCurrency.equals(targetPriceCurrency)) {
-          totalFeeValue = totalFeeValue.plus(fee.amount);
-        } else {
-          return err(
-            new Error(
-              `Fee in ${fee.asset} cannot be converted to ${targetPriceCurrency.toString()} without exchange rate. ` +
-                `Transaction: ${transaction.id}, Fee amount: ${fee.amount.toFixed()}`
-            )
-          );
-        }
-      } else {
-        // Non-fiat fee without price - this is a data integrity error
-        return err(
-          new Error(
-            `Fee in ${fee.asset} missing priceAtTxTime. Cost basis calculation requires all crypto fees to be priced. ` +
-              `Transaction: ${transaction.id}, Fee amount: ${fee.amount.toFixed()}`
-          )
-        );
-      }
-    }
+  const totalFeeValueResult = calculateTotalFeeValueInFiat(relevantFees, targetMovement, transaction.id);
+  if (totalFeeValueResult.isErr()) {
+    return err(totalFeeValueResult.error);
   }
+  const totalFeeValue = totalFeeValueResult.value;
 
-  // Calculate proportional allocation (unchanged from existing logic)
+  // Calculate movement values for proportional allocation
+  const values = calculateMovementValues(transaction, targetMovement, isInflow);
+
+  // Allocate fees proportionally (or equally if all values are zero)
   const inflows = transaction.movements.inflows || [];
-  const outflows = transaction.movements.outflows || [];
-  const allMovements = [...inflows, ...outflows];
-  const nonFiatMovements = allMovements.filter((m) => {
-    try {
-      return !Currency.create(m.asset).isFiat();
-    } catch {
-      return true;
-    }
-  });
+  const allocatedFee = allocateFeesProportionally(totalFeeValue, values, targetMovement, inflows);
 
-  // Use grossAmount for acquisitions (what you paid), netAmount for disposals (what you received)
-  // Default netAmount to grossAmount if not set (per ADR-005)
-  const targetAmount = isInflow ? targetMovement.grossAmount : (targetMovement.netAmount ?? targetMovement.grossAmount);
-  const targetMovementValue = targetMovement.priceAtTxTime
-    ? new Decimal(targetAmount).times(targetMovement.priceAtTxTime.price.amount)
-    : new Decimal(0);
-
-  let totalMovementValue = new Decimal(0);
-  for (const movement of nonFiatMovements) {
-    if (movement.priceAtTxTime) {
-      // Use grossAmount for inflows, netAmount for outflows in proportional allocation
-      // Default netAmount to grossAmount if not set (per ADR-005)
-      const movementAmount = inflows.includes(movement)
-        ? movement.grossAmount
-        : (movement.netAmount ?? movement.grossAmount);
-      const movementValue = new Decimal(movementAmount).times(movement.priceAtTxTime.price.amount);
-      totalMovementValue = totalMovementValue.plus(movementValue);
-    }
-  }
-
-  if (totalMovementValue.isZero()) {
-    if (nonFiatMovements.length === 0) {
-      return ok(new Decimal(0));
-    }
-
-    const targetAmountForComparison = isInflow
-      ? targetMovement.grossAmount
-      : (targetMovement.netAmount ?? targetMovement.grossAmount);
-    const isTargetInNonFiat = nonFiatMovements.some((m) => {
-      const mAmount = inflows.includes(m) ? m.grossAmount : (m.netAmount ?? m.grossAmount);
-      return m.asset === targetMovement.asset && new Decimal(mAmount).equals(new Decimal(targetAmountForComparison));
-    });
-
-    if (!isTargetInNonFiat) {
-      return ok(new Decimal(0));
-    }
-
-    return ok(totalFeeValue.dividedBy(nonFiatMovements.length));
-  }
-
-  // Allocate proportionally
-  return ok(totalFeeValue.times(targetMovementValue).dividedBy(totalMovementValue));
+  return ok(allocatedFee);
 }
 
 /**

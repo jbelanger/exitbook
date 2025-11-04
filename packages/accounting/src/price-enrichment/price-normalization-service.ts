@@ -327,51 +327,6 @@ export class PriceNormalizationService {
   }
 
   /**
-   * Normalize a single fee (if it exists and needs normalization)
-   */
-  private async normalizeFee(
-    fee: AssetMovement | undefined,
-    txDatetime: string,
-    result: NormalizeResult
-  ): Promise<AssetMovement | undefined> {
-    // No fee - return undefined
-    if (!fee) {
-      return undefined;
-    }
-
-    // Fee doesn't need normalization - return as-is
-    if (!movementNeedsNormalization(fee)) {
-      return fee;
-    }
-
-    // Normalize the fee price
-    const normalizedPrice = await this.normalizePriceToUSD(fee.priceAtTxTime!, new Date(txDatetime));
-
-    if (normalizedPrice.isErr()) {
-      const priceCurrency = fee.priceAtTxTime!.price.currency;
-      logger.warn(
-        {
-          feeAsset: fee.asset,
-          currency: priceCurrency.toString(),
-          error: normalizedPrice.error.message,
-        },
-        'Failed to normalize fee price'
-      );
-      result.failures++;
-      result.errors.push(`Fee ${fee.asset} (${priceCurrency.toString()} → USD): ${normalizedPrice.error.message}`);
-      // Keep original fee price
-      return fee;
-    }
-
-    // Success - update fee with normalized price
-    result.movementsNormalized++;
-    return {
-      ...fee,
-      priceAtTxTime: normalizedPrice.value,
-    };
-  }
-
-  /**
    * Normalize a single price from non-USD fiat to USD
    */
   private async normalizePriceToUSD(

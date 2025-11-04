@@ -7,9 +7,8 @@ import type { RawTransactionWithMetadata } from './grouping.ts';
  * Movement input with amount semantics (used before parsing to Decimal)
  */
 export interface MovementInput {
-  amount: string;
   asset: string;
-  grossAmount?: string; // Defaults to amount
+  grossAmount: string;
   netAmount?: string; // Defaults to grossAmount
 }
 
@@ -72,7 +71,6 @@ export const standardAmounts: InterpretationStrategy = {
         ? [
             {
               asset,
-              amount: absAmount.toFixed(),
               grossAmount: absAmount.toFixed(),
               netAmount: absAmount.toFixed(), // No on-chain fees, net = gross
             },
@@ -83,7 +81,6 @@ export const standardAmounts: InterpretationStrategy = {
         ? [
             {
               asset,
-              amount: absAmount.toFixed(),
               grossAmount: absAmount.toFixed(),
               netAmount: absAmount.toFixed(), // No on-chain fees, net = gross
             },
@@ -142,7 +139,6 @@ class CoinbaseGrossAmountsStrategy implements InterpretationStrategy<CoinbaseLed
         outflows: [
           {
             asset,
-            amount: netAmount.toFixed(),
             grossAmount: absAmount.toFixed(), // Total before fee
             netAmount: netAmount.toFixed(), // After fee deduction
           },
@@ -166,7 +162,6 @@ class CoinbaseGrossAmountsStrategy implements InterpretationStrategy<CoinbaseLed
         ? [
             {
               asset,
-              amount: absAmount.toFixed(),
               grossAmount: absAmount.toFixed(),
               netAmount: absAmount.toFixed(), // No on-chain fees
             },
@@ -176,7 +171,6 @@ class CoinbaseGrossAmountsStrategy implements InterpretationStrategy<CoinbaseLed
         ? [
             {
               asset,
-              amount: absAmount.toFixed(),
               grossAmount: absAmount.toFixed(),
               netAmount: absAmount.toFixed(), // No on-chain fees
             },

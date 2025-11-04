@@ -67,7 +67,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
     // Note: standardAmounts returns inflow with '0' amount when amount is exactly zero
     // This is by design - the processor filters zeros later
     expect(result.inflows).toHaveLength(1);
-    expect(result.inflows[0]?.amount).toBe('0');
+    expect(result.inflows[0]?.grossAmount).toBe('0');
     expect(result.outflows).toHaveLength(0);
     expect(result.fees).toHaveLength(0);
   });
@@ -113,7 +113,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
 
     const result = standardAmounts.interpret(entry, [entry]);
 
-    expect(result.inflows[0]?.amount).toBe('0.00123456');
+    expect(result.inflows[0]?.grossAmount).toBe('0.00123456');
   });
 
   test('handles large amounts', () => {
@@ -121,7 +121,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
 
     const result = standardAmounts.interpret(entry, [entry]);
 
-    expect(result.inflows[0]?.amount).toBe('1000000.5');
+    expect(result.inflows[0]?.grossAmount).toBe('1000000.5');
   });
 
   test('handles negative decimal amounts', () => {
@@ -129,7 +129,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
 
     const result = standardAmounts.interpret(entry, [entry]);
 
-    expect(result.outflows[0]?.amount).toBe('0.00123456');
+    expect(result.outflows[0]?.grossAmount).toBe('0.00123456');
   });
 
   test('handles amounts with fees', () => {
@@ -137,7 +137,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
 
     const result = standardAmounts.interpret(entry, [entry]);
 
-    expect(result.outflows[0]?.amount).toBe('100');
+    expect(result.outflows[0]?.grossAmount).toBe('100');
     expect(result.fees[0]?.amount).toBe('1.5');
     expect(result.fees[0]?.asset).toBe('USD');
   });
@@ -149,7 +149,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
     const result = standardAmounts.interpret(entry1, [entry1, entry2]);
 
     expect(result.outflows).toHaveLength(1);
-    expect(result.outflows[0]?.amount).toBe('100');
+    expect(result.outflows[0]?.grossAmount).toBe('100');
   });
 
   test('handles different currencies', () => {
