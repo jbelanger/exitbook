@@ -1,4 +1,27 @@
 /**
+ * Solana movement object (inflow/outflow/primary)
+ */
+export interface SolanaMovement {
+  amount: string;
+  asset: string;
+  decimals?: number | undefined;
+  tokenAddress?: string | undefined; // Mint address for SPL tokens
+}
+
+/**
+ * Result of balance change analysis for Solana transactions
+ */
+export interface SolanaBalanceChangeAnalysis {
+  inflows: SolanaMovement[];
+  outflows: SolanaMovement[];
+  primary: SolanaMovement;
+  fromAddress: string;
+  toAddress: string;
+  feePaidByUser: boolean;
+  classificationUncertainty?: string | undefined;
+}
+
+/**
  * Solana fund flow analysis result - structured for multi-asset tracking
  */
 export interface SolanaFundFlow {
@@ -6,26 +29,11 @@ export interface SolanaFundFlow {
   computeUnitsUsed?: number | undefined; // Compute units consumed
 
   // Structured asset movements (NEW)
-  inflows: {
-    amount: string;
-    asset: string;
-    decimals?: number | undefined;
-    tokenAddress?: string | undefined; // Mint address for SPL tokens
-  }[];
-  outflows: {
-    amount: string;
-    asset: string;
-    decimals?: number | undefined;
-    tokenAddress?: string | undefined; // Mint address for SPL tokens
-  }[];
+  inflows: SolanaMovement[];
+  outflows: SolanaMovement[];
 
   // Primary asset (for simplified consumption and single-asset display)
-  primary: {
-    amount: string;
-    asset: string;
-    decimals?: number | undefined;
-    tokenAddress?: string | undefined;
-  };
+  primary: SolanaMovement;
 
   // Fee information (always in SOL)
   feeAmount: string;

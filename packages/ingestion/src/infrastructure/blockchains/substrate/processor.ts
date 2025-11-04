@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
+import type { OperationClassification, UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { SubstrateTransaction, SubstrateChainConfig } from '@exitbook/providers';
 import { derivePolkadotAddressVariants } from '@exitbook/providers';
@@ -7,7 +7,7 @@ import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
-import type { SubstrateFundFlow } from './types.ts';
+import type { SubstrateFundFlow, SubstrateMovement } from './types.ts';
 
 /**
  * Generic Substrate transaction processor that converts raw blockchain transaction data
@@ -198,8 +198,8 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     const hasMultisig = transaction.module === 'multisig';
 
     // Collect ALL asset movements (most Substrate transactions are single-asset, but support multi-asset)
-    const inflows: { amount: string; asset: string }[] = [];
-    const outflows: { amount: string; asset: string }[] = [];
+    const inflows: SubstrateMovement[] = [];
+    const outflows: SubstrateMovement[] = [];
 
     const amount = parseDecimal(transaction.amount);
     const normalizedAmount = this.normalizeAmount(transaction.amount);
@@ -279,25 +279,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
   private determineOperationFromFundFlow(
     fundFlow: SubstrateFundFlow,
     transaction: SubstrateTransaction
-  ): {
-    note?:
-      | { message: string; metadata?: Record<string, unknown> | undefined; severity: 'info' | 'warning'; type: string }
-      | undefined;
-    operation: {
-      category: 'staking' | 'governance' | 'transfer' | 'fee';
-      type:
-        | 'stake'
-        | 'unstake'
-        | 'reward'
-        | 'vote'
-        | 'proposal'
-        | 'refund'
-        | 'deposit'
-        | 'withdrawal'
-        | 'transfer'
-        | 'fee';
-    };
-  } {
+  ): OperationClassification {
     const { inflows, outflows } = fundFlow;
     const amount = parseDecimal(fundFlow.primary.amount || '0').abs();
     const isZeroAmount = amount.isZero();

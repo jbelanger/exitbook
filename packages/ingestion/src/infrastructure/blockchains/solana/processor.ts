@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
+import type { OperationClassification, UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { SolanaTransaction } from '@exitbook/providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers';
@@ -10,7 +10,7 @@ import type { ITokenMetadataService } from '../../../services/token-metadata/tok
 import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.ts';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
-import type { SolanaFundFlow } from './types.js';
+import type { SolanaBalanceChangeAnalysis, SolanaFundFlow, SolanaMovement } from './types.js';
 
 /**
  * Solana transaction processor that converts raw blockchain transaction data
@@ -248,17 +248,9 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
   private analyzeBalanceChanges(
     tx: SolanaTransaction,
     allWalletAddresses: Set<string>
-  ): {
-    classificationUncertainty?: string | undefined;
-    feePaidByUser: boolean;
-    fromAddress: string;
-    inflows: { amount: string; asset: string; decimals?: number | undefined; tokenAddress?: string | undefined }[];
-    outflows: { amount: string; asset: string; decimals?: number | undefined; tokenAddress?: string | undefined }[];
-    primary: { amount: string; asset: string; decimals?: number | undefined; tokenAddress?: string | undefined };
-    toAddress: string;
-  } {
-    const inflows: { amount: string; asset: string; decimals?: number; tokenAddress?: string }[] = [];
-    const outflows: { amount: string; asset: string; decimals?: number; tokenAddress?: string }[] = [];
+  ): SolanaBalanceChangeAnalysis {
+    const inflows: SolanaMovement[] = [];
+    const outflows: SolanaMovement[] = [];
     let fromAddress = tx.from;
     let toAddress = tx.to;
 
@@ -277,17 +269,12 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         // All providers return amounts in smallest units; normalization ensures consistency and safety
         const normalizedAmount = normalizeTokenAmount(Math.abs(tokenAmountInSmallestUnits).toString(), change.decimals);
 
-        const movement: { amount: string; asset: string; decimals?: number; tokenAddress?: string } = {
+        const movement: SolanaMovement = {
           amount: normalizedAmount,
           asset: change.symbol || change.mint,
+          decimals: change.decimals,
+          tokenAddress: change.mint,
         };
-
-        if (change.decimals !== undefined) {
-          movement.decimals = change.decimals;
-        }
-        if (change.mint) {
-          movement.tokenAddress = change.mint;
-        }
 
         if (tokenAmountInSmallestUnits > 0) {
           inflows.push(movement);
@@ -326,9 +313,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     }
 
     // Consolidate duplicate assets (sum amounts for same asset)
-    const consolidateMovements = (
-      movements: { amount: string; asset: string; decimals?: number | undefined; tokenAddress?: string | undefined }[]
-    ): { amount: string; asset: string; decimals?: number | undefined; tokenAddress?: string | undefined }[] => {
+    const consolidateMovements = (movements: SolanaMovement[]): SolanaMovement[] => {
       const assetMap = new Map<
         string,
         { amount: Decimal; decimals?: number | undefined; tokenAddress?: string | undefined }
@@ -353,16 +338,12 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
       }
 
       return Array.from(assetMap.entries()).map(([asset, data]) => {
-        const result: { amount: string; asset: string; decimals?: number; tokenAddress?: string } = {
+        const result: SolanaMovement = {
           amount: data.amount.toFixed(),
           asset,
+          decimals: data.decimals,
+          tokenAddress: data.tokenAddress,
         };
-        if (data.decimals !== undefined) {
-          result.decimals = data.decimals;
-        }
-        if (data.tokenAddress !== undefined) {
-          result.tokenAddress = data.tokenAddress;
-        }
         return result;
       });
     };
@@ -372,7 +353,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
     // Select primary asset for simplified consumption and single-asset display
     // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions
-    let primary: { amount: string; asset: string; decimals?: number | undefined; tokenAddress?: string | undefined } = {
+    let primary: SolanaMovement = {
       amount: '0',
       asset: 'SOL',
     };
@@ -431,15 +412,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
    * Conservative operation classification with 9/10 confidence requirement.
    * Only classifies patterns we're confident about. Complex cases get notes.
    */
-  private determineOperationFromFundFlow(fundFlow: SolanaFundFlow): {
-    note?:
-      | { message: string; metadata?: Record<string, unknown> | undefined; severity: 'info' | 'warning'; type: string }
-      | undefined;
-    operation: {
-      category: 'trade' | 'transfer' | 'staking' | 'defi' | 'fee';
-      type: 'buy' | 'sell' | 'deposit' | 'withdrawal' | 'stake' | 'unstake' | 'reward' | 'swap' | 'fee' | 'transfer';
-    };
-  } {
+  private determineOperationFromFundFlow(fundFlow: SolanaFundFlow): OperationClassification {
     const { inflows, outflows } = fundFlow;
     const primaryAmount = parseDecimal(fundFlow.primary.amount || '0').abs();
     const isZero = primaryAmount.isZero();

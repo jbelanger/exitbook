@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { OperationClassification, UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
@@ -10,7 +10,7 @@ import type { ITokenMetadataService } from '../../../services/token-metadata/tok
 import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.ts';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
-import type { EvmFundFlow } from './types.ts';
+import type { EvmFundFlow, EvmMovement } from './types.ts';
 
 /**
  * Unified EVM transaction processor that applies Avalanche-style transaction correlation
@@ -243,18 +243,8 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     );
 
     // Collect ALL assets that flow in/out (not just pick one as primary)
-    const inflows: {
-      amount: string;
-      asset: string;
-      tokenAddress?: string | undefined;
-      tokenDecimals?: number | undefined;
-    }[] = [];
-    const outflows: {
-      amount: string;
-      asset: string;
-      tokenAddress?: string | undefined;
-      tokenDecimals?: number | undefined;
-    }[] = [];
+    const inflows: EvmMovement[] = [];
+    const outflows: EvmMovement[] = [];
 
     let fromAddress = '';
     let toAddress: string | undefined = '';
@@ -279,61 +269,34 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
         // For self-transfers (user -> user), track both inflow and outflow
         if (fromMatches && toMatches) {
-          const movement: {
-            amount: string;
-            asset: string;
-            tokenAddress?: string | undefined;
-            tokenDecimals?: number | undefined;
-          } = {
+          const movement: EvmMovement = {
             amount,
             asset: tokenSymbol,
+            tokenAddress: tx.tokenAddress,
+            tokenDecimals: tx.tokenDecimals,
           };
-          if (tx.tokenAddress !== undefined) {
-            movement.tokenAddress = tx.tokenAddress;
-          }
-          if (tx.tokenDecimals !== undefined) {
-            movement.tokenDecimals = tx.tokenDecimals;
-          }
           inflows.push(movement);
           outflows.push({ ...movement });
         } else {
           if (toMatches) {
             // User received this token
-            const inflow: {
-              amount: string;
-              asset: string;
-              tokenAddress?: string | undefined;
-              tokenDecimals?: number | undefined;
-            } = {
+            const inflow: EvmMovement = {
               amount,
               asset: tokenSymbol,
+              tokenAddress: tx.tokenAddress,
+              tokenDecimals: tx.tokenDecimals,
             };
-            if (tx.tokenAddress !== undefined) {
-              inflow.tokenAddress = tx.tokenAddress;
-            }
-            if (tx.tokenDecimals !== undefined) {
-              inflow.tokenDecimals = tx.tokenDecimals;
-            }
             inflows.push(inflow);
           }
 
           if (fromMatches) {
             // User sent this token
-            const outflow: {
-              amount: string;
-              asset: string;
-              tokenAddress?: string | undefined;
-              tokenDecimals?: number | undefined;
-            } = {
+            const outflow: EvmMovement = {
               amount,
               asset: tokenSymbol,
+              tokenAddress: tx.tokenAddress,
+              tokenDecimals: tx.tokenDecimals,
             };
-            if (tx.tokenAddress !== undefined) {
-              outflow.tokenAddress = tx.tokenAddress;
-            }
-            if (tx.tokenDecimals !== undefined) {
-              outflow.tokenDecimals = tx.tokenDecimals;
-            }
             outflows.push(outflow);
           }
         }
@@ -421,14 +384,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     }
 
     // Consolidate duplicate assets (sum amounts for same asset)
-    const consolidateMovements = (
-      movements: {
-        amount: string;
-        asset: string;
-        tokenAddress?: string | undefined;
-        tokenDecimals?: number | undefined;
-      }[]
-    ): { amount: string; asset: string; tokenAddress?: string | undefined; tokenDecimals?: number | undefined }[] => {
+    const consolidateMovements = (movements: EvmMovement[]): EvmMovement[] => {
       const assetMap = new Map<
         string,
         { amount: Decimal; tokenAddress?: string | undefined; tokenDecimals?: number | undefined }
@@ -453,16 +409,12 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       }
 
       return Array.from(assetMap.entries()).map(([asset, data]) => {
-        const result: { amount: string; asset: string; tokenAddress?: string; tokenDecimals?: number } = {
+        const result: EvmMovement = {
           amount: data.amount.toFixed(),
           asset,
+          tokenAddress: data.tokenAddress,
+          tokenDecimals: data.tokenDecimals,
         };
-        if (data.tokenAddress !== undefined) {
-          result.tokenAddress = data.tokenAddress;
-        }
-        if (data.tokenDecimals !== undefined) {
-          result.tokenDecimals = data.tokenDecimals;
-        }
         return result;
       });
     };
@@ -472,11 +424,9 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
     // Select primary asset for simplified consumption and single-asset display
     // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions
-    let primary = {
+    let primary: EvmMovement = {
       asset: this.chainConfig.nativeCurrency,
       amount: '0',
-      tokenAddress: undefined as string | undefined,
-      tokenDecimals: undefined as number | undefined,
     };
 
     // Use largest inflow as primary (prefer token over native)
@@ -553,12 +503,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
    * Conservative operation classification based purely on fund flow structure.
    * Only classifies patterns we're confident about. Complex cases get notes.
    */
-  private determineOperationFromFundFlow(fundFlow: EvmFundFlow): {
-    note?:
-      | { message: string; metadata?: Record<string, unknown> | undefined; severity: 'info' | 'warning'; type: string }
-      | undefined;
-    operation: { category: 'trade' | 'transfer' | 'fee'; type: 'swap' | 'deposit' | 'withdrawal' | 'transfer' | 'fee' };
-  } {
+  private determineOperationFromFundFlow(fundFlow: EvmFundFlow): OperationClassification {
     const { inflows, outflows } = fundFlow;
     const amount = parseDecimal(fundFlow.primary.amount || '0').abs();
     const isZero = amount.isZero();

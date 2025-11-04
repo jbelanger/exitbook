@@ -1,4 +1,14 @@
 /**
+ * EVM movement object (inflow/outflow/primary)
+ */
+export interface EvmMovement {
+  amount: string; // Normalized amount
+  asset: string; // Symbol (ETH, USDC, etc.)
+  tokenAddress?: string | undefined; // Contract address for tokens
+  tokenDecimals?: number | undefined; // Decimals for tokens
+}
+
+/**
  * Unified EVM fund flow analysis result
  *
  * Based on Avalanche's transaction correlation approach, which is the correct
@@ -7,26 +17,11 @@
  */
 export interface EvmFundFlow {
   // All assets that flowed in/out (supports swaps, LP, complex DeFi)
-  inflows: {
-    amount: string; // Normalized amount
-    asset: string; // Symbol (ETH, USDC, etc.)
-    tokenAddress?: string | undefined; // Contract address for tokens
-    tokenDecimals?: number | undefined; // Decimals for tokens
-  }[];
-  outflows: {
-    amount: string; // Normalized amount
-    asset: string; // Symbol (ETH, USDC, etc.)
-    tokenAddress?: string | undefined; // Contract address for tokens
-    tokenDecimals?: number | undefined; // Decimals for tokens
-  }[];
+  inflows: EvmMovement[];
+  outflows: EvmMovement[];
 
   // Primary asset (for simplified consumption and single-asset display)
-  primary: {
-    amount: string; // Absolute amount of primary asset
-    asset: string; // Symbol of primary asset (ETH, AVAX, or token symbol)
-    tokenAddress?: string | undefined;
-    tokenDecimals?: number | undefined;
-  };
+  primary: EvmMovement;
 
   // Fee information (always in native currency)
   feeAmount: string; // Total fee in native currency
