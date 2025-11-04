@@ -72,6 +72,10 @@ export const LotDisposalSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
+export const LotTransferMetadataSchema = z.object({
+  cryptoFeeUsdValue: DecimalSchema.optional(),
+});
+
 export const LotTransferSchema = z.object({
   id: z.string().uuid(),
   calculationId: z.string().uuid(),
@@ -82,7 +86,7 @@ export const LotTransferSchema = z.object({
   sourceTransactionId: z.number().int().positive(),
   targetTransactionId: z.number().int().positive(),
   createdAt: DateSchema,
-  metadata: z.string().nullable().optional(),
+  metadata: LotTransferMetadataSchema.optional(),
 });
 
 export const CostBasisCalculationSchema = z.object({
@@ -112,6 +116,7 @@ export const CostBasisCalculationSchema = z.object({
 export type AcquisitionLot = z.infer<typeof AcquisitionLotSchema>;
 export type LotDisposal = z.infer<typeof LotDisposalSchema>;
 export type LotTransfer = z.infer<typeof LotTransferSchema>;
+export type LotTransferMetadata = z.infer<typeof LotTransferMetadataSchema>;
 export type CostBasisCalculation = z.infer<typeof CostBasisCalculationSchema>;
 export type LotStatus = z.infer<typeof LotStatusSchema>;
 export type CalculationStatus = z.infer<typeof CalculationStatusSchema>;

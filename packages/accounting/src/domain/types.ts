@@ -9,6 +9,7 @@ export type {
   LotDisposal,
   LotStatus,
   LotTransfer,
+  LotTransferMetadata,
   SameAssetTransferFeePolicy,
   VarianceTolerance,
 } from './schemas.ts';
