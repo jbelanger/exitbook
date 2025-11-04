@@ -889,8 +889,8 @@ describe('matching-utils', () => {
           from: undefined,
           to: undefined,
           movements: {
-            inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
-            outflows: [{ asset: 'USD', amount: parseDecimal('50000') }],
+            inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.0') }],
+            outflows: [{ asset: 'USD', grossAmount: parseDecimal('50000') }],
           },
         },
       ] as UniversalTransaction[]; // Updated type assertion
@@ -939,7 +939,7 @@ describe('matching-utils', () => {
             type: 'transfer',
           },
           movements: {
-            inflows: [{ asset: 'BTC', amount: parseDecimal('0.5') }],
+            inflows: [{ asset: 'BTC', grossAmount: parseDecimal('0.5') }],
             outflows: [],
           },
         },
@@ -966,10 +966,10 @@ describe('matching-utils', () => {
           datetime: '2024-01-01T12:00:00Z',
           movements: {
             inflows: [
-              { asset: 'BTC', amount: parseDecimal('1.0') },
-              { asset: 'ETH', amount: parseDecimal('10.0') },
+              { asset: 'BTC', grossAmount: parseDecimal('1.0') },
+              { asset: 'ETH', grossAmount: parseDecimal('10.0') },
             ],
-            outflows: [{ asset: 'USD', amount: parseDecimal('60000') }],
+            outflows: [{ asset: 'USD', grossAmount: parseDecimal('60000') }],
           },
         },
       ] as UniversalTransaction[];

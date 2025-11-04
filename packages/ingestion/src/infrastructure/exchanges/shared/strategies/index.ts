@@ -8,6 +8,8 @@ export {
 export {
   coinbaseGrossAmounts,
   standardAmounts,
+  type FeeInput,
   type InterpretationStrategy,
   type LedgerEntryInterpretation,
+  type MovementInput,
 } from './interpretation.ts';

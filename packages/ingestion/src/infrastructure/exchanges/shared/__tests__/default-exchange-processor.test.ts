@@ -120,13 +120,13 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
-    expect(transaction.movements.inflows![0]?.amount.toFixed()).toBe('0.025');
+    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('0.025');
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.asset).toBe('USD');
-    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('1000');
+    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('1000');
 
-    expect(transaction.fees.platform?.amount.toFixed()).toBe('2.5');
+    expect(transaction.fees.find((f) => f.scope === 'platform')?.amount.toFixed()).toBe('2.5');
   });
 
   test('creates single transaction for deposit (inflow only)', async () => {
@@ -156,7 +156,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows![0]?.asset).toBe('CAD');
-    expect(transaction.movements.inflows![0]?.amount.toFixed()).toBe('700');
+    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('700');
 
     expect(transaction.movements.outflows).toHaveLength(0);
   });
@@ -188,7 +188,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.asset).toBe('CAD');
-    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('385.155');
+    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('385.155');
 
     expect(transaction.movements.inflows).toHaveLength(0);
   });
@@ -247,7 +247,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.asset).toBe('USD');
-    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('150');
+    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('150');
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
@@ -284,8 +284,8 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.fees.platform?.amount.toFixed()).toBe('2.5');
-    expect(transaction.fees.platform?.asset.toString()).toBe('USD');
+    expect(transaction.fees.find((f) => f.scope === 'platform')?.amount.toFixed()).toBe('2.5');
+    expect(transaction.fees.find((f) => f.scope === 'platform')?.asset.toString()).toBe('USD');
   });
 
   test('handles complex multi-asset transactions with uncertainty note', async () => {

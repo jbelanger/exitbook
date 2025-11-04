@@ -109,10 +109,9 @@ export interface TransactionsTable {
   movements_inflows: JSONString | null; // Array<{asset: string, amount: Decimal}>
   movements_outflows: JSONString | null; // Array<{asset: string, amount: Decimal}>
 
-  // Structured fees
-  fees_network: JSONString | null; // Money type
-  fees_platform: JSONString | null; // Money type
-  fees_total: JSONString | null; // Money type
+  // Structured fees (JSON: Array<FeeMovement>)
+  // Each fee: { asset, amount, scope, settlement, priceAtTxTime? }
+  fees: JSONString | null;
 
   // Enhanced operation classification
   operation_category: 'trade' | 'transfer' | 'staking' | 'defi' | 'fee' | 'governance' | null;

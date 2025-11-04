@@ -50,7 +50,7 @@ describe('CostBasisCalculator', () => {
     movements: {
       inflows: inflows.map((i) => ({
         asset: i.asset,
-        amount: new Decimal(i.amount),
+        grossAmount: new Decimal(i.amount),
         priceAtTxTime: {
           price: { amount: new Decimal(i.price), currency: Currency.create('USD') },
           source: 'test',
@@ -60,7 +60,7 @@ describe('CostBasisCalculator', () => {
       })),
       outflows: outflows.map((o) => ({
         asset: o.asset,
-        amount: new Decimal(o.amount),
+        grossAmount: new Decimal(o.amount),
         priceAtTxTime: {
           price: { amount: new Decimal(o.price), currency: Currency.create('USD') },
           source: 'test',
@@ -70,7 +70,7 @@ describe('CostBasisCalculator', () => {
       })),
     },
     operation: { category: 'trade', type: inflows.length > 0 ? 'buy' : 'sell' },
-    fees: {},
+    fees: [],
     metadata: {},
   });
 
@@ -196,14 +196,14 @@ describe('CostBasisCalculator', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: new Decimal('1'),
+              grossAmount: new Decimal('1'),
               // Missing priceAtTxTime
             },
           ],
           outflows: [],
         },
         operation: { category: 'transfer', type: 'deposit' },
-        fees: {},
+        fees: [],
         metadata: {},
       };
 
@@ -218,7 +218,9 @@ describe('CostBasisCalculator', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('missing price data');
+        expect(result.error.message).toContain('Price preflight validation failed');
+        expect(result.error.message).toContain('price(s) missing');
+        expect(result.error.message).toContain('prices enrich');
       }
     });
 
@@ -235,7 +237,7 @@ describe('CostBasisCalculator', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: new Decimal('1'),
+              grossAmount: new Decimal('1'),
               priceAtTxTime: {
                 price: { amount: new Decimal('30000'), currency: Currency.create('USD') },
                 source: 'test',
@@ -247,13 +249,13 @@ describe('CostBasisCalculator', () => {
           outflows: [
             {
               asset: 'USD',
-              amount: new Decimal('30000'),
+              grossAmount: new Decimal('30000'),
               // Missing priceAtTxTime - but should be OK since USD is fiat
             },
           ],
         },
         operation: { category: 'trade', type: 'buy' },
-        fees: {},
+        fees: [],
         metadata: {},
       };
 
@@ -500,16 +502,20 @@ describe('CostBasisCalculator', () => {
       ): UniversalTransaction => {
         const tx = createTransaction(id, datetime, inflows, outflows);
         if (platformFee) {
-          tx.fees.platform = {
-            asset: platformFee.asset,
-            amount: new Decimal(platformFee.amount),
-            priceAtTxTime: {
-              price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
-              source: 'test',
-              fetchedAt: new Date(datetime),
-              granularity: 'exact',
+          tx.fees = [
+            {
+              scope: 'platform',
+              settlement: 'balance',
+              asset: platformFee.asset,
+              amount: new Decimal(platformFee.amount),
+              priceAtTxTime: {
+                price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
+                source: 'test',
+                fetchedAt: new Date(datetime),
+                granularity: 'exact',
+              },
             },
-          };
+          ];
         }
         return tx;
       };
@@ -558,17 +564,19 @@ describe('CostBasisCalculator', () => {
         // Loss should be disallowed due to wash sale (taxable gain/loss = 0)
         expect(summary.totalTaxableGainLoss.toString()).toBe('0');
 
-        // Verify fee was allocated correctly (increases cost basis on acquisition, reduces proceeds on disposal)
+        // Verify fee was allocated correctly per ADR-005:
+        // - Acquisitions: ALL fees increase cost basis
+        // - Disposals: ONLY on-chain fees reduce proceeds (platform fees don't)
         expect(disposalsSaved).toHaveLength(1);
         const disposal = disposalsSaved[0];
         expect(disposal).toBeDefined();
 
-        // Proceeds: $30,000 - $100 fee = $29,900
-        expect(disposal!.totalProceeds.toString()).toBe('29900');
+        // Proceeds: $30,000 (platform fee NOT subtracted per ADR-005)
+        expect(disposal!.totalProceeds.toString()).toBe('30000');
         // Cost basis: $50,000 (no fee on first acquisition)
         expect(disposal!.totalCostBasis.toString()).toBe('50000');
-        // Capital loss: $29,900 - $50,000 = -$20,100
-        expect(disposal!.gainLoss.toString()).toBe('-20100');
+        // Capital loss: $30,000 - $50,000 = -$20,000
+        expect(disposal!.gainLoss.toString()).toBe('-20000');
       }
     });
 
@@ -595,7 +603,7 @@ describe('CostBasisCalculator', () => {
           movements: {
             inflows: inflows.map((i) => ({
               asset: i.asset,
-              amount: new Decimal(i.amount),
+              grossAmount: new Decimal(i.amount),
               priceAtTxTime: {
                 price: { amount: new Decimal(i.price), currency: Currency.create('USD') },
                 source: 'test',
@@ -605,7 +613,7 @@ describe('CostBasisCalculator', () => {
             })),
             outflows: outflows.map((o) => ({
               asset: o.asset,
-              amount: new Decimal(o.amount),
+              grossAmount: new Decimal(o.amount),
               priceAtTxTime: {
                 price: { amount: new Decimal(o.price), currency: Currency.create('USD') },
                 source: 'test',
@@ -615,21 +623,25 @@ describe('CostBasisCalculator', () => {
             })),
           },
           operation: { category: 'trade', type: inflows.length > 0 ? 'buy' : 'sell' },
-          fees: {},
+          fees: [],
           metadata: {},
         };
 
         if (platformFee) {
-          tx.fees.platform = {
-            asset: platformFee.asset,
-            amount: new Decimal(platformFee.amount),
-            priceAtTxTime: {
-              price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
-              source: 'test',
-              fetchedAt: new Date(datetime),
-              granularity: 'exact',
+          tx.fees = [
+            {
+              scope: 'platform',
+              settlement: 'balance',
+              asset: platformFee.asset,
+              amount: new Decimal(platformFee.amount),
+              priceAtTxTime: {
+                price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
+                source: 'test',
+                fetchedAt: new Date(datetime),
+                granularity: 'exact',
+              },
             },
-          };
+          ];
         }
 
         return tx;
@@ -698,7 +710,7 @@ describe('CostBasisCalculator', () => {
             outflows: [
               {
                 asset: 'BTC',
-                amount: new Decimal('0.5'),
+                grossAmount: new Decimal('0.5'),
                 priceAtTxTime: {
                   price: { amount: new Decimal('35000'), currency: Currency.create('EUR') },
                   source: 'test',
@@ -709,7 +721,7 @@ describe('CostBasisCalculator', () => {
             ],
           },
           operation: { category: 'trade', type: 'sell' },
-          fees: {},
+          fees: [],
           metadata: {},
         },
       ];
@@ -725,10 +737,12 @@ describe('CostBasisCalculator', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('non-USD prices');
+        expect(result.error.message).toContain('Price preflight validation failed');
+        expect(result.error.message).toContain('price(s) not in USD');
         expect(result.error.message).toContain('prices enrich');
         expect(result.error.message).toContain('EUR');
-        expect(result.error.message).toContain('ext-2');
+        // Transaction ID is shown as numeric ID (2) rather than external ID (ext-2)
+        expect(result.error.message).toContain('Tx 2');
       }
     });
 
@@ -744,7 +758,7 @@ describe('CostBasisCalculator', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: new Decimal('1'),
+              grossAmount: new Decimal('1'),
               priceAtTxTime: {
                 price: { amount: new Decimal('30000'), currency: Currency.create('USD') },
                 source: 'test',
@@ -756,8 +770,10 @@ describe('CostBasisCalculator', () => {
           outflows: [],
         },
         operation: { category: 'trade', type: 'buy' },
-        fees: {
-          platform: {
+        fees: [
+          {
+            scope: 'platform',
+            settlement: 'balance',
             asset: 'EUR',
             amount: new Decimal('10'),
             priceAtTxTime: {
@@ -767,7 +783,7 @@ describe('CostBasisCalculator', () => {
               granularity: 'exact',
             },
           },
-        },
+        ],
         metadata: {},
       };
 
@@ -782,7 +798,8 @@ describe('CostBasisCalculator', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('non-USD prices');
+        expect(result.error.message).toContain('Price preflight validation failed');
+        expect(result.error.message).toContain('price(s) not in USD');
         expect(result.error.message).toContain('EUR');
       }
     });
@@ -800,7 +817,7 @@ describe('CostBasisCalculator', () => {
             inflows: [
               {
                 asset: 'BTC',
-                amount: new Decimal('1'),
+                grossAmount: new Decimal('1'),
                 priceAtTxTime: {
                   price: { amount: new Decimal('30000'), currency: Currency.create('USD') },
                   source: 'test',
@@ -812,7 +829,7 @@ describe('CostBasisCalculator', () => {
             outflows: [],
           },
           operation: { category: 'trade', type: 'buy' },
-          fees: {},
+          fees: [],
           metadata: {},
         },
         {
@@ -827,7 +844,7 @@ describe('CostBasisCalculator', () => {
             outflows: [
               {
                 asset: 'BTC',
-                amount: new Decimal('0.5'),
+                grossAmount: new Decimal('0.5'),
                 priceAtTxTime: {
                   price: { amount: new Decimal('40000'), currency: Currency.create('USD') },
                   source: 'test',
@@ -838,7 +855,7 @@ describe('CostBasisCalculator', () => {
             ],
           },
           operation: { category: 'trade', type: 'sell' },
-          fees: {},
+          fees: [],
           metadata: {},
         },
       ];
@@ -874,7 +891,7 @@ describe('CostBasisCalculator', () => {
             inflows: [
               {
                 asset: 'BTC',
-                amount: new Decimal('1'),
+                grossAmount: new Decimal('1'),
                 priceAtTxTime: {
                   price: { amount: new Decimal('30000'), currency: Currency.create('EUR') },
                   source: 'test',
@@ -886,7 +903,7 @@ describe('CostBasisCalculator', () => {
             outflows: [],
           },
           operation: { category: 'trade', type: 'buy' },
-          fees: {},
+          fees: [],
           metadata: {},
         });
       }
@@ -902,10 +919,12 @@ describe('CostBasisCalculator', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('7 movement(s)');
-        expect(result.error.message).toContain('First 5 example(s)');
+        expect(result.error.message).toContain('Price preflight validation failed');
+        expect(result.error.message).toContain('7 price(s) not in USD');
+        expect(result.error.message).toContain('Examples of issues found');
         // Should show 5 examples, not all 7
-        const examples = result.error.message.match(/ext-\d+/g);
+        // Transaction IDs are shown as "Tx 1", "Tx 2", etc. in error messages
+        const examples = result.error.message.match(/Tx \d+/g);
         expect(examples).toHaveLength(5);
       }
     });
@@ -924,16 +943,20 @@ describe('CostBasisCalculator', () => {
       ): UniversalTransaction => {
         const tx = createTransaction(id, datetime, inflows, outflows);
         if (platformFee) {
-          tx.fees.platform = {
-            asset: platformFee.asset,
-            amount: new Decimal(platformFee.amount),
-            priceAtTxTime: {
-              price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
-              source: 'test',
-              fetchedAt: new Date(datetime),
-              granularity: 'exact',
+          tx.fees = [
+            {
+              scope: 'platform',
+              settlement: 'balance',
+              asset: platformFee.asset,
+              amount: new Decimal(platformFee.amount),
+              priceAtTxTime: {
+                price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
+                source: 'test',
+                fetchedAt: new Date(datetime),
+                granularity: 'exact',
+              },
             },
-          };
+          ];
         }
         return tx;
       };
@@ -984,20 +1007,20 @@ describe('CostBasisCalculator', () => {
         expect(disposal!.taxTreatmentCategory).toBe('long_term');
         expect(disposal!.holdingPeriodDays).toBeGreaterThanOrEqual(365);
 
-        // Verify fee allocation
-        // Cost basis per unit: ($30,000 + $100) / 1 = $30,100
+        // Verify fee allocation per ADR-005
+        // Cost basis per unit: ($30,000 + $100 acquisition fee) / 1 = $30,100
         // Cost basis for 0.5 BTC: $30,100 * 0.5 = $15,050
         expect(disposal!.costBasisPerUnit.toString()).toBe('30100');
         expect(disposal!.totalCostBasis.toString()).toBe('15050');
 
-        // Proceeds: (0.5 * $50,000 - $200) = $24,800
-        expect(disposal!.totalProceeds.toString()).toBe('24800');
+        // Proceeds: 0.5 * $50,000 = $25,000 (platform fee NOT subtracted per ADR-005)
+        expect(disposal!.totalProceeds.toString()).toBe('25000');
 
-        // Gain: $24,800 - $15,050 = $9,750
-        expect(disposal!.gainLoss.toString()).toBe('9750');
-        expect(summary.totalCapitalGainLoss.toString()).toBe('9750');
+        // Gain: $25,000 - $15,050 = $9,950
+        expect(disposal!.gainLoss.toString()).toBe('9950');
+        expect(summary.totalCapitalGainLoss.toString()).toBe('9950');
         // US: 100% taxable
-        expect(summary.totalTaxableGainLoss.toString()).toBe('9750');
+        expect(summary.totalTaxableGainLoss.toString()).toBe('9950');
       }
     });
   });

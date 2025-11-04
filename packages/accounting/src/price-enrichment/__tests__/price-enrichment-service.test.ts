@@ -1,13 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument -- Acceptable for tests */
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
-/* eslint-disable @typescript-eslint/no-explicit-any -- Acceptable for test mocks */
 
 import type { SourceType, UniversalTransaction } from '@exitbook/core';
 import { Currency, parseDecimal, type AssetMovement } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
+import type { Result } from 'neverthrow';
 import { ok, err } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { TransactionLink } from '../../linking/types.ts';
 import type { TransactionLinkRepository } from '../../persistence/transaction-link-repository.js';
 import { PriceEnrichmentService } from '../price-enrichment-service.ts';
 
@@ -47,7 +47,7 @@ function createMockTransaction(
       inflows: inflows,
       outflows: outflows,
     },
-    fees: {},
+    fees: [],
     operation: { category: 'trade', type: 'buy' },
     ...(sourceType === 'blockchain'
       ? {
@@ -79,13 +79,13 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'BTC',
-            amount: parseDecimal('1'),
+            grossAmount: parseDecimal('1'),
           },
         ],
         [
           {
             asset: 'USD',
-            amount: parseDecimal('50000'),
+            grossAmount: parseDecimal('50000'),
           },
         ]
       );
@@ -99,22 +99,24 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'SOL',
-            amount: parseDecimal('100'),
+            grossAmount: parseDecimal('100'),
           },
         ],
         [
           {
             asset: 'ADA',
-            amount: parseDecimal('1000'),
+            grossAmount: parseDecimal('1000'),
           },
         ]
       );
 
-      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1, tx2]) as any);
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
+        ok([tx1, tx2]) as Result<UniversalTransaction[], Error>
+      );
 
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]) as any);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]) as Result<UniversalTransaction[], Error>);
 
-      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
+      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as Result<void, Error>);
 
       const result = await service.enrichPrices();
 
@@ -138,8 +140,10 @@ describe('PriceEnrichmentService', () => {
 
       const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
-      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([]) as any);
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([]) as any);
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
+        ok([]) as Result<UniversalTransaction[], Error>
+      );
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([]) as Result<UniversalTransaction[], Error>);
 
       const result = await service.enrichPrices();
 
@@ -174,7 +178,10 @@ describe('PriceEnrichmentService', () => {
       const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
-        ok([createMockTransaction(1, 'exchange', 'kraken', '2024-01-01T10:00:00Z', [], [])]) as any
+        ok([createMockTransaction(1, 'exchange', 'kraken', '2024-01-01T10:00:00Z', [], [])]) as Result<
+          UniversalTransaction[],
+          Error
+        >
       );
 
       vi.mocked(mockRepo.getTransactions).mockResolvedValue(err(new Error('Failed to fetch transactions')));
@@ -200,13 +207,13 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'BTC',
-            amount: parseDecimal('1'),
+            grossAmount: parseDecimal('1'),
           },
         ],
         [
           {
             asset: 'USD',
-            amount: parseDecimal('50000'),
+            grossAmount: parseDecimal('50000'),
           },
         ]
       );
@@ -220,24 +227,26 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'ETH',
-            amount: parseDecimal('20'),
+            grossAmount: parseDecimal('20'),
           },
         ],
         [
           {
             asset: 'USD',
-            amount: parseDecimal('60000'),
+            grossAmount: parseDecimal('60000'),
           },
         ]
       );
 
-      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1, tx2]) as any);
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
+        ok([tx1, tx2]) as Result<UniversalTransaction[], Error>
+      );
 
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]) as any);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]) as Result<UniversalTransaction[], Error>);
 
       // First call (kraken) succeeds, second call (kucoin) fails
       vi.mocked(mockRepo.updateMovementsWithPrices)
-        .mockResolvedValueOnce(ok() as any)
+        .mockResolvedValueOnce(ok() as Result<void, Error>)
         .mockResolvedValueOnce(err(new Error('Update failed')));
 
       const result = await service.enrichPrices();
@@ -263,8 +272,8 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         baseTime.toISOString(),
-        [{ asset: 'BTC', amount: parseDecimal('1') }],
-        [{ asset: 'USDT', amount: parseDecimal('50000') }]
+        [{ asset: 'BTC', grossAmount: parseDecimal('1') }],
+        [{ asset: 'USDT', grossAmount: parseDecimal('50000') }]
       );
 
       // Step 2: Withdraw BTC from Kraken (has price from trade)
@@ -277,7 +286,7 @@ describe('PriceEnrichmentService', () => {
         [
           {
             asset: 'BTC',
-            amount: parseDecimal('1'),
+            grossAmount: parseDecimal('1'),
             priceAtTxTime: {
               price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
               source: 'derived-history',
@@ -294,7 +303,7 @@ describe('PriceEnrichmentService', () => {
         'blockchain',
         'bitcoin',
         new Date(baseTime.getTime() + 120000).toISOString(), // 2 minutes later
-        [{ asset: 'BTC', amount: parseDecimal('0.999') }], // Slightly less due to network fee
+        [{ asset: 'BTC', grossAmount: parseDecimal('0.999') }], // Slightly less due to network fee
         []
       );
 
@@ -318,10 +327,14 @@ describe('PriceEnrichmentService', () => {
 
       // All transactions are processed, but only deposit needs price updates
       // (withdrawal already has a price)
-      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx3Deposit]) as any);
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1Buy, tx2Withdrawal, tx3Deposit]) as any);
-      vi.mocked(mockLinkRepo.findAll).mockResolvedValue(ok([link]) as any);
-      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
+        ok([tx3Deposit]) as Result<UniversalTransaction[], Error>
+      );
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(
+        ok([tx1Buy, tx2Withdrawal, tx3Deposit]) as Result<UniversalTransaction[], Error>
+      );
+      vi.mocked(mockLinkRepo.findAll).mockResolvedValue(ok([link]) as Result<TransactionLink[], Error>);
+      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as Result<void, Error>);
 
       const result = await service.enrichPrices();
 
@@ -357,8 +370,8 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         baseTime.toISOString(),
-        [{ asset: 'BTC', amount: parseDecimal('1') }],
-        [{ asset: 'USDT', amount: parseDecimal('50000') }]
+        [{ asset: 'BTC', grossAmount: parseDecimal('1') }],
+        [{ asset: 'USDT', grossAmount: parseDecimal('50000') }]
       );
 
       const tx2 = createMockTransaction(
@@ -366,7 +379,7 @@ describe('PriceEnrichmentService', () => {
         'blockchain',
         'bitcoin',
         new Date(baseTime.getTime() + 60000).toISOString(),
-        [{ asset: 'BTC', amount: parseDecimal('0.999') }],
+        [{ asset: 'BTC', grossAmount: parseDecimal('0.999') }],
         []
       );
 
@@ -388,10 +401,12 @@ describe('PriceEnrichmentService', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx2]) as any);
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]) as any);
-      vi.mocked(mockLinkRepo.findAll).mockResolvedValue(ok([suggestedLink]) as any);
-      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as any);
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
+        ok([tx2]) as Result<UniversalTransaction[], Error>
+      );
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]) as Result<UniversalTransaction[], Error>);
+      vi.mocked(mockLinkRepo.findAll).mockResolvedValue(ok([suggestedLink]) as Result<TransactionLink[], Error>);
+      vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as Result<void, Error>);
 
       const result = await service.enrichPrices();
 
@@ -410,9 +425,11 @@ describe('PriceEnrichmentService', () => {
 
       const tx1 = createMockTransaction(1, 'exchange', 'kraken', '2024-01-01T10:00:00Z', [], []);
 
-      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(ok([tx1]) as any);
+      vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
+        ok([tx1]) as Result<UniversalTransaction[], Error>
+      );
 
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1]) as any);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1]) as Result<UniversalTransaction[], Error>);
 
       const result = await service.enrichPrices();
 

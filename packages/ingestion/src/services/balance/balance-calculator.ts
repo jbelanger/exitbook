@@ -34,7 +34,9 @@ function processTransactionForBalance(transaction: UniversalTransaction, balance
   if (inflows && Array.isArray(inflows) && inflows.length > 0) {
     for (const inflow of inflows) {
       ensureBalance(inflow.asset);
-      balances[inflow.asset] = balances[inflow.asset]!.plus(inflow.amount);
+      // Use netAmount as it represents what user actually received after fees
+      const amount = inflow.netAmount ?? inflow.grossAmount;
+      balances[inflow.asset] = balances[inflow.asset]!.plus(amount);
     }
   }
 
@@ -44,21 +46,18 @@ function processTransactionForBalance(transaction: UniversalTransaction, balance
   if (outflows && Array.isArray(outflows) && outflows.length > 0) {
     for (const outflow of outflows) {
       ensureBalance(outflow.asset);
-      balances[outflow.asset] = balances[outflow.asset]!.minus(outflow.amount);
+      // Use netAmount as it represents what user actually sent after fees
+      const amount = outflow.netAmount ?? outflow.grossAmount;
+      balances[outflow.asset] = balances[outflow.asset]!.minus(amount);
     }
   }
 
   // Process fees (always a cost)
-  // Fees are now deserialized by the repository as AssetMovement objects with Decimal amounts
-  if (transaction.fees.network) {
-    const currency = transaction.fees.network.asset.toString();
-    ensureBalance(currency);
-    balances[currency] = balances[currency]!.minus(transaction.fees.network.amount);
-  }
-
-  if (transaction.fees.platform) {
-    const currency = transaction.fees.platform.asset.toString();
-    ensureBalance(currency);
-    balances[currency] = balances[currency]!.minus(transaction.fees.platform.amount);
+  // Fees are now stored as an array
+  if (transaction.fees && Array.isArray(transaction.fees) && transaction.fees.length > 0) {
+    for (const fee of transaction.fees) {
+      ensureBalance(fee.asset);
+      balances[fee.asset] = balances[fee.asset]!.minus(fee.amount);
+    }
   }
 }

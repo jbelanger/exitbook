@@ -77,7 +77,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
   if (inflowIsUSD || outflowIsUSD) {
     // Outflow is USD - calculate price of inflow in USD + stamp USD identity price
     if (outflowIsUSD && !inflowIsUSD) {
-      const price = parseDecimal(outflow.amount.toFixed()).dividedBy(parseDecimal(inflow.amount.toFixed()));
+      const price = parseDecimal(outflow.grossAmount.toFixed()).dividedBy(parseDecimal(inflow.grossAmount.toFixed()));
 
       results.push(
         {
@@ -103,7 +103,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
     // Inflow is USD - calculate price of outflow in USD + stamp USD identity price
     if (inflowIsUSD && !outflowIsUSD) {
-      const price = parseDecimal(inflow.amount.toFixed()).dividedBy(parseDecimal(outflow.amount.toFixed()));
+      const price = parseDecimal(inflow.grossAmount.toFixed()).dividedBy(parseDecimal(outflow.grossAmount.toFixed()));
 
       results.push(
         {
@@ -138,7 +138,9 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
     // Fiat inflow + crypto outflow (e.g., sell BTC for 50,000 CAD)
     // Assign: CAD = 1 CAD/CAD, BTC = 50,000/1 = 50,000 CAD/BTC
     const fiatPrice = parseDecimal('1'); // Identity price for fiat
-    const cryptoPrice = parseDecimal(inflow.amount.toFixed()).dividedBy(parseDecimal(outflow.amount.toFixed()));
+    const cryptoPrice = parseDecimal(inflow.grossAmount.toFixed()).dividedBy(
+      parseDecimal(outflow.grossAmount.toFixed())
+    );
 
     results.push(
       {
@@ -168,7 +170,9 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
     // Fiat outflow + crypto inflow (e.g., buy 100 XLM with 50 CAD)
     // Assign: CAD = 1 CAD/CAD, XLM = 50/100 = 0.5 CAD/XLM
     const fiatPrice = parseDecimal('1'); // Identity price for fiat
-    const cryptoPrice = parseDecimal(outflow.amount.toFixed()).dividedBy(parseDecimal(inflow.amount.toFixed()));
+    const cryptoPrice = parseDecimal(outflow.grossAmount.toFixed()).dividedBy(
+      parseDecimal(inflow.grossAmount.toFixed())
+    );
 
     results.push(
       {

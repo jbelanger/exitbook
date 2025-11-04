@@ -49,8 +49,8 @@ describe('ExportHandler', () => {
     datetime: '2024-01-01T12:00:00Z',
     timestamp: Date.parse('2024-01-01T12:00:00Z'),
     status: 'success',
-    movements: { inflows: [{ asset, amount: parseDecimal('1.0') }], outflows: [] },
-    fees: {},
+    movements: { inflows: [{ asset, grossAmount: parseDecimal('1.0') }], outflows: [] },
+    fees: [],
   });
 
   describe('execute', () => {

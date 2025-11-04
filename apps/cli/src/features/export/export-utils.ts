@@ -152,6 +152,10 @@ export function convertToCSV(transactions: UniversalTransaction[]): string {
     // Compute primary movement from inflows/outflows
     const primary = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);
 
+    // Extract network and platform fees from the fees array
+    const networkFee = tx.fees?.find((fee) => fee.scope === 'network');
+    const platformFee = tx.fees?.find((fee) => fee.scope === 'platform');
+
     const values = [
       tx.id || '',
       tx.source || '',
@@ -161,10 +165,10 @@ export function convertToCSV(transactions: UniversalTransaction[]): string {
       primary?.asset || '',
       primary?.amount.toFixed() || '',
       primary?.direction || '',
-      tx.fees.network?.amount.toFixed() || '',
-      tx.fees.network?.asset.toString() || '',
-      tx.fees.platform?.amount.toFixed() || '',
-      tx.fees.platform?.asset.toString() || '',
+      networkFee?.amount.toFixed() || '',
+      networkFee?.asset || '',
+      platformFee?.amount.toFixed() || '',
+      platformFee?.asset || '',
       tx.status || '',
     ];
 

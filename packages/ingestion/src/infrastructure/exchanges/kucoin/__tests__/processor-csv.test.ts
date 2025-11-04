@@ -55,14 +55,15 @@ describe('KucoinProcessor (CSV) - Spot Order Handling', () => {
     // Verify movements: buy means we spent USDT (outflow) and received BTC (inflow)
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.asset).toBe('USDT');
-    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('4200');
+    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('4200');
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
-    expect(transaction.movements.inflows![0]?.amount.toFixed()).toBe('0.1');
+    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('0.1');
 
-    expect(transaction.fees.platform?.amount.toFixed()).toBe('0.42');
-    expect(transaction.fees.platform?.asset.toString()).toBe('USDT');
+    const platformFee = transaction.fees.find((f) => f.scope === 'platform');
+    expect(platformFee?.amount.toFixed()).toBe('0.42');
+    expect(platformFee?.asset).toBe('USDT');
   });
 
   test('processes spot sell order', async () => {
@@ -104,11 +105,11 @@ describe('KucoinProcessor (CSV) - Spot Order Handling', () => {
     // Verify movements: sell means we spent ETH (outflow) and received USDT (inflow)
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.asset).toBe('ETH');
-    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('1');
+    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('1');
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows![0]?.asset).toBe('USDT');
-    expect(transaction.movements.inflows![0]?.amount.toFixed()).toBe('2200');
+    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('2200');
   });
 });
 
@@ -188,10 +189,11 @@ describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
     // Verify net amount (gross - fee)
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
-    expect(transaction.movements.inflows![0]?.amount.toFixed()).toBe('0.9995');
+    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('0.9995');
 
-    expect(transaction.fees.platform?.amount.toFixed()).toBe('0.0005');
-    expect(transaction.fees.platform?.asset.toString()).toBe('BTC');
+    const platformFee = transaction.fees.find((f) => f.scope === 'platform');
+    expect(platformFee?.amount.toFixed()).toBe('0.0005');
+    expect(platformFee?.asset).toBe('BTC');
 
     expect(transaction.metadata?.hash).toBe('txhash123');
     expect(transaction.metadata?.address).toBe('bc1q...');
@@ -230,9 +232,9 @@ describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.asset).toBe('ETH');
-    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('2');
+    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('2');
 
-    expect(transaction.fees.platform?.amount.toFixed()).toBe('0.01');
+    expect(transaction.fees.find((f) => f.scope === 'platform')?.amount.toFixed()).toBe('0.01');
   });
 });
 
@@ -281,11 +283,11 @@ describe('KucoinProcessor (CSV) - Account History Handling', () => {
     // Verify movements: swapped USDT for BTC
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.asset).toBe('USDT');
-    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('4200');
+    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('4200');
 
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
-    expect(transaction.movements.inflows![0]?.amount.toFixed()).toBe('0.1');
+    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('0.1');
 
     expect(transaction.metadata?.type).toBe('convert_market');
   });

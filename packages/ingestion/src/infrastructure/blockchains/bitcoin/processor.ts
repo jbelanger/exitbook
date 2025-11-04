@@ -55,9 +55,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         // and subtract them from outflows to avoid double-counting
         const userPaidFee = fundFlow.isOutgoing && !parseDecimal(fundFlow.walletInput).isZero();
         const feeAmount = parseDecimal(normalizedTx.feeAmount || '0');
-        const networkFee = userPaidFee
-          ? { amount: feeAmount, asset: normalizedTx.feeCurrency || 'BTC' }
-          : { amount: parseDecimal('0'), asset: 'BTC' };
 
         const universalTransaction: UniversalTransaction = {
           id: 0, // Will be assigned by database
@@ -83,7 +80,8 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
                       asset: 'BTC',
                       // Subtract fee from outflow to avoid double-counting
                       // walletInput already includes the fee, so we remove it here
-                      amount: parseDecimal(fundFlow.walletInput).minus(feeAmount),
+                      grossAmount: parseDecimal(fundFlow.walletInput).minus(feeAmount),
+                      netAmount: parseDecimal(fundFlow.walletInput).minus(feeAmount),
                     },
                   ]
                 : [],
@@ -92,16 +90,24 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
                 ? [
                     {
                       asset: 'BTC',
-                      amount: parseDecimal(fundFlow.walletOutput),
+                      grossAmount: parseDecimal(fundFlow.walletOutput),
+                      netAmount: parseDecimal(fundFlow.walletOutput),
                     },
                   ]
                 : [],
           },
 
-          fees: {
-            network: networkFee,
-            platform: undefined, // Bitcoin has no platform fees
-          },
+          fees:
+            userPaidFee && !feeAmount.isZero()
+              ? [
+                  {
+                    asset: normalizedTx.feeCurrency || 'BTC',
+                    amount: feeAmount,
+                    scope: 'network',
+                    settlement: 'on-chain',
+                  },
+                ]
+              : [],
 
           operation: {
             category: 'transfer',

@@ -30,25 +30,27 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'BTC',
-                amount: parseDecimal('1'),
+                grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
             ],
             outflows: [
               {
                 asset: 'USD',
-                amount: parseDecimal('50000'),
+                grossAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
           },
-          fees: {
-            platform: {
+          fees: [
+            {
               asset: 'USD',
               amount: parseDecimal('100'),
+              scope: 'platform',
+              settlement: 'balance',
               priceAtTxTime: createPriceAtTxTime('1'),
             },
-          },
+          ],
           operation: {
             category: 'trade',
             type: 'buy',
@@ -93,25 +95,27 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'ETH',
-                amount: parseDecimal('1'),
+                grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('3000'),
               },
             ],
             outflows: [
               {
                 asset: 'USD',
-                amount: parseDecimal('3000'),
+                grossAmount: parseDecimal('3000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
           },
-          fees: {
-            network: {
+          fees: [
+            {
               asset: 'ETH',
               amount: parseDecimal('0.001'),
+              scope: 'network',
+              settlement: 'on-chain',
               priceAtTxTime: createPriceAtTxTime('3000'),
             },
-          },
+          ],
           operation: {
             category: 'trade',
             type: 'buy',
@@ -151,30 +155,34 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'BTC',
-                amount: parseDecimal('1'),
+                grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
             ],
             outflows: [
               {
                 asset: 'USD',
-                amount: parseDecimal('50000'),
+                grossAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
           },
-          fees: {
-            platform: {
+          fees: [
+            {
               asset: 'USD',
               amount: parseDecimal('100'),
+              scope: 'platform',
+              settlement: 'balance',
               priceAtTxTime: createPriceAtTxTime('1'),
             },
-            network: {
+            {
               asset: 'BTC',
               amount: parseDecimal('0.0001'),
+              scope: 'network',
+              settlement: 'on-chain',
               priceAtTxTime: createPriceAtTxTime('50000'),
             },
-          },
+          ],
           operation: {
             category: 'trade',
             type: 'buy',
@@ -219,19 +227,19 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'BTC',
-                amount: parseDecimal('1'),
+                grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
             ],
             outflows: [
               {
                 asset: 'USD',
-                amount: parseDecimal('50000'),
+                grossAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
           },
-          fees: {},
+          fees: [],
           operation: {
             category: 'trade',
             type: 'buy',
@@ -248,25 +256,27 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'USD',
-                amount: parseDecimal('60000'),
+                grossAmount: parseDecimal('60000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
             outflows: [
               {
                 asset: 'BTC',
-                amount: parseDecimal('1'),
+                grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('60000'),
               },
             ],
           },
-          fees: {
-            platform: {
+          fees: [
+            {
               asset: 'USD',
               amount: parseDecimal('150'),
+              scope: 'platform',
+              settlement: 'balance',
               priceAtTxTime: createPriceAtTxTime('1'),
             },
-          },
+          ],
           operation: {
             category: 'trade',
             type: 'sell',
@@ -287,17 +297,18 @@ describe('LotMatcher - Fee Handling', () => {
 
         const disposal = btcResult!.disposals[0]!;
         expect(disposal.quantityDisposed.toString()).toBe('1');
-        // Proceeds per unit: (60000 - 150) / 1 = 59850
-        expect(disposal.proceedsPerUnit.toString()).toBe('59850');
-        expect(disposal.totalProceeds.toString()).toBe('59850');
+        // Per ADR-005: Platform fees (settlement='balance') do NOT reduce disposal proceeds
+        // Proceeds per unit: 60000 (no fee subtracted)
+        expect(disposal.proceedsPerUnit.toString()).toBe('60000');
+        expect(disposal.totalProceeds.toString()).toBe('60000');
         // Cost basis: 50000
         expect(disposal.totalCostBasis.toString()).toBe('50000');
-        // Gain: 59850 - 50000 = 9850
-        expect(disposal.gainLoss.toString()).toBe('9850');
+        // Gain: 60000 - 50000 = 10000
+        expect(disposal.gainLoss.toString()).toBe('10000');
       }
     });
 
-    it('should subtract network fee from proceeds on disposals', async () => {
+    it('should subtract on-chain fees from disposal proceeds (ADR-005)', async () => {
       const transactions: UniversalTransaction[] = [
         {
           id: 1,
@@ -310,19 +321,19 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'ETH',
-                amount: parseDecimal('1'),
+                grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('3000'),
               },
             ],
             outflows: [
               {
                 asset: 'USD',
-                amount: parseDecimal('3000'),
+                grossAmount: parseDecimal('3000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
           },
-          fees: {},
+          fees: [],
           operation: {
             category: 'trade',
             type: 'buy',
@@ -339,25 +350,27 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'USD',
-                amount: parseDecimal('3500'),
+                grossAmount: parseDecimal('3500'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
             outflows: [
               {
                 asset: 'ETH',
-                amount: parseDecimal('1'),
+                grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('3500'),
               },
             ],
           },
-          fees: {
-            network: {
+          fees: [
+            {
               asset: 'ETH',
               amount: parseDecimal('0.002'),
+              scope: 'network',
+              settlement: 'on-chain',
               priceAtTxTime: createPriceAtTxTime('3500'),
             },
-          },
+          ],
           operation: {
             category: 'trade',
             type: 'sell',
@@ -377,9 +390,11 @@ describe('LotMatcher - Fee Handling', () => {
         expect(ethResult!.disposals).toHaveLength(1);
 
         const disposal = ethResult!.disposals[0]!;
+        // Per ADR-005: Network fees (settlement='on-chain') DO reduce disposal proceeds
         // Proceeds: (1 * 3500 - 0.002 * 3500) / 1 = 3493
         expect(disposal.proceedsPerUnit.toString()).toBe('3493');
         expect(disposal.totalProceeds.toString()).toBe('3493');
+        // Cost basis: 3000
         // Gain: 3493 - 3000 = 493
         expect(disposal.gainLoss.toString()).toBe('493');
       }
@@ -402,30 +417,32 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'BTC',
-                amount: parseDecimal('1'),
+                grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
               {
                 asset: 'ETH',
-                amount: parseDecimal('10'),
+                grossAmount: parseDecimal('10'),
                 priceAtTxTime: createPriceAtTxTime('2500'),
               },
             ],
             outflows: [
               {
                 asset: 'USD',
-                amount: parseDecimal('75000'),
+                grossAmount: parseDecimal('75000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
           },
-          fees: {
-            platform: {
+          fees: [
+            {
               asset: 'USD',
               amount: parseDecimal('75'),
+              scope: 'platform',
+              settlement: 'balance',
               priceAtTxTime: createPriceAtTxTime('1'),
             },
-          },
+          ],
           operation: {
             category: 'trade',
             type: 'buy',
@@ -480,30 +497,32 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'BTC',
-                amount: parseDecimal('0.5'),
+                grossAmount: parseDecimal('0.5'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
               {
                 asset: 'BTC',
-                amount: parseDecimal('0.5'),
+                grossAmount: parseDecimal('0.5'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
             ],
             outflows: [
               {
                 asset: 'USD',
-                amount: parseDecimal('50000'),
+                grossAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
           },
-          fees: {
-            platform: {
+          fees: [
+            {
               asset: 'USD',
               amount: parseDecimal('20'),
+              scope: 'platform',
+              settlement: 'balance',
               priceAtTxTime: createPriceAtTxTime('1'),
             },
-          },
+          ],
           operation: {
             category: 'trade',
             type: 'buy',
@@ -560,19 +579,21 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'BTC',
-                amount: parseDecimal('1'),
+                grossAmount: parseDecimal('1'),
+                netAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
             ],
             outflows: [
               {
                 asset: 'USD',
-                amount: parseDecimal('50000'),
+                grossAmount: parseDecimal('50000'),
+                netAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
           },
-          fees: {},
+          fees: [],
           operation: {
             category: 'trade',
             type: 'buy',
@@ -589,30 +610,32 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'USD',
-                amount: parseDecimal('60000'),
+                grossAmount: parseDecimal('60000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
             outflows: [
               {
                 asset: 'BTC',
-                amount: parseDecimal('0.6'),
+                grossAmount: parseDecimal('0.6'),
                 priceAtTxTime: createPriceAtTxTime('60000'),
               },
               {
                 asset: 'BTC',
-                amount: parseDecimal('0.4'),
+                grossAmount: parseDecimal('0.4'),
                 priceAtTxTime: createPriceAtTxTime('60000'),
               },
             ],
           },
-          fees: {
-            platform: {
+          fees: [
+            {
               asset: 'USD',
               amount: parseDecimal('30'),
+              scope: 'platform',
+              settlement: 'balance',
               priceAtTxTime: createPriceAtTxTime('1'),
             },
-          },
+          ],
           operation: {
             category: 'trade',
             type: 'sell',
@@ -631,23 +654,24 @@ describe('LotMatcher - Fee Handling', () => {
         expect(btcResult).toBeDefined();
         expect(btcResult!.disposals).toHaveLength(2);
 
-        // First disposal: 0.6 BTC with $18 fee deduction (60% of $30)
+        // Per ADR-005: Platform fees (settlement='balance') do NOT reduce disposal proceeds
+        // First disposal: 0.6 BTC with NO fee deduction
         const disposal1 = btcResult!.disposals[0]!;
         expect(disposal1.quantityDisposed.toString()).toBe('0.6');
-        // Proceeds per unit: (0.6 * 60000 - 18) / 0.6 = 59970
-        expect(disposal1.proceedsPerUnit.toString()).toBe('59970');
-        expect(disposal1.totalProceeds.toString()).toBe('35982');
+        // Proceeds per unit: 60000 (no fee subtracted)
+        expect(disposal1.proceedsPerUnit.toString()).toBe('60000');
+        expect(disposal1.totalProceeds.toString()).toBe('36000');
 
-        // Second disposal: 0.4 BTC with $12 fee deduction (40% of $30)
+        // Second disposal: 0.4 BTC with NO fee deduction
         const disposal2 = btcResult!.disposals[1]!;
         expect(disposal2.quantityDisposed.toString()).toBe('0.4');
-        // Proceeds per unit: (0.4 * 60000 - 12) / 0.4 = 59970
-        expect(disposal2.proceedsPerUnit.toString()).toBe('59970');
-        expect(disposal2.totalProceeds.toString()).toBe('23988');
+        // Proceeds per unit: 60000 (no fee subtracted)
+        expect(disposal2.proceedsPerUnit.toString()).toBe('60000');
+        expect(disposal2.totalProceeds.toString()).toBe('24000');
 
-        // Total net proceeds should be $59,970 ($60,000 - $30 fee, not $59,940 which would indicate double-counting)
+        // Total proceeds: $60,000 (platform fee NOT subtracted from proceeds)
         const totalProceeds = disposal1.totalProceeds.plus(disposal2.totalProceeds);
-        expect(totalProceeds.toString()).toBe('59970');
+        expect(totalProceeds.toString()).toBe('60000');
       }
     });
   });
@@ -666,19 +690,21 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'ETH',
-                amount: parseDecimal('1'),
+                grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('3000'),
               },
             ],
             outflows: [],
           },
-          fees: {
-            network: {
+          fees: [
+            {
               asset: 'ETH',
               amount: parseDecimal('0.001'),
+              scope: 'network',
+              settlement: 'on-chain',
               // Missing priceAtTxTime - this should cause an error
             },
-          },
+          ],
           operation: {
             category: 'transfer',
             type: 'deposit',
@@ -711,19 +737,21 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'BTC',
-                amount: parseDecimal('1'),
+                grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000', 'USD'),
               },
             ],
             outflows: [],
           },
-          fees: {
-            platform: {
+          fees: [
+            {
               asset: 'USD',
               amount: parseDecimal('100'),
+              scope: 'platform',
+              settlement: 'balance',
               // No priceAtTxTime - should use 1:1 fallback to USD
             },
-          },
+          ],
           operation: {
             category: 'trade',
             type: 'buy',
@@ -761,19 +789,21 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'BTC',
-                amount: parseDecimal('1'),
+                grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000', 'USD'),
               },
             ],
             outflows: [],
           },
-          fees: {
-            platform: {
+          fees: [
+            {
               asset: 'CAD',
               amount: parseDecimal('100'),
+              scope: 'platform',
+              settlement: 'balance',
               // No priceAtTxTime and different currency - should fail
             },
-          },
+          ],
           operation: {
             category: 'trade',
             type: 'buy',
@@ -810,19 +840,21 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'XYZ',
-                amount: parseDecimal('100'),
+                grossAmount: parseDecimal('100'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value airdrop
               },
             ],
             outflows: [],
           },
-          fees: {
-            network: {
+          fees: [
+            {
               asset: 'ETH',
               amount: parseDecimal('0.001'),
+              scope: 'network',
+              settlement: 'on-chain',
               priceAtTxTime: createPriceAtTxTime('5000'), // $5 fee
             },
-          },
+          ],
           operation: {
             category: 'transfer',
             type: 'deposit',
@@ -864,24 +896,26 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'TOKEN_A',
-                amount: parseDecimal('100'),
+                grossAmount: parseDecimal('100'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value
               },
               {
                 asset: 'TOKEN_B',
-                amount: parseDecimal('50'),
+                grossAmount: parseDecimal('50'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value
               },
             ],
             outflows: [],
           },
-          fees: {
-            platform: {
+          fees: [
+            {
               asset: 'USD',
               amount: parseDecimal('10'),
+              scope: 'platform',
+              settlement: 'balance',
               priceAtTxTime: createPriceAtTxTime('1'),
             },
-          },
+          ],
           operation: {
             category: 'transfer',
             type: 'deposit',
@@ -931,25 +965,27 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'XYZ',
-                amount: parseDecimal('100'),
+                grossAmount: parseDecimal('100'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value
               },
             ],
             outflows: [
               {
                 asset: 'USD',
-                amount: parseDecimal('0'), // Zero-value fiat
+                grossAmount: parseDecimal('0'), // Zero-value fiat
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
           },
-          fees: {
-            platform: {
+          fees: [
+            {
               asset: 'USD',
               amount: parseDecimal('5'),
+              scope: 'platform',
+              settlement: 'balance',
               priceAtTxTime: createPriceAtTxTime('1'),
             },
-          },
+          ],
           operation: {
             category: 'transfer',
             type: 'airdrop',
@@ -994,25 +1030,27 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'USD',
-                amount: parseDecimal('1000'),
+                grossAmount: parseDecimal('1000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
             outflows: [
               {
                 asset: 'CAD',
-                amount: parseDecimal('1350'),
+                grossAmount: parseDecimal('1350'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
           },
-          fees: {
-            platform: {
+          fees: [
+            {
               asset: 'USD',
               amount: parseDecimal('5'),
+              scope: 'platform',
+              settlement: 'balance',
               priceAtTxTime: createPriceAtTxTime('1'),
             },
-          },
+          ],
           operation: {
             category: 'trade',
             type: 'buy',
@@ -1065,24 +1103,26 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [
               {
                 asset: 'BTC',
-                amount: parseDecimal('1'),
+                grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
               {
                 asset: 'XYZ',
-                amount: parseDecimal('100'),
+                grossAmount: parseDecimal('100'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value
               },
             ],
             outflows: [],
           },
-          fees: {
-            platform: {
+          fees: [
+            {
               asset: 'USD',
               amount: parseDecimal('100'),
+              scope: 'platform',
+              settlement: 'balance',
               priceAtTxTime: createPriceAtTxTime('1'),
             },
-          },
+          ],
           operation: {
             category: 'trade',
             type: 'buy',

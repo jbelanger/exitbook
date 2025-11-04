@@ -116,22 +116,21 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [
           {
             asset: sellCurrency,
-            amount: sellAmount,
+            grossAmount: sellAmount,
+            netAmount: sellAmount,
           },
         ],
         inflows: [
           {
             asset: buyCurrency,
-            amount: buyAmount,
+            grossAmount: buyAmount,
+            netAmount: buyAmount,
           },
         ],
       },
 
       // Structured fees - convert market has platform fees
-      fees: {
-        network: undefined, // No network fee for exchange conversions
-        platform: platformFee,
-      },
+      fees: platformFee ? [{ ...platformFee, scope: 'platform' as const, settlement: 'balance' as const }] : [],
 
       // Operation classification - 10/10 confidence: convert market is a swap
       operation: {
@@ -171,17 +170,17 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         inflows: [
           {
             asset: row.Coin,
-            amount: netAmount,
+            grossAmount: grossAmount,
+            netAmount: netAmount,
           },
         ],
         outflows: [], // No outflows for deposit
       },
 
       // Structured fees - exchange deposits have platform fees
-      fees: {
-        network: undefined, // No network fee for exchange deposits
-        platform: platformFee,
-      },
+      fees: platformFee.amount.greaterThan(0)
+        ? [{ ...platformFee, scope: 'platform' as const, settlement: 'balance' as const }]
+        : [],
 
       // Operation classification - 10/10 confidence: deposit is transfer/deposit
       operation: {
@@ -229,22 +228,21 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [
           {
             asset: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledVolume : filledAmount),
+            grossAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
+            netAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
           },
         ],
         inflows: [
           {
             asset: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledAmount : filledVolume),
+            grossAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
+            netAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
           },
         ],
       },
 
       // Structured fees - exchange trades have platform fees
-      fees: {
-        network: undefined, // No network fee for exchange trades
-        platform: platformFee,
-      },
+      fees: platformFee ? [{ ...platformFee, scope: 'platform' as const, settlement: 'balance' as const }] : [],
 
       // Operation classification - 10/10 confidence: order-splitting is trade/buy or trade/sell
       operation: {
@@ -294,22 +292,21 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [
           {
             asset: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledVolume : filledAmount),
+            grossAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
+            netAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
           },
         ],
         inflows: [
           {
             asset: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledAmount : filledVolume),
+            grossAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
+            netAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
           },
         ],
       },
 
       // Structured fees - exchange trades have platform fees
-      fees: {
-        network: undefined, // No network fee for exchange trades
-        platform: platformFee,
-      },
+      fees: platformFee ? [{ ...platformFee, scope: 'platform' as const, settlement: 'balance' as const }] : [],
 
       // Operation classification - 10/10 confidence: trading bot is trade/buy or trade/sell
       operation: {
@@ -355,22 +352,21 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [
           {
             asset: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledVolume : filledAmount),
+            grossAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
+            netAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
           },
         ],
         inflows: [
           {
             asset: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
-            amount: parseDecimal(isBuy ? filledAmount : filledVolume),
+            grossAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
+            netAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
           },
         ],
       },
 
       // Structured fees - exchange trades have platform fees
-      fees: {
-        network: undefined, // No network fee for exchange trades
-        platform: platformFee,
-      },
+      fees: platformFee ? [{ ...platformFee, scope: 'platform' as const, settlement: 'balance' as const }] : [],
 
       // Operation classification - 10/10 confidence: spot order is trade/buy or trade/sell
       operation: {
@@ -410,16 +406,16 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [
           {
             asset: row.Coin,
-            amount: parseDecimal(absAmount.toFixed()),
+            grossAmount: parseDecimal(absAmount.toFixed()),
+            netAmount: parseDecimal(absAmount.toFixed()),
           },
         ],
       },
 
       // Structured fees - exchange withdrawals have platform fees
-      fees: {
-        network: undefined, // No network fee for exchange withdrawals
-        platform: platformFee,
-      },
+      fees: platformFee.amount.greaterThan(0)
+        ? [{ ...platformFee, scope: 'platform' as const, settlement: 'balance' as const }]
+        : [],
 
       // Operation classification - 10/10 confidence: withdrawal is transfer/withdrawal
       operation: {

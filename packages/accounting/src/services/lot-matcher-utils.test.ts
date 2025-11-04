@@ -1,3 +1,4 @@
+import type { FeeMovement } from '@exitbook/core';
 import { Currency, type AssetMovement, type PriceAtTxTime, type UniversalTransaction } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
@@ -9,7 +10,7 @@ import {
   buildAcquisitionLotFromInflow,
   buildDependencyGraph,
   buildTransferMetadata,
-  calculateFeeAllocationForMovement,
+  calculateFeesInFiat,
   calculateInheritedCostBasis,
   calculateNetProceeds,
   calculateTargetCostBasis,
@@ -28,7 +29,7 @@ function createMockTransaction(
   id: number,
   datetime: string,
   movements: { inflows?: AssetMovement[]; outflows?: AssetMovement[] },
-  fees: { network?: AssetMovement; platform?: AssetMovement } = {}
+  fees: FeeMovement[] = []
 ): UniversalTransaction {
   return {
     id,
@@ -48,6 +49,35 @@ function createMockTransaction(
 
 function createMovement(asset: string, amount: string, priceAmount?: string, priceCurrency = 'USD'): AssetMovement {
   const movement: AssetMovement = {
+    asset,
+    grossAmount: new Decimal(amount),
+  };
+
+  if (priceAmount !== undefined) {
+    movement.priceAtTxTime = {
+      price: {
+        amount: new Decimal(priceAmount),
+        currency: Currency.create(priceCurrency),
+      },
+      source: 'test',
+      fetchedAt: new Date(),
+    };
+  }
+
+  return movement;
+}
+
+function createFeeMovement(
+  scope: 'network' | 'platform' | 'spread' | 'tax' | 'other',
+  settlement: 'on-chain' | 'balance' | 'external',
+  asset: string,
+  amount: string,
+  priceAmount?: string,
+  priceCurrency = 'USD'
+): FeeMovement {
+  const movement: FeeMovement = {
+    scope,
+    settlement,
     asset,
     amount: new Decimal(amount),
   };
@@ -215,12 +245,9 @@ describe('lot-matcher-utils', () => {
 
   describe('extractCryptoFee', () => {
     it('should extract network fee', () => {
-      const tx = createMockTransaction(
-        1,
-        '2024-01-01T00:00:00Z',
-        {},
-        { network: createMovement('BTC', '0.001', '50000') }
-      );
+      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('network', 'on-chain', 'BTC', '0.001', '50000'),
+      ]);
 
       const result = extractCryptoFee(tx, 'BTC');
 
@@ -233,12 +260,9 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should extract platform fee', () => {
-      const tx = createMockTransaction(
-        1,
-        '2024-01-01T00:00:00Z',
-        {},
-        { platform: createMovement('BTC', '0.002', '50000') }
-      );
+      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('platform', 'on-chain', 'BTC', '0.002', '50000'),
+      ]);
 
       const result = extractCryptoFee(tx, 'BTC');
 
@@ -250,15 +274,10 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should combine network and platform fees', () => {
-      const tx = createMockTransaction(
-        1,
-        '2024-01-01T00:00:00Z',
-        {},
-        {
-          network: createMovement('BTC', '0.001', '50000'),
-          platform: createMovement('BTC', '0.002', '50000'),
-        }
-      );
+      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('network', 'on-chain', 'BTC', '0.001', '50000'),
+        createFeeMovement('platform', 'on-chain', 'BTC', '0.002', '50000'),
+      ]);
 
       const result = extractCryptoFee(tx, 'BTC');
 
@@ -282,12 +301,9 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should return zero for fees in different asset', () => {
-      const tx = createMockTransaction(
-        1,
-        '2024-01-01T00:00:00Z',
-        {},
-        { network: createMovement('ETH', '0.01', '3000') }
-      );
+      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('network', 'on-chain', 'ETH', '0.01', '3000'),
+      ]);
 
       const result = extractCryptoFee(tx, 'BTC');
 
@@ -301,18 +317,12 @@ describe('lot-matcher-utils', () => {
 
   describe('collectFiatFees', () => {
     it('should collect fiat fees from both transactions', () => {
-      const sourceTx = createMockTransaction(
-        1,
-        '2024-01-01T00:00:00Z',
-        {},
-        { network: createMovement('USD', '1.50', '1') }
-      );
-      const targetTx = createMockTransaction(
-        2,
-        '2024-01-01T00:00:00Z',
-        {},
-        { platform: createMovement('EUR', '2.00', '1.1') }
-      );
+      const sourceTx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('platform', 'balance', 'USD', '1.50', '1'),
+      ]);
+      const targetTx = createMockTransaction(2, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('platform', 'balance', 'EUR', '2.00', '1.1'),
+      ]);
 
       const result = collectFiatFees(sourceTx, targetTx);
 
@@ -329,18 +339,12 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should ignore crypto fees', () => {
-      const sourceTx = createMockTransaction(
-        1,
-        '2024-01-01T00:00:00Z',
-        {},
-        { network: createMovement('BTC', '0.001', '50000') }
-      );
-      const targetTx = createMockTransaction(
-        2,
-        '2024-01-01T00:00:00Z',
-        {},
-        { platform: createMovement('ETH', '0.01', '3000') }
-      );
+      const sourceTx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('network', 'on-chain', 'BTC', '0.001', '50000'),
+      ]);
+      const targetTx = createMockTransaction(2, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('platform', 'on-chain', 'ETH', '0.01', '3000'),
+      ]);
 
       const result = collectFiatFees(sourceTx, targetTx);
 
@@ -410,7 +414,7 @@ describe('lot-matcher-utils', () => {
     });
   });
 
-  describe('calculateFeeAllocationForMovement', () => {
+  describe('calculateFeesInFiat', () => {
     it('should allocate fees proportionally to movement value', () => {
       const tx = createMockTransaction(
         1,
@@ -421,16 +425,14 @@ describe('lot-matcher-utils', () => {
             createMovement('ETH', '10', '3000'), // $30,000
           ],
         },
-        {
-          platform: createMovement('USD', '80', '1'), // $80 fee
-        }
+        [createFeeMovement('platform', 'balance', 'USD', '80', '1')]
       );
 
       const btcMovement = tx.movements.inflows![0]!;
       const ethMovement = tx.movements.inflows![1]!;
 
-      const btcFeeResult = calculateFeeAllocationForMovement(tx, btcMovement);
-      const ethFeeResult = calculateFeeAllocationForMovement(tx, ethMovement);
+      const btcFeeResult = calculateFeesInFiat(tx, btcMovement, true);
+      const ethFeeResult = calculateFeesInFiat(tx, ethMovement, true);
 
       expect(btcFeeResult.isOk()).toBe(true);
       expect(ethFeeResult.isOk()).toBe(true);
@@ -448,7 +450,7 @@ describe('lot-matcher-utils', () => {
         inflows: [createMovement('BTC', '1', '50000')],
       });
 
-      const result = calculateFeeAllocationForMovement(tx, tx.movements.inflows![0]!);
+      const result = calculateFeesInFiat(tx, tx.movements.inflows![0]!, true);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -464,12 +466,10 @@ describe('lot-matcher-utils', () => {
         {
           inflows: [createMovement('BTC', '1', '50000')],
         },
-        {
-          network: feeMovement,
-        }
+        [createFeeMovement('network', 'on-chain', 'BTC', '0.001', '50000')]
       );
 
-      const result = calculateFeeAllocationForMovement(tx, feeMovement);
+      const result = calculateFeesInFiat(tx, feeMovement, true);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -487,13 +487,11 @@ describe('lot-matcher-utils', () => {
             createMovement('TOKEN2', '2000', '0'), // $0 value
           ],
         },
-        {
-          platform: createMovement('USD', '10', '1'),
-        }
+        [createFeeMovement('platform', 'balance', 'USD', '10', '1')]
       );
 
       const token1Movement = tx.movements.inflows![0]!;
-      const result = calculateFeeAllocationForMovement(tx, token1Movement);
+      const result = calculateFeesInFiat(tx, token1Movement, true);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -509,36 +507,34 @@ describe('lot-matcher-utils', () => {
         {
           inflows: [createMovement('BTC', '1', '50000', 'USD')],
         },
-        {
-          platform: createMovement('USD', '50'), // No price, but USD
-        }
+        [createFeeMovement('platform', 'balance', 'USD', '100', '1')]
       );
 
-      const result = calculateFeeAllocationForMovement(tx, tx.movements.inflows![0]!);
+      const result = calculateFeesInFiat(tx, tx.movements.inflows![0]!, true);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.toFixed()).toBe('50');
+        // Single BTC inflow gets ALL the $100 fee allocated to it (no other movements to split with)
+        expect(result.value.toFixed()).toBe('100');
       }
     });
 
-    it('should error on fiat fee with different currency and no price', () => {
+    it('should use fee price when available (even if fiat currency differs)', () => {
       const tx = createMockTransaction(
         1,
         '2024-01-01T00:00:00Z',
         {
           inflows: [createMovement('BTC', '1', '50000', 'USD')],
         },
-        {
-          platform: createMovement('EUR', '50'), // No price, different currency
-        }
+        [createFeeMovement('platform', 'balance', 'EUR', '50', '1')] // EUR fee with $1 USD price
       );
 
-      const result = calculateFeeAllocationForMovement(tx, tx.movements.inflows![0]!);
+      const result = calculateFeesInFiat(tx, tx.movements.inflows![0]!, true);
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('cannot be converted');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        // Fee has price: 50 EUR * $1 = $50, allocated to single BTC movement
+        expect(result.value.toFixed()).toBe('50');
       }
     });
 
@@ -549,12 +545,10 @@ describe('lot-matcher-utils', () => {
         {
           inflows: [createMovement('BTC', '1', '50000')],
         },
-        {
-          network: createMovement('ETH', '0.01'), // Crypto fee without price
-        }
+        [createFeeMovement('network', 'on-chain', 'ETH', '0.01')] // Crypto fee without price
       );
 
-      const result = calculateFeeAllocationForMovement(tx, tx.movements.inflows![0]!);
+      const result = calculateFeesInFiat(tx, tx.movements.inflows![0]!, true);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -569,13 +563,11 @@ describe('lot-matcher-utils', () => {
         {
           inflows: [createMovement('BTC', '1', '50000'), createMovement('USD', '50000', '1')],
         },
-        {
-          platform: createMovement('USD', '10', '1'),
-        }
+        [createFeeMovement('platform', 'balance', 'USD', '10', '1')]
       );
 
       const usdMovement = tx.movements.inflows![1]!;
-      const result = calculateFeeAllocationForMovement(tx, usdMovement);
+      const result = calculateFeesInFiat(tx, usdMovement, true);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -638,9 +630,7 @@ describe('lot-matcher-utils', () => {
         {
           inflows: [createMovement('BTC', '1', '50000')],
         },
-        {
-          platform: createMovement('USD', '100', '1'), // $100 fee
-        }
+        [createFeeMovement('platform', 'balance', 'USD', '100', '1')]
       );
 
       const result = buildAcquisitionLotFromInflow(tx, tx.movements.inflows![0]!, 'calc-123', 'fifo');
@@ -685,27 +675,51 @@ describe('lot-matcher-utils', () => {
   });
 
   describe('calculateNetProceeds', () => {
-    it('should calculate proceeds minus fees', () => {
+    it('should NOT subtract platform fees from disposal proceeds (ADR-005)', () => {
       const tx = createMockTransaction(
         1,
         '2024-01-01T00:00:00Z',
         {
           outflows: [createMovement('BTC', '1', '52000')],
         },
-        {
-          platform: createMovement('USD', '200', '1'), // $200 fee
-        }
+        [createFeeMovement('platform', 'balance', 'USD', '200', '1')] // Platform fee with balance settlement
       );
 
       const result = calculateNetProceeds(tx, tx.movements.outflows![0]!);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
+        // Per ADR-005: Only on-chain fees reduce disposal proceeds
+        // Platform fees (settlement='balance') are charged separately and don't affect proceeds
         // Gross: 1 * 52000 = 52000
-        // Net: 52000 - 200 = 51800
-        // Per unit: 51800 / 1 = 51800
-        expect(result.value.proceedsPerUnit.toFixed()).toBe('51800');
-        expect(result.value.totalFeeAmount.toFixed()).toBe('200');
+        // Fee subtracted: $0 (platform fee not included)
+        // Proceeds per unit: 52000
+        expect(result.value.proceedsPerUnit.toFixed()).toBe('52000');
+        expect(result.value.totalFeeAmount.toFixed()).toBe('0');
+      }
+    });
+
+    it('should subtract on-chain fees from disposal proceeds (ADR-005)', () => {
+      const tx = createMockTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        {
+          outflows: [createMovement('ETH', '1', '3500')],
+        },
+        [createFeeMovement('network', 'on-chain', 'ETH', '0.002', '3500')] // Network fee with on-chain settlement
+      );
+
+      const result = calculateNetProceeds(tx, tx.movements.outflows![0]!);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        // Per ADR-005: On-chain fees DO reduce disposal proceeds
+        // Gross proceeds: 1 * 3500 = 3500
+        // Fee: 0.002 * 3500 = 7
+        // Net proceeds: 3500 - 7 = 3493
+        // Per unit: 3493 / 1 = 3493
+        expect(result.value.proceedsPerUnit.toFixed()).toBe('3493');
+        expect(result.value.totalFeeAmount.toFixed()).toBe('7');
       }
     });
 

@@ -195,7 +195,8 @@ export class LotMatcher {
         for (const outflow of outflows) {
           if (outflow.asset === asset) {
             // Check if this outflow is part of a confirmed transfer
-            const link = linkIndex.findBySource(tx.id, outflow.asset, outflow.amount);
+            // Use netAmount for link matching (link index stores net values from convertToCandidates)
+            const link = linkIndex.findBySource(tx.id, outflow.asset, outflow.netAmount ?? outflow.grossAmount);
 
             if (link) {
               // Handle transfer source
@@ -227,12 +228,16 @@ export class LotMatcher {
 
           if (link) {
             // Aggregate all inflows of this asset for transfer targets
-            const totalAmount = assetInflows.reduce((sum, inflow) => sum.plus(inflow.amount), new Decimal(0));
+            // Use netAmount for consistency with link.targetAmount (net received amount)
+            const totalAmount = assetInflows.reduce(
+              (sum, inflow) => sum.plus(inflow.netAmount ?? inflow.grossAmount),
+              new Decimal(0)
+            );
 
             // Use first inflow as template with aggregated amount
             const aggregatedInflow: AssetMovement = {
               ...assetInflows[0]!,
-              amount: totalAmount,
+              grossAmount: totalAmount,
             };
 
             // Handle transfer target with aggregated amount
@@ -305,7 +310,7 @@ export class LotMatcher {
       const disposal = {
         transactionId: transaction.id,
         asset: outflow.asset,
-        quantity: outflow.amount,
+        quantity: outflow.grossAmount,
         date: new Date(transaction.datetime),
         proceedsPerUnit,
       };
@@ -357,7 +362,7 @@ export class LotMatcher {
     }
 
     const cryptoFee = cryptoFeeResult.value;
-    const netTransferAmount = outflow.amount.minus(cryptoFee.amount);
+    const netTransferAmount = outflow.grossAmount.minus(cryptoFee.amount);
 
     // Validate transfer variance
     const varianceResult = validateTransferVariance(
@@ -541,7 +546,7 @@ export class LotMatcher {
     // Calculate inherited cost basis from source lots
     const { totalCostBasis: inheritedCostBasis, transferredQuantity } = calculateInheritedCostBasis(transfers);
 
-    const receivedQuantity = inflow.amount;
+    const receivedQuantity = inflow.grossAmount;
 
     // Validate transfer variance
     const varianceResult = validateTransferVariance(

@@ -115,12 +115,12 @@ function formatMovements(inflows: AssetMovement[], outflows: AssetMovement[]): s
   const parts: string[] = [];
 
   if (outflows.length > 0) {
-    const outStr = outflows.map((m) => `${m.amount.toFixed()} ${m.asset}`).join(', ');
+    const outStr = outflows.map((m) => `${m.grossAmount.toFixed()} ${m.asset}`).join(', ');
     parts.push(`OUT: ${outStr}`);
   }
 
   if (inflows.length > 0) {
-    const inStr = inflows.map((m) => `${m.amount.toFixed()} ${m.asset}`).join(', ');
+    const inStr = inflows.map((m) => `${m.grossAmount.toFixed()} ${m.asset}`).join(', ');
     parts.push(`IN: ${inStr}`);
   }
 

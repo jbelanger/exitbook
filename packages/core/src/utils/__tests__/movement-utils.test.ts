@@ -14,7 +14,7 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('1.5'),
+        grossAmount: parseDecimal('1.5'),
       },
     ];
 
@@ -31,7 +31,7 @@ describe('computePrimaryMovement', () => {
     const outflows: AssetMovement[] = [
       {
         asset: 'ETH',
-        amount: parseDecimal('2.5'),
+        grossAmount: parseDecimal('2.5'),
       },
     ];
 
@@ -48,15 +48,15 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('0.5'),
+        grossAmount: parseDecimal('0.5'),
       },
       {
         asset: 'ETH',
-        amount: parseDecimal('10'),
+        grossAmount: parseDecimal('10'),
       },
       {
         asset: 'USDT',
-        amount: parseDecimal('1000'),
+        grossAmount: parseDecimal('1000'),
       },
     ];
 
@@ -73,15 +73,15 @@ describe('computePrimaryMovement', () => {
     const outflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('0.1'),
+        grossAmount: parseDecimal('0.1'),
       },
       {
         asset: 'ETH',
-        amount: parseDecimal('5'),
+        grossAmount: parseDecimal('5'),
       },
       {
         asset: 'USDC',
-        amount: parseDecimal('100'),
+        grossAmount: parseDecimal('100'),
       },
     ];
 
@@ -98,13 +98,13 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'USDT',
-        amount: parseDecimal('1000'),
+        grossAmount: parseDecimal('1000'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('0.5'),
+        grossAmount: parseDecimal('0.5'),
       },
     ];
 
@@ -121,13 +121,13 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'USDT',
-        amount: parseDecimal('100'),
+        grossAmount: parseDecimal('100'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('500'),
+        grossAmount: parseDecimal('500'),
       },
     ];
 
@@ -144,13 +144,13 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('1'),
+        grossAmount: parseDecimal('1'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         asset: 'ETH',
-        amount: parseDecimal('1'),
+        grossAmount: parseDecimal('1'),
       },
     ];
 
@@ -168,13 +168,13 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('1'),
+        grossAmount: parseDecimal('1'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         asset: 'USDT',
-        amount: parseDecimal('50000'),
+        grossAmount: parseDecimal('50000'),
       },
     ];
 
@@ -193,21 +193,21 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'ETH',
-        amount: parseDecimal('10'),
+        grossAmount: parseDecimal('10'),
       },
       {
         asset: 'USDC',
-        amount: parseDecimal('100'),
+        grossAmount: parseDecimal('100'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('0.5'),
+        grossAmount: parseDecimal('0.5'),
       },
       {
         asset: 'USDT',
-        amount: parseDecimal('5000'),
+        grossAmount: parseDecimal('5000'),
       },
     ];
 
@@ -225,7 +225,7 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('0.00000001'), // 1 satoshi
+        grossAmount: parseDecimal('0.00000001'), // 1 satoshi
       },
     ];
 
@@ -242,7 +242,7 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'SHIB',
-        amount: parseDecimal('1000000000000'),
+        grossAmount: parseDecimal('1000000000000'),
       },
     ];
 

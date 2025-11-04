@@ -33,7 +33,11 @@ describe('InterpretationStrategy - standardAmounts', () => {
     const result = standardAmounts.interpret(entry, [entry]);
 
     expect(result.inflows).toHaveLength(1);
-    expect(result.inflows[0]).toEqual({ amount: '100', asset: 'USD' });
+    expect(result.inflows[0]).toEqual({
+      asset: 'USD',
+      grossAmount: '100',
+      netAmount: '100',
+    });
     expect(result.outflows).toHaveLength(0);
     expect(result.fees).toHaveLength(0);
   });
@@ -45,7 +49,11 @@ describe('InterpretationStrategy - standardAmounts', () => {
 
     expect(result.inflows).toHaveLength(0);
     expect(result.outflows).toHaveLength(1);
-    expect(result.outflows[0]).toEqual({ amount: '100', asset: 'USD' });
+    expect(result.outflows[0]).toEqual({
+      asset: 'USD',
+      grossAmount: '100',
+      netAmount: '100',
+    });
     expect(result.fees).toHaveLength(0);
   });
 
@@ -57,7 +65,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
     // Note: standardAmounts returns inflow with '0' amount when amount is exactly zero
     // This is by design - the processor filters zeros later
     expect(result.inflows).toHaveLength(1);
-    expect(result.inflows[0]?.amount).toBe('0');
+    expect(result.inflows[0]?.grossAmount).toBe('0');
     expect(result.outflows).toHaveLength(0);
     expect(result.fees).toHaveLength(0);
   });
@@ -68,7 +76,12 @@ describe('InterpretationStrategy - standardAmounts', () => {
     const result = standardAmounts.interpret(entry, [entry]);
 
     expect(result.fees).toHaveLength(1);
-    expect(result.fees[0]).toEqual({ amount: '2.5', currency: 'USD' });
+    expect(result.fees[0]).toEqual({
+      amount: '2.5',
+      asset: 'USD',
+      scope: 'platform',
+      settlement: 'balance',
+    });
   });
 
   test('uses asset as default fee currency when feeCurrency not specified', () => {
@@ -77,7 +90,12 @@ describe('InterpretationStrategy - standardAmounts', () => {
     const result = standardAmounts.interpret(entry, [entry]);
 
     expect(result.fees).toHaveLength(1);
-    expect(result.fees[0]).toEqual({ amount: '0.001', currency: 'BTC' });
+    expect(result.fees[0]).toEqual({
+      amount: '0.001',
+      asset: 'BTC',
+      scope: 'platform',
+      settlement: 'balance',
+    });
   });
 
   test('ignores zero fees', () => {
@@ -93,7 +111,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
 
     const result = standardAmounts.interpret(entry, [entry]);
 
-    expect(result.inflows[0]?.amount).toBe('0.00123456');
+    expect(result.inflows[0]?.grossAmount).toBe('0.00123456');
   });
 
   test('handles large amounts', () => {
@@ -101,7 +119,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
 
     const result = standardAmounts.interpret(entry, [entry]);
 
-    expect(result.inflows[0]?.amount).toBe('1000000.5');
+    expect(result.inflows[0]?.grossAmount).toBe('1000000.5');
   });
 
   test('handles negative decimal amounts', () => {
@@ -109,7 +127,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
 
     const result = standardAmounts.interpret(entry, [entry]);
 
-    expect(result.outflows[0]?.amount).toBe('0.00123456');
+    expect(result.outflows[0]?.grossAmount).toBe('0.00123456');
   });
 
   test('handles amounts with fees', () => {
@@ -117,9 +135,9 @@ describe('InterpretationStrategy - standardAmounts', () => {
 
     const result = standardAmounts.interpret(entry, [entry]);
 
-    expect(result.outflows[0]?.amount).toBe('100');
+    expect(result.outflows[0]?.grossAmount).toBe('100');
     expect(result.fees[0]?.amount).toBe('1.5');
-    expect(result.fees[0]?.currency).toBe('USD');
+    expect(result.fees[0]?.asset).toBe('USD');
   });
 
   test('ignores group parameter for standard interpretation', () => {
@@ -129,7 +147,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
     const result = standardAmounts.interpret(entry1, [entry1, entry2]);
 
     expect(result.outflows).toHaveLength(1);
-    expect(result.outflows[0]?.amount).toBe('100');
+    expect(result.outflows[0]?.grossAmount).toBe('100');
   });
 
   test('handles different currencies', () => {
@@ -149,6 +167,6 @@ describe('InterpretationStrategy - standardAmounts', () => {
     const result = standardAmounts.interpret(entry, [entry]);
 
     expect(result.inflows[0]?.asset).toBe('BTC');
-    expect(result.fees[0]?.currency).toBe('USD');
+    expect(result.fees[0]?.asset).toBe('USD');
   });
 });

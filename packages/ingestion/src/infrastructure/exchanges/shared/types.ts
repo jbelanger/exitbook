@@ -1,3 +1,5 @@
+import type { FeeInput, MovementInput } from './strategies/interpretation.ts';
+
 /**
  * Fund flow analysis result for exchange transactions
  *
@@ -7,14 +9,8 @@
  */
 export interface ExchangeFundFlow {
   // All assets that flowed in/out (supports swaps, conversions)
-  inflows: {
-    amount: string; // Normalized amount
-    asset: string; // Symbol (BTC, USD, ETH, etc.)
-  }[];
-  outflows: {
-    amount: string; // Normalized amount
-    asset: string; // Symbol (BTC, USD, ETH, etc.)
-  }[];
+  inflows: MovementInput[];
+  outflows: MovementInput[];
 
   // Primary asset (for simplified consumption and single-asset display)
   primary: {
@@ -23,10 +19,7 @@ export interface ExchangeFundFlow {
   };
 
   // Fee information (aggregated across all correlated entries)
-  fees: {
-    amount: string; // Total fee amount
-    currency: string; // Fee currency
-  }[];
+  fees: FeeInput[];
 
   // Transaction correlation metadata
   entryCount: number; // Number of correlated ledger entries (1 for simple, >1 for complex)

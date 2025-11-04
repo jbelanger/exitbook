@@ -8,7 +8,7 @@
  */
 
 import { Currency, parseDecimal } from '@exitbook/core';
-import type { AssetMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
+import type { AssetMovement, FeeMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { enrichFeePricesFromMovements, inferMultiPass, propagatePricesAcrossLinks } from '../price-enrichment-utils.ts';
@@ -29,7 +29,7 @@ describe('inferMultiPass', () => {
     status: 'success',
     operation: { category: 'transfer', type: 'transfer' },
     movements: { inflows, outflows },
-    fees: {},
+    fees: [],
     metadata: {},
   });
 
@@ -47,8 +47,8 @@ describe('inferMultiPass', () => {
     it('should extract execution price from USD trade', () => {
       const tx = createTransaction(
         1,
-        [{ asset: 'BTC', amount: parseDecimal('1.0') }],
-        [{ asset: 'USD', amount: parseDecimal('50000') }]
+        [{ asset: 'BTC', grossAmount: parseDecimal('1.0') }],
+        [{ asset: 'USD', grossAmount: parseDecimal('50000') }]
       );
 
       const result = inferMultiPass([tx]);
@@ -62,8 +62,8 @@ describe('inferMultiPass', () => {
     it('should extract execution price from EUR trade (in native EUR, normalized to USD later)', () => {
       const tx = createTransaction(
         1,
-        [{ asset: 'BTC', amount: parseDecimal('1.0') }],
-        [{ asset: 'EUR', amount: parseDecimal('40000') }]
+        [{ asset: 'BTC', grossAmount: parseDecimal('1.0') }],
+        [{ asset: 'EUR', grossAmount: parseDecimal('40000') }]
       );
 
       const result = inferMultiPass([tx]);
@@ -85,8 +85,8 @@ describe('inferMultiPass', () => {
     it('should NOT extract price from USDC trade (fetched separately)', () => {
       const tx = createTransaction(
         1,
-        [{ asset: 'BTC', amount: parseDecimal('1.0') }],
-        [{ asset: 'USDC', amount: parseDecimal('50000') }]
+        [{ asset: 'BTC', grossAmount: parseDecimal('1.0') }],
+        [{ asset: 'USDC', grossAmount: parseDecimal('50000') }]
       );
 
       const result = inferMultiPass([tx]);
@@ -100,8 +100,8 @@ describe('inferMultiPass', () => {
     it('should derive inflow price when only outflow has price', () => {
       const tx = createTransaction(
         1,
-        [{ asset: 'RARE_TOKEN', amount: parseDecimal('1000') }],
-        [{ asset: 'ETH', amount: parseDecimal('10'), priceAtTxTime: createPrice('coingecko', '3000') }]
+        [{ asset: 'RARE_TOKEN', grossAmount: parseDecimal('1000') }],
+        [{ asset: 'ETH', grossAmount: parseDecimal('10'), priceAtTxTime: createPrice('coingecko', '3000') }]
       );
 
       const result = inferMultiPass([tx]);
@@ -115,8 +115,8 @@ describe('inferMultiPass', () => {
     it('should recalculate crypto-crypto swap when both have prices (Pass N+2 behavior)', () => {
       const tx = createTransaction(
         1,
-        [{ asset: 'ETH', amount: parseDecimal('10'), priceAtTxTime: createPrice('binance', '3000') }],
-        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('coingecko', '50000') }]
+        [{ asset: 'ETH', grossAmount: parseDecimal('10'), priceAtTxTime: createPrice('binance', '3000') }],
+        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('coingecko', '50000') }]
       );
 
       const result = inferMultiPass([tx]);
@@ -131,8 +131,8 @@ describe('inferMultiPass', () => {
     it('should NOT derive when neither has prices', () => {
       const tx = createTransaction(
         1,
-        [{ asset: 'TOKEN_A', amount: parseDecimal('100') }],
-        [{ asset: 'TOKEN_B', amount: parseDecimal('50') }]
+        [{ asset: 'TOKEN_A', grossAmount: parseDecimal('100') }],
+        [{ asset: 'TOKEN_B', grossAmount: parseDecimal('50') }]
       );
 
       const result = inferMultiPass([tx]);
@@ -146,8 +146,8 @@ describe('inferMultiPass', () => {
     it('should recalculate inflow price from outflow in crypto-crypto swap', () => {
       const tx = createTransaction(
         1,
-        [{ asset: 'ETH', amount: parseDecimal('10'), priceAtTxTime: createPrice('coingecko', '2900') }],
-        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('binance', '50000') }]
+        [{ asset: 'ETH', grossAmount: parseDecimal('10'), priceAtTxTime: createPrice('coingecko', '2900') }],
+        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('binance', '50000') }]
       );
 
       const result = inferMultiPass([tx]);
@@ -162,8 +162,8 @@ describe('inferMultiPass', () => {
     it('should NOT recalculate when outflow is USD (already execution price)', () => {
       const tx = createTransaction(
         1,
-        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }],
-        [{ asset: 'USD', amount: parseDecimal('50000'), priceAtTxTime: createPrice('exchange-execution', '1') }]
+        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }],
+        [{ asset: 'USD', grossAmount: parseDecimal('50000'), priceAtTxTime: createPrice('exchange-execution', '1') }]
       );
 
       const result = inferMultiPass([tx]);
@@ -177,8 +177,8 @@ describe('inferMultiPass', () => {
     it('should NOT recalculate when inflow is stablecoin', () => {
       const tx = createTransaction(
         1,
-        [{ asset: 'USDC', amount: parseDecimal('50000'), priceAtTxTime: createPrice('coingecko', '1') }],
-        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('binance', '50000') }]
+        [{ asset: 'USDC', grossAmount: parseDecimal('50000'), priceAtTxTime: createPrice('coingecko', '1') }],
+        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('binance', '50000') }]
       );
 
       const result = inferMultiPass([tx]);
@@ -191,8 +191,8 @@ describe('inferMultiPass', () => {
     it('should track modified transaction IDs', () => {
       const tx = createTransaction(
         1,
-        [{ asset: 'ETH', amount: parseDecimal('10'), priceAtTxTime: createPrice('coingecko', '2900') }],
-        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('binance', '50000') }]
+        [{ asset: 'ETH', grossAmount: parseDecimal('10'), priceAtTxTime: createPrice('coingecko', '2900') }],
+        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('binance', '50000') }]
       );
 
       const result = inferMultiPass([tx]);
@@ -206,13 +206,13 @@ describe('inferMultiPass', () => {
       const transactions = [
         createTransaction(
           1,
-          [{ asset: 'BTC', amount: parseDecimal('1') }],
-          [{ asset: 'USD', amount: parseDecimal('50000') }]
+          [{ asset: 'BTC', grossAmount: parseDecimal('1') }],
+          [{ asset: 'USD', grossAmount: parseDecimal('50000') }]
         ),
         createTransaction(
           2,
-          [{ asset: 'ETH', amount: parseDecimal('10') }],
-          [{ asset: 'USD', amount: parseDecimal('30000') }]
+          [{ asset: 'ETH', grossAmount: parseDecimal('10') }],
+          [{ asset: 'USD', grossAmount: parseDecimal('30000') }]
         ),
       ];
 
@@ -239,7 +239,7 @@ describe('propagatePricesAcrossLinks', () => {
     status: 'success',
     operation: { category: 'transfer', type: 'withdrawal' },
     movements: { inflows, outflows },
-    fees: {},
+    fees: [],
     metadata: {},
   });
 
@@ -257,10 +257,10 @@ describe('propagatePricesAcrossLinks', () => {
     const sourceTx = createTransaction(
       1,
       [],
-      [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }]
+      [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }]
     );
 
-    const targetTx = createTransaction(2, [{ asset: 'BTC', amount: parseDecimal('1') }], []);
+    const targetTx = createTransaction(2, [{ asset: 'BTC', grossAmount: parseDecimal('1') }], []);
 
     const group: TransactionGroup = {
       groupId: 'group-1',
@@ -300,11 +300,11 @@ describe('propagatePricesAcrossLinks', () => {
     const sourceTx = createTransaction(
       1,
       [],
-      [{ asset: 'BTC', amount: parseDecimal('1.0'), priceAtTxTime: createPrice('exchange-execution', '50000') }]
+      [{ asset: 'BTC', grossAmount: parseDecimal('1.0'), priceAtTxTime: createPrice('exchange-execution', '50000') }]
     );
 
     // Target has slightly less due to network fee
-    const targetTx = createTransaction(2, [{ asset: 'BTC', amount: parseDecimal('0.9999') }], []);
+    const targetTx = createTransaction(2, [{ asset: 'BTC', grossAmount: parseDecimal('0.9999') }], []);
 
     const group: TransactionGroup = {
       groupId: 'group-1',
@@ -343,11 +343,11 @@ describe('propagatePricesAcrossLinks', () => {
     const sourceTx = createTransaction(
       1,
       [],
-      [{ asset: 'BTC', amount: parseDecimal('1.0'), priceAtTxTime: createPrice('exchange-execution', '50000') }]
+      [{ asset: 'BTC', grossAmount: parseDecimal('1.0'), priceAtTxTime: createPrice('exchange-execution', '50000') }]
     );
 
     // Target has significantly different amount
-    const targetTx = createTransaction(2, [{ asset: 'BTC', amount: parseDecimal('0.8') }], []);
+    const targetTx = createTransaction(2, [{ asset: 'BTC', grossAmount: parseDecimal('0.8') }], []);
 
     const group: TransactionGroup = {
       groupId: 'group-1',
@@ -383,9 +383,9 @@ describe('propagatePricesAcrossLinks', () => {
   });
 
   it('should NOT propagate when source has no price', () => {
-    const sourceTx = createTransaction(1, [], [{ asset: 'BTC', amount: parseDecimal('1.0') }]);
+    const sourceTx = createTransaction(1, [], [{ asset: 'BTC', grossAmount: parseDecimal('1.0') }]);
 
-    const targetTx = createTransaction(2, [{ asset: 'BTC', amount: parseDecimal('1.0') }], []);
+    const targetTx = createTransaction(2, [{ asset: 'BTC', grossAmount: parseDecimal('1.0') }], []);
 
     const group: TransactionGroup = {
       groupId: 'group-1',
@@ -424,10 +424,10 @@ describe('propagatePricesAcrossLinks', () => {
     const sourceTx = createTransaction(
       1,
       [],
-      [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }]
+      [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }]
     );
 
-    const targetTx = createTransaction(2, [{ asset: 'BTC', amount: parseDecimal('1') }], []);
+    const targetTx = createTransaction(2, [{ asset: 'BTC', grossAmount: parseDecimal('1') }], []);
 
     const group: TransactionGroup = {
       groupId: 'group-1',
@@ -466,17 +466,17 @@ describe('propagatePricesAcrossLinks', () => {
     const tx1 = createTransaction(
       1,
       [],
-      [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }]
+      [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }]
     );
 
     // tx2 has price on BOTH inflow and outflow (from a previous enrichment pass)
     const tx2 = createTransaction(
       2,
-      [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('link-propagated', '50000') }],
-      [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('link-propagated', '50000') }]
+      [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('link-propagated', '50000') }],
+      [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('link-propagated', '50000') }]
     );
 
-    const tx3 = createTransaction(3, [{ asset: 'BTC', amount: parseDecimal('1') }], []);
+    const tx3 = createTransaction(3, [{ asset: 'BTC', grossAmount: parseDecimal('1') }], []);
 
     const group: TransactionGroup = {
       groupId: 'group-1',
@@ -538,7 +538,7 @@ describe('enrichFeePricesFromMovements', () => {
     inflows: AssetMovement[],
     outflows: AssetMovement[],
     platformFee?: AssetMovement,
-    networkFee?: AssetMovement
+    networkFee?: FeeMovement
   ): UniversalTransaction => ({
     id,
     externalId: `tx-${id}`,
@@ -548,10 +548,7 @@ describe('enrichFeePricesFromMovements', () => {
     status: 'success',
     operation: { category: 'transfer', type: 'swap' },
     movements: { inflows, outflows },
-    fees: {
-      platform: platformFee,
-      network: networkFee,
-    },
+    fees: [platformFee ?? undefined, networkFee ?? undefined].filter(Boolean) as FeeMovement[],
     metadata: {},
   });
 
@@ -568,96 +565,96 @@ describe('enrichFeePricesFromMovements', () => {
   it('should enrich platform fee with price from matching movement', () => {
     const tx = createTransaction(
       1,
-      [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }],
-      [{ asset: 'USD', amount: parseDecimal('50000') }],
-      { asset: 'BTC', amount: parseDecimal('0.001') }
+      [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }],
+      [{ asset: 'USD', grossAmount: parseDecimal('50000') }],
+      { asset: 'BTC', grossAmount: parseDecimal('0.001') }
     );
 
     const result = enrichFeePricesFromMovements([tx]);
 
-    expect(result[0]?.fees.platform?.priceAtTxTime?.source).toBe('exchange-execution');
-    expect(result[0]?.fees.platform?.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
+    expect(result[0]?.fees[0]?.priceAtTxTime?.source).toBe('exchange-execution');
+    expect(result[0]?.fees[0]?.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
   });
 
   it('should enrich network fee with price from matching movement', () => {
     const tx = createTransaction(
       1,
-      [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }],
-      [{ asset: 'USD', amount: parseDecimal('50000') }],
+      [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }],
+      [{ asset: 'USD', grossAmount: parseDecimal('50000') }],
       undefined,
-      { asset: 'BTC', amount: parseDecimal('0.0001') }
+      { scope: 'platform', settlement: 'balance', asset: 'BTC', amount: parseDecimal('0.0001') }
     );
 
     const result = enrichFeePricesFromMovements([tx]);
 
-    expect(result[0]?.fees.network?.priceAtTxTime?.source).toBe('exchange-execution');
-    expect(result[0]?.fees.network?.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
+    expect(result[0]?.fees[0]?.priceAtTxTime?.source).toBe('exchange-execution');
+    expect(result[0]?.fees[0]?.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
   });
 
   it('should NOT overwrite existing fee prices', () => {
     const tx = createTransaction(
       1,
-      [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }],
-      [{ asset: 'USD', amount: parseDecimal('50000') }],
-      { asset: 'BTC', amount: parseDecimal('0.001'), priceAtTxTime: createPrice('coingecko', '49000') }
+      [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }],
+      [{ asset: 'USD', grossAmount: parseDecimal('50000') }],
+      { asset: 'BTC', grossAmount: parseDecimal('0.001'), priceAtTxTime: createPrice('coingecko', '49000') }
     );
 
     const result = enrichFeePricesFromMovements([tx]);
 
     // Fee already has price - should NOT overwrite
-    expect(result[0]?.fees.platform?.priceAtTxTime?.source).toBe('coingecko');
-    expect(result[0]?.fees.platform?.priceAtTxTime?.price.amount.toFixed()).toBe('49000');
+    expect(result[0]?.fees[0]?.priceAtTxTime?.source).toBe('coingecko');
+    expect(result[0]?.fees[0]?.priceAtTxTime?.price.amount.toFixed()).toBe('49000');
   });
 
   it('should NOT enrich fee when no matching movement price', () => {
     const tx = createTransaction(
       1,
-      [{ asset: 'BTC', amount: parseDecimal('1') }],
-      [{ asset: 'USD', amount: parseDecimal('50000') }],
-      { asset: 'ETH', amount: parseDecimal('0.01') }
+      [{ asset: 'BTC', grossAmount: parseDecimal('1') }],
+      [{ asset: 'USD', grossAmount: parseDecimal('50000') }],
+      { asset: 'ETH', grossAmount: parseDecimal('0.01') }
     );
 
     const result = enrichFeePricesFromMovements([tx]);
 
-    expect(result[0]?.fees.platform?.priceAtTxTime).toBeUndefined();
+    expect(result[0]?.fees[0]?.priceAtTxTime).toBeUndefined();
   });
 
   it('should use first matching asset price', () => {
     const tx = createTransaction(
       1,
       [
-        { asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') },
-        { asset: 'BTC', amount: parseDecimal('0.5'), priceAtTxTime: createPrice('coingecko', '49000') },
+        { asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') },
+        { asset: 'BTC', grossAmount: parseDecimal('0.5'), priceAtTxTime: createPrice('coingecko', '49000') },
       ],
-      [{ asset: 'USD', amount: parseDecimal('75000') }],
-      { asset: 'BTC', amount: parseDecimal('0.001') }
+      [{ asset: 'USD', grossAmount: parseDecimal('75000') }],
+      { asset: 'BTC', grossAmount: parseDecimal('0.001') }
     );
 
     const result = enrichFeePricesFromMovements([tx]);
 
     // Should use first BTC price found
-    expect(result[0]?.fees.platform?.priceAtTxTime?.source).toBe('exchange-execution');
+    expect(result[0]?.fees[0]?.priceAtTxTime?.source).toBe('exchange-execution');
   });
 
   it('should handle multiple transactions', () => {
     const transactions = [
       createTransaction(
         1,
-        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }],
-        [{ asset: 'USD', amount: parseDecimal('50000') }],
-        { asset: 'BTC', amount: parseDecimal('0.001') }
+        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPrice('exchange-execution', '50000') }],
+        [{ asset: 'USD', grossAmount: parseDecimal('50000') }],
+        { asset: 'BTC', grossAmount: parseDecimal('0.001') }
       ),
       createTransaction(
         2,
-        [{ asset: 'ETH', amount: parseDecimal('10'), priceAtTxTime: createPrice('exchange-execution', '3000') }],
-        [{ asset: 'USD', amount: parseDecimal('30000') }],
-        { asset: 'ETH', amount: parseDecimal('0.01') }
+        [{ asset: 'ETH', grossAmount: parseDecimal('10'), priceAtTxTime: createPrice('exchange-execution', '3000') }],
+        [{ asset: 'USD', grossAmount: parseDecimal('30000') }],
+        { asset: 'ETH', grossAmount: parseDecimal('0.01') }
       ),
     ];
 
     const result = enrichFeePricesFromMovements(transactions);
 
-    expect(result[0]?.fees.platform?.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
-    expect(result[1]?.fees.platform?.priceAtTxTime?.price.amount.toFixed()).toBe('3000');
+    expect(result[0]?.fees[0]?.priceAtTxTime?.price.amount.toFixed()).toBe('50000');
+    expect(result[1]?.fees[0]?.priceAtTxTime?.price.amount.toFixed()).toBe('3000');
   });
 });

@@ -105,12 +105,14 @@ function detectFeeIssuesInTransaction(tx: UniversalTransaction): FeeGapIssue[] {
   const issues: FeeGapIssue[] = [];
 
   // Check if fees exist in fee fields
-  const hasNetworkFee = tx.fees?.network !== undefined;
-  const hasPlatformFee = tx.fees?.platform !== undefined;
+  const networkFee = tx.fees?.find((fee) => fee.scope === 'network');
+  const platformFee = tx.fees?.find((fee) => fee.scope === 'platform');
+  const hasNetworkFee = networkFee !== undefined;
+  const hasPlatformFee = platformFee !== undefined;
   const hasFeeFields = hasNetworkFee || hasPlatformFee;
 
   // Check for fee movements without prices
-  if (hasNetworkFee && !tx.fees.network?.priceAtTxTime) {
+  if (hasNetworkFee && !networkFee?.priceAtTxTime) {
     issues.push({
       transaction_id: tx.id ?? 0,
       external_id: tx.externalId,
@@ -118,13 +120,13 @@ function detectFeeIssuesInTransaction(tx: UniversalTransaction): FeeGapIssue[] {
       timestamp: tx.datetime,
       issue_type: 'fee_without_price',
       description: 'Network fee exists but has no price data',
-      asset: tx.fees.network?.asset,
-      amount: tx.fees.network?.amount.toFixed(),
+      asset: networkFee?.asset,
+      amount: networkFee?.amount.toFixed(),
       suggestion: 'Run `exitbook prices fetch` to populate missing prices',
     });
   }
 
-  if (hasPlatformFee && !tx.fees.platform?.priceAtTxTime) {
+  if (hasPlatformFee && !platformFee?.priceAtTxTime) {
     issues.push({
       transaction_id: tx.id ?? 0,
       external_id: tx.externalId,
@@ -132,8 +134,8 @@ function detectFeeIssuesInTransaction(tx: UniversalTransaction): FeeGapIssue[] {
       timestamp: tx.datetime,
       issue_type: 'fee_without_price',
       description: 'Platform fee exists but has no price data',
-      asset: tx.fees.platform?.asset,
-      amount: tx.fees.platform?.amount.toFixed(),
+      asset: platformFee?.asset,
+      amount: platformFee?.amount.toFixed(),
       suggestion: 'Run `exitbook prices fetch` to populate missing prices',
     });
   }
@@ -162,8 +164,8 @@ function detectFeeIssuesInTransaction(tx: UniversalTransaction): FeeGapIssue[] {
   for (const outflow of outflows) {
     // Check if this outflow is already in fee fields
     const isInFeeFields =
-      (hasNetworkFee && isSameMovement(outflow, tx.fees.network)) ||
-      (hasPlatformFee && isSameMovement(outflow, tx.fees.platform));
+      (hasNetworkFee && isSameMovement(outflow, networkFee)) ||
+      (hasPlatformFee && isSameMovement(outflow, platformFee));
 
     if (!isInFeeFields) {
       // This outflow is not in fee fields - check if it should be
@@ -180,7 +182,7 @@ function detectFeeIssuesInTransaction(tx: UniversalTransaction): FeeGapIssue[] {
           issue_type: 'fee_in_movements',
           description: 'Transaction note mentions fees but movement is not in fee fields',
           asset: outflow.asset,
-          amount: outflow.amount.toFixed(),
+          amount: outflow.grossAmount.toFixed(),
           suggestion: 'Review processor to map this outflow to appropriate fee field',
         });
       }
@@ -194,11 +196,11 @@ function detectFeeIssuesInTransaction(tx: UniversalTransaction): FeeGapIssue[] {
  * Check if two movements represent the same asset movement.
  */
 function isSameMovement(
-  movement: { amount: Decimal; asset: string },
+  movement: { asset: string; grossAmount: Decimal },
   feeMovement: { amount: Decimal; asset: string } | undefined
 ): boolean {
   if (!feeMovement) return false;
-  return movement.asset === feeMovement.asset && movement.amount.equals(feeMovement.amount);
+  return movement.asset === feeMovement.asset && movement.grossAmount.equals(feeMovement.amount);
 }
 
 /**

@@ -9,6 +9,7 @@ import type {
   TransactionNoteSchema,
   TransactionStatusSchema,
   UniversalTransactionSchema,
+  FeeMovementSchema,
 } from '../schemas/universal-transaction.ts';
 
 export type MovementDirection = z.infer<typeof MovementDirectionSchema>;
@@ -19,6 +20,7 @@ export type OperationType = z.infer<typeof OperationTypeSchema>;
 export type TransactionNote = z.infer<typeof TransactionNoteSchema>;
 export type PriceAtTxTime = z.infer<typeof PriceAtTxTimeSchema>;
 export type AssetMovement = z.infer<typeof AssetMovementSchema>;
+export type FeeMovement = z.infer<typeof FeeMovementSchema>;
 
 /**
  * Input DTO for creating universal transaction records

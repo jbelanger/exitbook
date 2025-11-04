@@ -221,13 +221,48 @@ export class PricesFetchHandler {
         const enrichedInflows = enrichMovementsWithPrices(tx.movements.inflows ?? [], pricesMap);
         const enrichedOutflows = enrichMovementsWithPrices(tx.movements.outflows ?? [], pricesMap);
 
-        // Enrich fees if present
-        const enrichedPlatformFee = tx.fees.platform
-          ? enrichMovementsWithPrices([tx.fees.platform], pricesMap)[0]
-          : undefined;
-        const enrichedNetworkFee = tx.fees.network
-          ? enrichMovementsWithPrices([tx.fees.network], pricesMap)[0]
-          : undefined;
+        // Enrich fees with prices (applying same priority rules as movements)
+        const enrichedFees = tx.fees.map((fee) => {
+          const newPrice = pricesMap.get(fee.asset);
+          if (!newPrice) {
+            return fee;
+          }
+
+          // Apply same priority logic as enrichMovementWithPrice
+          if (!fee.priceAtTxTime) {
+            return { ...fee, priceAtTxTime: newPrice };
+          }
+
+          // Helper to get priority (same as in movement-enrichment-utils.ts)
+          const getPriority = (source: string): number => {
+            const priorities: Record<string, number> = {
+              'exchange-execution': 3,
+              'derived-ratio': 2,
+              'link-propagated': 2,
+              'fiat-execution-tentative': 0,
+            };
+            return priorities[source] ?? 1;
+          };
+
+          const existingPriority = getPriority(fee.priceAtTxTime.source);
+          const newPriority = getPriority(newPrice.source);
+
+          if (newPriority > existingPriority) {
+            return { ...fee, priceAtTxTime: newPrice };
+          }
+
+          // Allow derived sources to refresh at same priority
+          const isDerivedSource = (s: string) => s === 'derived-ratio' || s === 'link-propagated';
+          if (
+            newPriority === existingPriority &&
+            isDerivedSource(newPrice.source) &&
+            isDerivedSource(fee.priceAtTxTime.source)
+          ) {
+            return { ...fee, priceAtTxTime: newPrice };
+          }
+
+          return fee;
+        });
 
         // Build enriched transaction
         const enrichedTx = {
@@ -236,10 +271,7 @@ export class PricesFetchHandler {
             inflows: enrichedInflows,
             outflows: enrichedOutflows,
           },
-          fees: {
-            platform: enrichedPlatformFee,
-            network: enrichedNetworkFee,
-          },
+          fees: enrichedFees,
         };
 
         const updateResult = await this.transactionRepo.updateMovementsWithPrices(enrichedTx);
