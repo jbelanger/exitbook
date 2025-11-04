@@ -34,15 +34,15 @@ export class TransactionLinkingService {
     try {
       this.logger.info({ transactionCount: transactions.length }, 'Starting transaction linking process');
 
-      // Convert to candidates (pure function)
+      // Convert to candidates
       const candidates = convertToCandidates(transactions);
       this.logger.debug({ candidateCount: candidates.length }, 'Converted transactions to candidates');
 
-      // Separate into sources (withdrawals) and targets (deposits) (pure function)
+      // Separate into sources (withdrawals) and targets (deposits)
       const { sources, targets } = separateSourcesAndTargets(candidates);
       this.logger.info({ sourceCount: sources.length, targetCount: targets.length }, 'Separated sources and targets');
 
-      // Find matches (pure function)
+      // Find matches
       const allMatches: PotentialMatch[] = [];
       for (const source of sources) {
         const matches = findPotentialMatches(source, targets, this.config);
@@ -51,7 +51,7 @@ export class TransactionLinkingService {
 
       this.logger.info({ matchCount: allMatches.length }, 'Found potential matches');
 
-      // Deduplicate matches (pure function)
+      // Deduplicate matches
       const { suggested, confirmed } = deduplicateAndConfirm(allMatches, this.config);
 
       // Convert to TransactionLink objects with validation (pure function with injected UUID/timestamp)

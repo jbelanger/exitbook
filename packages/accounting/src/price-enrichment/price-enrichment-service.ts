@@ -153,14 +153,14 @@ export class PriceEnrichmentService {
         return timeA - timeB;
       });
 
-      // Apply direct price enrichment passes (pure function)
+      // Apply direct price enrichment passes
       const { transactions: inferredTxs, modifiedIds: directModifiedIds } = inferMultiPass(sortedTxs);
       logger.debug({ groupId, transactionsEnriched: directModifiedIds.size }, 'Applied multi-pass price inference');
 
-      // Propagate prices from movements to fees (pure function)
+      // Propagate prices from movements to fees
       const txsWithFeePrices = enrichFeePricesFromMovements(inferredTxs);
 
-      // Propagate prices across confirmed links (pure function)
+      // Propagate prices across confirmed links
       // This enables cross-platform price flow (exchange → blockchain → exchange)
       const { enrichedTransactions, modifiedIds: linkModifiedIds } = propagatePricesAcrossLinks(
         group,

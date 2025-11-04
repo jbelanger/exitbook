@@ -6,117 +6,297 @@ Accepted – implementation in progress.
 
 ## Context
 
-Exitbook now ingests transactions from a wide range of exchanges and blockchains. Every venue expresses fees differently:
+Exitbook ingests transactions from exchanges and blockchains, each expressing fees differently:
 
-- Kraken debits withdrawal principal and an additional platform fee.
-- Account-based chains charge gas directly from the transferred asset.
-- Some exchanges deduct fees from a different asset balance.
+- **Kraken**: Debits withdrawal amount separately from platform fee (two ledger entries)
+- **Ethereum**: Deducts gas directly from transferred asset (one on-chain transaction)
+- **Binance**: May charge withdrawal fees in a different asset (BNB for BTC withdrawal)
 
-Our current model stores a single `amount` per movement and only an untyped `network` vs. `platform` fee split. During cost-basis, the lot matcher subtracts every same-asset fee from the transfer outflow before matching. That works only when the fee actually reduces the on-chain transfer. For Kraken, the fee comes from an extra ledger debit, so the transfer quantity remains intact. We subtract the fee anyway, see a mismatch, and throw `Transfer amount mismatch…`.
+Our current model stores a single `amount` per movement with basic `network`/`platform` fee slots. During transfer reconciliation, we incorrectly subtract all fees from transfer amounts, causing "Transfer amount mismatch" errors when fees don't actually reduce the on-chain transfer quantity.
 
-This ambiguity also complicates tax treatment: jurisdictions care whether fees are network, platform, or spread, and whether they came out of the transfer or a separate balance.
+**Example failure:**
+
+- Kraken withdrawal: 0.00648264 BTC sent on-chain + 0.0004 BTC fee (separate ledger entry)
+- System subtracts 0.0004 from 0.00648264 = 0.00608264
+- Blockchain shows 0.00648264 received → mismatch error
+
+This ambiguity also prevents accurate cost-basis calculations, as we can't distinguish fees that reduce proceeds from fees that should be added to acquisition costs.
 
 ## Problem
 
-We lack the metadata to distinguish:
+We lack metadata to distinguish:
 
-1. **On-chain fees** (gas, miner tips) – reduce the transfer amount.
-2. **Platform/off-chain fees** – charged separately, do not affect the transfer quantity.
-3. **Cross-asset fees** – paid in a different currency.
+1. **On-chain fees** (gas, miner tips) that reduce the transfer amount
+2. **Platform fees** (withdrawal fees, trading fees) charged separately from transfers
+3. **Cross-asset fees** paid in different currencies
 
-Without that clarity, transfer reconciliation fails, and cost-basis either double-counts or rejects valid transactions.
+Without this distinction:
+
+- Transfer reconciliation fails on valid transactions
+- Cost-basis calculations either double-count or reject fees
+- Tax reporting can't separate network fees from platform fees
 
 ## Decision
 
-Introduce explicit gross/net movement amounts and richer fee semantics across ingestion, storage, and accounting. The lot matcher will subtract only on-chain fees while platform/off-chain fees remain available for cost-basis policy decisions without distorting transfer quantities.
+Introduce explicit gross/net movement amounts and structured fee metadata to make transfer reconciliation deterministic and enable accurate cost-basis calculations.
 
-### Data Model Enhancements
+### Data Model Changes
 
-**Movements**
+#### Movements
 
-- `grossAmount: Decimal` – amount the venue debited/credited.
-- `netAmount: Decimal` – amount transmitted/received on chain; defaults to `grossAmount`.
-- Optional `movementId` to reference specific movements from fee entries.
+Add gross/net semantics to `AssetMovement`:
 
-**Fees**
+```typescript
+{
+  asset: string,
+  grossAmount: Decimal,          // Amount venue debited/credited (REQUIRED)
+  netAmount?: Decimal,           // Amount transmitted on-chain (defaults to grossAmount)
+  amount?: Decimal,              // DEPRECATED: Kept temporarily to avoid build errors during refactoring
+  priceAtTxTime?: PriceInfo
+}
+```
 
-- `scope: 'network' | 'platform' | 'spread' | 'tax' | 'other'`.
-  - network – “Did this fee pay miners/validators?”
-    Why it matters:
-  - Only these should reduce transfer net amounts.
-  - Some jurisdictions treat network fees differently for deduction or basis adjustments.
-  - Alerting: a network fee in fiat or a non-native asset is usually a data bug (unless wrapped networks are involved).
-  - platform – “Was this revenue for the venue (withdrawal fee, maker/taker, service charge)?”
-    Why it matters:
-  - Tax reporting often separates exchange fees from blockchain fees.
-  - Discounts (e.g., paying in BNB) fall here, and you typically decide whether to add them to basis or treat them as expenses.
-  - spread – “Is this the implicit fee baked into a swap/quote?”
-    Why it matters:
-  - For brokers or RFQ desks, you might not see an explicit fee field; you derive it when actual fill price deviates from quoted mid.
-  - Having a flag lets you surface hidden costs or adjust gain/loss calculations without double-counting.
-  - tax – “Did the venue collect a regulatory levy (FATCA, GST/VAT)?”
-    Why it matters:
-  - Users need these isolated for compliance and potential deductions or credits.
-  - other – Catch-all for edge cases (penalties, interest, staking commissions) until a more specific bucket emerges.
-- `settlement: 'on-chain' | 'external' | 'balance'`.
-  - settlement='on-chain': the fee is literally carved out of the on-chain transfer (typical gas/miner fee). The transfer’s netAmount is smaller than
-    the grossAmount, and the blockchain receipt shows the reduced amount.
-  - settlement='balance': the venue deducts the fee from your custodied balance via a separate ledger entry (Kraken example). The on-chain transfer
-    stays at the full grossAmount.
-  - settlement='external': the fee is paid from an outside funding source that never hits your exchange balance or the on-chain transfer—for example a card
-    settlement, subscription invoice, or ACH debit. We rarely see this today, but keeping the enum slot future-proofs the model and prevents developers from overloading balance when no on-ledger movement exists. Would be reserved for the rarer cases where the fee never touches any of your tracked balances or the on-chain transfer—think ACH debits, credit-card charges, or invoiced service fees paid outside the exchange ecosystem. If you’re not ingesting those yet, you can safely ignore external for now and treat all current exchange/chain scenarios as either on-chain or balance.
-- Optional `fundedFromMovementId` for cross-references.
-- Existing money fields remain unchanged.
+**Rationale:**
 
-Update Zod schemas in `packages/core/src/schemas/universal-transaction.ts`, persistence logic in `packages/platform/data/src/repositories/transaction-repository.ts`, and any JSON serialization that touches `movements` or `fees`.
+- `grossAmount`: What the user initiated / what shows in venue ledger (REQUIRED)
+- `netAmount`: What actually moved on-chain (after on-chain fee deductions). Optional - defaults to `grossAmount` if omitted
+- `amount`: Deprecated field kept only to avoid build errors during refactoring; all code must use `grossAmount`/`netAmount`
+- Most transactions: `netAmount === grossAmount` (no on-chain fees)
+- On-chain gas fees: `netAmount = grossAmount - gasFee`
 
-### Ingestion Responsibilities
+#### Fees
 
-Each processor populates the new fields based on venue metadata. Examples:
+Replace fee object slots with a flexible array structure:
 
-1. **Platform fee, billed off-chain (Kraken BTC withdrawal)**
-   - Movement: `gross=0.00648264 BTC`, `net=0.00648264 BTC`.
-   - Fee: `amount=0.0004 BTC`, `scope='platform'`, `settlement='balance'`.
-   - Rationale: Kraken debits a separate ledger line; on-chain amount is unaffected.
+```typescript
+fees: Array<{
+  asset: string;
+  amount: Decimal;
+  scope: 'network' | 'platform' | 'spread' | 'tax' | 'other';
+  settlement: 'on-chain' | 'balance' | 'external';
+  priceAtTxTime?: PriceInfo;
+}>;
+```
 
-2. **Native network fee deducted in-flight (Ethereum withdrawal)**
-   - Movement: `gross=1.5000 ETH`, `net=1.4990 ETH` (gas 0.0010).
-   - Fee: `amount=0.0010 ETH`, `scope='network'`, `settlement='on-chain'`, `fundedFromMovementId` referencing the ETH outflow.
+**Scope** – Why was this fee charged?
 
-3. **Fee paid from another asset (Binance withdraws BTC, charges fee in BNB)**
-   - BTC movement: `gross=0.25 BTC`, `net=0.25 BTC`.
-   - Fee: `amount=0.0005 BNB`, `scope='platform'`, `settlement='balance'`.
-   - If Binance records a separate BNB ledger entry, processor emits a corresponding BNB movement.
+- `network`: Paid to miners/validators (gas, miner fees)
+- `platform`: Revenue for the venue (withdrawal fees, trading fees, maker/taker)
+- `spread`: Implicit fee in swap/quote price deviation (future extension)
+- `tax`: Regulatory levy (GST, VAT, FATCA withholding)
+- `other`: Edge cases (penalties, staking commissions)
 
-Processors across exchanges and blockchains must follow the same conventions so downstream logic can rely on consistent semantics.
+**Settlement** – How was this fee paid?
 
-### Lot Matcher Updates
+- `on-chain`: Deducted from the on-chain transfer itself (typical gas fees)
+  - Results in `netAmount < grossAmount`
+  - Blockchain receipt shows reduced amount
+- `balance`: Separate ledger entry from venue balance (typical exchange fees)
+  - On-chain transfer stays at full `grossAmount`
+  - Separate ledger debit for fee
+- `external`: Paid outside tracked balances (ACH, credit card, invoice)
+  - Reserved for future use
+  - Not common in current exchange/blockchain scenarios
 
-- `extractCryptoFee` filters fees to same-asset entries with `settlement === 'on-chain'`.
-- `calculateTransferDisposalAmount` uses `movement.netAmount` when sizing the transfer; `grossAmount` is retained for audit/reporting.
-- `handleTransferTarget` compares source and target `netAmount` values. Variance tolerances now capture only genuine mismatches.
-- Jurisdiction rules (disposal vs. add-to-basis) continue to apply to the fee entries, independent of transfer sizing.
+**Array Structure Advantages:**
 
-### Migration Plan
+- Naturally supports multiple fees of same scope (multi-hop DEX swaps, compound transactions)
+- No redundancy between slot names and scope field
+- Consistent with movements pattern (both are arrays)
+- Flexible for edge cases without schema changes
 
-1. **Schema rollout** – add new fields with defaults (`netAmount = grossAmount`, `settlement = 'balance'`) so existing data remains valid.
-2. **Incremental processor updates** – venue by venue, start emitting the new metadata. Guard with a feature flag while rolling out.
-3. **Reprocess historical sessions** – once a venue is updated, rerun its ingestion to backfill accurate fee metadata.
-4. **Remove fallbacks** – when all venues comply, drop the compatibility shims.
+### Implementation Examples
 
-### Consequences
+#### 1. Kraken BTC Withdrawal (Platform Fee, Off-Chain)
 
-- Transfer reconciliation becomes deterministic even with mixed fee models.
-- Cost-basis rules operate on accurate semantics without corrupting transfer amounts.
-- Reports gain richer fee breakdowns (for deductibility, spreads, taxes).
-- Stored JSON payloads grow slightly, an acceptable trade-off for correctness.
-- Implementation touches multiple layers and requires coordinated rollout.
+```typescript
+{
+  movements: {
+    outflows: [{
+      asset: 'BTC',
+      grossAmount: '0.00648264',
+      netAmount: '0.00648264'     // Full amount goes on-chain
+    }]
+  },
+  fees: [{
+    asset: 'BTC',
+    amount: '0.0004',
+    scope: 'platform',              // Kraken's revenue
+    settlement: 'balance'           // Separate ledger entry
+  }]
+}
+```
+
+**Reconciliation:** Source withdrawal netAmount (0.00648264) matches target deposit netAmount (0.00648264) ✓
+
+**Cost Basis:** Platform fee added to acquisition cost at destination.
+
+#### 2. Ethereum Transfer (Network Fee, On-Chain)
+
+```typescript
+{
+  movements: {
+    outflows: [{
+      asset: 'ETH',
+      grossAmount: '1.5000',
+      netAmount: '1.4990'           // After gas deduction
+    }]
+  },
+  fees: [{
+    asset: 'ETH',
+    amount: '0.0010',
+    scope: 'network',                // Paid to validators
+    settlement: 'on-chain'           // Deducted during transfer
+  }]
+}
+```
+
+**Reconciliation:** Source netAmount (1.4990) matches target netAmount (1.4990) ✓
+
+**Cost Basis:** Network fee reduces disposal proceeds for source.
+
+#### 3. Binance BTC Withdrawal (Cross-Asset Fee)
+
+```typescript
+{
+  movements: {
+    outflows: [{
+      asset: 'BTC',
+      grossAmount: '0.25',
+      netAmount: '0.25'             // BTC transfer unaffected
+    }]
+  },
+  fees: [{
+    asset: 'BNB',
+    amount: '0.0005',
+    scope: 'platform',
+    settlement: 'balance'           // Separate BNB debit
+  }]
+}
+```
+
+**Note:** If exchange shows separate BNB ledger entry, processor creates a distinct BNB transaction.
+
+### Transfer Reconciliation Logic
+
+**Matching uses `netAmount`** (what actually moved on-chain):
+
+```typescript
+// In convertToCandidates()
+amount: movement.netAmount ?? movement.grossAmount ?? movement.amount;
+```
+
+**Rationale:**
+
+- Both source and target use the same on-chain quantity for comparison
+- Kraken withdrawal (net=0.00648264) matches Bitcoin deposit (net=0.00648264)
+- Variance tolerances now capture only genuine mismatches, not fee accounting errors
+
+### Cost-Basis Calculations
+
+**Fee allocation depends on context:**
+
+**For Acquisitions (inflows):**
+
+- Include ALL fees in cost basis (both network and platform)
+- Fees increase what you paid to acquire the asset
+
+**For Disposals (outflows):**
+
+- Include ONLY on-chain fees (settlement='on-chain')
+- These fees reduce your proceeds
+- Platform fees charged separately don't affect disposal proceeds
+
+```typescript
+const relevantFees = isInflow
+  ? transaction.fees // All fees
+  : transaction.fees.filter((f) => f.settlement === 'on-chain'); // On-chain only
+```
+
+**Example:**
+
+- Kraken BTC withdrawal disposal: proceeds = 0.00648264 BTC (platform fee NOT subtracted)
+- Ethereum transfer disposal: proceeds = 1.4990 ETH (gas fee already subtracted via netAmount)
+
+### Validation Rules
+
+**Required fields:**
+
+- `grossAmount` is mandatory on all movements (no fallback to legacy `amount`)
+- `scope` and `settlement` are mandatory on all fees
+- Missing fields return errors via `Result` types (fail-fast, no silent defaults)
+
+**Invalid combinations:**
+
+- `settlement='on-chain'` + `scope='platform'` → ERROR
+  - Platform fees are charged by venues, not on-chain
+- `netAmount > grossAmount` → ERROR
+  - Net amount cannot exceed gross amount
+
+**Suspicious patterns (warnings):**
+
+- Network fees in fiat currency (likely processor bug)
+- Very large fees relative to transfer amounts
+
+### Migration Strategy
+
+Following "clean breaks only" principle:
+
+1. **Database Reset:** Drop and recreate database during development (no schema migrations)
+2. **No Backward Compatibility:** All data must use new format
+3. **Clean Re-ingestion:** After schema changes, re-import all data from source
+4. **Processor Updates:** Update all processors to emit new fee format before ingestion
+
+**No legacy format support:**
+
+- Processors must emit `grossAmount` (required, no fallback to legacy `amount`)
+- Processors should emit `netAmount` when it differs from `grossAmount` (on-chain fees); otherwise defaults to `grossAmount`
+- Fees must include `scope` and `settlement` (required)
+- Old data format will fail validation with clear error messages
+
+### Future Extensions
+
+**Spread Fees (Informational Only):**
+
+- Marked as future extension for reporting/analytics
+- Will NOT be included in cost-basis calculations (already reflected in execution prices)
+- When implemented: derive by comparing execution vs mid-market price
+- Use case: "You paid $X in spreads this year" reports
+- Requires reliable mid-market price data at transaction time
+
+## Consequences
+
+**Benefits:**
+
+- Transfer reconciliation becomes deterministic for all fee models
+- Cost-basis calculations use accurate fee semantics without corrupting transfer amounts
+- Tax reports can separate network fees from platform fees
+- Array structure supports complex scenarios (multi-hop swaps, compound transactions)
+- Clear validation errors guide correct processor implementation
+
+**Trade-offs:**
+
+- Stored JSON payloads slightly larger (acceptable for correctness)
+- Requires coordinated processor updates across all venues
+- Clean break means all historical data must be re-ingested
+
+**Technical Debt Avoided:**
+
+- No backward compatibility code to maintain
+- No fallbacks to legacy fields (fail-fast with clear errors)
+- All validation uses `Result` types (neverthrow) - no silent failures
+- Simple, consistent data model across all venues
 
 ## Implementation Checklist
 
-- [ ] Update movement/fee schemas and shared types.
-- [ ] Adjust SQLite persistence and repositories.
-- [ ] Enhance ingestion processors (Kraken first, followed by other venues).
-- [ ] Modify lot matcher utilities and strategies to use `netAmount` and fee metadata.
-- [ ] Add tests covering the three fee archetypes.
-- [ ] Provide data migration scripts or re-ingestion docs for historical sessions.
+- [ ] Update movement/fee schemas in `packages/core/src/schemas/universal-transaction.ts`
+- [ ] Adjust database schema in `packages/platform/data/src/migrations/001_initial_schema.ts`
+- [ ] Update repository layer in `packages/platform/data/src/repositories/transaction-repository.ts`
+- [ ] Update linking logic in `packages/accounting/src/linking/matching-utils.ts`
+- [ ] Update lot matcher in `packages/accounting/src/services/lot-matcher.ts`
+- [ ] Update interpretation strategies in `packages/ingestion/src/infrastructure/exchanges/shared/strategies/`
+- [ ] Update processor base classes to emit new format
+- [ ] Update Kraken processor (reference implementation)
+- [ ] Add comprehensive test coverage for all fee scenarios
+- [ ] Update documentation (CLAUDE.md, processor implementation guide)
+- [ ] Drop database and re-ingest all test data
