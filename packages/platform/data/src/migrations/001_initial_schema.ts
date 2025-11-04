@@ -156,6 +156,9 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('id', 'text', (col) => col.primaryKey())
     .addColumn('source_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
     .addColumn('target_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
+    .addColumn('asset', 'text', (col) => col.notNull())
+    .addColumn('source_amount', 'text', (col) => col.notNull())
+    .addColumn('target_amount', 'text', (col) => col.notNull())
     .addColumn('link_type', 'text', (col) => col.notNull())
     .addColumn('confidence_score', 'text', (col) => col.notNull())
     .addColumn('match_criteria_json', 'text', (col) => col.notNull())
@@ -181,6 +184,20 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .execute();
 
   await db.schema.createIndex('idx_tx_links_status').on('transaction_links').column('status').execute();
+
+  // Create composite index for source link lookup (used by LinkIndex for O(1) lookups)
+  await db.schema
+    .createIndex('idx_tx_links_source_lookup')
+    .on('transaction_links')
+    .columns(['source_transaction_id', 'asset', 'source_amount'])
+    .execute();
+
+  // Create composite index for target link lookup (used by LinkIndex)
+  await db.schema
+    .createIndex('idx_tx_links_target_lookup')
+    .on('transaction_links')
+    .columns(['target_transaction_id', 'asset'])
+    .execute();
 
   // Create cost_basis_calculations table
   await db.schema

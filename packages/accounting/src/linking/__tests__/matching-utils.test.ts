@@ -1,4 +1,6 @@
+import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -6,14 +8,20 @@ import {
   calculateAmountSimilarity,
   calculateConfidenceScore,
   calculateTimeDifferenceHours,
+  calculateVarianceMetadata,
   checkAddressMatch,
+  convertToCandidates,
+  createTransactionLink,
+  deduplicateAndConfirm,
   DEFAULT_MATCHING_CONFIG,
   determineLinkType,
   findPotentialMatches,
   isTimingValid,
+  separateSourcesAndTargets,
   shouldAutoConfirm,
+  validateLinkAmounts,
 } from '../matching-utils.js';
-import type { TransactionCandidate } from '../types.js';
+import type { PotentialMatch, TransactionCandidate } from '../types.js';
 
 describe('matching-utils', () => {
   describe('calculateAmountSimilarity', () => {
@@ -667,6 +675,741 @@ describe('matching-utils', () => {
       // Should find match since amount similarity meets threshold
       expect(matches).toHaveLength(1);
       expect(matches[0]?.targetTransaction.id).toBe(2);
+    });
+  });
+
+  describe('validateLinkAmounts', () => {
+    it('should accept valid amounts with small variance', () => {
+      const sourceAmount = new Decimal('1.0');
+      const targetAmount = new Decimal('0.9995'); // 0.05% variance
+
+      const result = validateLinkAmounts(sourceAmount, targetAmount);
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should accept amounts with 5% variance', () => {
+      const sourceAmount = new Decimal('1.0');
+      const targetAmount = new Decimal('0.95'); // 5% variance
+
+      const result = validateLinkAmounts(sourceAmount, targetAmount);
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should accept amounts with exactly 10% variance', () => {
+      const sourceAmount = new Decimal('1.0');
+      const targetAmount = new Decimal('0.9'); // 10% variance
+
+      const result = validateLinkAmounts(sourceAmount, targetAmount);
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should reject target amount greater than source (airdrop scenario)', () => {
+      const sourceAmount = new Decimal('1.0');
+      const targetAmount = new Decimal('1.1'); // Target > source
+
+      const result = validateLinkAmounts(sourceAmount, targetAmount);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Target amount');
+        expect(result.error.message).toContain('exceeds source amount');
+        expect(result.error.message).toContain('airdrop');
+      }
+    });
+
+    it('should reject excessive variance (>10%)', () => {
+      const sourceAmount = new Decimal('1.0');
+      const targetAmount = new Decimal('0.85'); // 15% variance
+
+      const result = validateLinkAmounts(sourceAmount, targetAmount);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Variance');
+        expect(result.error.message).toContain('exceeds 10% threshold');
+        expect(result.error.message).toContain('15.00%');
+      }
+    });
+
+    it('should handle very small amounts', () => {
+      const sourceAmount = new Decimal('0.00001');
+      const targetAmount = new Decimal('0.000009'); // 10% variance
+
+      const result = validateLinkAmounts(sourceAmount, targetAmount);
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should handle large amounts', () => {
+      const sourceAmount = new Decimal('1000000.0');
+      const targetAmount = new Decimal('999500.0'); // 0.05% variance
+
+      const result = validateLinkAmounts(sourceAmount, targetAmount);
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should reject when variance is just over 10%', () => {
+      const sourceAmount = new Decimal('1.0');
+      const targetAmount = new Decimal('0.899'); // 10.1% variance
+
+      const result = validateLinkAmounts(sourceAmount, targetAmount);
+
+      expect(result.isErr()).toBe(true);
+    });
+
+    it('should accept equal amounts (0% variance)', () => {
+      const sourceAmount = new Decimal('1.0');
+      const targetAmount = new Decimal('1.0');
+
+      const result = validateLinkAmounts(sourceAmount, targetAmount);
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should reject zero source amount', () => {
+      const sourceAmount = new Decimal('0');
+      const targetAmount = new Decimal('0');
+
+      const result = validateLinkAmounts(sourceAmount, targetAmount);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Source amount must be positive');
+        expect(result.error.message).toContain('missing movement data');
+      }
+    });
+
+    it('should reject negative source amount', () => {
+      const sourceAmount = new Decimal('-1.0');
+      const targetAmount = new Decimal('0.5');
+
+      const result = validateLinkAmounts(sourceAmount, targetAmount);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Source amount must be positive');
+      }
+    });
+
+    it('should reject negative target amount', () => {
+      const sourceAmount = new Decimal('1.0');
+      const targetAmount = new Decimal('-0.5');
+
+      const result = validateLinkAmounts(sourceAmount, targetAmount);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Target amount must be positive');
+        expect(result.error.message).toContain('invalid transaction data');
+      }
+    });
+
+    it('should reject zero target amount', () => {
+      const sourceAmount = new Decimal('1.0');
+      const targetAmount = new Decimal('0');
+
+      const result = validateLinkAmounts(sourceAmount, targetAmount);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Target amount must be positive');
+        expect(result.error.message).toContain('invalid transaction data');
+      }
+    });
+  });
+
+  describe('calculateVarianceMetadata', () => {
+    it('should calculate variance metadata correctly', () => {
+      const sourceAmount = new Decimal('1.0');
+      const targetAmount = new Decimal('0.9995');
+
+      const metadata = calculateVarianceMetadata(sourceAmount, targetAmount);
+
+      expect(metadata.variance).toBe('0.0005');
+      expect(metadata.variancePct).toBe('0.05');
+      expect(metadata.impliedFee).toBe('0.0005');
+    });
+
+    it('should handle zero variance', () => {
+      const sourceAmount = new Decimal('1.0');
+      const targetAmount = new Decimal('1.0');
+
+      const metadata = calculateVarianceMetadata(sourceAmount, targetAmount);
+
+      expect(metadata.variance).toBe('0');
+      expect(metadata.variancePct).toBe('0.00');
+      expect(metadata.impliedFee).toBe('0');
+    });
+
+    it('should handle large variance', () => {
+      const sourceAmount = new Decimal('1.0');
+      const targetAmount = new Decimal('0.9');
+
+      const metadata = calculateVarianceMetadata(sourceAmount, targetAmount);
+
+      expect(metadata.variance).toBe('0.1');
+      expect(metadata.variancePct).toBe('10.00');
+      expect(metadata.impliedFee).toBe('0.1');
+    });
+
+    it('should handle zero source amount', () => {
+      const sourceAmount = new Decimal('0');
+      const targetAmount = new Decimal('0');
+
+      const metadata = calculateVarianceMetadata(sourceAmount, targetAmount);
+
+      expect(metadata.variance).toBe('0');
+      expect(metadata.variancePct).toBe('0.00');
+      expect(metadata.impliedFee).toBe('0');
+    });
+
+    it('should format variance percentage to 2 decimal places', () => {
+      const sourceAmount = new Decimal('1.0');
+      const targetAmount = new Decimal('0.99567'); // 0.433% variance
+
+      const metadata = calculateVarianceMetadata(sourceAmount, targetAmount);
+
+      expect(metadata.variancePct).toBe('0.43');
+    });
+  });
+
+  describe('convertToCandidates', () => {
+    it('should convert transactions with single inflow and outflow', () => {
+      const transactions = [
+        {
+          id: 1,
+          externalId: 'tx-1',
+          source: 'kraken',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          from: undefined,
+          to: undefined,
+          movements: {
+            inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
+            outflows: [{ asset: 'USD', amount: parseDecimal('50000') }],
+          },
+        },
+      ] as UniversalTransaction[]; // Updated type assertion
+
+      const candidates = convertToCandidates(transactions);
+
+      expect(candidates).toHaveLength(2);
+      expect(candidates[0]).toMatchObject({
+        id: 1,
+        externalId: 'tx-1',
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        asset: 'BTC',
+        direction: 'in',
+      });
+      expect(candidates[1]).toMatchObject({
+        id: 1,
+        externalId: 'tx-1',
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        asset: 'USD',
+        direction: 'out',
+      });
+    });
+
+    it('should handle blockchain transactions', () => {
+      const transactions = [
+        {
+          id: 2,
+          externalId: 'tx-2',
+          source: 'bitcoin',
+          blockchain: {
+            name: 'bitcoin',
+            transaction_hash: 'tx-2',
+            is_confirmed: false,
+            block_height: undefined,
+          },
+          datetime: '2024-01-01T12:00:00Z',
+          timestamp: Date.parse('2024-01-01T12:00:00Z'),
+          from: 'addr1',
+          to: 'addr2',
+          status: 'pending',
+          fees: [],
+          operation: {
+            category: 'transfer',
+            type: 'transfer',
+          },
+          movements: {
+            inflows: [{ asset: 'BTC', amount: parseDecimal('0.5') }],
+            outflows: [],
+          },
+        },
+      ] as UniversalTransaction[];
+
+      const candidates = convertToCandidates(transactions);
+
+      expect(candidates).toHaveLength(1);
+      expect(candidates[0]).toMatchObject({
+        id: 2,
+        sourceType: 'blockchain',
+        fromAddress: 'addr1',
+        toAddress: 'addr2',
+      });
+    });
+
+    it('should handle multiple movements per transaction', () => {
+      const transactions = [
+        {
+          id: 3,
+          externalId: 'tx-3',
+          source: 'kraken',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            inflows: [
+              { asset: 'BTC', amount: parseDecimal('1.0') },
+              { asset: 'ETH', amount: parseDecimal('10.0') },
+            ],
+            outflows: [{ asset: 'USD', amount: parseDecimal('60000') }],
+          },
+        },
+      ] as UniversalTransaction[];
+
+      const candidates = convertToCandidates(transactions);
+
+      expect(candidates).toHaveLength(3);
+      expect(candidates.filter((c) => c.direction === 'in')).toHaveLength(2);
+      expect(candidates.filter((c) => c.direction === 'out')).toHaveLength(1);
+    });
+
+    it('should handle empty movements', () => {
+      const transactions = [
+        {
+          id: 4,
+          externalId: 'tx-4',
+          source: 'kraken',
+          blockchain: undefined,
+          datetime: '2024-01-01T12:00:00Z',
+          movements: {
+            inflows: [],
+            outflows: [],
+          },
+        },
+      ] as unknown as UniversalTransaction[];
+
+      const candidates = convertToCandidates(transactions);
+
+      expect(candidates).toHaveLength(0);
+    });
+  });
+
+  describe('separateSourcesAndTargets', () => {
+    it('should separate outflows into sources and inflows into targets', () => {
+      const candidates: TransactionCandidate[] = [
+        {
+          id: 1,
+          sourceId: 'kraken',
+          sourceType: 'exchange',
+          timestamp: new Date('2024-01-01T12:00:00Z'),
+          asset: 'BTC',
+          amount: parseDecimal('1.0'),
+          direction: 'out',
+        },
+        {
+          id: 2,
+          sourceId: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:30:00Z'),
+          asset: 'BTC',
+          amount: parseDecimal('0.9995'),
+          direction: 'in',
+        },
+        {
+          id: 3,
+          sourceId: 'kraken',
+          sourceType: 'exchange',
+          timestamp: new Date('2024-01-02T12:00:00Z'),
+          asset: 'ETH',
+          amount: parseDecimal('10.0'),
+          direction: 'out',
+        },
+      ];
+
+      const { sources, targets } = separateSourcesAndTargets(candidates);
+
+      expect(sources).toHaveLength(2);
+      expect(targets).toHaveLength(1);
+      expect(sources.every((s) => s.direction === 'out')).toBe(true);
+      expect(targets.every((t) => t.direction === 'in')).toBe(true);
+    });
+
+    it('should handle neutral direction by excluding them', () => {
+      const candidates: TransactionCandidate[] = [
+        {
+          id: 1,
+          sourceId: 'kraken',
+          sourceType: 'exchange',
+          timestamp: new Date('2024-01-01T12:00:00Z'),
+          asset: 'BTC',
+          amount: parseDecimal('1.0'),
+          direction: 'neutral',
+        },
+        {
+          id: 2,
+          sourceId: 'kraken',
+          sourceType: 'exchange',
+          timestamp: new Date('2024-01-01T12:00:00Z'),
+          asset: 'BTC',
+          amount: parseDecimal('1.0'),
+          direction: 'out',
+        },
+      ];
+
+      const { sources, targets } = separateSourcesAndTargets(candidates);
+
+      expect(sources).toHaveLength(1);
+      expect(targets).toHaveLength(0);
+    });
+
+    it('should handle empty candidates', () => {
+      const { sources, targets } = separateSourcesAndTargets([]);
+
+      expect(sources).toHaveLength(0);
+      expect(targets).toHaveLength(0);
+    });
+  });
+
+  describe('deduplicateAndConfirm', () => {
+    it('should deduplicate matches (one source per target)', () => {
+      const matches: PotentialMatch[] = [
+        {
+          sourceTransaction: { id: 1, asset: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
+          targetTransaction: { id: 2, asset: 'BTC', amount: parseDecimal('0.9995') } as TransactionCandidate,
+          confidenceScore: parseDecimal('0.98'),
+          matchCriteria: {
+            assetMatch: true,
+            amountSimilarity: parseDecimal('0.9995'),
+            timingValid: true,
+            timingHours: 1,
+          },
+          linkType: 'exchange_to_blockchain',
+        },
+        {
+          sourceTransaction: { id: 3, asset: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
+          targetTransaction: { id: 2, asset: 'BTC', amount: parseDecimal('0.9995') } as TransactionCandidate,
+          confidenceScore: parseDecimal('0.85'),
+          matchCriteria: {
+            assetMatch: true,
+            amountSimilarity: parseDecimal('0.9995'),
+            timingValid: true,
+            timingHours: 2,
+          },
+          linkType: 'exchange_to_blockchain',
+        },
+      ];
+
+      const { suggested, confirmed } = deduplicateAndConfirm(matches, DEFAULT_MATCHING_CONFIG);
+
+      // Should only keep the higher confidence match (0.98)
+      expect([...suggested, ...confirmed]).toHaveLength(1);
+      expect([...suggested, ...confirmed][0]?.sourceTransaction.id).toBe(1);
+    });
+
+    it('should auto-confirm high confidence matches', () => {
+      const matches: PotentialMatch[] = [
+        {
+          sourceTransaction: { id: 1, asset: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
+          targetTransaction: { id: 2, asset: 'BTC', amount: parseDecimal('0.9995') } as TransactionCandidate,
+          confidenceScore: parseDecimal('0.98'),
+          matchCriteria: {
+            assetMatch: true,
+            amountSimilarity: parseDecimal('0.9995'),
+            timingValid: true,
+            timingHours: 1,
+          },
+          linkType: 'exchange_to_blockchain',
+        },
+      ];
+
+      const { suggested, confirmed } = deduplicateAndConfirm(matches, {
+        ...DEFAULT_MATCHING_CONFIG,
+        autoConfirmThreshold: parseDecimal('0.95'),
+      });
+
+      expect(confirmed).toHaveLength(1);
+      expect(suggested).toHaveLength(0);
+    });
+
+    it('should suggest low confidence matches', () => {
+      const matches: PotentialMatch[] = [
+        {
+          sourceTransaction: { id: 1, asset: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
+          targetTransaction: { id: 2, asset: 'BTC', amount: parseDecimal('0.95') } as TransactionCandidate,
+          confidenceScore: parseDecimal('0.85'),
+          matchCriteria: {
+            assetMatch: true,
+            amountSimilarity: parseDecimal('0.95'),
+            timingValid: true,
+            timingHours: 5,
+          },
+          linkType: 'exchange_to_blockchain',
+        },
+      ];
+
+      const { suggested, confirmed } = deduplicateAndConfirm(matches, DEFAULT_MATCHING_CONFIG);
+
+      expect(suggested).toHaveLength(1);
+      expect(confirmed).toHaveLength(0);
+    });
+
+    it('should handle multiple independent matches', () => {
+      const matches: PotentialMatch[] = [
+        {
+          sourceTransaction: { id: 1, asset: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
+          targetTransaction: { id: 2, asset: 'BTC', amount: parseDecimal('0.9995') } as TransactionCandidate,
+          confidenceScore: parseDecimal('0.98'),
+          matchCriteria: {
+            assetMatch: true,
+            amountSimilarity: parseDecimal('0.9995'),
+            timingValid: true,
+            timingHours: 1,
+          },
+          linkType: 'exchange_to_blockchain',
+        },
+        {
+          sourceTransaction: { id: 3, asset: 'ETH', amount: parseDecimal('10.0') } as TransactionCandidate,
+          targetTransaction: { id: 4, asset: 'ETH', amount: parseDecimal('9.98') } as TransactionCandidate,
+          confidenceScore: parseDecimal('0.97'),
+          matchCriteria: {
+            assetMatch: true,
+            amountSimilarity: parseDecimal('0.998'),
+            timingValid: true,
+            timingHours: 1,
+          },
+          linkType: 'exchange_to_blockchain',
+        },
+      ];
+
+      const { suggested, confirmed } = deduplicateAndConfirm(matches, {
+        ...DEFAULT_MATCHING_CONFIG,
+        autoConfirmThreshold: parseDecimal('0.95'),
+      });
+
+      expect(confirmed).toHaveLength(2);
+      expect(suggested).toHaveLength(0);
+    });
+  });
+
+  describe('createTransactionLink', () => {
+    it('should create a valid transaction link', () => {
+      const match: PotentialMatch = {
+        sourceTransaction: {
+          id: 1,
+          sourceId: 'kraken',
+          sourceType: 'exchange',
+          timestamp: new Date('2024-01-01T12:00:00Z'),
+          asset: 'BTC',
+          amount: parseDecimal('1.0'),
+          direction: 'out',
+        },
+        targetTransaction: {
+          id: 2,
+          sourceId: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:30:00Z'),
+          asset: 'BTC',
+          amount: parseDecimal('0.9995'),
+          direction: 'in',
+        },
+        confidenceScore: parseDecimal('0.98'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.9995'),
+          timingValid: true,
+          timingHours: 0.5,
+        },
+        linkType: 'exchange_to_blockchain',
+      };
+
+      const id = 'test-uuid';
+      const now = new Date('2024-01-01T13:00:00Z');
+
+      const result = createTransactionLink(match, 'confirmed', id, now);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const link = result.value;
+        expect(link.id).toBe(id);
+        expect(link.sourceTransactionId).toBe(1);
+        expect(link.targetTransactionId).toBe(2);
+        expect(link.asset).toBe('BTC');
+        expect(link.sourceAmount.toFixed()).toBe('1');
+        expect(link.targetAmount.toFixed()).toBe('0.9995');
+        expect(link.status).toBe('confirmed');
+        expect(link.reviewedBy).toBe('auto');
+        expect(link.reviewedAt).toEqual(now);
+        expect(link.createdAt).toEqual(now);
+        expect(link.updatedAt).toEqual(now);
+        expect(link.metadata).toBeDefined();
+      }
+    });
+
+    it('should create suggested link without reviewedBy/reviewedAt', () => {
+      const match: PotentialMatch = {
+        sourceTransaction: {
+          id: 1,
+          sourceId: 'kraken',
+          sourceType: 'exchange',
+          timestamp: new Date('2024-01-01T12:00:00Z'),
+          asset: 'BTC',
+          amount: parseDecimal('1.0'),
+          direction: 'out',
+        },
+        targetTransaction: {
+          id: 2,
+          sourceId: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:30:00Z'),
+          asset: 'BTC',
+          amount: parseDecimal('0.95'),
+          direction: 'in',
+        },
+        confidenceScore: parseDecimal('0.85'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.95'),
+          timingValid: true,
+          timingHours: 0.5,
+        },
+        linkType: 'exchange_to_blockchain',
+      };
+
+      const result = createTransactionLink(match, 'suggested', 'test-uuid', new Date());
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const link = result.value;
+        expect(link.status).toBe('suggested');
+        expect(link.reviewedBy).toBeUndefined();
+        expect(link.reviewedAt).toBeUndefined();
+      }
+    });
+
+    it('should reject invalid amounts (target > source)', () => {
+      const match: PotentialMatch = {
+        sourceTransaction: {
+          id: 1,
+          sourceId: 'kraken',
+          sourceType: 'exchange',
+          timestamp: new Date('2024-01-01T12:00:00Z'),
+          asset: 'BTC',
+          amount: parseDecimal('1.0'),
+          direction: 'out',
+        },
+        targetTransaction: {
+          id: 2,
+          sourceId: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:30:00Z'),
+          asset: 'BTC',
+          amount: parseDecimal('1.5'),
+          direction: 'in',
+        },
+        confidenceScore: parseDecimal('0.98'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.5'),
+          timingValid: true,
+          timingHours: 0.5,
+        },
+        linkType: 'exchange_to_blockchain',
+      };
+
+      const result = createTransactionLink(match, 'confirmed', 'test-uuid', new Date());
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('exceeds source amount');
+      }
+    });
+
+    it('should reject excessive variance (>10%)', () => {
+      const match: PotentialMatch = {
+        sourceTransaction: {
+          id: 1,
+          sourceId: 'kraken',
+          sourceType: 'exchange',
+          timestamp: new Date('2024-01-01T12:00:00Z'),
+          asset: 'BTC',
+          amount: parseDecimal('1.0'),
+          direction: 'out',
+        },
+        targetTransaction: {
+          id: 2,
+          sourceId: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:30:00Z'),
+          asset: 'BTC',
+          amount: parseDecimal('0.85'),
+          direction: 'in',
+        },
+        confidenceScore: parseDecimal('0.98'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.85'),
+          timingValid: true,
+          timingHours: 0.5,
+        },
+        linkType: 'exchange_to_blockchain',
+      };
+
+      const result = createTransactionLink(match, 'confirmed', 'test-uuid', new Date());
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('exceeds 10% threshold');
+      }
+    });
+
+    it('should include variance metadata', () => {
+      const match: PotentialMatch = {
+        sourceTransaction: {
+          id: 1,
+          sourceId: 'kraken',
+          sourceType: 'exchange',
+          timestamp: new Date('2024-01-01T12:00:00Z'),
+          asset: 'BTC',
+          amount: parseDecimal('1.0'),
+          direction: 'out',
+        },
+        targetTransaction: {
+          id: 2,
+          sourceId: 'bitcoin',
+          sourceType: 'blockchain',
+          timestamp: new Date('2024-01-01T12:30:00Z'),
+          asset: 'BTC',
+          amount: parseDecimal('0.95'),
+          direction: 'in',
+        },
+        confidenceScore: parseDecimal('0.98'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.95'),
+          timingValid: true,
+          timingHours: 0.5,
+        },
+        linkType: 'exchange_to_blockchain',
+      };
+
+      const result = createTransactionLink(match, 'confirmed', 'test-uuid', new Date());
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const link = result.value;
+        expect(link.metadata).toBeDefined();
+        expect(link.metadata?.variance).toBe('0.05');
+        expect(link.metadata?.variancePct).toBe('5.00');
+        expect(link.metadata?.impliedFee).toBe('0.05');
+      }
     });
   });
 });

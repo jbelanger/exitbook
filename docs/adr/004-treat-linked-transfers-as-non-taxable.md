@@ -1629,8 +1629,11 @@ Reconciliation:
    - Update SQL queries to include new columns
    - Update TypeScript mappings (DB ↔ domain model)
 
-5. **Implement link amount validation** (new file: `packages/accounting/src/linking/link-validator.ts`):
+5. **Implement link amount validation** (`packages/accounting/src/linking/matching-utils.ts`):
    - `validateLinkAmounts()` - checks variance <10%, rejects target > source
+   - `calculateVarianceMetadata()` - calculates variance, variancePct, impliedFee
+   - Merged into matching-utils.ts following codebase `*-utils.ts` naming convention
+   - Maintains functional core pattern (pure functions, no side effects)
    - Call from link creation logic before persisting
    - Return `Result<void, Error>` with descriptive messages
 
@@ -1647,8 +1650,22 @@ Reconciliation:
    - Link rejection: excessive variance (>10%) ✗
    - Link creation with missing amounts (backward compatibility)
    - Repository CRUD operations with new fields
+   - All extracted pure functions (convertToCandidates, separateSourcesAndTargets, etc.)
+   - deduplicateAndConfirm with various confidence thresholds
+   - createTransactionLink success and failure scenarios
+   - Variance metadata calculation accuracy
 
-**Deliverable**: `transaction_links` table ready with amount fields, linking service validates variance, all tests passing
+8. **Refactor to Functional Core / Imperative Shell**:
+   - Extract pure functions from TransactionLinkingService to matching-utils.ts:
+     - `convertToCandidates()` - pure transformation of UniversalTransaction[] to candidates
+     - `separateSourcesAndTargets()` - pure filter operation
+     - `deduplicateAndConfirm()` - made pure by passing config as parameter
+     - `createTransactionLink()` - made pure by injecting UUID and timestamp
+   - Service becomes thin orchestration layer (logging, UUID generation, timestamp injection)
+   - All business logic testable as pure functions without mocks
+   - Follows codebase pattern: functional core (utils) + imperative shell (service classes)
+
+**Deliverable**: `transaction_links` table ready with amount fields, linking service validates variance with pure functional core for business logic, comprehensive test coverage including 66 tests for matching-utils, codebase follows consistent functional patterns
 
 ### Phase 1: Cost Basis Schema, Config & Link Index (Week 2)
 

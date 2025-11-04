@@ -1,8 +1,16 @@
-import type { SourceType } from '@exitbook/core';
+import type { SourceType, UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
+import { err, ok, type Result } from 'neverthrow';
 
-import type { LinkType, MatchCriteria, MatchingConfig, PotentialMatch, TransactionCandidate } from './types.js';
+import type {
+  LinkType,
+  MatchCriteria,
+  MatchingConfig,
+  PotentialMatch,
+  TransactionCandidate,
+  TransactionLink,
+} from './types.js';
 
 /**
  * Default matching configuration
@@ -269,4 +277,269 @@ export function findPotentialMatches(
  */
 export function shouldAutoConfirm(match: PotentialMatch, config: MatchingConfig): boolean {
   return match.confidenceScore.greaterThanOrEqualTo(config.autoConfirmThreshold);
+}
+
+/**
+ * Validate link amounts to ensure transfers are valid
+ *
+ * Rejects invalid scenarios:
+ * - Target amount > source amount (airdrop/bonus scenario)
+ * - Excessive variance >10% (likely not a valid transfer)
+ *
+ * @param sourceAmount - Gross outflow amount from source transaction
+ * @param targetAmount - Net received amount at target transaction
+ * @returns Result indicating validation success or error
+ */
+export function validateLinkAmounts(sourceAmount: Decimal, targetAmount: Decimal): Result<void, Error> {
+  // Reject zero or negative source amounts (invalid/legacy data)
+  if (sourceAmount.lte(0)) {
+    return err(
+      new Error(
+        `Source amount must be positive, got ${sourceAmount.toFixed()}. ` +
+          `This may indicate missing movement data or legacy records without amount fields.`
+      )
+    );
+  }
+
+  // Reject zero or negative target amounts
+  if (targetAmount.lte(0)) {
+    return err(
+      new Error(
+        `Target amount must be positive, got ${targetAmount.toFixed()}. ` + `This indicates invalid transaction data.`
+      )
+    );
+  }
+
+  // Reject target > source (airdrop, bonus, or data error)
+  if (targetAmount.gt(sourceAmount)) {
+    return err(
+      new Error(
+        `Target amount (${targetAmount.toFixed()}) exceeds source amount (${sourceAmount.toFixed()}). ` +
+          `This link will be rejected. If this is an airdrop or bonus, create a separate transaction for the additional funds received.`
+      )
+    );
+  }
+
+  // Calculate variance percentage
+  const variance = sourceAmount.minus(targetAmount);
+  const variancePct = variance.div(sourceAmount).times(100);
+
+  // Reject excessive variance (>10%)
+  if (variancePct.gt(10)) {
+    return err(
+      new Error(
+        `Variance (${variancePct.toFixed(2)}%) exceeds 10% threshold. ` +
+          `Source: ${sourceAmount.toFixed()}, Target: ${targetAmount.toFixed()}. ` +
+          `Verify amounts are correct or adjust link.`
+      )
+    );
+  }
+
+  return ok(void 0);
+}
+
+/**
+ * Calculate variance metadata for a link
+ *
+ * Useful for storing debugging information in link metadata
+ *
+ * @param sourceAmount - Gross outflow amount
+ * @param targetAmount - Net received amount
+ * @returns Variance metadata object
+ */
+export function calculateVarianceMetadata(
+  sourceAmount: Decimal,
+  targetAmount: Decimal
+): {
+  impliedFee: string;
+  variance: string;
+  variancePct: string;
+} {
+  const variance = sourceAmount.minus(targetAmount);
+  const variancePct = sourceAmount.isZero() ? new Decimal(0) : variance.div(sourceAmount).times(100);
+
+  return {
+    variance: variance.toFixed(),
+    variancePct: variancePct.toFixed(2),
+    impliedFee: variance.toFixed(),
+  };
+}
+
+/**
+ * Convert stored transactions to transaction candidates for matching.
+ * Creates one candidate per asset movement (not just primary).
+ *
+ * @param transactions - Universal transactions to convert
+ * @returns Array of transaction candidates
+ */
+export function convertToCandidates(transactions: UniversalTransaction[]): TransactionCandidate[] {
+  const candidates: TransactionCandidate[] = [];
+
+  for (const tx of transactions) {
+    // Create candidates for all inflows
+    for (const inflow of tx.movements.inflows ?? []) {
+      const candidate: TransactionCandidate = {
+        id: tx.id,
+        externalId: tx.externalId,
+        sourceId: tx.source,
+        sourceType: tx.blockchain ? 'blockchain' : 'exchange',
+        timestamp: new Date(tx.datetime),
+        asset: inflow.asset,
+        amount: inflow.amount,
+        direction: 'in',
+        fromAddress: tx.from,
+        toAddress: tx.to,
+      };
+      candidates.push(candidate);
+    }
+
+    // Create candidates for all outflows
+    for (const outflow of tx.movements.outflows ?? []) {
+      const candidate: TransactionCandidate = {
+        id: tx.id,
+        externalId: tx.externalId,
+        sourceId: tx.source,
+        sourceType: tx.blockchain ? 'blockchain' : 'exchange',
+        timestamp: new Date(tx.datetime),
+        asset: outflow.asset,
+        amount: outflow.amount,
+        direction: 'out',
+        fromAddress: tx.from,
+        toAddress: tx.to,
+      };
+      candidates.push(candidate);
+    }
+  }
+
+  return candidates;
+}
+
+/**
+ * Separate candidates into sources (outflows) and targets (inflows)
+ *
+ * @param candidates - Transaction candidates
+ * @returns Object with sources and targets arrays
+ */
+export function separateSourcesAndTargets(candidates: TransactionCandidate[]): {
+  sources: TransactionCandidate[];
+  targets: TransactionCandidate[];
+} {
+  const sources: TransactionCandidate[] = [];
+  const targets: TransactionCandidate[] = [];
+
+  for (const candidate of candidates) {
+    if (candidate.direction === 'out') {
+      sources.push(candidate);
+    } else if (candidate.direction === 'in') {
+      targets.push(candidate);
+    }
+  }
+
+  return { sources, targets };
+}
+
+/**
+ * Deduplicate matches and separate into confirmed vs suggested
+ * - One target can only match one source (highest confidence wins)
+ * - One source can only match one target (highest confidence wins)
+ * - Auto-confirm matches above threshold
+ *
+ * @param matches - All potential matches
+ * @param config - Matching configuration
+ * @returns Object with confirmed and suggested matches
+ */
+export function deduplicateAndConfirm(
+  matches: PotentialMatch[],
+  config: MatchingConfig
+): {
+  confirmed: PotentialMatch[];
+  suggested: PotentialMatch[];
+} {
+  // Sort all matches by confidence (highest first)
+  const sortedMatches = [...matches].sort((a, b) => b.confidenceScore.comparedTo(a.confidenceScore));
+
+  const usedSources = new Set<number>();
+  const usedTargets = new Set<number>();
+  const deduplicatedMatches: PotentialMatch[] = [];
+
+  // Greedily select matches, ensuring each source and target is used at most once
+  for (const match of sortedMatches) {
+    const sourceId = match.sourceTransaction.id;
+    const targetId = match.targetTransaction.id;
+
+    // Skip if either source or target is already used
+    if (usedSources.has(sourceId) || usedTargets.has(targetId)) {
+      continue;
+    }
+
+    // Accept this match
+    deduplicatedMatches.push(match);
+    usedSources.add(sourceId);
+    usedTargets.add(targetId);
+  }
+
+  const suggested: PotentialMatch[] = [];
+  const confirmed: PotentialMatch[] = [];
+
+  // Separate into confirmed vs suggested based on confidence threshold
+  for (const match of deduplicatedMatches) {
+    if (shouldAutoConfirm(match, config)) {
+      confirmed.push(match);
+    } else {
+      suggested.push(match);
+    }
+  }
+
+  return { suggested, confirmed };
+}
+
+/**
+ * Create a TransactionLink object from a potential match
+ *
+ * Validates link amounts and includes variance metadata
+ *
+ * @param match - Potential match to convert
+ * @param status - Link status (suggested or confirmed)
+ * @param id - UUID for the link
+ * @param now - Current timestamp
+ * @returns Result with TransactionLink or error
+ */
+export function createTransactionLink(
+  match: PotentialMatch,
+  status: 'suggested' | 'confirmed',
+  id: string,
+  now: Date
+): Result<TransactionLink, Error> {
+  // Extract amounts from match
+  const asset = match.sourceTransaction.asset;
+  const sourceAmount = match.sourceTransaction.amount;
+  const targetAmount = match.targetTransaction.amount;
+
+  // Validate amounts
+  const validationResult = validateLinkAmounts(sourceAmount, targetAmount);
+  if (validationResult.isErr()) {
+    return err(validationResult.error);
+  }
+
+  // Calculate variance metadata for debugging
+  const varianceMetadata = calculateVarianceMetadata(sourceAmount, targetAmount);
+
+  // Create link with all required fields
+  return ok({
+    id,
+    sourceTransactionId: match.sourceTransaction.id,
+    targetTransactionId: match.targetTransaction.id,
+    asset,
+    sourceAmount,
+    targetAmount,
+    linkType: match.linkType,
+    confidenceScore: match.confidenceScore,
+    matchCriteria: match.matchCriteria,
+    status,
+    reviewedBy: status === 'confirmed' ? 'auto' : undefined,
+    reviewedAt: status === 'confirmed' ? now : undefined,
+    createdAt: now,
+    updatedAt: now,
+    metadata: varianceMetadata,
+  });
 }
