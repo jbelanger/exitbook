@@ -896,7 +896,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         'kraken',
         [],
         [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
-        [createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '60000')]
+        [createFeeMovement('network', 'on-chain', 'BTC', '0.0005')] // Fee without price to test graceful degradation
       );
 
       const depositTx = createTransaction(

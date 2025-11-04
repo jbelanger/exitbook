@@ -44,10 +44,7 @@ describe('GapsViewHandler', () => {
       inflows: [],
       outflows: [],
     },
-    fees: {
-      network: undefined,
-      platform: undefined,
-    },
+    fees: [],
     operation: {
       category: 'transfer',
       type: 'withdrawal',
@@ -65,14 +62,15 @@ describe('GapsViewHandler', () => {
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
-          fees: {
-            network: {
+          fees: [
+            {
               asset: 'BTC',
               amount: parseDecimal('0.0001'),
+              scope: 'network',
+              settlement: 'on-chain',
               priceAtTxTime: undefined, // Missing price
             },
-            platform: undefined,
-          },
+          ],
         }),
         createMockTransaction({
           id: 2,
@@ -86,14 +84,11 @@ describe('GapsViewHandler', () => {
             outflows: [
               {
                 asset: 'ETH',
-                amount: parseDecimal('0.01'),
+                grossAmount: parseDecimal('0.01'),
               },
             ],
           },
-          fees: {
-            network: undefined,
-            platform: undefined,
-          },
+          fees: [],
         }),
       ];
 
@@ -117,18 +112,19 @@ describe('GapsViewHandler', () => {
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
-          fees: {
-            network: {
+          fees: [
+            {
               asset: 'BTC',
               amount: parseDecimal('0.0001'),
+              scope: 'network',
+              settlement: 'on-chain',
               priceAtTxTime: {
                 price: { amount: parseDecimal('60000'), currency: Currency.create('USD') },
                 source: 'exchange-execution',
                 fetchedAt: new Date('2024-01-01T12:00:00Z'),
               },
             },
-            platform: undefined,
-          },
+          ],
         }),
       ];
 

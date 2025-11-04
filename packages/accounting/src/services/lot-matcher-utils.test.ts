@@ -514,25 +514,27 @@ describe('lot-matcher-utils', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.toFixed()).toBe('50');
+        // Single BTC inflow gets ALL the $100 fee allocated to it (no other movements to split with)
+        expect(result.value.toFixed()).toBe('100');
       }
     });
 
-    it('should error on fiat fee with different currency and no price', () => {
+    it('should use fee price when available (even if fiat currency differs)', () => {
       const tx = createMockTransaction(
         1,
         '2024-01-01T00:00:00Z',
         {
           inflows: [createMovement('BTC', '1', '50000', 'USD')],
         },
-        [createFeeMovement('platform', 'balance', 'EUR', '50', '1')]
+        [createFeeMovement('platform', 'balance', 'EUR', '50', '1')] // EUR fee with $1 USD price
       );
 
       const result = calculateFeesInFiat(tx, tx.movements.inflows![0]!, true);
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('cannot be converted');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        // Fee has price: 50 EUR * $1 = $50, allocated to single BTC movement
+        expect(result.value.toFixed()).toBe('50');
       }
     });
 
@@ -673,25 +675,51 @@ describe('lot-matcher-utils', () => {
   });
 
   describe('calculateNetProceeds', () => {
-    it('should calculate proceeds minus fees', () => {
+    it('should NOT subtract platform fees from disposal proceeds (ADR-005)', () => {
       const tx = createMockTransaction(
         1,
         '2024-01-01T00:00:00Z',
         {
           outflows: [createMovement('BTC', '1', '52000')],
         },
-        [createFeeMovement('platform', 'balance', 'USD', '200', '1')] // $200 fee
+        [createFeeMovement('platform', 'balance', 'USD', '200', '1')] // Platform fee with balance settlement
       );
 
       const result = calculateNetProceeds(tx, tx.movements.outflows![0]!);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
+        // Per ADR-005: Only on-chain fees reduce disposal proceeds
+        // Platform fees (settlement='balance') are charged separately and don't affect proceeds
         // Gross: 1 * 52000 = 52000
-        // Net: 52000 - 200 = 51800
-        // Per unit: 51800 / 1 = 51800
-        expect(result.value.proceedsPerUnit.toFixed()).toBe('51800');
-        expect(result.value.totalFeeAmount.toFixed()).toBe('200');
+        // Fee subtracted: $0 (platform fee not included)
+        // Proceeds per unit: 52000
+        expect(result.value.proceedsPerUnit.toFixed()).toBe('52000');
+        expect(result.value.totalFeeAmount.toFixed()).toBe('0');
+      }
+    });
+
+    it('should subtract on-chain fees from disposal proceeds (ADR-005)', () => {
+      const tx = createMockTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        {
+          outflows: [createMovement('ETH', '1', '3500')],
+        },
+        [createFeeMovement('network', 'on-chain', 'ETH', '0.002', '3500')] // Network fee with on-chain settlement
+      );
+
+      const result = calculateNetProceeds(tx, tx.movements.outflows![0]!);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        // Per ADR-005: On-chain fees DO reduce disposal proceeds
+        // Gross proceeds: 1 * 3500 = 3500
+        // Fee: 0.002 * 3500 = 7
+        // Net proceeds: 3500 - 7 = 3493
+        // Per unit: 3493 / 1 = 3493
+        expect(result.value.proceedsPerUnit.toFixed()).toBe('3493');
+        expect(result.value.totalFeeAmount.toFixed()).toBe('7');
       }
     });
 

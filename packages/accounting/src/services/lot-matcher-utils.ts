@@ -283,20 +283,21 @@ export function calculateFeesInFiat(
   });
 
   // Use grossAmount for acquisitions (what you paid), netAmount for disposals (what you received)
-  const targetAmount = isInflow ? targetMovement.grossAmount : targetMovement.netAmount;
-  const targetMovementValue =
-    targetMovement.priceAtTxTime && targetAmount
-      ? new Decimal(targetAmount).times(targetMovement.priceAtTxTime.price.amount)
-      : new Decimal(0);
+  // Default netAmount to grossAmount if not set (per ADR-005)
+  const targetAmount = isInflow ? targetMovement.grossAmount : (targetMovement.netAmount ?? targetMovement.grossAmount);
+  const targetMovementValue = targetMovement.priceAtTxTime
+    ? new Decimal(targetAmount).times(targetMovement.priceAtTxTime.price.amount)
+    : new Decimal(0);
 
   let totalMovementValue = new Decimal(0);
   for (const movement of nonFiatMovements) {
     if (movement.priceAtTxTime) {
       // Use grossAmount for inflows, netAmount for outflows in proportional allocation
-      const movementAmount = inflows.includes(movement) ? movement.grossAmount : movement.netAmount;
-      const movementValue = movementAmount
-        ? new Decimal(movementAmount).times(movement.priceAtTxTime.price.amount)
-        : new Decimal(0);
+      // Default netAmount to grossAmount if not set (per ADR-005)
+      const movementAmount = inflows.includes(movement)
+        ? movement.grossAmount
+        : (movement.netAmount ?? movement.grossAmount);
+      const movementValue = new Decimal(movementAmount).times(movement.priceAtTxTime.price.amount);
       totalMovementValue = totalMovementValue.plus(movementValue);
     }
   }
@@ -306,15 +307,12 @@ export function calculateFeesInFiat(
       return ok(new Decimal(0));
     }
 
-    const targetAmountForComparison = isInflow ? targetMovement.grossAmount : targetMovement.netAmount;
+    const targetAmountForComparison = isInflow
+      ? targetMovement.grossAmount
+      : (targetMovement.netAmount ?? targetMovement.grossAmount);
     const isTargetInNonFiat = nonFiatMovements.some((m) => {
-      const mAmount = inflows.includes(m) ? m.grossAmount : m.netAmount;
-      return (
-        m.asset === targetMovement.asset &&
-        mAmount &&
-        targetAmountForComparison &&
-        new Decimal(mAmount).equals(new Decimal(targetAmountForComparison))
-      );
+      const mAmount = inflows.includes(m) ? m.grossAmount : (m.netAmount ?? m.grossAmount);
+      return m.asset === targetMovement.asset && new Decimal(mAmount).equals(new Decimal(targetAmountForComparison));
     });
 
     if (!isTargetInNonFiat) {

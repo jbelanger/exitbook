@@ -61,7 +61,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
     // Check structured fields
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows![0]?.asset).toBe('SOL');
-    expect(transaction.movements.inflows![0]?.amount.toFixed()).toBe('1');
+    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('1');
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
@@ -106,7 +106,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
     expect(transaction.movements.inflows).toHaveLength(0);
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.asset).toBe('SOL');
-    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('2');
+    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('2');
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
   });
@@ -423,11 +423,11 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
     // Verify both assets tracked - amounts are decimal-adjusted to UI amounts
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows![0]?.asset).toBe('USDC');
-    expect(transaction.movements.inflows![0]?.amount.toFixed()).toBe('1000');
+    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('1000');
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.asset).toBe('SOL');
-    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('0.5');
+    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('0.5');
   });
 
   test('detects reverse swap (USDC -> SOL)', async () => {
@@ -696,10 +696,10 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
     const usdtInflow = transaction.movements.inflows?.find((i) => i.asset === 'USDT');
 
     expect(usdcInflow).toBeDefined();
-    expect(usdcInflow?.amount.toFixed()).toBe('1000');
+    expect(usdcInflow?.netAmount?.toFixed()).toBe('1000');
 
     expect(usdtInflow).toBeDefined();
-    expect(usdtInflow?.amount.toFixed()).toBe('500');
+    expect(usdtInflow?.netAmount?.toFixed()).toBe('500');
 
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('classification_uncertain');
@@ -766,10 +766,10 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
     const solInflow = transaction.movements.inflows?.find((i) => i.asset === 'SOL');
 
     expect(usdcInflow).toBeDefined();
-    expect(usdcInflow?.amount.toFixed()).toBe('2');
+    expect(usdcInflow?.netAmount?.toFixed()).toBe('2');
 
     expect(solInflow).toBeDefined();
-    expect(solInflow?.amount.toFixed()).toBe('1');
+    expect(solInflow?.netAmount?.toFixed()).toBe('1');
   });
 });
 
@@ -872,7 +872,7 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
     if (!transaction) return;
 
     // Check structured fields - should default to 0
-    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed() ?? '0').toBe('0');
   });
 
   test('handles transactions with missing optional fields', async () => {

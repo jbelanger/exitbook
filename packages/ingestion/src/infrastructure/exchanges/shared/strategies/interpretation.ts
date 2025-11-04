@@ -4,13 +4,33 @@ import type { CoinbaseLedgerEntry } from '@exitbook/exchanges';
 import type { RawTransactionWithMetadata } from './grouping.ts';
 
 /**
+ * Movement input with amount semantics (used before parsing to Decimal)
+ */
+export interface MovementInput {
+  amount: string;
+  asset: string;
+  grossAmount?: string; // Defaults to amount
+  netAmount?: string; // Defaults to grossAmount
+}
+
+/**
+ * Fee input with semantics (used before parsing to Decimal)
+ */
+export interface FeeInput {
+  amount: string;
+  asset: string;
+  scope: 'network' | 'platform' | 'spread' | 'tax' | 'other';
+  settlement: 'on-chain' | 'balance' | 'external';
+}
+
+/**
  * Result of interpreting a single ledger entry.
  * Arrays support multi-leg transactions.
  */
 export interface LedgerEntryInterpretation {
-  inflows: { amount: string; asset: string }[];
-  outflows: { amount: string; asset: string }[];
-  fees: { amount: string; currency: string }[];
+  inflows: MovementInput[];
+  outflows: MovementInput[];
+  fees: FeeInput[];
 }
 
 /**
@@ -48,9 +68,38 @@ export const standardAmounts: InterpretationStrategy = {
     const feeCurrency = entry.normalized.feeCurrency || asset;
 
     return {
-      inflows: amount.isPositive() ? [{ amount: absAmount.toFixed(), asset }] : [],
-      outflows: amount.isNegative() ? [{ amount: absAmount.toFixed(), asset }] : [],
-      fees: feeCost ? [{ amount: feeCost.toString(), currency: feeCurrency }] : [],
+      inflows: amount.isPositive()
+        ? [
+            {
+              asset,
+              amount: absAmount.toFixed(),
+              grossAmount: absAmount.toFixed(),
+              netAmount: absAmount.toFixed(), // No on-chain fees, net = gross
+            },
+          ]
+        : [],
+
+      outflows: amount.isNegative()
+        ? [
+            {
+              asset,
+              amount: absAmount.toFixed(),
+              grossAmount: absAmount.toFixed(),
+              netAmount: absAmount.toFixed(), // No on-chain fees, net = gross
+            },
+          ]
+        : [],
+
+      fees: feeCost
+        ? [
+            {
+              asset: feeCurrency,
+              amount: feeCost.toFixed(),
+              scope: 'platform', // Standard exchange fees are platform revenue
+              settlement: 'balance', // Charged from separate balance entry
+            },
+          ]
+        : [],
     };
   },
 };
@@ -90,16 +139,60 @@ class CoinbaseGrossAmountsStrategy implements InterpretationStrategy<CoinbaseLed
       const netAmount = absAmount.minus(feeCost);
       return {
         inflows: [],
-        outflows: [{ amount: netAmount.toFixed(), asset }],
-        fees: shouldIncludeFee ? [{ amount: feeCost.toString(), currency: feeCurrency }] : [],
+        outflows: [
+          {
+            asset,
+            amount: netAmount.toFixed(),
+            grossAmount: absAmount.toFixed(), // Total before fee
+            netAmount: netAmount.toFixed(), // After fee deduction
+          },
+        ],
+        fees: shouldIncludeFee
+          ? [
+              {
+                asset: feeCurrency,
+                amount: feeCost.toFixed(),
+                scope: 'platform',
+                settlement: 'balance',
+              },
+            ]
+          : [],
       };
     }
 
     // Trades/deposits: amount is GROSS, fee is separate
     return {
-      inflows: isInflow ? [{ amount: absAmount.toFixed(), asset }] : [],
-      outflows: !isInflow ? [{ amount: absAmount.toFixed(), asset }] : [],
-      fees: shouldIncludeFee && !feeCost.isZero() ? [{ amount: feeCost.toString(), currency: feeCurrency }] : [],
+      inflows: isInflow
+        ? [
+            {
+              asset,
+              amount: absAmount.toFixed(),
+              grossAmount: absAmount.toFixed(),
+              netAmount: absAmount.toFixed(), // No on-chain fees
+            },
+          ]
+        : [],
+      outflows: !isInflow
+        ? [
+            {
+              asset,
+              amount: absAmount.toFixed(),
+              grossAmount: absAmount.toFixed(),
+              netAmount: absAmount.toFixed(), // No on-chain fees
+            },
+          ]
+        : [],
+      fees:
+        shouldIncludeFee && !feeCost.isZero()
+          ? [
+              {
+                asset: feeCurrency,
+                amount: feeCost.toFixed(),
+                scope: 'platform',
+                settlement: 'balance',
+              },
+            ]
+          : [],
     };
   }
 

@@ -64,9 +64,7 @@ describe('TransactionRepository - delete methods', () => {
           raw_normalized_data: '{}',
           movements_inflows: undefined,
           movements_outflows: undefined,
-          fees_network: undefined,
-          fees_platform: undefined,
-          fees_total: undefined,
+          fees: undefined,
           operation_category: undefined,
           operation_type: 'deposit' as const,
           blockchain_name: undefined,
@@ -220,8 +218,8 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
         operation_type: 'swap',
         excluded_from_accounting: false,
         raw_normalized_data: '{}',
-        movements_inflows: JSON.stringify([{ asset: 'BTC', amount: '1.0' }]),
-        fees_network: JSON.stringify({ asset: 'BTC', amount: '0.0001' }),
+        movements_inflows: JSON.stringify([{ asset: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
+        fees: JSON.stringify([{ asset: 'BTC', amount: '0.0001', scope: 'network', settlement: 'on-chain' }]),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -275,8 +273,9 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
     // Verify movements and fees were persisted correctly
     const tx = await db.selectFrom('transactions').selectAll().where('id', '=', 1).executeTakeFirst();
     const inflows = JSON.parse(tx!.movements_inflows as string) as {
-      amount: string;
       asset: string;
+      grossAmount: string;
+      netAmount: string;
       priceAtTxTime?: {
         fetchedAt: string;
         granularity: string;
@@ -284,7 +283,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
         source: string;
       };
     }[];
-    const networkFee = JSON.parse(tx!.fees_network as string) as {
+    const fees = JSON.parse(tx!.fees as string) as {
       amount: string;
       asset: string;
       priceAtTxTime?: {
@@ -293,7 +292,9 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
         price: { amount: string; currency: string };
         source: string;
       };
-    };
+      scope: string;
+      settlement: string;
+    }[];
 
     expect(inflows[0]).toBeDefined();
     expect(inflows[0]?.priceAtTxTime).toBeDefined();
@@ -301,9 +302,10 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
     expect(inflows[0]?.priceAtTxTime?.price.amount).toBe('50000');
 
     // Verify fees were enriched
-    expect(networkFee.priceAtTxTime).toBeDefined();
-    expect(networkFee.priceAtTxTime?.source).toBe('coingecko');
-    expect(networkFee.priceAtTxTime?.price.amount).toBe('50000');
+    expect(fees[0]).toBeDefined();
+    expect(fees[0]?.priceAtTxTime).toBeDefined();
+    expect(fees[0]?.priceAtTxTime?.source).toBe('coingecko');
+    expect(fees[0]?.priceAtTxTime?.price.amount).toBe('50000');
   });
 
   it('should return error when transaction ID does not exist', async () => {

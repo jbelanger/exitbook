@@ -297,17 +297,18 @@ describe('LotMatcher - Fee Handling', () => {
 
         const disposal = btcResult!.disposals[0]!;
         expect(disposal.quantityDisposed.toString()).toBe('1');
-        // Proceeds per unit: (60000 - 150) / 1 = 59850
-        expect(disposal.proceedsPerUnit.toString()).toBe('59850');
-        expect(disposal.totalProceeds.toString()).toBe('59850');
+        // Per ADR-005: Platform fees (settlement='balance') do NOT reduce disposal proceeds
+        // Proceeds per unit: 60000 (no fee subtracted)
+        expect(disposal.proceedsPerUnit.toString()).toBe('60000');
+        expect(disposal.totalProceeds.toString()).toBe('60000');
         // Cost basis: 50000
         expect(disposal.totalCostBasis.toString()).toBe('50000');
-        // Gain: 59850 - 50000 = 9850
-        expect(disposal.gainLoss.toString()).toBe('9850');
+        // Gain: 60000 - 50000 = 10000
+        expect(disposal.gainLoss.toString()).toBe('10000');
       }
     });
 
-    it('should subtract network fee from proceeds on disposals', async () => {
+    it('should subtract on-chain fees from disposal proceeds (ADR-005)', async () => {
       const transactions: UniversalTransaction[] = [
         {
           id: 1,
@@ -389,9 +390,11 @@ describe('LotMatcher - Fee Handling', () => {
         expect(ethResult!.disposals).toHaveLength(1);
 
         const disposal = ethResult!.disposals[0]!;
+        // Per ADR-005: Network fees (settlement='on-chain') DO reduce disposal proceeds
         // Proceeds: (1 * 3500 - 0.002 * 3500) / 1 = 3493
         expect(disposal.proceedsPerUnit.toString()).toBe('3493');
         expect(disposal.totalProceeds.toString()).toBe('3493');
+        // Cost basis: 3000
         // Gain: 3493 - 3000 = 493
         expect(disposal.gainLoss.toString()).toBe('493');
       }
@@ -651,23 +654,24 @@ describe('LotMatcher - Fee Handling', () => {
         expect(btcResult).toBeDefined();
         expect(btcResult!.disposals).toHaveLength(2);
 
-        // First disposal: 0.6 BTC with $18 fee deduction (60% of $30)
+        // Per ADR-005: Platform fees (settlement='balance') do NOT reduce disposal proceeds
+        // First disposal: 0.6 BTC with NO fee deduction
         const disposal1 = btcResult!.disposals[0]!;
         expect(disposal1.quantityDisposed.toString()).toBe('0.6');
-        // Proceeds per unit: (0.6 * 60000 - 18) / 0.6 = 59970
-        expect(disposal1.proceedsPerUnit.toString()).toBe('59970');
-        expect(disposal1.totalProceeds.toString()).toBe('35982');
+        // Proceeds per unit: 60000 (no fee subtracted)
+        expect(disposal1.proceedsPerUnit.toString()).toBe('60000');
+        expect(disposal1.totalProceeds.toString()).toBe('36000');
 
-        // Second disposal: 0.4 BTC with $12 fee deduction (40% of $30)
+        // Second disposal: 0.4 BTC with NO fee deduction
         const disposal2 = btcResult!.disposals[1]!;
         expect(disposal2.quantityDisposed.toString()).toBe('0.4');
-        // Proceeds per unit: (0.4 * 60000 - 12) / 0.4 = 59970
-        expect(disposal2.proceedsPerUnit.toString()).toBe('59970');
-        expect(disposal2.totalProceeds.toString()).toBe('23988');
+        // Proceeds per unit: 60000 (no fee subtracted)
+        expect(disposal2.proceedsPerUnit.toString()).toBe('60000');
+        expect(disposal2.totalProceeds.toString()).toBe('24000');
 
-        // Total net proceeds should be $59,970 ($60,000 - $30 fee, not $59,940 which would indicate double-counting)
+        // Total proceeds: $60,000 (platform fee NOT subtracted from proceeds)
         const totalProceeds = disposal1.totalProceeds.plus(disposal2.totalProceeds);
-        expect(totalProceeds.toString()).toBe('59970');
+        expect(totalProceeds.toString()).toBe('60000');
       }
     });
   });

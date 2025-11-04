@@ -51,9 +51,9 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.movements.inflows?.length).toBe(1);
-    expect(transaction.movements.inflows && transaction.movements.inflows[0]?.amount.toFixed()).toBe('1.5');
+    expect(transaction.movements.inflows && transaction.movements.inflows[0]?.netAmount?.toFixed()).toBe('1.5');
     expect(transaction.movements.outflows?.length).toBe(0);
-    expect(transaction.fees.network?.amount.toFixed()).toBe('0'); // User received, sender paid fee
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed() ?? '0').toBe('0'); // User received, sender paid fee
     expect(transaction.blockchain?.name).toBe('polkadot');
     expect(transaction.from).toBe(EXTERNAL_ADDRESS);
     expect(transaction.to).toBe(USER_ADDRESS);
@@ -94,9 +94,9 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
     expect(transaction.movements.outflows?.length).toBe(1);
-    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('2.5');
+    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('2.5');
     expect(transaction.movements.inflows?.length).toBe(0);
-    expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed() ?? '0').toBe('0.0156');
     expect(transaction.from).toBe(USER_ADDRESS);
     expect(transaction.to).toBe(EXTERNAL_ADDRESS);
   });
@@ -136,9 +136,9 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
     expect(transaction.operation.type).toBe('transfer');
     expect(transaction.movements.inflows?.length).toBe(1);
     expect(transaction.movements.outflows?.length).toBe(1);
-    expect(transaction.movements.inflows![0]?.amount.toFixed()).toBe('1');
-    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('1');
-    expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
+    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('1');
+    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('1');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed() ?? '0').toBe('0.0156');
     expect(transaction.from).toBe(USER_ADDRESS);
     expect(transaction.to).toBe(USER_ADDRESS);
   });
@@ -476,9 +476,9 @@ describe('SubstrateProcessor - Utility Operations', () => {
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
     expect(transaction.movements.outflows?.length).toBe(1);
-    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('3');
+    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('3');
     expect(transaction.movements.inflows?.length).toBe(0);
-    expect(transaction.fees.network?.amount.toFixed()).toBe('0.0256');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed() ?? '0').toBe('0.0256');
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('batch_operation');
     expect(transaction.metadata?.module).toBe('utility');
@@ -558,7 +558,7 @@ describe('SubstrateProcessor - Proxy Operations', () => {
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
     expect(transaction.movements.outflows?.length).toBe(1);
-    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('1');
+    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('1');
     expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('proxy_operation');
@@ -602,7 +602,7 @@ describe('SubstrateProcessor - Multisig Operations', () => {
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
     expect(transaction.movements.outflows?.length).toBe(1);
-    expect(transaction.movements.outflows![0]?.amount.toFixed()).toBe('1');
+    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('1');
     expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('multisig_operation');
@@ -643,8 +643,8 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     if (!transaction) return;
 
     expect(transaction.movements.inflows![0]?.asset).toBe('DOT');
-    expect(transaction.fees.network?.asset.toString()).toBe('DOT');
-    expect(transaction.fees.network?.amount.toFixed()).toBe('0'); // User received, sender paid fee
+    // User received, sender paid fee - no fee entry created when user didn't pay
+    expect(transaction.fees.find((f) => f.scope === 'network')).toBeUndefined();
     expect(transaction.blockchain?.name).toBe('polkadot');
     expect(transaction.metadata?.chainName).toBe('polkadot');
   });
@@ -680,8 +680,8 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     if (!transaction) return;
 
     expect(transaction.movements.inflows![0]?.asset).toBe('TAO');
-    expect(transaction.fees.network?.asset.toString()).toBe('TAO');
-    expect(transaction.fees.network?.amount.toFixed()).toBe('0'); // User received, sender paid fee
+    // User received, sender paid fee - no fee entry created when user didn't pay
+    expect(transaction.fees.find((f) => f.scope === 'network')).toBeUndefined();
     expect(transaction.blockchain?.name).toBe('bittensor');
     expect(transaction.metadata?.chainName).toBe('bittensor');
   });
@@ -716,7 +716,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.fees.network?.amount.toFixed()).toBe('0'); // User received, sender paid fee
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed() ?? '0').toBe('0'); // User received, sender paid fee
   });
 });
 
@@ -756,7 +756,7 @@ describe('SubstrateProcessor - Transaction Type Classification', () => {
     expect(transaction.operation.type).toBe('fee');
     expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.movements.outflows?.length).toBe(0);
-    expect(transaction.fees.network?.amount.toFixed()).toBe('0.0156');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed() ?? '0').toBe('0.0156');
   });
 
   test('handles failed transactions', async () => {
@@ -898,7 +898,7 @@ describe('SubstrateProcessor - Edge Cases', () => {
     if (!transaction) return;
 
     // Structured fields - missing fee defaults to 0
-    expect(transaction.fees.network?.amount.toFixed()).toBe('0');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed() ?? '0').toBe('0');
   });
 
   test('handles transactions with missing optional fields', async () => {

@@ -57,27 +57,38 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
         const userAddress = sessionMetadata.address;
         const userPaidFee = this.didUserPayFee(normalizedTx, fundFlow, userAddress);
 
-        const networkFee = userPaidFee
-          ? { amount: parseDecimal(fundFlow.feeAmount), asset: fundFlow.feeCurrency }
-          : { amount: parseDecimal('0'), asset: fundFlow.feeCurrency };
-
         const universalTransaction: UniversalTransaction = {
           id: 0, // Will be assigned by database
           // NEW: Structured fields
           movements: {
-            inflows: fundFlow.inflows.map((i) => ({
-              amount: parseDecimal(i.amount),
-              asset: i.asset,
-            })),
-            outflows: fundFlow.outflows.map((o) => ({
-              amount: parseDecimal(o.amount),
-              asset: o.asset,
-            })),
+            inflows: fundFlow.inflows.map((i) => {
+              const amount = parseDecimal(i.amount);
+              return {
+                asset: i.asset,
+                grossAmount: amount,
+                netAmount: amount,
+              };
+            }),
+            outflows: fundFlow.outflows.map((o) => {
+              const amount = parseDecimal(o.amount);
+              return {
+                asset: o.asset,
+                grossAmount: amount,
+                netAmount: amount,
+              };
+            }),
           },
-          fees: {
-            network: networkFee,
-            platform: undefined,
-          },
+          fees:
+            userPaidFee && !parseDecimal(fundFlow.feeAmount).isZero()
+              ? [
+                  {
+                    asset: fundFlow.feeCurrency,
+                    amount: parseDecimal(fundFlow.feeAmount),
+                    scope: 'network',
+                    settlement: 'on-chain',
+                  },
+                ]
+              : [],
           operation: classification.operation,
           blockchain: {
             name: fundFlow.chainName,

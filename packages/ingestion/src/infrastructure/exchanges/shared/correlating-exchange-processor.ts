@@ -5,7 +5,13 @@ import { err, ok, okAsync, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
-import type { GroupingStrategy, InterpretationStrategy, RawTransactionWithMetadata } from './strategies/index.ts';
+import type {
+  FeeInput,
+  GroupingStrategy,
+  InterpretationStrategy,
+  MovementInput,
+  RawTransactionWithMetadata,
+} from './strategies/index.ts';
 import type { ExchangeFundFlow } from './types.ts';
 
 /**
@@ -78,23 +84,35 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         status: primaryEntry.normalized.status,
 
         movements: {
-          inflows: fundFlow.inflows.map((inflow) => ({
-            amount: parseDecimal(inflow.amount),
-            asset: inflow.asset,
-          })),
-          outflows: fundFlow.outflows.map((outflow) => ({
-            amount: parseDecimal(outflow.amount),
-            asset: outflow.asset,
-          })),
+          inflows: fundFlow.inflows.map((inflow) => {
+            const gross = parseDecimal(inflow.grossAmount ?? inflow.amount);
+            const net = parseDecimal(inflow.netAmount ?? inflow.grossAmount ?? inflow.amount);
+
+            return {
+              asset: inflow.asset,
+              grossAmount: gross,
+              netAmount: net,
+            };
+          }),
+
+          outflows: fundFlow.outflows.map((outflow) => {
+            const gross = parseDecimal(outflow.grossAmount ?? outflow.amount);
+            const net = parseDecimal(outflow.netAmount ?? outflow.grossAmount ?? outflow.amount);
+
+            return {
+              asset: outflow.asset,
+              grossAmount: gross,
+              netAmount: net,
+            };
+          }),
         },
 
-        fees: {
-          network: undefined,
-          platform:
-            fundFlow.fees.length > 0
-              ? { amount: parseDecimal(fundFlow.fees[0]!.amount), asset: fundFlow.fees[0]!.currency }
-              : { amount: parseDecimal('0'), asset: fundFlow.primary.asset },
-        },
+        fees: fundFlow.fees.map((fee) => ({
+          asset: fee.asset,
+          amount: parseDecimal(fee.amount),
+          scope: fee.scope,
+          settlement: fee.settlement,
+        })),
 
         operation: classification.operation,
         note: classification.note,
@@ -147,9 +165,9 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
       return err('Empty entry group');
     }
 
-    const allInflows: { amount: string; asset: string }[] = [];
-    const allOutflows: { amount: string; asset: string }[] = [];
-    const allFees: { amount: string; currency: string }[] = [];
+    const allInflows: MovementInput[] = [];
+    const allOutflows: MovementInput[] = [];
+    const allFees: FeeInput[] = [];
 
     for (const entry of entryGroup) {
       // Interpretation strategy sees both raw and normalized
@@ -383,42 +401,77 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
   /**
    * Consolidate duplicate assets by summing amounts.
    */
-  private consolidateMovements(movements: { amount: string; asset: string }[]): { amount: string; asset: string }[] {
-    const assetMap = new Map<string, Decimal>();
+  private consolidateMovements(movements: MovementInput[]): MovementInput[] {
+    const assetMap = new Map<
+      string,
+      {
+        amount: Decimal;
+        grossAmount: Decimal;
+        netAmount: Decimal;
+      }
+    >();
 
     for (const movement of movements) {
       const existing = assetMap.get(movement.asset);
+      const amount = parseDecimal(movement.amount);
+      const grossAmount = movement.grossAmount ? parseDecimal(movement.grossAmount) : amount;
+      const netAmount = movement.netAmount ? parseDecimal(movement.netAmount) : grossAmount;
+
       if (existing) {
-        assetMap.set(movement.asset, existing.plus(parseDecimal(movement.amount)));
+        assetMap.set(movement.asset, {
+          amount: existing.amount.plus(amount),
+          grossAmount: existing.grossAmount.plus(grossAmount),
+          netAmount: existing.netAmount.plus(netAmount),
+        });
       } else {
-        assetMap.set(movement.asset, parseDecimal(movement.amount));
+        assetMap.set(movement.asset, {
+          amount,
+          grossAmount,
+          netAmount,
+        });
       }
     }
 
-    return Array.from(assetMap.entries()).map(([asset, amount]) => ({
-      amount: amount.toFixed(),
+    return Array.from(assetMap.entries()).map(([asset, amounts]) => ({
       asset,
+      amount: amounts.amount.toFixed(),
+      grossAmount: amounts.grossAmount.toFixed(),
+      netAmount: amounts.netAmount?.toFixed(),
     }));
   }
 
   /**
-   * Consolidate fees by currency.
+   * Consolidate fees by asset, scope, and settlement.
+   * Multiple fees with same dimensions are summed together.
    */
-  private consolidateFees(fees: { amount: string; currency: string }[]): { amount: string; currency: string }[] {
-    const feeMap = new Map<string, Decimal>();
+  private consolidateFees(fees: FeeInput[]): FeeInput[] {
+    // Key format: `${asset}:${scope}:${settlement}`
+    const feeMap = new Map<string, Omit<FeeInput, 'amount'> & { amount: Decimal }>();
 
     for (const fee of fees) {
-      const existing = feeMap.get(fee.currency);
+      const key = `${fee.asset}:${fee.scope}:${fee.settlement}`;
+      const existing = feeMap.get(key);
+
       if (existing) {
-        feeMap.set(fee.currency, existing.plus(parseDecimal(fee.amount)));
+        feeMap.set(key, {
+          ...existing,
+          amount: existing.amount.plus(parseDecimal(fee.amount)),
+        });
       } else {
-        feeMap.set(fee.currency, parseDecimal(fee.amount));
+        feeMap.set(key, {
+          asset: fee.asset,
+          amount: parseDecimal(fee.amount),
+          scope: fee.scope,
+          settlement: fee.settlement,
+        });
       }
     }
 
-    return Array.from(feeMap.entries()).map(([currency, amount]) => ({
-      amount: amount.toFixed(),
-      currency,
+    return Array.from(feeMap.values()).map((fee) => ({
+      asset: fee.asset,
+      amount: fee.amount.toFixed(),
+      scope: fee.scope,
+      settlement: fee.settlement,
     }));
   }
 }

@@ -67,10 +67,6 @@ export class CosmosProcessor extends BaseTransactionProcessor {
         const userInitiatedTransaction = normalizedTx.from === userAddress;
         const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
-        const networkFee = userPaidFee
-          ? { amount: parseDecimal(fundFlow.feeAmount), asset: fundFlow.feeCurrency }
-          : { amount: parseDecimal('0'), asset: fundFlow.feeCurrency };
-
         // Convert to UniversalTransaction with enhanced metadata
         const universalTransaction: UniversalTransaction = {
           id: 0, // Will be assigned by database
@@ -84,21 +80,36 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
           // Structured movements from fund flow analysis
           movements: {
-            inflows: fundFlow.inflows.map((inflow) => ({
-              amount: parseDecimal(inflow.amount),
-              asset: inflow.asset,
-            })),
-            outflows: fundFlow.outflows.map((outflow) => ({
-              amount: parseDecimal(outflow.amount),
-              asset: outflow.asset,
-            })),
+            inflows: fundFlow.inflows.map((inflow) => {
+              const amount = parseDecimal(inflow.amount);
+              return {
+                asset: inflow.asset,
+                grossAmount: amount,
+                netAmount: amount,
+              };
+            }),
+            outflows: fundFlow.outflows.map((outflow) => {
+              const amount = parseDecimal(outflow.amount);
+              return {
+                asset: outflow.asset,
+                grossAmount: amount,
+                netAmount: amount,
+              };
+            }),
           },
 
           // Structured fees - only deduct from balance if user paid them
-          fees: {
-            network: networkFee,
-            platform: undefined, // Cosmos SDK chains have no platform fees
-          },
+          fees:
+            userPaidFee && !parseDecimal(fundFlow.feeAmount).isZero()
+              ? [
+                  {
+                    asset: fundFlow.feeCurrency,
+                    amount: parseDecimal(fundFlow.feeAmount),
+                    scope: 'network',
+                    settlement: 'on-chain',
+                  },
+                ]
+              : [],
 
           operation: classification.operation,
 

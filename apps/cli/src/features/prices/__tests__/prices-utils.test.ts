@@ -121,10 +121,10 @@ describe('extractAssetsNeedingPrices', () => {
       externalId: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
-        inflows: [{ asset: 'BTC', amount: parseDecimal('1') }],
-        outflows: [{ asset: 'USD', amount: parseDecimal('50000') }],
+        inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1') }],
+        outflows: [{ asset: 'USD', grossAmount: parseDecimal('50000') }],
       },
-      fees: {},
+      fees: [],
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -150,7 +150,7 @@ describe('extractAssetsNeedingPrices', () => {
         inflows: [
           {
             asset: 'BTC',
-            amount: parseDecimal('1'),
+            grossAmount: parseDecimal('1'),
             priceAtTxTime: {
               price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
               source: 'coingecko',
@@ -158,9 +158,9 @@ describe('extractAssetsNeedingPrices', () => {
             },
           },
         ],
-        outflows: [{ asset: 'ETH', amount: parseDecimal('10') }],
+        outflows: [{ asset: 'ETH', grossAmount: parseDecimal('10') }],
       },
-      fees: {},
+      fees: [],
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -186,7 +186,7 @@ describe('extractAssetsNeedingPrices', () => {
         inflows: [],
         outflows: [],
       },
-      fees: {},
+      fees: [],
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -207,10 +207,10 @@ describe('extractAssetsNeedingPrices', () => {
       externalId: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
-        inflows: [{ asset: 'BTC', amount: parseDecimal('1') }],
-        outflows: [{ asset: 'BTC', amount: parseDecimal('0.5') }],
+        inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1') }],
+        outflows: [{ asset: 'BTC', grossAmount: parseDecimal('0.5') }],
       },
-      fees: {},
+      fees: [],
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -233,17 +233,17 @@ describe('extractAssetsNeedingPrices', () => {
       operation: { category: 'trade', type: 'buy' },
       movements: {
         inflows: [
-          { asset: 'BTC', amount: parseDecimal('1') },
-          { asset: 'ETH', amount: parseDecimal('10') },
+          { asset: 'BTC', grossAmount: parseDecimal('1') },
+          { asset: 'ETH', grossAmount: parseDecimal('10') },
         ],
         outflows: [
-          { asset: 'USD', amount: parseDecimal('50000') },
-          { asset: 'EUR', amount: parseDecimal('45000') },
-          { asset: 'CAD', amount: parseDecimal('65000') },
-          { asset: 'GBP', amount: parseDecimal('40000') },
+          { asset: 'USD', grossAmount: parseDecimal('50000') },
+          { asset: 'EUR', grossAmount: parseDecimal('45000') },
+          { asset: 'CAD', grossAmount: parseDecimal('65000') },
+          { asset: 'GBP', grossAmount: parseDecimal('40000') },
         ],
       },
-      fees: {},
+      fees: [],
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -270,10 +270,10 @@ describe('extractAssetsNeedingPrices', () => {
       externalId: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
-        inflows: [{ asset: 'USD', amount: parseDecimal('1000') }],
-        outflows: [{ asset: 'EUR', amount: parseDecimal('900') }],
+        inflows: [{ asset: 'USD', grossAmount: parseDecimal('1000') }],
+        outflows: [{ asset: 'EUR', grossAmount: parseDecimal('900') }],
       },
-      fees: {},
+      fees: [],
     };
 
     const result = extractAssetsNeedingPrices(tx);
@@ -299,7 +299,7 @@ describe('createPriceQuery', () => {
         inflows: [],
         outflows: [],
       },
-      fees: {},
+      fees: [],
     };
 
     const result = createPriceQuery(tx, 'BTC');
@@ -325,7 +325,7 @@ describe('createPriceQuery', () => {
         inflows: [],
         outflows: [],
       },
-      fees: {},
+      fees: [],
     };
 
     const result = createPriceQuery(tx, 'ETH');
@@ -349,7 +349,7 @@ describe('createPriceQuery', () => {
         inflows: [],
         outflows: [],
       },
-      fees: {},
+      fees: [],
     };
 
     const result = createPriceQuery(tx, 'BTC', 'EUR');
@@ -373,7 +373,7 @@ describe('createPriceQuery', () => {
         inflows: [],
         outflows: [],
       },
-      fees: {},
+      fees: [],
     };
 
     const result = createPriceQuery(tx, 'BTC');
@@ -397,7 +397,7 @@ describe('createPriceQuery', () => {
         inflows: [],
         outflows: [],
       },
-      fees: {},
+      fees: [],
     };
 
     const result = createPriceQuery(tx, 'BTC');

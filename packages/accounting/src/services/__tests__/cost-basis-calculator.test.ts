@@ -562,17 +562,19 @@ describe('CostBasisCalculator', () => {
         // Loss should be disallowed due to wash sale (taxable gain/loss = 0)
         expect(summary.totalTaxableGainLoss.toString()).toBe('0');
 
-        // Verify fee was allocated correctly (increases cost basis on acquisition, reduces proceeds on disposal)
+        // Verify fee was allocated correctly per ADR-005:
+        // - Acquisitions: ALL fees increase cost basis
+        // - Disposals: ONLY on-chain fees reduce proceeds (platform fees don't)
         expect(disposalsSaved).toHaveLength(1);
         const disposal = disposalsSaved[0];
         expect(disposal).toBeDefined();
 
-        // Proceeds: $30,000 - $100 fee = $29,900
-        expect(disposal!.totalProceeds.toString()).toBe('29900');
+        // Proceeds: $30,000 (platform fee NOT subtracted per ADR-005)
+        expect(disposal!.totalProceeds.toString()).toBe('30000');
         // Cost basis: $50,000 (no fee on first acquisition)
         expect(disposal!.totalCostBasis.toString()).toBe('50000');
-        // Capital loss: $29,900 - $50,000 = -$20,100
-        expect(disposal!.gainLoss.toString()).toBe('-20100');
+        // Capital loss: $30,000 - $50,000 = -$20,000
+        expect(disposal!.gainLoss.toString()).toBe('-20000');
       }
     });
 
@@ -998,20 +1000,20 @@ describe('CostBasisCalculator', () => {
         expect(disposal!.taxTreatmentCategory).toBe('long_term');
         expect(disposal!.holdingPeriodDays).toBeGreaterThanOrEqual(365);
 
-        // Verify fee allocation
-        // Cost basis per unit: ($30,000 + $100) / 1 = $30,100
+        // Verify fee allocation per ADR-005
+        // Cost basis per unit: ($30,000 + $100 acquisition fee) / 1 = $30,100
         // Cost basis for 0.5 BTC: $30,100 * 0.5 = $15,050
         expect(disposal!.costBasisPerUnit.toString()).toBe('30100');
         expect(disposal!.totalCostBasis.toString()).toBe('15050');
 
-        // Proceeds: (0.5 * $50,000 - $200) = $24,800
-        expect(disposal!.totalProceeds.toString()).toBe('24800');
+        // Proceeds: 0.5 * $50,000 = $25,000 (platform fee NOT subtracted per ADR-005)
+        expect(disposal!.totalProceeds.toString()).toBe('25000');
 
-        // Gain: $24,800 - $15,050 = $9,750
-        expect(disposal!.gainLoss.toString()).toBe('9750');
-        expect(summary.totalCapitalGainLoss.toString()).toBe('9750');
+        // Gain: $25,000 - $15,050 = $9,950
+        expect(disposal!.gainLoss.toString()).toBe('9950');
+        expect(summary.totalCapitalGainLoss.toString()).toBe('9950');
         // US: 100% taxable
-        expect(summary.totalTaxableGainLoss.toString()).toBe('9750');
+        expect(summary.totalTaxableGainLoss.toString()).toBe('9950');
       }
     });
   });

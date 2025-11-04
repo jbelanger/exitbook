@@ -17,10 +17,7 @@ describe('gaps-view-utils', () => {
       inflows: [],
       outflows: [],
     },
-    fees: {
-      network: undefined,
-      platform: undefined,
-    },
+    fees: [],
     operation: {
       category: 'transfer',
       type: 'withdrawal',
@@ -34,14 +31,15 @@ describe('gaps-view-utils', () => {
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
-          fees: {
-            network: {
+          fees: [
+            {
               asset: 'BTC',
               amount: parseDecimal('0.0001'),
+              scope: 'network',
+              settlement: 'on-chain',
               priceAtTxTime: undefined,
             },
-            platform: undefined,
-          },
+          ],
         }),
       ];
 
@@ -59,14 +57,15 @@ describe('gaps-view-utils', () => {
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
-          fees: {
-            network: undefined,
-            platform: {
+          fees: [
+            {
               asset: 'USD',
               amount: parseDecimal('2.50'),
+              scope: 'platform',
+              settlement: 'balance',
               priceAtTxTime: undefined,
             },
-          },
+          ],
         }),
       ];
 
@@ -91,14 +90,11 @@ describe('gaps-view-utils', () => {
             outflows: [
               {
                 asset: 'ETH',
-                amount: parseDecimal('0.01'),
+                grossAmount: parseDecimal('0.01'),
               },
             ],
           },
-          fees: {
-            network: undefined,
-            platform: undefined,
-          },
+          fees: [],
         }),
       ];
 
@@ -118,20 +114,17 @@ describe('gaps-view-utils', () => {
             inflows: [
               {
                 asset: 'BTC',
-                amount: parseDecimal('1.0'),
+                grossAmount: parseDecimal('1.0'),
               },
             ],
             outflows: [
               {
                 asset: 'BTC',
-                amount: parseDecimal('0.001'),
+                grossAmount: parseDecimal('0.001'),
               },
             ],
           },
-          fees: {
-            network: undefined,
-            platform: undefined,
-          },
+          fees: [],
           note: {
             type: 'info',
             message: 'Transaction includes network fee',
@@ -157,22 +150,23 @@ describe('gaps-view-utils', () => {
             outflows: [
               {
                 asset: 'BTC',
-                amount: parseDecimal('0.0001'),
+                grossAmount: parseDecimal('0.0001'),
               },
             ],
           },
-          fees: {
-            network: {
+          fees: [
+            {
               asset: 'BTC',
               amount: parseDecimal('0.0001'),
+              scope: 'network',
+              settlement: 'on-chain',
               priceAtTxTime: {
                 price: { amount: parseDecimal('60000'), currency: Currency.create('USD') },
                 source: 'exchange-execution',
                 fetchedAt: new Date('2024-01-01T12:00:00Z'),
               },
             },
-            platform: undefined,
-          },
+          ],
           note: {
             type: 'info',
             message: 'Network fee applied',
@@ -191,18 +185,19 @@ describe('gaps-view-utils', () => {
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
-          fees: {
-            network: {
+          fees: [
+            {
               asset: 'BTC',
               amount: parseDecimal('0.0001'),
+              scope: 'network',
+              settlement: 'on-chain',
               priceAtTxTime: {
                 price: { amount: parseDecimal('60000'), currency: Currency.create('USD') },
                 source: 'exchange-execution',
                 fetchedAt: new Date('2024-01-01T12:00:00Z'),
               },
             },
-            platform: undefined,
-          },
+          ],
         }),
       ];
 
@@ -218,18 +213,22 @@ describe('gaps-view-utils', () => {
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
-          fees: {
-            network: {
+          fees: [
+            {
               asset: 'BTC',
               amount: parseDecimal('0.0001'),
+              scope: 'network',
+              settlement: 'on-chain',
               priceAtTxTime: undefined,
             },
-            platform: {
+            {
               asset: 'USD',
               amount: parseDecimal('2.50'),
+              scope: 'platform',
+              settlement: 'balance',
               priceAtTxTime: undefined,
             },
-          },
+          ],
         }),
       ];
 
@@ -255,14 +254,15 @@ describe('gaps-view-utils', () => {
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
-          fees: {
-            network: {
+          fees: [
+            {
               asset: 'BTC',
               amount: parseDecimal('0.0001'),
+              scope: 'network',
+              settlement: 'on-chain',
               priceAtTxTime: undefined,
             },
-            platform: undefined,
-          },
+          ],
         }),
       ];
 

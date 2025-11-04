@@ -76,10 +76,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         const userAddress = sessionMetadata.address as string;
         const userPaidFee = fundFlow.outflows.length > 0 || normalizedTx.from === userAddress;
 
-        const networkFee = userPaidFee
-          ? { amount: parseDecimal(normalizedTx.feeAmount || '0'), asset: normalizedTx.feeCurrency || 'SOL' }
-          : { amount: parseDecimal('0'), asset: 'SOL' };
-
         // Convert to UniversalTransaction with structured fields
         const universalTransaction: UniversalTransaction = {
           id: 0, // Will be assigned by database
@@ -93,20 +89,35 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
           // Structured movements from fund flow analysis
           movements: {
-            inflows: fundFlow.inflows.map((inflow) => ({
-              amount: parseDecimal(inflow.amount),
-              asset: inflow.asset,
-            })),
-            outflows: fundFlow.outflows.map((outflow) => ({
-              amount: parseDecimal(outflow.amount),
-              asset: outflow.asset,
-            })),
+            inflows: fundFlow.inflows.map((inflow) => {
+              const amount = parseDecimal(inflow.amount);
+              return {
+                asset: inflow.asset,
+                grossAmount: amount,
+                netAmount: amount,
+              };
+            }),
+            outflows: fundFlow.outflows.map((outflow) => {
+              const amount = parseDecimal(outflow.amount);
+              return {
+                asset: outflow.asset,
+                grossAmount: amount,
+                netAmount: amount,
+              };
+            }),
           },
 
-          fees: {
-            network: networkFee,
-            platform: undefined, // Solana has no platform fees
-          },
+          fees:
+            userPaidFee && !parseDecimal(normalizedTx.feeAmount || '0').isZero()
+              ? [
+                  {
+                    asset: normalizedTx.feeCurrency || 'SOL',
+                    amount: parseDecimal(normalizedTx.feeAmount || '0'),
+                    scope: 'network',
+                    settlement: 'on-chain',
+                  },
+                ]
+              : [],
 
           operation: classification.operation,
 

@@ -1,7 +1,7 @@
 // Pure business logic for prices command
 // All functions are pure and testable
 
-import { Currency, type AssetMovement, type UniversalTransaction } from '@exitbook/core';
+import { Currency, type UniversalTransaction } from '@exitbook/core';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/platform-price-providers';
 import type { PriceQuery } from '@exitbook/platform-price-providers';
 import { err, ok, type Result } from 'neverthrow';
@@ -73,20 +73,20 @@ export function validateAssetFilter(asset: string | string[] | undefined): Resul
  * Treats 'fiat-execution-tentative' prices as still needing fetch (fallback for Stage 2 failures)
  */
 export function extractAssetsNeedingPrices(tx: UniversalTransaction): Result<string[], Error> {
-  const allMovements: AssetMovement[] = [
-    ...(tx.movements.inflows ?? []),
-    ...(tx.movements.outflows ?? []),
-    ...(tx.fees.platform ? [tx.fees.platform] : []),
-    ...(tx.fees.network ? [tx.fees.network] : []),
-  ];
+  // Check movements
+  const inflows = tx.movements.inflows ?? [];
+  const outflows = tx.movements.outflows ?? [];
+  const fees = tx.fees ?? [];
 
-  if (allMovements.length === 0) {
+  if (inflows.length === 0 && outflows.length === 0 && fees.length === 0) {
     return err(new Error(`Transaction ${tx.id} has no movements`));
   }
 
   // Get unique assets that don't already have prices or have tentative non-USD prices
   const assetsNeedingPrices = new Set<string>();
-  for (const movement of allMovements) {
+
+  // Check asset movements (inflows/outflows)
+  for (const movement of [...inflows, ...outflows]) {
     // Movement needs price if:
     // 1. No price at all, OR
     // 2. Price source is 'fiat-execution-tentative' (not yet normalized to USD)
@@ -98,6 +98,19 @@ export function extractAssetsNeedingPrices(tx: UniversalTransaction): Result<str
       const currency = Currency.create(movement.asset);
       if (!currency.isFiat()) {
         assetsNeedingPrices.add(movement.asset);
+      }
+    }
+  }
+
+  // Check fee movements (different structure: has 'amount' instead of 'grossAmount')
+  for (const fee of fees) {
+    const needsPrice = !fee.priceAtTxTime || fee.priceAtTxTime.source === 'fiat-execution-tentative';
+
+    if (needsPrice) {
+      // Skip fiat currencies - they don't need price fetching
+      const currency = Currency.create(fee.asset);
+      if (!currency.isFiat()) {
+        assetsNeedingPrices.add(fee.asset);
       }
     }
   }
