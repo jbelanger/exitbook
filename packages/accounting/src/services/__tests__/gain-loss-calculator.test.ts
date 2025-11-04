@@ -31,6 +31,7 @@ describe('GainLossCalculator', () => {
               updatedAt: new Date(),
             },
           ],
+          lotTransfers: [],
           disposals: [
             {
               id: 'disposal-1',
@@ -87,6 +88,7 @@ describe('GainLossCalculator', () => {
               updatedAt: new Date(),
             },
           ],
+          lotTransfers: [],
           disposals: [
             {
               id: 'disposal-1',
@@ -152,6 +154,7 @@ describe('GainLossCalculator', () => {
               updatedAt: new Date(),
             },
           ],
+          lotTransfers: [],
           disposals: [
             {
               id: 'disposal-1',
@@ -226,6 +229,7 @@ describe('GainLossCalculator', () => {
               updatedAt: new Date(),
             },
           ],
+          lotTransfers: [],
           disposals: [
             {
               id: 'disposal-1',
@@ -295,6 +299,7 @@ describe('GainLossCalculator', () => {
               updatedAt: new Date(),
             },
           ],
+          lotTransfers: [],
           disposals: [
             {
               id: 'disposal-1',
@@ -349,6 +354,7 @@ describe('GainLossCalculator', () => {
               updatedAt: new Date(),
             },
           ],
+          lotTransfers: [],
           disposals: [
             {
               id: 'disposal-1',
@@ -385,6 +391,7 @@ describe('GainLossCalculator', () => {
               updatedAt: new Date(),
             },
           ],
+          lotTransfers: [],
           disposals: [
             {
               id: 'disposal-2',
@@ -442,6 +449,7 @@ describe('GainLossCalculator', () => {
               updatedAt: new Date(),
             },
           ],
+          lotTransfers: [],
           disposals: [], // No disposals - only bought, never sold
         },
       ];
@@ -507,6 +515,7 @@ describe('GainLossCalculator', () => {
               updatedAt: new Date(),
             },
           ],
+          lotTransfers: [],
           disposals: [
             {
               id: 'disposal-1',
@@ -585,6 +594,7 @@ describe('GainLossCalculator', () => {
               updatedAt: new Date(),
             },
           ],
+          lotTransfers: [],
           disposals: [
             {
               id: 'disposal-1',
@@ -658,6 +668,7 @@ describe('GainLossCalculator', () => {
               updatedAt: new Date(),
             },
           ],
+          lotTransfers: [],
           disposals: [
             {
               id: 'disposal-1',
@@ -735,6 +746,7 @@ describe('GainLossCalculator', () => {
               updatedAt: new Date(),
             },
           ],
+          lotTransfers: [],
           disposals: [
             {
               id: 'disposal-1',
@@ -812,6 +824,7 @@ describe('GainLossCalculator', () => {
               updatedAt: new Date(),
             },
           ],
+          lotTransfers: [],
           disposals: [
             {
               id: 'disposal-1',

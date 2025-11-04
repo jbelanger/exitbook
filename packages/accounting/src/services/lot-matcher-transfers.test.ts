@@ -1,0 +1,915 @@
+import { Currency, parseDecimal, type AssetMovement, type UniversalTransaction } from '@exitbook/core';
+import type { TransactionRepository } from '@exitbook/data';
+import { Decimal } from 'decimal.js';
+import { describe, expect, it, vi } from 'vitest';
+
+import type { TransactionLink } from '../linking/types.js';
+import type { TransactionLinkRepository } from '../persistence/transaction-link-repository.js';
+
+import { LotMatcher } from './lot-matcher.js';
+import { FifoStrategy } from './strategies/fifo-strategy.js';
+
+describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () => {
+  const createPriceAtTxTime = (amount: string, currency = 'USD') => ({
+    price: { amount: parseDecimal(amount), currency: Currency.create(currency) },
+    source: 'manual' as const,
+    fetchedAt: new Date('2024-01-01'),
+  });
+
+  const createTransaction = (
+    id: number,
+    datetime: string,
+    source: string,
+    inflows: AssetMovement[] = [],
+    outflows: AssetMovement[] = [],
+    fees: {
+      network?: AssetMovement | undefined;
+      platform?: AssetMovement | undefined;
+    } = {}
+  ): UniversalTransaction => ({
+    id,
+    externalId: `tx${id}`,
+    datetime,
+    timestamp: Date.parse(datetime),
+    source,
+    status: 'success',
+    movements: { inflows, outflows },
+    fees,
+    operation: { category: 'transfer', type: 'withdrawal' },
+  });
+
+  const createLink = (
+    id: string,
+    sourceTransactionId: number,
+    targetTransactionId: number,
+    asset: string,
+    sourceAmount: string,
+    targetAmount: string,
+    confidenceScore = '98.5'
+  ): TransactionLink => ({
+    id,
+    sourceTransactionId,
+    targetTransactionId,
+    asset,
+    sourceAmount: parseDecimal(sourceAmount),
+    targetAmount: parseDecimal(targetAmount),
+    linkType: 'exchange_to_blockchain',
+    confidenceScore: parseDecimal(confidenceScore),
+    matchCriteria: {
+      assetMatch: true,
+      amountSimilarity: parseDecimal('0.99'),
+      timingValid: true,
+      timingHours: 0.5,
+    },
+    status: 'confirmed',
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
+  });
+
+  const mockTransactionRepo = () => {
+    const repo: Partial<TransactionRepository> = {
+      findById: vi.fn().mockImplementation((id: number) => {
+        const sourceTx = transactions.find((t) => t.id === id);
+        return sourceTx
+          ? { isOk: () => true, isErr: () => false, value: sourceTx }
+          : { isOk: () => false, isErr: () => true, error: new Error('Not found') };
+      }),
+    };
+    return repo as TransactionRepository;
+  };
+
+  const mockLinkRepo = (links: TransactionLink[]) => {
+    const repo: Partial<TransactionLinkRepository> = {
+      findAll: vi.fn().mockResolvedValue({
+        isOk: () => true,
+        isErr: () => false,
+        value: links,
+      }),
+    };
+    return repo as TransactionLinkRepository;
+  };
+
+  let transactions: UniversalTransaction[] = [];
+
+  describe('1. Timestamp inconsistencies - reversed deposit/withdrawal', () => {
+    it('should process transfer correctly when target timestamp < source timestamp', async () => {
+      const purchaseTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'kraken',
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        []
+      );
+
+      const withdrawalTx = createTransaction(
+        2,
+        '2024-02-01T12:00:00Z',
+        'kraken',
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        { network: { asset: 'BTC', amount: parseDecimal('0.0005'), priceAtTxTime: createPriceAtTxTime('60000') } }
+      );
+
+      const depositTx = createTransaction(
+        3,
+        '2024-02-01T11:30:00Z',
+        'blockchain-wallet',
+        [{ asset: 'BTC', amount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        []
+      );
+
+      transactions = [purchaseTx, withdrawalTx, depositTx];
+
+      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        expect(btcResult).toBeDefined();
+        expect(btcResult!.lots).toHaveLength(2);
+        expect(btcResult!.disposals).toHaveLength(1);
+        expect(btcResult!.lotTransfers).toHaveLength(1);
+
+        const transferLot = btcResult!.lots[1];
+        expect(transferLot?.acquisitionTransactionId).toBe(3);
+        expect(transferLot?.quantity.toFixed()).toBe('0.9995');
+
+        const feeDisposal = btcResult!.disposals[0];
+        expect(feeDisposal?.quantityDisposed.toFixed()).toBe('0.0005');
+      }
+    });
+  });
+
+  describe('2. Simple transfer with crypto fee (US/disposal)', () => {
+    it('should create separate disposal for network fee with US jurisdiction', async () => {
+      const purchaseTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'kraken',
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        []
+      );
+
+      const withdrawalTx = createTransaction(
+        2,
+        '2024-02-01T12:00:00Z',
+        'kraken',
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        { network: { asset: 'BTC', amount: parseDecimal('0.0005'), priceAtTxTime: createPriceAtTxTime('60000') } }
+      );
+
+      const depositTx = createTransaction(
+        3,
+        '2024-02-01T14:00:00Z',
+        'blockchain-wallet',
+        [{ asset: 'BTC', amount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        []
+      );
+
+      transactions = [purchaseTx, withdrawalTx, depositTx];
+
+      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        expect(btcResult).toBeDefined();
+
+        expect(btcResult!.lots).toHaveLength(2);
+        const purchaseLot = btcResult!.lots[0];
+        expect(purchaseLot?.quantity.toFixed()).toBe('1');
+        expect(purchaseLot?.costBasisPerUnit.toFixed()).toBe('50000');
+        expect(purchaseLot?.remainingQuantity.toFixed()).toBe('0');
+        expect(purchaseLot?.status).toBe('fully_disposed');
+
+        const transferLot = btcResult!.lots[1];
+        expect(transferLot?.acquisitionTransactionId).toBe(3);
+        expect(transferLot?.quantity.toFixed()).toBe('0.9995');
+        expect(transferLot?.costBasisPerUnit.toFixed()).toBe('50000');
+        expect(transferLot?.remainingQuantity.toFixed()).toBe('0.9995');
+
+        expect(btcResult!.disposals).toHaveLength(1);
+        const feeDisposal = btcResult!.disposals[0];
+        expect(feeDisposal?.disposalTransactionId).toBe(2);
+        expect(feeDisposal?.quantityDisposed.toFixed()).toBe('0.0005');
+        expect(feeDisposal?.proceedsPerUnit.toFixed()).toBe('60000');
+        expect(feeDisposal?.costBasisPerUnit.toFixed()).toBe('50000');
+        expect(feeDisposal?.gainLoss.toFixed()).toBe('5');
+
+        expect(btcResult!.lotTransfers).toHaveLength(1);
+        const transfer = btcResult!.lotTransfers[0];
+        expect(transfer?.quantityTransferred.toFixed()).toBe('0.9995');
+        expect(transfer?.costBasisPerUnit.toFixed()).toBe('50000');
+        expect(transfer?.sourceTransactionId).toBe(2);
+        expect(transfer?.targetTransactionId).toBe(3);
+      }
+    });
+  });
+
+  describe('3. Simple transfer with crypto fee (CA/add-to-basis)', () => {
+    it('should add network fee to cost basis with CA jurisdiction', async () => {
+      const purchaseTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'kraken',
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        []
+      );
+
+      const withdrawalTx = createTransaction(
+        2,
+        '2024-02-01T12:00:00Z',
+        'kraken',
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        { network: { asset: 'BTC', amount: parseDecimal('0.0005'), priceAtTxTime: createPriceAtTxTime('60000') } }
+      );
+
+      const depositTx = createTransaction(
+        3,
+        '2024-02-01T14:00:00Z',
+        'blockchain-wallet',
+        [{ asset: 'BTC', amount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        []
+      );
+
+      transactions = [purchaseTx, withdrawalTx, depositTx];
+
+      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'add-to-basis' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        expect(btcResult).toBeDefined();
+
+        expect(btcResult!.lots).toHaveLength(2);
+        expect(btcResult!.disposals).toHaveLength(0);
+
+        const transferLot = btcResult!.lots[1];
+        expect(transferLot?.acquisitionTransactionId).toBe(3);
+        expect(transferLot?.quantity.toFixed()).toBe('0.9995');
+        const expectedBasis = new Decimal('49975').plus(new Decimal('30'));
+        const expectedPerUnit = expectedBasis.dividedBy(new Decimal('0.9995'));
+        expect(transferLot?.costBasisPerUnit.toFixed()).toBe(expectedPerUnit.toFixed());
+
+        expect(btcResult!.lotTransfers).toHaveLength(1);
+        const transfer = btcResult!.lotTransfers[0];
+        expect(transfer?.metadata?.cryptoFeeUsdValue).toBeDefined();
+        expect(new Decimal(transfer!.metadata!.cryptoFeeUsdValue!).toFixed()).toBe('30');
+      }
+    });
+  });
+
+  describe('4. Simple transfer with fiat fee', () => {
+    it('should add fiat fee to cost basis of target', async () => {
+      const purchaseTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'kraken',
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        []
+      );
+
+      const withdrawalTx = createTransaction(
+        2,
+        '2024-02-01T12:00:00Z',
+        'kraken',
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        {
+          network: { asset: 'BTC', amount: parseDecimal('0.0005'), priceAtTxTime: createPriceAtTxTime('60000') },
+          platform: { asset: 'USD', amount: parseDecimal('1.5'), priceAtTxTime: createPriceAtTxTime('1') },
+        }
+      );
+
+      const depositTx = createTransaction(
+        3,
+        '2024-02-01T14:00:00Z',
+        'blockchain-wallet',
+        [{ asset: 'BTC', amount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        []
+      );
+
+      transactions = [purchaseTx, withdrawalTx, depositTx];
+
+      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        expect(btcResult).toBeDefined();
+
+        const transferLot = btcResult!.lots[1];
+        expect(transferLot?.acquisitionTransactionId).toBe(3);
+        const expectedBasis = new Decimal('49975').plus(new Decimal('1.5'));
+        const expectedPerUnit = expectedBasis.dividedBy(new Decimal('0.9995'));
+        expect(transferLot?.costBasisPerUnit.toFixed()).toBe(expectedPerUnit.toFixed());
+      }
+    });
+  });
+
+  describe('5. Multi-hop transfer', () => {
+    it('should handle sequential links (exchange A → B → C)', async () => {
+      const purchaseTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'kraken',
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        []
+      );
+
+      const withdrawal1Tx = createTransaction(
+        2,
+        '2024-02-01T12:00:00Z',
+        'kraken',
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        { network: { asset: 'BTC', amount: parseDecimal('0.0005'), priceAtTxTime: createPriceAtTxTime('60000') } }
+      );
+
+      const deposit1Tx = createTransaction(
+        3,
+        '2024-02-01T14:00:00Z',
+        'wallet',
+        [{ asset: 'BTC', amount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        []
+      );
+
+      const withdrawal2Tx = createTransaction(
+        4,
+        '2024-03-01T12:00:00Z',
+        'wallet',
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('65000') }],
+        { network: { asset: 'BTC', amount: parseDecimal('0.0003'), priceAtTxTime: createPriceAtTxTime('65000') } }
+      );
+
+      const deposit2Tx = createTransaction(
+        5,
+        '2024-03-01T14:00:00Z',
+        'coinbase',
+        [{ asset: 'BTC', amount: parseDecimal('0.9992'), priceAtTxTime: createPriceAtTxTime('65000') }],
+        []
+      );
+
+      transactions = [purchaseTx, withdrawal1Tx, deposit1Tx, withdrawal2Tx, deposit2Tx];
+
+      const link1 = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+      const link2 = createLink('link2', 4, 5, 'BTC', '0.9995', '0.9992');
+
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link1, link2]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        expect(btcResult).toBeDefined();
+
+        expect(btcResult!.lots).toHaveLength(3);
+        expect(btcResult!.disposals).toHaveLength(2);
+        expect(btcResult!.lotTransfers).toHaveLength(2);
+
+        const finalLot = btcResult!.lots[2];
+        expect(finalLot?.acquisitionTransactionId).toBe(5);
+        expect(finalLot?.quantity.toFixed()).toBe('0.9992');
+        expect(finalLot?.costBasisPerUnit.toFixed()).toBe('50000');
+
+        const feeDisposal1 = btcResult!.disposals[0];
+        expect(feeDisposal1?.quantityDisposed.toFixed()).toBe('0.0005');
+        const feeDisposal2 = btcResult!.disposals[1];
+        expect(feeDisposal2?.quantityDisposed.toFixed()).toBe('0.0003');
+      }
+    });
+  });
+
+  describe('6. Third-asset fee', () => {
+    it('should create disposal for fee in different asset (e.g., BTC transfer, ETH fee)', async () => {
+      const purchaseBTCTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'exchange',
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        []
+      );
+
+      const purchaseETHTx = createTransaction(
+        2,
+        '2024-01-01T00:00:00Z',
+        'exchange',
+        [{ asset: 'ETH', amount: parseDecimal('10'), priceAtTxTime: createPriceAtTxTime('3000') }],
+        []
+      );
+
+      const withdrawalTx = createTransaction(
+        3,
+        '2024-02-01T12:00:00Z',
+        'exchange',
+        [],
+        [
+          { asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') },
+          { asset: 'ETH', amount: parseDecimal('0.01'), priceAtTxTime: createPriceAtTxTime('3500') },
+        ],
+        { network: { asset: 'ETH', amount: parseDecimal('0.01'), priceAtTxTime: createPriceAtTxTime('3500') } }
+      );
+
+      const depositTx = createTransaction(
+        4,
+        '2024-02-01T14:00:00Z',
+        'wallet',
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        []
+      );
+
+      transactions = [purchaseBTCTx, purchaseETHTx, withdrawalTx, depositTx];
+
+      const link = createLink('link1', 3, 4, 'BTC', '1.0', '1.0');
+
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const ethResult = result.value.assetResults.find((r) => r.asset === 'ETH');
+
+        expect(btcResult).toBeDefined();
+        expect(ethResult).toBeDefined();
+
+        expect(btcResult!.lotTransfers).toHaveLength(1);
+        expect(btcResult!.disposals).toHaveLength(0);
+
+        expect(ethResult!.disposals).toHaveLength(1);
+        const ethFeeDisposal = ethResult!.disposals[0];
+        expect(ethFeeDisposal?.quantityDisposed.toFixed()).toBe('0.01');
+        expect(ethFeeDisposal?.proceedsPerUnit.toFixed()).toBe('3500');
+      }
+    });
+  });
+
+  describe('7. Batched withdrawal', () => {
+    it('should handle single transaction with 2 outflows of same asset/amount', async () => {
+      const purchaseTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'exchange',
+        [{ asset: 'BTC', amount: parseDecimal('2'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        []
+      );
+
+      const batchedWithdrawalTx = createTransaction(
+        2,
+        '2024-02-01T12:00:00Z',
+        'exchange',
+        [],
+        [
+          { asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') },
+          { asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') },
+        ],
+        { network: { asset: 'BTC', amount: parseDecimal('0.0005'), priceAtTxTime: createPriceAtTxTime('60000') } }
+      );
+
+      const deposit1Tx = createTransaction(
+        3,
+        '2024-02-01T14:00:00Z',
+        'wallet-a',
+        [{ asset: 'BTC', amount: parseDecimal('0.99975'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        []
+      );
+
+      const deposit2Tx = createTransaction(
+        4,
+        '2024-02-01T14:00:00Z',
+        'wallet-b',
+        [{ asset: 'BTC', amount: parseDecimal('0.99975'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        []
+      );
+
+      transactions = [purchaseTx, batchedWithdrawalTx, deposit1Tx, deposit2Tx];
+
+      const link1 = createLink('link1', 2, 3, 'BTC', '1.0', '0.99975');
+      const link2 = createLink('link2', 2, 4, 'BTC', '1.0', '0.99975');
+
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link1, link2]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        expect(btcResult).toBeDefined();
+
+        expect(btcResult!.lots).toHaveLength(3);
+        expect(btcResult!.lotTransfers).toHaveLength(2);
+
+        const transferLot1 = btcResult!.lots[1];
+        expect(transferLot1?.acquisitionTransactionId).toBe(3);
+        expect(transferLot1?.quantity.toFixed()).toBe('0.99975');
+
+        const transferLot2 = btcResult!.lots[2];
+        expect(transferLot2?.acquisitionTransactionId).toBe(4);
+        expect(transferLot2?.quantity.toFixed()).toBe('0.99975');
+      }
+    });
+  });
+
+  describe('8. Multiple inflows', () => {
+    it('should handle multiple inflows of same asset aggregated', async () => {
+      const purchaseTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'exchange-a',
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        []
+      );
+
+      const withdrawalTx = createTransaction(
+        2,
+        '2024-02-01T12:00:00Z',
+        'exchange-a',
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        { network: { asset: 'BTC', amount: parseDecimal('0.0005'), priceAtTxTime: createPriceAtTxTime('60000') } }
+      );
+
+      const depositTx = createTransaction(
+        3,
+        '2024-02-01T14:00:00Z',
+        'exchange-b',
+        [
+          { asset: 'BTC', amount: parseDecimal('0.5'), priceAtTxTime: createPriceAtTxTime('60000') },
+          { asset: 'BTC', amount: parseDecimal('0.4995'), priceAtTxTime: createPriceAtTxTime('60000') },
+        ],
+        []
+      );
+
+      transactions = [purchaseTx, withdrawalTx, depositTx];
+
+      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        expect(btcResult).toBeDefined();
+
+        expect(btcResult!.lots).toHaveLength(2);
+        expect(btcResult!.lotTransfers).toHaveLength(1);
+
+        const transferLot = btcResult!.lots[1];
+        expect(transferLot?.quantity.toFixed()).toBe('0.9995');
+        expect(transferLot?.acquisitionTransactionId).toBe(3);
+      }
+    });
+  });
+
+  describe('9. Multiple crypto fees', () => {
+    it('should handle both network + platform fees in same asset', async () => {
+      const purchaseTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'exchange',
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        []
+      );
+
+      const withdrawalTx = createTransaction(
+        2,
+        '2024-02-01T12:00:00Z',
+        'exchange',
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        {
+          network: { asset: 'BTC', amount: parseDecimal('0.0003'), priceAtTxTime: createPriceAtTxTime('60000') },
+          platform: { asset: 'BTC', amount: parseDecimal('0.0002'), priceAtTxTime: createPriceAtTxTime('60000') },
+        }
+      );
+
+      const depositTx = createTransaction(
+        3,
+        '2024-02-01T14:00:00Z',
+        'wallet',
+        [{ asset: 'BTC', amount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        []
+      );
+
+      transactions = [purchaseTx, withdrawalTx, depositTx];
+
+      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        expect(btcResult).toBeDefined();
+
+        expect(btcResult!.disposals).toHaveLength(1);
+        const feeDisposal = btcResult!.disposals[0];
+        expect(feeDisposal?.quantityDisposed.toFixed()).toBe('0.0005');
+
+        expect(btcResult!.lotTransfers).toHaveLength(1);
+        const transfer = btcResult!.lotTransfers[0];
+        expect(transfer?.quantityTransferred.toFixed()).toBe('0.9995');
+      }
+    });
+  });
+
+  describe('10. Moderate variance warning', () => {
+    it('should warn but succeed on 1.2% variance on Binance', async () => {
+      const purchaseTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'binance',
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        []
+      );
+
+      const withdrawalTx = createTransaction(
+        2,
+        '2024-02-01T12:00:00Z',
+        'binance',
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        { network: { asset: 'BTC', amount: parseDecimal('0.0005'), priceAtTxTime: createPriceAtTxTime('60000') } }
+      );
+
+      const depositTx = createTransaction(
+        3,
+        '2024-02-01T14:00:00Z',
+        'wallet',
+        [{ asset: 'BTC', amount: parseDecimal('0.9875'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        []
+      );
+
+      transactions = [purchaseTx, withdrawalTx, depositTx];
+
+      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9875');
+
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        expect(btcResult).toBeDefined();
+        expect(btcResult!.lotTransfers).toHaveLength(1);
+      }
+    });
+  });
+
+  describe('11. Excessive variance error', () => {
+    it('should error on 6% variance on Binance', async () => {
+      const purchaseTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'binance',
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        []
+      );
+
+      const withdrawalTx = createTransaction(
+        2,
+        '2024-02-01T12:00:00Z',
+        'binance',
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        { network: { asset: 'BTC', amount: parseDecimal('0.0005'), priceAtTxTime: createPriceAtTxTime('60000') } }
+      );
+
+      const depositTx = createTransaction(
+        3,
+        '2024-02-01T14:00:00Z',
+        'wallet',
+        [{ asset: 'BTC', amount: parseDecimal('0.94'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        []
+      );
+
+      transactions = [purchaseTx, withdrawalTx, depositTx];
+
+      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.94');
+
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Transfer amount mismatch');
+        expect(result.error.message).toContain('variance');
+      }
+    });
+  });
+
+  describe('12. Hidden fee scenario', () => {
+    it('should accept 2% variance within Binance tolerance', async () => {
+      const purchaseTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'binance',
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        []
+      );
+
+      const withdrawalTx = createTransaction(
+        2,
+        '2024-02-01T12:00:00Z',
+        'binance',
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        {}
+      );
+
+      const depositTx = createTransaction(
+        3,
+        '2024-02-01T14:00:00Z',
+        'wallet',
+        [{ asset: 'BTC', amount: parseDecimal('0.98'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        []
+      );
+
+      transactions = [purchaseTx, withdrawalTx, depositTx];
+
+      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.98');
+
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        expect(btcResult).toBeDefined();
+        expect(btcResult!.lotTransfers).toHaveLength(1);
+      }
+    });
+  });
+
+  describe('13. Missing price graceful degradation', () => {
+    it('should warn when crypto fee lacks price with add-to-basis policy', async () => {
+      const purchaseTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'kraken',
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        []
+      );
+
+      const withdrawalTx = createTransaction(
+        2,
+        '2024-02-01T12:00:00Z',
+        'kraken',
+        [],
+        [{ asset: 'BTC', amount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        { network: { asset: 'BTC', amount: parseDecimal('0.0005') } }
+      );
+
+      const depositTx = createTransaction(
+        3,
+        '2024-02-01T14:00:00Z',
+        'wallet',
+        [{ asset: 'BTC', amount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        []
+      );
+
+      transactions = [purchaseTx, withdrawalTx, depositTx];
+
+      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+
+      const txRepo = mockTransactionRepo();
+      const linkRepo = mockLinkRepo([link]);
+      const matcher = new LotMatcher(txRepo, linkRepo);
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matcher.match(transactions, {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'add-to-basis' },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        expect(btcResult).toBeDefined();
+
+        const transferLot = btcResult!.lots[1];
+        expect(transferLot).toBeDefined();
+
+        const transfer = btcResult!.lotTransfers[0];
+        expect(transfer?.metadata?.cryptoFeeUsdValue).toBeUndefined();
+
+        const expectedBasis = new Decimal('49975');
+        const expectedPerUnit = expectedBasis.dividedBy(new Decimal('0.9995'));
+        expect(transferLot?.costBasisPerUnit.toFixed()).toBe(expectedPerUnit.toFixed());
+      }
+    });
+  });
+});

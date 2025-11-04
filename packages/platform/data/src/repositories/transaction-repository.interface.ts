@@ -30,4 +30,9 @@ export interface ITransactionRepository {
    * Returns the database ID of the saved transaction.
    */
   save(transaction: UniversalTransaction, dataSourceId: number): Promise<Result<number, Error>>;
+
+  /**
+   * Find a transaction by its ID.
+   */
+  findById(id: number): Promise<Result<UniversalTransaction | null, Error>>;
 }

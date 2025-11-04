@@ -4,7 +4,9 @@ import {
   CostBasisCalculator,
   CostBasisReportGenerator,
   CostBasisRepository,
+  LotTransferRepository,
   StandardFxRateProvider,
+  TransactionLinkRepository,
   USRules,
 } from '@exitbook/accounting';
 import { Currency, type UniversalTransaction } from '@exitbook/core';
@@ -40,11 +42,15 @@ export interface CostBasisResult {
  */
 export class CostBasisHandler {
   private transactionRepository: TransactionRepository;
+  private transactionLinkRepository: TransactionLinkRepository;
   private costBasisRepository: CostBasisRepository;
+  private lotTransferRepository: LotTransferRepository;
 
   constructor(private database: KyselyDB) {
     this.transactionRepository = new TransactionRepository(this.database);
+    this.transactionLinkRepository = new TransactionLinkRepository(this.database);
     this.costBasisRepository = new CostBasisRepository(this.database);
+    this.lotTransferRepository = new LotTransferRepository(this.database);
   }
 
   /**
@@ -124,7 +130,12 @@ export class CostBasisHandler {
       const rules = this.getJurisdictionRules(config.jurisdiction);
 
       // Create calculator and execute
-      const calculator = new CostBasisCalculator(this.costBasisRepository);
+      const calculator = new CostBasisCalculator(
+        this.costBasisRepository,
+        this.lotTransferRepository,
+        this.transactionRepository,
+        this.transactionLinkRepository
+      );
       const calculationResult = await calculator.calculate(validTransactions, config, rules);
 
       if (calculationResult.isErr()) {

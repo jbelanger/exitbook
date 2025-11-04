@@ -10,10 +10,12 @@ import type { LotDisposal } from '../../domain/schemas.js';
 import { CanadaRules } from '../../jurisdictions/canada-rules.js';
 import { USRules } from '../../jurisdictions/us-rules.js';
 import type { CostBasisRepository } from '../../persistence/cost-basis-repository.js';
+import type { LotTransferRepository } from '../../persistence/lot-transfer-repository.js';
 import { CostBasisCalculator } from '../cost-basis-calculator.js';
 
 describe('CostBasisCalculator', () => {
   let mockRepository: CostBasisRepository;
+  let mockLotTransferRepository: LotTransferRepository;
   let calculator: CostBasisCalculator;
 
   beforeEach(() => {
@@ -25,7 +27,12 @@ describe('CostBasisCalculator', () => {
       updateCalculation: vi.fn().mockResolvedValue(ok(true)),
     } as unknown as CostBasisRepository;
 
-    calculator = new CostBasisCalculator(mockRepository);
+    // Create a minimal mock lot transfer repository
+    mockLotTransferRepository = {
+      createBulk: vi.fn().mockResolvedValue(ok(0)),
+    } as unknown as LotTransferRepository;
+
+    calculator = new CostBasisCalculator(mockRepository, mockLotTransferRepository);
   });
 
   const createTransaction = (
@@ -319,7 +326,7 @@ describe('CostBasisCalculator', () => {
         updateCalculation: vi.fn().mockResolvedValue(ok(true)),
       } as unknown as CostBasisRepository;
 
-      const failingCalculator = new CostBasisCalculator(failingRepository);
+      const failingCalculator = new CostBasisCalculator(failingRepository, mockLotTransferRepository);
 
       const transactions: UniversalTransaction[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
@@ -355,7 +362,7 @@ describe('CostBasisCalculator', () => {
         updateCalculation: vi.fn().mockResolvedValue(ok(true)),
       } as unknown as CostBasisRepository;
 
-      const trackingCalculator = new CostBasisCalculator(trackingRepository);
+      const trackingCalculator = new CostBasisCalculator(trackingRepository, mockLotTransferRepository);
 
       const transactions: UniversalTransaction[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
@@ -402,7 +409,7 @@ describe('CostBasisCalculator', () => {
         updateCalculation: vi.fn().mockResolvedValue(ok(true)),
       } as unknown as CostBasisRepository;
 
-      const trackingCalculator = new CostBasisCalculator(trackingRepository);
+      const trackingCalculator = new CostBasisCalculator(trackingRepository, mockLotTransferRepository);
 
       const config: CostBasisConfig = {
         method: 'fifo',
@@ -451,7 +458,7 @@ describe('CostBasisCalculator', () => {
         }),
       } as unknown as CostBasisRepository;
 
-      const trackingCalculator = new CostBasisCalculator(trackingRepository);
+      const trackingCalculator = new CostBasisCalculator(trackingRepository, mockLotTransferRepository);
 
       const config: CostBasisConfig = {
         method: 'fifo',
@@ -533,7 +540,7 @@ describe('CostBasisCalculator', () => {
         }),
       } as unknown as CostBasisRepository;
 
-      const trackingCalculator = new CostBasisCalculator(trackingRepository);
+      const trackingCalculator = new CostBasisCalculator(trackingRepository, mockLotTransferRepository);
 
       const config: CostBasisConfig = {
         method: 'fifo',
@@ -955,7 +962,7 @@ describe('CostBasisCalculator', () => {
         }),
       } as unknown as CostBasisRepository;
 
-      const trackingCalculator = new CostBasisCalculator(trackingRepository);
+      const trackingCalculator = new CostBasisCalculator(trackingRepository, mockLotTransferRepository);
 
       const config: CostBasisConfig = {
         method: 'fifo',
