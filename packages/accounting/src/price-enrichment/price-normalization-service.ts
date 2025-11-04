@@ -18,7 +18,7 @@
  *         }
  */
 
-import type { AssetMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
+import type { AssetMovement, FeeMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
@@ -167,16 +167,18 @@ export class PriceNormalizationService {
       result.movementsSkipped++;
     }
 
-    // Check if fees need normalization
-    const platformFeeNeedsNormalization = tx.fees.platform ? movementNeedsNormalization(tx.fees.platform) : false;
-    const networkFeeNeedsNormalization = tx.fees.network ? movementNeedsNormalization(tx.fees.network) : false;
+    // Check if any fees need normalization
+    const feesNeedNormalization = (tx.fees ?? []).some((fee) => {
+      if (!fee.priceAtTxTime) {
+        return false;
+      }
+      const priceCurrency = fee.priceAtTxTime.price.currency;
+      // Needs normalization if it's non-USD fiat
+      return priceCurrency.toString() !== 'USD' && priceCurrency.isFiat();
+    });
 
     // If no movements and no fees need normalization, skip this transaction
-    if (
-      classification.needsNormalization.length === 0 &&
-      !platformFeeNeedsNormalization &&
-      !networkFeeNeedsNormalization
-    ) {
+    if (classification.needsNormalization.length === 0 && !feesNeedNormalization) {
       return undefined;
     }
 
@@ -184,7 +186,11 @@ export class PriceNormalizationService {
       {
         txId: tx.id,
         movementsToNormalize: classification.needsNormalization.length,
-        feesToNormalize: (platformFeeNeedsNormalization ? 1 : 0) + (networkFeeNeedsNormalization ? 1 : 0),
+        feesToNormalize: (tx.fees ?? []).filter((fee) => {
+          if (!fee.priceAtTxTime) return false;
+          const priceCurrency = fee.priceAtTxTime.price.currency;
+          return priceCurrency.toString() !== 'USD' && priceCurrency.isFiat();
+        }).length,
       },
       'Normalizing transaction'
     );
@@ -193,9 +199,8 @@ export class PriceNormalizationService {
     const normalizedInflows = await this.normalizeMovements(inflows, tx.datetime, result);
     const normalizedOutflows = await this.normalizeMovements(outflows, tx.datetime, result);
 
-    // Normalize fees
-    const normalizedPlatformFee = await this.normalizeFee(tx.fees.platform, tx.datetime, result);
-    const normalizedNetworkFee = await this.normalizeFee(tx.fees.network, tx.datetime, result);
+    // Normalize fees array
+    const normalizedFees = await this.normalizeFees(tx.fees ?? [], tx.datetime, result);
 
     // Return updated transaction
     return {
@@ -204,10 +209,7 @@ export class PriceNormalizationService {
         inflows: normalizedInflows,
         outflows: normalizedOutflows,
       },
-      fees: {
-        platform: normalizedPlatformFee,
-        network: normalizedNetworkFee,
-      },
+      fees: normalizedFees,
     };
   }
 
@@ -254,6 +256,69 @@ export class PriceNormalizationService {
       result.movementsNormalized++;
       normalized.push({
         ...movement,
+        priceAtTxTime: normalizedPrice.value,
+      });
+    }
+
+    return normalized;
+  }
+
+  /**
+   * Normalize an array of fees
+   */
+  private async normalizeFees(
+    fees: FeeMovement[],
+    txDatetime: string,
+    result: NormalizeResult
+  ): Promise<FeeMovement[]> {
+    const normalized: FeeMovement[] = [];
+
+    for (const fee of fees) {
+      // Skip if no price to normalize
+      if (!fee.priceAtTxTime) {
+        normalized.push(fee);
+        continue;
+      }
+
+      const priceCurrency = fee.priceAtTxTime.price.currency;
+
+      // Skip if already USD
+      if (priceCurrency.toString() === 'USD') {
+        normalized.push(fee);
+        continue;
+      }
+
+      // Skip if not a fiat currency
+      if (!priceCurrency.isFiat()) {
+        normalized.push(fee);
+        continue;
+      }
+
+      // Normalize this price
+      const normalizedPrice = await this.normalizePriceToUSD(fee.priceAtTxTime, new Date(txDatetime));
+
+      if (normalizedPrice.isErr()) {
+        logger.warn(
+          {
+            asset: fee.asset,
+            scope: fee.scope,
+            settlement: fee.settlement,
+            currency: priceCurrency.toString(),
+            error: normalizedPrice.error.message,
+          },
+          'Failed to normalize fee price'
+        );
+        result.failures++;
+        result.errors.push(`Fee ${fee.asset} (${priceCurrency.toString()} → USD): ${normalizedPrice.error.message}`);
+        // Keep original price
+        normalized.push(fee);
+        continue;
+      }
+
+      // Success - update fee with normalized price
+      result.movementsNormalized++;
+      normalized.push({
+        ...fee,
         priceAtTxTime: normalizedPrice.value,
       });
     }

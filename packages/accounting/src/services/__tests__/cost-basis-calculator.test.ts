@@ -50,7 +50,7 @@ describe('CostBasisCalculator', () => {
     movements: {
       inflows: inflows.map((i) => ({
         asset: i.asset,
-        amount: new Decimal(i.amount),
+        grossAmount: new Decimal(i.amount),
         priceAtTxTime: {
           price: { amount: new Decimal(i.price), currency: Currency.create('USD') },
           source: 'test',
@@ -60,7 +60,7 @@ describe('CostBasisCalculator', () => {
       })),
       outflows: outflows.map((o) => ({
         asset: o.asset,
-        amount: new Decimal(o.amount),
+        grossAmount: new Decimal(o.amount),
         priceAtTxTime: {
           price: { amount: new Decimal(o.price), currency: Currency.create('USD') },
           source: 'test',
@@ -70,7 +70,7 @@ describe('CostBasisCalculator', () => {
       })),
     },
     operation: { category: 'trade', type: inflows.length > 0 ? 'buy' : 'sell' },
-    fees: {},
+    fees: [],
     metadata: {},
   });
 
@@ -196,14 +196,14 @@ describe('CostBasisCalculator', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: new Decimal('1'),
+              grossAmount: new Decimal('1'),
               // Missing priceAtTxTime
             },
           ],
           outflows: [],
         },
         operation: { category: 'transfer', type: 'deposit' },
-        fees: {},
+        fees: [],
         metadata: {},
       };
 
@@ -235,7 +235,7 @@ describe('CostBasisCalculator', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: new Decimal('1'),
+              grossAmount: new Decimal('1'),
               priceAtTxTime: {
                 price: { amount: new Decimal('30000'), currency: Currency.create('USD') },
                 source: 'test',
@@ -247,13 +247,13 @@ describe('CostBasisCalculator', () => {
           outflows: [
             {
               asset: 'USD',
-              amount: new Decimal('30000'),
+              grossAmount: new Decimal('30000'),
               // Missing priceAtTxTime - but should be OK since USD is fiat
             },
           ],
         },
         operation: { category: 'trade', type: 'buy' },
-        fees: {},
+        fees: [],
         metadata: {},
       };
 
@@ -500,16 +500,20 @@ describe('CostBasisCalculator', () => {
       ): UniversalTransaction => {
         const tx = createTransaction(id, datetime, inflows, outflows);
         if (platformFee) {
-          tx.fees.platform = {
-            asset: platformFee.asset,
-            amount: new Decimal(platformFee.amount),
-            priceAtTxTime: {
-              price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
-              source: 'test',
-              fetchedAt: new Date(datetime),
-              granularity: 'exact',
+          tx.fees = [
+            {
+              scope: 'platform',
+              settlement: 'balance',
+              asset: platformFee.asset,
+              amount: new Decimal(platformFee.amount),
+              priceAtTxTime: {
+                price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
+                source: 'test',
+                fetchedAt: new Date(datetime),
+                granularity: 'exact',
+              },
             },
-          };
+          ];
         }
         return tx;
       };
@@ -595,7 +599,7 @@ describe('CostBasisCalculator', () => {
           movements: {
             inflows: inflows.map((i) => ({
               asset: i.asset,
-              amount: new Decimal(i.amount),
+              grossAmount: new Decimal(i.amount),
               priceAtTxTime: {
                 price: { amount: new Decimal(i.price), currency: Currency.create('USD') },
                 source: 'test',
@@ -605,7 +609,7 @@ describe('CostBasisCalculator', () => {
             })),
             outflows: outflows.map((o) => ({
               asset: o.asset,
-              amount: new Decimal(o.amount),
+              grossAmount: new Decimal(o.amount),
               priceAtTxTime: {
                 price: { amount: new Decimal(o.price), currency: Currency.create('USD') },
                 source: 'test',
@@ -615,21 +619,25 @@ describe('CostBasisCalculator', () => {
             })),
           },
           operation: { category: 'trade', type: inflows.length > 0 ? 'buy' : 'sell' },
-          fees: {},
+          fees: [],
           metadata: {},
         };
 
         if (platformFee) {
-          tx.fees.platform = {
-            asset: platformFee.asset,
-            amount: new Decimal(platformFee.amount),
-            priceAtTxTime: {
-              price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
-              source: 'test',
-              fetchedAt: new Date(datetime),
-              granularity: 'exact',
+          tx.fees = [
+            {
+              scope: 'platform',
+              settlement: 'balance',
+              asset: platformFee.asset,
+              amount: new Decimal(platformFee.amount),
+              priceAtTxTime: {
+                price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
+                source: 'test',
+                fetchedAt: new Date(datetime),
+                granularity: 'exact',
+              },
             },
-          };
+          ];
         }
 
         return tx;
@@ -698,7 +706,7 @@ describe('CostBasisCalculator', () => {
             outflows: [
               {
                 asset: 'BTC',
-                amount: new Decimal('0.5'),
+                grossAmount: new Decimal('0.5'),
                 priceAtTxTime: {
                   price: { amount: new Decimal('35000'), currency: Currency.create('EUR') },
                   source: 'test',
@@ -709,7 +717,7 @@ describe('CostBasisCalculator', () => {
             ],
           },
           operation: { category: 'trade', type: 'sell' },
-          fees: {},
+          fees: [],
           metadata: {},
         },
       ];
@@ -744,7 +752,7 @@ describe('CostBasisCalculator', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: new Decimal('1'),
+              grossAmount: new Decimal('1'),
               priceAtTxTime: {
                 price: { amount: new Decimal('30000'), currency: Currency.create('USD') },
                 source: 'test',
@@ -756,8 +764,10 @@ describe('CostBasisCalculator', () => {
           outflows: [],
         },
         operation: { category: 'trade', type: 'buy' },
-        fees: {
-          platform: {
+        fees: [
+          {
+            scope: 'platform',
+            settlement: 'balance',
             asset: 'EUR',
             amount: new Decimal('10'),
             priceAtTxTime: {
@@ -767,7 +777,7 @@ describe('CostBasisCalculator', () => {
               granularity: 'exact',
             },
           },
-        },
+        ],
         metadata: {},
       };
 
@@ -800,7 +810,7 @@ describe('CostBasisCalculator', () => {
             inflows: [
               {
                 asset: 'BTC',
-                amount: new Decimal('1'),
+                grossAmount: new Decimal('1'),
                 priceAtTxTime: {
                   price: { amount: new Decimal('30000'), currency: Currency.create('USD') },
                   source: 'test',
@@ -812,7 +822,7 @@ describe('CostBasisCalculator', () => {
             outflows: [],
           },
           operation: { category: 'trade', type: 'buy' },
-          fees: {},
+          fees: [],
           metadata: {},
         },
         {
@@ -827,7 +837,7 @@ describe('CostBasisCalculator', () => {
             outflows: [
               {
                 asset: 'BTC',
-                amount: new Decimal('0.5'),
+                grossAmount: new Decimal('0.5'),
                 priceAtTxTime: {
                   price: { amount: new Decimal('40000'), currency: Currency.create('USD') },
                   source: 'test',
@@ -838,7 +848,7 @@ describe('CostBasisCalculator', () => {
             ],
           },
           operation: { category: 'trade', type: 'sell' },
-          fees: {},
+          fees: [],
           metadata: {},
         },
       ];
@@ -874,7 +884,7 @@ describe('CostBasisCalculator', () => {
             inflows: [
               {
                 asset: 'BTC',
-                amount: new Decimal('1'),
+                grossAmount: new Decimal('1'),
                 priceAtTxTime: {
                   price: { amount: new Decimal('30000'), currency: Currency.create('EUR') },
                   source: 'test',
@@ -886,7 +896,7 @@ describe('CostBasisCalculator', () => {
             outflows: [],
           },
           operation: { category: 'trade', type: 'buy' },
-          fees: {},
+          fees: [],
           metadata: {},
         });
       }
@@ -924,16 +934,20 @@ describe('CostBasisCalculator', () => {
       ): UniversalTransaction => {
         const tx = createTransaction(id, datetime, inflows, outflows);
         if (platformFee) {
-          tx.fees.platform = {
-            asset: platformFee.asset,
-            amount: new Decimal(platformFee.amount),
-            priceAtTxTime: {
-              price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
-              source: 'test',
-              fetchedAt: new Date(datetime),
-              granularity: 'exact',
+          tx.fees = [
+            {
+              scope: 'platform',
+              settlement: 'balance',
+              asset: platformFee.asset,
+              amount: new Decimal(platformFee.amount),
+              priceAtTxTime: {
+                price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
+                source: 'test',
+                fetchedAt: new Date(datetime),
+                granularity: 'exact',
+              },
             },
-          };
+          ];
         }
         return tx;
       };

@@ -14,7 +14,7 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('1.5'),
+        grossAmount: parseDecimal('1.5'),
       },
     ];
 
@@ -22,7 +22,7 @@ describe('computePrimaryMovement', () => {
 
     expect(result).toEqual({
       asset: 'BTC',
-      amount: parseDecimal('1.5'),
+      grossAmount: parseDecimal('1.5'),
       direction: 'in',
     });
   });
@@ -31,7 +31,7 @@ describe('computePrimaryMovement', () => {
     const outflows: AssetMovement[] = [
       {
         asset: 'ETH',
-        amount: parseDecimal('2.5'),
+        grossAmount: parseDecimal('2.5'),
       },
     ];
 
@@ -39,7 +39,7 @@ describe('computePrimaryMovement', () => {
 
     expect(result).toEqual({
       asset: 'ETH',
-      amount: parseDecimal('2.5'),
+      grossAmount: parseDecimal('2.5'),
       direction: 'out',
     });
   });
@@ -48,15 +48,15 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('0.5'),
+        grossAmount: parseDecimal('0.5'),
       },
       {
         asset: 'ETH',
-        amount: parseDecimal('10'),
+        grossAmount: parseDecimal('10'),
       },
       {
         asset: 'USDT',
-        amount: parseDecimal('1000'),
+        grossAmount: parseDecimal('1000'),
       },
     ];
 
@@ -64,7 +64,7 @@ describe('computePrimaryMovement', () => {
 
     expect(result).toEqual({
       asset: 'USDT',
-      amount: parseDecimal('1000'),
+      grossAmount: parseDecimal('1000'),
       direction: 'in',
     });
   });
@@ -73,15 +73,15 @@ describe('computePrimaryMovement', () => {
     const outflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('0.1'),
+        grossAmount: parseDecimal('0.1'),
       },
       {
         asset: 'ETH',
-        amount: parseDecimal('5'),
+        grossAmount: parseDecimal('5'),
       },
       {
         asset: 'USDC',
-        amount: parseDecimal('100'),
+        grossAmount: parseDecimal('100'),
       },
     ];
 
@@ -89,7 +89,7 @@ describe('computePrimaryMovement', () => {
 
     expect(result).toEqual({
       asset: 'USDC',
-      amount: parseDecimal('100'),
+      grossAmount: parseDecimal('100'),
       direction: 'out',
     });
   });
@@ -98,13 +98,13 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'USDT',
-        amount: parseDecimal('1000'),
+        grossAmount: parseDecimal('1000'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('0.5'),
+        grossAmount: parseDecimal('0.5'),
       },
     ];
 
@@ -112,7 +112,7 @@ describe('computePrimaryMovement', () => {
 
     expect(result).toEqual({
       asset: 'USDT',
-      amount: parseDecimal('1000'),
+      grossAmount: parseDecimal('1000'),
       direction: 'in',
     });
   });
@@ -121,13 +121,13 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'USDT',
-        amount: parseDecimal('100'),
+        grossAmount: parseDecimal('100'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('500'),
+        grossAmount: parseDecimal('500'),
       },
     ];
 
@@ -135,7 +135,7 @@ describe('computePrimaryMovement', () => {
 
     expect(result).toEqual({
       asset: 'BTC',
-      amount: parseDecimal('500'),
+      grossAmount: parseDecimal('500'),
       direction: 'out',
     });
   });
@@ -144,13 +144,13 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('1'),
+        grossAmount: parseDecimal('1'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         asset: 'ETH',
-        amount: parseDecimal('1'),
+        grossAmount: parseDecimal('1'),
       },
     ];
 
@@ -158,7 +158,7 @@ describe('computePrimaryMovement', () => {
 
     expect(result).toEqual({
       asset: 'BTC',
-      amount: parseDecimal('1'),
+      grossAmount: parseDecimal('1'),
       direction: 'in',
     });
   });
@@ -168,13 +168,13 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('1'),
+        grossAmount: parseDecimal('1'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         asset: 'USDT',
-        amount: parseDecimal('50000'),
+        grossAmount: parseDecimal('50000'),
       },
     ];
 
@@ -183,7 +183,7 @@ describe('computePrimaryMovement', () => {
     // USDT amount is larger numerically, so it becomes primary
     expect(result).toEqual({
       asset: 'USDT',
-      amount: parseDecimal('50000'),
+      grossAmount: parseDecimal('50000'),
       direction: 'out',
     });
   });
@@ -193,21 +193,21 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'ETH',
-        amount: parseDecimal('10'),
+        grossAmount: parseDecimal('10'),
       },
       {
         asset: 'USDC',
-        amount: parseDecimal('100'),
+        grossAmount: parseDecimal('100'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('0.5'),
+        grossAmount: parseDecimal('0.5'),
       },
       {
         asset: 'USDT',
-        amount: parseDecimal('5000'),
+        grossAmount: parseDecimal('5000'),
       },
     ];
 
@@ -216,7 +216,7 @@ describe('computePrimaryMovement', () => {
     // USDT outflow (5000) is the largest
     expect(result).toEqual({
       asset: 'USDT',
-      amount: parseDecimal('5000'),
+      grossAmount: parseDecimal('5000'),
       direction: 'out',
     });
   });
@@ -225,7 +225,7 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'BTC',
-        amount: parseDecimal('0.00000001'), // 1 satoshi
+        grossAmount: parseDecimal('0.00000001'), // 1 satoshi
       },
     ];
 
@@ -233,7 +233,7 @@ describe('computePrimaryMovement', () => {
 
     expect(result).toEqual({
       asset: 'BTC',
-      amount: parseDecimal('0.00000001'),
+      grossAmount: parseDecimal('0.00000001'),
       direction: 'in',
     });
   });
@@ -242,7 +242,7 @@ describe('computePrimaryMovement', () => {
     const inflows: AssetMovement[] = [
       {
         asset: 'SHIB',
-        amount: parseDecimal('1000000000000'),
+        grossAmount: parseDecimal('1000000000000'),
       },
     ];
 
@@ -250,7 +250,7 @@ describe('computePrimaryMovement', () => {
 
     expect(result).toEqual({
       asset: 'SHIB',
-      amount: parseDecimal('1000000000000'),
+      grossAmount: parseDecimal('1000000000000'),
       direction: 'in',
     });
   });

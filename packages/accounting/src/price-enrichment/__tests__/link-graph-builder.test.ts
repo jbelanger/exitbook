@@ -22,10 +22,14 @@ function createTransaction(params: {
     timestamp: new Date(params.datetime).getTime(),
     status: 'success',
     movements: {
-      inflows: params.inflows ? params.inflows.map((m) => ({ asset: m.asset, amount: parseDecimal(m.amount) })) : [],
-      outflows: params.outflows ? params.outflows.map((m) => ({ asset: m.asset, amount: parseDecimal(m.amount) })) : [],
+      inflows: params.inflows
+        ? params.inflows.map((m) => ({ asset: m.asset, grossAmount: parseDecimal(m.amount) }))
+        : [],
+      outflows: params.outflows
+        ? params.outflows.map((m) => ({ asset: m.asset, grossAmount: parseDecimal(m.amount) }))
+        : [],
     },
-    fees: {},
+    fees: [],
     operation: {
       category: 'transfer',
       type: 'transfer',

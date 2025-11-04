@@ -142,7 +142,7 @@ function deriveInflowPricesFromOutflows(
     }
 
     // Calculate inflow price from outflow using swap ratio
-    const ratio = trade.outflow.amount.dividedBy(trade.inflow.amount);
+    const ratio = trade.outflow.grossAmount.dividedBy(trade.inflow.grossAmount);
     const derivedPrice = trade.outflow.priceAtTxTime.price.amount.times(ratio);
 
     const ratioPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [
@@ -219,7 +219,9 @@ function recalculateCryptoSwapRatios(
     // Both are crypto: recalculate inflow from outflow using swap ratio
     // We trust the outflow price (disposal side) as it should be FMV from fetch
     // Then calculate inflow (acquisition) from the ratio
-    const ratio = parseDecimal(trade.outflow.amount.toFixed()).dividedBy(parseDecimal(trade.inflow.amount.toFixed()));
+    const ratio = parseDecimal(trade.outflow.grossAmount.toFixed()).dividedBy(
+      parseDecimal(trade.inflow.grossAmount.toFixed())
+    );
     const derivedPrice = parseDecimal(trade.outflow.priceAtTxTime.price.amount.toFixed()).times(ratio);
 
     const ratioPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [
@@ -349,8 +351,8 @@ export function propagatePricesAcrossLinks(
       for (const targetMovement of targetInflows) {
         if (targetMovement.asset === sourceMovement.asset) {
           // Check if amounts are reasonably close (allow up to 10% difference for fees)
-          const sourceAmount = sourceMovement.amount.toNumber();
-          const targetAmount = targetMovement.amount.toNumber();
+          const sourceAmount = sourceMovement.grossAmount.toNumber();
+          const targetAmount = targetMovement.grossAmount.toNumber();
           const amountDiff = Math.abs(sourceAmount - targetAmount);
           const amountTolerance = sourceAmount * 0.1; // 10% tolerance
 
@@ -428,7 +430,7 @@ export function enrichFeePricesFromMovements(transactions: UniversalTransaction[
     const outflows = tx.movements.outflows ?? [];
     const allMovements = [...inflows, ...outflows];
 
-    // Build price lookup map by asset
+    // Build price lookup map by asset from movements
     const pricesByAsset = new Map<string, PriceAtTxTime>();
     for (const movement of allMovements) {
       if (movement.priceAtTxTime && !pricesByAsset.has(movement.asset)) {
@@ -436,49 +438,65 @@ export function enrichFeePricesFromMovements(transactions: UniversalTransaction[
       }
     }
 
-    // Enrich platform fee if needed
-    let platformFee = tx.fees.platform;
-    if (platformFee && !platformFee.priceAtTxTime) {
-      const price = pricesByAsset.get(platformFee.asset);
-      if (price) {
-        platformFee = { ...platformFee, priceAtTxTime: price };
-      }
+    // Process fees array instead of fees.platform/fees.network
+    const fees = tx.fees ?? [];
+    if (fees.length === 0) {
+      return tx; // No fees to enrich
     }
 
-    // Enrich network fee if needed
-    let networkFee = tx.fees.network;
-    if (networkFee && !networkFee.priceAtTxTime) {
-      const price = pricesByAsset.get(networkFee.asset);
-      if (price) {
-        networkFee = { ...networkFee, priceAtTxTime: price };
+    let feesModified = false;
+    const enrichedFees = fees.map((fee) => {
+      // Skip if fee already has price
+      if (fee.priceAtTxTime) {
+        return fee;
       }
-    }
+
+      // Try to copy price from movement with same asset
+      const price = pricesByAsset.get(fee.asset);
+      if (price) {
+        feesModified = true;
+        return { ...fee, priceAtTxTime: price };
+      }
+
+      return fee;
+    });
 
     // Stamp identity prices on any remaining fiat fees
-    const fees = [platformFee, networkFee].filter((f): f is AssetMovement => f !== undefined);
-    const fiatFeeIdentityPrices = stampFiatIdentityPrices(fees, timestamp);
-
-    if (fiatFeeIdentityPrices.length > 0) {
-      const fiatPricesMap = new Map(fiatFeeIdentityPrices.map((p) => [p.asset, p.priceAtTxTime]));
-
-      if (platformFee && !platformFee.priceAtTxTime && fiatPricesMap.has(platformFee.asset)) {
-        platformFee = { ...platformFee, priceAtTxTime: fiatPricesMap.get(platformFee.asset)! };
+    const finalFees = enrichedFees.map((fee) => {
+      // Skip if already has price
+      if (fee.priceAtTxTime) {
+        return fee;
       }
 
-      if (networkFee && !networkFee.priceAtTxTime && fiatPricesMap.has(networkFee.asset)) {
-        networkFee = { ...networkFee, priceAtTxTime: fiatPricesMap.get(networkFee.asset)! };
+      // Check if this is a fiat currency
+      try {
+        const currency = Currency.create(fee.asset);
+        if (!currency.isFiat()) {
+          return fee;
+        }
+
+        const isUSD = currency.toString() === 'USD';
+        feesModified = true;
+
+        return {
+          ...fee,
+          priceAtTxTime: {
+            price: { amount: parseDecimal('1'), currency },
+            // USD gets 'exchange-execution' (final), non-USD gets 'fiat-execution-tentative' (will be normalized)
+            source: isUSD ? 'exchange-execution' : 'fiat-execution-tentative',
+            fetchedAt: new Date(timestamp),
+            granularity: 'exact' as const,
+          },
+        };
+      } catch {
+        // Not a valid currency, skip
+        return fee;
       }
-    }
+    });
 
     // Return transaction with enriched fees if any changed
-    if (platformFee !== tx.fees.platform || networkFee !== tx.fees.network) {
-      return {
-        ...tx,
-        fees: {
-          platform: platformFee,
-          network: networkFee,
-        },
-      };
+    if (feesModified) {
+      return { ...tx, fees: finalFees };
     }
 
     return tx;

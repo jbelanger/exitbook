@@ -240,7 +240,8 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
         inflows: [
           {
             asset: 'BTC',
-            amount: parseDecimal('1.0'),
+            grossAmount: parseDecimal('1.0'),
+            netAmount: parseDecimal('1.0'),
             priceAtTxTime: {
               price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
               source: 'coingecko',
@@ -251,10 +252,12 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
         ],
         outflows: [],
       },
-      fees: {
-        network: {
+      fees: [
+        {
           asset: 'BTC',
           amount: parseDecimal('0.0001'),
+          scope: 'network',
+          settlement: 'on-chain',
           priceAtTxTime: {
             price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
             source: 'coingecko',
@@ -262,7 +265,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
             granularity: 'hour' as const,
           },
         },
-      },
+      ],
     };
 
     const result = await repository.updateMovementsWithPrices(enrichedTx);
@@ -316,7 +319,8 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
         inflows: [
           {
             asset: 'BTC',
-            amount: parseDecimal('1.0'),
+            grossAmount: parseDecimal('1.0'),
+            netAmount: parseDecimal('1.0'),
             priceAtTxTime: {
               price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
               source: 'coingecko',
@@ -327,7 +331,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
         ],
         outflows: [],
       },
-      fees: {},
+      fees: [],
     };
 
     const result = await repository.updateMovementsWithPrices(enrichedTx);

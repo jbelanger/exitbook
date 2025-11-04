@@ -368,6 +368,7 @@ export function calculateVarianceMetadata(
 /**
  * Convert stored transactions to transaction candidates for matching.
  * Creates one candidate per asset movement (not just primary).
+ * Uses netAmount for transfer matching (what actually went on-chain).
  *
  * @param transactions - Universal transactions to convert
  * @returns Array of transaction candidates
@@ -385,7 +386,7 @@ export function convertToCandidates(transactions: UniversalTransaction[]): Trans
         sourceType: tx.blockchain ? 'blockchain' : 'exchange',
         timestamp: new Date(tx.datetime),
         asset: inflow.asset,
-        amount: inflow.amount,
+        amount: inflow.netAmount ?? inflow.grossAmount,
         direction: 'in',
         fromAddress: tx.from,
         toAddress: tx.to,
@@ -402,7 +403,7 @@ export function convertToCandidates(transactions: UniversalTransaction[]): Trans
         sourceType: tx.blockchain ? 'blockchain' : 'exchange',
         timestamp: new Date(tx.datetime),
         asset: outflow.asset,
-        amount: outflow.amount,
+        amount: outflow.netAmount ?? outflow.grossAmount,
         direction: 'out',
         fromAddress: tx.from,
         toAddress: tx.to,

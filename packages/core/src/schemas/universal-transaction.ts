@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { parseDecimal } from '../utils/decimal-utils.ts';
+
 import { DateSchema, DecimalSchema, MoneySchema } from './money.ts';
 
 // Transaction type schema
@@ -63,11 +65,46 @@ export const PriceAtTxTimeSchema = z.object({
 });
 
 // Asset movement schema
-export const AssetMovementSchema = z.object({
-  asset: z.string().min(1, 'Asset must not be empty'),
-  amount: DecimalSchema,
-  priceAtTxTime: PriceAtTxTimeSchema.optional(),
-});
+export const AssetMovementSchema = z
+  .object({
+    asset: z.string().min(1, 'Asset must not be empty'),
+
+    // Amount fields
+    grossAmount: DecimalSchema, // Amount venue debited/credited (REQUIRED)
+    netAmount: DecimalSchema.optional(), // Amount on-chain (repository defaults to grossAmount during save)
+
+    // Price metadata
+    priceAtTxTime: PriceAtTxTimeSchema.optional(),
+  })
+  .refine(
+    (data) => {
+      // Validation: netAmount cannot exceed grossAmount
+      if (data.netAmount && data.grossAmount) {
+        return parseDecimal(data.netAmount).lte(parseDecimal(data.grossAmount));
+      }
+      return true;
+    },
+    { message: 'netAmount cannot exceed grossAmount' }
+  );
+
+// Fee-specific schema (distinct from AssetMovement)
+export const FeeMovementSchema = z
+  .object({
+    asset: z.string().min(1, 'Asset must not be empty'),
+    amount: DecimalSchema,
+
+    // Fee semantics (required)
+    scope: z.enum(['network', 'platform', 'spread', 'tax', 'other']),
+    settlement: z.enum(['on-chain', 'balance', 'external']),
+
+    // Price metadata
+    priceAtTxTime: PriceAtTxTimeSchema.optional(),
+  })
+  .refine((data) => !(data.settlement === 'on-chain' && data.scope === 'platform'), {
+    message:
+      'Invalid fee: settlement="on-chain" with scope="platform" - platform fees are charged off-chain by the venue',
+    path: ['settlement'],
+  });
 
 // Note metadata schema (for note.metadata field)
 export const NoteMetadataSchema = z.record(z.string(), z.any());
@@ -102,10 +139,7 @@ export const UniversalTransactionSchema = z.object({
   }),
 
   // Structured fees
-  fees: z.object({
-    network: AssetMovementSchema.optional(),
-    platform: AssetMovementSchema.optional(),
-  }),
+  fees: z.array(FeeMovementSchema).default([]),
 
   // Enhanced operation classification
   operation: z.object({

@@ -317,24 +317,16 @@ export class CostBasisCalculator {
         }
       }
 
-      // Check network fee
-      if (tx.fees.network?.priceAtTxTime && tx.fees.network.priceAtTxTime.price.currency.toString() !== 'USD') {
-        nonUsdMovements.push({
-          transactionId: tx.externalId,
-          datetime: tx.datetime,
-          asset: tx.fees.network.asset,
-          currency: tx.fees.network.priceAtTxTime.price.currency.toString(),
-        });
-      }
-
-      // Check platform fee
-      if (tx.fees.platform?.priceAtTxTime && tx.fees.platform.priceAtTxTime.price.currency.toString() !== 'USD') {
-        nonUsdMovements.push({
-          transactionId: tx.externalId,
-          datetime: tx.datetime,
-          asset: tx.fees.platform.asset,
-          currency: tx.fees.platform.priceAtTxTime.price.currency.toString(),
-        });
+      // Check fees array
+      for (const fee of tx.fees ?? []) {
+        if (fee.priceAtTxTime && fee.priceAtTxTime.price.currency.toString() !== 'USD') {
+          nonUsdMovements.push({
+            transactionId: tx.externalId,
+            datetime: tx.datetime,
+            asset: fee.asset,
+            currency: fee.priceAtTxTime.price.currency.toString(),
+          });
+        }
       }
     }
 

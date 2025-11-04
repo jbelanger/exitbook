@@ -7,7 +7,7 @@
  */
 
 import { Currency, parseDecimal } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
+import type { FeeMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
@@ -15,6 +15,27 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IFxRateProvider } from '../fx-rate-provider.interface.ts';
 import { PriceNormalizationService } from '../price-normalization-service.ts';
+
+function createFeeMovement(
+  scope: 'network' | 'platform' | 'spread' | 'tax' | 'other',
+  settlement: 'on-chain' | 'balance' | 'external',
+  asset: string,
+  amount: string,
+  priceAtTxTime?: PriceAtTxTime
+): FeeMovement {
+  const movement: FeeMovement = {
+    scope,
+    settlement,
+    asset,
+    amount: new Decimal(amount),
+  };
+
+  if (priceAtTxTime !== undefined) {
+    movement.priceAtTxTime = priceAtTxTime;
+  }
+
+  return movement;
+}
 
 describe('PriceNormalizationService', () => {
   let mockTransactionRepo: TransactionRepository;
@@ -50,7 +71,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: parseDecimal('1.0'),
+              grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
                 source: 'exchange-execution',
@@ -59,9 +80,9 @@ describe('PriceNormalizationService', () => {
               },
             },
           ],
-          outflows: [{ asset: 'EUR', amount: parseDecimal('40000') }],
+          outflows: [{ asset: 'EUR', grossAmount: parseDecimal('40000') }],
         },
-        fees: {},
+        fees: [],
         operation: { category: 'trade', type: 'buy' },
       };
 
@@ -110,7 +131,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: parseDecimal('1.0'),
+              grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
                 source: 'exchange-execution',
@@ -119,9 +140,9 @@ describe('PriceNormalizationService', () => {
               },
             },
           ],
-          outflows: [{ asset: 'USD', amount: parseDecimal('50000') }],
+          outflows: [{ asset: 'USD', grossAmount: parseDecimal('50000') }],
         },
-        fees: {},
+        fees: [],
         operation: { category: 'trade', type: 'buy' },
       };
 
@@ -158,7 +179,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: parseDecimal('1.0'),
+              grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('15'), currency: Currency.create('ETH') },
                 source: 'exchange-execution',
@@ -167,9 +188,9 @@ describe('PriceNormalizationService', () => {
               },
             },
           ],
-          outflows: [{ asset: 'ETH', amount: parseDecimal('15') }],
+          outflows: [{ asset: 'ETH', grossAmount: parseDecimal('15') }],
         },
-        fees: {},
+        fees: [],
         operation: { category: 'trade', type: 'swap' },
       };
 
@@ -203,7 +224,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: parseDecimal('1.0'),
+              grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
                 source: 'exchange-execution',
@@ -212,9 +233,9 @@ describe('PriceNormalizationService', () => {
               },
             },
           ],
-          outflows: [{ asset: 'EUR', amount: parseDecimal('40000') }],
+          outflows: [{ asset: 'EUR', grossAmount: parseDecimal('40000') }],
         },
-        fees: {},
+        fees: [],
         operation: { category: 'trade', type: 'buy' },
       };
 
@@ -251,7 +272,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: parseDecimal('1.0'),
+              grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
                 source: 'exchange-execution',
@@ -261,7 +282,7 @@ describe('PriceNormalizationService', () => {
             },
             {
               asset: 'ETH',
-              amount: parseDecimal('10.0'),
+              grossAmount: parseDecimal('10.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('2500'), currency: Currency.create('CAD') },
                 source: 'exchange-execution',
@@ -272,7 +293,7 @@ describe('PriceNormalizationService', () => {
           ],
           outflows: [],
         },
-        fees: {},
+        fees: [],
         operation: { category: 'trade', type: 'buy' },
       };
 
@@ -326,21 +347,17 @@ describe('PriceNormalizationService', () => {
         source: 'test-exchange',
         status: 'success',
         movements: {
-          inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
-          outflows: [{ asset: 'USD', amount: parseDecimal('50000') }],
+          inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.0') }],
+          outflows: [{ asset: 'USD', grossAmount: parseDecimal('50000') }],
         },
-        fees: {
-          platform: {
-            asset: 'EUR',
-            amount: parseDecimal('100'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('100'), currency: Currency.create('EUR') },
-              source: 'exchange-execution',
-              fetchedAt: new Date('2023-01-15T10:00:00Z'),
-              granularity: 'exact',
-            },
-          },
-        },
+        fees: [
+          createFeeMovement('platform', 'balance', 'EUR', '100', {
+            price: { amount: parseDecimal('100'), currency: Currency.create('EUR') },
+            source: 'exchange-execution',
+            fetchedAt: new Date('2023-01-15T10:00:00Z'),
+            granularity: 'exact',
+          }),
+        ],
         operation: { category: 'trade', type: 'buy' },
       };
 
@@ -375,21 +392,17 @@ describe('PriceNormalizationService', () => {
         source: 'test-exchange',
         status: 'success',
         movements: {
-          inflows: [{ asset: 'BTC', amount: parseDecimal('1.0') }],
-          outflows: [{ asset: 'USD', amount: parseDecimal('50000') }],
+          inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.0') }],
+          outflows: [{ asset: 'USD', grossAmount: parseDecimal('50000') }],
         },
-        fees: {
-          network: {
-            asset: 'GBP',
-            amount: parseDecimal('50'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('50'), currency: Currency.create('GBP') },
-              source: 'exchange-execution',
-              fetchedAt: new Date('2023-01-15T10:00:00Z'),
-              granularity: 'exact',
-            },
-          },
-        },
+        fees: [
+          createFeeMovement('platform', 'balance', 'GBP', '50', {
+            price: { amount: parseDecimal('50'), currency: Currency.create('GBP') },
+            source: 'exchange-execution',
+            fetchedAt: new Date('2023-01-15T10:00:00Z'),
+            granularity: 'exact',
+          }),
+        ],
         operation: { category: 'trade', type: 'buy' },
       };
 
@@ -427,13 +440,13 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: parseDecimal('1.0'),
+              grossAmount: parseDecimal('1.0'),
               // No priceAtTxTime
             },
           ],
           outflows: [],
         },
-        fees: {},
+        fees: [],
         operation: { category: 'transfer', type: 'transfer' },
       };
 
@@ -481,7 +494,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: parseDecimal('1.0'),
+              grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
                 source: 'exchange-execution',
@@ -492,7 +505,7 @@ describe('PriceNormalizationService', () => {
           ],
           outflows: [],
         },
-        fees: {},
+        fees: [],
         operation: { category: 'trade', type: 'buy' },
       };
 
@@ -534,7 +547,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: parseDecimal('1.0'),
+              grossAmount: parseDecimal('1.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
                 source: 'exchange-execution',
@@ -545,7 +558,7 @@ describe('PriceNormalizationService', () => {
           ],
           outflows: [],
         },
-        fees: {},
+        fees: [],
         operation: { category: 'trade', type: 'buy' },
       };
 
@@ -560,7 +573,7 @@ describe('PriceNormalizationService', () => {
           inflows: [
             {
               asset: 'ETH',
-              amount: parseDecimal('10.0'),
+              grossAmount: parseDecimal('10.0'),
               priceAtTxTime: {
                 price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
                 source: 'exchange-execution',
@@ -571,7 +584,7 @@ describe('PriceNormalizationService', () => {
           ],
           outflows: [],
         },
-        fees: {},
+        fees: [],
         operation: { category: 'trade', type: 'buy' },
       };
 

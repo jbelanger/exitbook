@@ -1,6 +1,12 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
-import type { AssetMovement, UniversalTransaction, TransactionStatus } from '@exitbook/core';
-import { AssetMovementSchema, NoteMetadataSchema, TransactionMetadataSchema, wrapError } from '@exitbook/core';
+import type { AssetMovement, FeeMovement, UniversalTransaction, TransactionStatus } from '@exitbook/core';
+import {
+  AssetMovementSchema,
+  FeeMovementSchema,
+  NoteMetadataSchema,
+  TransactionMetadataSchema,
+  wrapError,
+} from '@exitbook/core';
 import type { Selectable, Updateable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -12,6 +18,34 @@ import type { KyselyDB } from '../storage/database.js';
 
 import { BaseRepository } from './base-repository.js';
 import type { ITransactionRepository, TransactionFilters } from './transaction-repository.interface.ts';
+
+/**
+ * Validate and normalize movement to ensure all required fields exist
+ *
+ * Clean break implementation - grossAmount is required, no legacy field support.
+ * Processors MUST emit grossAmount. netAmount defaults to grossAmount when not specified.
+ */
+function normalizeMovement(movement: AssetMovement): Result<AssetMovement, Error> {
+  // Require grossAmount - fail fast if processor didn't update
+  if (!movement.grossAmount) {
+    return err(
+      new Error(
+        `Movement missing required field 'grossAmount'. ` +
+          `Processors must be updated to emit new fee semantics. ` +
+          `Asset: ${movement.asset}`
+      )
+    );
+  }
+
+  // Default: netAmount = grossAmount (valid for most transactions with no on-chain fees)
+  const netAmount = movement.netAmount ?? movement.grossAmount;
+
+  return ok({
+    ...movement,
+    grossAmount: movement.grossAmount,
+    netAmount,
+  });
+}
 
 /**
  * Kysely-based repository for transaction database operations.
@@ -44,7 +78,30 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         }
       }
 
+      // Normalize movements: ensure gross/net fields exist
+      const normalizedInflows: AssetMovement[] = [];
+      for (const inflow of transaction.movements.inflows ?? []) {
+        const result = normalizeMovement(inflow);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        normalizedInflows.push(result.value);
+      }
+
+      const normalizedOutflows: AssetMovement[] = [];
+      for (const outflow of transaction.movements.outflows ?? []) {
+        const result = normalizeMovement(outflow);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+        normalizedOutflows.push(result.value);
+      }
+
       const rawDataJson = this.serializeToJson(transaction) ?? '{}';
+
+      // Serialize fees array
+      const feesJson =
+        transaction.fees && transaction.fees.length > 0 ? this.serializeToJson(transaction.fees) : undefined;
 
       const result = await this.db
         .insertInto('transactions')
@@ -69,17 +126,12 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             : new Date().toISOString(),
           transaction_status: transaction.status,
 
-          // Structured movements
-          movements_inflows: transaction.movements?.inflows
-            ? this.serializeToJson(transaction.movements.inflows)
-            : undefined,
-          movements_outflows: transaction.movements?.outflows
-            ? this.serializeToJson(transaction.movements.outflows)
-            : undefined,
+          // Serialize normalized movements
+          movements_inflows: normalizedInflows.length > 0 ? this.serializeToJson(normalizedInflows) : undefined,
+          movements_outflows: normalizedOutflows.length > 0 ? this.serializeToJson(normalizedOutflows) : undefined,
 
-          // Structured fees
-          fees_network: transaction.fees?.network ? this.serializeToJson(transaction.fees.network) : undefined,
-          fees_platform: transaction.fees?.platform ? this.serializeToJson(transaction.fees.platform) : undefined,
+          // Serialize fees array
+          fees: feesJson,
 
           // Enhanced operation classification
           operation_category: transaction.operation?.category,
@@ -110,9 +162,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             movements_outflows: (eb) => eb.ref('excluded.movements_outflows'),
 
             // Structured fees
-            fees_network: (eb) => eb.ref('excluded.fees_network'),
-            fees_platform: (eb) => eb.ref('excluded.fees_platform'),
-            fees_total: (eb) => eb.ref('excluded.fees_total'),
+            fees: (eb) => eb.ref('excluded.fees'),
 
             // Enhanced operation classification
             operation_category: (eb) => eb.ref('excluded.operation_category'),
@@ -231,12 +281,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       // Filter transactions that have movements or fees without priceAtTxTime
       const transactionsNeedingPrices = transactions.filter((tx) => {
-        const allMovements = [
-          ...(tx.movements.inflows ?? []),
-          ...(tx.movements.outflows ?? []),
-          ...(tx.fees.platform ? [tx.fees.platform] : []),
-          ...(tx.fees.network ? [tx.fees.network] : []),
-        ];
+        const allMovements = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? []), ...(tx.fees ?? [])];
 
         // Check if any movement is missing priceAtTxTime or has tentative non-USD price
         return allMovements.some((movement) => {
@@ -277,10 +322,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       const updateData: Partial<Updateable<TransactionsTable>> = {
         movements_inflows: (inflows.length > 0 ? this.serializeToJson(inflows) : null) as string | null,
         movements_outflows: (outflows.length > 0 ? this.serializeToJson(outflows) : null) as string | null,
-        fees_platform: (transaction.fees.platform ? this.serializeToJson(transaction.fees.platform) : null) as
-          | string
-          | null,
-        fees_network: (transaction.fees.network ? this.serializeToJson(transaction.fees.network) : null) as
+        fees: (transaction.fees && transaction.fees.length > 0 ? this.serializeToJson(transaction.fees) : null) as
           | string
           | null,
         updated_at: this.getCurrentDateTimeForDB(),
@@ -332,12 +374,21 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     const timestamp = new Date(datetime).getTime();
 
     // Parse movements
-    const inflows = this.parseMovements(row.movements_inflows as string | null);
-    const outflows = this.parseMovements(row.movements_outflows as string | null);
+    const inflowsResult = this.parseMovements(row.movements_inflows as string | null);
+    if (inflowsResult.isErr()) {
+      return err(inflowsResult.error);
+    }
 
-    // Parse fees
-    const network = this.parseFee(row.fees_network as string | null);
-    const platform = this.parseFee(row.fees_platform as string | null);
+    const outflowsResult = this.parseMovements(row.movements_outflows as string | null);
+    if (outflowsResult.isErr()) {
+      return err(outflowsResult.error);
+    }
+
+    // Parse fees array
+    const feesResult = this.parseFees(row.fees as string | null);
+    if (feesResult.isErr()) {
+      return err(feesResult.error);
+    }
 
     // Parse metadata from raw_normalized_data if present (validate with schema)
     const metadataResult = this.parseWithSchema(row.raw_normalized_data, TransactionMetadataSchema);
@@ -358,13 +409,10 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       from: row.from_address ?? undefined,
       to: row.to_address ?? undefined,
       movements: {
-        inflows,
-        outflows,
+        inflows: inflowsResult.value,
+        outflows: outflowsResult.value,
       },
-      fees: {
-        network: network ?? undefined,
-        platform: platform ?? undefined,
-      },
+      fees: feesResult.value,
       operation: {
         category: row.operation_category ?? 'transfer',
         type: row.operation_type ?? 'transfer',
@@ -401,11 +449,11 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   }
 
   /**
-   * Parse movements from JSON string stored in database
+   * Parse movements from JSON
    */
-  private parseMovements(jsonString: string | null): AssetMovement[] {
+  private parseMovements(jsonString: string | null): Result<AssetMovement[], Error> {
     if (!jsonString) {
-      return [];
+      return ok([]);
     }
 
     try {
@@ -413,45 +461,50 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       const result = z.array(AssetMovementSchema).safeParse(parsed);
 
       if (!result.success) {
-        this.logger.warn(
-          {
-            issues: result.error.issues,
-            jsonString: jsonString.substring(0, 200),
-          },
-          'Failed to validate movements JSON'
-        );
-        return [];
+        return err(new Error(`Failed to parse movements JSON: ${result.error.message}`));
       }
 
-      return result.data;
+      // Normalize and validate all movements
+      const normalizedMovements: AssetMovement[] = [];
+      for (const movement of result.data) {
+        const normalizeResult = normalizeMovement(movement);
+        if (normalizeResult.isErr()) {
+          return err(normalizeResult.error);
+        }
+        normalizedMovements.push(normalizeResult.value);
+      }
+
+      return ok(normalizedMovements);
     } catch (error) {
-      this.logger.warn({ error, jsonString }, 'Failed to parse movements JSON');
-      return [];
+      return err(
+        new Error(`Failed to parse movements JSON: ${error instanceof Error ? error.message : String(error)}`)
+      );
     }
   }
 
   /**
-   * Parse fee from JSON string stored in database
-   * Fees are stored as AssetMovement objects: { asset: string, amount: string, priceAtTxTime: PriceAtTxTime | undefined }
+   * Parse fees array from JSON column
+   *
+   * Schema validation via FeeMovementSchema.refine() ensures:
+   * - Required fields (scope, settlement) are present
+   * - Invalid combinations are rejected (e.g., on-chain + platform)
    */
-  private parseFee(jsonString: string | null): AssetMovement | null {
+  private parseFees(jsonString: string | null): Result<FeeMovement[], Error> {
     if (!jsonString) {
-      return null;
+      return ok([]);
     }
 
     try {
       const parsed: unknown = JSON.parse(jsonString);
-      const result = AssetMovementSchema.safeParse(parsed);
+      const result = z.array(FeeMovementSchema).safeParse(parsed);
 
       if (!result.success) {
-        this.logger.warn({ error: result.error, jsonString }, 'Failed to validate fee JSON');
-        return null;
+        return err(new Error(`Failed to parse fees JSON: ${result.error.message}`));
       }
 
-      return result.data;
+      return ok(result.data);
     } catch (error) {
-      this.logger.warn({ error, jsonString }, 'Failed to parse fee JSON');
-      return null;
+      return err(new Error(`Failed to parse fees JSON: ${error instanceof Error ? error.message : String(error)}`));
     }
   }
 }

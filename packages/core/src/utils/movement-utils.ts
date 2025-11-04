@@ -44,7 +44,7 @@ export function computePrimaryMovement(
   if (hasInflows && !hasOutflows && inflows.length === 1) {
     return {
       asset: inflows[0]!.asset,
-      amount: inflows[0]!.amount,
+      amount: inflows[0]!.grossAmount,
       direction: 'in',
     };
   }
@@ -53,7 +53,7 @@ export function computePrimaryMovement(
   if (hasOutflows && !hasInflows && outflows.length === 1) {
     return {
       asset: outflows[0]!.asset,
-      amount: outflows[0]!.amount,
+      amount: outflows[0]!.grossAmount,
       direction: 'out',
     };
   }
@@ -63,7 +63,7 @@ export function computePrimaryMovement(
     const largestInflow = findLargestMovement(inflows);
     return {
       asset: largestInflow.asset,
-      amount: largestInflow.amount,
+      amount: largestInflow.grossAmount,
       direction: 'in',
     };
   }
@@ -73,7 +73,7 @@ export function computePrimaryMovement(
     const largestOutflow = findLargestMovement(outflows);
     return {
       asset: largestOutflow.asset,
-      amount: largestOutflow.amount,
+      amount: largestOutflow.grossAmount,
       direction: 'out',
     };
   }
@@ -82,8 +82,8 @@ export function computePrimaryMovement(
   const largestInflow = findLargestMovement(inflows);
   const largestOutflow = findLargestMovement(outflows);
 
-  const inflowValue = parseDecimal(largestInflow.amount);
-  const outflowValue = parseDecimal(largestOutflow.amount);
+  const inflowValue = largestInflow.grossAmount;
+  const outflowValue = largestOutflow.grossAmount;
 
   // Compare by absolute value to determine which is primary
   if (inflowValue.greaterThanOrEqualTo(outflowValue)) {
@@ -114,10 +114,10 @@ function findLargestMovement(movements: AssetMovement[]): AssetMovement {
   }
 
   let largest = movements[0]!;
-  let largestAmount = parseDecimal(largest.amount);
+  let largestAmount = parseDecimal(largest.grossAmount);
 
   for (let i = 1; i < movements.length; i++) {
-    const currentAmount = parseDecimal(movements[i]!.amount);
+    const currentAmount = parseDecimal(movements[i]!.grossAmount);
     if (currentAmount.greaterThan(largestAmount)) {
       largest = movements[i]!;
       largestAmount = currentAmount;
