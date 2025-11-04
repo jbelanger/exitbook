@@ -219,7 +219,7 @@ export interface TransactionLinksTable {
   target_transaction_id: number; // FK to transactions.id (deposit/receive)
   asset: string; // Transferred asset symbol (e.g., 'BTC', 'ETH')
   source_amount: DecimalString; // Gross outflow amount (before fees deducted)
-  target_amount: DecimalString; // Net received amount (after on-chain fees)
+  target_amount: DecimalString; // Net received amount (after fees)
   link_type: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange';
   confidence_score: DecimalString; // 0-1
   match_criteria_json: JSONString; // MatchCriteria

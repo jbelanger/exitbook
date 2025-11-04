@@ -301,12 +301,11 @@ export function validateLinkAmounts(sourceAmount: Decimal, targetAmount: Decimal
     );
   }
 
-  // Reject negative target amounts
-  if (targetAmount.lt(0)) {
+  // Reject zero or negative target amounts
+  if (targetAmount.lte(0)) {
     return err(
       new Error(
-        `Target amount must be non-negative, got ${targetAmount.toFixed()}. ` +
-          `This indicates invalid transaction data.`
+        `Target amount must be positive, got ${targetAmount.toFixed()}. ` + `This indicates invalid transaction data.`
       )
     );
   }
@@ -316,8 +315,7 @@ export function validateLinkAmounts(sourceAmount: Decimal, targetAmount: Decimal
     return err(
       new Error(
         `Target amount (${targetAmount.toFixed()}) exceeds source amount (${sourceAmount.toFixed()}). ` +
-          `This may indicate an airdrop, bonus, or data error. ` +
-          `Create separate transactions for additional funds.`
+          `This link will be rejected. If this is an airdrop or bonus, create a separate transaction for the additional funds received.`
       )
     );
   }

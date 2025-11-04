@@ -71,13 +71,25 @@ export class TransactionLinkingService {
 
       // Validate suggested matches (but don't fail - just filter out invalid ones)
       const validSuggested: PotentialMatch[] = [];
+      let filteredSuggestedCount = 0;
       for (const match of suggested) {
         const validationResult = validateLinkAmounts(match.sourceTransaction.amount, match.targetTransaction.amount);
         if (validationResult.isErr()) {
           this.logger.debug({ error: validationResult.error.message, match }, 'Filtered out invalid suggested match');
+          filteredSuggestedCount++;
           continue;
         }
         validSuggested.push(match);
+      }
+      if (filteredSuggestedCount > 0) {
+        this.logger.info(
+          {
+            filteredCount: filteredSuggestedCount,
+            totalSuggested: suggested.length,
+            validSuggested: validSuggested.length,
+          },
+          `Filtered out ${filteredSuggestedCount} invalid suggested matches due to amount validation`
+        );
       }
       const suggestedLinks = validSuggested;
 

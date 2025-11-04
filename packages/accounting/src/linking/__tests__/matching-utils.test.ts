@@ -803,7 +803,20 @@ describe('matching-utils', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('Target amount must be non-negative');
+        expect(result.error.message).toContain('Target amount must be positive');
+        expect(result.error.message).toContain('invalid transaction data');
+      }
+    });
+
+    it('should reject zero target amount', () => {
+      const sourceAmount = new Decimal('1.0');
+      const targetAmount = new Decimal('0');
+
+      const result = validateLinkAmounts(sourceAmount, targetAmount);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Target amount must be positive');
         expect(result.error.message).toContain('invalid transaction data');
       }
     });
