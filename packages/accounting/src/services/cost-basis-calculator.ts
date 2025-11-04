@@ -13,6 +13,7 @@ import type { CostBasisRepository } from '../persistence/cost-basis-repository.j
 import type { LotTransferRepository } from '../persistence/lot-transfer-repository.js';
 import type { TransactionLinkRepository } from '../persistence/transaction-link-repository.js';
 
+import { validateTransactionPrices } from './cost-basis-validation-utils.js';
 import { GainLossCalculator } from './gain-loss-calculator.js';
 import { LotMatcher } from './lot-matcher.js';
 import { FifoStrategy } from './strategies/fifo-strategy.js';
@@ -75,22 +76,10 @@ export class CostBasisCalculator {
     config: CostBasisConfig,
     rules: IJurisdictionRules
   ): Promise<Result<CostBasisSummary, Error>> {
-    // PHASE 5: Validate all prices are in USD before calculating
-    const nonUsdMovements = this.findMovementsWithNonUsdPrices(transactions);
-    if (nonUsdMovements.length > 0) {
-      const exampleCount = Math.min(5, nonUsdMovements.length);
-      const examples = nonUsdMovements
-        .slice(0, exampleCount)
-        .map((m) => `  - Transaction ${m.transactionId} (${m.datetime}): ${m.asset} with price in ${m.currency}`)
-        .join('\n');
-
-      return err(
-        new Error(
-          `Found ${nonUsdMovements.length} movement(s) with non-USD prices. ` +
-            `Run 'prices enrich' to normalize all prices to USD first.\n\n` +
-            `First ${exampleCount} example(s):\n${examples}`
-        )
-      );
+    // PHASE 5: Validate price data quality before calculating
+    const validationResult = validateTransactionPrices(transactions);
+    if (validationResult.isErr()) {
+      return err(validationResult.error);
     }
 
     const calculationId = uuidv4();
@@ -281,55 +270,5 @@ export class CostBasisCalculator {
         'Failed to update calculation with results'
       );
     }
-  }
-
-  /**
-   * Find movements with non-USD prices
-   * Returns details about movements that need enrichment
-   */
-  private findMovementsWithNonUsdPrices(
-    transactions: UniversalTransaction[]
-  ): { asset: string; currency: string; datetime: string; transactionId: string }[] {
-    const nonUsdMovements: { asset: string; currency: string; datetime: string; transactionId: string }[] = [];
-
-    for (const tx of transactions) {
-      // Check inflows
-      for (const movement of tx.movements.inflows ?? []) {
-        if (movement.priceAtTxTime && movement.priceAtTxTime.price.currency.toString() !== 'USD') {
-          nonUsdMovements.push({
-            transactionId: tx.externalId,
-            datetime: tx.datetime,
-            asset: movement.asset,
-            currency: movement.priceAtTxTime.price.currency.toString(),
-          });
-        }
-      }
-
-      // Check outflows
-      for (const movement of tx.movements.outflows ?? []) {
-        if (movement.priceAtTxTime && movement.priceAtTxTime.price.currency.toString() !== 'USD') {
-          nonUsdMovements.push({
-            transactionId: tx.externalId,
-            datetime: tx.datetime,
-            asset: movement.asset,
-            currency: movement.priceAtTxTime.price.currency.toString(),
-          });
-        }
-      }
-
-      // Check fees array
-      for (const fee of tx.fees ?? []) {
-        if (fee.priceAtTxTime && fee.priceAtTxTime.price.currency.toString() !== 'USD') {
-          nonUsdMovements.push({
-            transactionId: tx.externalId,
-            datetime: tx.datetime,
-            asset: fee.asset,
-            currency: fee.priceAtTxTime.price.currency.toString(),
-          });
-        }
-      }
-    }
-
-    return nonUsdMovements;
   }
 }

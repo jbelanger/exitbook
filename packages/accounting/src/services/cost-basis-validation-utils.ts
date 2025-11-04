@@ -1,0 +1,312 @@
+import type { UniversalTransaction } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
+
+/**
+ * Represents a movement or fee that requires a price for cost basis calculation
+ */
+export interface PricedEntity {
+  transactionId: string;
+  datetime: string;
+  asset: string;
+  currency: string | undefined;
+  kind: 'inflow' | 'outflow' | 'fee';
+  hasPrice: boolean;
+  hasFxMetadata: boolean;
+  fxMetadata?:
+    | {
+        rate: string;
+        source: string;
+        timestamp: string;
+      }
+    | undefined;
+}
+
+/**
+ * Validation issue found during price preflight checks
+ */
+export interface PriceValidationIssue {
+  entity: PricedEntity;
+  issueType: 'missing_price' | 'non_usd_currency' | 'missing_fx_trail';
+  message: string;
+}
+
+/**
+ * Aggregated validation results
+ */
+export interface PriceValidationResult {
+  isValid: boolean;
+  issues: PriceValidationIssue[];
+  summary: {
+    byCurrency: Map<string, number>;
+    byKind: Map<string, number>;
+    missingFxTrails: number;
+    missingPrices: number;
+    nonUsdPrices: number;
+    totalEntities: number;
+  };
+}
+
+/**
+ * Extract all entities (movements and fees) that need pricing for cost basis calculation
+ * Pure function - no side effects
+ */
+export function collectPricedEntities(transactions: UniversalTransaction[]): PricedEntity[] {
+  const entities: PricedEntity[] = [];
+
+  for (const tx of transactions) {
+    const txId = String(tx.id ?? tx.externalId ?? '(unknown)');
+    const datetime = tx.datetime ?? '(unknown)';
+
+    // Collect inflows
+    for (const movement of tx.movements?.inflows ?? []) {
+      const priceData = movement.priceAtTxTime;
+      const hasPrice = Boolean(priceData?.price?.amount && priceData?.price?.currency);
+      const hasFxMetadata = priceData
+        ? Boolean(priceData.fxRateToUSD && priceData.fxSource && priceData.fxTimestamp)
+        : false;
+
+      entities.push({
+        transactionId: txId,
+        datetime,
+        asset: movement.asset,
+        currency: priceData?.price?.currency?.toString(),
+        kind: 'inflow',
+        hasPrice,
+        hasFxMetadata,
+        fxMetadata:
+          priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
+            ? {
+                rate: priceData.fxRateToUSD?.toString() ?? '',
+                source: priceData.fxSource ?? '',
+                timestamp: priceData.fxTimestamp?.toISOString() ?? '',
+              }
+            : undefined,
+      });
+    }
+
+    // Collect outflows
+    for (const movement of tx.movements?.outflows ?? []) {
+      const priceData = movement.priceAtTxTime;
+      const hasPrice = Boolean(priceData?.price?.amount && priceData?.price?.currency);
+      const hasFxMetadata = priceData
+        ? Boolean(priceData.fxRateToUSD && priceData.fxSource && priceData.fxTimestamp)
+        : false;
+
+      entities.push({
+        transactionId: txId,
+        datetime,
+        asset: movement.asset,
+        currency: priceData?.price?.currency?.toString(),
+        kind: 'outflow',
+        hasPrice,
+        hasFxMetadata,
+        fxMetadata:
+          priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
+            ? {
+                rate: priceData.fxRateToUSD?.toString() ?? '',
+                source: priceData.fxSource ?? '',
+                timestamp: priceData.fxTimestamp?.toISOString() ?? '',
+              }
+            : undefined,
+      });
+    }
+
+    // Collect fees
+    for (const fee of tx.fees ?? []) {
+      const priceData = fee.priceAtTxTime;
+      const hasPrice = Boolean(priceData?.price?.amount && priceData?.price?.currency);
+      const hasFxMetadata = priceData
+        ? Boolean(priceData.fxRateToUSD && priceData.fxSource && priceData.fxTimestamp)
+        : false;
+
+      entities.push({
+        transactionId: txId,
+        datetime,
+        asset: fee.asset,
+        currency: priceData?.price?.currency?.toString(),
+        kind: 'fee',
+        hasPrice,
+        hasFxMetadata,
+        fxMetadata:
+          priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
+            ? {
+                rate: priceData.fxRateToUSD?.toString() ?? '',
+                source: priceData.fxSource ?? '',
+                timestamp: priceData.fxTimestamp?.toISOString() ?? '',
+              }
+            : undefined,
+      });
+    }
+  }
+
+  return entities;
+}
+
+/**
+ * Find entities with missing prices
+ * Pure function - no side effects
+ */
+export function validatePriceCompleteness(entities: PricedEntity[]): PriceValidationIssue[] {
+  return entities
+    .filter((e) => !e.hasPrice)
+    .map((entity) => ({
+      entity,
+      issueType: 'missing_price' as const,
+      message: `Missing price for ${entity.kind} ${entity.asset} in transaction ${entity.transactionId}`,
+    }));
+}
+
+/**
+ * Find entities with non-USD prices
+ * Pure function - no side effects
+ */
+export function validatePriceCurrency(entities: PricedEntity[]): PriceValidationIssue[] {
+  return entities
+    .filter((e) => e.hasPrice && e.currency?.trim().toUpperCase() !== 'USD')
+    .map((entity) => ({
+      entity,
+      issueType: 'non_usd_currency' as const,
+      message: `Price in ${entity.currency} instead of USD for ${entity.kind} ${entity.asset} in transaction ${entity.transactionId}`,
+    }));
+}
+
+/**
+ * Find entities where price was converted from non-USD fiat but missing FX audit trail
+ * Pure function - no side effects
+ */
+export function validateFxAuditTrail(entities: PricedEntity[]): PriceValidationIssue[] {
+  return entities
+    .filter((e) => {
+      // Only validate entities that have FX metadata present but incomplete
+      if (!e.fxMetadata) {
+        return false;
+      }
+      // If fx metadata exists but is incomplete, flag it
+      return !e.hasFxMetadata;
+    })
+    .map((entity) => ({
+      entity,
+      issueType: 'missing_fx_trail' as const,
+      message: `Incomplete FX audit trail for ${entity.kind} ${entity.asset} in transaction ${entity.transactionId}`,
+    }));
+}
+
+/**
+ * Format validation results into human-readable error message
+ * Pure function - no side effects
+ */
+export function formatValidationError(result: PriceValidationResult): string {
+  const problems: string[] = [];
+
+  // Missing prices
+  if (result.summary.missingPrices > 0) {
+    const kindBreakdown = Array.from(result.summary.byKind.entries())
+      .filter(([kind]) => {
+        return result.issues.filter((i) => i.issueType === 'missing_price' && i.entity.kind === kind).length > 0;
+      })
+      .map(([kind, _count]) => {
+        const missingCount = result.issues.filter(
+          (i) => i.issueType === 'missing_price' && i.entity.kind === kind
+        ).length;
+        return `${missingCount} ${kind}`;
+      })
+      .join(', ');
+
+    problems.push(`• ${result.summary.missingPrices} price(s) missing (${kindBreakdown})`);
+  }
+
+  // Non-USD prices
+  if (result.summary.nonUsdPrices > 0) {
+    const currencyBreakdown = Array.from(result.summary.byCurrency.entries())
+      .filter(([cur]) => cur !== 'USD')
+      .map(([cur, _count]) => {
+        const nonUsdCount = result.issues.filter(
+          (i) => i.issueType === 'non_usd_currency' && i.entity.currency === cur
+        ).length;
+        return `${nonUsdCount} ${cur}`;
+      })
+      .join(', ');
+
+    problems.push(`• ${result.summary.nonUsdPrices} price(s) not in USD (${currencyBreakdown})`);
+  }
+
+  // Missing FX trails
+  if (result.summary.missingFxTrails > 0) {
+    problems.push(
+      `• ${result.summary.missingFxTrails} normalized price(s) missing complete FX audit trail (fxRateToUSD/fxSource/fxTimestamp)`
+    );
+  }
+
+  // Format examples (up to 5 from different issue types)
+  const exampleIssues = [
+    ...result.issues.filter((i) => i.issueType === 'missing_price').slice(0, 2),
+    ...result.issues.filter((i) => i.issueType === 'non_usd_currency').slice(0, 2),
+    ...result.issues.filter((i) => i.issueType === 'missing_fx_trail').slice(0, 2),
+  ].slice(0, 5);
+
+  const examples = exampleIssues
+    .map((issue) => {
+      const e = issue.entity;
+      return `  - Tx ${e.transactionId} (${e.datetime}) [${e.kind}] ${e.asset} | Currency: ${e.currency ?? 'none'} | FX: ${e.hasFxMetadata ? 'complete' : e.fxMetadata ? 'incomplete' : 'none'}`;
+    })
+    .join('\n');
+
+  return (
+    `Price preflight validation failed:\n${problems.join('\n')}\n\n` +
+    `Run 'prices enrich' to:\n` +
+    `  1. Fetch missing prices from price providers\n` +
+    `  2. Normalize all prices to USD\n` +
+    `  3. Add FX audit trail metadata for converted prices\n\n` +
+    `Examples of issues found:\n${examples}`
+  );
+}
+
+/**
+ * Orchestrate all price validations for cost basis calculation
+ * Pure function - returns Result type for error handling
+ *
+ * @param transactions - Transactions to validate
+ * @returns Result containing void on success, or Error with formatted message on failure
+ */
+export function validateTransactionPrices(transactions: UniversalTransaction[]): Result<void, Error> {
+  // Phase 1: Collect all entities
+  const entities = collectPricedEntities(transactions);
+
+  // Phase 2: Run all validations
+  const missingPriceIssues = validatePriceCompleteness(entities);
+  const nonUsdIssues = validatePriceCurrency(entities);
+  const missingFxTrailIssues = validateFxAuditTrail(entities);
+
+  // Phase 3: Aggregate results
+  const allIssues = [...missingPriceIssues, ...nonUsdIssues, ...missingFxTrailIssues];
+
+  const byKind = new Map<string, number>();
+  const byCurrency = new Map<string, number>();
+
+  for (const entity of entities) {
+    byKind.set(entity.kind, (byKind.get(entity.kind) ?? 0) + 1);
+    if (entity.currency) {
+      byCurrency.set(entity.currency, (byCurrency.get(entity.currency) ?? 0) + 1);
+    }
+  }
+
+  const result: PriceValidationResult = {
+    isValid: allIssues.length === 0,
+    issues: allIssues,
+    summary: {
+      totalEntities: entities.length,
+      missingPrices: missingPriceIssues.length,
+      nonUsdPrices: nonUsdIssues.length,
+      missingFxTrails: missingFxTrailIssues.length,
+      byKind,
+      byCurrency,
+    },
+  };
+
+  // Phase 4: Return result
+  if (!result.isValid) {
+    return err(new Error(formatValidationError(result)));
+  }
+
+  return ok();
+}
