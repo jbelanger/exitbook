@@ -34,7 +34,6 @@ describe('InterpretationStrategy - standardAmounts', () => {
 
     expect(result.inflows).toHaveLength(1);
     expect(result.inflows[0]).toEqual({
-      amount: '100',
       asset: 'USD',
       grossAmount: '100',
       netAmount: '100',
@@ -51,7 +50,6 @@ describe('InterpretationStrategy - standardAmounts', () => {
     expect(result.inflows).toHaveLength(0);
     expect(result.outflows).toHaveLength(1);
     expect(result.outflows[0]).toEqual({
-      amount: '100',
       asset: 'USD',
       grossAmount: '100',
       netAmount: '100',

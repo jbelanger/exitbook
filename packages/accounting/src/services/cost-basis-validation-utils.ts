@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import { Currency, type UniversalTransaction } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 /**
@@ -145,10 +145,30 @@ export function collectPricedEntities(transactions: UniversalTransaction[]): Pri
 /**
  * Find entities with missing prices
  * Pure function - no side effects
+ *
+ * Note: Fiat currencies are excluded from validation as they don't need prices
+ * (they represent the base monetary value)
  */
 export function validatePriceCompleteness(entities: PricedEntity[]): PriceValidationIssue[] {
   return entities
-    .filter((e) => !e.hasPrice)
+    .filter((e) => {
+      // Skip entities that already have prices
+      if (e.hasPrice) {
+        return false;
+      }
+
+      // Skip fiat currencies - they don't need prices for cost basis calculation
+      try {
+        const currency = Currency.create(e.asset);
+        if (currency.isFiat()) {
+          return false;
+        }
+      } catch {
+        // If currency creation fails, treat as crypto (needs price)
+      }
+
+      return true;
+    })
     .map((entity) => ({
       entity,
       issueType: 'missing_price' as const,
@@ -238,10 +258,15 @@ export function formatValidationError(result: PriceValidationResult): string {
   }
 
   // Format examples (up to 5 from different issue types)
+  // If only one issue type exists, show up to 5 examples
+  // If multiple issue types exist, show up to 2 per type (capped at 5 total)
+  const issueTypes = new Set(result.issues.map((i) => i.issueType));
+  const examplesPerType = issueTypes.size === 1 ? 5 : 2;
+
   const exampleIssues = [
-    ...result.issues.filter((i) => i.issueType === 'missing_price').slice(0, 2),
-    ...result.issues.filter((i) => i.issueType === 'non_usd_currency').slice(0, 2),
-    ...result.issues.filter((i) => i.issueType === 'missing_fx_trail').slice(0, 2),
+    ...result.issues.filter((i) => i.issueType === 'missing_price').slice(0, examplesPerType),
+    ...result.issues.filter((i) => i.issueType === 'non_usd_currency').slice(0, examplesPerType),
+    ...result.issues.filter((i) => i.issueType === 'missing_fx_trail').slice(0, examplesPerType),
   ].slice(0, 5);
 
   const examples = exampleIssues

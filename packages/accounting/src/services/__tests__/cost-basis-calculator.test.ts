@@ -218,7 +218,9 @@ describe('CostBasisCalculator', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('missing price data');
+        expect(result.error.message).toContain('Price preflight validation failed');
+        expect(result.error.message).toContain('price(s) missing');
+        expect(result.error.message).toContain('prices enrich');
       }
     });
 
@@ -735,10 +737,12 @@ describe('CostBasisCalculator', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('non-USD prices');
+        expect(result.error.message).toContain('Price preflight validation failed');
+        expect(result.error.message).toContain('price(s) not in USD');
         expect(result.error.message).toContain('prices enrich');
         expect(result.error.message).toContain('EUR');
-        expect(result.error.message).toContain('ext-2');
+        // Transaction ID is shown as numeric ID (2) rather than external ID (ext-2)
+        expect(result.error.message).toContain('Tx 2');
       }
     });
 
@@ -794,7 +798,8 @@ describe('CostBasisCalculator', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('non-USD prices');
+        expect(result.error.message).toContain('Price preflight validation failed');
+        expect(result.error.message).toContain('price(s) not in USD');
         expect(result.error.message).toContain('EUR');
       }
     });
@@ -914,10 +919,12 @@ describe('CostBasisCalculator', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('7 movement(s)');
-        expect(result.error.message).toContain('First 5 example(s)');
+        expect(result.error.message).toContain('Price preflight validation failed');
+        expect(result.error.message).toContain('7 price(s) not in USD');
+        expect(result.error.message).toContain('Examples of issues found');
         // Should show 5 examples, not all 7
-        const examples = result.error.message.match(/ext-\d+/g);
+        // Transaction IDs are shown as "Tx 1", "Tx 2", etc. in error messages
+        const examples = result.error.message.match(/Tx \d+/g);
         expect(examples).toHaveLength(5);
       }
     });
