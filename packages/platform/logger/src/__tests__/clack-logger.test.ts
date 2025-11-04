@@ -5,7 +5,7 @@ import type { Logger } from '../clack-logger.ts';
 import { configureLogger, getLogger, getLoggerContext, resetLoggerContext, type Spinner } from '../clack-logger.ts';
 import * as pinoLoggerModule from '../pino-logger.ts';
 
-interface MockLogger extends Logger {
+interface MockLogger {
   info: ReturnType<typeof vi.fn>;
   warn: ReturnType<typeof vi.fn>;
   error: ReturnType<typeof vi.fn>;
@@ -38,7 +38,7 @@ describe('logger-factory', () => {
     mockPinoLogger = mockLogger;
 
     // Mock the pino getLogger to always return our mock
-    vi.spyOn(pinoLoggerModule, 'getLogger').mockReturnValue(mockPinoLogger as Logger);
+    vi.spyOn(pinoLoggerModule, 'getLogger').mockReturnValue(mockPinoLogger as unknown as Logger);
 
     // Mock process.stderr.write to capture direct writes
     stderrWriteSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);

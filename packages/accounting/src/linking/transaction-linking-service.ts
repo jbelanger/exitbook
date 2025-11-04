@@ -57,6 +57,8 @@ export class TransactionLinkingService {
       // Convert to TransactionLink objects with validation (pure function with injected UUID/timestamp)
       const now = new Date();
       const confirmedLinks: TransactionLink[] = [];
+      const successfulConfirmedMatches: PotentialMatch[] = [];
+      let filteredConfirmedCount = 0;
       for (const match of confirmed) {
         const linkResult = createTransactionLink(match, 'confirmed', uuidv4(), now);
         if (linkResult.isErr()) {
@@ -64,9 +66,21 @@ export class TransactionLinkingService {
             { error: linkResult.error.message, match },
             'Failed to create confirmed link due to validation error - skipping'
           );
+          filteredConfirmedCount++;
           continue;
         }
         confirmedLinks.push(linkResult.value);
+        successfulConfirmedMatches.push(match);
+      }
+      if (filteredConfirmedCount > 0) {
+        this.logger.info(
+          {
+            filteredCount: filteredConfirmedCount,
+            totalConfirmed: confirmed.length,
+            validConfirmed: confirmedLinks.length,
+          },
+          `Filtered out ${filteredConfirmedCount} confirmed matches due to validation errors`
+        );
       }
 
       // Validate suggested matches (but don't fail - just filter out invalid ones)
@@ -93,8 +107,8 @@ export class TransactionLinkingService {
       }
       const suggestedLinks = validSuggested;
 
-      // Calculate statistics
-      const linkedMatches = [...confirmed, ...suggested];
+      // Calculate statistics from filtered matches only
+      const linkedMatches = [...successfulConfirmedMatches, ...validSuggested];
       const matchedSourceIds = new Set(linkedMatches.map((match) => match.sourceTransaction.id));
       const matchedTargetIds = new Set(linkedMatches.map((match) => match.targetTransaction.id));
 

@@ -326,6 +326,134 @@ describe('TransactionLinkingService', () => {
         expect(unmatchedTargetCount).toBe(1); // USDT deposit unmatched
       }
     });
+
+    it('should exclude filtered links from statistics (target > source)', () => {
+      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+
+      const transactions: UniversalTransaction[] = [
+        // Source 1 - valid match
+        createTransaction({
+          id: 1,
+          source: 'kraken',
+          datetime: '2024-01-01T12:00:00.000Z',
+          outflows: [{ asset: 'BTC', amount: '1.0' }],
+        }),
+        // Source 2 - will match but target exceeds source (airdrop scenario)
+        createTransaction({
+          id: 2,
+          source: 'kraken',
+          datetime: '2024-01-01T12:00:00.000Z',
+          outflows: [{ asset: 'ETH', amount: '10.0' }],
+        }),
+        // Target 1 - valid match to source 1
+        createTransaction({
+          id: 3,
+          source: 'bitcoin',
+          datetime: '2024-01-01T13:00:00.000Z',
+          inflows: [{ asset: 'BTC', amount: '0.995' }], // 0.5% fee (valid)
+          blockchain: { name: 'bitcoin', transaction_hash: 'txabc', is_confirmed: true },
+        }),
+        // Target 2 - exceeds source 2 (will be filtered out)
+        createTransaction({
+          id: 4,
+          source: 'ethereum',
+          datetime: '2024-01-01T13:00:00.000Z',
+          inflows: [{ asset: 'ETH', amount: '10.5' }], // Received MORE than sent (airdrop)
+          blockchain: { name: 'ethereum', transaction_hash: 'txdef', is_confirmed: true },
+        }),
+      ];
+
+      const result = service.linkTransactions(transactions);
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        const {
+          confirmedLinks,
+          suggestedLinks,
+          totalSourceTransactions,
+          totalTargetTransactions,
+          matchedTransactionCount,
+          unmatchedSourceCount,
+          unmatchedTargetCount,
+        } = result.value;
+
+        // ETH link should be filtered out due to target > source
+        const allLinks = [...confirmedLinks, ...suggestedLinks];
+        expect(allLinks).toHaveLength(1); // Only BTC link
+
+        // Statistics should reflect only the valid link
+        expect(totalSourceTransactions).toBe(2); // BTC and ETH withdrawals
+        expect(totalTargetTransactions).toBe(2); // BTC and ETH deposits
+        expect(matchedTransactionCount).toBe(2); // Only BTC: 1 source + 1 target
+        expect(unmatchedSourceCount).toBe(1); // ETH source unmatched (link filtered)
+        expect(unmatchedTargetCount).toBe(1); // ETH target unmatched (link filtered)
+      }
+    });
+
+    it('should exclude filtered links from statistics (excessive variance)', () => {
+      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+
+      const transactions: UniversalTransaction[] = [
+        // Source 1 - valid match
+        createTransaction({
+          id: 1,
+          source: 'kraken',
+          datetime: '2024-01-01T12:00:00.000Z',
+          outflows: [{ asset: 'BTC', amount: '1.0' }],
+        }),
+        // Source 2 - will match but variance > 10%
+        createTransaction({
+          id: 2,
+          source: 'kraken',
+          datetime: '2024-01-01T12:00:00.000Z',
+          outflows: [{ asset: 'ETH', amount: '10.0' }],
+        }),
+        // Target 1 - valid match to source 1
+        createTransaction({
+          id: 3,
+          source: 'bitcoin',
+          datetime: '2024-01-01T13:00:00.000Z',
+          inflows: [{ asset: 'BTC', amount: '0.995' }], // 0.5% fee (valid)
+          blockchain: { name: 'bitcoin', transaction_hash: 'txabc', is_confirmed: true },
+        }),
+        // Target 2 - excessive variance from source 2 (>10%)
+        createTransaction({
+          id: 4,
+          source: 'ethereum',
+          datetime: '2024-01-01T13:00:00.000Z',
+          inflows: [{ asset: 'ETH', amount: '8.5' }], // 15% fee (excessive)
+          blockchain: { name: 'ethereum', transaction_hash: 'txdef', is_confirmed: true },
+        }),
+      ];
+
+      const result = service.linkTransactions(transactions);
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        const {
+          confirmedLinks,
+          suggestedLinks,
+          totalSourceTransactions,
+          totalTargetTransactions,
+          matchedTransactionCount,
+          unmatchedSourceCount,
+          unmatchedTargetCount,
+        } = result.value;
+
+        // ETH link should be filtered out due to excessive variance
+        const allLinks = [...confirmedLinks, ...suggestedLinks];
+        expect(allLinks).toHaveLength(1); // Only BTC link
+
+        // Statistics should reflect only the valid link
+        expect(totalSourceTransactions).toBe(2);
+        expect(totalTargetTransactions).toBe(2);
+        expect(matchedTransactionCount).toBe(2); // Only BTC: 1 source + 1 target
+        expect(unmatchedSourceCount).toBe(1); // ETH source unmatched (link filtered)
+        expect(unmatchedTargetCount).toBe(1); // ETH target unmatched (link filtered)
+      }
+    });
   });
 
   describe('convertToCandidates', () => {
