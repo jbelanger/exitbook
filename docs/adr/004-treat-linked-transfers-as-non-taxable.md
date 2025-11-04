@@ -1738,8 +1738,7 @@ Reconciliation:
 5. Create post-import validator for transfer data quality
 6. Update CLI help text
 7. End-to-end testing with real transaction data
-8. Performance testing with large datasets
-9. Documentation updates
+8. Documentation updates
 
 **Deliverable**: Production-ready feature with clear reporting
 
