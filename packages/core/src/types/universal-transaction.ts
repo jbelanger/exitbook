@@ -23,6 +23,18 @@ export type AssetMovement = z.infer<typeof AssetMovementSchema>;
 export type FeeMovement = z.infer<typeof FeeMovementSchema>;
 
 /**
+ * Operation classification result with optional note
+ * Used by transaction processors to classify operations
+ */
+export interface OperationClassification {
+  operation: {
+    category: OperationCategory;
+    type: OperationType;
+  };
+  note?: TransactionNote | undefined;
+}
+
+/**
  * Input DTO for creating universal transaction records
  * Used by processors before persistence
  * Write-side

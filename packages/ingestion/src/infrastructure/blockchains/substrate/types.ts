@@ -1,24 +1,23 @@
 /**
+ * Substrate movement object (inflow/outflow/primary)
+ */
+export interface SubstrateMovement {
+  amount: string; // Normalized amount
+  asset: string; // Symbol (DOT, KSM, TAO, etc.)
+}
+
+/**
  * Substrate fund flow analysis result
  * Works for Polkadot, Kusama, Bittensor, and other Substrate chains
  * Following EVM's multi-asset tracking approach
  */
 export interface SubstrateFundFlow {
   // All assets that flowed in/out (supports multi-asset operations)
-  inflows: {
-    amount: string; // Normalized amount
-    asset: string; // Symbol (DOT, KSM, TAO, etc.)
-  }[];
-  outflows: {
-    amount: string; // Normalized amount
-    asset: string; // Symbol (DOT, KSM, TAO, etc.)
-  }[];
+  inflows: SubstrateMovement[];
+  outflows: SubstrateMovement[];
 
   // Primary asset (for simplified consumption and single-asset display)
-  primary: {
-    amount: string; // Absolute amount of primary asset
-    asset: string; // Symbol of primary asset
-  };
+  primary: SubstrateMovement;
 
   // Fee information (always in native currency)
   feeAmount: string;
