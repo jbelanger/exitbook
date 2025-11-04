@@ -248,6 +248,31 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
 
   await db.schema.createIndex('idx_lots_status').on('acquisition_lots').column('status').execute();
 
+  // Create lot_transfers table
+  await db.schema
+    .createTable('lot_transfers')
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('calculation_id', 'text', (col) =>
+      col.notNull().references('cost_basis_calculations.id').onDelete('cascade')
+    )
+    .addColumn('source_lot_id', 'text', (col) => col.notNull().references('acquisition_lots.id'))
+    .addColumn('link_id', 'text', (col) => col.notNull().references('transaction_links.id'))
+    .addColumn('quantity_transferred', 'text', (col) => col.notNull())
+    .addColumn('cost_basis_per_unit', 'text', (col) => col.notNull())
+    .addColumn('source_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
+    .addColumn('target_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
+    .addColumn('metadata_json', 'text')
+    .addColumn('created_at', 'text', (col) => col.notNull())
+    .addCheckConstraint('lot_transfers_quantity_positive', sql`CAST(quantity_transferred AS REAL) > 0`)
+    .execute();
+
+  // Create indexes for lot_transfers
+  await db.schema.createIndex('idx_lot_transfers_link').on('lot_transfers').column('link_id').execute();
+
+  await db.schema.createIndex('idx_lot_transfers_calculation').on('lot_transfers').column('calculation_id').execute();
+
+  await db.schema.createIndex('idx_lot_transfers_source_lot').on('lot_transfers').column('source_lot_id').execute();
+
   // Create lot_disposals table
   await db.schema
     .createTable('lot_disposals')
@@ -280,6 +305,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
 export async function down(db: Kysely<unknown>): Promise<void> {
   // Drop accounting tables first (due to foreign keys)
   await db.schema.dropTable('lot_disposals').execute();
+  await db.schema.dropTable('lot_transfers').execute();
   await db.schema.dropTable('acquisition_lots').execute();
   await db.schema.dropTable('cost_basis_calculations').execute();
   // Drop transaction linking table

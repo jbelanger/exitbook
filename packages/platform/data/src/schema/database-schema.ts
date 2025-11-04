@@ -210,6 +210,23 @@ export interface LotDisposalsTable {
 }
 
 /**
+ * Lot transfers - tracks cost basis transfers between lots via transaction links
+ * Used when linked transactions (e.g., exchange withdrawal → blockchain deposit) propagate cost basis
+ */
+export interface LotTransfersTable {
+  id: string; // UUID
+  calculation_id: string; // FK to cost_basis_calculations.id
+  source_lot_id: string; // FK to acquisition_lots.id
+  link_id: string; // FK to transaction_links.id
+  quantity_transferred: DecimalString;
+  cost_basis_per_unit: DecimalString;
+  source_transaction_id: number; // FK to transactions.id (withdrawal/send)
+  target_transaction_id: number; // FK to transactions.id (deposit/receive)
+  metadata_json: JSONString | null;
+  created_at: DateTime;
+}
+
+/**
  * Transaction links - tracks connections between related transactions
  * Used to propagate cost basis from exchanges to blockchain wallets
  */
@@ -268,6 +285,7 @@ export interface DatabaseSchema {
   external_transaction_data: ExternalTransactionDataTable;
   data_sources: DataSourcesTable;
   lot_disposals: LotDisposalsTable;
+  lot_transfers: LotTransfersTable;
   symbol_index: SymbolIndexTable;
   token_metadata: TokenMetadataTable;
   transaction_links: TransactionLinksTable;

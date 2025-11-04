@@ -43,3 +43,6 @@ export {
 
 // Service (imperative shell)
 export { TransactionLinkingService } from './transaction-linking-service.js';
+
+// Link index for efficient lookups
+export { LinkIndex } from './link-index.js';
