@@ -15,7 +15,7 @@ describe('LotMatcher - Fee Handling', () => {
   });
 
   describe('Acquisition lots with fees', () => {
-    it('should include platform fee in cost basis for acquisitions', () => {
+    it('should include platform fee in cost basis for acquisitions', async () => {
       // Buy 1 BTC for $50,000 with $100 platform fee
       // Expected: cost basis = $50,100, or $50,100 per BTC
       const transactions: UniversalTransaction[] = [
@@ -56,7 +56,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -78,7 +78,7 @@ describe('LotMatcher - Fee Handling', () => {
       }
     });
 
-    it('should include network fee in cost basis for acquisitions', () => {
+    it('should include network fee in cost basis for acquisitions', async () => {
       // Buy 1 ETH for $3,000 with 0.001 ETH network fee worth $3
       // Expected: cost basis = $3,003 total, or $3,003 per ETH
       const transactions: UniversalTransaction[] = [
@@ -119,7 +119,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -138,7 +138,7 @@ describe('LotMatcher - Fee Handling', () => {
       }
     });
 
-    it('should include both platform and network fees in cost basis', () => {
+    it('should include both platform and network fees in cost basis', async () => {
       const transactions: UniversalTransaction[] = [
         {
           id: 1,
@@ -182,7 +182,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -202,7 +202,7 @@ describe('LotMatcher - Fee Handling', () => {
   });
 
   describe('Disposals with fees', () => {
-    it('should subtract platform fee from proceeds on disposals', () => {
+    it('should subtract platform fee from proceeds on disposals', async () => {
       // First, acquire 1 BTC for $50,000
       // Then sell 1 BTC for $60,000 with $150 platform fee
       // Expected proceeds: $60,000 - $150 = $59,850
@@ -274,7 +274,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -297,7 +297,7 @@ describe('LotMatcher - Fee Handling', () => {
       }
     });
 
-    it('should subtract network fee from proceeds on disposals', () => {
+    it('should subtract network fee from proceeds on disposals', async () => {
       const transactions: UniversalTransaction[] = [
         {
           id: 1,
@@ -365,7 +365,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -387,7 +387,7 @@ describe('LotMatcher - Fee Handling', () => {
   });
 
   describe('Multi-asset transactions with proportional fee allocation', () => {
-    it('should allocate fees proportionally when multiple assets are involved', () => {
+    it('should allocate fees proportionally when multiple assets are involved', async () => {
       // Buy both BTC ($50k) and ETH ($25k) in one transaction with $75 total fee
       // BTC should get 2/3 of fee ($50), ETH should get 1/3 of fee ($25)
       const transactions: UniversalTransaction[] = [
@@ -433,7 +433,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -462,7 +462,7 @@ describe('LotMatcher - Fee Handling', () => {
   });
 
   describe('Multiple movements of same asset (regression test for fee double-counting)', () => {
-    it('should allocate fees proportionally when multiple inflows of same asset exist', () => {
+    it('should allocate fees proportionally when multiple inflows of same asset exist', async () => {
       // Single transaction with TWO BTC inflows (e.g., batch purchase split across wallets)
       // Inflow 1: 0.5 BTC @ $50,000 = $25,000 value
       // Inflow 2: 0.5 BTC @ $50,000 = $25,000 value
@@ -511,7 +511,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -542,7 +542,7 @@ describe('LotMatcher - Fee Handling', () => {
       }
     });
 
-    it('should allocate fees proportionally when multiple outflows of same asset exist', () => {
+    it('should allocate fees proportionally when multiple outflows of same asset exist', async () => {
       // Setup: Buy 1 BTC for $50,000 (no fees)
       // Then: Sell in two separate outflows with $30 total fee
       // Outflow 1: 0.6 BTC @ $60,000 = $36,000 gross proceeds
@@ -620,7 +620,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -653,7 +653,7 @@ describe('LotMatcher - Fee Handling', () => {
   });
 
   describe('Fee handling edge cases', () => {
-    it('should fail when crypto fee is missing price', () => {
+    it('should fail when crypto fee is missing price', async () => {
       const transactions: UniversalTransaction[] = [
         {
           id: 1,
@@ -686,7 +686,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -698,7 +698,7 @@ describe('LotMatcher - Fee Handling', () => {
       }
     });
 
-    it('should use 1:1 fallback for fiat fee in same currency as target movement', () => {
+    it('should use 1:1 fallback for fiat fee in same currency as target movement', async () => {
       const transactions: UniversalTransaction[] = [
         {
           id: 1,
@@ -731,7 +731,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -748,7 +748,7 @@ describe('LotMatcher - Fee Handling', () => {
       }
     });
 
-    it('should fail when fiat fee currency differs from target movement price currency', () => {
+    it('should fail when fiat fee currency differs from target movement price currency', async () => {
       const transactions: UniversalTransaction[] = [
         {
           id: 1,
@@ -781,7 +781,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -795,7 +795,7 @@ describe('LotMatcher - Fee Handling', () => {
   });
 
   describe('Zero-value fee allocation edge cases', () => {
-    it('should split fees evenly when all crypto movements have zero value (airdrop)', () => {
+    it('should split fees evenly when all crypto movements have zero value (airdrop)', async () => {
       // Airdrop: Receive 100 XYZ tokens with $0 value, $5 network fee
       // Fee should be split evenly among zero-value crypto movements
       const transactions: UniversalTransaction[] = [
@@ -830,7 +830,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -849,7 +849,7 @@ describe('LotMatcher - Fee Handling', () => {
       }
     });
 
-    it('should split fees evenly among multiple zero-value crypto movements', () => {
+    it('should split fees evenly among multiple zero-value crypto movements', async () => {
       // Receive 2 different airdrops in one transaction, both with $0 value
       // $10 fee should be split evenly: $5 each
       const transactions: UniversalTransaction[] = [
@@ -889,7 +889,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -916,7 +916,7 @@ describe('LotMatcher - Fee Handling', () => {
       }
     });
 
-    it('should NOT allocate fee to fiat movements when all movements are zero-value', () => {
+    it('should NOT allocate fee to fiat movements when all movements are zero-value', async () => {
       // Edge case: Zero-value crypto + fiat movement with $0 fee
       // Fiat should not receive fee allocation (we don't track cost basis for fiat)
       const transactions: UniversalTransaction[] = [
@@ -957,7 +957,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -980,7 +980,7 @@ describe('LotMatcher - Fee Handling', () => {
       }
     });
 
-    it('should return zero fee allocation when no crypto movements exist (fiat-only)', () => {
+    it('should return zero fee allocation when no crypto movements exist (fiat-only)', async () => {
       // All movements are fiat - no fee allocation needed
       const transactions: UniversalTransaction[] = [
         {
@@ -1020,7 +1020,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });
@@ -1047,7 +1047,7 @@ describe('LotMatcher - Fee Handling', () => {
       }
     });
 
-    it('should use proportional allocation when some movements have value and others are zero', () => {
+    it('should use proportional allocation when some movements have value and others are zero', async () => {
       // Mixed: One crypto with value, one with zero value
       // BTC: $50,000 value
       // XYZ: $0 value
@@ -1090,7 +1090,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
       ];
 
-      const result = matcher.match(transactions, {
+      const result = await matcher.match(transactions, {
         calculationId: 'calc1',
         strategy: fifoStrategy,
       });

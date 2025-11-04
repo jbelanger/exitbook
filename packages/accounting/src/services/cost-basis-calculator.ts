@@ -1,4 +1,5 @@
 import type { UniversalTransaction } from '@exitbook/core';
+import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -7,7 +8,10 @@ import { v4 as uuidv4 } from 'uuid';
 import type { CostBasisConfig } from '../config/cost-basis-config.js';
 import type { CostBasisCalculation } from '../domain/schemas.js';
 import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
+import { getJurisdictionConfig } from '../jurisdictions/jurisdiction-configs.js';
 import type { CostBasisRepository } from '../persistence/cost-basis-repository.js';
+import type { LotTransferRepository } from '../persistence/lot-transfer-repository.js';
+import type { TransactionLinkRepository } from '../persistence/transaction-link-repository.js';
 
 import { GainLossCalculator } from './gain-loss-calculator.js';
 import { LotMatcher } from './lot-matcher.js';
@@ -48,8 +52,13 @@ export class CostBasisCalculator {
   private readonly gainLossCalculator: GainLossCalculator;
   private readonly logger = getLogger('CostBasisCalculator');
 
-  constructor(private readonly repository: CostBasisRepository) {
-    this.lotMatcher = new LotMatcher();
+  constructor(
+    private readonly repository: CostBasisRepository,
+    private readonly lotTransferRepository: LotTransferRepository,
+    transactionRepository?: TransactionRepository,
+    linkRepository?: TransactionLinkRepository
+  ) {
+    this.lotMatcher = new LotMatcher(transactionRepository, linkRepository);
     this.gainLossCalculator = new GainLossCalculator();
   }
 
@@ -115,10 +124,17 @@ export class CostBasisCalculator {
       // Get strategy based on config
       const strategy = this.getStrategy(config.method);
 
+      // Get jurisdiction config for transfer fee policy
+      const jurisdictionCode = rules.getJurisdiction();
+      const jurisdictionConfig = getJurisdictionConfig(jurisdictionCode);
+
       // Match transactions to lots using chosen strategy
-      const matchResult = this.lotMatcher.match(transactions, {
+      const matchResult = await this.lotMatcher.match(transactions, {
         calculationId,
         strategy,
+        jurisdiction: jurisdictionConfig
+          ? { sameAssetTransferFeePolicy: jurisdictionConfig.sameAssetTransferFeePolicy }
+          : undefined,
       });
 
       if (matchResult.isErr()) {
@@ -139,9 +155,10 @@ export class CostBasisCalculator {
 
       const gainLoss = gainLossResult.value;
 
-      // Store lots and disposals in database
+      // Store lots, disposals, and lot transfers in database
       const lots = lotMatchResult.assetResults.flatMap((r) => r.lots);
       const disposals = lotMatchResult.assetResults.flatMap((r) => r.disposals);
+      const lotTransfers = lotMatchResult.assetResults.flatMap((r) => r.lotTransfers);
 
       const storeLotResult = await this.repository.createLotsBulk(lots);
       if (storeLotResult.isErr()) {
@@ -153,6 +170,16 @@ export class CostBasisCalculator {
       if (storeDisposalResult.isErr()) {
         await this.updateCalculationStatus(calculationId, 'failed', storeDisposalResult.error.message);
         return err(storeDisposalResult.error);
+      }
+
+      // Store lot transfers (Phase 2)
+      if (lotTransfers.length > 0) {
+        const storeLotTransferResult = await this.lotTransferRepository.createBulk(lotTransfers);
+        if (storeLotTransferResult.isErr()) {
+          await this.updateCalculationStatus(calculationId, 'failed', storeLotTransferResult.error.message);
+          return err(storeLotTransferResult.error);
+        }
+        this.logger.info({ count: lotTransfers.length }, 'Stored lot transfers');
       }
 
       // Create completed calculation record
@@ -262,8 +289,8 @@ export class CostBasisCalculator {
    */
   private findMovementsWithNonUsdPrices(
     transactions: UniversalTransaction[]
-  ): { asset: string; currency: string; datetime: string; transactionId: string; }[] {
-    const nonUsdMovements: { asset: string; currency: string; datetime: string; transactionId: string; }[] = [];
+  ): { asset: string; currency: string; datetime: string; transactionId: string }[] {
+    const nonUsdMovements: { asset: string; currency: string; datetime: string; transactionId: string }[] = [];
 
     for (const tx of transactions) {
       // Check inflows
