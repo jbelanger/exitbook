@@ -5,6 +5,12 @@ import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  createMockCostBasisRepository,
+  createMockLotTransferRepository,
+  createTransaction,
+  createTransactionWithFee,
+} from '../../../__tests__/test-utils.js';
 import type { CostBasisConfig } from '../../config/cost-basis-config.js';
 import type { LotDisposal } from '../../domain/schemas.js';
 import { CanadaRules } from '../../jurisdictions/canada-rules.js';
@@ -19,59 +25,9 @@ describe('CostBasisCalculator', () => {
   let calculator: CostBasisCalculator;
 
   beforeEach(() => {
-    // Create a minimal mock repository
-    mockRepository = {
-      createCalculation: vi.fn().mockResolvedValue(ok('calc-id')),
-      createLotsBulk: vi.fn().mockResolvedValue(ok(1)),
-      createDisposalsBulk: vi.fn().mockResolvedValue(ok(1)),
-      updateCalculation: vi.fn().mockResolvedValue(ok(true)),
-    } as unknown as CostBasisRepository;
-
-    // Create a minimal mock lot transfer repository
-    mockLotTransferRepository = {
-      createBulk: vi.fn().mockResolvedValue(ok(0)),
-    } as unknown as LotTransferRepository;
-
+    mockRepository = createMockCostBasisRepository();
+    mockLotTransferRepository = createMockLotTransferRepository();
     calculator = new CostBasisCalculator(mockRepository, mockLotTransferRepository);
-  });
-
-  const createTransaction = (
-    id: number,
-    datetime: string,
-    inflows: { amount: string; asset: string; price: string }[],
-    outflows: { amount: string; asset: string; price: string }[] = []
-  ): UniversalTransaction => ({
-    id,
-    externalId: `ext-${id}`,
-    datetime,
-    timestamp: new Date(datetime).getTime(),
-    source: 'test',
-    status: 'success',
-    movements: {
-      inflows: inflows.map((i) => ({
-        asset: i.asset,
-        grossAmount: new Decimal(i.amount),
-        priceAtTxTime: {
-          price: { amount: new Decimal(i.price), currency: Currency.create('USD') },
-          source: 'test',
-          fetchedAt: new Date(datetime),
-          granularity: 'exact',
-        },
-      })),
-      outflows: outflows.map((o) => ({
-        asset: o.asset,
-        grossAmount: new Decimal(o.amount),
-        priceAtTxTime: {
-          price: { amount: new Decimal(o.price), currency: Currency.create('USD') },
-          source: 'test',
-          fetchedAt: new Date(datetime),
-          granularity: 'exact',
-        },
-      })),
-    },
-    operation: { category: 'trade', type: inflows.length > 0 ? 'buy' : 'sell' },
-    fees: [],
-    metadata: {},
   });
 
   describe('calculate', () => {
@@ -488,49 +444,17 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should disallow wash sale loss with fee allocation (US)', async () => {
-      // Integration test: wash sale + fee handling interaction
-      // Buy 1 BTC @ $50k (Jan 1)
-      // Sell 1 BTC @ $30k with $100 fee (Feb 1) - loss of $20,100
-      // Buy 0.5 BTC @ $32k with $50 fee (Feb 15) - triggers wash sale
-      // Expected: Loss disallowed, fees allocated correctly
-      const transactionWithFee = (
-        id: number,
-        datetime: string,
-        inflows: { amount: string; asset: string; price: string }[],
-        outflows: { amount: string; asset: string; price: string }[],
-        platformFee?: { amount: string; asset: string; price: string }
-      ): UniversalTransaction => {
-        const tx = createTransaction(id, datetime, inflows, outflows);
-        if (platformFee) {
-          tx.fees = [
-            {
-              scope: 'platform',
-              settlement: 'balance',
-              asset: platformFee.asset,
-              amount: new Decimal(platformFee.amount),
-              priceAtTxTime: {
-                price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
-                source: 'test',
-                fetchedAt: new Date(datetime),
-                granularity: 'exact',
-              },
-            },
-          ];
-        }
-        return tx;
-      };
-
       const transactions: UniversalTransaction[] = [
         // Buy 1 BTC @ $50k (Jan 1)
-        transactionWithFee(1, '2024-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '50000' }], []),
+        createTransactionWithFee(1, '2024-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '50000' }], [], undefined),
         // Sell 1 BTC @ $30k with $100 fee (Feb 1) - creates loss
-        transactionWithFee(2, '2024-02-01T00:00:00Z', [], [{ asset: 'BTC', amount: '1', price: '30000' }], {
+        createTransactionWithFee(2, '2024-02-01T00:00:00Z', [], [{ asset: 'BTC', amount: '1', price: '30000' }], {
           asset: 'USD',
           amount: '100',
           price: '1',
         }),
         // Buy 0.5 BTC @ $32k with $50 fee (Feb 15) - triggers wash sale
-        transactionWithFee(3, '2024-02-15T00:00:00Z', [{ asset: 'BTC', amount: '0.5', price: '32000' }], [], {
+        createTransactionWithFee(3, '2024-02-15T00:00:00Z', [{ asset: 'BTC', amount: '0.5', price: '32000' }], [], {
           asset: 'USD',
           amount: '50',
           price: '1',
@@ -581,75 +505,9 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should handle superficial loss with multi-asset fees (Canada)', async () => {
-      // Integration test: superficial loss + proportional fee allocation
-      // Buy BTC ($40k) + ETH ($20k) with $60 fee (Jan 1)
-      // Sell BTC at loss within window (Feb 1)
-      // Reacquire BTC (Feb 15) - triggers superficial loss
-      // Expected: BTC loss disallowed, ETH unaffected, fees allocated 2:1
-      const multiAssetTxWithFee = (
-        id: number,
-        datetime: string,
-        inflows: { amount: string; asset: string; price: string }[],
-        outflows: { amount: string; asset: string; price: string }[],
-        platformFee?: { amount: string; asset: string; price: string }
-      ): UniversalTransaction => {
-        const tx: UniversalTransaction = {
-          id,
-          externalId: `ext-${id}`,
-          datetime,
-          timestamp: new Date(datetime).getTime(),
-          source: 'test',
-          status: 'success',
-          movements: {
-            inflows: inflows.map((i) => ({
-              asset: i.asset,
-              grossAmount: new Decimal(i.amount),
-              priceAtTxTime: {
-                price: { amount: new Decimal(i.price), currency: Currency.create('USD') },
-                source: 'test',
-                fetchedAt: new Date(datetime),
-                granularity: 'exact',
-              },
-            })),
-            outflows: outflows.map((o) => ({
-              asset: o.asset,
-              grossAmount: new Decimal(o.amount),
-              priceAtTxTime: {
-                price: { amount: new Decimal(o.price), currency: Currency.create('USD') },
-                source: 'test',
-                fetchedAt: new Date(datetime),
-                granularity: 'exact',
-              },
-            })),
-          },
-          operation: { category: 'trade', type: inflows.length > 0 ? 'buy' : 'sell' },
-          fees: [],
-          metadata: {},
-        };
-
-        if (platformFee) {
-          tx.fees = [
-            {
-              scope: 'platform',
-              settlement: 'balance',
-              asset: platformFee.asset,
-              amount: new Decimal(platformFee.amount),
-              priceAtTxTime: {
-                price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
-                source: 'test',
-                fetchedAt: new Date(datetime),
-                granularity: 'exact',
-              },
-            },
-          ];
-        }
-
-        return tx;
-      };
-
       const transactions: UniversalTransaction[] = [
         // Buy BTC ($40k) + ETH ($20k) with $60 fee (Jan 1)
-        multiAssetTxWithFee(
+        createTransactionWithFee(
           1,
           '2024-01-01T00:00:00Z',
           [
@@ -930,46 +788,15 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should correctly classify long-term gains with complex fee scenarios', async () => {
-      // Integration test: holding period classification + fee handling
-      // Buy 1 BTC @ $30k with $100 fee (Jan 1, 2023)
-      // Sell 0.5 BTC @ $50k with $200 fee (Jan 2, 2024) - 366 days = long-term
-      // Expected: Long-term classification, correct cost basis with fees
-      const txWithFee = (
-        id: number,
-        datetime: string,
-        inflows: { amount: string; asset: string; price: string }[],
-        outflows: { amount: string; asset: string; price: string }[],
-        platformFee?: { amount: string; asset: string; price: string }
-      ): UniversalTransaction => {
-        const tx = createTransaction(id, datetime, inflows, outflows);
-        if (platformFee) {
-          tx.fees = [
-            {
-              scope: 'platform',
-              settlement: 'balance',
-              asset: platformFee.asset,
-              amount: new Decimal(platformFee.amount),
-              priceAtTxTime: {
-                price: { amount: new Decimal(platformFee.price), currency: Currency.create('USD') },
-                source: 'test',
-                fetchedAt: new Date(datetime),
-                granularity: 'exact',
-              },
-            },
-          ];
-        }
-        return tx;
-      };
-
       const transactions: UniversalTransaction[] = [
         // Buy 1 BTC @ $30k with $100 fee (Jan 1, 2023)
-        txWithFee(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }], [], {
+        createTransactionWithFee(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }], [], {
           asset: 'USD',
           amount: '100',
           price: '1',
         }),
         // Sell 0.5 BTC @ $50k with $200 fee (Jan 2, 2024) - 366 days = long-term
-        txWithFee(2, '2024-01-02T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '50000' }], {
+        createTransactionWithFee(2, '2024-01-02T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '50000' }], {
           asset: 'USD',
           amount: '200',
           price: '1',

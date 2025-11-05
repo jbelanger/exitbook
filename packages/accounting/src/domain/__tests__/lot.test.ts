@@ -1,8 +1,8 @@
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
+import { createLot } from '../../../__tests__/test-utils.js';
 import { createAcquisitionLot, disposeLot, updateLotStatus } from '../lot.ts';
-import type { AcquisitionLot } from '../types.ts';
 
 describe('createAcquisitionLot', () => {
   test('should create a new acquisition lot with correct properties', () => {
@@ -50,61 +50,28 @@ describe('createAcquisitionLot', () => {
 
 describe('updateLotStatus', () => {
   test('should return "open" when remaining quantity equals original quantity', () => {
-    const lot: AcquisitionLot = {
-      acquisitionDate: new Date('2024-01-01'),
-      acquisitionTransactionId: 1,
-      asset: 'BTC',
+    const lot = createLot('lot-123', 'BTC', '2', '50000', new Date('2024-01-01'), {
       calculationId: 'calc-123',
-      costBasisPerUnit: parseDecimal('50000'),
-      createdAt: new Date(),
-      id: 'lot-123',
-      method: 'fifo',
-      quantity: parseDecimal('2'),
-      remainingQuantity: parseDecimal('2'),
-      status: 'open',
-      totalCostBasis: parseDecimal('100000'),
-      updatedAt: new Date(),
-    };
+    });
 
     expect(updateLotStatus(lot)).toBe('open');
   });
 
   test('should return "partially_disposed" when remaining quantity is less than original but not zero', () => {
-    const lot: AcquisitionLot = {
-      acquisitionDate: new Date('2024-01-01'),
-      acquisitionTransactionId: 1,
-      asset: 'BTC',
+    const lot = createLot('lot-123', 'BTC', '2', '50000', new Date('2024-01-01'), {
       calculationId: 'calc-123',
-      costBasisPerUnit: parseDecimal('50000'),
-      createdAt: new Date(),
-      id: 'lot-123',
-      method: 'fifo',
-      quantity: parseDecimal('2'),
-      remainingQuantity: parseDecimal('0.5'),
-      status: 'open',
-      totalCostBasis: parseDecimal('100000'),
-      updatedAt: new Date(),
-    };
+      remainingQuantity: '0.5',
+    });
 
     expect(updateLotStatus(lot)).toBe('partially_disposed');
   });
 
   test('should return "fully_disposed" when remaining quantity is zero', () => {
-    const lot: AcquisitionLot = {
-      acquisitionDate: new Date('2024-01-01'),
-      acquisitionTransactionId: 1,
-      asset: 'BTC',
+    const lot = createLot('lot-123', 'BTC', '2', '50000', new Date('2024-01-01'), {
       calculationId: 'calc-123',
-      costBasisPerUnit: parseDecimal('50000'),
-      createdAt: new Date(),
-      id: 'lot-123',
-      method: 'fifo',
-      quantity: parseDecimal('2'),
-      remainingQuantity: parseDecimal('0'),
-      status: 'open',
-      totalCostBasis: parseDecimal('100000'),
-      updatedAt: new Date(),
-    };
+      remainingQuantity: '0',
+      status: 'fully_disposed',
+    });
 
     expect(updateLotStatus(lot)).toBe('fully_disposed');
   });
@@ -112,21 +79,9 @@ describe('updateLotStatus', () => {
 
 describe('disposeLot', () => {
   test('should reduce remaining quantity and update status to partially_disposed', () => {
-    const lot: AcquisitionLot = {
-      acquisitionDate: new Date('2024-01-01'),
-      acquisitionTransactionId: 1,
-      asset: 'BTC',
+    const lot = createLot('lot-123', 'BTC', '2', '50000', new Date('2024-01-01'), {
       calculationId: 'calc-123',
-      costBasisPerUnit: parseDecimal('50000'),
-      createdAt: new Date(),
-      id: 'lot-123',
-      method: 'fifo',
-      quantity: parseDecimal('2'),
-      remainingQuantity: parseDecimal('2'),
-      status: 'open',
-      totalCostBasis: parseDecimal('100000'),
-      updatedAt: new Date(),
-    };
+    });
 
     const result = disposeLot(lot, parseDecimal('1'));
 
@@ -135,27 +90,14 @@ describe('disposeLot', () => {
       const disposedLot = result.value;
       expect(disposedLot.remainingQuantity.toString()).toBe('1');
       expect(disposedLot.status).toBe('partially_disposed');
-      // updatedAt should be set to current time, which will be >= the original
       expect(disposedLot.updatedAt).toBeInstanceOf(Date);
     }
   });
 
   test('should update status to fully_disposed when all quantity is disposed', () => {
-    const lot: AcquisitionLot = {
-      acquisitionDate: new Date('2024-01-01'),
-      acquisitionTransactionId: 1,
-      asset: 'BTC',
+    const lot = createLot('lot-123', 'BTC', '2', '50000', new Date('2024-01-01'), {
       calculationId: 'calc-123',
-      costBasisPerUnit: parseDecimal('50000'),
-      createdAt: new Date(),
-      id: 'lot-123',
-      method: 'fifo',
-      quantity: parseDecimal('2'),
-      remainingQuantity: parseDecimal('2'),
-      status: 'open',
-      totalCostBasis: parseDecimal('100000'),
-      updatedAt: new Date(),
-    };
+    });
 
     const result = disposeLot(lot, parseDecimal('2'));
 
@@ -168,21 +110,11 @@ describe('disposeLot', () => {
   });
 
   test('should return error when trying to dispose more than remaining quantity', () => {
-    const lot: AcquisitionLot = {
-      acquisitionDate: new Date('2024-01-01'),
-      acquisitionTransactionId: 1,
-      asset: 'BTC',
+    const lot = createLot('lot-123', 'BTC', '2', '50000', new Date('2024-01-01'), {
       calculationId: 'calc-123',
-      costBasisPerUnit: parseDecimal('50000'),
-      createdAt: new Date(),
-      id: 'lot-123',
-      method: 'fifo',
-      quantity: parseDecimal('2'),
-      remainingQuantity: parseDecimal('1'),
+      remainingQuantity: '1',
       status: 'partially_disposed',
-      totalCostBasis: parseDecimal('100000'),
-      updatedAt: new Date(),
-    };
+    });
 
     const result = disposeLot(lot, parseDecimal('1.5'));
 
@@ -194,21 +126,9 @@ describe('disposeLot', () => {
   });
 
   test('should handle decimal precision correctly', () => {
-    const lot: AcquisitionLot = {
-      acquisitionDate: new Date('2024-01-01'),
-      acquisitionTransactionId: 1,
-      asset: 'BTC',
+    const lot = createLot('lot-123', 'BTC', '0.123456789', '50000', new Date('2024-01-01'), {
       calculationId: 'calc-123',
-      costBasisPerUnit: parseDecimal('50000'),
-      createdAt: new Date(),
-      id: 'lot-123',
-      method: 'fifo',
-      quantity: parseDecimal('0.123456789'),
-      remainingQuantity: parseDecimal('0.123456789'),
-      status: 'open',
-      totalCostBasis: parseDecimal('6172.83945'),
-      updatedAt: new Date(),
-    };
+    });
 
     const result = disposeLot(lot, parseDecimal('0.023456789'));
 
