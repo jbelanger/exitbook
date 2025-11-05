@@ -134,7 +134,7 @@ fees: Array<{
 
 **Cost Basis:** Platform fee added to acquisition cost at destination.
 
-#### 2. Ethereum Transfer (Network Fee, On-Chain)
+#### 2. Ethereum Transfer (Network Fee, Separate Payment)
 
 ```typescript
 {
@@ -142,21 +142,21 @@ fees: Array<{
     outflows: [{
       asset: 'ETH',
       grossAmount: '1.5000',
-      netAmount: '1.4990'           // After gas deduction
+      netAmount: '1.5000'           // Recipient receives full amount
     }]
   },
   fees: [{
     asset: 'ETH',
     amount: '0.0010',
     scope: 'network',                // Paid to validators
-    settlement: 'on-chain'           // Deducted during transfer
+    settlement: 'balance'            // Deducted separately from balance
   }]
 }
 ```
 
-**Reconciliation:** Source netAmount (1.4990) matches target netAmount (1.4990) ✓
+**Reconciliation:** Source netAmount (1.5000) matches target netAmount (1.5000) ✓
 
-**Cost Basis:** Network fee reduces disposal proceeds for source.
+**Cost Basis:** Network fee paid separately from transfer; balance calculator subtracts both transfer and fee.
 
 #### 3. Coinbase UNI Withdrawal (Platform Fee, On-Chain)
 
