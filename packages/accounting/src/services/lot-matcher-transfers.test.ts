@@ -489,7 +489,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
           { asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') },
           { asset: 'ETH', grossAmount: parseDecimal('0.01'), priceAtTxTime: createPriceAtTxTime('3500') },
         ],
-        [createFeeMovement('network', 'on-chain', 'ETH', '0.01', '3500')]
+        [createFeeMovement('network', 'balance', 'ETH', '0.01', '3500')]
       );
 
       const depositTx = createTransaction(
