@@ -22,6 +22,7 @@ import {
   collectFiatFees,
   extractCryptoFee,
   filterTransactionsWithoutPrices,
+  getVarianceTolerance,
   groupTransactionsByAsset,
   sortWithLogicalOrdering,
   validateTransferVariance,
@@ -356,19 +357,83 @@ export class LotMatcher {
     config: LotMatcherConfig,
     calculationId: string
   ): Result<{ disposals: LotDisposal[]; transfers: LotTransfer[] }, Error> {
-    const cryptoFeeResult = extractCryptoFee(tx, outflow.asset);
-    if (cryptoFeeResult.isErr()) {
-      return err(cryptoFeeResult.error);
-    }
-
-    const cryptoFee = cryptoFeeResult.value;
-
     // Use netAmount for transfer validation (already accounts for on-chain fees)
     // Per ADR-005: netAmount = grossAmount - on-chain fees
     // Platform fees (settlement='balance') don't affect the on-chain transfer amount
     const netTransferAmount = outflow.netAmount ?? outflow.grossAmount;
 
-    // Validate transfer variance
+    // Calculate fee for THIS specific outflow
+    // When netAmount is provided, the fee is implicit: grossAmount - netAmount
+    // This handles batched transactions correctly (each outflow has its share of the fee)
+    const outflowFeeAmount = outflow.grossAmount.minus(netTransferAmount);
+
+    // Get price for the fee from transaction-level fees (if available)
+    const cryptoFeeResult = extractCryptoFee(tx, outflow.asset);
+    if (cryptoFeeResult.isErr()) {
+      return err(cryptoFeeResult.error);
+    }
+    const txLevelCryptoFee = cryptoFeeResult.value;
+
+    // Use the outflow-specific fee amount, but preserve price and type info from transaction
+    const cryptoFee = {
+      amount: outflowFeeAmount,
+      feeType: txLevelCryptoFee.feeType,
+      priceAtTxTime: txLevelCryptoFee.priceAtTxTime,
+    };
+
+    // Validate that the outflow fee amount is consistent with transaction-level fees
+    // This catches cases where netAmount has excessive variance (hidden fees, data errors)
+    // For batched transactions, compare against this outflow's proportional share of the fee
+    if (outflow.netAmount !== undefined && txLevelCryptoFee.amount.gt(0)) {
+      const sameAssetOutflows = tx.movements.outflows?.filter((o) => o.asset === outflow.asset) || [];
+      const totalGrossAmount = sameAssetOutflows.reduce((sum, o) => sum.plus(o.grossAmount), new Decimal(0));
+
+      // Calculate this outflow's proportional share of the total transaction fee
+      const outflowShare = outflow.grossAmount.dividedBy(totalGrossAmount);
+      const expectedOutflowFee = txLevelCryptoFee.amount.times(outflowShare);
+
+      // Calculate hidden fee as percentage of transfer amount (not fee amount)
+      // This aligns with exchange variance tolerances which are based on transfer amounts
+      const hiddenFee = outflowFeeAmount.minus(expectedOutflowFee).abs();
+      const hiddenFeePct = netTransferAmount.isZero()
+        ? new Decimal(0)
+        : hiddenFee.dividedBy(netTransferAmount).times(100);
+
+      const tolerance = getVarianceTolerance(tx.source, config.varianceTolerance);
+
+      if (hiddenFeePct.gt(tolerance.error)) {
+        return err(
+          new Error(
+            `Outflow fee validation failed at tx ${tx.id}: ` +
+              `netAmount implies ${outflowFeeAmount.toFixed()} ${outflow.asset} in fees, ` +
+              `but expected ${expectedOutflowFee.toFixed()} ${outflow.asset} ` +
+              `(hidden fee: ${hiddenFee.toFixed()} ${outflow.asset}, ${hiddenFeePct.toFixed(2)}% of transfer amount). ` +
+              `Exceeds error threshold of ${tolerance.error.toFixed()}%. ` +
+              `Likely hidden fees or data quality issue.`
+          )
+        );
+      }
+
+      // Warn if hidden fee percentage exceeds warning threshold (but within error threshold)
+      if (hiddenFeePct.gt(tolerance.warn)) {
+        this.logger.warn(
+          {
+            txId: tx.id,
+            asset: outflow.asset,
+            impliedFee: outflowFeeAmount.toFixed(),
+            expectedFee: expectedOutflowFee.toFixed(),
+            hiddenFee: hiddenFee.toFixed(),
+            hiddenFeePct: hiddenFeePct.toFixed(2),
+          },
+          `Hidden fee (${hiddenFeePct.toFixed(2)}% of transfer) exceeds warning threshold. ` +
+            `netAmount implies ${outflowFeeAmount.toFixed()} ${outflow.asset} in fees, ` +
+            `but transaction reports ${expectedOutflowFee.toFixed()} ${outflow.asset}. ` +
+            `Possible hidden fees or incomplete fee metadata.`
+        );
+      }
+    }
+
+    // Validate transfer variance between source and target
     const varianceResult = validateTransferVariance(
       netTransferAmount,
       link.targetAmount,
