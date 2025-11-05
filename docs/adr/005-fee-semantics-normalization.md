@@ -110,6 +110,19 @@ fees: Array<{
 
 ### Implementation Examples
 
+**Critical Distinction: UTXO vs Account-Based Blockchains**
+
+Different blockchain architectures handle fees differently, which affects how `grossAmount` and `netAmount` relate:
+
+| Model                   | Examples                            | Fee Handling                                  | netAmount Calculation           |
+| ----------------------- | ----------------------------------- | --------------------------------------------- | ------------------------------- |
+| **UTXO**                | Bitcoin                             | Fees implicit in UTXOs                        | `netAmount = grossAmount - fee` |
+| **Account-Based**       | Ethereum, Solana, Substrate, Cosmos | Fees paid separately from transfer            | `netAmount = grossAmount`       |
+| **Platform (Exchange)** | Kraken, Binance                     | Platform fees typically separate ledger entry | `netAmount = grossAmount`       |
+| **Platform (On-Chain)** | Coinbase UNI withdrawals            | Platform fee carved from on-chain send        | `netAmount = grossAmount - fee` |
+
+**Key Insight:** The `settlement='on-chain'` field indicates the fee was part of the blockchain transaction, but does NOT always mean `netAmount < grossAmount`. For account-based chains, on-chain fees are still paid separately from the transfer amount, resulting in `netAmount = grossAmount`.
+
 #### 1. Kraken BTC Withdrawal (Platform Fee, Off-Chain)
 
 ```typescript
@@ -134,29 +147,35 @@ fees: Array<{
 
 **Cost Basis:** Platform fee added to acquisition cost at destination.
 
-#### 2. Ethereum Transfer (Network Fee, On-Chain)
+#### 2. Ethereum Transfer (Network Fee, On-Chain) - **Account-Based Model**
+
+**IMPORTANT:** For account-based blockchains like Ethereum, gas fees are paid separately from transfers, NOT carved from the transfer amount itself. This differs from Bitcoin's UTXO model where fees are implicit.
 
 ```typescript
 {
   movements: {
     outflows: [{
       asset: 'ETH',
-      grossAmount: '1.5000',
-      netAmount: '1.4990'           // After gas deduction
+      grossAmount: '1.5000',          // Amount sent to recipient
+      netAmount: '1.5000'             // Full amount arrives (gas paid separately)
     }]
   },
   fees: [{
     asset: 'ETH',
     amount: '0.0010',
-    scope: 'network',                // Paid to validators
-    settlement: 'on-chain'           // Deducted during transfer
+    scope: 'network',                  // Paid to validators
+    settlement: 'on-chain'             // Part of same transaction, but NOT carved from transfer
   }]
 }
 ```
 
-**Reconciliation:** Source netAmount (1.4990) matches target netAmount (1.4990) ✓
+**Reconciliation:** Source netAmount (1.5000) matches target netAmount (1.5000) ✓
 
-**Cost Basis:** Network fee reduces disposal proceeds for source.
+**Balance Impact:** User's balance decreases by 1.5010 ETH total (1.5000 transfer + 0.0010 gas)
+
+**Cost Basis:** Network fee treated separately based on context (see cost-basis section below)
+
+**Note:** The `settlement='on-chain'` classification means the fee was paid as part of the same blockchain transaction, not that it was carved from the transfer amount. In Ethereum's account-based model, gas is debited separately from the transfer itself.
 
 #### 3. Coinbase UNI Withdrawal (Platform Fee, On-Chain)
 
@@ -182,7 +201,42 @@ fees: Array<{
 
 **Cost Basis:** Platform fee is available for policy decisions (e.g., add to disposal cost basis) without corrupting transfer sizing.
 
-#### 4. Binance BTC Withdrawal (Cross-Asset Fee)
+#### 4. Bitcoin On-Chain Transfer (Network Fee, UTXO Model)
+
+**IMPORTANT:** Bitcoin's UTXO model handles fees differently than account-based chains. Fees are implicit in the UTXO amounts, resulting in `netAmount < grossAmount`.
+
+```typescript
+{
+  movements: {
+    outflows: [{
+      asset: 'BTC',
+      grossAmount: '0.5000',           // Amount removed from wallet (after change)
+      netAmount: '0.4996'              // Amount received at destination (after fee)
+    }]
+  },
+  fees: [{
+    asset: 'BTC',
+    amount: '0.0004',
+    scope: 'network',                   // Paid to miners
+    settlement: 'on-chain'              // Implicit in UTXO structure
+  }]
+}
+```
+
+**Reconciliation:** Source netAmount (0.4996) matches target deposit netAmount (0.4996) ✓
+
+**Balance Impact:** User's balance decreases by 0.5000 BTC (grossAmount includes implicit fee)
+
+**UTXO Model Explanation:**
+
+- User's wallet selects UTXOs totaling (e.g.) 0.6 BTC
+- Transaction output 1: 0.4996 BTC to recipient (netAmount)
+- Transaction output 2: 0.1 BTC back to user (change)
+- Implicit fee: 0.6 - 0.4996 - 0.1 = 0.0004 BTC
+- grossAmount = 0.5 BTC (what left the wallet after accounting for change)
+- netAmount = 0.4996 BTC (what recipient receives)
+
+#### 5. Binance BTC Withdrawal (Cross-Asset Fee)
 
 ```typescript
 {

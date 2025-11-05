@@ -10,11 +10,16 @@
 
 This plan implements fee semantics normalization to distinguish:
 
-1. **On-chain fees** (gas, miner tips) that reduce transfer amounts
+1. **On-chain fees** (gas, miner tips) - may or may not reduce transfer amounts depending on blockchain model
 2. **Platform/off-chain fees** charged separately from transfers
 3. **Cross-asset fees** paid in different currencies
 
 The implementation uses gross/net movement amounts and explicit fee metadata (`scope`, `settlement`) to make transfer reconciliation deterministic and eliminate "Transfer amount mismatch" errors.
+
+**Critical Note:** Different blockchain architectures handle fees differently:
+
+- **UTXO chains (Bitcoin):** Fees implicit in amounts → `netAmount = grossAmount - fee`
+- **Account-based chains (Ethereum/Solana/etc):** Fees paid separately → `netAmount = grossAmount`
 
 ---
 
@@ -39,12 +44,18 @@ fees: FeeMovement[]  // Array of all fees, each tagged with scope
 
 Per ADR-005:
 
-- `grossAmount`: Amount venue debited/credited (what user initiated)
-- `netAmount`: Amount transmitted/received on-chain (after on-chain fees deducted)
-- Legacy `amount`: Keep for backward compatibility, maps to `grossAmount`
+- `grossAmount`: Amount venue debited/credited (what user initiated) - REQUIRED
+- `netAmount`: Amount transmitted/received on-chain (after on-chain fees, if applicable) - OPTIONAL, defaults to grossAmount
+- Legacy `amount`: DEPRECATED - kept for backward compatibility only
 
-For most transactions: `netAmount === grossAmount`
-For on-chain fee scenarios: `netAmount = grossAmount - onChainFee`
+**When netAmount differs from grossAmount:**
+
+| Blockchain Type         | netAmount Calculation | Example                                           |
+| ----------------------- | --------------------- | ------------------------------------------------- |
+| **UTXO (Bitcoin)**      | `grossAmount - fee`   | Send 0.5 BTC + 0.0004 fee → gross=0.5, net=0.4996 |
+| **Account (Ethereum)**  | `grossAmount`         | Send 2 ETH + 0.0001 gas → gross=2.0, net=2.0      |
+| **Account (Solana)**    | `grossAmount`         | Send 2 SOL + 0.000005 → gross=2.0, net=2.0        |
+| **Platform (Coinbase)** | `grossAmount - fee`   | Withdraw 18 UNI - 0.164 → gross=18, net=17.836    |
 
 ---
 
