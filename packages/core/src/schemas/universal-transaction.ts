@@ -64,7 +64,74 @@ export const PriceAtTxTimeSchema = z.object({
   fxTimestamp: DateSchema.optional(), // When FX rate was fetched
 });
 
-// Asset movement schema
+/**
+ * Asset Movement Schema
+ *
+ * Captures how assets move in/out of user accounts with TWO amount fields to handle different fee models:
+ *
+ * AMOUNT FIELDS:
+ * - grossAmount: Amount debited/credited to venue balance (REQUIRED)
+ * - netAmount: Amount transmitted on-chain (OPTIONAL, defaults to grossAmount)
+ *
+ * DECISION TREE - When netAmount differs from grossAmount:
+ *
+ * ┌─ Is this an OUTFLOW? ──────────────────────────────────────────┐
+ * │                                                                 │
+ * ├─ YES → Are there on-chain fees in the SAME asset?              │
+ * │         │                                                       │
+ * │         ├─ YES → Is this a UTXO-based blockchain?              │
+ * │         │        │                                              │
+ * │         │        ├─ YES (Bitcoin) →                            │
+ * │         │        │   netAmount = grossAmount - fee             │
+ * │         │        │   (UTXO model: fees carved from amounts)    │
+ * │         │        │                                              │
+ * │         │        └─ NO (Ethereum/Solana/etc.) →                │
+ * │         │            netAmount = grossAmount                   │
+ * │         │            (Account model: gas paid separately)      │
+ * │         │                                                       │
+ * │         └─ NO → netAmount = grossAmount                        │
+ * │                                                                 │
+ * └─ NO (INFLOW) → netAmount = grossAmount                         │
+ *                                                                   │
+ * REFERENCE TABLE BY BLOCKCHAIN TYPE:                              │
+ *                                                                   │
+ * | Blockchain Type | Fee Model        | grossAmount | netAmount  |
+ * |-----------------|------------------|-------------|-------------|
+ * | Bitcoin (UTXO)  | Implicit in UTXO | 2.0 BTC     | 1.9996 BTC |
+ * |                 | fee = 0.0004 BTC |             | (- fee)    |
+ * |-----------------|------------------|-------------|-------------|
+ * | Ethereum (Acct) | Gas paid sep.    | 2.0 ETH     | 2.0 ETH    |
+ * |                 | fee = 0.0001 ETH |             | (= gross)  |
+ * |-----------------|------------------|-------------|-------------|
+ * | Solana (Acct)   | Lamports sep.    | 2.0 SOL     | 2.0 SOL    |
+ * |                 | fee = 0.000005   |             | (= gross)  |
+ * |-----------------|------------------|-------------|-------------|
+ * | Substrate(Acct) | Balance sep.     | 2.5 DOT     | 2.5 DOT    |
+ * |                 | fee = 0.0156 DOT |             | (= gross)  |
+ * |-----------------|------------------|-------------|-------------|
+ * | Cosmos (Acct)   | Gas sep.         | 2.0 INJ     | 2.0 INJ    |
+ * |                 | fee = 0.0005 INJ |             | (= gross)  |
+ * |-----------------|------------------|-------------|-------------|
+ * | Exchange (CEX)  | Platform fee sep.| 0.00648 BTC | 0.00648 BTC|
+ * |                 | fee = 0.0004 BTC |             | (= gross)  |
+ * |                 | settlement=bal   |             |            |
+ * |-----------------|------------------|-------------|-------------|
+ * | Coinbase UNI    | Platform on-chain| 18 UNI      | 17.836 UNI |
+ * | Withdrawal      | fee = 0.164 UNI  |             | (- fee)    |
+ * |                 | settlement=chain |             |            |
+ * └─────────────────────────────────────────────────────────────────
+ *
+ * SPECIAL CASES:
+ * - Coinbase UNI withdrawals: Platform fee carved from on-chain send
+ *   → netAmount = grossAmount - fee (settlement='on-chain')
+ * - Kraken withdrawals: Platform fee charged separately
+ *   → netAmount = grossAmount (settlement='balance')
+ *
+ * DOWNSTREAM USAGE:
+ * - Transfer Matching: Uses netAmount for reconciliation (what went on-chain)
+ * - Balance Calc: Uses grossAmount (what left your account)
+ * - Cost Basis: Uses grossAmount for acquisition quantity
+ */
 export const AssetMovementSchema = z
   .object({
     asset: z.string().min(1, 'Asset must not be empty'),
@@ -100,10 +167,15 @@ export const AssetMovementSchema = z
  * - 'other': Edge cases (penalties, staking commissions, etc.)
  *
  * SETTLEMENT (How the fee is paid):
- * - 'on-chain': Deducted from the transfer BEFORE it hits the blockchain
- *   → Results in netAmount < grossAmount
- *   → Blockchain receipt shows the reduced amount
- *   → Examples: ETH gas, Coinbase withdrawal fee carved from transfer
+ *
+ * - 'on-chain': Fee paid as part of the blockchain transaction
+ *   → For UTXO chains (Bitcoin): Results in netAmount < grossAmount
+ *     Example: Send 2 BTC with 0.0004 fee → gross=2.0, net=1.9996
+ *   → For Account chains (Ethereum/Solana): Fee paid separately from transfer
+ *     Example: Send 2 ETH with 0.0001 gas → gross=2.0, net=2.0
+ *   → For Platform fees carved from transfer (Coinbase): Results in netAmount < grossAmount
+ *     Example: Withdraw 18 UNI with 0.164 fee → gross=18, net=17.836
+ *   → See AssetMovementSchema decision tree for when netAmount differs
  *
  * - 'balance': Separate ledger entry from venue balance (NOT deducted from transfer)
  *   → Transfer goes on-chain at full grossAmount (netAmount = grossAmount)
@@ -116,8 +188,8 @@ export const AssetMovementSchema = z
  *
  * VALID COMBINATIONS:
  *
- * | scope='network' + settlement='on-chain'  | ✅ Gas fees deducted from ETH transfer
- * | scope='platform' + settlement='on-chain' | ✅ Coinbase withdrawal fee carved from transfer
+ * | scope='network' + settlement='on-chain'  | ✅ Gas fees (Bitcoin: reduces net, Ethereum: doesn't reduce net)
+ * | scope='platform' + settlement='on-chain' | ✅ Coinbase withdrawal fee carved from transfer (reduces net)
  * | scope='platform' + settlement='balance'  | ✅ Kraken withdrawal fee (separate ledger entry)
  * | scope='network'  + settlement='balance'  | ✅ Exchange pays gas on your behalf (rare)
  * | scope='tax'      + settlement='balance'  | ✅ FATCA withholding (separate deduction)
@@ -133,9 +205,10 @@ export const AssetMovementSchema = z
  * - Fees increase what you paid to acquire the asset
  *
  * For Balance Calculation (balance-calculator.ts):
- * - Deduct outflow.netAmount (already includes on-chain fees)
- * - ALSO deduct all fee.amount (whether on-chain or balance-settled)
- * - This ensures both deduction methods are properly accounted for
+ * - Use grossAmount for inflows/outflows (total balance impact)
+ * - Skip on-chain fees (assumes grossAmount already includes them)
+ * - Deduct balance/external fees separately
+ * - NOTE: Verify account-based chains (ETH/SOL) include gas in grossAmount, otherwise balances may be incorrect
  */
 export const FeeMovementSchema = z.object({
   asset: z.string().min(1, 'Asset must not be empty'),
