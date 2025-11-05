@@ -24,6 +24,7 @@ import {
   filterTransactionsWithoutPrices,
   groupTransactionsByAsset,
   sortWithLogicalOrdering,
+  validateOutflowFees,
   validateTransferVariance,
 } from './lot-matcher-utils.js';
 import type { ICostBasisStrategy } from './strategies/base-strategy.js';
@@ -362,6 +363,13 @@ export class LotMatcher {
     }
 
     const cryptoFee = cryptoFeeResult.value;
+
+    // Validate that netAmount matches grossAmount minus on-chain fees
+    // Detects hidden/undeclared fees
+    const feeValidationResult = validateOutflowFees(outflow, tx, tx.source, tx.id, config.varianceTolerance);
+    if (feeValidationResult.isErr()) {
+      return err(feeValidationResult.error);
+    }
 
     // Use netAmount for transfer validation (already accounts for on-chain fees)
     // Per ADR-005: netAmount = grossAmount - on-chain fees

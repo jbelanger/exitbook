@@ -133,7 +133,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         '2024-02-01T12:00:00Z',
         'kraken',
         [],
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            asset: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         [createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '60000')]
       );
 
@@ -147,7 +154,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -160,6 +167,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
+      if (result.isErr()) {
+        console.error('Test #1 error:', result.error.message);
+      }
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
@@ -193,7 +203,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         '2024-02-01T12:00:00Z',
         'kraken',
         [],
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            asset: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         [createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '60000')]
       );
 
@@ -207,7 +224,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -271,7 +288,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         '2024-02-01T12:00:00Z',
         'kraken',
         [],
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            asset: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         [createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '60000')]
       );
 
@@ -285,7 +309,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -336,7 +360,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         '2024-02-01T12:00:00Z',
         'kraken',
         [],
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            asset: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         [
           createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '60000'),
           createFeeMovement('platform', 'balance', 'USD', '1.5', '1'),
@@ -353,7 +384,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -395,7 +426,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         '2024-02-01T12:00:00Z',
         'kraken',
         [],
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            asset: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         [createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '60000')]
       );
 
@@ -412,7 +450,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         '2024-03-01T12:00:00Z',
         'wallet',
         [],
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('65000') }],
+        [
+          {
+            asset: 'BTC',
+            grossAmount: parseDecimal('0.9995'),
+            netAmount: parseDecimal('0.9992'),
+            priceAtTxTime: createPriceAtTxTime('65000'),
+          },
+        ],
         [createFeeMovement('network', 'on-chain', 'BTC', '0.0003', '65000')]
       );
 
@@ -426,8 +471,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawal1Tx, deposit1Tx, withdrawal2Tx, deposit2Tx];
 
-      const link1 = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
-      const link2 = createLink('link2', 4, 5, 'BTC', '0.9995', '0.9992');
+      const link1 = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
+      const link2 = createLink('link2', 4, 5, 'BTC', '0.9992', '0.9992');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link1, link2]);
@@ -440,6 +485,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
+      if (result.isErr()) {
+        console.error('Test #5 error:', result.error.message);
+      }
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
@@ -489,7 +537,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
           { asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') },
           { asset: 'ETH', grossAmount: parseDecimal('0.01'), priceAtTxTime: createPriceAtTxTime('3500') },
         ],
-        [createFeeMovement('network', 'balance', 'ETH', '0.01', '3500')]
+        [createFeeMovement('network', 'on-chain', 'ETH', '0.01', '3500')]
       );
 
       const depositTx = createTransaction(
@@ -550,8 +598,18 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         'exchange',
         [],
         [
-          { asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') },
-          { asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') },
+          {
+            asset: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('0.99975'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+          {
+            asset: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('0.99975'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
         ],
         [createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '60000')]
       );
@@ -574,8 +632,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, batchedWithdrawalTx, deposit1Tx, deposit2Tx];
 
-      const link1 = createLink('link1', 2, 3, 'BTC', '1.0', '0.99975');
-      const link2 = createLink('link2', 2, 4, 'BTC', '1.0', '0.99975');
+      const link1 = createLink('link1', 2, 3, 'BTC', '0.99975', '0.99975');
+      const link2 = createLink('link2', 2, 4, 'BTC', '0.99975', '0.99975');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link1, link2]);
@@ -588,6 +646,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
+      if (result.isErr()) {
+        console.error('Test #7 error:', result.error.message);
+      }
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
@@ -622,7 +683,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         '2024-02-01T12:00:00Z',
         'exchange-a',
         [],
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            asset: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         [createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '60000')]
       );
 
@@ -639,7 +707,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -682,7 +750,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         '2024-02-01T12:00:00Z',
         'exchange',
         [],
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            asset: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         [
           createFeeMovement('network', 'on-chain', 'BTC', '0.0003', '60000'),
           createFeeMovement('platform', 'on-chain', 'BTC', '0.0002', '60000'),
@@ -699,7 +774,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -743,7 +818,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         '2024-02-01T12:00:00Z',
         'binance',
         [],
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            asset: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('0.9875'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         [createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '60000')]
       );
 
@@ -757,7 +839,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9875');
+      const link = createLink('link1', 2, 3, 'BTC', '0.9875', '0.9875');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -770,6 +852,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
+      if (result.isErr()) {
+        console.error('Test #10 error:', result.error.message);
+      }
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
@@ -794,7 +879,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         '2024-02-01T12:00:00Z',
         'binance',
         [],
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            asset: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('0.94'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         [createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '60000')]
       );
 
@@ -808,7 +900,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.94');
+      const link = createLink('link1', 2, 3, 'BTC', '0.94', '0.94');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -821,10 +913,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
+      if (result.isOk()) {
+        console.error('Test #11 should have errored but succeeded');
+      }
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('Transfer amount mismatch');
-        expect(result.error.message).toContain('variance');
+        expect(result.error.message).toContain('Outflow fee validation failed');
+        expect(result.error.message).toContain('hidden fee');
+        expect(result.error.message).toContain('Exceeds error threshold');
       }
     });
   });
@@ -844,7 +940,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         '2024-02-01T12:00:00Z',
         'binance',
         [],
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            asset: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('0.98'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         []
       );
 
@@ -858,7 +961,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.98');
+      const link = createLink('link1', 2, 3, 'BTC', '0.98', '0.98');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
@@ -895,7 +998,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         '2024-02-01T12:00:00Z',
         'kraken',
         [],
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [
+          {
+            asset: 'BTC',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('0.9995'),
+            priceAtTxTime: createPriceAtTxTime('60000'),
+          },
+        ],
         [createFeeMovement('network', 'on-chain', 'BTC', '0.0005')] // Fee without price to test graceful degradation
       );
 
@@ -909,7 +1019,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       transactions = [purchaseTx, withdrawalTx, depositTx];
 
-      const link = createLink('link1', 2, 3, 'BTC', '1.0', '0.9995');
+      const link = createLink('link1', 2, 3, 'BTC', '0.9995', '0.9995');
 
       const txRepo = mockTransactionRepo();
       const linkRepo = mockLinkRepo([link]);
