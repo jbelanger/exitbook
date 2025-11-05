@@ -129,7 +129,7 @@ export const PriceAtTxTimeSchema = z.object({
  *
  * DOWNSTREAM USAGE:
  * - Transfer Matching: Uses netAmount for reconciliation (what went on-chain)
- * - Balance Calc: Uses grossAmount (what left your account)
+ * - Balance Calc: Uses grossAmount for inflows and prefers netAmount for outflows (fallback to grossAmount)
  * - Cost Basis: Uses grossAmount for acquisition quantity
  */
 export const AssetMovementSchema = z
@@ -205,10 +205,10 @@ export const AssetMovementSchema = z
  * - Fees increase what you paid to acquire the asset
  *
  * For Balance Calculation (balance-calculator.ts):
- * - Use grossAmount for inflows/outflows (total balance impact)
- * - Skip on-chain fees (assumes grossAmount already includes them)
- * - Deduct balance/external fees separately
- * - NOTE: Verify account-based chains (ETH/SOL) include gas in grossAmount, otherwise balances may be incorrect
+ * - Add inflow.grossAmount (total balance increase)
+ * - Subtract outflow.netAmount when available, otherwise outflow.grossAmount (reflects settled movement)
+ * - Deduct every fee amount regardless of settlement type
+ * - NOTE: Ensure legacy data populates netAmount; otherwise fallback to grossAmount handles it
  */
 export const FeeMovementSchema = z.object({
   asset: z.string().min(1, 'Asset must not be empty'),
