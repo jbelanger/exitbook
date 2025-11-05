@@ -362,7 +362,11 @@ export class LotMatcher {
     }
 
     const cryptoFee = cryptoFeeResult.value;
-    const netTransferAmount = outflow.grossAmount.minus(cryptoFee.amount);
+
+    // Use netAmount for transfer validation (already accounts for on-chain fees)
+    // Per ADR-005: netAmount = grossAmount - on-chain fees
+    // Platform fees (settlement='balance') don't affect the on-chain transfer amount
+    const netTransferAmount = outflow.netAmount ?? outflow.grossAmount;
 
     // Validate transfer variance
     const varianceResult = validateTransferVariance(
