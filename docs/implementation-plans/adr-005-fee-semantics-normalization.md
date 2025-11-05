@@ -115,34 +115,43 @@ fees: z.array(FeeMovementSchema).default([]),
 
 **Valid Combinations & Their Meanings:**
 
-| Scope      | Settlement | Meaning                                            | Example                       | Disposal Proceeds          | Acquisition Cost  | Balance Impact         |
-| ---------- | ---------- | -------------------------------------------------- | ----------------------------- | -------------------------- | ----------------- | ---------------------- |
-| `network`  | `on-chain` | Miner/validator fee deducted from transfer         | ETH gas fee                   | ✅ Reduces (use netAmount) | ✅ Included       | Deducted via netAmount |
-| `platform` | `on-chain` | Exchange fee carved from transfer before broadcast | Coinbase withdrawal fee (UNI) | ✅ Reduces (use netAmount) | ✅ Included       | Deducted via netAmount |
-| `platform` | `balance`  | Exchange fee charged as separate ledger entry      | Kraken withdrawal fee (BTC)   | ❌ Does NOT reduce         | ✅ Included       | Separate debit         |
-| `network`  | `balance`  | Exchange pays gas on your behalf                   | Rare: custodial gas coverage  | ❌ Does NOT reduce         | ✅ Included       | Separate debit         |
-| `tax`      | `balance`  | Withholding/levy charged separately                | FATCA withholding             | ❌ Does NOT reduce         | ✅ Included       | Separate debit         |
-| `spread`   | `balance`  | Implicit price deviation (informational only)      | RFQ desk markup               | ❌ Not applicable          | ❌ Not applicable | No impact (derived)    |
+| Scope      | Settlement | Meaning                                            | Example                       | Disposal Proceeds          | Acquisition Cost  | Balance Impact           |
+| ---------- | ---------- | -------------------------------------------------- | ----------------------------- | -------------------------- | ----------------- | ------------------------ |
+| `network`  | `on-chain` | Miner fee carved from inputs (UTXO chains)         | Bitcoin miner fee             | ✅ Reduces (use netAmount) | ✅ Included       | Deducted via grossAmount |
+| `network`  | `balance`  | Gas paid separately from balance (account-based)   | Ethereum/Solana/Cosmos gas    | ❌ Does NOT reduce         | ✅ Included       | Separate debit           |
+| `platform` | `on-chain` | Exchange fee carved from transfer before broadcast | Coinbase withdrawal fee (UNI) | ✅ Reduces (use netAmount) | ✅ Included       | Deducted via netAmount   |
+| `platform` | `balance`  | Exchange fee charged as separate ledger entry      | Kraken withdrawal fee (BTC)   | ❌ Does NOT reduce         | ✅ Included       | Separate debit           |
+| `tax`      | `balance`  | Withholding/levy charged separately                | FATCA withholding             | ❌ Does NOT reduce         | ✅ Included       | Separate debit           |
+| `spread`   | `balance`  | Implicit price deviation (informational only)      | RFQ desk markup               | ❌ Not applicable          | ❌ Not applicable | No impact (derived)      |
 
 **Decision Tree for Processors:**
 
 ```
 When processing a fee, ask:
 
-1. Is the fee deducted BEFORE the amount hits the blockchain?
-   ├─ YES → settlement='on-chain'
-   │   ├─ Paid to miners/validators? → scope='network'
-   │   └─ Kept by exchange internally? → scope='platform'
+1. BLOCKCHAIN TYPE:
+   ├─ UTXO Chain (Bitcoin)?
+   │   └─ Miner fee is carved from inputs
+   │       → settlement='on-chain', scope='network'
+   │       → grossAmount = inputs - change (includes fee)
+   │       → netAmount = actual amount transferred
    │
-   └─ NO → settlement='balance'
-       ├─ Exchange revenue (withdrawal/trading fee)? → scope='platform'
-       ├─ Tax/regulatory levy? → scope='tax'
-       ├─ Implicit in execution price? → scope='spread'
-       └─ Other (penalty, commission)? → scope='other'
-
-2. Set netAmount based on settlement:
-   ├─ settlement='on-chain' → netAmount = grossAmount - fee.amount
-   └─ settlement='balance' → netAmount = grossAmount (no reduction)
+   ├─ Account-Based Chain (Ethereum, Solana, Cosmos, Substrate)?
+   │   └─ Gas is paid separately from account balance
+   │       → settlement='balance', scope='network'
+   │       → grossAmount = netAmount = amount recipient receives
+   │       → Fee recorded separately
+   │
+   └─ Exchange/Custodial Fee?
+       ├─ Fee carved from transfer before blockchain broadcast?
+       │   → settlement='on-chain', scope='platform'
+       │   → netAmount = grossAmount - fee.amount
+       │
+       └─ Fee charged as separate ledger entry?
+           → settlement='balance'
+           ├─ Exchange revenue? → scope='platform'
+           ├─ Tax/regulatory? → scope='tax'
+           └─ Other? → scope='other'
 ```
 
 **Downstream Logic:**
@@ -157,9 +166,10 @@ When processing a fee, ask:
   - Rationale: Any fee paid to acquire an asset increases your cost basis
 
 - **For Balance Calculation** (balance-calculator.ts):
-  - Deduct `outflow.netAmount` (already includes on-chain fees via reduction)
-  - Also deduct all fees from balance (whether on-chain or separate ledger entries)
-  - This ensures both deduction methods are accounted for correctly
+  - Deduct `outflow.grossAmount` for all movements
+  - For fees with `settlement='on-chain'` (UTXO chains): Skip fee subtraction (already in grossAmount)
+  - For fees with `settlement='balance'` (account-based chains, exchanges): Subtract fee separately
+  - This ensures accurate balance tracking across UTXO and account-based blockchain architectures
 
 ### 1.2 Database Schema Updates
 
@@ -834,10 +844,9 @@ const universalTransaction: UniversalTransaction = {
 **File:** `packages/ingestion/src/infrastructure/blockchains/evm/processor.ts`
 
 ```typescript
-// ETH transfer with gas deducted
-const transferAmount = /* intended transfer */;
+// ETH transfer with gas paid separately (account-based chain)
+const transferAmount = /* amount recipient receives */;
 const gasUsed = /* actual gas cost */;
-const receivedAmount = transferAmount.minus(gasUsed);
 
 const universalTransaction: UniversalTransaction = {
   // ... other fields ...
@@ -845,8 +854,8 @@ const universalTransaction: UniversalTransaction = {
   movements: {
     outflows: [{
       asset: 'ETH',
-      grossAmount: transferAmount,     // Intended transfer
-      netAmount: receivedAmount,       // After gas deduction
+      grossAmount: transferAmount,     // Amount recipient receives
+      netAmount: transferAmount,       // Same as gross for account-based chains
     }],
   },
 
@@ -854,7 +863,7 @@ const universalTransaction: UniversalTransaction = {
     asset: 'ETH',
     amount: gasUsed,
     scope: 'network',
-    settlement: 'on-chain',          // Deducted during transfer
+    settlement: 'balance',           // Paid separately from account balance
   }],
 };
 ```
