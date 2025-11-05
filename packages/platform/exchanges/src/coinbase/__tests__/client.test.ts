@@ -158,6 +158,71 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     expect(mockFetchLedger).toHaveBeenCalledWith(undefined, undefined, 100, { account_id: 'account1' });
   });
 
+  test('preserves fractional amounts and applies direction sign', async () => {
+    // Regression: Number#toFixed() (without precision) rounded these values to whole units,
+    // breaking UNI balances after ADR-005. The Decimal workflow must keep the full precision.
+    mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'UNI' }]);
+
+    const mockLedgerEntries: ccxt.LedgerEntry[] = [
+      {
+        id: 'LEDGER_FRACTIONAL_IN',
+        account: 'account1',
+        amount: 18.1129667,
+        before: 0,
+        after: 18.1129667,
+        currency: 'UNI',
+        direction: 'in',
+        fee: { cost: 0.00012345, currency: 'UNI' },
+        status: 'ok',
+        timestamp: 1704067200000,
+        datetime: '2024-01-01T00:00:00.000Z',
+        type: 'trade',
+        info: {
+          id: 'LEDGER_FRACTIONAL_IN',
+          type: 'trade',
+          status: 'ok',
+          amount: { amount: '18.1129667', currency: 'UNI' },
+          created_at: '2024-01-01T00:00:00.000Z',
+        },
+      },
+      {
+        id: 'LEDGER_FRACTIONAL_OUT',
+        account: 'account1',
+        amount: -0.987654321,
+        before: 18.1129667,
+        after: 17.125312379,
+        currency: 'UNI',
+        direction: 'out',
+        fee: { cost: 0.01234567, currency: 'UNI' },
+        status: 'ok',
+        timestamp: 1704067201000,
+        datetime: '2024-01-01T00:00:01.000Z',
+        type: 'transaction',
+        info: {
+          id: 'LEDGER_FRACTIONAL_OUT',
+          type: 'transaction',
+          status: 'ok',
+          amount: { amount: '-0.987654321', currency: 'UNI' },
+          created_at: '2024-01-01T00:00:01.000Z',
+        },
+      },
+    ];
+
+    mockFetchLedger.mockResolvedValueOnce(mockLedgerEntries);
+
+    const result = await client.fetchTransactionData();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [inflow, outflow] = result.value;
+
+    expect((inflow?.normalizedData as { amount?: string }).amount).toBe('18.1129667');
+    const outflowData = outflow?.normalizedData as { amount?: string; fee?: string };
+    expect(outflowData.amount).toBe('-0.987654321');
+    expect(outflowData.fee).toBe('0.01234567');
+  });
+
   test('extracts correlation ID from raw info for trade entries', async () => {
     // Mock accounts
     mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'BTC' }]);

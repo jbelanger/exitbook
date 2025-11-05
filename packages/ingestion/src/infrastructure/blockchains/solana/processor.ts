@@ -245,10 +245,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
   /**
    * Analyze balance changes to collect ALL asset movements (multi-asset tracking)
    */
-  private analyzeBalanceChanges(
-    tx: SolanaTransaction,
-    allWalletAddresses: Set<string>
-  ): SolanaBalanceChangeAnalysis {
+  private analyzeBalanceChanges(tx: SolanaTransaction, allWalletAddresses: Set<string>): SolanaBalanceChangeAnalysis {
     const inflows: SolanaMovement[] = [];
     const outflows: SolanaMovement[] = [];
     let fromAddress = tx.from;

@@ -11,10 +11,7 @@ import { buildConfigOverride } from './benchmark-rate-limit-utils.ts';
 
 const logger = getLogger('BenchmarkRateLimitCommand');
 
-/**
- * Extended command options (adds CLI-specific flags).
- */
-export interface ExtendedBenchmarkRateLimitCommandOptions extends BenchmarkRateLimitCommandOptions {
+interface ExtendedBenchmarkRateLimitCommandOptions extends BenchmarkRateLimitCommandOptions {
   json?: boolean | undefined;
 }
 

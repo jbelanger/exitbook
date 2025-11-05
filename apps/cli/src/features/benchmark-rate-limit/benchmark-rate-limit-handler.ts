@@ -6,21 +6,18 @@ import { err, ok } from 'neverthrow';
 import type { BenchmarkParams } from './benchmark-rate-limit-utils.ts';
 import { buildBenchmarkParams } from './benchmark-rate-limit-utils.ts';
 
-/**
- * Benchmark result from provider.
- */
-export interface BenchmarkTestResult {
+interface BenchmarkTestResult {
   rate: number;
   success: boolean;
   responseTimeMs?: number | undefined;
 }
 
-export interface BurstLimitResult {
+interface BurstLimitResult {
   limit: number;
   success: boolean;
 }
 
-export interface BenchmarkResult {
+interface BenchmarkResult {
   testResults: BenchmarkTestResult[];
   burstLimits?: BurstLimitResult[] | undefined;
   maxSafeRate: number;

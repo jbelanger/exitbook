@@ -153,8 +153,11 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const grossAmount = parseDecimal(row.Amount);
     const fee = row.Fee ? parseDecimal(row.Fee) : parseDecimal('0');
 
-    // For KuCoin deposits: amount is gross, user actually receives amount - fee
-    const netAmount = grossAmount.minus(fee);
+    // For KuCoin deposits: Amount field is what arrived on-chain
+    // netAmount must equal grossAmount for transfer matching to work
+    // (needs to match the on-chain amount from the source withdrawal)
+    // Fee is charged separately from user's credited balance
+    const netAmount = grossAmount;
     const platformFee = { amount: fee, asset: row.Coin };
 
     return {
@@ -177,7 +180,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         outflows: [], // No outflows for deposit
       },
 
-      // Structured fees - exchange deposits have platform fees
+      // Structured fees - deposit fees charged separately from credited balance
       fees: platformFee.amount.greaterThan(0)
         ? [{ ...platformFee, scope: 'platform' as const, settlement: 'balance' as const }]
         : [],

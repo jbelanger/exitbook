@@ -186,14 +186,17 @@ describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.status).toBe('success');
 
-    // Verify net amount (gross - fee)
+    // Verify net amount equals gross (on-chain amount for transfer matching)
+    // Fee is charged separately from credited balance (settlement='balance')
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
-    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('0.9995');
+    expect(transaction.movements.inflows![0]?.grossAmount?.toFixed()).toBe('1');
+    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('1');
 
     const platformFee = transaction.fees.find((f) => f.scope === 'platform');
     expect(platformFee?.amount.toFixed()).toBe('0.0005');
     expect(platformFee?.asset).toBe('BTC');
+    expect(platformFee?.settlement).toBe('balance');
 
     expect(transaction.metadata?.hash).toBe('txhash123');
     expect(transaction.metadata?.address).toBe('bc1q...');

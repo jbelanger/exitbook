@@ -34,8 +34,9 @@ function processTransactionForBalance(transaction: UniversalTransaction, balance
   if (inflows && Array.isArray(inflows) && inflows.length > 0) {
     for (const inflow of inflows) {
       ensureBalance(inflow.asset);
-      // Use netAmount as it represents what user actually received after fees
-      const amount = inflow.netAmount ?? inflow.grossAmount;
+      // Use grossAmount - it represents what the user's balance increased by
+      // (netAmount is for transfer matching, not balance calculation)
+      const amount = inflow.grossAmount;
       balances[inflow.asset] = balances[inflow.asset]!.plus(amount);
     }
   }
@@ -46,16 +47,26 @@ function processTransactionForBalance(transaction: UniversalTransaction, balance
   if (outflows && Array.isArray(outflows) && outflows.length > 0) {
     for (const outflow of outflows) {
       ensureBalance(outflow.asset);
-      // Use netAmount as it represents what user actually sent after fees
-      const amount = outflow.netAmount ?? outflow.grossAmount;
+      // Use grossAmount - it represents what the user's balance decreased by
+      // For on-chain fees: grossAmount includes the fee (user pays full amount)
+      // For balance fees: grossAmount = netAmount, fee deducted separately below
+      const amount = outflow.grossAmount;
       balances[outflow.asset] = balances[outflow.asset]!.minus(amount);
     }
   }
 
   // Process fees (always a cost)
   // Fees are now stored as an array
+  // IMPORTANT: Only subtract fees with settlement='balance' separately.
+  // Fees with settlement='on-chain' are already included in netAmount calculation.
   if (transaction.fees && Array.isArray(transaction.fees) && transaction.fees.length > 0) {
     for (const fee of transaction.fees) {
+      // Skip on-chain fees - they're already deducted via netAmount
+      if (fee.settlement === 'on-chain') {
+        continue;
+      }
+
+      // Subtract balance-settled and external fees separately
       ensureBalance(fee.asset);
       balances[fee.asset] = balances[fee.asset]!.minus(fee.amount);
     }

@@ -149,14 +149,14 @@ class CoinbaseGrossAmountsStrategy implements InterpretationStrategy<CoinbaseLed
                 asset: feeCurrency,
                 amount: feeCost.toFixed(),
                 scope: 'platform',
-                settlement: 'balance',
+                settlement: 'on-chain', // Fee is carved out of the transfer before broadcast
               },
             ]
           : [],
       };
     }
 
-    // Trades/deposits: amount is GROSS, fee is separate
+    // Trades/deposits
     return {
       inflows: isInflow
         ? [

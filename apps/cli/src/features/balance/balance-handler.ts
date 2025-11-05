@@ -33,9 +33,6 @@ import {
   validateBalanceParams,
 } from './balance-utils.ts';
 
-// Re-export for convenience
-export type { BalanceHandlerParams };
-
 const logger = getLogger('BalanceHandler');
 
 /**

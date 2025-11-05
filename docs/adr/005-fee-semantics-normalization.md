@@ -88,15 +88,18 @@ fees: Array<{
 
 **Settlement** – How was this fee paid?
 
-- `on-chain`: Deducted from the on-chain transfer itself (typical gas fees)
-  - Results in `netAmount < grossAmount`
-  - Blockchain receipt shows reduced amount
-- `balance`: Separate ledger entry from venue balance (typical exchange fees)
-  - On-chain transfer stays at full `grossAmount`
-  - Separate ledger debit for fee
-- `external`: Paid outside tracked balances (ACH, credit card, invoice)
-  - Reserved for future use
-  - Not common in current exchange/blockchain scenarios
+- `on-chain`: Deducted from the on-chain transfer itself.
+  - Results in `netAmount < grossAmount`.
+  - Blockchain receipt shows a reduced amount.
+  - Applies to classic gas/validator fees _and_ to exchange/platform rakes that are carved out of the same on-chain send (e.g., Coinbase UNI withdrawals).
+- `balance`: Charged from a custodial balance via a separate ledger entry.
+  - On-chain transfer stays at full `grossAmount`.
+  - Typical for exchanges like Kraken that book a distinct fee row.
+- `external`: Paid outside tracked balances (ACH, credit card, invoice).
+  - Reserved for future use.
+  - Not common in current exchange/blockchain scenarios.
+
+> **Important:** `scope` answers “why the fee exists,” `settlement` answers “where the funding came from.” They are independent axes. Platform fees can be settled on-chain or from balance; network fees can, in rare cases, be prefunded by the venue (`settlement='balance'`). Our schema must permit any combination that real venues exhibit.
 
 **Array Structure Advantages:**
 
@@ -155,7 +158,31 @@ fees: Array<{
 
 **Cost Basis:** Network fee reduces disposal proceeds for source.
 
-#### 3. Binance BTC Withdrawal (Cross-Asset Fee)
+#### 3. Coinbase UNI Withdrawal (Platform Fee, On-Chain)
+
+```typescript
+{
+  movements: {
+    outflows: [{
+      asset: 'UNI',
+      grossAmount: '18',
+      netAmount: '17.83574483'      // Coinbase broadcasts the reduced amount
+    }]
+  },
+  fees: [{
+    asset: 'UNI',
+    amount: '0.16425517',
+    scope: 'platform',              // Coinbase revenue / covers gas internally
+    settlement: 'on-chain'          // Withheld from the on-chain send
+  }]
+}
+```
+
+**Reconciliation:** Source netAmount (17.83574483) matches target deposit netAmount ✓
+
+**Cost Basis:** Platform fee is available for policy decisions (e.g., add to disposal cost basis) without corrupting transfer sizing.
+
+#### 4. Binance BTC Withdrawal (Cross-Asset Fee)
 
 ```typescript
 {
@@ -226,12 +253,14 @@ const relevantFees = isInflow
 - `scope` and `settlement` are mandatory on all fees
 - Missing fields return errors via `Result` types (fail-fast, no silent defaults)
 
-**Invalid combinations:**
+**Hard validation rules:**
 
-- `settlement='on-chain'` + `scope='platform'` → ERROR
-  - Platform fees are charged by venues, not on-chain
-- `netAmount > grossAmount` → ERROR
-  - Net amount cannot exceed gross amount
+- `netAmount > grossAmount` → ERROR (cannot receive more than was debited)
+
+**Schema guardrails (soft / configurable):**
+
+- Venues sometimes report unusual combinations (e.g., platform fees with `settlement='on-chain'`).
+- We may log or flag them, but we **must not** reject patterns that real exchanges produce.
 
 **Suspicious patterns (warnings):**
 

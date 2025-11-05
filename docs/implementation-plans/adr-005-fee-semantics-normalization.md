@@ -92,13 +92,7 @@ export const FeeMovementSchema = z.object({
 
   // Price metadata
   priceAtTxTime: PriceAtTxTimeSchema.optional(),
-}).refine(
-  (data) => !(data.settlement === 'on-chain' && data.scope === 'platform'),
-  {
-    message: 'Invalid fee: settlement="on-chain" with scope="platform" - platform fees are charged off-chain by the venue',
-    path: ['settlement']
-  }
-);
+});
 
 // Update UniversalTransactionSchema fees structure
 fees: z.array(FeeMovementSchema).default([]),
@@ -106,10 +100,66 @@ fees: z.array(FeeMovementSchema).default([]),
 
 **Validation Rules (enforced in schema):**
 
-- `settlement='on-chain'` + `scope='network'` → Valid (gas fees)
-- `settlement='on-chain'` + `scope='platform'` → **Invalid** (blocked by schema `.refine()` - platform fees don't go on-chain)
-- `settlement='balance'` + `scope='platform'` → Valid (exchange withdrawal fees)
-- `settlement='balance'` + `scope='network'` → Unusual but valid (exchange paying gas on behalf)
+- `netAmount` must never exceed `grossAmount`
+- `scope` and `settlement` are required on every fee entry
+- All observed combinations from real venues must pass validation (no hard-coded ban on `scope='platform'` + `settlement='on-chain'`)
+
+> **Actionable:** Update the current schema to drop the `settlement='on-chain'` + `scope='platform'` guard and add regression tests for venues like Coinbase that report platform fees withheld from the on-chain send.
+
+### Fee Semantics Matrix
+
+**Understanding Scope vs Settlement:**
+
+- **`scope`** = WHO receives the fee (network miners vs platform vs government)
+- **`settlement`** = HOW it's paid (carved from transfer vs separate ledger entry)
+
+**Valid Combinations & Their Meanings:**
+
+| Scope      | Settlement | Meaning                                            | Example                       | Disposal Proceeds          | Acquisition Cost  | Balance Impact         |
+| ---------- | ---------- | -------------------------------------------------- | ----------------------------- | -------------------------- | ----------------- | ---------------------- |
+| `network`  | `on-chain` | Miner/validator fee deducted from transfer         | ETH gas fee                   | ✅ Reduces (use netAmount) | ✅ Included       | Deducted via netAmount |
+| `platform` | `on-chain` | Exchange fee carved from transfer before broadcast | Coinbase withdrawal fee (UNI) | ✅ Reduces (use netAmount) | ✅ Included       | Deducted via netAmount |
+| `platform` | `balance`  | Exchange fee charged as separate ledger entry      | Kraken withdrawal fee (BTC)   | ❌ Does NOT reduce         | ✅ Included       | Separate debit         |
+| `network`  | `balance`  | Exchange pays gas on your behalf                   | Rare: custodial gas coverage  | ❌ Does NOT reduce         | ✅ Included       | Separate debit         |
+| `tax`      | `balance`  | Withholding/levy charged separately                | FATCA withholding             | ❌ Does NOT reduce         | ✅ Included       | Separate debit         |
+| `spread`   | `balance`  | Implicit price deviation (informational only)      | RFQ desk markup               | ❌ Not applicable          | ❌ Not applicable | No impact (derived)    |
+
+**Decision Tree for Processors:**
+
+```
+When processing a fee, ask:
+
+1. Is the fee deducted BEFORE the amount hits the blockchain?
+   ├─ YES → settlement='on-chain'
+   │   ├─ Paid to miners/validators? → scope='network'
+   │   └─ Kept by exchange internally? → scope='platform'
+   │
+   └─ NO → settlement='balance'
+       ├─ Exchange revenue (withdrawal/trading fee)? → scope='platform'
+       ├─ Tax/regulatory levy? → scope='tax'
+       ├─ Implicit in execution price? → scope='spread'
+       └─ Other (penalty, commission)? → scope='other'
+
+2. Set netAmount based on settlement:
+   ├─ settlement='on-chain' → netAmount = grossAmount - fee.amount
+   └─ settlement='balance' → netAmount = grossAmount (no reduction)
+```
+
+**Downstream Logic:**
+
+- **For Disposal Proceeds Calculation** (lot-matcher-utils.ts:calculateFeesInFiat):
+  - Include fees where `settlement='on-chain'` (regardless of scope)
+  - Exclude fees where `settlement='balance'`
+  - Rationale: On-chain fees reduce what you actually received; balance fees are separate costs
+
+- **For Acquisition Cost Basis** (lot-matcher-utils.ts:calculateFeesInFiat):
+  - Include ALL fees (all settlements, all scopes except 'spread')
+  - Rationale: Any fee paid to acquire an asset increases your cost basis
+
+- **For Balance Calculation** (balance-calculator.ts):
+  - Deduct `outflow.netAmount` (already includes on-chain fees via reduction)
+  - Also deduct all fees from balance (whether on-chain or separate ledger entries)
+  - This ensures both deduction methods are accounted for correctly
 
 ### 1.2 Database Schema Updates
 
@@ -318,9 +368,10 @@ private parseMovements(jsonString: string | null): Result<AssetMovement[], Error
 /**
  * Parse fees array from JSON column
  *
- * Schema validation via FeeMovementSchema.refine() ensures:
+ * FeeMovementSchema validation ensures:
  * - Required fields (scope, settlement) are present
- * - Invalid combinations are rejected (e.g., on-chain + platform)
+ * - Amounts parse to Decimals
+ * - No assumption about which combinations are "invalid"—real venue patterns pass through and can be flagged downstream if needed
  */
 private parseFees(jsonString: string | null): Result<FeeMovement[], Error> {
   if (!jsonString) {
@@ -922,7 +973,6 @@ describe('LotMatcher - Fee Semantics', () => {
           inflows: [
             {
               asset: 'BTC',
-              amount: parseDecimal('1.0'),
               grossAmount: parseDecimal('1.0'),
               netAmount: parseDecimal('1.0'),
             },
@@ -931,7 +981,6 @@ describe('LotMatcher - Fee Semantics', () => {
         fees: [
           {
             asset: 'USD',
-            amount: parseDecimal('10'),
             scope: 'platform',
             settlement: 'balance',
           },
@@ -1196,13 +1245,13 @@ Following vertical slice approach:
 
 ## Risk Mitigation
 
-| Risk                   | Mitigation                                                            |
-| ---------------------- | --------------------------------------------------------------------- |
-| Breaking existing data | Database dropped during development, clean re-ingestion required      |
-| Processor complexity   | Shared interpretation strategies, clear decision tree documentation   |
-| Ambiguous settlement   | Validation errors for invalid patterns (on-chain platform fees, etc.) |
-| Incomplete rollout     | Audit command identifies transactions needing re-ingestion            |
-| Multiple fees handling | Array structure naturally supports any number of fees per scope       |
+| Risk                   | Mitigation                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| Breaking existing data | Database dropped during development, clean re-ingestion required                      |
+| Processor complexity   | Shared interpretation strategies, clear decision tree documentation                   |
+| Ambiguous settlement   | Canonical decision tree + regression tests covering all scope/settlement combinations |
+| Incomplete rollout     | Audit command identifies transactions needing re-ingestion                            |
+| Multiple fees handling | Array structure naturally supports any number of fees per scope                       |
 
 ---
 

@@ -59,6 +59,8 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     expect(networkFee?.amount.toFixed()).toBe('0.0001');
     expect(transaction.operation.type).toBe('withdrawal');
     expect(transaction.movements.outflows).toHaveLength(1);
+    expect(transaction.movements.outflows?.[0]?.grossAmount.toFixed()).toBe('1.0001');
+    expect(transaction.movements.outflows?.[0]?.netAmount?.toFixed()).toBe('1');
     expect(transaction.movements.inflows).toHaveLength(0);
   });
 
@@ -156,6 +158,9 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     expect(transaction.operation.type).toBe('withdrawal');
     expect(transaction.from).toBe(USER_ADDRESS);
     expect(transaction.to).toBe(USER_ADDRESS);
+    expect(transaction.movements.outflows?.[0]?.grossAmount.toFixed()).toBe('0.00005');
+    expect(transaction.movements.outflows?.[0]?.netAmount?.toFixed()).toBe('0');
+    expect(transaction.movements.inflows).toHaveLength(0);
   });
 
   test('deducts fee for withdrawal with change (typical send pattern)', async () => {
@@ -207,16 +212,16 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     expect(transaction.fees.find((f) => f.scope === 'network')?.amount.toFixed()).toBe('0.00015');
     // Input: 3.00015 BTC, Output to user: 2.0 BTC, Output to external: 1.0 BTC
     // walletInput = 3.00015, walletOutput = 2.0 → outgoing (withdrawal)
-    // Outflows: walletInput - fee = 3.0 BTC (amount actually spent from wallet)
+    // Outflows: walletInput = 3.00015 BTC debited from wallet (includes change + fee)
+    // Net amount represents what actually left the wallet to external parties (1 BTC)
     // Inflows: walletOutput = 2.0 BTC (change received back)
-    // Net effect: 2.0 - 3.0 - 0.00015 = -1.00015 BTC (sent 1.0 + fee 0.00015)
+    // Net effect on balance: inflow (2.0) - outflow gross (3.00015) = -1.00015 BTC (1 BTC sent + 0.00015 BTC fee)
     expect(transaction.operation.type).toBe('withdrawal');
     expect(transaction.movements.outflows).toBeDefined();
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows?.[0]?.netAmount?.toFixed()).toBe('3');
-    expect(transaction.movements.inflows).toBeDefined();
-    expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows?.[0]?.netAmount?.toFixed()).toBe('2');
+    expect(transaction.movements.outflows?.[0]?.grossAmount.toFixed()).toBe('1.00015');
+    expect(transaction.movements.outflows?.[0]?.netAmount?.toFixed()).toBe('1');
+    expect(transaction.movements.inflows).toHaveLength(0);
   });
 
   test('deducts fee for multi-input transaction from user wallet', async () => {
@@ -268,6 +273,8 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
     // User spent multiple UTXOs from their wallet, so they paid the fee
     expect(transaction.fees.find((f) => f.scope === 'network')?.amount.toFixed()).toBe('0.0002');
     expect(transaction.operation.type).toBe('withdrawal');
+    expect(transaction.movements.outflows?.[0]?.grossAmount.toFixed()).toBe('0.8002');
+    expect(transaction.movements.outflows?.[0]?.netAmount?.toFixed()).toBe('0.8');
   });
 
   test('does NOT deduct fee for multi-output deposit to user (UTXO split)', async () => {

@@ -126,10 +126,7 @@ export function formatRateLimit(rateLimit: { burstLimit?: number; requestsPerSec
   return `${rateLimit.requestsPerSecond} req/sec`;
 }
 
-/**
- * Build JSON-friendly config override example.
- */
-export type ConfigOverride = Record<
+type ConfigOverride = Record<
   string,
   {
     overrides: Record<

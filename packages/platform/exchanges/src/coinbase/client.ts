@@ -1,6 +1,7 @@
 import type { TransactionStatus } from '@exitbook/core';
 import { getErrorMessage, wrapError, type ExternalTransaction } from '@exitbook/core';
 import * as ccxt from 'ccxt';
+import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import type z from 'zod';
@@ -216,13 +217,15 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                     //
                     // IMPORTANT: ExchangeLedgerEntry requires signed amounts (negative for outflows, positive for inflows)
                     // CCXT provides direction field ('in' or 'out') with absolute amounts, so we need to apply the sign
-                    const amountStr = validatedData.amount.toFixed();
-                    const signedAmount =
-                      validatedData.direction === 'out'
-                        ? amountStr.startsWith('-')
-                          ? amountStr
-                          : `-${amountStr}`
-                        : amountStr;
+                    // Coinbase's ledger amounts arrive as JavaScript numbers. Using Number#toFixed()
+                    // (our previous implementation) accidentally defaulted to zero decimal places,
+                    // truncating values like 18.1129667 UNI to "18" and throwing balances off.
+                    // Keep everything in Decimal to preserve the exact ledger precision.
+                    const amountDecimal = new Decimal(validatedData.amount);
+                    const absoluteAmount = amountDecimal.abs();
+                    const signedAmountDecimal =
+                      validatedData.direction === 'out' ? absoluteAmount.negated() : absoluteAmount;
+                    const signedAmount = signedAmountDecimal.toFixed();
 
                     // Extract fee information
                     // For advanced_trade_fill: CCXT doesn't map commission to fee, so extract it manually
@@ -246,7 +249,10 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                       }
                     } else {
                       // Use CCXT's normalized fee for other transaction types
-                      feeAmount = validatedData.fee?.cost.toString();
+                      feeAmount =
+                        validatedData.fee?.cost !== undefined
+                          ? new Decimal(validatedData.fee.cost).toFixed()
+                          : undefined;
                       feeCurrency = validatedData.fee?.currency;
                     }
 

@@ -53,8 +53,37 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         // Store actual network fees for reporting
         // For consistency with account-based blockchains, we record fees separately
         // and subtract them from outflows to avoid double-counting
-        const userPaidFee = fundFlow.isOutgoing && !parseDecimal(fundFlow.walletInput).isZero();
+        const walletInputAmount = parseDecimal(fundFlow.walletInput);
+        const walletOutputAmount = parseDecimal(fundFlow.walletOutput);
         const feeAmount = parseDecimal(normalizedTx.feeAmount || '0');
+        const zeroDecimal = parseDecimal('0');
+
+        const userPaidFee = fundFlow.isOutgoing && !walletInputAmount.isZero();
+        const effectiveFeeAmount = userPaidFee ? feeAmount : zeroDecimal;
+
+        // Measure wallet spend in two views:
+        // - grossOutflow: balance impact (amount removed from wallet after accounting for change)
+        // - netOutflow: amount that actually left to external parties (excludes change, still excludes fees)
+        let grossOutflowAmount = zeroDecimal;
+        let netOutflowAmount = zeroDecimal;
+
+        if (!walletInputAmount.isZero()) {
+          if (fundFlow.isOutgoing) {
+            const baseOutflow = walletInputAmount.minus(walletOutputAmount);
+            grossOutflowAmount = baseOutflow.isNegative() ? zeroDecimal : baseOutflow;
+          } else {
+            grossOutflowAmount = walletInputAmount;
+          }
+
+          netOutflowAmount = grossOutflowAmount.minus(effectiveFeeAmount);
+
+          if (netOutflowAmount.isNegative()) {
+            netOutflowAmount = zeroDecimal;
+          }
+        }
+
+        const includeWalletOutputAsInflow = transactionType !== 'withdrawal' && !walletOutputAmount.isZero();
+        const hasOutflow = !grossOutflowAmount.isZero();
 
         const universalTransaction: UniversalTransaction = {
           id: 0, // Will be assigned by database
@@ -67,34 +96,29 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
           to: fundFlow.toAddress,
 
           // Structured movements from UTXO analysis
-          // For consistency with account-based blockchains:
-          // - Outflows = amount sent (walletInput - fee - walletOutput)
-          // - Inflows = amount received (walletOutput)
-          // - Fees = recorded separately (not included in movements)
-          // This ensures balance = inflows - outflows - fees (consistent across all blockchain types)
+          // - Outflow grossAmount captures the BTC removed from wallet balance (after removing change)
+          // - Outflow netAmount captures what actually left the wallet after on-chain fees
+          // - Inflows are only recorded for bona fide incoming funds (deposits / true transfers)
+          // Network fees remain explicit in the fees array
           movements: {
-            outflows:
-              parseFloat(fundFlow.walletInput) > 0
-                ? [
-                    {
-                      asset: 'BTC',
-                      // Subtract fee from outflow to avoid double-counting
-                      // walletInput already includes the fee, so we remove it here
-                      grossAmount: parseDecimal(fundFlow.walletInput).minus(feeAmount),
-                      netAmount: parseDecimal(fundFlow.walletInput).minus(feeAmount),
-                    },
-                  ]
-                : [],
-            inflows:
-              parseFloat(fundFlow.walletOutput) > 0
-                ? [
-                    {
-                      asset: 'BTC',
-                      grossAmount: parseDecimal(fundFlow.walletOutput),
-                      netAmount: parseDecimal(fundFlow.walletOutput),
-                    },
-                  ]
-                : [],
+            outflows: hasOutflow
+              ? [
+                  {
+                    asset: 'BTC',
+                    grossAmount: grossOutflowAmount,
+                    netAmount: netOutflowAmount,
+                  },
+                ]
+              : [],
+            inflows: includeWalletOutputAsInflow
+              ? [
+                  {
+                    asset: 'BTC',
+                    grossAmount: walletOutputAmount,
+                    netAmount: walletOutputAmount,
+                  },
+                ]
+              : [],
           },
 
           fees:

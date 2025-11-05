@@ -87,24 +87,67 @@ export const AssetMovementSchema = z
     { message: 'netAmount cannot exceed grossAmount' }
   );
 
-// Fee-specific schema (distinct from AssetMovement)
-export const FeeMovementSchema = z
-  .object({
-    asset: z.string().min(1, 'Asset must not be empty'),
-    amount: DecimalSchema,
+/**
+ * Fee Movement Schema
+ *
+ * Captures WHO receives a fee and HOW it's paid using two orthogonal dimensions:
+ *
+ * SCOPE (Who receives the fee):
+ * - 'network': Paid to miners/validators (gas, miner fees)
+ * - 'platform': Exchange/venue revenue (withdrawal fees, trading fees, maker/taker)
+ * - 'spread': Implicit fee in price quote deviation (informational only, not included in cost basis)
+ * - 'tax': Regulatory levy (GST, VAT, FATCA withholding)
+ * - 'other': Edge cases (penalties, staking commissions, etc.)
+ *
+ * SETTLEMENT (How the fee is paid):
+ * - 'on-chain': Deducted from the transfer BEFORE it hits the blockchain
+ *   → Results in netAmount < grossAmount
+ *   → Blockchain receipt shows the reduced amount
+ *   → Examples: ETH gas, Coinbase withdrawal fee carved from transfer
+ *
+ * - 'balance': Separate ledger entry from venue balance (NOT deducted from transfer)
+ *   → Transfer goes on-chain at full grossAmount (netAmount = grossAmount)
+ *   → Separate ledger debit for the fee
+ *   → Examples: Kraken withdrawal fee, trading fees
+ *
+ * - 'external': Paid outside tracked balances (ACH, credit card, invoice)
+ *   → Reserved for future use
+ *   → Not common in current exchange/blockchain scenarios
+ *
+ * VALID COMBINATIONS:
+ *
+ * | scope='network' + settlement='on-chain'  | ✅ Gas fees deducted from ETH transfer
+ * | scope='platform' + settlement='on-chain' | ✅ Coinbase withdrawal fee carved from transfer
+ * | scope='platform' + settlement='balance'  | ✅ Kraken withdrawal fee (separate ledger entry)
+ * | scope='network'  + settlement='balance'  | ✅ Exchange pays gas on your behalf (rare)
+ * | scope='tax'      + settlement='balance'  | ✅ FATCA withholding (separate deduction)
+ *
+ * DOWNSTREAM USAGE:
+ *
+ * For Disposal Proceeds (lot-matcher-utils.ts:calculateFeesInFiat):
+ * - Include ONLY fees where settlement='on-chain' (reduces what you received)
+ * - Exclude fees where settlement='balance' (separate cost, doesn't affect proceeds)
+ *
+ * For Acquisition Cost Basis (lot-matcher-utils.ts:calculateFeesInFiat):
+ * - Include ALL fees (all settlements, all scopes except 'spread')
+ * - Fees increase what you paid to acquire the asset
+ *
+ * For Balance Calculation (balance-calculator.ts):
+ * - Deduct outflow.netAmount (already includes on-chain fees)
+ * - ALSO deduct all fee.amount (whether on-chain or balance-settled)
+ * - This ensures both deduction methods are properly accounted for
+ */
+export const FeeMovementSchema = z.object({
+  asset: z.string().min(1, 'Asset must not be empty'),
+  amount: DecimalSchema,
 
-    // Fee semantics (required)
-    scope: z.enum(['network', 'platform', 'spread', 'tax', 'other']),
-    settlement: z.enum(['on-chain', 'balance', 'external']),
+  // Fee semantics (required)
+  scope: z.enum(['network', 'platform', 'spread', 'tax', 'other']),
+  settlement: z.enum(['on-chain', 'balance', 'external']),
 
-    // Price metadata
-    priceAtTxTime: PriceAtTxTimeSchema.optional(),
-  })
-  .refine((data) => !(data.settlement === 'on-chain' && data.scope === 'platform'), {
-    message:
-      'Invalid fee: settlement="on-chain" with scope="platform" - platform fees are charged off-chain by the venue',
-    path: ['settlement'],
-  });
+  // Price metadata
+  priceAtTxTime: PriceAtTxTimeSchema.optional(),
+});
 
 // Note metadata schema (for note.metadata field)
 export const NoteMetadataSchema = z.record(z.string(), z.any());
