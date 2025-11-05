@@ -100,27 +100,33 @@ export const AssetMovementSchema = z
  * - 'other': Edge cases (penalties, staking commissions, etc.)
  *
  * SETTLEMENT (How the fee is paid):
- * - 'on-chain': Deducted from the transfer BEFORE it hits the blockchain
- *   → Results in netAmount < grossAmount
- *   → Blockchain receipt shows the reduced amount
- *   → Examples: ETH gas, Coinbase withdrawal fee carved from transfer
+ * - 'on-chain': Fee is carved out of inputs/transfer BEFORE netting (UTXO chains only)
+ *   → Results in netAmount < grossAmount OR grossAmount includes the fee
+ *   → Example: Bitcoin miner fee (paid from inputs, not from transfer itself)
+ *   → Balance impact: already included in grossAmount calculation
  *
- * - 'balance': Separate ledger entry from venue balance (NOT deducted from transfer)
- *   → Transfer goes on-chain at full grossAmount (netAmount = grossAmount)
- *   → Separate ledger debit for the fee
- *   → Examples: Kraken withdrawal fee, trading fees
+ * - 'balance': Fee is paid separately from the account balance
+ *   → Transfer/movement happens at full grossAmount (netAmount = grossAmount)
+ *   → Separate balance deduction for the fee
+ *   → Examples: Ethereum gas, Solana fees, Kraken withdrawal fees, trading fees
+ *   → Balance impact: subtract both transfer amount AND fee amount
  *
  * - 'external': Paid outside tracked balances (ACH, credit card, invoice)
  *   → Reserved for future use
  *   → Not common in current exchange/blockchain scenarios
  *
- * VALID COMBINATIONS:
+ * BLOCKCHAIN TYPE PATTERNS:
  *
- * | scope='network' + settlement='on-chain'  | ✅ Gas fees deducted from ETH transfer
- * | scope='platform' + settlement='on-chain' | ✅ Coinbase withdrawal fee carved from transfer
- * | scope='platform' + settlement='balance'  | ✅ Kraken withdrawal fee (separate ledger entry)
- * | scope='network'  + settlement='balance'  | ✅ Exchange pays gas on your behalf (rare)
- * | scope='tax'      + settlement='balance'  | ✅ FATCA withholding (separate deduction)
+ * UTXO Chains (Bitcoin):
+ * | scope='network' + settlement='on-chain' | ✅ Miner fee carved from inputs (grossAmount includes fee)
+ *
+ * Account-Based Chains (Ethereum, Solana, Cosmos, Substrate):
+ * | scope='network' + settlement='balance'  | ✅ Gas paid separately from account balance
+ *
+ * Exchange Fees:
+ * | scope='platform' + settlement='balance' | ✅ Withdrawal/trading fees (separate ledger entry)
+ * | scope='platform' + settlement='on-chain' | ✅ Platform fee carved from transfer (rare, e.g., Coinbase UNI)
+ * | scope='tax'      + settlement='balance' | ✅ FATCA withholding (separate deduction)
  *
  * DOWNSTREAM USAGE:
  *
@@ -133,9 +139,9 @@ export const AssetMovementSchema = z
  * - Fees increase what you paid to acquire the asset
  *
  * For Balance Calculation (balance-calculator.ts):
- * - Deduct outflow.netAmount (already includes on-chain fees)
- * - ALSO deduct all fee.amount (whether on-chain or balance-settled)
- * - This ensures both deduction methods are properly accounted for
+ * - UTXO chains (settlement='on-chain'): Deduct grossAmount (fee embedded), skip fee subtraction
+ * - Account-based chains (settlement='balance'): Deduct grossAmount + fee amount separately
+ * - This ensures accurate balance tracking across different blockchain architectures
  */
 export const FeeMovementSchema = z.object({
   asset: z.string().min(1, 'Asset must not be empty'),

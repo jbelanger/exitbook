@@ -106,7 +106,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
                     asset: fundFlow.feeCurrency,
                     amount: parseDecimal(fundFlow.feeAmount),
                     scope: 'network',
-                    settlement: 'on-chain',
+                    settlement: 'balance',
                   },
                 ]
               : [],

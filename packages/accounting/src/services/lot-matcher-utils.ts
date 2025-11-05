@@ -128,6 +128,90 @@ export function extractCryptoFee(
   }
 }
 
+/**
+ * Extract only on-chain fees for a specific asset from a transaction.
+ * Per ADR-005, only fees with settlement='on-chain' reduce the netAmount.
+ *
+ * @param tx - Transaction to extract fees from
+ * @param asset - Asset to filter fees by
+ * @returns Total on-chain fee amount for the asset
+ */
+export function extractOnChainFees(tx: UniversalTransaction, asset: string): Decimal {
+  let totalOnChainFees = new Decimal(0);
+
+  for (const fee of tx.fees) {
+    if (fee.asset === asset && fee.settlement === 'on-chain') {
+      totalOnChainFees = totalOnChainFees.plus(fee.amount);
+    }
+  }
+
+  return totalOnChainFees;
+}
+
+/**
+ * Validate that netAmount matches grossAmount minus on-chain fees.
+ * Detects hidden/undeclared fees when the difference exceeds tolerance.
+ *
+ * Per ADR-005: netAmount = grossAmount - on-chain fees
+ * Platform fees with settlement='balance' don't affect netAmount.
+ *
+ * @param outflow - The outflow movement to validate
+ * @param tx - Transaction containing the outflow
+ * @param source - Source identifier for error messages
+ * @param txId - Transaction ID for error messages
+ * @param configOverride - Optional variance tolerance override
+ * @returns Ok if valid, Err if hidden fees exceed error threshold
+ */
+export function validateOutflowFees(
+  outflow: AssetMovement,
+  tx: UniversalTransaction,
+  source: string,
+  txId: number,
+  configOverride?: { error: number; warn: number }
+): Result<void, Error> {
+  // Skip validation if netAmount is not provided (legacy data or incomplete processor)
+  if (!outflow.netAmount) {
+    return ok();
+  }
+
+  const grossAmount = outflow.grossAmount;
+  const netAmount = outflow.netAmount;
+  const onChainFees = extractOnChainFees(tx, outflow.asset);
+
+  // Calculate expected netAmount based on declared on-chain fees
+  const expectedNet = grossAmount.minus(onChainFees);
+
+  // Calculate variance between actual and expected netAmount
+  const variance = expectedNet.minus(netAmount).abs();
+  const variancePct = expectedNet.isZero() ? new Decimal(0) : variance.dividedBy(expectedNet).times(100);
+
+  const tolerance = getVarianceTolerance(source, configOverride);
+
+  // Error if variance exceeds error threshold
+  if (variancePct.gt(tolerance.error)) {
+    return err(
+      new Error(
+        `Outflow fee validation failed at tx ${txId}: ` +
+          `Detected hidden fee. ` +
+          `grossAmount=${grossAmount.toFixed()} ${outflow.asset}, ` +
+          `declared on-chain fees=${onChainFees.toFixed()} ${outflow.asset}, ` +
+          `expected netAmount=${expectedNet.toFixed()} ${outflow.asset}, ` +
+          `actual netAmount=${netAmount.toFixed()} ${outflow.asset}, ` +
+          `hidden fee=${variance.toFixed()} ${outflow.asset} (${variancePct.toFixed(2)}%). ` +
+          `Exceeds error threshold (${tolerance.error.toFixed()}%). ` +
+          `Review exchange fee policies and ensure all fees are declared.`
+      )
+    );
+  }
+
+  // Warn if variance exceeds warning threshold
+  if (variancePct.gt(tolerance.warn)) {
+    // Just return ok - warnings are logged elsewhere
+  }
+
+  return ok();
+}
+
 export function collectFiatFees(
   sourceTx: UniversalTransaction,
   targetTx: UniversalTransaction
