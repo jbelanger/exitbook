@@ -1,8 +1,30 @@
+ 
 import type { ExchangeLedgerEntry } from '@exitbook/exchanges';
 import { describe, expect, test } from 'vitest';
 
+import {
+  ExchangeEntryBuilder,
+  wrapEntry,
+  expectOk,
+  expectMovement,
+  expectFee,
+  expectOperation,
+} from '../../../../__tests__/test-utils/index.js';
 import { DefaultExchangeProcessor } from '../default-exchange-processor.ts';
-import type { RawTransactionWithMetadata } from '../strategies/grouping.ts';
+
+// Legacy helper function for tests not yet refactored
+function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
+  return {
+    amount: '0',
+    asset: 'USD',
+    correlationId: 'REF001',
+    id: 'ENTRY001',
+    timestamp: 1704067200000,
+    type: 'test',
+    status: 'success',
+    ...overrides,
+  };
+}
 
 /**
  * Test implementation of BaseExchangeProcessor
@@ -29,44 +51,17 @@ class TestExchangeProcessor extends DefaultExchangeProcessor {
   }
 }
 
-function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
-  return {
-    amount: '0',
-    asset: 'USD',
-    correlationId: 'REF001',
-    id: 'ENTRY001',
-    timestamp: 1704067200000, // Must be in milliseconds and an integer
-    type: 'test',
-    status: 'success',
-    ...overrides,
-  };
-}
-
-function wrapEntry(entry: ExchangeLedgerEntry): RawTransactionWithMetadata {
-  return {
-    raw: entry,
-    normalized: entry,
-    externalId: entry.id,
-    cursor: {},
-  };
-}
-
 describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
   test('groups entries by correlation ID', async () => {
     const processor = new TestExchangeProcessor();
 
-    const entries: ExchangeLedgerEntry[] = [
-      createTestEntry({ id: 'E1', correlationId: 'REF001', amount: '-100', asset: 'USD' }),
-      createTestEntry({ id: 'E2', correlationId: 'REF001', amount: '0.001', asset: 'BTC' }),
-      createTestEntry({ id: 'E3', correlationId: 'REF002', amount: '50', asset: 'USD' }),
+    const entries = [
+      new ExchangeEntryBuilder().withId('E1').withCorrelationId('REF001').withAmount('-100').withAsset('USD').build(),
+      new ExchangeEntryBuilder().withId('E2').withCorrelationId('REF001').withAmount('0.001').withAsset('BTC').build(),
+      new ExchangeEntryBuilder().withId('E3').withCorrelationId('REF002').withAmount('50').withAsset('USD').build(),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry), {});
-
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-
-    const transactions = result.value;
+    const transactions = expectOk(await processor.process(entries.map(wrapEntry), {}));
     expect(transactions).toHaveLength(2);
 
     const tx1Metadata = transactions[0]?.metadata as {
@@ -87,78 +82,55 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
   test('creates single transaction for swap (different assets)', async () => {
     const processor = new TestExchangeProcessor();
 
-    const entries: ExchangeLedgerEntry[] = [
-      createTestEntry({
-        amount: '-1000',
-        asset: 'USD',
-        correlationId: 'SWAP001',
-        fee: '2.50',
-        id: 'E1',
-        timestamp: 1704067200000,
-      }),
-      createTestEntry({
-        amount: '0.025',
-        asset: 'BTC',
-        correlationId: 'SWAP001',
-        fee: '0',
-        id: 'E2',
-        timestamp: 1704067200000,
-      }),
+    const entries = [
+      new ExchangeEntryBuilder()
+        .withId('E1')
+        .withCorrelationId('SWAP001')
+        .withAmount('-1000')
+        .withAsset('USD')
+        .withFee('2.50')
+        .withTimestamp(1704067200000)
+        .build(),
+      new ExchangeEntryBuilder()
+        .withId('E2')
+        .withCorrelationId('SWAP001')
+        .withAmount('0.025')
+        .withAsset('BTC')
+        .withFee('0')
+        .withTimestamp(1704067200000)
+        .build(),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry), {});
-
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-
-    const [transaction] = result.value;
+    const [transaction] = expectOk(await processor.process(entries.map(wrapEntry), {}));
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.operation.category).toBe('trade');
-    expect(transaction.operation.type).toBe('swap');
-
-    expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
-    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('0.025');
-
-    expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('USD');
-    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('1000');
-
-    expect(transaction.fees.find((f) => f.scope === 'platform')?.amount.toFixed()).toBe('2.5');
+    expectOperation(transaction).hasCategory('trade').hasType('swap');
+    expectMovement(transaction).hasInflows(1).inflow(0).hasAsset('BTC').hasNetAmount('0.025');
+    expectMovement(transaction).hasOutflows(1).outflow(0).hasAsset('USD').hasNetAmount('1000');
+    expectFee(transaction, 'platform').toHaveAmount('2.5');
   });
 
   test('creates single transaction for deposit (inflow only)', async () => {
     const processor = new TestExchangeProcessor();
 
-    const entries: ExchangeLedgerEntry[] = [
-      createTestEntry({
-        amount: '700.00',
-        asset: 'CAD',
-        correlationId: 'DEP001',
-        fee: '3.49',
-        id: 'E1',
-      }),
+    const entries = [
+      new ExchangeEntryBuilder()
+        .withId('E1')
+        .withCorrelationId('DEP001')
+        .withAmount('700.00')
+        .withAsset('CAD')
+        .withFee('3.49')
+        .build(),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry), {});
-
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-
-    const [transaction] = result.value;
+    const [transaction] = expectOk(await processor.process(entries.map(wrapEntry), {}));
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.operation.category).toBe('transfer');
-    expect(transaction.operation.type).toBe('deposit');
-
-    expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.asset).toBe('CAD');
-    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('700');
-
-    expect(transaction.movements.outflows).toHaveLength(0);
+    expectOperation(transaction).hasCategory('transfer').hasType('deposit');
+    expectMovement(transaction).hasInflows(1).inflow(0).hasAsset('CAD').hasNetAmount('700');
+    expectMovement(transaction).hasOutflows(0);
   });
 
   test('creates single transaction for withdrawal (outflow only)', async () => {
