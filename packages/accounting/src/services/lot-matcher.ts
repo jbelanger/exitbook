@@ -25,6 +25,7 @@ import {
   getVarianceTolerance,
   groupTransactionsByAsset,
   sortWithLogicalOrdering,
+  validateOutflowFees,
   validateTransferVariance,
 } from './lot-matcher-utils.js';
 import type { ICostBasisStrategy } from './strategies/base-strategy.js';
@@ -381,12 +382,17 @@ export class LotMatcher {
       priceAtTxTime: txLevelCryptoFee.priceAtTxTime,
     };
 
-    // Validate that the outflow fee amount is consistent with transaction-level fees
-    // This catches cases where netAmount has excessive variance (hidden fees, data errors)
-    // For batched transactions, compare against this outflow's proportional share of the fee
-    if (outflow.netAmount !== undefined && txLevelCryptoFee.amount.gt(0)) {
-      const sameAssetOutflows = tx.movements.outflows?.filter((o) => o.asset === outflow.asset) || [];
-      const totalGrossAmount = sameAssetOutflows.reduce((sum, o) => sum.plus(o.grossAmount), new Decimal(0));
+    // Validate that netAmount matches grossAmount minus on-chain fees
+    // Detects hidden/undeclared fees
+    const feeValidationResult = validateOutflowFees(outflow, tx, tx.source, tx.id, config.varianceTolerance);
+    if (feeValidationResult.isErr()) {
+      return err(feeValidationResult.error);
+    }
+
+    // Use netAmount for transfer validation (already accounts for on-chain fees)
+    // Per ADR-005: netAmount = grossAmount - on-chain fees
+    // Platform fees (settlement='balance') don't affect the on-chain transfer amount
+    const netTransferAmount = outflow.netAmount ?? outflow.grossAmount;
 
       // Calculate this outflow's proportional share of the total transaction fee
       const outflowShare = outflow.grossAmount.dividedBy(totalGrossAmount);

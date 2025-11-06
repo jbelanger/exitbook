@@ -72,6 +72,8 @@ describe('calculateBalances', () => {
   });
 
   it('should calculate balance with network fees', () => {
+    // Bitcoin (UTXO chain): fee is included in grossAmount
+    // grossAmount = inputs - change = fee is embedded in the balance impact
     const transaction = createTestTransaction({
       source: 'bitcoin',
       externalId: 'tx3',
@@ -81,8 +83,8 @@ describe('calculateBalances', () => {
         outflows: [
           {
             asset: 'BTC',
-            grossAmount: parseDecimal('0.5'),
-            netAmount: parseDecimal('0.5'),
+            grossAmount: parseDecimal('0.5001'), // Includes the 0.0001 fee
+            netAmount: parseDecimal('0.5'), // What actually transferred
           },
         ],
       },
@@ -127,6 +129,8 @@ describe('calculateBalances', () => {
   });
 
   it('should calculate balance with both network and platform fees', () => {
+    // Ethereum (account-based chain): gas fees are paid separately from balance
+    // Both network and platform fees use settlement='balance'
     const transaction = createTestTransaction({
       source: 'ethereum',
       externalId: 'tx5',
@@ -136,13 +140,13 @@ describe('calculateBalances', () => {
         outflows: [
           {
             asset: 'ETH',
-            grossAmount: parseDecimal('5.0'),
-            netAmount: parseDecimal('5.0'),
+            grossAmount: parseDecimal('5.0'), // Recipient receives full amount
+            netAmount: parseDecimal('5.0'), // Same as gross for account-based chains
           },
         ],
       },
       fees: [
-        { asset: 'ETH', amount: parseDecimal('0.005'), scope: 'network', settlement: 'on-chain' },
+        { asset: 'ETH', amount: parseDecimal('0.005'), scope: 'network', settlement: 'balance' },
         { asset: 'ETH', amount: parseDecimal('0.001'), scope: 'platform', settlement: 'balance' },
       ],
     });

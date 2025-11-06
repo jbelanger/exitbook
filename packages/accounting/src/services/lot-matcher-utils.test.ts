@@ -17,10 +17,12 @@ import {
   calculateTransferDisposalAmount,
   collectFiatFees,
   extractCryptoFee,
+  extractOnChainFees,
   filterTransactionsWithoutPrices,
   getVarianceTolerance,
   groupTransactionsByAsset,
   sortWithLogicalOrdering,
+  validateOutflowFees,
   validateTransferVariance,
 } from './lot-matcher-utils.js';
 
@@ -240,6 +242,41 @@ describe('lot-matcher-utils', () => {
       const tolerance = getVarianceTolerance('kraken', { warn: 2.0, error: 10.0 });
       expect(tolerance.warn.toNumber()).toBe(2.0);
       expect(tolerance.error.toNumber()).toBe(10.0);
+    });
+  });
+
+  describe('extractOnChainFees', () => {
+    it('should extract only on-chain fees for specified asset', () => {
+      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('network', 'on-chain', 'BTC', '0.001', '50000'),
+        createFeeMovement('platform', 'balance', 'BTC', '0.0004', '50000'),
+        createFeeMovement('network', 'on-chain', 'ETH', '0.002', '3000'),
+      ]);
+
+      const btcOnChainFees = extractOnChainFees(tx, 'BTC');
+
+      expect(btcOnChainFees.toFixed()).toBe('0.001');
+    });
+
+    it('should return zero when no on-chain fees exist', () => {
+      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('platform', 'balance', 'BTC', '0.0004', '50000'),
+      ]);
+
+      const onChainFees = extractOnChainFees(tx, 'BTC');
+
+      expect(onChainFees.toFixed()).toBe('0');
+    });
+
+    it('should sum multiple on-chain fees for same asset', () => {
+      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('network', 'on-chain', 'BTC', '0.001', '50000'),
+        createFeeMovement('platform', 'on-chain', 'BTC', '0.0002', '50000'),
+      ]);
+
+      const onChainFees = extractOnChainFees(tx, 'BTC');
+
+      expect(onChainFees.toFixed()).toBe('0.0012');
     });
   });
 
@@ -790,6 +827,112 @@ describe('lot-matcher-utils', () => {
         'BTC',
         { warn: 10, error: 20 } // High tolerance
       );
+
+      expect(result.isOk()).toBe(true);
+    });
+  });
+
+  describe('validateOutflowFees', () => {
+    it('should pass when netAmount matches grossAmount minus on-chain fees', () => {
+      const outflow: AssetMovement = {
+        asset: 'BTC',
+        grossAmount: new Decimal('1.0'),
+        netAmount: new Decimal('0.9995'),
+      };
+      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '50000'),
+      ]);
+
+      const result = validateOutflowFees(outflow, tx, 'kraken', 1);
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should pass when no netAmount is provided (legacy data)', () => {
+      const outflow: AssetMovement = {
+        asset: 'BTC',
+        grossAmount: new Decimal('1.0'),
+      };
+      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {});
+
+      const result = validateOutflowFees(outflow, tx, 'kraken', 1);
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should ignore balance-settled fees when validating netAmount', () => {
+      const outflow: AssetMovement = {
+        asset: 'BTC',
+        grossAmount: new Decimal('1.0'),
+        netAmount: new Decimal('1.0'),
+      };
+      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('platform', 'balance', 'BTC', '0.0004', '50000'),
+      ]);
+
+      const result = validateOutflowFees(outflow, tx, 'kraken', 1);
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should error when hidden fees exceed error threshold', () => {
+      const outflow: AssetMovement = {
+        asset: 'BTC',
+        grossAmount: new Decimal('1.0'),
+        netAmount: new Decimal('0.94'),
+      };
+      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '50000'),
+      ]);
+
+      const result = validateOutflowFees(outflow, tx, 'binance', 1);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Outflow fee validation failed');
+        expect(result.error.message).toContain('hidden fee');
+        expect(result.error.message).toContain('Exceeds error threshold');
+      }
+    });
+
+    it('should pass when hidden fees are within error threshold', () => {
+      const outflow: AssetMovement = {
+        asset: 'BTC',
+        grossAmount: new Decimal('1.0'),
+        netAmount: new Decimal('0.98'),
+      };
+      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, []);
+
+      const result = validateOutflowFees(outflow, tx, 'binance', 1);
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should sum multiple on-chain fees when validating', () => {
+      const outflow: AssetMovement = {
+        asset: 'BTC',
+        grossAmount: new Decimal('1.0'),
+        netAmount: new Decimal('0.9988'),
+      };
+      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, [
+        createFeeMovement('network', 'on-chain', 'BTC', '0.0007', '50000'),
+        createFeeMovement('platform', 'on-chain', 'BTC', '0.0005', '50000'),
+      ]);
+
+      const result = validateOutflowFees(outflow, tx, 'kraken', 1);
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should use custom tolerance when provided', () => {
+      const outflow: AssetMovement = {
+        asset: 'BTC',
+        grossAmount: new Decimal('1.0'),
+        netAmount: new Decimal('0.92'),
+      };
+      const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {}, []);
+
+      const result = validateOutflowFees(outflow, tx, 'kraken', 1, { warn: 5.0, error: 10.0 });
 
       expect(result.isOk()).toBe(true);
     });

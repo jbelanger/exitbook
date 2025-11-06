@@ -121,7 +121,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
                     asset: normalizedTx.feeCurrency || 'SOL',
                     amount: parseDecimal(normalizedTx.feeAmount || '0'),
                     scope: 'network',
-                    settlement: 'on-chain',
+                    settlement: 'balance',
                   },
                 ]
               : [],

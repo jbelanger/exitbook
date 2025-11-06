@@ -47,20 +47,27 @@ function processTransactionForBalance(transaction: UniversalTransaction, balance
   if (outflows && Array.isArray(outflows) && outflows.length > 0) {
     for (const outflow of outflows) {
       ensureBalance(outflow.asset);
-      // Prefer netAmount because it reflects the settled movement that impacts balance.
-      // Fallback to grossAmount for legacy data that might not include netAmount.
-      const amount = outflow.netAmount ?? outflow.grossAmount;
+      // Use grossAmount - it represents what the user's balance decreased by
+      // For UTXO chains (Bitcoin): grossAmount includes the fee (inputs - change)
+      // For account-based chains (Ethereum, Solana, etc.): grossAmount = netAmount, fee deducted separately below
+      const amount = outflow.grossAmount;
       balances[outflow.asset] = balances[outflow.asset]!.minus(amount);
     }
   }
 
   // Process fees (always a cost)
   // Fees are now stored as an array
-  // Deduct all fees from balances regardless of settlement type. On-chain fees reduce
-  // balances in addition to the netAmount movement so that account-based and UTXO flows
-  // produce the same total debits.
+  // IMPORTANT: Only subtract fees with settlement='balance' separately.
+  // Fees with settlement='on-chain' are already included in grossAmount for UTXO chains (Bitcoin).
+  // Account-based chains (Ethereum, Solana, etc.) use settlement='balance' for gas fees.
   if (transaction.fees && Array.isArray(transaction.fees) && transaction.fees.length > 0) {
     for (const fee of transaction.fees) {
+      // Skip on-chain fees - they're already included in grossAmount (UTXO chains only)
+      if (fee.settlement === 'on-chain') {
+        continue;
+      }
+
+      // Subtract balance-settled and external fees separately
       ensureBalance(fee.asset);
       balances[fee.asset] = balances[fee.asset]!.minus(fee.amount);
     }

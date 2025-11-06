@@ -147,35 +147,29 @@ Different blockchain architectures handle fees differently, which affects how `g
 
 **Cost Basis:** Platform fee added to acquisition cost at destination.
 
-#### 2. Ethereum Transfer (Network Fee, On-Chain) - **Account-Based Model**
-
-**IMPORTANT:** For account-based blockchains like Ethereum, gas fees are paid separately from transfers, NOT carved from the transfer amount itself. This differs from Bitcoin's UTXO model where fees are implicit.
+#### 2. Ethereum Transfer (Network Fee, Separate Payment)
 
 ```typescript
 {
   movements: {
     outflows: [{
       asset: 'ETH',
-      grossAmount: '1.5000',          // Amount sent to recipient
-      netAmount: '1.5000'             // Full amount arrives (gas paid separately)
+      grossAmount: '1.5000',
+      netAmount: '1.5000'           // Recipient receives full amount
     }]
   },
   fees: [{
     asset: 'ETH',
     amount: '0.0010',
-    scope: 'network',                  // Paid to validators
-    settlement: 'on-chain'             // Part of same transaction, but NOT carved from transfer
+    scope: 'network',                // Paid to validators
+    settlement: 'balance'            // Deducted separately from balance
   }]
 }
 ```
 
 **Reconciliation:** Source netAmount (1.5000) matches target netAmount (1.5000) ✓
 
-**Balance Impact:** User's balance decreases by 1.5010 ETH total (1.5000 transfer + 0.0010 gas)
-
-**Cost Basis:** Network fee treated separately based on context (see cost-basis section below)
-
-**Note:** The `settlement='on-chain'` classification means the fee was paid as part of the same blockchain transaction, not that it was carved from the transfer amount. In Ethereum's account-based model, gas is debited separately from the transfer itself.
+**Cost Basis:** Network fee paid separately from transfer; balance calculator subtracts both transfer and fee.
 
 #### 3. Coinbase UNI Withdrawal (Platform Fee, On-Chain)
 
