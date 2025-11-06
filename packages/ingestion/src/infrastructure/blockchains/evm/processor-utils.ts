@@ -1,6 +1,9 @@
 import type { OperationClassification } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
+import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
+import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers';
 import type { Decimal } from 'decimal.js';
+import { err, ok, type Result } from 'neverthrow';
 
 import type { EvmFundFlow, EvmMovement } from './types.ts';
 
@@ -233,4 +236,335 @@ export function determineEvmOperationFromFundFlow(fundFlow: EvmFundFlow): Operat
       type: 'transfer',
     },
   };
+}
+
+/**
+ * Groups EVM transactions by their hash.
+ *
+ * Pure function that organizes transactions into groups based on their transaction ID.
+ * Multiple events (token transfers, internal transactions) from the same on-chain transaction
+ * share the same hash and are grouped together for correlation.
+ *
+ * Returns a Map where keys are transaction hashes and values are arrays of correlated transactions.
+ * Transactions without an ID are skipped.
+ */
+export function groupEvmTransactionsByHash(transactions: EvmTransaction[]): Map<string, EvmTransaction[]> {
+  const groups = new Map<string, EvmTransaction[]>();
+
+  for (const tx of transactions) {
+    if (!tx?.id) {
+      continue;
+    }
+
+    if (!groups.has(tx.id)) {
+      groups.set(tx.id, []);
+    }
+
+    groups.get(tx.id)!.push(tx);
+  }
+
+  return groups;
+}
+
+/**
+ * Analyzes fund flow from a normalized transaction group.
+ *
+ * Pure function that examines all transactions in a correlated group and determines:
+ * - All inflows (assets received by the user)
+ * - All outflows (assets sent by the user)
+ * - Primary asset (largest movement for simplified display)
+ * - Transaction complexity (token transfers, internal transactions, contract interactions)
+ * - Network fees
+ *
+ * This is the core business logic for EVM transaction processing - 214 lines of complex analysis
+ * that transforms raw blockchain events into structured fund flow data.
+ */
+export function analyzeEvmFundFlow(
+  txGroup: EvmTransaction[],
+  sessionMetadata: Record<string, unknown>,
+  chainConfig: EvmChainConfig
+): Result<EvmFundFlow, string> {
+  if (txGroup.length === 0) {
+    return err('Empty transaction group');
+  }
+
+  if (!sessionMetadata.address || typeof sessionMetadata.address !== 'string') {
+    return err('Missing user address in session metadata');
+  }
+
+  // Address should already be normalized by caller
+  const userAddress = sessionMetadata.address;
+
+  // Analyze transaction group complexity - essential for proper EVM classification
+  const hasTokenTransfers = txGroup.some((tx) => tx.type === 'token_transfer');
+  const hasInternalTransactions = txGroup.some((tx) => tx.type === 'internal');
+  const hasContractInteraction = txGroup.some(
+    (tx) =>
+      tx.type === 'contract_call' ||
+      Boolean(tx.methodId) || // Has function selector (0x12345678)
+      Boolean(tx.functionName) // Function name decoded by provider
+  );
+
+  // Collect ALL assets that flow in/out (not just pick one as primary)
+  const inflows: EvmMovement[] = [];
+  const outflows: EvmMovement[] = [];
+
+  let fromAddress = '';
+  let toAddress: string | undefined = '';
+
+  // Process all token transfers involving the user
+  for (const tx of txGroup) {
+    if (tx.type === 'token_transfer' && isEvmUserParticipant(tx, userAddress)) {
+      const tokenSymbol = tx.tokenSymbol || tx.currency || 'UNKNOWN';
+      const rawAmount = tx.amount ?? '0';
+
+      // Normalize token amount using decimals metadata
+      // All providers return amounts in smallest units; normalization ensures consistency and safety
+      const amount = normalizeTokenAmount(rawAmount, tx.tokenDecimals);
+
+      // Skip zero amounts
+      if (isZeroDecimal(amount)) {
+        continue;
+      }
+
+      const fromMatches = matchesEvmAddress(tx.from, userAddress);
+      const toMatches = matchesEvmAddress(tx.to, userAddress);
+
+      // For self-transfers (user -> user), track both inflow and outflow
+      if (fromMatches && toMatches) {
+        const movement: EvmMovement = {
+          amount,
+          asset: tokenSymbol,
+          tokenAddress: tx.tokenAddress,
+          tokenDecimals: tx.tokenDecimals,
+        };
+        inflows.push(movement);
+        outflows.push({ ...movement });
+      } else {
+        if (toMatches) {
+          // User received this token
+          const inflow: EvmMovement = {
+            amount,
+            asset: tokenSymbol,
+            tokenAddress: tx.tokenAddress,
+            tokenDecimals: tx.tokenDecimals,
+          };
+          inflows.push(inflow);
+        }
+
+        if (fromMatches) {
+          // User sent this token
+          const outflow: EvmMovement = {
+            amount,
+            asset: tokenSymbol,
+            tokenAddress: tx.tokenAddress,
+            tokenDecimals: tx.tokenDecimals,
+          };
+          outflows.push(outflow);
+        }
+      }
+
+      // Track addresses
+      if (!fromAddress && fromMatches) {
+        fromAddress = tx.from;
+      }
+      if (!toAddress && toMatches) {
+        toAddress = tx.to;
+      }
+      if (!fromAddress) {
+        fromAddress = tx.from;
+      }
+      if (!toAddress) {
+        toAddress = tx.to;
+      }
+    }
+  }
+
+  // Process all native currency movements involving the user
+  for (const tx of txGroup) {
+    if (isEvmNativeMovement(tx, chainConfig) && isEvmUserParticipant(tx, userAddress)) {
+      const normalizedAmount = normalizeNativeAmount(tx.amount, chainConfig.nativeDecimals);
+
+      // Skip zero amounts
+      if (isZeroDecimal(normalizedAmount)) {
+        continue;
+      }
+
+      const fromMatches = matchesEvmAddress(tx.from, userAddress);
+      const toMatches = matchesEvmAddress(tx.to, userAddress);
+
+      // For self-transfers (user -> user), track both inflow and outflow
+      if (fromMatches && toMatches) {
+        const movement = {
+          amount: normalizedAmount,
+          asset: chainConfig.nativeCurrency,
+        };
+        inflows.push(movement);
+        outflows.push({ ...movement });
+      } else {
+        if (toMatches) {
+          // User received native currency
+          inflows.push({
+            amount: normalizedAmount,
+            asset: chainConfig.nativeCurrency,
+          });
+        }
+
+        if (fromMatches) {
+          // User sent native currency
+          outflows.push({
+            amount: normalizedAmount,
+            asset: chainConfig.nativeCurrency,
+          });
+        }
+      }
+
+      // Track addresses
+      if (!fromAddress && fromMatches) {
+        fromAddress = tx.from;
+      }
+      if (!toAddress && toMatches) {
+        toAddress = tx.to;
+      }
+      if (!fromAddress) {
+        fromAddress = tx.from;
+      }
+      if (!toAddress) {
+        toAddress = tx.to;
+      }
+    }
+  }
+
+  // Final fallback: use first transaction to populate addresses
+  const primaryTx = txGroup[0];
+  if (primaryTx) {
+    if (!fromAddress) {
+      fromAddress = primaryTx.from;
+    }
+    if (!toAddress) {
+      toAddress = primaryTx.to;
+    }
+  }
+
+  // Consolidate duplicate assets (sum amounts for same asset)
+  const consolidatedInflows = consolidateEvmMovementsByAsset(inflows);
+  const consolidatedOutflows = consolidateEvmMovementsByAsset(outflows);
+
+  // Select primary asset for simplified consumption and single-asset display
+  // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions
+  const primaryFromInflows = selectPrimaryEvmMovement(consolidatedInflows, {
+    nativeCurrency: chainConfig.nativeCurrency,
+  });
+
+  const primary: EvmMovement =
+    primaryFromInflows && !isZeroDecimal(primaryFromInflows.amount)
+      ? primaryFromInflows
+      : selectPrimaryEvmMovement(consolidatedOutflows, {
+          nativeCurrency: chainConfig.nativeCurrency,
+        }) || {
+          asset: chainConfig.nativeCurrency,
+          amount: '0',
+        };
+
+  // Get fee from the parent transaction (NOT from token_transfer events)
+  // A single on-chain transaction has only ONE fee, but providers may duplicate it across
+  // the parent transaction and child events (token transfers, internal calls).
+  // We take the fee from the first non-token_transfer transaction to avoid double-counting.
+  const parentTx = txGroup.find((tx) => tx.type !== 'token_transfer') || txGroup[0];
+  const feeWei = parentTx?.feeAmount ? parseDecimal(parentTx.feeAmount) : parseDecimal('0');
+  const feeAmount = feeWei.dividedBy(parseDecimal('10').pow(chainConfig.nativeDecimals)).toFixed();
+
+  // Track uncertainty for complex transactions
+  let classificationUncertainty: string | undefined;
+  if (consolidatedInflows.length > 1 || consolidatedOutflows.length > 1) {
+    classificationUncertainty = `Complex transaction with ${consolidatedOutflows.length} outflow(s) and ${consolidatedInflows.length} inflow(s). May be liquidity provision, batch operation, or multi-asset swap.`;
+  }
+
+  return ok({
+    classificationUncertainty,
+    feeAmount,
+    feeCurrency: chainConfig.nativeCurrency,
+    fromAddress,
+    hasContractInteraction,
+    hasInternalTransactions,
+    hasTokenTransfers,
+    inflows: consolidatedInflows,
+    outflows: consolidatedOutflows,
+    primary,
+    toAddress,
+    transactionCount: txGroup.length,
+  });
+}
+
+/**
+ * Selects the primary transaction from a correlated group.
+ *
+ * Pure function that chooses the most representative transaction for external_id and metadata.
+ * Prioritizes token transfers when present, then follows a preferred order of transaction types.
+ */
+export function selectPrimaryEvmTransaction(
+  txGroup: EvmTransaction[],
+  fundFlow: EvmFundFlow
+): EvmTransaction | undefined {
+  if (fundFlow.hasTokenTransfers) {
+    const tokenTx = txGroup.find((tx) => tx.type === 'token_transfer');
+    if (tokenTx) {
+      return tokenTx;
+    }
+  }
+
+  const preferredOrder: EvmTransaction['type'][] = ['transfer', 'contract_call', 'internal'];
+
+  for (const type of preferredOrder) {
+    const match = txGroup.find((tx) => tx.type === type);
+    if (match) {
+      return match;
+    }
+  }
+
+  return txGroup[0];
+}
+
+/**
+ * Checks if an address matches the target address.
+ *
+ * Pure function for case-sensitive address comparison.
+ * Addresses should already be normalized to lowercase via EvmAddressSchema.
+ */
+export function matchesEvmAddress(address: string | undefined, target: string): boolean {
+  return address ? address === target : false;
+}
+
+/**
+ * Checks if the user is a participant in the transaction.
+ *
+ * Pure function that returns true if the user is either the sender or receiver.
+ */
+export function isEvmUserParticipant(tx: EvmTransaction, userAddress: string): boolean {
+  return matchesEvmAddress(tx.from, userAddress) || matchesEvmAddress(tx.to, userAddress);
+}
+
+/**
+ * Checks if a transaction represents a native currency movement.
+ *
+ * Pure function that determines if the transaction involves the chain's native currency
+ * (ETH, MATIC, etc.) rather than a token.
+ */
+export function isEvmNativeMovement(tx: EvmTransaction, chainConfig: EvmChainConfig): boolean {
+  const native = chainConfig.nativeCurrency.toLowerCase();
+  return tx.currency.toLowerCase() === native || (tx.tokenSymbol ? tx.tokenSymbol.toLowerCase() === native : false);
+}
+
+/**
+ * Checks if a decimal value is zero.
+ *
+ * Pure function that safely parses and checks for zero values.
+ * Returns true if the value is zero, undefined, or cannot be parsed.
+ */
+export function isZeroDecimal(value: string): boolean {
+  try {
+    return parseDecimal(value || '0').isZero();
+  } catch {
+    return true;
+  }
 }
