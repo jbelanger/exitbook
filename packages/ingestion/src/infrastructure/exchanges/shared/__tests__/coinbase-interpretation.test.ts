@@ -3,8 +3,12 @@ import { describe, expect, test } from 'vitest';
 
 import { coinbaseGrossAmounts, type RawTransactionWithMetadata } from '../strategies/index.ts';
 
+type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
 function buildEntry(
-  overrides: Partial<RawTransactionWithMetadata<CoinbaseLedgerEntry>>
+  overrides?: DeepPartial<RawTransactionWithMetadata<CoinbaseLedgerEntry>>
 ): RawTransactionWithMetadata<CoinbaseLedgerEntry> {
   const timestamp = 1_722_461_782_000;
   const base: RawTransactionWithMetadata<CoinbaseLedgerEntry> = {
@@ -32,18 +36,22 @@ function buildEntry(
     },
   };
 
-  return {
+  const merged = {
     ...base,
-    ...overrides,
+    ...(overrides || {}),
+  };
+
+  return {
+    ...merged,
     normalized: {
       ...base.normalized,
-      ...overrides.normalized,
+      ...(overrides?.normalized || {}),
     },
     raw: {
       ...base.raw,
-      ...overrides.raw,
+      ...(overrides?.raw || {}),
     },
-  };
+  } as RawTransactionWithMetadata<CoinbaseLedgerEntry>;
 }
 
 describe('coinbaseGrossAmounts', () => {

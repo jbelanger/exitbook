@@ -7,7 +7,7 @@ import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.ts';
-import { CsvParser } from '../shared/csv-parser.ts';
+import { parseCsvFile, validateCsvHeaders } from '../shared/csv-parser-utils.ts';
 
 import { CSV_FILE_TYPES } from './constants.js';
 import type {
@@ -418,7 +418,7 @@ export class KucoinCsvImporter implements IImporter {
    */
   private async parseCsvFile<T>(filePath: string): Promise<T[]> {
     try {
-      return CsvParser.parseFile<T>(filePath);
+      return parseCsvFile<T>(filePath);
     } catch (error) {
       this.logger.error(`Failed to parse CSV file ${filePath}: ${String(error)}`);
       throw error;
@@ -447,7 +447,7 @@ export class KucoinCsvImporter implements IImporter {
     const expectedHeaders = CSV_FILE_TYPES;
 
     try {
-      const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
+      const fileType = await validateCsvHeaders(filePath, expectedHeaders);
       return fileType;
     } catch (error) {
       this.logger.error(`Failed to validate CSV headers for ${filePath}: ${String(error)}`);

@@ -1,5 +1,5 @@
 import { getErrorMessage } from '@exitbook/core';
-import type { ExternalTransactionData, SourceMetadata, SourceType, UniversalTransaction } from '@exitbook/core';
+import type { SourceMetadata, SourceType, UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
@@ -10,6 +10,13 @@ import { createExchangeProcessor } from '../infrastructure/exchanges/shared/exch
 import type { ITokenMetadataService } from '../services/token-metadata/token-metadata-service.interface.ts';
 import type { ProcessResult } from '../types/processors.ts';
 import type { IDataSourceRepository, IRawDataRepository, LoadRawDataFilters } from '../types/repositories.ts';
+
+import {
+  buildSessionProcessingQueue,
+  extractUniqueDataSourceIds,
+  filterSessionsWithPendingData,
+  groupRawDataBySession,
+} from './process-service-utils.ts';
 
 export class TransactionProcessService {
   private logger: Logger;
@@ -85,10 +92,8 @@ export class TransactionProcessService {
 
       this.logger.info(`Found ${pendingData.length} pending records across all sources`);
 
-      // Get unique data source IDs
-      const dataSourceIds = [
-        ...new Set(pendingData.map((item) => item.dataSourceId).filter((id): id is number => id !== null)),
-      ];
+      // Use pure function to extract unique data source IDs
+      const dataSourceIds = extractUniqueDataSourceIds(pendingData);
 
       this.logger.info(`Found ${dataSourceIds.length} data sources with pending records`);
 
@@ -178,15 +183,8 @@ export class TransactionProcessService {
         `Found ${allSessions.length} total sessions for source: ${allSessions.map((s) => s.id).join(', ')}`
       );
 
-      const rawDataBySessionId = new Map<number, ExternalTransactionData[]>();
-
-      for (const rawDataItem of rawDataItems) {
-        if (rawDataItem.dataSourceId) {
-          const sessionRawData = rawDataBySessionId.get(rawDataItem.dataSourceId) || [];
-          sessionRawData.push(rawDataItem);
-          rawDataBySessionId.set(rawDataItem.dataSourceId, sessionRawData);
-        }
-      }
+      // Use pure function to group raw data by session
+      const rawDataBySessionId = groupRawDataBySession(rawDataItems);
 
       this.logger.debug(
         `Grouped raw data by session: ${Array.from(rawDataBySessionId.entries())
@@ -194,19 +192,11 @@ export class TransactionProcessService {
           .join(', ')}`
       );
 
-      const sessionsToProcess = allSessions
-        .filter((session) => rawDataBySessionId.has(session.id))
-        .map((session) => ({
-          rawDataItems: rawDataBySessionId.get(session.id) || [],
-          session,
-        }))
-        .filter((sessionData) =>
-          sessionData.rawDataItems.some(
-            (item) =>
-              item.processingStatus === 'pending' &&
-              (!filters?.dataSourceId || item.dataSourceId === filters.dataSourceId)
-          )
-        );
+      // Use pure function to filter sessions with pending data
+      const filteredSessions = filterSessionsWithPendingData(allSessions, rawDataBySessionId, filters);
+
+      // Use pure function to build processing queue
+      const sessionsToProcess = buildSessionProcessingQueue(filteredSessions);
 
       this.logger.debug(
         `Sessions after filtering: ${sessionsToProcess.map((s) => `Session ${s.session.id} (${s.rawDataItems.length} items)`).join(', ')}`
