@@ -16,7 +16,7 @@ import type {
 } from '../types.js';
 import { deduplicateTransactionsBySignature, isValidSolanaAddress } from '../utils.js';
 
-import { HeliusTransactionMapper } from './helius.mapper.js';
+import { mapHeliusTransaction } from './helius.mapper-utils.js';
 import type { HeliusAssetResponse, HeliusTransaction } from './helius.schemas.js';
 
 export interface SolanaRawBalanceData {
@@ -55,11 +55,8 @@ export interface SolanaRawTokenBalanceData {
   requiresApiKey: true,
 })
 export class HeliusApiClient extends BaseApiClient {
-  private mapper: HeliusTransactionMapper;
-
   constructor(config: ProviderConfig) {
     super(config);
-    this.mapper = new HeliusTransactionMapper();
 
     if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
       const heliusUrl = `${this.baseUrl}/?api-key=${this.apiKey}`;
@@ -296,7 +293,7 @@ export class HeliusApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
     for (const rawTx of uniqueTransactions.values()) {
-      const mapResult = this.mapper.map(rawTx, {});
+      const mapResult = mapHeliusTransaction(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

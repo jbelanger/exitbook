@@ -1,11 +1,10 @@
 import type { SourceMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { BlockfrostTransactionMapper } from './blockfrost.mapper.js';
+import { mapBlockfrostTransaction } from './blockfrost.mapper-utils.js';
 import type { BlockfrostTransactionWithMetadata } from './blockfrost.schemas.js';
 
-describe('BlockfrostTransactionMapper', () => {
-  const mapper = new BlockfrostTransactionMapper();
+describe('mapBlockfrostTransaction', () => {
   const sourceContext: SourceMetadata = {
     address: 'addr1qxy483kxdaezq6qk0ptlh7gzcmqm2q6uyz4rjz5aq92whlvje44s8rhd3eyt9q3yvdvs3dw6y80ttwspnsmg5tgxa72su3mnty',
   };
@@ -40,7 +39,7 @@ describe('BlockfrostTransactionMapper', () => {
   describe('Basic transaction mapping', () => {
     it('should map simple ADA transfer with all metadata fields', () => {
       const mockTransaction = createBaseFixture();
-      const result = mapper.map(mockTransaction, sourceContext);
+      const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -67,7 +66,7 @@ describe('BlockfrostTransactionMapper', () => {
 
     it('should map inputs with correct structure', () => {
       const mockTransaction = createBaseFixture();
-      const result = mapper.map(mockTransaction, sourceContext);
+      const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -92,7 +91,7 @@ describe('BlockfrostTransactionMapper', () => {
 
     it('should map outputs with correct structure', () => {
       const mockTransaction = createBaseFixture();
-      const result = mapper.map(mockTransaction, sourceContext);
+      const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -132,7 +131,7 @@ describe('BlockfrostTransactionMapper', () => {
           fees: lovelace,
         };
 
-        const result = mapper.map(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -147,7 +146,7 @@ describe('BlockfrostTransactionMapper', () => {
         fees: '0',
       };
 
-      const result = mapper.map(mockTransaction, sourceContext);
+      const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -161,7 +160,7 @@ describe('BlockfrostTransactionMapper', () => {
         fees: '10000000000', // 10,000 ADA
       };
 
-      const result = mapper.map(mockTransaction, sourceContext);
+      const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -178,7 +177,7 @@ describe('BlockfrostTransactionMapper', () => {
         block_time: blockTime,
       };
 
-      const result = mapper.map(mockTransaction, sourceContext);
+      const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -201,7 +200,7 @@ describe('BlockfrostTransactionMapper', () => {
           block_time: new Date(date),
         };
 
-        const result = mapper.map(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -218,7 +217,7 @@ describe('BlockfrostTransactionMapper', () => {
         valid_contract: true,
       };
 
-      const result = mapper.map(mockTransaction, sourceContext);
+      const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -232,7 +231,7 @@ describe('BlockfrostTransactionMapper', () => {
         valid_contract: false,
       };
 
-      const result = mapper.map(mockTransaction, sourceContext);
+      const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -251,7 +250,7 @@ describe('BlockfrostTransactionMapper', () => {
           block_height: blockHeight,
         };
 
-        const result = mapper.map(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -273,7 +272,7 @@ describe('BlockfrostTransactionMapper', () => {
           block_hash: blockHash,
         };
 
-        const result = mapper.map(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -318,7 +317,7 @@ describe('BlockfrostTransactionMapper', () => {
         ],
       };
 
-      const result = mapper.map(mockTransaction, sourceContext);
+      const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -371,7 +370,7 @@ describe('BlockfrostTransactionMapper', () => {
         ],
       };
 
-      const result = mapper.map(mockTransaction, sourceContext);
+      const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -422,7 +421,7 @@ describe('BlockfrostTransactionMapper', () => {
         ],
       };
 
-      const result = mapper.map(mockTransaction, sourceContext);
+      const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -487,7 +486,7 @@ describe('BlockfrostTransactionMapper', () => {
         valid_contract: true,
       };
 
-      const result = mapper.map(mockTransaction, sourceContext);
+      const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {

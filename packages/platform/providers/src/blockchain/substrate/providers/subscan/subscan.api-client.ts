@@ -12,7 +12,7 @@ import { augmentWithChainConfig } from '../../transaction-utils.js';
 import type { SubstrateTransaction } from '../../types.js';
 import { isValidSS58Address } from '../../utils.js';
 
-import { SubscanTransactionMapper } from './subscan.mapper.js';
+import { convertSubscanTransaction } from './subscan.mapper-utils.js';
 import type { SubscanAccountResponse, SubscanTransferAugmented, SubscanTransfersResponse } from './subscan.schemas.js';
 
 /**
@@ -134,7 +134,6 @@ const CHAIN_SUBDOMAIN_MAP: Record<string, string> = {
 export class SubscanApiClient extends BaseApiClient {
   private readonly chainConfig: SubstrateChainConfig;
   private readonly subscanSubdomain: string;
-  private mapper: SubscanTransactionMapper;
 
   constructor(config: ProviderConfig) {
     super(config);
@@ -157,9 +156,6 @@ export class SubscanApiClient extends BaseApiClient {
     this.reinitializeHttpClient({
       baseUrl: `https://${this.subscanSubdomain}.api.subscan.io`,
     });
-
-    // Initialize mapper
-    this.mapper = new SubscanTransactionMapper();
 
     this.logger.debug(
       `Initialized SubscanApiClient for ${config.blockchain} - Subdomain: ${this.subscanSubdomain}, BaseUrl: ${this.baseUrl}, TokenSymbol: ${this.chainConfig.nativeCurrency}`
@@ -315,20 +311,26 @@ export class SubscanApiClient extends BaseApiClient {
       }
     }
 
-    // Normalize transactions using mapper
+    // Normalize transactions using pure mapping function
+    const relevantAddresses = new Set([address]);
     const transactions: TransactionWithRawData<SubstrateTransaction>[] = [];
     for (const rawTx of transfers) {
-      const mapResult = this.mapper.map(rawTx, { address });
+      const normalized = convertSubscanTransaction(
+        rawTx,
+        relevantAddresses,
+        this.chainConfig,
+        this.chainConfig.nativeCurrency,
+        this.chainConfig.nativeDecimals
+      );
 
-      if (mapResult.isErr()) {
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      // Skip transactions that aren't relevant to this address
+      if (!normalized) {
+        continue;
       }
 
       transactions.push({
         raw: rawTx,
-        normalized: mapResult.value,
+        normalized,
       });
     }
 

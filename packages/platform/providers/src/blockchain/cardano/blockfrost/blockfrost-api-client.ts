@@ -8,7 +8,7 @@ import type { ProviderOperation, TransactionWithRawData } from '../../../shared/
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import type { CardanoTransaction } from '../schemas.js';
 
-import { BlockfrostTransactionMapper } from './blockfrost.mapper.js';
+import { mapBlockfrostTransaction } from './blockfrost.mapper-utils.js';
 import type { BlockfrostTransactionHash, BlockfrostTransactionWithMetadata } from './blockfrost.schemas.js';
 import { BlockfrostTransactionDetailsSchema, BlockfrostTransactionUtxosSchema } from './blockfrost.schemas.js';
 
@@ -48,11 +48,8 @@ import { BlockfrostTransactionDetailsSchema, BlockfrostTransactionUtxosSchema } 
   requiresApiKey: true,
 })
 export class BlockfrostApiClient extends BaseApiClient {
-  private mapper: BlockfrostTransactionMapper;
-
   constructor(config: ProviderConfig) {
     super(config);
-    this.mapper = new BlockfrostTransactionMapper();
 
     this.logger.debug(`Initialized BlockfrostApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
@@ -190,7 +187,7 @@ export class BlockfrostApiClient extends BaseApiClient {
       };
 
       // Map and validate the combined data
-      const mapResult = this.mapper.map(combinedData, {});
+      const mapResult = mapBlockfrostTransaction(combinedData, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

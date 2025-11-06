@@ -26,9 +26,9 @@ import type {
 import { RegisterApiClient } from '../../../shared/blockchain/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import { calculateSimpleBalance, createRawBalanceData } from '../balance-utils.js';
+import { mapBlockCypherTransaction } from '../mapper-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
-import { BlockCypherTransactionMapper } from './blockcypher.mapper.js';
 import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.schemas.js';
 
 @RegisterApiClient({
@@ -55,11 +55,8 @@ import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.s
   requiresApiKey: false,
 })
 export class BlockCypherApiClient extends BaseApiClient {
-  private mapper: BlockCypherTransactionMapper;
-
   constructor(config: ProviderConfig) {
     super(config);
-    this.mapper = new BlockCypherTransactionMapper();
 
     this.logger.debug(
       `Initialized BlockCypherApiClient from registry metadata - BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
@@ -282,7 +279,7 @@ export class BlockCypherApiClient extends BaseApiClient {
       const rawTx = txResult.value;
 
       // Normalize transaction immediately using mapper
-      const mapResult = this.mapper.map(rawTx, {});
+      const mapResult = mapBlockCypherTransaction(rawTx, {});
 
       if (mapResult.isErr()) {
         // Fail fast - provider returned invalid data

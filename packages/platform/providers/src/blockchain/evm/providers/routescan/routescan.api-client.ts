@@ -11,7 +11,7 @@ import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
 import type { EvmTransaction } from '../../types.js';
 
-import { RoutescanTransactionMapper } from './routescan.mapper.js';
+import { mapRoutescanTransaction } from './routescan.mapper-utils.js';
 import type {
   RoutescanApiResponse,
   RoutescanInternalTransaction,
@@ -99,7 +99,6 @@ const CHAIN_ID_MAP: Record<string, number> = {
 export class RoutescanApiClient extends BaseApiClient {
   private readonly chainConfig: EvmChainConfig;
   private readonly routescanChainId: number;
-  private mapper: RoutescanTransactionMapper;
 
   constructor(config: ProviderConfig) {
     super(config);
@@ -121,11 +120,6 @@ export class RoutescanApiClient extends BaseApiClient {
     // Override base URL with chain-specific URL
     this.reinitializeHttpClient({
       baseUrl: `https://api.routescan.io/v2/network/mainnet/evm/${this.routescanChainId}/etherscan/api`,
-    });
-
-    // Initialize mapper with native currency
-    this.mapper = new RoutescanTransactionMapper({
-      nativeCurrency: this.chainConfig.nativeCurrency,
     });
 
     this.logger.debug(
@@ -501,7 +495,7 @@ export class RoutescanApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, {});
+      const mapResult = mapRoutescanTransaction(rawTx, this.chainConfig.nativeCurrency, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

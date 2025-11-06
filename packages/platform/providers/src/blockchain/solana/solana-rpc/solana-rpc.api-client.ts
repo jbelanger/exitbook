@@ -10,7 +10,7 @@ import { transformSolBalance, transformTokenAccounts } from '../balance-utils.js
 import type { SolanaSignature, SolanaTokenAccountsResponse, SolanaTransaction } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
-import { SolanaRPCTransactionMapper } from './solana-rpc.mapper.js';
+import { mapSolanaRPCTransaction } from './solana-rpc.mapper-utils.js';
 import type { SolanaRPCTransaction } from './solana-rpc.schemas.js';
 
 @RegisterApiClient({
@@ -34,11 +34,8 @@ import type { SolanaRPCTransaction } from './solana-rpc.schemas.js';
   requiresApiKey: false,
 })
 export class SolanaRPCApiClient extends BaseApiClient {
-  private mapper: SolanaRPCTransactionMapper;
-
   constructor(config: ProviderConfig) {
     super(config);
-    this.mapper = new SolanaRPCTransactionMapper();
   }
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
@@ -193,7 +190,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, {});
+      const mapResult = mapSolanaRPCTransaction(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

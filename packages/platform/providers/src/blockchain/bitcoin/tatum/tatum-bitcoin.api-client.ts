@@ -7,9 +7,9 @@ import { RegisterApiClient } from '../../../shared/blockchain/index.js';
 import type { ProviderOperation, RawBalanceData } from '../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import { calculateTatumBalance, createRawBalanceData } from '../balance-utils.js';
+import { mapTatumTransaction } from '../mapper-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
-import { TatumBitcoinTransactionMapper } from './tatum.mapper.js';
 import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.schemas.js';
 
 @RegisterApiClient({
@@ -35,11 +35,8 @@ import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.schem
   requiresApiKey: true,
 })
 export class TatumBitcoinApiClient extends BaseApiClient {
-  private mapper: TatumBitcoinTransactionMapper;
-
   constructor(config: ProviderConfig) {
     super(config);
-    this.mapper = new TatumBitcoinTransactionMapper();
 
     // Reinitialize HTTP client with Tatum-specific headers
     this.reinitializeHttpClient({
@@ -166,7 +163,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
     // Normalize transactions immediately using mapper
     const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, {});
+      const mapResult = mapTatumTransaction(rawTx, {});
 
       if (mapResult.isErr()) {
         // Fail fast - provider returned invalid data

@@ -11,7 +11,7 @@ import type { CosmosChainConfig } from '../../chain-config.interface.js';
 import { COSMOS_CHAINS } from '../../chain-registry.js';
 import type { CosmosTransaction } from '../../types.js';
 
-import { InjectiveExplorerTransactionMapper } from './injective-explorer.mapper.js';
+import { mapInjectiveExplorerTransaction } from './injective-explorer.mapper-utils.js';
 import type { InjectiveApiResponse, InjectiveBalanceResponse } from './injective-explorer.schemas.js';
 
 @RegisterApiClient({
@@ -38,7 +38,6 @@ import type { InjectiveApiResponse, InjectiveBalanceResponse } from './injective
 })
 export class InjectiveExplorerApiClient extends BaseApiClient {
   private chainConfig: CosmosChainConfig;
-  private mapper: InjectiveExplorerTransactionMapper;
   private restClient: HttpClient;
 
   constructor(config: ProviderConfig) {
@@ -46,7 +45,6 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
 
     // Use provided chainConfig or default to Injective
     this.chainConfig = COSMOS_CHAINS['injective'] as CosmosChainConfig;
-    this.mapper = new InjectiveExplorerTransactionMapper();
 
     // Create separate HTTP client for REST API (Bank module queries)
     this.restClient = new HttpClient({
@@ -128,7 +126,7 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<CosmosTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, {
+      const mapResult = mapInjectiveExplorerTransaction(rawTx, {
         address,
       });
 
