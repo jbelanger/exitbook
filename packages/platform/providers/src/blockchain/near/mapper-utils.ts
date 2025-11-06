@@ -1,11 +1,11 @@
 import type { SourceMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import { ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../shared/blockchain/index.js';
 
-import type { NearBlocksTransaction } from './nearblocks/nearblocks.schemas.js';
-import type { NearAction, NearTransaction } from './schemas.js';
+import { NearBlocksTransactionSchema, type NearBlocksTransaction } from './nearblocks/nearblocks.schemas.js';
+import { NearTransactionSchema, type NearAction, type NearTransaction } from './schemas.js';
 
 /**
  * Pure functions for NEAR transaction mapping
@@ -36,7 +36,7 @@ export function parseNearBlocksTimestamp(timestamp: string): number {
  * Determine transaction status from NearBlocks outcomes
  */
 export function determineTransactionStatus(
-  outcomes?: Record<string, { status: boolean | Record<string, unknown> }>  
+  outcomes?: Record<string, { status: boolean | Record<string, unknown> }>
 ): 'success' | 'failed' | 'pending' {
   if (!outcomes || Object.keys(outcomes).length === 0) {
     return 'pending';
@@ -59,16 +59,14 @@ export function determineTransactionStatus(
  * Map NearBlocks actions to normalized NEAR actions
  */
 export function mapNearBlocksActions(
-  actions?:
-    | {
-        action: string;
-        args?: Record<string, unknown> | undefined;
-        deposit?: string | undefined;
-        from: string;
-        method?: string | undefined;
-        to: string;
-      }[]
-     
+  actions?: {
+    action: string;
+    args?: Record<string, unknown> | undefined;
+    deposit?: string | undefined;
+    from: string;
+    method?: string | undefined;
+    to: string;
+  }[]
 ): NearAction[] {
   if (!actions || actions.length === 0) {
     return [];
@@ -86,7 +84,7 @@ export function mapNearBlocksActions(
 /**
  * Calculate total deposit amount from actions
  */
-export function calculateTotalDeposit(actions?: { deposit?: string | undefined }[]  ): string {
+export function calculateTotalDeposit(actions?: { deposit?: string | undefined }[]): string {
   if (!actions || actions.length === 0) {
     return '0';
   }
@@ -105,7 +103,7 @@ export function calculateTotalDeposit(actions?: { deposit?: string | undefined }
  * Calculate total gas burnt from outcomes
  */
 export function calculateTotalGasBurnt(
-  outcomes?: Record<string, { gas_burnt?: number | undefined; tokens_burnt?: string | undefined }>  
+  outcomes?: Record<string, { gas_burnt?: number | undefined; tokens_burnt?: string | undefined }>
 ): string | undefined {
   if (!outcomes || Object.keys(outcomes).length === 0) {
     return undefined;
@@ -128,31 +126,59 @@ export function mapNearBlocksTransaction(
   rawData: NearBlocksTransaction,
   sourceContext: SourceMetadata
 ): Result<NearTransaction, NormalizationError> {
-  const timestamp = parseNearBlocksTimestamp(rawData.block_timestamp);
-  const status = determineTransactionStatus(rawData.outcomes);
-  const actions = mapNearBlocksActions(rawData.actions);
-  const totalDeposit = calculateTotalDeposit(rawData.actions);
-  const totalGasBurnt = calculateTotalGasBurnt(rawData.outcomes);
+  // Validate input data
+  const inputValidationResult = NearBlocksTransactionSchema.safeParse(rawData);
+  if (!inputValidationResult.success) {
+    const errors = inputValidationResult.error.issues.map((issue) => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
+    return err({
+      message: `Invalid NearBlocks transaction input data: ${errors.join(', ')}`,
+      type: 'error',
+    });
+  }
+
+  const validatedRawData = inputValidationResult.data;
+
+  const timestamp = parseNearBlocksTimestamp(validatedRawData.block_timestamp);
+  const status = determineTransactionStatus(validatedRawData.outcomes);
+  const actions = mapNearBlocksActions(validatedRawData.actions);
+  const totalDeposit = calculateTotalDeposit(validatedRawData.actions);
+  const totalGasBurnt = calculateTotalGasBurnt(validatedRawData.outcomes);
 
   const normalized: NearTransaction = {
     actions,
     amount: totalDeposit,
     currency: 'NEAR',
-    from: rawData.signer_id,
-    id: rawData.transaction_hash,
+    from: validatedRawData.signer_id,
+    id: validatedRawData.transaction_hash,
     providerName: (sourceContext.providerName as string | undefined) || 'nearblocks',
     status,
     timestamp,
-    to: rawData.receiver_id,
+    to: validatedRawData.receiver_id,
   };
 
-  if (rawData.block_height) {
-    normalized.blockHeight = rawData.block_height;
+  if (validatedRawData.block_height) {
+    normalized.blockHeight = validatedRawData.block_height;
   }
 
   if (totalGasBurnt && totalGasBurnt !== '0') {
     normalized.feeAmount = yoctoNearToNearString(totalGasBurnt);
     normalized.feeCurrency = 'NEAR';
+  }
+
+  // Validate output data
+  const outputValidationResult = NearTransactionSchema.safeParse(normalized);
+  if (!outputValidationResult.success) {
+    const errors = outputValidationResult.error.issues.map((issue) => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
+    return err({
+      message: `Invalid NearBlocks transaction output data: ${errors.join(', ')}`,
+      type: 'error',
+    });
   }
 
   return ok(normalized);

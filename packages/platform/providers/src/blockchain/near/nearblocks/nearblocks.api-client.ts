@@ -7,10 +7,10 @@ import { RegisterApiClient } from '../../../shared/blockchain/index.js';
 import type { RawBalanceData, TransactionWithRawData } from '../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import { transformNearBalance } from '../balance-utils.js';
+import { mapNearBlocksTransaction } from '../mapper-utils.js';
 import type { NearTransaction } from '../types.js';
 import { isValidNearAccountId } from '../utils.js';
 
-import { NearBlocksTransactionMapper } from './nearblocks.mapper.js';
 import {
   NearBlocksAccountSchema,
   NearBlocksTransactionsResponseSchema,
@@ -42,11 +42,8 @@ import {
   requiresApiKey: false,
 })
 export class NearBlocksApiClient extends BaseApiClient {
-  private mapper: NearBlocksTransactionMapper;
-
   constructor(config: ProviderConfig) {
     super(config);
-    this.mapper = new NearBlocksTransactionMapper();
 
     // Initialize HTTP client with optional API key
     if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
@@ -203,7 +200,7 @@ export class NearBlocksApiClient extends BaseApiClient {
     // Map and normalize transactions
     const transactions: TransactionWithRawData<NearTransaction>[] = [];
     for (const rawTx of allTransactions) {
-      const mapResult = this.mapper.map(rawTx, { providerName: this.name });
+      const mapResult = mapNearBlocksTransaction(rawTx, { providerName: this.name });
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
