@@ -36,7 +36,7 @@ import { Currency } from '@exitbook/core';
 
 import { createTestPriceData } from '../../__tests__/test-helpers.js';
 // Import after mocks so they receive mocked dependencies
-import { CoinGeckoProvider } from '../provider.ts';
+import { CoinGeckoProvider } from '../provider.js';
 
 describe('CoinGeckoProvider', () => {
   const defaultTimestamp = new Date('2024-01-01T00:00:00Z');

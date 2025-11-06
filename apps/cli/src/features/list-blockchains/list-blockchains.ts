@@ -1,11 +1,11 @@
 import { getLogger } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
-import { ExitCodes } from '../shared/exit-codes.ts';
-import { OutputManager } from '../shared/output.ts';
+import { ExitCodes } from '../shared/exit-codes.js';
+import { OutputManager } from '../shared/output.js';
 
-import { ListBlockchainsHandler } from './list-blockchains-handler.ts';
-import type { BlockchainInfo, BlockchainListSummary, ListBlockchainsCommandOptions } from './list-blockchains-utils.ts';
+import { ListBlockchainsHandler } from './list-blockchains-handler.js';
+import type { BlockchainInfo, BlockchainListSummary, ListBlockchainsCommandOptions } from './list-blockchains-utils.js';
 
 const logger = getLogger('ListBlockchainsCommand');
 

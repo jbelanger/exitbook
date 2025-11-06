@@ -2,14 +2,14 @@ import { parseDecimal } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
 import { type Result, ok } from 'neverthrow';
 
-import { BaseRawDataMapper } from '../../../shared/blockchain/base/mapper.ts';
-import type { NormalizationError } from '../../../shared/blockchain/index.ts';
+import { BaseRawDataMapper } from '../../../shared/blockchain/base/mapper.js';
+import type { NormalizationError } from '../../../shared/blockchain/index.js';
 import { BitcoinTransactionSchema } from '../schemas.js';
 import type {
   BitcoinTransactionInput,
   BitcoinTransactionOutput,
   BitcoinTransaction as BitcoinTransaction,
-} from '../schemas.ts';
+} from '../schemas.js';
 
 import { BlockstreamTransactionSchema, type BlockstreamTransaction } from './blockstream.schemas.js';
 

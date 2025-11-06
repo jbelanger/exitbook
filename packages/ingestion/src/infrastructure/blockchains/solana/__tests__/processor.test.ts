@@ -2,8 +2,8 @@ import type { SolanaTransaction } from '@exitbook/providers';
 import { ok } from 'neverthrow';
 import { describe, expect, test, vi } from 'vitest';
 
-import type { ITokenMetadataService } from '../../../../services/token-metadata/token-metadata-service.interface.ts';
-import { SolanaTransactionProcessor } from '../processor.ts';
+import type { ITokenMetadataService } from '../../../../services/token-metadata/token-metadata-service.interface.js';
+import { SolanaTransactionProcessor } from '../processor.js';
 
 const USER_ADDRESS = 'user1111111111111111111111111111111111111111';
 const EXTERNAL_ADDRESS = 'external222222222222222222222222222222222222';

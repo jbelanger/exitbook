@@ -22,4 +22,4 @@ export interface SmartDetectionResult {
 }
 
 // BitcoinTransaction, BitcoinTransactionInput, and BitcoinTransactionOutput types
-// are now inferred from Zod schemas in schemas.ts and exported from there
+// are now inferred from Zod schemas in schemas.js and exported from there

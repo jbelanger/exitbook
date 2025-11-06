@@ -1,14 +1,14 @@
 import { configureLogger, resetLoggerContext } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
-import { unwrapResult } from '../shared/command-execution.ts';
-import { ExitCodes } from '../shared/exit-codes.ts';
-import { OutputManager } from '../shared/output.ts';
-import { handleCancellation, promptConfirm } from '../shared/prompts.ts';
+import { unwrapResult } from '../shared/command-execution.js';
+import { ExitCodes } from '../shared/exit-codes.js';
+import { OutputManager } from '../shared/output.js';
+import { handleCancellation, promptConfirm } from '../shared/prompts.js';
 
-import type { ClearResult } from './clear-handler.ts';
-import { ClearHandler } from './clear-handler.ts';
-import { buildClearParamsFromFlags, type ClearCommandOptions, type DeletionPreview } from './clear-utils.ts';
+import type { ClearResult } from './clear-handler.js';
+import { ClearHandler } from './clear-handler.js';
+import { buildClearParamsFromFlags, type ClearCommandOptions, type DeletionPreview } from './clear-utils.js';
 
 /**
  * Clear command result data.

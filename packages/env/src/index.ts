@@ -1,1 +1,1 @@
-export { getDataDirectory, getNodeEnv, isDevelopment, isProduction, isTest } from './config.ts';
+export { getDataDirectory, getNodeEnv, isDevelopment, isProduction, isTest } from './config.js';

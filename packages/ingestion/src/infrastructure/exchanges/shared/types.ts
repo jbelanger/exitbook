@@ -1,4 +1,4 @@
-import type { FeeInput, MovementInput } from './strategies/interpretation.ts';
+import type { FeeInput, MovementInput } from './strategies/interpretation.js';
 
 /**
  * Fund flow analysis result for exchange transactions

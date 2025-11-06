@@ -1,7 +1,7 @@
 import type { BitcoinTransaction } from '@exitbook/providers';
 import { describe, expect, test } from 'vitest';
 
-import { BitcoinTransactionProcessor } from '../processor.ts';
+import { BitcoinTransactionProcessor } from '../processor.js';
 
 const USER_ADDRESS = 'bc1quser1111111111111111111111111111111';
 const DERIVED_ADDRESS_1 = 'bc1qderived1111111111111111111111111111';

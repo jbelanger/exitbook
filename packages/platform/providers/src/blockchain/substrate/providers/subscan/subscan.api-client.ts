@@ -1,16 +1,16 @@
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
-import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
-import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
-import type { SubstrateChainConfig } from '../../chain-config.interface.ts';
-import { getSubstrateChainConfig } from '../../chain-registry.ts';
-import type { SubstrateTransaction } from '../../types.ts';
-import { isValidSS58Address } from '../../utils.ts';
+import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.js';
+import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.js';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.js';
+import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.js';
+import type { SubstrateChainConfig } from '../../chain-config.interface.js';
+import { getSubstrateChainConfig } from '../../chain-registry.js';
+import type { SubstrateTransaction } from '../../types.js';
+import { isValidSS58Address } from '../../utils.js';
 
-import { SubscanTransactionMapper } from './subscan.mapper.ts';
+import { SubscanTransactionMapper } from './subscan.mapper.js';
 import type { SubscanAccountResponse, SubscanTransferAugmented, SubscanTransfersResponse } from './subscan.schemas.js';
 
 /**

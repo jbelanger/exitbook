@@ -2,7 +2,7 @@ import { parseDecimal } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
 import { createLot } from '../../../__tests__/test-utils.js';
-import { createAcquisitionLot, disposeLot, updateLotStatus } from '../lot.ts';
+import { createAcquisitionLot, disposeLot, updateLotStatus } from '../lot.js';
 
 describe('createAcquisitionLot', () => {
   test('should create a new acquisition lot with correct properties', () => {

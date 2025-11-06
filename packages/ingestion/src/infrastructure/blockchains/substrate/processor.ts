@@ -5,9 +5,9 @@ import type { SubstrateTransaction, SubstrateChainConfig } from '@exitbook/provi
 import { derivePolkadotAddressVariants } from '@exitbook/providers';
 import { type Result, err, okAsync } from 'neverthrow';
 
-import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
+import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
-import type { SubstrateFundFlow, SubstrateMovement } from './types.ts';
+import type { SubstrateFundFlow, SubstrateMovement } from './types.js';
 
 /**
  * Generic Substrate transaction processor that converts raw blockchain transaction data

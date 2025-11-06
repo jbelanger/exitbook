@@ -7,9 +7,9 @@ import type { Result } from 'neverthrow';
 import { ok, err } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { TransactionLink } from '../../linking/types.ts';
+import type { TransactionLink } from '../../linking/types.js';
 import type { TransactionLinkRepository } from '../../persistence/transaction-link-repository.js';
-import { PriceEnrichmentService } from '../price-enrichment-service.ts';
+import { PriceEnrichmentService } from '../price-enrichment-service.js';
 
 // Helper to create a mock TransactionRepository
 function createMockTransactionRepository(): TransactionRepository {

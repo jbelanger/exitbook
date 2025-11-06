@@ -3,15 +3,15 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 import type { Decimal } from 'decimal.js';
 
-import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.ts';
-import { ExitCodes } from '../shared/exit-codes.ts';
-import { OutputManager } from '../shared/output.ts';
+import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.js';
+import { ExitCodes } from '../shared/exit-codes.js';
+import { OutputManager } from '../shared/output.js';
 
-import type { CostBasisResult } from './cost-basis-handler.ts';
-import { CostBasisHandler } from './cost-basis-handler.ts';
-import { promptForCostBasisParams } from './cost-basis-prompts.ts';
-import type { CostBasisCommandOptions } from './cost-basis-utils.ts';
-import { buildCostBasisParamsFromFlags } from './cost-basis-utils.ts';
+import type { CostBasisResult } from './cost-basis-handler.js';
+import { CostBasisHandler } from './cost-basis-handler.js';
+import { promptForCostBasisParams } from './cost-basis-prompts.js';
+import type { CostBasisCommandOptions } from './cost-basis-utils.js';
+import { buildCostBasisParamsFromFlags } from './cost-basis-utils.js';
 
 const logger = getLogger('CostBasisCommand');
 

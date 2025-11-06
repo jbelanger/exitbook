@@ -1,7 +1,7 @@
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
-import { CanadaRules } from '../canada-rules.ts';
+import { CanadaRules } from '../canada-rules.js';
 
 describe('CanadaRules', () => {
   const rules = new CanadaRules();

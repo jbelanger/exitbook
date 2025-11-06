@@ -4,7 +4,7 @@ import type { Result } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PriceRepository } from '../../persistence/repositories/price-repository.js';
-import { BasePriceProvider } from '../base-provider.ts';
+import { BasePriceProvider } from '../base-provider.js';
 import type { PriceData, PriceQuery, ProviderMetadata } from '../types/index.js';
 
 // Mock logger

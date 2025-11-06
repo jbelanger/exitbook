@@ -1,12 +1,12 @@
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import * as HttpUtils from './core/http-utils.ts';
-import * as RateLimitCore from './core/rate-limit.ts';
-import type { HttpEffects, RateLimitState } from './core/types.ts';
-import { createInitialRateLimitState } from './core/types.ts';
-import type { HttpRequestOptions, RateLimitConfig } from './types.ts';
-import { RateLimitError, ServiceError } from './types.ts';
+import * as HttpUtils from './core/http-utils.js';
+import * as RateLimitCore from './core/rate-limit.js';
+import type { HttpEffects, RateLimitState } from './core/types.js';
+import { createInitialRateLimitState } from './core/types.js';
+import type { HttpRequestOptions, RateLimitConfig } from './types.js';
+import { RateLimitError, ServiceError } from './types.js';
 
 export interface HttpClientV2Config {
   baseUrl: string;

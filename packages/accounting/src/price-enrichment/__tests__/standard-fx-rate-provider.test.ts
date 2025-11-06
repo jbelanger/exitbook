@@ -12,7 +12,7 @@ import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { StandardFxRateProvider } from '../standard-fx-rate-provider.ts';
+import { StandardFxRateProvider } from '../standard-fx-rate-provider.js';
 
 describe('StandardFxRateProvider', () => {
   let mockPriceManager: PriceProviderManager;

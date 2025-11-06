@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../../shared/blockchain/index.ts';
-import { EvmAddressSchema } from '../../schemas.ts';
+import { timestampToDate } from '../../../../shared/blockchain/index.js';
+import { EvmAddressSchema } from '../../schemas.js';
 
 /**
  * Schema for Moralis transaction structure

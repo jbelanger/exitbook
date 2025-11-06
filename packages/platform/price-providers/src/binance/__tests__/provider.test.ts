@@ -49,7 +49,7 @@ import { Currency } from '@exitbook/core';
 import { createTestPriceData } from '../../__tests__/test-helpers.js';
 import { CoinNotFoundError } from '../../shared/errors.js';
 // Import after mocks so they receive mocked dependencies
-import { BinanceProvider } from '../provider.ts';
+import { BinanceProvider } from '../provider.js';
 
 describe('BinanceProvider', () => {
   const defaultTimestamp = new Date('2024-01-01T00:00:00Z');

@@ -12,7 +12,7 @@ import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { PriceData, PriceQuery } from './types/index.ts';
+import type { PriceData, PriceQuery } from './types/index.js';
 
 /**
  * Validate a raw price value from an API response and convert to Decimal

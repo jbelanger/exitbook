@@ -4,8 +4,8 @@ import type { KyselyDB } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
-import { ExportHandler } from '../export-handler.ts';
-import type { ExportHandlerParams } from '../export-utils.ts';
+import { ExportHandler } from '../export-handler.js';
+import type { ExportHandlerParams } from '../export-utils.js';
 
 // Mock dependencies
 vi.mock('@exitbook/data', async () => {

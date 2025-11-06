@@ -3,8 +3,8 @@ import type { TokenMetadataRepository } from '@exitbook/data';
 import type { BlockchainProviderManager } from '@exitbook/providers';
 import type { Result } from 'neverthrow';
 
-import type { ITokenMetadataService } from './token-metadata-service.interface.ts';
-import { enrichTokenMetadataBatch, getOrFetchTokenMetadata } from './token-metadata-utils.ts';
+import type { ITokenMetadataService } from './token-metadata-service.interface.js';
+import { enrichTokenMetadataBatch, getOrFetchTokenMetadata } from './token-metadata-utils.js';
 
 /**
  * Token metadata service implementation.
@@ -12,7 +12,7 @@ import { enrichTokenMetadataBatch, getOrFetchTokenMetadata } from './token-metad
  * for token metadata operations without exposing storage or provider implementation details.
  *
  * This follows the "Functional Core, Imperative Shell" pattern:
- * - Pure business logic lives in token-metadata-utils.ts
+ * - Pure business logic lives in token-metadata-utils.js
  * - This class manages resources (repository, provider manager)
  * - Processors depend on ITokenMetadataService interface, not concrete dependencies
  */
@@ -24,7 +24,7 @@ export class TokenMetadataService implements ITokenMetadataService {
 
   /**
    * Enrich a batch of items with token metadata.
-   * Delegates to the pure function in token-metadata-utils.ts
+   * Delegates to the pure function in token-metadata-utils.js
    */
   async enrichBatch<T>(
     items: T[],
@@ -46,7 +46,7 @@ export class TokenMetadataService implements ITokenMetadataService {
 
   /**
    * Get token metadata from cache or fetch from provider if not available.
-   * Delegates to the pure function in token-metadata-utils.ts
+   * Delegates to the pure function in token-metadata-utils.js
    */
   async getOrFetch(
     blockchain: string,

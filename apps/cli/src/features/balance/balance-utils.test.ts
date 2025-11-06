@@ -10,7 +10,7 @@ import {
   validateBalanceParams,
   type BalanceCommandOptions,
   type BalanceHandlerParams,
-} from './balance-utils.ts';
+} from './balance-utils.js';
 
 describe('buildBalanceParamsFromFlags', () => {
   it('should return error when neither exchange nor blockchain is specified', () => {

@@ -64,23 +64,23 @@ export { LinkIndex } from './linking/link-index.js';
 export { TransactionLinkRepository } from './persistence/transaction-link-repository.js';
 export { CostBasisRepository } from './persistence/cost-basis-repository.js';
 export { LotTransferRepository } from './persistence/lot-transfer-repository.js';
-export { PriceEnrichmentService } from './price-enrichment/price-enrichment-service.ts';
-export { PriceNormalizationService } from './price-enrichment/price-normalization-service.ts';
-export type { NormalizeResult } from './price-enrichment/price-normalization-service.ts';
-export type { IFxRateProvider, FxRateData } from './price-enrichment/fx-rate-provider.interface.ts';
-export { StandardFxRateProvider } from './price-enrichment/standard-fx-rate-provider.ts';
-export { enrichMovementWithPrice, enrichMovementsWithPrices } from './price-enrichment/movement-enrichment-utils.ts';
+export { PriceEnrichmentService } from './price-enrichment/price-enrichment-service.js';
+export { PriceNormalizationService } from './price-enrichment/price-normalization-service.js';
+export type { NormalizeResult } from './price-enrichment/price-normalization-service.js';
+export type { IFxRateProvider, FxRateData } from './price-enrichment/fx-rate-provider.interface.js';
+export { StandardFxRateProvider } from './price-enrichment/standard-fx-rate-provider.js';
+export { enrichMovementWithPrice, enrichMovementsWithPrices } from './price-enrichment/movement-enrichment-utils.js';
 export {
   extractMovementsNeedingNormalization,
   validateFxRate,
   createNormalizedPrice,
   movementNeedsNormalization,
   classifyMovementPrice,
-} from './price-enrichment/price-normalization-utils.ts';
-export type { MovementsNeedingNormalization } from './price-enrichment/price-normalization-utils.ts';
+} from './price-enrichment/price-normalization-utils.js';
+export type { MovementsNeedingNormalization } from './price-enrichment/price-normalization-utils.js';
 export {
   inferMultiPass,
   propagatePricesAcrossLinks,
   enrichFeePricesFromMovements,
-} from './price-enrichment/price-enrichment-utils.ts';
-export type { InferMultiPassResult, PropagatePricesResult } from './price-enrichment/price-enrichment-utils.ts';
+} from './price-enrichment/price-enrichment-utils.js';
+export type { InferMultiPassResult, PropagatePricesResult } from './price-enrichment/price-enrichment-utils.js';

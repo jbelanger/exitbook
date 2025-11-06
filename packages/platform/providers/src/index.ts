@@ -17,10 +17,10 @@
 
 export { initializeProviders } from './initialize.js';
 
-export * from './shared/blockchain/index.ts';
+export * from './shared/blockchain/index.js';
 
-export * from './blockchain/bitcoin/index.ts';
-export * from './blockchain/cosmos/index.ts';
-export * from './blockchain/evm/index.ts';
-export * from './blockchain/solana/index.ts';
-export * from './blockchain/substrate/index.ts';
+export * from './blockchain/bitcoin/index.js';
+export * from './blockchain/cosmos/index.js';
+export * from './blockchain/evm/index.js';
+export * from './blockchain/solana/index.js';
+export * from './blockchain/substrate/index.js';

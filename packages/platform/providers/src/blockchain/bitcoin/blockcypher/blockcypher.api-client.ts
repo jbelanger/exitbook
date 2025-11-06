@@ -16,18 +16,18 @@
 import { getErrorMessage, hasStringProperty } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
+import { BaseApiClient } from '../../../shared/blockchain/base/api-client.js';
 import type {
   ProviderConfig,
   ProviderOperation,
   RawBalanceData,
   TransactionWithRawData,
-} from '../../../shared/blockchain/index.ts';
-import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
-import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
+} from '../../../shared/blockchain/index.js';
+import { RegisterApiClient } from '../../../shared/blockchain/index.js';
+import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
-import { BlockCypherTransactionMapper } from './blockcypher.mapper.ts';
+import { BlockCypherTransactionMapper } from './blockcypher.mapper.js';
 import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.schemas.js';
 
 @RegisterApiClient({

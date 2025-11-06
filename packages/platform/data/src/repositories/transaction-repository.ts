@@ -17,7 +17,7 @@ import type { TransactionsTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
 
 import { BaseRepository } from './base-repository.js';
-import type { ITransactionRepository, TransactionFilters } from './transaction-repository.interface.ts';
+import type { ITransactionRepository, TransactionFilters } from './transaction-repository.interface.js';
 
 /**
  * Validate and normalize movement to ensure all required fields exist

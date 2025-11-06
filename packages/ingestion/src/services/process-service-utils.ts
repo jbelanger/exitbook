@@ -1,6 +1,6 @@
 import type { DataSource, ExternalTransactionData } from '@exitbook/core';
 
-import type { LoadRawDataFilters } from '../types/repositories.ts';
+import type { LoadRawDataFilters } from '../types/repositories.js';
 
 /**
  * Session data prepared for processing

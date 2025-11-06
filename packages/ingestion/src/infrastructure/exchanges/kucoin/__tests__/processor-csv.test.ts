@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { KucoinProcessor } from '../processor-csv.ts';
+import { KucoinProcessor } from '../processor-csv.js';
 import type {
   CsvAccountHistoryRow,
   CsvDepositWithdrawalRow,

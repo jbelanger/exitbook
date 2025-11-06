@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../shared/blockchain/index.ts';
-import type { TransactionWithRawData } from '../../../../../shared/blockchain/types/index.ts';
-import type { EvmTransaction } from '../../../types.ts';
-import { ThetaExplorerApiClient } from '../theta-explorer.api-client.ts';
+import { ProviderRegistry } from '../../../../../shared/blockchain/index.js';
+import type { TransactionWithRawData } from '../../../../../shared/blockchain/types/index.js';
+import type { EvmTransaction } from '../../../types.js';
+import { ThetaExplorerApiClient } from '../theta-explorer.api-client.js';
 
 describe('ThetaExplorerApiClient Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('theta', 'theta-explorer');

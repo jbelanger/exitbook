@@ -1,8 +1,8 @@
 import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
-import { Currency } from '../types/currency.ts';
-import { parseDecimal } from '../utils/decimal-utils.ts';
+import { Currency } from '../types/currency.js';
+import { parseDecimal } from '../utils/decimal-utils.js';
 
 // Decimal schema - accepts string or Decimal instance, transforms to Decimal
 // Used for parsing from DB (strings) or validating in-memory objects (Decimal instances)

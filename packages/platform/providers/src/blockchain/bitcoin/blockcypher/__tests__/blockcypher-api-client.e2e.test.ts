@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/index.ts';
-import { ProviderRegistry } from '../../../../shared/blockchain/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/index.js';
+import { ProviderRegistry } from '../../../../shared/blockchain/index.js';
 import type { BitcoinTransaction } from '../../schemas.js';
 import { BlockCypherApiClient } from '../blockcypher.api-client.js';
 

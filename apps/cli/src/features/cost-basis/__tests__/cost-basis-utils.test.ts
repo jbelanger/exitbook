@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildCostBasisParamsFromFlags, type CostBasisCommandOptions } from '../cost-basis-utils.ts';
+import { buildCostBasisParamsFromFlags, type CostBasisCommandOptions } from '../cost-basis-utils.js';
 
 describe('Cost Basis Utils', () => {
   describe('buildCostBasisParamsFromFlags', () => {

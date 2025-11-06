@@ -3,8 +3,8 @@ import type { DataSourceRepository } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { ViewSessionsHandler } from '../sessions-view-handler.ts';
-import type { ViewSessionsParams } from '../sessions-view-utils.ts';
+import { ViewSessionsHandler } from '../sessions-view-handler.js';
+import type { ViewSessionsParams } from '../sessions-view-utils.js';
 
 describe('ViewSessionsHandler', () => {
   let mockSessionRepo: DataSourceRepository;

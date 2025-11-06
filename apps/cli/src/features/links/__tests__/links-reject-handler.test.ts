@@ -4,8 +4,8 @@ import { TransactionRepository } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { LinksRejectHandler } from '../links-reject-handler.ts';
-import type { LinksRejectParams } from '../links-reject-handler.ts';
+import { LinksRejectHandler } from '../links-reject-handler.js';
+import type { LinksRejectParams } from '../links-reject-handler.js';
 
 // Mock dependencies
 vi.mock('@exitbook/data', async () => {

@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { KucoinCsvImporter } from '../importer-csv.ts';
+import { KucoinCsvImporter } from '../importer-csv.js';
 
 vi.mock('node:fs/promises');
 

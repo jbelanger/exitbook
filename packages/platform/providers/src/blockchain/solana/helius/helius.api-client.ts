@@ -2,11 +2,11 @@ import type { TokenMetadata } from '@exitbook/core';
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
-import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../shared/blockchain/index.ts';
-import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
-import type { RawBalanceData, TransactionWithRawData } from '../../../shared/blockchain/types/index.ts';
-import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
+import { BaseApiClient } from '../../../shared/blockchain/base/api-client.js';
+import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../shared/blockchain/index.js';
+import { RegisterApiClient } from '../../../shared/blockchain/index.js';
+import type { RawBalanceData, TransactionWithRawData } from '../../../shared/blockchain/types/index.js';
+import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import type {
   SolanaAccountBalance,
   SolanaSignature,
@@ -15,7 +15,7 @@ import type {
 } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
-import { HeliusTransactionMapper } from './helius.mapper.ts';
+import { HeliusTransactionMapper } from './helius.mapper.js';
 import type { HeliusAssetResponse, HeliusTransaction } from './helius.schemas.js';
 
 export interface SolanaRawBalanceData {

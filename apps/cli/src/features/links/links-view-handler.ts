@@ -6,7 +6,7 @@ import type { TransactionRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { LinkInfo, LinksViewParams, LinksViewResult, TransactionDetails } from './links-view-utils.ts';
+import type { LinkInfo, LinksViewParams, LinksViewResult, TransactionDetails } from './links-view-utils.js';
 
 /**
  * Handler for viewing transaction links.

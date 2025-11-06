@@ -8,7 +8,7 @@ import {
   formatCoinGeckoDate,
   transformHistoricalResponse,
   transformSimplePriceResponse,
-} from '../coingecko-utils.ts';
+} from '../coingecko-utils.js';
 
 describe('buildSymbolToCoinIdMap', () => {
   it('builds a map using uppercased symbols and respects first coin IDs', () => {

@@ -3,14 +3,14 @@
 import { configureLogger, resetLoggerContext } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
-import { ExitCodes } from '../shared/exit-codes.ts';
-import { OutputManager } from '../shared/output.ts';
-import type { ViewCommandResult } from '../shared/view-utils.ts';
-import { buildViewMeta } from '../shared/view-utils.ts';
+import { ExitCodes } from '../shared/exit-codes.js';
+import { OutputManager } from '../shared/output.js';
+import type { ViewCommandResult } from '../shared/view-utils.js';
+import { buildViewMeta } from '../shared/view-utils.js';
 
-import { ViewPricesHandler } from './prices-view-handler.ts';
-import type { PriceCoverageInfo, ViewPricesParams, ViewPricesResult } from './prices-view-utils.ts';
-import { formatPriceCoverageListForDisplay } from './prices-view-utils.ts';
+import { ViewPricesHandler } from './prices-view-handler.js';
+import type { PriceCoverageInfo, ViewPricesParams, ViewPricesResult } from './prices-view-utils.js';
+import { formatPriceCoverageListForDisplay } from './prices-view-utils.js';
 
 /**
  * Extended command options (adds CLI-specific flags).

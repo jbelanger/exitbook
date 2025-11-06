@@ -6,9 +6,9 @@ import type { TransactionRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
-import { getAllMovements } from '../shared/view-utils.ts';
+import { getAllMovements } from '../shared/view-utils.js';
 
-import type { ViewPricesParams, ViewPricesResult, PriceCoverageInfo } from './prices-view-utils.ts';
+import type { ViewPricesParams, ViewPricesResult, PriceCoverageInfo } from './prices-view-utils.js';
 
 /**
  * Handler for viewing price coverage.

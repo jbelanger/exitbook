@@ -25,13 +25,13 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { BalanceHandlerParams } from './balance-utils.ts';
+import type { BalanceHandlerParams } from './balance-utils.js';
 import {
   buildSourceParams,
   decimalRecordToStringRecord,
   getExchangeCredentialsFromEnv,
   validateBalanceParams,
-} from './balance-utils.ts';
+} from './balance-utils.js';
 
 const logger = getLogger('BalanceHandler');
 

@@ -4,7 +4,7 @@ export {
   noGrouping,
   type GroupingStrategy,
   type RawTransactionWithMetadata,
-} from './grouping.ts';
+} from './grouping.js';
 export {
   coinbaseGrossAmounts,
   standardAmounts,
@@ -12,4 +12,4 @@ export {
   type InterpretationStrategy,
   type LedgerEntryInterpretation,
   type MovementInput,
-} from './interpretation.ts';
+} from './interpretation.js';

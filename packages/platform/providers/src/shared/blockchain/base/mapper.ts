@@ -2,7 +2,7 @@ import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err } from 'neverthrow';
 import type { ZodSchema } from 'zod';
 
-import type { NormalizationError } from '../types/errors.ts';
+import type { NormalizationError } from '../types/errors.js';
 
 /**
  * Abstract base class for raw data transformers that handles validation automatically.

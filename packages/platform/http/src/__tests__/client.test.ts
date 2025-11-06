@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { HttpClient } from '../client.ts';
-import type { HttpEffects } from '../core/types.ts';
-import { ServiceError, RateLimitError } from '../types.ts';
+import { HttpClient } from '../client.js';
+import type { HttpEffects } from '../core/types.js';
+import { ServiceError, RateLimitError } from '../types.js';
 
 describe('HttpClientV2 - Result Type Implementation', () => {
   it('should return ok result for successful GET request', async () => {

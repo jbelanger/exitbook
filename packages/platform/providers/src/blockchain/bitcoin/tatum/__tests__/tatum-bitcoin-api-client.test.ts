@@ -1,8 +1,8 @@
 import { ok, err } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProviderOperation } from '../../../../shared/blockchain/index.ts';
-import { ProviderRegistry } from '../../../../shared/blockchain/index.ts';
+import type { ProviderOperation } from '../../../../shared/blockchain/index.js';
+import { ProviderRegistry } from '../../../../shared/blockchain/index.js';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
 import type { TatumBitcoinTransaction, TatumBitcoinBalance } from '../tatum.schemas.js';
 

@@ -11,7 +11,7 @@ import { Currency, parseDecimal } from '@exitbook/core';
 import type { AssetMovement, PriceAtTxTime } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { enrichMovementWithPrice, enrichMovementsWithPrices } from '../movement-enrichment-utils.ts';
+import { enrichMovementWithPrice, enrichMovementsWithPrices } from '../movement-enrichment-utils.js';
 
 describe('enrichMovementWithPrice', () => {
   const createMovement = (price?: PriceAtTxTime): AssetMovement => ({

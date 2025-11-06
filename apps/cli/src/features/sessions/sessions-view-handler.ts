@@ -5,7 +5,7 @@ import type { DataSourceRepository } from '@exitbook/ingestion';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { ViewSessionsParams, ViewSessionsResult } from './sessions-view-utils.ts';
+import type { ViewSessionsParams, ViewSessionsResult } from './sessions-view-utils.js';
 
 /**
  * Handler for viewing import sessions.

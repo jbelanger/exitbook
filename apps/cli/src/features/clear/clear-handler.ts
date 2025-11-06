@@ -4,7 +4,7 @@ import type { DataSourceRepository, RawDataRepository } from '@exitbook/ingestio
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ClearHandlerParams, DeletionPreview } from './clear-utils.ts';
+import type { ClearHandlerParams, DeletionPreview } from './clear-utils.js';
 
 const logger = getLogger('ClearHandler');
 

@@ -3,7 +3,7 @@
 
 import type { Command } from 'commander';
 
-import { registerTransactionsViewCommand } from './transactions-view.ts';
+import { registerTransactionsViewCommand } from './transactions-view.js';
 
 /**
  * Register the unified transactions command with all subcommands.

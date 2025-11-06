@@ -11,8 +11,8 @@ import { BaseRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { ImportParams } from '../types/importers.ts';
-import type { IDataSourceRepository } from '../types/repositories.ts';
+import type { ImportParams } from '../types/importers.js';
+import type { IDataSourceRepository } from '../types/repositories.js';
 
 /**
  * Kysely-based repository for data source  database operations.

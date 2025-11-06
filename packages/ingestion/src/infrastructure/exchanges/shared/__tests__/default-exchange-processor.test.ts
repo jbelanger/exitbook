@@ -1,4 +1,3 @@
- 
 import type { ExchangeLedgerEntry } from '@exitbook/exchanges';
 import { describe, expect, test } from 'vitest';
 
@@ -10,7 +9,7 @@ import {
   expectFee,
   expectOperation,
 } from '../../../../__tests__/test-utils/index.js';
-import { DefaultExchangeProcessor } from '../default-exchange-processor.ts';
+import { DefaultExchangeProcessor } from '../default-exchange-processor.js';
 
 // Legacy helper function for tests not yet refactored
 function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {

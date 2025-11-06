@@ -1,8 +1,8 @@
 import * as p from '@clack/prompts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ExitCodes } from '../exit-codes.ts';
-import { OutputManager } from '../output.ts';
+import { ExitCodes } from '../exit-codes.js';
+import { OutputManager } from '../output.js';
 
 // Mock @clack/prompts
 vi.mock('@clack/prompts', () => ({

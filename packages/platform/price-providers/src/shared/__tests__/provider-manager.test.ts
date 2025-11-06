@@ -2,7 +2,7 @@
  * Tests for PriceProviderManager (imperative shell)
  *
  * Tests orchestration, side effects, and integration
- * Pure utility functions are tested in provider-manager-utils.test.ts
+ * Pure utility functions are tested in provider-manager-utils.test.js
  */
 
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
@@ -12,8 +12,8 @@ import type { Result } from 'neverthrow';
 import { err, ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { PriceProviderManager } from '../provider-manager.ts';
-import type { IPriceProvider, PriceData, PriceQuery } from '../types/index.ts';
+import { PriceProviderManager } from '../provider-manager.js';
+import type { IPriceProvider, PriceData, PriceQuery } from '../types/index.js';
 
 // Mock logger
 vi.mock('@exitbook/shared-logger', () => ({

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../../shared/blockchain/utils/zod-utils.js';
-import { EvmAddressSchema } from '../../schemas.ts';
+import { EvmAddressSchema } from '../../schemas.js';
 
 const ThetaScanNumericStringSchema = z
   .string()

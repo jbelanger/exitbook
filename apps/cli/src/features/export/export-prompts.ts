@@ -9,10 +9,10 @@ import {
   promptSourceType,
   promptExchange,
   promptBlockchain,
-} from '../shared/prompts.ts';
+} from '../shared/prompts.js';
 
-import type { ExportHandlerParams } from './export-utils.ts';
-import { EXPORT_FORMATS } from './export-utils.ts';
+import type { ExportHandlerParams } from './export-utils.js';
+import { EXPORT_FORMATS } from './export-utils.js';
 
 /**
  * Interactive prompt flow for export parameters.

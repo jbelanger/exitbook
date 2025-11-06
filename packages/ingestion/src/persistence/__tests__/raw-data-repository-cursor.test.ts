@@ -1,7 +1,7 @@
 import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { beforeEach, describe, expect, test } from 'vitest';
 
-import { RawDataRepository } from '../raw-data-repository.ts';
+import { RawDataRepository } from '../raw-data-repository.js';
 
 describe('RawDataRepository - Cursor Management', () => {
   let db: KyselyDB;

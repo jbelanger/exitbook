@@ -12,8 +12,8 @@ import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { InteractiveFxRateProvider } from '../interactive-fx-rate-provider.ts';
-import * as pricesPrompts from '../prices-prompts.ts';
+import { InteractiveFxRateProvider } from '../interactive-fx-rate-provider.js';
+import * as pricesPrompts from '../prices-prompts.js';
 
 describe('InteractiveFxRateProvider', () => {
   let mockUnderlyingProvider: IFxRateProvider;

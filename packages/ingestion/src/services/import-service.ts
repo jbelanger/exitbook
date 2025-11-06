@@ -6,16 +6,16 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { getBlockchainConfig } from '../infrastructure/blockchains/index.ts';
-import { createExchangeImporter } from '../infrastructure/exchanges/shared/exchange-importer-factory.ts';
-import type { ImportParams, ImportResult } from '../types/importers.ts';
-import type { IDataSourceRepository, IRawDataRepository } from '../types/repositories.ts';
+import { getBlockchainConfig } from '../infrastructure/blockchains/index.js';
+import { createExchangeImporter } from '../infrastructure/exchanges/shared/exchange-importer-factory.js';
+import type { ImportParams, ImportResult } from '../types/importers.js';
+import type { IDataSourceRepository, IRawDataRepository } from '../types/repositories.js';
 
 import {
   normalizeBlockchainImportParams,
   prepareImportSession,
   shouldReuseExistingImport,
-} from './import-service-utils.ts';
+} from './import-service-utils.js';
 
 export class TransactionImportService {
   private logger: Logger;

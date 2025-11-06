@@ -3,8 +3,8 @@
 
 import type { Command } from 'commander';
 
-import { registerPricesEnrichCommand } from './prices-enrich.ts';
-import { registerPricesViewCommand } from './prices-view.ts';
+import { registerPricesEnrichCommand } from './prices-enrich.js';
+import { registerPricesViewCommand } from './prices-view.js';
 
 /**
  * Register the unified prices command with all subcommands.

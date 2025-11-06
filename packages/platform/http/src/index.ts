@@ -1,7 +1,7 @@
 // HTTP client utilities with resilience patterns
-export * from './client.ts';
+export * from './client.js';
 
-export * from './types.ts';
+export * from './types.js';
 
 // Export pure functional core functions
 export * from './core/circuit-breaker.js';

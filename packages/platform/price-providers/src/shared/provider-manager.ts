@@ -17,7 +17,7 @@ import { err, ok } from 'neverthrow';
 
 import { CoinNotFoundError, PriceDataUnavailableError } from './errors.js';
 import * as ProviderManagerUtils from './provider-manager-utils.js';
-import { createCacheKey } from './shared-utils.ts';
+import { createCacheKey } from './shared-utils.js';
 import type { IPriceProvider, PriceData, PriceQuery, ProviderHealth, ProviderManagerConfig } from './types/index.js';
 
 const logger = getLogger('PriceProviderManager');
@@ -36,7 +36,7 @@ interface FailoverResult<T> {
  * Manages price providers with automatic failover, circuit breakers, and health tracking
  *
  * This is the imperative shell - it manages mutable state and coordinates side effects,
- * but delegates all decision logic to pure functions in provider-manager-utils.ts
+ * but delegates all decision logic to pure functions in provider-manager-utils.js
  */
 export class PriceProviderManager {
   private readonly config: ProviderManagerConfig;

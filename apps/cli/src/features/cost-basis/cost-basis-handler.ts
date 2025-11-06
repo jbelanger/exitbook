@@ -16,8 +16,8 @@ import { createPriceProviderManager } from '@exitbook/platform-price-providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { CostBasisHandlerParams } from './cost-basis-utils.ts';
-import { validateCostBasisParams } from './cost-basis-utils.ts';
+import type { CostBasisHandlerParams } from './cost-basis-utils.js';
+import { validateCostBasisParams } from './cost-basis-utils.js';
 
 // Re-export for convenience
 export type { CostBasisHandlerParams };

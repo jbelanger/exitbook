@@ -1,9 +1,9 @@
 import type { ExchangeLedgerEntry } from '@exitbook/exchanges';
 import { describe, expect, test } from 'vitest';
 
-import { CorrelatingExchangeProcessor } from '../correlating-exchange-processor.ts';
-import { byCorrelationId, noGrouping, type RawTransactionWithMetadata } from '../strategies/grouping.ts';
-import { standardAmounts } from '../strategies/interpretation.ts';
+import { CorrelatingExchangeProcessor } from '../correlating-exchange-processor.js';
+import { byCorrelationId, noGrouping, type RawTransactionWithMetadata } from '../strategies/grouping.js';
+import { standardAmounts } from '../strategies/interpretation.js';
 
 function createEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
   return {

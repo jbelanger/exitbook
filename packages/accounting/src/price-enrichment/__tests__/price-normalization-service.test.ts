@@ -13,8 +13,8 @@ import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { IFxRateProvider } from '../fx-rate-provider.interface.ts';
-import { PriceNormalizationService } from '../price-normalization-service.ts';
+import type { IFxRateProvider } from '../fx-rate-provider.interface.js';
+import { PriceNormalizationService } from '../price-normalization-service.js';
 
 function createFeeMovement(
   scope: 'network' | 'platform' | 'spread' | 'tax' | 'other',

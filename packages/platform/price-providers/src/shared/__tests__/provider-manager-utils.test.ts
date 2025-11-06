@@ -9,7 +9,7 @@ import { createInitialCircuitState } from '@exitbook/platform-http';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import * as ProviderManagerUtils from '../provider-manager-utils.ts';
+import * as ProviderManagerUtils from '../provider-manager-utils.js';
 import type {
   AssetType,
   IPriceProvider,
@@ -17,7 +17,7 @@ import type {
   ProviderMetadata,
   PriceData,
   PriceProviderOperation,
-} from '../types/index.ts';
+} from '../types/index.js';
 
 describe('isCacheValid', () => {
   it('should return true when cache has not expired', () => {

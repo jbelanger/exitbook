@@ -2,7 +2,7 @@ import { getErrorMessage } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, okAsync } from 'neverthrow';
 
-import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
+import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import {
   convertKucoinDepositToTransaction,
