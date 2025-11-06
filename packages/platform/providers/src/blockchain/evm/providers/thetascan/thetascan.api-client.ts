@@ -7,7 +7,7 @@ import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/
 import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.js';
 import type { EvmTransaction } from '../../types.js';
 
-import { ThetaScanTransactionMapper } from './thetascan.mapper.js';
+import { mapThetaScanTransaction } from './thetascan.mapper-utils.js';
 import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBalance } from './thetascan.schemas.js';
 
 @RegisterApiClient({
@@ -34,11 +34,8 @@ import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBala
   supportedChains: ['theta'],
 })
 export class ThetaScanApiClient extends BaseApiClient {
-  private mapper: ThetaScanTransactionMapper;
-
   constructor(config: ProviderConfig) {
     super(config);
-    this.mapper = new ThetaScanTransactionMapper();
   }
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
@@ -165,7 +162,7 @@ export class ThetaScanApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, {});
+      const mapResult = mapThetaScanTransaction(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

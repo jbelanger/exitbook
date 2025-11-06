@@ -10,7 +10,7 @@ import { transformSolBalance } from '../balance-utils.js';
 import type { SolanaTransaction } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
-import { SolscanTransactionMapper } from './solscan.mapper.js';
+import { mapSolscanTransaction } from './solscan.mapper-utils.js';
 import type { SolscanTransaction, SolscanResponse } from './solscan.schemas.js';
 
 export interface SolscanRawBalanceData {
@@ -39,11 +39,8 @@ export interface SolscanRawBalanceData {
   requiresApiKey: true,
 })
 export class SolscanApiClient extends BaseApiClient {
-  private mapper: SolscanTransactionMapper;
-
   constructor(config: ProviderConfig) {
     super(config);
-    this.mapper = new SolscanTransactionMapper();
 
     // Override HTTP client to add browser-like headers for Solscan
     const defaultHeaders: Record<string, string> = {
@@ -224,7 +221,7 @@ export class SolscanApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
     for (const rawTx of filteredRawTransactions) {
-      const mapResult = this.mapper.map(rawTx, {});
+      const mapResult = mapSolscanTransaction(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

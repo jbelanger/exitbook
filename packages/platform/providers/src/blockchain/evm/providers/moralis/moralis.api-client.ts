@@ -11,7 +11,7 @@ import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
 import type { EvmTransaction } from '../../types.js';
 
-import { MoralisTransactionMapper, MoralisTokenTransferMapper } from './moralis.mapper.js';
+import { mapMoralisTransaction, mapMoralisTokenTransfer } from './moralis.mapper-utils.js';
 import {
   MoralisTokenMetadataSchema,
   type MoralisNativeBalance,
@@ -64,13 +64,9 @@ const CHAIN_ID_MAP: Record<string, string> = {
 export class MoralisApiClient extends BaseApiClient {
   private readonly chainConfig: EvmChainConfig;
   private readonly moralisChainId: string;
-  private mapper: MoralisTransactionMapper;
-  private tokenTransferMapper: MoralisTokenTransferMapper;
 
   constructor(config: ProviderConfig) {
     super(config);
-    this.mapper = new MoralisTransactionMapper();
-    this.tokenTransferMapper = new MoralisTokenTransferMapper();
 
     // Get EVM chain config
     const evmChainConfig = getEvmChainConfig(config.blockchain);
@@ -277,7 +273,7 @@ export class MoralisApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, {});
+      const mapResult = mapMoralisTransaction(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -407,7 +403,7 @@ export class MoralisApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransfers) {
-      const mapResult = this.tokenTransferMapper.map(rawTx, {});
+      const mapResult = mapMoralisTokenTransfer(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

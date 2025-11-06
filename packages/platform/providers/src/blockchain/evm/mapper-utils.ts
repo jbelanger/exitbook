@@ -153,7 +153,7 @@ export function parseCommaFormattedNumber(value: string): Decimal {
  * @param tfuelAmount - TFUEL amount
  * @returns Currency symbol and amount
  */
-export function selectThetaCurrency(thetaAmount: Decimal, tfuelAmount: Decimal): { amount: Decimal; currency: string; } {
+export function selectThetaCurrency(thetaAmount: Decimal, tfuelAmount: Decimal): { amount: Decimal; currency: string } {
   if (thetaAmount.gt(0)) {
     return { currency: 'THETA', amount: thetaAmount };
   } else if (tfuelAmount.gt(0)) {

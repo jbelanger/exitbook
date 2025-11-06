@@ -7,7 +7,7 @@ import type { TransactionWithRawData } from '../../../../shared/blockchain/types
 import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.js';
 import type { EvmTransaction } from '../../types.js';
 
-import { ThetaExplorerTransactionMapper } from './theta-explorer.mapper.js';
+import { mapThetaExplorerTransaction } from './theta-explorer.mapper-utils.js';
 import type { ThetaTransaction, ThetaAccountTxResponse } from './theta-explorer.schemas.js';
 
 @RegisterApiClient({
@@ -32,11 +32,8 @@ import type { ThetaTransaction, ThetaAccountTxResponse } from './theta-explorer.
   requiresApiKey: false,
 })
 export class ThetaExplorerApiClient extends BaseApiClient {
-  private mapper: ThetaExplorerTransactionMapper;
-
   constructor(config: ProviderConfig) {
     super(config);
-    this.mapper = new ThetaExplorerTransactionMapper();
   }
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
@@ -85,7 +82,7 @@ export class ThetaExplorerApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, {});
+      const mapResult = mapThetaExplorerTransaction(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
