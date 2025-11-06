@@ -40,7 +40,7 @@ export interface ImportHandlerParams {
   /** Wallet address (for blockchain imports) */
   address?: string | undefined;
 
-  /** Provider ID (for blockchain imports) */
+  /** Provider Name (for blockchain imports) */
   providerName?: string | undefined;
 
   /** API credentials (for exchange API imports) */

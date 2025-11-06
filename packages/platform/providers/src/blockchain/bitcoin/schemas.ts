@@ -49,7 +49,7 @@ export const BitcoinTransactionSchema = z.object({
   id: z.string().min(1, 'Transaction ID must not be empty'),
   inputs: z.array(BitcoinTransactionInputSchema).min(1, 'Transaction must have at least one input'),
   outputs: z.array(BitcoinTransactionOutputSchema).min(1, 'Transaction must have at least one output'),
-  providerName: z.string().min(1, 'Provider ID must not be empty'),
+  providerName: z.string().min(1, 'Provider Name must not be empty'),
   status: z.enum(['success', 'failed', 'pending']),
   timestamp: z.number().positive('Timestamp must be positive'),
 });

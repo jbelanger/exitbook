@@ -99,7 +99,7 @@ export class BlockfrostApiClient extends BaseApiClient {
    */
   private async getAddressTransactions(params: {
     address: string;
-    limit?: number;
+    limit?: number | undefined;
   }): Promise<Result<TransactionWithRawData<CardanoTransaction>[], Error>> {
     const { address, limit } = params;
 
