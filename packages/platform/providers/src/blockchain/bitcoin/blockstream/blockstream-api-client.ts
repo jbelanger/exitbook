@@ -11,9 +11,9 @@ import type {
 } from '../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import { calculateBlockstreamBalance, createRawBalanceData } from '../balance-utils.js';
+import { mapBlockstreamTransaction } from '../mapper-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
-import { BlockstreamTransactionMapper } from './blockstream.mapper.js';
 import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstream.schemas.js';
 
 @RegisterApiClient({
@@ -40,11 +40,8 @@ import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstre
   requiresApiKey: false,
 })
 export class BlockstreamApiClient extends BaseApiClient {
-  private mapper: BlockstreamTransactionMapper;
-
   constructor(config: ProviderConfig) {
     super(config);
-    this.mapper = new BlockstreamTransactionMapper();
 
     this.logger.debug(`Initialized BlockstreamApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
@@ -192,7 +189,7 @@ export class BlockstreamApiClient extends BaseApiClient {
 
       const validRawTransactions = rawTransactions.filter((tx): tx is BlockstreamTransaction => tx !== null);
       for (const rawTx of validRawTransactions) {
-        const mapResult = this.mapper.map(rawTx, {});
+        const mapResult = mapBlockstreamTransaction(rawTx, {});
 
         if (mapResult.isErr()) {
           const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

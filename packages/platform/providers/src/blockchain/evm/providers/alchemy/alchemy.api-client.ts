@@ -34,7 +34,7 @@ import { extractAlchemyNetworkName } from '../../mapper-utils.js';
 import { deduplicateTransactionHashes, mergeReceiptsIntoTransfers } from '../../receipt-utils.js';
 import type { EvmTransaction } from '../../types.js';
 
-import { AlchemyTransactionMapper } from './alchemy.mapper.js';
+import { mapAlchemyTransaction } from './alchemy.mapper-utils.js';
 import type {
   AlchemyAssetTransfer,
   AlchemyAssetTransferParams,
@@ -123,7 +123,6 @@ import { AlchemyPortfolioBalanceResponseSchema, AlchemyTransactionReceiptSchema 
 })
 export class AlchemyApiClient extends BaseApiClient {
   private readonly chainConfig: EvmChainConfig;
-  private mapper: AlchemyTransactionMapper;
   private portfolioClient: HttpClient;
 
   constructor(config: ProviderConfig) {
@@ -135,8 +134,6 @@ export class AlchemyApiClient extends BaseApiClient {
       throw new Error(`Unsupported blockchain for Alchemy provider: ${config.blockchain}`);
     }
     this.chainConfig = evmChainConfig;
-
-    this.mapper = new AlchemyTransactionMapper();
 
     // Create separate HTTP client for Portfolio API
     this.portfolioClient = new HttpClient({
@@ -400,7 +397,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, {});
+      const mapResult = mapAlchemyTransaction(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -453,7 +450,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, {});
+      const mapResult = mapAlchemyTransaction(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -627,7 +624,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, {});
+      const mapResult = mapAlchemyTransaction(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

@@ -11,9 +11,9 @@ import type {
 import { RegisterApiClient } from '../../../shared/blockchain/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import { calculateSimpleBalance, createRawBalanceData } from '../balance-utils.js';
+import { mapBlockchainComTransaction } from '../mapper-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
-import { BlockchainComTransactionMapper } from './blockchain-com.mapper.js';
 import type { BlockchainComAddressResponse } from './blockchain-com.schemas.js';
 
 @RegisterApiClient({
@@ -39,11 +39,8 @@ import type { BlockchainComAddressResponse } from './blockchain-com.schemas.js';
   requiresApiKey: false,
 })
 export class BlockchainComApiClient extends BaseApiClient {
-  private mapper: BlockchainComTransactionMapper;
-
   constructor(config: ProviderConfig) {
     super(config);
-    this.mapper = new BlockchainComTransactionMapper();
 
     this.logger.debug(`Initialized BlockchainComApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
@@ -167,7 +164,7 @@ export class BlockchainComApiClient extends BaseApiClient {
     // Normalize transactions immediately using mapper
     const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
     for (const rawTx of filteredRawTransactions) {
-      const mapResult = this.mapper.map(rawTx, {});
+      const mapResult = mapBlockchainComTransaction(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

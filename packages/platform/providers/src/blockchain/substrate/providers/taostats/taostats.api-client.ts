@@ -12,7 +12,7 @@ import { augmentWithChainConfig } from '../../transaction-utils.js';
 import type { SubstrateTransaction } from '../../types.js';
 import { isValidSS58Address } from '../../utils.js';
 
-import { TaostatsTransactionMapper } from './taostats.mapper.js';
+import { convertTaostatsTransaction, isTransactionRelevant } from './taostats.mapper-utils.js';
 import type {
   TaostatsBalanceResponse,
   TaostatsTransactionAugmented,
@@ -44,7 +44,6 @@ import type {
 })
 export class TaostatsApiClient extends BaseApiClient {
   private readonly chainConfig: SubstrateChainConfig;
-  private mapper: TaostatsTransactionMapper;
 
   constructor(config: ProviderConfig) {
     super(config);
@@ -66,9 +65,6 @@ export class TaostatsApiClient extends BaseApiClient {
         }),
       },
     });
-
-    // Initialize mapper
-    this.mapper = new TaostatsTransactionMapper();
 
     this.logger.debug(
       `Initialized TaostatsApiClient for ${config.blockchain} - BaseUrl: ${this.baseUrl}, TokenSymbol: ${this.chainConfig.nativeCurrency}`
@@ -199,21 +195,27 @@ export class TaostatsApiClient extends BaseApiClient {
       }
     }
 
-    // Normalize transactions using mapper
+    // Normalize transactions using pure mapping function
+    const relevantAddresses = new Set([address]);
     const transactions: TransactionWithRawData<SubstrateTransaction>[] = [];
     for (const rawTx of augmentedTransactions) {
-      const mapResult = this.mapper.map(rawTx, { address });
+      // Skip transactions that aren't relevant to this address
+      if (!isTransactionRelevant(rawTx, relevantAddresses)) {
+        continue;
+      }
 
-      if (mapResult.isErr()) {
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+      try {
+        const normalized = convertTaostatsTransaction(rawTx, this.chainConfig.nativeCurrency);
+
+        transactions.push({
+          raw: rawTx,
+          normalized,
+        });
+      } catch (error) {
+        const errorMessage = getErrorMessage(error);
         this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
         return err(new Error(`Provider data validation failed: ${errorMessage}`));
       }
-
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
     }
 
     this.logger.debug(

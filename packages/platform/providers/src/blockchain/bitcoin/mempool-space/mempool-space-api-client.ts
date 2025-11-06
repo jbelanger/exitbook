@@ -11,9 +11,9 @@ import type {
 } from '../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import { calculateMempoolSpaceBalance, createRawBalanceData } from '../balance-utils.js';
+import { mapMempoolSpaceTransaction } from '../mapper-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
-import { MempoolSpaceTransactionMapper } from './mempool-space.mapper.js';
 import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.schemas.js';
 
 @RegisterApiClient({
@@ -38,11 +38,8 @@ import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.sch
   requiresApiKey: false,
 })
 export class MempoolSpaceApiClient extends BaseApiClient {
-  private mapper: MempoolSpaceTransactionMapper;
-
   constructor(config: ProviderConfig) {
     super(config);
-    this.mapper = new MempoolSpaceTransactionMapper();
 
     this.logger.debug(`Initialized MempoolSpaceApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
@@ -158,7 +155,7 @@ export class MempoolSpaceApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx, {});
+      const mapResult = mapMempoolSpaceTransaction(rawTx, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
