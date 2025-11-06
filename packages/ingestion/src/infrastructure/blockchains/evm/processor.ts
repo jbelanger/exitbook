@@ -2,7 +2,6 @@ import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
-import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers';
 import { err, okAsync, ok, type Result } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.ts';
@@ -10,11 +9,11 @@ import { looksLikeContractAddress, isMissingMetadata } from '../../../services/t
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
 import {
-  consolidateEvmMovementsByAsset,
-  selectPrimaryEvmMovement,
   determineEvmOperationFromFundFlow,
+  groupEvmTransactionsByHash,
+  analyzeEvmFundFlow,
+  selectPrimaryEvmTransaction,
 } from './processor-utils.ts';
-import type { EvmFundFlow, EvmMovement } from './types.ts';
 
 /**
  * Unified EVM transaction processor that applies Avalanche-style transaction correlation
@@ -53,7 +52,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       return err(`Token metadata enrichment failed: ${enrichResult.error.message}`);
     }
 
-    const transactionGroups = this.groupTransactionsByHash(normalizedData as EvmTransaction[]);
+    const transactionGroups = groupEvmTransactionsByHash(normalizedData as EvmTransaction[]);
 
     this.logger.debug(
       `Created ${transactionGroups.size} transaction groups for correlation on ${this.chainConfig.chainName}`
@@ -65,7 +64,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     for (const [hash, txGroup] of transactionGroups) {
       // Pass normalized address in metadata for consistent comparison
       const normalizedMetadata = { ...sessionMetadata, address: normalizedUserAddress };
-      const fundFlowResult = this.analyzeFundFlowFromNormalized(txGroup, normalizedMetadata);
+      const fundFlowResult = analyzeEvmFundFlow(txGroup, normalizedMetadata, this.chainConfig);
 
       if (fundFlowResult.isErr()) {
         const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;
@@ -81,7 +80,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       // Determine transaction type and operation classification based on fund flow analysis
       const classification = determineEvmOperationFromFundFlow(fundFlow);
 
-      const primaryTx = this.selectPrimaryTransaction(txGroup, fundFlow);
+      const primaryTx = selectPrimaryEvmTransaction(txGroup, fundFlow);
       if (!primaryTx) {
         const errorMsg = 'No primary transaction found for correlated group';
         processingErrors.push({ error: errorMsg, hash, txCount: txGroup.length });
@@ -200,283 +199,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     }
 
     return okAsync(transactions);
-  }
-
-  private groupTransactionsByHash(transactions: EvmTransaction[]): Map<string, EvmTransaction[]> {
-    const groups = new Map<string, EvmTransaction[]>();
-
-    for (const tx of transactions) {
-      if (!tx?.id) {
-        this.logger.warn('Encountered transaction without id during grouping');
-        continue;
-      }
-
-      if (!groups.has(tx.id)) {
-        groups.set(tx.id, []);
-      }
-
-      groups.get(tx.id)!.push(tx);
-    }
-
-    return groups;
-  }
-
-  private analyzeFundFlowFromNormalized(
-    txGroup: EvmTransaction[],
-    sessionMetadata: Record<string, unknown>
-  ): Result<EvmFundFlow, string> {
-    if (txGroup.length === 0) {
-      return err('Empty transaction group');
-    }
-
-    if (!sessionMetadata.address || typeof sessionMetadata.address !== 'string') {
-      return err('Missing user address in session metadata');
-    }
-
-    // Address should already be normalized by caller
-    const userAddress = sessionMetadata.address;
-
-    // Analyze transaction group complexity - essential for proper EVM classification
-    const hasTokenTransfers = txGroup.some((tx) => tx.type === 'token_transfer');
-    const hasInternalTransactions = txGroup.some((tx) => tx.type === 'internal');
-    const hasContractInteraction = txGroup.some(
-      (tx) =>
-        tx.type === 'contract_call' ||
-        Boolean(tx.methodId) || // Has function selector (0x12345678)
-        Boolean(tx.functionName) // Function name decoded by provider
-    );
-
-    // Collect ALL assets that flow in/out (not just pick one as primary)
-    const inflows: EvmMovement[] = [];
-    const outflows: EvmMovement[] = [];
-
-    let fromAddress = '';
-    let toAddress: string | undefined = '';
-
-    // Process all token transfers involving the user
-    for (const tx of txGroup) {
-      if (tx.type === 'token_transfer' && this.isUserParticipant(tx, userAddress)) {
-        const tokenSymbol = tx.tokenSymbol || tx.currency || 'UNKNOWN';
-        const rawAmount = tx.amount ?? '0';
-
-        // Normalize token amount using decimals metadata
-        // All providers return amounts in smallest units; normalization ensures consistency and safety
-        const amount = normalizeTokenAmount(rawAmount, tx.tokenDecimals);
-
-        // Skip zero amounts
-        if (this.isZero(amount)) {
-          continue;
-        }
-
-        const fromMatches = this.matchesAddress(tx.from, userAddress);
-        const toMatches = this.matchesAddress(tx.to, userAddress);
-
-        // For self-transfers (user -> user), track both inflow and outflow
-        if (fromMatches && toMatches) {
-          const movement: EvmMovement = {
-            amount,
-            asset: tokenSymbol,
-            tokenAddress: tx.tokenAddress,
-            tokenDecimals: tx.tokenDecimals,
-          };
-          inflows.push(movement);
-          outflows.push({ ...movement });
-        } else {
-          if (toMatches) {
-            // User received this token
-            const inflow: EvmMovement = {
-              amount,
-              asset: tokenSymbol,
-              tokenAddress: tx.tokenAddress,
-              tokenDecimals: tx.tokenDecimals,
-            };
-            inflows.push(inflow);
-          }
-
-          if (fromMatches) {
-            // User sent this token
-            const outflow: EvmMovement = {
-              amount,
-              asset: tokenSymbol,
-              tokenAddress: tx.tokenAddress,
-              tokenDecimals: tx.tokenDecimals,
-            };
-            outflows.push(outflow);
-          }
-        }
-
-        // Track addresses
-        if (!fromAddress && fromMatches) {
-          fromAddress = tx.from;
-        }
-        if (!toAddress && toMatches) {
-          toAddress = tx.to;
-        }
-        if (!fromAddress) {
-          fromAddress = tx.from;
-        }
-        if (!toAddress) {
-          toAddress = tx.to;
-        }
-      }
-    }
-
-    // Process all native currency movements involving the user
-    for (const tx of txGroup) {
-      if (this.isNativeMovement(tx) && this.isUserParticipant(tx, userAddress)) {
-        const normalizedAmount = normalizeNativeAmount(tx.amount, this.chainConfig.nativeDecimals);
-
-        // Skip zero amounts
-        if (this.isZero(normalizedAmount)) {
-          continue;
-        }
-
-        const fromMatches = this.matchesAddress(tx.from, userAddress);
-        const toMatches = this.matchesAddress(tx.to, userAddress);
-
-        // For self-transfers (user -> user), track both inflow and outflow
-        if (fromMatches && toMatches) {
-          const movement = {
-            amount: normalizedAmount,
-            asset: this.chainConfig.nativeCurrency,
-          };
-          inflows.push(movement);
-          outflows.push({ ...movement });
-        } else {
-          if (toMatches) {
-            // User received native currency
-            inflows.push({
-              amount: normalizedAmount,
-              asset: this.chainConfig.nativeCurrency,
-            });
-          }
-
-          if (fromMatches) {
-            // User sent native currency
-            outflows.push({
-              amount: normalizedAmount,
-              asset: this.chainConfig.nativeCurrency,
-            });
-          }
-        }
-
-        // Track addresses
-        if (!fromAddress && fromMatches) {
-          fromAddress = tx.from;
-        }
-        if (!toAddress && toMatches) {
-          toAddress = tx.to;
-        }
-        if (!fromAddress) {
-          fromAddress = tx.from;
-        }
-        if (!toAddress) {
-          toAddress = tx.to;
-        }
-      }
-    }
-
-    // Final fallback: use first transaction to populate addresses
-    const primaryTx = txGroup[0];
-    if (primaryTx) {
-      if (!fromAddress) {
-        fromAddress = primaryTx.from;
-      }
-      if (!toAddress) {
-        toAddress = primaryTx.to;
-      }
-    }
-
-    // Consolidate duplicate assets (sum amounts for same asset)
-    const consolidatedInflows = consolidateEvmMovementsByAsset(inflows);
-    const consolidatedOutflows = consolidateEvmMovementsByAsset(outflows);
-
-    // Select primary asset for simplified consumption and single-asset display
-    // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions
-    const primaryFromInflows = selectPrimaryEvmMovement(consolidatedInflows, {
-      nativeCurrency: this.chainConfig.nativeCurrency,
-    });
-
-    const primary: EvmMovement =
-      primaryFromInflows && !this.isZero(primaryFromInflows.amount)
-        ? primaryFromInflows
-        : selectPrimaryEvmMovement(consolidatedOutflows, {
-            nativeCurrency: this.chainConfig.nativeCurrency,
-          }) || {
-            asset: this.chainConfig.nativeCurrency,
-            amount: '0',
-          };
-
-    // Get fee from the parent transaction (NOT from token_transfer events)
-    // A single on-chain transaction has only ONE fee, but providers may duplicate it across
-    // the parent transaction and child events (token transfers, internal calls).
-    // We take the fee from the first non-token_transfer transaction to avoid double-counting.
-    const parentTx = txGroup.find((tx) => tx.type !== 'token_transfer') || txGroup[0];
-    const feeWei = parentTx?.feeAmount ? parseDecimal(parentTx.feeAmount) : parseDecimal('0');
-    const feeAmount = feeWei.dividedBy(parseDecimal('10').pow(this.chainConfig.nativeDecimals)).toFixed();
-
-    // Track uncertainty for complex transactions
-    let classificationUncertainty: string | undefined;
-    if (consolidatedInflows.length > 1 || consolidatedOutflows.length > 1) {
-      classificationUncertainty = `Complex transaction with ${consolidatedOutflows.length} outflow(s) and ${consolidatedInflows.length} inflow(s). May be liquidity provision, batch operation, or multi-asset swap.`;
-    }
-
-    return ok({
-      classificationUncertainty,
-      feeAmount,
-      feeCurrency: this.chainConfig.nativeCurrency,
-      fromAddress,
-      hasContractInteraction,
-      hasInternalTransactions,
-      hasTokenTransfers,
-      inflows: consolidatedInflows,
-      outflows: consolidatedOutflows,
-      primary,
-      toAddress,
-      transactionCount: txGroup.length,
-    });
-  }
-
-  private selectPrimaryTransaction(txGroup: EvmTransaction[], fundFlow: EvmFundFlow): EvmTransaction | undefined {
-    if (fundFlow.hasTokenTransfers) {
-      const tokenTx = txGroup.find((tx) => tx.type === 'token_transfer');
-      if (tokenTx) {
-        return tokenTx;
-      }
-    }
-
-    const preferredOrder: EvmTransaction['type'][] = ['transfer', 'contract_call', 'internal'];
-
-    for (const type of preferredOrder) {
-      const match = txGroup.find((tx) => tx.type === type);
-      if (match) {
-        return match;
-      }
-    }
-
-    return txGroup[0];
-  }
-
-  // Addresses already normalized to lowercase via EvmAddressSchema
-  private matchesAddress(address: string | undefined, target: string): boolean {
-    return address ? address === target : false;
-  }
-
-  private isUserParticipant(tx: EvmTransaction, userAddress: string): boolean {
-    return this.matchesAddress(tx.from, userAddress) || this.matchesAddress(tx.to, userAddress);
-  }
-
-  private isNativeMovement(tx: EvmTransaction): boolean {
-    const native = this.chainConfig.nativeCurrency.toLowerCase();
-    return tx.currency.toLowerCase() === native || (tx.tokenSymbol ? tx.tokenSymbol.toLowerCase() === native : false);
-  }
-
-  private isZero(value: string): boolean {
-    try {
-      return parseDecimal(value || '0').isZero();
-    } catch {
-      return true;
-    }
   }
 
   /**

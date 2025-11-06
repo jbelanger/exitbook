@@ -1,9 +1,11 @@
 import { parseDecimal } from '@exitbook/core';
 import type { OperationClassification } from '@exitbook/core';
 import type { SolanaTransaction } from '@exitbook/providers';
+import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers';
 import type { Decimal } from 'decimal.js';
+import { type Result, err, ok } from 'neverthrow';
 
-import type { SolanaFundFlow, SolanaMovement } from './types.js';
+import type { SolanaBalanceChangeAnalysis, SolanaFundFlow, SolanaMovement } from './types.js';
 
 /**
  * Program IDs for staking-related operations on Solana
@@ -336,4 +338,199 @@ export function classifySolanaOperationFromFundFlow(
       type: 'transfer',
     },
   };
+}
+
+/**
+ * Check if a decimal string value is zero
+ */
+export function isZeroDecimal(value: string): boolean {
+  try {
+    return parseDecimal(value || '0').isZero();
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Analyze balance changes to collect ALL asset movements (multi-asset tracking)
+ */
+export function analyzeSolanaBalanceChanges(
+  tx: SolanaTransaction,
+  allWalletAddresses: Set<string>
+): SolanaBalanceChangeAnalysis {
+  const inflows: SolanaMovement[] = [];
+  const outflows: SolanaMovement[] = [];
+  let fromAddress = tx.from;
+  let toAddress = tx.to;
+
+  // Collect ALL token balance changes involving the user
+  if (tx.tokenChanges && tx.tokenChanges.length > 0) {
+    for (const change of tx.tokenChanges) {
+      const isUserAccount =
+        allWalletAddresses.has(change.account) || (change.owner && allWalletAddresses.has(change.owner));
+
+      if (!isUserAccount) continue;
+
+      const tokenAmountInSmallestUnits = parseFloat(change.postAmount) - parseFloat(change.preAmount);
+      if (tokenAmountInSmallestUnits === 0) continue; // Skip zero changes
+
+      // Normalize token amount using decimals metadata
+      // All providers return amounts in smallest units; normalization ensures consistency and safety
+      const normalizedAmount = normalizeTokenAmount(Math.abs(tokenAmountInSmallestUnits).toString(), change.decimals);
+
+      const movement: SolanaMovement = {
+        amount: normalizedAmount,
+        asset: change.symbol || change.mint,
+        decimals: change.decimals,
+        tokenAddress: change.mint,
+      };
+
+      if (tokenAmountInSmallestUnits > 0) {
+        inflows.push(movement);
+        toAddress = change.account;
+      } else {
+        outflows.push(movement);
+        fromAddress = change.account;
+      }
+    }
+  }
+
+  // Collect ALL SOL balance changes involving the user (excluding fee-only changes)
+  if (tx.accountChanges && tx.accountChanges.length > 0) {
+    for (const change of tx.accountChanges) {
+      const isUserAccount = allWalletAddresses.has(change.account);
+      if (!isUserAccount) continue;
+
+      const solAmountInLamports = parseFloat(change.postBalance) - parseFloat(change.preBalance);
+      if (solAmountInLamports === 0) continue; // Skip zero changes
+
+      // Normalize lamports to SOL using native amount normalization (SOL has 9 decimals)
+      const normalizedSolAmount = normalizeNativeAmount(Math.abs(solAmountInLamports).toString(), 9);
+      const movement = {
+        amount: normalizedSolAmount,
+        asset: 'SOL',
+      };
+
+      if (solAmountInLamports > 0) {
+        inflows.push(movement);
+        toAddress = change.account;
+      } else {
+        outflows.push(movement);
+        fromAddress = change.account;
+      }
+    }
+  }
+
+  const consolidatedInflows = consolidateSolanaMovements(inflows);
+  const consolidatedOutflows = consolidateSolanaMovements(outflows);
+
+  // Select primary asset for simplified consumption and single-asset display
+  // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions
+  let primary: SolanaMovement = {
+    amount: '0',
+    asset: 'SOL',
+  };
+
+  // Use largest inflow as primary (prefer tokens with more decimals)
+  const largestInflow = consolidatedInflows
+    .sort((a, b) => {
+      try {
+        return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
+      } catch {
+        return 0;
+      }
+    })
+    .find((inflow) => !isZeroDecimal(inflow.amount));
+
+  if (largestInflow) {
+    primary = { ...largestInflow };
+  } else {
+    // If no inflows, use largest outflow
+    const largestOutflow = consolidatedOutflows
+      .sort((a, b) => {
+        try {
+          return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
+        } catch {
+          return 0;
+        }
+      })
+      .find((outflow) => !isZeroDecimal(outflow.amount));
+
+    if (largestOutflow) {
+      primary = { ...largestOutflow };
+    }
+  }
+
+  // Track uncertainty for complex transactions
+  let classificationUncertainty: string | undefined;
+  if (consolidatedInflows.length > 1 || consolidatedOutflows.length > 1) {
+    classificationUncertainty = `Complex transaction with ${consolidatedOutflows.length} outflow(s) and ${consolidatedInflows.length} inflow(s). May be liquidity provision, batch operation, or multi-asset swap.`;
+  }
+
+  // Determine fee payer
+  const feePaidByUser = allWalletAddresses.has(tx.from) || allWalletAddresses.has(fromAddress);
+
+  return {
+    classificationUncertainty,
+    feePaidByUser,
+    fromAddress,
+    inflows: consolidatedInflows,
+    outflows: consolidatedOutflows,
+    primary,
+    toAddress,
+  };
+}
+
+/**
+ * Analyze fund flow from normalized SolanaTransaction data
+ */
+export function analyzeSolanaFundFlow(
+  tx: SolanaTransaction,
+  sessionMetadata: Record<string, unknown>
+): Result<SolanaFundFlow, string> {
+  if (!sessionMetadata.address || typeof sessionMetadata.address !== 'string') {
+    return err('Missing user address in session metadata');
+  }
+
+  const userAddress = sessionMetadata.address;
+  const derivedAddresses = Array.isArray(sessionMetadata.derivedAddresses)
+    ? sessionMetadata.derivedAddresses.filter((addr): addr is string => typeof addr === 'string')
+    : [];
+  const allWalletAddresses = new Set<string>([userAddress, ...derivedAddresses]);
+
+  // Analyze instruction complexity
+  const instructionCount = tx.instructions?.length || 0;
+  const hasMultipleInstructions = instructionCount > 1;
+
+  // Detect transaction types based on instructions
+  const hasStaking = detectSolanaStakingInstructions(tx.instructions || []);
+  const hasSwaps = detectSolanaSwapInstructions(tx.instructions || []);
+  const hasTokenTransfers = detectSolanaTokenTransferInstructions(tx.instructions || []);
+
+  // Enhanced fund flow analysis using balance changes
+  const flowAnalysis = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+  const fundFlow: SolanaFundFlow = {
+    computeUnitsUsed: tx.computeUnitsConsumed,
+    feeAmount: tx.feeAmount || '0',
+    feeCurrency: tx.feeCurrency || 'SOL',
+    feePaidByUser: flowAnalysis.feePaidByUser,
+    fromAddress: flowAnalysis.fromAddress,
+    toAddress: flowAnalysis.toAddress,
+    hasMultipleInstructions,
+    hasStaking,
+    hasSwaps,
+    hasTokenTransfers,
+    instructionCount,
+    transactionCount: 1, // Always 1 for Solana (no correlation like EVM)
+
+    inflows: flowAnalysis.inflows,
+    outflows: flowAnalysis.outflows,
+    primary: flowAnalysis.primary,
+
+    // Classification uncertainty
+    classificationUncertainty: flowAnalysis.classificationUncertainty,
+  };
+
+  return ok(fundFlow);
 }
