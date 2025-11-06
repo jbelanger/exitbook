@@ -73,7 +73,7 @@ describe('csv-filters-utils', () => {
     });
 
     it('should handle empty input array', () => {
-      const result = filterCsvByField([], 'status', 'active');
+      const result = filterCsvByField<TestRow, 'status'>([], 'status', 'active');
 
       expect(result).toHaveLength(0);
     });

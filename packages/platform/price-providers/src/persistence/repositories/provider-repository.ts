@@ -23,7 +23,7 @@ export interface ProviderRecord {
 
 export interface CoinMappingRecord {
   id: number;
-  provider_id: number;
+  provider_name: number;
   symbol: string;
   coin_id: string;
   coin_name: string;
@@ -92,7 +92,7 @@ export class ProviderRepository {
   /**
    * Update provider's last sync time and coin count
    */
-  async updateProviderSync(providerId: number, coinCount: number): Promise<Result<void, Error>> {
+  async updateProviderSync(providerName: number, coinCount: number): Promise<Result<void, Error>> {
     try {
       await this.db
         .updateTable('providers')
@@ -101,7 +101,7 @@ export class ProviderRepository {
           coin_list_count: coinCount,
           updated_at: new Date().toISOString(),
         })
-        .where('id', '=', providerId)
+        .where('id', '=', providerName)
         .execute();
 
       return ok();
@@ -113,10 +113,10 @@ export class ProviderRepository {
   /**
    * Batch upsert coin mappings for a provider
    */
-  async upsertCoinMappings(providerId: number, mappings: CoinMappingInput[]): Promise<Result<void, Error>> {
+  async upsertCoinMappings(providerName: number, mappings: CoinMappingInput[]): Promise<Result<void, Error>> {
     try {
       // Delete existing mappings for this provider
-      await this.db.deleteFrom('provider_coin_mappings').where('provider_id', '=', providerId).execute();
+      await this.db.deleteFrom('provider_coin_mappings').where('provider_name', '=', providerName).execute();
 
       // Insert new mappings in batches
       const batchSize = 500;
@@ -128,7 +128,7 @@ export class ProviderRepository {
           .insertInto('provider_coin_mappings')
           .values(
             batch.map((mapping) => ({
-              provider_id: providerId,
+              provider_name: providerName,
               symbol: mapping.symbol.toUpperCase(),
               coin_id: mapping.coin_id,
               coin_name: mapping.coin_name,
@@ -148,12 +148,12 @@ export class ProviderRepository {
   /**
    * Get coin ID for a symbol from a provider
    */
-  async getCoinIdForSymbol(providerId: number, symbol: Currency): Promise<Result<string | undefined, Error>> {
+  async getCoinIdForSymbol(providerName: number, symbol: Currency): Promise<Result<string | undefined, Error>> {
     try {
       const mapping = await this.db
         .selectFrom('provider_coin_mappings')
         .select('coin_id')
-        .where('provider_id', '=', providerId)
+        .where('provider_name', '=', providerName)
         .where('symbol', '=', symbol.toString())
         .orderBy('priority', 'asc')
         .executeTakeFirst();
@@ -167,12 +167,12 @@ export class ProviderRepository {
   /**
    * Get all coin mappings for a provider
    */
-  async getAllCoinMappings(providerId: number): Promise<Result<CoinMappingRecord[], Error>> {
+  async getAllCoinMappings(providerName: number): Promise<Result<CoinMappingRecord[], Error>> {
     try {
       const mappings = await this.db
         .selectFrom('provider_coin_mappings')
         .selectAll()
-        .where('provider_id', '=', providerId)
+        .where('provider_name', '=', providerName)
         .execute();
 
       return ok(mappings);
@@ -185,16 +185,16 @@ export class ProviderRepository {
    * Check if provider needs coin list sync
    * Returns true if never synced or synced more than 7 days ago
    */
-  async needsCoinListSync(providerId: number): Promise<Result<boolean, Error>> {
+  async needsCoinListSync(providerName: number): Promise<Result<boolean, Error>> {
     try {
       const provider = await this.db
         .selectFrom('providers')
         .select(['last_coin_list_sync', 'coin_list_count'])
-        .where('id', '=', providerId)
+        .where('id', '=', providerName)
         .executeTakeFirst();
 
       if (!provider) {
-        return err(new Error(`Provider ${providerId} not found`));
+        return err(new Error(`Provider ${providerName} not found`));
       }
 
       // Never synced

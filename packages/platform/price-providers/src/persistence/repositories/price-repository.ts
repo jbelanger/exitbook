@@ -57,8 +57,7 @@ export class PriceRepository {
         .execute();
 
       if (records.length === 0) {
-        // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for clarity
-        return ok(undefined);
+        return ok(void 0);
       }
 
       // Prefer exact granularity matches

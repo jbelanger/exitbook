@@ -24,9 +24,9 @@ for (const chainName of Object.keys(EVM_CHAINS)) {
       return ok(normalized);
     },
 
-    createImporter: (providerManager: BlockchainProviderManager, providerId?: string) =>
+    createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
       new EvmImporter(config, providerManager, {
-        preferredProvider: providerId,
+        preferredProvider: providerName,
       }),
 
     createProcessor: (tokenMetadataService?: ITokenMetadataService) => {

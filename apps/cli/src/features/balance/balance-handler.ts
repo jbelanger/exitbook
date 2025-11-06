@@ -368,7 +368,7 @@ export class BalanceHandler {
         this.tokenMetadataRepository,
         params.address,
         derivedAddresses,
-        params.providerId
+        params.providerName
       );
     }
 
@@ -378,7 +378,7 @@ export class BalanceHandler {
       this.tokenMetadataRepository,
       params.sourceName,
       params.address,
-      params.providerId
+      params.providerName
     );
 
     if (result.isErr()) {

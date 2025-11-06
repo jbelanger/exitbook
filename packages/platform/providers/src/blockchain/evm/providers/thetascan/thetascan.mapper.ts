@@ -51,7 +51,7 @@ export class ThetaScanTransactionMapper extends BaseRawDataMapper<ThetaScanTrans
       feeCurrency: 'TFUEL', // Fees are always paid in TFUEL on Theta
       from: normalizeEvmAddress(rawData.sending_address) ?? '',
       id: rawData.hash,
-      providerId: 'thetascan',
+      providerName: 'thetascan',
       status: 'success', // ThetaScan only returns successful transactions
       timestamp,
       to: normalizeEvmAddress(rawData.recieving_address),

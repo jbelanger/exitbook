@@ -70,9 +70,9 @@ describe('TatumBitcoinApiClient E2E', () => {
           expect(tx).toHaveProperty('outputs');
           expect(tx).toHaveProperty('timestamp');
           expect(tx).toHaveProperty('currency');
-          expect(tx).toHaveProperty('providerId');
+          expect(tx).toHaveProperty('providerName');
           expect(tx.currency).toBe('BTC');
-          expect(tx.providerId).toBe('tatum');
+          expect(tx.providerName).toBe('tatum');
           expect(Array.isArray(tx.inputs)).toBe(true);
           expect(Array.isArray(tx.outputs)).toBe(true);
         }

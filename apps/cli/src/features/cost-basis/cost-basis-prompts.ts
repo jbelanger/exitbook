@@ -59,7 +59,7 @@ export async function promptForCostBasisParams(): Promise<CostBasisHandlerParams
   }
 
   // Prompt for tax year
-  const currentYear = new Date().getFullYear();
+  const currentYear = new Date().getUTCFullYear();
   const taxYearInput = await p.text({
     message: 'Enter tax year:',
     placeholder: String(currentYear - 1),

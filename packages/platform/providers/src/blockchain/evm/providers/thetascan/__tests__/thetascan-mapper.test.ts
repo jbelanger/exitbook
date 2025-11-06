@@ -249,7 +249,7 @@ describe('ThetaScanTransactionMapper', () => {
         expect(normalized.to).toBe(rawTx.recieving_address);
         expect(normalized.blockHeight).toBe(30599571);
         expect(normalized.timestamp).toBe(1752686427000); // milliseconds
-        expect(normalized.providerId).toBe('thetascan');
+        expect(normalized.providerName).toBe('thetascan');
         expect(normalized.status).toBe('success');
       }
     });

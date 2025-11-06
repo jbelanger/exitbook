@@ -47,7 +47,7 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
       id: rawData.hash,
       inputData: rawData.input && rawData.input !== '' ? rawData.input : undefined,
       methodId: extractMethodId(rawData.input),
-      providerId: 'moralis',
+      providerName: 'moralis',
       status: rawData.receipt_status === '1' ? 'success' : 'failed',
       timestamp,
       to: normalizeEvmAddress(rawData.to_address),
@@ -106,7 +106,7 @@ export class MoralisTokenTransferMapper extends BaseRawDataMapper<MoralisTokenTr
       currency,
       from: normalizeEvmAddress(rawData.from_address) ?? '',
       id: rawData.transaction_hash,
-      providerId: 'moralis',
+      providerName: 'moralis',
       status: 'success', // Token transfers are always successful if they appear in the results
       timestamp,
       to: normalizeEvmAddress(rawData.to_address),

@@ -100,7 +100,7 @@ export function buildImportParamsFromFlags(options: ImportCommandOptions): Resul
     sourceName,
     sourceType,
     address: options.address,
-    providerId: options.provider,
+    providerName: options.provider,
     csvDir: options.csvDir,
     credentials,
     shouldProcess: options.process,

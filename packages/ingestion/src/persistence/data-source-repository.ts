@@ -145,8 +145,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       const row = await this.db.selectFrom('data_sources').selectAll().where('id', '=', sessionId).executeTakeFirst();
 
       if (!row) {
-        // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined when not found
-        return ok(undefined);
+        return ok(void 0);
       }
 
       const result = this.toDataSource(row);
@@ -263,8 +262,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
         }
       }
 
-      // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined when no match found
-      return ok(undefined);
+      return ok(void 0);
     } catch (error) {
       return wrapError(error, 'Failed to find completed session with matching params');
     }

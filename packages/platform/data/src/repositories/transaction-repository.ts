@@ -340,8 +340,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         return err(new Error(`Transaction ${transaction.id} not found`));
       }
 
-      // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined for clarity
-      return ok(undefined);
+      return ok(void 0);
     } catch (error) {
       return wrapError(error, 'Failed to update movements with prices');
     }

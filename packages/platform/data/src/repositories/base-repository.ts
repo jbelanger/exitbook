@@ -89,8 +89,7 @@ export abstract class BaseRepository {
    */
   protected parseWithSchema<T>(value: unknown, schema: z.ZodSchema<T>): Result<T | undefined, Error> {
     if (!value) {
-      // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined for clarity
-      return ok(undefined);
+      return ok(void 0);
     }
 
     try {
@@ -116,8 +115,7 @@ export abstract class BaseRepository {
    */
   protected parseJson<T = unknown>(value: unknown): Result<T | undefined, Error> {
     if (!value) {
-      // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined for clarity
-      return ok(undefined);
+      return ok(void 0);
     }
 
     try {

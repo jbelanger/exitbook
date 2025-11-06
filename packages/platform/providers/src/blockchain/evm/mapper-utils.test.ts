@@ -64,7 +64,7 @@ describe('mapper-utils', () => {
         category: 'erc20',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         rawContract: {
           address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
           value: '1000000',
@@ -85,7 +85,7 @@ describe('mapper-utils', () => {
         category: 'erc20',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         value: '5000000',
       };
 
@@ -101,7 +101,7 @@ describe('mapper-utils', () => {
         category: 'erc721',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         rawContract: {
           address: '0xnftcontract',
           value: '999',
@@ -121,7 +121,7 @@ describe('mapper-utils', () => {
         category: 'erc1155',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         rawContract: {
           address: '0xnftcontract',
           value: '999',
@@ -142,7 +142,7 @@ describe('mapper-utils', () => {
         category: 'erc20',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         rawContract: {
           address: '0xtoken',
           value: '0',
@@ -162,7 +162,7 @@ describe('mapper-utils', () => {
         category: 'erc721',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
       };
 
       const result = adjustNftAmount(rawData, new Decimal(999));
@@ -176,7 +176,7 @@ describe('mapper-utils', () => {
         category: 'erc1155',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         erc1155Metadata: [{ tokenId: '1', value: '10' }],
       };
 
@@ -191,7 +191,7 @@ describe('mapper-utils', () => {
         category: 'erc20',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
       };
 
       const result = adjustNftAmount(rawData, new Decimal(5000000));
@@ -207,7 +207,7 @@ describe('mapper-utils', () => {
         category: 'erc1155',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         erc1155Metadata: [
           { tokenId: '1', value: '10' },
           { tokenId: '2', value: '20' },
@@ -225,7 +225,7 @@ describe('mapper-utils', () => {
         category: 'erc1155',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
       };
 
       const result = extractErc1155Amount(rawData);
@@ -239,7 +239,7 @@ describe('mapper-utils', () => {
         category: 'erc1155',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         erc1155Metadata: [],
       };
 
@@ -254,7 +254,7 @@ describe('mapper-utils', () => {
         category: 'erc1155',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         erc1155Metadata: [{ tokenId: '1' }],
       };
 
@@ -271,7 +271,7 @@ describe('mapper-utils', () => {
         category: 'external',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         asset: 'ETH',
         rawContract: {
           value: '1000000000000000000',
@@ -291,7 +291,7 @@ describe('mapper-utils', () => {
         category: 'external',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         asset: 'ETH',
         value: '1.5',
         rawContract: {
@@ -311,7 +311,7 @@ describe('mapper-utils', () => {
         category: 'external',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         rawContract: {
           address: '0xmatic',
           value: '1000000000000000000',
@@ -329,7 +329,7 @@ describe('mapper-utils', () => {
         category: 'external',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         value: '1',
       };
 
@@ -346,7 +346,7 @@ describe('mapper-utils', () => {
         category: 'external',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         value: '1.5',
         rawContract: {
           decimal: '18',
@@ -364,7 +364,7 @@ describe('mapper-utils', () => {
         category: 'external',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         value: '1',
       };
 
@@ -379,7 +379,7 @@ describe('mapper-utils', () => {
         category: 'external',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         value: '100',
         rawContract: {
           decimal: '6',
@@ -397,7 +397,7 @@ describe('mapper-utils', () => {
         category: 'external',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         value: '0',
       };
 
@@ -582,12 +582,12 @@ describe('mapper-utils', () => {
     });
 
     it('should return undefined for null input', () => {
-      const result = extractMethodId();
+      const result = extractMethodId(void 0);
       expect(result).toBeUndefined();
     });
 
     it('should return undefined for undefined input', () => {
-      const result = extractMethodId();
+      const result = extractMethodId(void 0);
       expect(result).toBeUndefined();
     });
 
@@ -615,11 +615,11 @@ describe('mapper-utils', () => {
     });
 
     it('should return "transfer" when function name is null', () => {
-      expect(getTransactionTypeFromFunctionName()).toBe('transfer');
+      expect(getTransactionTypeFromFunctionName(void 0)).toBe('transfer');
     });
 
     it('should return "transfer" when function name is undefined', () => {
-      expect(getTransactionTypeFromFunctionName()).toBe('transfer');
+      expect(getTransactionTypeFromFunctionName(void 0)).toBe('transfer');
     });
 
     it('should return "contract_call" for empty string', () => {
@@ -666,7 +666,7 @@ describe('mapper-utils', () => {
         category: 'erc20',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         rawContract: {
           address: '0xtoken',
           value: '1000000',
@@ -685,7 +685,7 @@ describe('mapper-utils', () => {
         category: 'external',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         asset: 'ETH',
         rawContract: {
           value: '1000000000000000000',
@@ -704,7 +704,7 @@ describe('mapper-utils', () => {
         category: 'internal',
         from: '0xsender',
         hash: '0xhash',
-        metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+        metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         asset: 'ETH',
         rawContract: {
           value: '500000000000000000',

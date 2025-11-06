@@ -106,7 +106,7 @@ describe('mapper-utils', () => {
         expect(normalized).toMatchObject({
           id: '5cb4eef31430d6b33b79c4b28f469d23dd62ac8524d0a4741c0b8920f31af5c0',
           currency: 'BTC',
-          providerId: 'blockstream.info',
+          providerName: 'blockstream.info',
           status: 'success',
           timestamp: new Date('2025-06-20T14:31:30.000Z').getTime(),
           blockHeight: 910910,
@@ -356,7 +356,7 @@ describe('mapper-utils', () => {
         expect(normalized).toMatchObject({
           id: '5cb4eef31430d6b33b79c4b28f469d23dd62ac8524d0a4741c0b8920f31af5c0',
           currency: 'BTC',
-          providerId: 'mempool.space',
+          providerName: 'mempool.space',
           status: 'success',
           timestamp: new Date('2025-06-20T14:31:30.000Z').getTime(),
           blockHeight: 910910,
@@ -412,7 +412,7 @@ describe('mapper-utils', () => {
       if (result.isOk()) {
         const normalized = result.value;
         expect(normalized.status).toBe('pending');
-        expect(normalized.providerId).toBe('mempool.space');
+        expect(normalized.providerName).toBe('mempool.space');
       }
     });
 
@@ -480,7 +480,9 @@ describe('mapper-utils', () => {
               address: 'bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c',
               coinbase: false,
               height: 910898,
+              reqSigs: undefined,
               script: '51207434164bd41e2185651f084b6a79e11ce57abe69093b7f939bb1c8786e5d233b',
+              type: undefined,
               value: 3586,
               version: 2,
             },
@@ -497,6 +499,7 @@ describe('mapper-utils', () => {
             address: 'bc1pq7qldvzhmdtg34g944z2eeufrftcuqtuls5l75t8l8st7dls4rtpquaguma',
             script: '51200781f6b057db5688d505ad44ace7891a578e017c853fea2cff3c17e6fe151ac2',
             scriptPubKey: {
+              reqSigs: undefined,
               type: 'witness_v1_taproot',
             },
             value: 31958,
@@ -512,7 +515,7 @@ describe('mapper-utils', () => {
         expect(normalized).toMatchObject({
           id: '5cb4eef31430d6b33b79c4b28f469d23dd62ac8524d0a4741c0b8920f31af5c0',
           currency: 'BTC',
-          providerId: 'tatum',
+          providerName: 'tatum',
           status: 'success',
           timestamp: 1755706690000,
           blockHeight: 910910,
@@ -561,6 +564,8 @@ describe('mapper-utils', () => {
               script: 'script',
               value: 1000,
               version: 2,
+              reqSigs: undefined,
+              type: undefined,
             },
             prevout: {
               hash: 'prev-hash',
@@ -575,6 +580,7 @@ describe('mapper-utils', () => {
             address: 'output-address',
             script: 'script',
             scriptPubKey: {
+              reqSigs: undefined,
               type: 'p2pkh',
             },
             value: 800,
@@ -617,6 +623,8 @@ describe('mapper-utils', () => {
               script: 'script',
               value: 1000,
               version: 2,
+              reqSigs: undefined,
+              type: undefined,
             },
             prevout: {
               hash: 'prev-hash',
@@ -631,6 +639,7 @@ describe('mapper-utils', () => {
             address: 'output-address',
             script: 'script',
             scriptPubKey: {
+              reqSigs: undefined,
               type: 'p2pkh',
             },
             value: 1000,
@@ -672,6 +681,8 @@ describe('mapper-utils', () => {
               script: 'script',
               value: 200000000,
               version: 2,
+              reqSigs: undefined,
+              type: undefined,
             },
             prevout: {
               hash: 'prev-hash',
@@ -686,6 +697,7 @@ describe('mapper-utils', () => {
             address: 'output-address',
             script: 'script',
             scriptPubKey: {
+              reqSigs: undefined,
               type: 'p2pkh',
             },
             value: 100000000,
@@ -708,6 +720,7 @@ describe('mapper-utils', () => {
   describe('mapBlockchainComTransaction', () => {
     it('should map confirmed Blockchain.com transaction', () => {
       const rawData: BlockchainComTransaction = {
+        block_index: undefined,
         hash: 'blockchain-com-hash',
         time: 1700000000,
         fee: 500,
@@ -756,7 +769,7 @@ describe('mapper-utils', () => {
         expect(normalized).toMatchObject({
           id: 'blockchain-com-hash',
           currency: 'BTC',
-          providerId: 'blockchain.com',
+          providerName: 'blockchain.com',
           status: 'success',
           timestamp: 1700000000000,
           blockHeight: 12345,
@@ -782,6 +795,8 @@ describe('mapper-utils', () => {
 
     it('should map unconfirmed Blockchain.com transaction', () => {
       const rawData: BlockchainComTransaction = {
+        block_index: undefined,
+        block_height: undefined,
         hash: 'unconfirmed-hash',
         time: 1700000000,
         fee: 200,
@@ -833,6 +848,7 @@ describe('mapper-utils', () => {
 
     it('should handle transactions without prev_out', () => {
       const rawData: BlockchainComTransaction = {
+        block_index: undefined,
         hash: 'no-prevout-hash',
         time: 1700000000,
         fee: 200,
@@ -877,6 +893,7 @@ describe('mapper-utils', () => {
 
     it('should handle zero fee', () => {
       const rawData: BlockchainComTransaction = {
+        block_index: undefined,
         hash: 'zero-fee-hash',
         time: 1700000000,
         fee: 0,
@@ -975,7 +992,7 @@ describe('mapper-utils', () => {
         expect(normalized).toMatchObject({
           id: 'blockcypher-hash',
           currency: 'BTC',
-          providerId: 'blockcypher',
+          providerName: 'blockcypher',
           status: 'success',
           blockHeight: 12345,
           blockId: 'block-hash',

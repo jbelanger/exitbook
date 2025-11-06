@@ -39,7 +39,7 @@ describe('ThetaExplorerApiClient Integration', () => {
           expect(firstTx.normalized).toHaveProperty('id');
           expect(firstTx.normalized).toHaveProperty('blockHeight');
           expect(firstTx.normalized).toHaveProperty('timestamp');
-          expect(firstTx.normalized.providerId).toBe('theta-explorer');
+          expect(firstTx.normalized.providerName).toBe('theta-explorer');
         }
       }
     }, 30000);
@@ -80,7 +80,7 @@ describe('ThetaExplorerApiClient Integration', () => {
 
           expect(firstTx.normalized.id).toMatch(/^0x[a-fA-F0-9]+$/);
           expect(firstTx.normalized.blockHeight).toBeGreaterThan(0);
-          expect(firstTx.normalized.providerId).toBe('theta-explorer');
+          expect(firstTx.normalized.providerName).toBe('theta-explorer');
         }
       }
     }, 30000);

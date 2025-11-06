@@ -66,9 +66,9 @@ describe('MempoolSpaceProvider Integration', () => {
           expect(tx).toHaveProperty('status');
           expect(tx).toHaveProperty('timestamp');
           expect(tx).toHaveProperty('currency');
-          expect(tx).toHaveProperty('providerId');
+          expect(tx).toHaveProperty('providerName');
           expect(tx.currency).toBe('BTC');
-          expect(tx.providerId).toBe('mempool.space');
+          expect(tx.providerName).toBe('mempool.space');
           expect(Array.isArray(tx.inputs)).toBe(true);
           expect(Array.isArray(tx.outputs)).toBe(true);
         }

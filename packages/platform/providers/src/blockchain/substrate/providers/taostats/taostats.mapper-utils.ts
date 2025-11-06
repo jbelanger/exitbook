@@ -50,7 +50,7 @@ export function convertTaostatsTransaction(
     from: fromAddress,
     id: rawData.transaction_hash,
     module: 'balances', // Taostats doesn't provide this, assume balances module for transfers
-    providerId: 'taostats',
+    providerName: 'taostats',
     ss58Format: chainConfig.ss58Format,
     status: 'success', // Taostats only returns successful transactions
     timestamp,

@@ -8,7 +8,13 @@ import { OutputManager } from '../shared/output.js';
 import { buildViewMeta, type ViewCommandResult } from '../shared/view-utils.js';
 
 import { GapsViewHandler } from './gaps-view-handler.js';
-import type { FeeGapAnalysis, GapCategory, GapsViewParams, GapsViewResult } from './gaps-view-utils.js';
+import type {
+  FeeGapAnalysis,
+  GapCategory,
+  GapsViewParams,
+  GapsViewResult,
+  LinkGapAnalysis,
+} from './gaps-view-utils.js';
 import { formatGapsViewResult } from './gaps-view-utils.js';
 
 /**
@@ -21,7 +27,7 @@ export interface ExtendedGapsViewCommandOptions extends GapsViewParams {
 /**
  * Result data for gaps view command (JSON mode).
  */
-type GapsViewCommandResult = ViewCommandResult<FeeGapAnalysis>;
+type GapsViewCommandResult = ViewCommandResult<FeeGapAnalysis | LinkGapAnalysis>;
 
 /**
  * Register the gaps view subcommand.
@@ -37,20 +43,20 @@ Examples:
   $ exitbook gaps view                      # View all data quality issues (defaults to fees)
   $ exitbook gaps view --category fees      # Audit fee field mappings
   $ exitbook gaps view --category prices    # Find transactions without prices
-  $ exitbook gaps view --category links     # Find unlinked transfers
+  $ exitbook gaps view --category links     # Find blockchain/exchange movements missing confirmed counterparties
   $ exitbook gaps view --category validation # Find validation errors
   $ exitbook gaps view --json               # Output in JSON format for MCP
 
 Common Usage:
   - Audit fee mappings to ensure fees are in proper fields
   - Identify transactions missing price data before cost basis calculation
-  - Find potential transfer pairs that aren't linked
+  - Find transfer pairs that aren't linked, including unexplained withdrawals
   - Detect data quality issues from import/processing
 
 Gap Categories:
   fees        - Fees in movements vs. fee fields, missing prices on fees
   prices      - Transactions without price data (coming soon)
-  links       - Potential links not yet detected (coming soon)
+  links       - Blockchain/exchange inflows/outflows missing confirmed counterparties
   validation  - Schema validation errors (coming soon)
 `
     )
@@ -89,11 +95,13 @@ async function executeGapsViewCommand(options: ExtendedGapsViewCommandOptions): 
 
     // Initialize repositories
     const { initializeDatabase, closeDatabase, TransactionRepository } = await import('@exitbook/data');
+    const { TransactionLinkRepository } = await import('@exitbook/accounting');
 
     const database = await initializeDatabase();
     const txRepo = new TransactionRepository(database);
+    const linkRepo = new TransactionLinkRepository(database);
 
-    const handler = new GapsViewHandler(txRepo);
+    const handler = new GapsViewHandler(txRepo, linkRepo);
 
     const result = await handler.execute(params);
 

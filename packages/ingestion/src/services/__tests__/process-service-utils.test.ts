@@ -16,7 +16,7 @@ describe('process-service-utils', () => {
         {
           id: 1,
           dataSourceId: 10,
-          providerId: 'blockstream',
+          providerName: 'blockstream',
           externalId: 'tx1',
           rawData: {},
           normalizedData: {},
@@ -26,7 +26,7 @@ describe('process-service-utils', () => {
         {
           id: 2,
           dataSourceId: 10,
-          providerId: 'blockstream',
+          providerName: 'blockstream',
           externalId: 'tx2',
           rawData: {},
           normalizedData: {},
@@ -36,7 +36,7 @@ describe('process-service-utils', () => {
         {
           id: 3,
           dataSourceId: 20,
-          providerId: 'blockstream',
+          providerName: 'blockstream',
           externalId: 'tx3',
           rawData: {},
           normalizedData: {},
@@ -62,7 +62,7 @@ describe('process-service-utils', () => {
         {
           id: 1,
           dataSourceId: 10,
-          providerId: 'blockstream',
+          providerName: 'blockstream',
           externalId: 'tx1',
           rawData: {},
           normalizedData: {},
@@ -72,7 +72,7 @@ describe('process-service-utils', () => {
         {
           id: 2,
           dataSourceId: undefined as unknown as number,
-          providerId: 'blockstream',
+          providerName: 'blockstream',
           externalId: 'tx2',
           rawData: {},
           normalizedData: {},
@@ -100,7 +100,7 @@ describe('process-service-utils', () => {
         {
           id: 1,
           dataSourceId: 10,
-          providerId: 'blockstream',
+          providerName: 'blockstream',
           externalId: 'tx1',
           rawData: {},
           normalizedData: {},
@@ -110,7 +110,7 @@ describe('process-service-utils', () => {
         {
           id: 2,
           dataSourceId: 10,
-          providerId: 'blockstream',
+          providerName: 'blockstream',
           externalId: 'tx2',
           rawData: {},
           normalizedData: {},
@@ -120,7 +120,7 @@ describe('process-service-utils', () => {
         {
           id: 3,
           dataSourceId: 20,
-          providerId: 'blockstream',
+          providerName: 'blockstream',
           externalId: 'tx3',
           rawData: {},
           normalizedData: {},
@@ -141,7 +141,7 @@ describe('process-service-utils', () => {
         {
           id: 1,
           dataSourceId: 10,
-          providerId: 'blockstream',
+          providerName: 'blockstream',
           externalId: 'tx1',
           rawData: {},
           normalizedData: {},
@@ -151,7 +151,7 @@ describe('process-service-utils', () => {
         {
           id: 2,
           dataSourceId: undefined as unknown as number,
-          providerId: 'blockstream',
+          providerName: 'blockstream',
           externalId: 'tx2',
           rawData: {},
           normalizedData: {},
@@ -215,7 +215,7 @@ describe('process-service-utils', () => {
             {
               id: 1,
               dataSourceId: 10,
-              providerId: 'blockstream',
+              providerName: 'blockstream',
               externalId: 'tx1',
               rawData: {},
               normalizedData: {},
@@ -230,7 +230,7 @@ describe('process-service-utils', () => {
             {
               id: 2,
               dataSourceId: 20,
-              providerId: 'alchemy',
+              providerName: 'alchemy',
               externalId: 'tx2',
               rawData: {},
               normalizedData: {},
@@ -279,7 +279,7 @@ describe('process-service-utils', () => {
             {
               id: 1,
               dataSourceId: 10,
-              providerId: 'blockstream',
+              providerName: 'blockstream',
               externalId: 'tx1',
               rawData: {},
               normalizedData: {},
@@ -294,7 +294,7 @@ describe('process-service-utils', () => {
             {
               id: 2,
               dataSourceId: 20,
-              providerId: 'alchemy',
+              providerName: 'alchemy',
               externalId: 'tx2',
               rawData: {},
               normalizedData: {},
@@ -332,7 +332,7 @@ describe('process-service-utils', () => {
             {
               id: 1,
               dataSourceId: 10,
-              providerId: 'blockstream',
+              providerName: 'blockstream',
               externalId: 'tx1',
               rawData: {},
               normalizedData: {},
@@ -367,7 +367,7 @@ describe('process-service-utils', () => {
             {
               id: 1,
               dataSourceId: 10,
-              providerId: 'blockstream',
+              providerName: 'blockstream',
               externalId: 'tx1',
               rawData: {},
               normalizedData: {},

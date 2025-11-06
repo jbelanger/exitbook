@@ -28,7 +28,7 @@ describe('Type Guard Utilities', () => {
       expect(isErrorWithMessage('error string')).toBe(false);
       expect(isErrorWithMessage(123)).toBe(false);
       expect(isErrorWithMessage(null)).toBe(false);
-      expect(isErrorWithMessage()).toBe(false);
+      expect(isErrorWithMessage(void 0)).toBe(false);
       expect(isErrorWithMessage({})).toBe(false);
       expect(isErrorWithMessage({ message: 'not an error' })).toBe(false);
     });
@@ -65,7 +65,7 @@ describe('Type Guard Utilities', () => {
       expect(getErrorMessage(123)).toBe('123');
       expect(getErrorMessage(true)).toBe('true');
       expect(getErrorMessage(null)).toBe('null');
-      expect(getErrorMessage()).toBe('undefined');
+      expect(getErrorMessage(void 0)).toBe('undefined');
     });
 
     it('should use default message when provided for non-Error values', () => {

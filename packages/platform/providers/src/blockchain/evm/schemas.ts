@@ -44,7 +44,7 @@ export const EvmTransactionSchema = z.object({
   type: z.enum(['transfer', 'token_transfer', 'internal', 'contract_call']),
   status: z.enum(['success', 'failed', 'pending']),
   timestamp: z.number().positive('Timestamp must be positive'),
-  providerId: z.string().min(1, 'Provider ID must not be empty'),
+  providerName: z.string().min(1, 'Provider ID must not be empty'),
 
   // Transaction flow (addresses normalized via EvmAddressSchema)
   from: EvmAddressSchema,

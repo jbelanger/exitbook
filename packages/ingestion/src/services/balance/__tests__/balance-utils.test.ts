@@ -10,8 +10,7 @@ import { convertBalancesToDecimals, fetchBlockchainBalance, fetchExchangeBalance
 // Helper to create mock TokenMetadataRepository
 function createMockTokenMetadataRepository(): TokenMetadataRepository {
   return {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- undefined indicates not found
-    getByContract: vi.fn().mockResolvedValue(ok(undefined)),
+    getByContract: vi.fn().mockResolvedValue(ok(void 0)),
     save: vi.fn().mockResolvedValue(ok()),
     isStale: vi.fn().mockReturnValue(false),
     refreshInBackground: vi.fn(),

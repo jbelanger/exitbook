@@ -85,7 +85,7 @@ export class CosmosImporter implements IImporter {
 
     return result.map((response) => {
       const transactionsWithRaw = response.data as TransactionWithRawData<CosmosTransaction>[];
-      const providerId = response.providerName;
+      const providerName = response.providerName;
 
       return transactionsWithRaw.map((txWithRaw) => ({
         externalId: generateUniqueTransactionId({
@@ -99,7 +99,7 @@ export class CosmosImporter implements IImporter {
           type: txWithRaw.normalized.messageType || 'transfer',
         }),
         normalizedData: txWithRaw.normalized,
-        providerId,
+        providerName,
         rawData: txWithRaw.raw,
         sourceAddress: address,
       }));

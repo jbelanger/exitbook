@@ -15,5 +15,5 @@ export interface IRawDataMapper<TRawData, TNormalizedData> {
    * - err({ type: 'skip', reason }) if transaction should be safely ignored
    * - err({ type: 'error', message }) if mapping failed due to invalid data
    */
-  map(rawData: TRawData, providerId: string, context: SourceMetadata): Result<TNormalizedData, NormalizationError>;
+  map(rawData: TRawData, providerName: string, context: SourceMetadata): Result<TNormalizedData, NormalizationError>;
 }

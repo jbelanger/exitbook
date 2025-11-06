@@ -11,8 +11,7 @@ import {
 
 describe('validateAssetFilter', () => {
   it('should return empty array when asset is undefined', () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- testing explicit undefined
-    const result = validateAssetFilter(undefined);
+    const result = validateAssetFilter(void 0);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {

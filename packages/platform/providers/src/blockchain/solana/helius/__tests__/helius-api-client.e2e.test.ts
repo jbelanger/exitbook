@@ -54,7 +54,7 @@ describe('HeliusApiClient Integration', () => {
         expect(raw.transaction).toHaveProperty('message');
 
         const normalized = txData.normalized;
-        expect(normalized.providerId).toBe('helius');
+        expect(normalized.providerName).toBe('helius');
         expect(typeof normalized.id).toBe('string');
         expect(normalized.id.length).toBeGreaterThan(0);
         expect(['success', 'failed']).toContain(normalized.status);

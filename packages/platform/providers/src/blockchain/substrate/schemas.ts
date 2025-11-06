@@ -55,7 +55,7 @@ export const SubstrateTransactionSchema = z.object({
   id: z.string().min(1, 'Transaction ID must not be empty'),
   module: z.string().optional(),
   nonce: z.number().nonnegative().optional(),
-  providerId: z.string().min(1, 'Provider ID must not be empty'),
+  providerName: z.string().min(1, 'Provider ID must not be empty'),
   signature: z.string().optional(),
   ss58Format: z.number().nonnegative().optional(),
   status: z.enum(['success', 'failed', 'pending']),

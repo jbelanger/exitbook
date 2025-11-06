@@ -17,7 +17,7 @@ export const DataImportParamsSchema = z.object({
   address: z.string().optional(),
   csvDirectories: z.array(z.string()).optional(),
   exchangeCredentials: z.record(z.string(), z.unknown()).optional(),
-  providerId: z.string().optional(),
+  providerName: z.string().optional(),
 });
 
 /**

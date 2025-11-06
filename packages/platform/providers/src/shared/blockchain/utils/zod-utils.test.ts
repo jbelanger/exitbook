@@ -184,8 +184,8 @@ describe('zod-utils', () => {
 
         // November 2024
         const result = schema.parse({ date: 1730419200 });
-        expect(result.date.getFullYear()).toBe(2024);
-        expect(result.date.getMonth()).toBe(10); // November (0-indexed)
+        expect(result.date.getUTCFullYear()).toBe(2024);
+        expect(result.date.getUTCMonth()).toBe(10); // November (0-indexed)
       });
 
       it('should handle early Unix timestamps', () => {
@@ -243,7 +243,7 @@ describe('zod-utils', () => {
         const result = schema.parse({ date: '2021-01-01 00:00:00.000 +0000 UTC' });
         expect(result.date).toBeInstanceOf(Date);
         // Just check it's a valid date
-        expect(result.date.getFullYear()).toBe(2021);
+        expect(result.date.getUTCFullYear()).toBe(2021);
       });
 
       it('should parse common date string formats', () => {
@@ -304,7 +304,7 @@ describe('zod-utils', () => {
         // Far future timestamp (year 2100)
         const result = schema.parse({ date: 4102444800 });
         expect(result.date).toBeInstanceOf(Date);
-        expect(result.date.getFullYear()).toBeGreaterThanOrEqual(2100);
+        expect(result.date.getUTCFullYear()).toBeGreaterThanOrEqual(2100);
       });
 
       it('should handle blockchain-typical timestamps', () => {
@@ -312,11 +312,11 @@ describe('zod-utils', () => {
 
         // Bitcoin genesis block timestamp (January 3, 2009)
         const genesisResult = schema.parse({ date: 1231006505 });
-        expect(genesisResult.date.getFullYear()).toBe(2009);
+        expect(genesisResult.date.getUTCFullYear()).toBe(2009);
 
         // Ethereum genesis block timestamp (July 30, 2015)
         const ethGenesisResult = schema.parse({ date: 1438269988 });
-        expect(ethGenesisResult.date.getFullYear()).toBe(2015);
+        expect(ethGenesisResult.date.getUTCFullYear()).toBe(2015);
       });
 
       it('should correctly distinguish seconds vs milliseconds timestamps', () => {

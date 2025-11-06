@@ -8,7 +8,7 @@ import type { ITransactionProcessor } from '../../../types/processors.js';
 export interface BlockchainConfig {
   blockchain: string;
   normalizeAddress: (address: string) => Result<string, Error>;
-  createImporter: (providerManager: BlockchainProviderManager, providerId?: string) => IImporter;
+  createImporter: (providerManager: BlockchainProviderManager, providerName?: string) => IImporter;
   createProcessor: (tokenMetadataService?: ITokenMetadataService) => Result<ITransactionProcessor, Error>;
 }
 

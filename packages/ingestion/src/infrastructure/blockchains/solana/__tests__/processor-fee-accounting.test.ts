@@ -14,8 +14,7 @@ function createProcessor() {
   // Create minimal mock for token metadata service
   const mockTokenMetadataService = {
     enrichBatch: vi.fn().mockResolvedValue(ok()),
-    // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
-    getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+    getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
   } as unknown as ITokenMetadataService;
 
   return new SolanaTransactionProcessor(mockTokenMetadataService);
@@ -40,7 +39,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sig1abc',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100000,
         status: 'success',
         timestamp: Date.now(),
@@ -83,7 +82,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         feeCurrency: 'SOL',
         from: EXTERNAL_ADDRESS, // External sender (not user)
         id: 'sig2def',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100001,
         status: 'success',
         timestamp: Date.now(),
@@ -125,7 +124,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sig3ghi',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100002,
         status: 'success',
         timestamp: Date.now(),
@@ -172,7 +171,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
             programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', // SPL Token Program
           },
         ],
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100003,
         status: 'success',
         timestamp: Date.now(),
@@ -205,7 +204,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         feeCurrency: 'SOL',
         from: CONTRACT_ADDRESS, // Contract/minter is sender
         id: 'sig5mno',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100004,
         status: 'success',
         timestamp: Date.now(),
@@ -256,7 +255,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS, // User initiated transaction
         id: 'sig6pqr',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100005,
         status: 'failed',
         timestamp: Date.now(),
@@ -302,7 +301,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
             programId: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', // Jupiter v6
           },
         ],
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100006,
         status: 'success',
         timestamp: Date.now(),
@@ -357,7 +356,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         feeCurrency: 'SOL',
         from: mixedCaseUser.toUpperCase(), // Different case but same address
         id: 'sig7stu',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100007,
         status: 'success',
         timestamp: Date.now(),
@@ -401,7 +400,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
             programId: 'Stake11111111111111111111111111111111111112',
           },
         ],
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100008,
         status: 'success',
         timestamp: Date.now(),
@@ -448,7 +447,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
             programId: 'Stake11111111111111111111111111111111111112',
           },
         ],
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100009,
         status: 'success',
         timestamp: Date.now(),
@@ -493,7 +492,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         feeCurrency: 'SOL',
         from: EXTERNAL_ADDRESS, // Someone else sends to derived wallet
         id: 'sig8vwx',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100010,
         status: 'success',
         timestamp: Date.now(),
@@ -539,7 +538,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         feeCurrency: 'SOL',
         from: derivedAddress1, // Derived wallet sends
         id: 'sig9xyz',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100011,
         status: 'success',
         timestamp: Date.now(),
@@ -582,7 +581,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS, // User initiates liquidity provision
         id: 'sigDefi1',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100012,
         status: 'success',
         timestamp: Date.now(),
@@ -635,7 +634,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         feeCurrency: 'SOL',
         from: CONTRACT_ADDRESS, // Candy machine/minter
         id: 'sigNFT1',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100013,
         status: 'success',
         timestamp: Date.now(),

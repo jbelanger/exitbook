@@ -80,7 +80,7 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
       // Log messages
       logMessages: tx.meta.logMessages || [],
 
-      providerId: 'helius',
+      providerName: 'helius',
       signature,
       slot: tx.slot,
       status: tx.meta.err ? 'failed' : 'success',

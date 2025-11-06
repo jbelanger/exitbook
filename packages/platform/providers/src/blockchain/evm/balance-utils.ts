@@ -54,7 +54,7 @@ export function filterNonZeroBalances<T extends { tokenBalance: string }>(balanc
  * @param contractAddresses - Array of contract addresses to filter by
  * @returns Filtered array containing only specified contracts
  */
-export function filterByContractAddresses<T extends { tokenAddress: string | null }>(
+export function filterByContractAddresses<T extends { tokenAddress: string | undefined }>(
   balances: T[],
   contractAddresses: string[]
 ): T[] {

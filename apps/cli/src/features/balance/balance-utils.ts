@@ -29,7 +29,7 @@ export interface BalanceHandlerParams {
   sourceType: SourceType;
   sourceName: string;
   address?: string | undefined;
-  providerId?: string | undefined;
+  providerName?: string | undefined;
   credentials?: ExchangeCredentials | undefined;
 }
 
@@ -84,7 +84,7 @@ export function buildBalanceParamsFromFlags(options: BalanceCommandOptions): Res
       sourceType: 'blockchain',
       sourceName: options.blockchain,
       address: options.address,
-      providerId: options.provider,
+      providerName: options.provider,
     });
   }
 

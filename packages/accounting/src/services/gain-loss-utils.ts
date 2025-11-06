@@ -125,9 +125,9 @@ export function checkLossDisallowance(
   // US: 30 days after only, but we use 61 to be safe for all jurisdictions
   const maxWindowDays = 61;
   const windowStart = new Date(disposal.disposalDate);
-  windowStart.setDate(windowStart.getDate() - maxWindowDays);
+  windowStart.setDate(windowStart.getUTCDate() - maxWindowDays);
   const windowEnd = new Date(disposal.disposalDate);
-  windowEnd.setDate(windowEnd.getDate() + maxWindowDays);
+  windowEnd.setDate(windowEnd.getUTCDate() + maxWindowDays);
 
   // Filter to only lots acquired near the disposal date
   const reacquisitionDates = allAssetLots

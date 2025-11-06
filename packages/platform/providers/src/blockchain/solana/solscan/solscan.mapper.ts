@@ -75,7 +75,7 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransacti
 
       // Log messages
       logMessages: tx.logMessage || [],
-      providerId: 'solscan',
+      providerName: 'solscan',
       signature: tx.txHash,
       slot: tx.slot,
       status: tx.status === 'Success' ? 'success' : 'failed',

@@ -164,7 +164,7 @@ export const AlchemyPortfolioBalanceRequestSchema = z.object({
 export const AlchemyTransactionReceiptSchema = z.object({
   blockHash: z.string(),
   blockNumber: z.string().regex(/^0x[\da-fA-F]+$/, 'Block number must be hex string'),
-  contractAddress: EvmAddressSchema.nullable(),
+  contractAddress: EvmAddressSchema.nullish(),
   cumulativeGasUsed: hexOrNumericToNumericRequired,
   effectiveGasPrice: hexOrNumericToNumericRequired.optional(), // Only available post-EIP-1559
   from: EvmAddressSchema,

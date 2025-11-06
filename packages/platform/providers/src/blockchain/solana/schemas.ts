@@ -163,7 +163,7 @@ export const SolanaTransactionSchema = z.object({
   innerInstructions: z.array(SolanaInstructionSchema).optional(),
   instructions: z.array(SolanaInstructionSchema).optional(),
   logMessages: z.array(z.string()).optional(),
-  providerId: z.string().min(1, 'Provider ID must not be empty'),
+  providerName: z.string().min(1, 'Provider ID must not be empty'),
   signature: z.string().optional(),
   slot: z.number().nonnegative().optional(),
   status: z.enum(['success', 'failed', 'pending']),

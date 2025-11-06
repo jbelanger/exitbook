@@ -29,11 +29,11 @@ describe('address-utils', () => {
     });
 
     it('should handle null input gracefully', () => {
-      expect(maskAddress()).toBe('');
+      expect(maskAddress(void 0)).toBe('');
     });
 
     it('should handle undefined input gracefully', () => {
-      expect(maskAddress()).toBe('');
+      expect(maskAddress(void 0)).toBe('');
     });
 
     it('should handle very long addresses correctly', () => {

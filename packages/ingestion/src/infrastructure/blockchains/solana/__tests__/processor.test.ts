@@ -15,8 +15,7 @@ function createProcessor() {
   const mockTokenMetadataService = {
     // Return NO_PROVIDERS ProviderError to simulate provider not supporting metadata
     enrichBatch: vi.fn().mockResolvedValue(ok()),
-    // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
-    getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+    getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
   } as unknown as ITokenMetadataService;
 
   return new SolanaTransactionProcessor(mockTokenMetadataService);
@@ -41,7 +40,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
         feeCurrency: 'SOL',
         from: EXTERNAL_ADDRESS,
         id: 'sig1abc',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100000,
         status: 'success',
         timestamp: Date.now(),
@@ -85,7 +84,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sig2def',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100001,
         status: 'success',
         timestamp: Date.now(),
@@ -129,7 +128,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sig3ghi',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100002,
         status: 'success',
         timestamp: Date.now(),
@@ -165,7 +164,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
         feeCurrency: 'SOL',
         from: EXTERNAL_ADDRESS,
         id: 'sig4jkl',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100003,
         status: 'success',
         timestamp: Date.now(),
@@ -215,7 +214,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sig5mno',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100004,
         status: 'success',
         timestamp: Date.now(),
@@ -267,7 +266,7 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sig6pqr',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100005,
         status: 'success',
         timestamp: Date.now(),
@@ -307,7 +306,7 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
         feeCurrency: 'SOL',
         from: EXTERNAL_ADDRESS,
         id: 'sig7stu',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100006,
         status: 'success',
         timestamp: Date.now(),
@@ -342,7 +341,7 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sig8vwx',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100007,
         status: 'failed',
         timestamp: Date.now(),
@@ -389,7 +388,7 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
             programId: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', // Jupiter
           },
         ],
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100010,
         status: 'success',
         timestamp: Date.now(),
@@ -453,7 +452,7 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
             programId: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', // Jupiter
           },
         ],
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100011,
         status: 'success',
         timestamp: Date.now(),
@@ -517,7 +516,7 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
             programId: 'Stake11111111111111111111111111111111111112', // Stake Program
           },
         ],
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100020,
         status: 'success',
         timestamp: Date.now(),
@@ -562,7 +561,7 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
             programId: 'Stake11111111111111111111111111111111111112',
           },
         ],
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100021,
         status: 'success',
         timestamp: Date.now(),
@@ -608,7 +607,7 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
             programId: 'Stake11111111111111111111111111111111111112',
           },
         ],
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100022,
         status: 'success',
         timestamp: Date.now(),
@@ -650,7 +649,7 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sigComplex1',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100030,
         status: 'success',
         timestamp: Date.now(),
@@ -723,7 +722,7 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
         feeCurrency: 'SOL',
         from: EXTERNAL_ADDRESS,
         id: 'sigConsolidate1',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100031,
         status: 'success',
         timestamp: Date.now(),
@@ -783,7 +782,7 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
         currency: 'SOL',
         from: EXTERNAL_ADDRESS,
         id: 'sigEdge1',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100040,
         status: 'success',
         timestamp: Date.now(),
@@ -815,7 +814,7 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
         currency: 'SOL',
         from: EXTERNAL_ADDRESS,
         id: 'sigEdge2',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100041,
         status: 'success',
         timestamp: Date.now(),
@@ -853,7 +852,7 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
         currency: 'SOL',
         from: EXTERNAL_ADDRESS,
         id: 'sigEdge3',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100042,
         status: 'success',
         timestamp: Date.now(),
@@ -891,7 +890,7 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
         currency: 'SOL',
         from: EXTERNAL_ADDRESS,
         id: 'sigEdge4',
-        providerId: 'helius',
+        providerName: 'helius',
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
@@ -929,7 +928,7 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
         feeAmount: '0.000005',
         from: EXTERNAL_ADDRESS,
         id: 'sig1',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100050,
         status: 'success',
         timestamp: Date.now(),
@@ -948,7 +947,7 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
         feeAmount: '0.000005',
         from: USER_ADDRESS,
         id: 'sig2',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100051,
         status: 'success',
         timestamp: Date.now() + 1000,
@@ -990,7 +989,7 @@ describe('SolanaTransactionProcessor - Classification Uncertainty', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sigComplex2',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100060,
         status: 'success',
         timestamp: Date.now(),
@@ -1055,7 +1054,7 @@ describe('SolanaTransactionProcessor - Classification Uncertainty', () => {
           { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' },
           { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' },
         ],
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100061,
         status: 'success',
         timestamp: Date.now(),
@@ -1102,7 +1101,7 @@ describe('SolanaTransactionProcessor - Blockchain Metadata', () => {
         feeCurrency: 'SOL',
         from: EXTERNAL_ADDRESS,
         id: 'sigMeta1',
-        providerId: 'helius',
+        providerName: 'helius',
         signature: 'sigMeta1abc',
         slot: 100000,
         status: 'success',
@@ -1131,7 +1130,7 @@ describe('SolanaTransactionProcessor - Blockchain Metadata', () => {
     expect(transaction.metadata?.slot).toBe(100000);
     expect(transaction.metadata?.blockId).toBe('block123');
     expect(transaction.metadata?.computeUnitsUsed).toBe(150000);
-    expect(transaction.metadata?.providerId).toBe('helius');
+    expect(transaction.metadata?.providerName).toBe('helius');
   });
 });
 
@@ -1158,8 +1157,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
             return ok();
           }
         ),
-      // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
-      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+      getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
     } as unknown as ITokenMetadataService;
 
     const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
@@ -1173,7 +1171,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sigEnrich1',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100000,
         status: 'success',
         timestamp: Date.now(),
@@ -1214,7 +1212,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sigNoEnrich1',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100000,
         status: 'success',
         timestamp: Date.now(),
@@ -1245,8 +1243,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
   test('does not enrich symbols that are already human-readable', async () => {
     const mockTokenMetadataService = {
       enrichBatch: vi.fn().mockResolvedValue(ok()),
-      // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
-      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+      getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
     } as unknown as ITokenMetadataService;
 
     const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
@@ -1260,7 +1257,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sigHumanReadable1',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100000,
         status: 'success',
         timestamp: Date.now(),
@@ -1292,8 +1289,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
   test('handles service errors gracefully', async () => {
     const mockTokenMetadataService = {
       enrichBatch: vi.fn().mockResolvedValue(ok()),
-      // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
-      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+      getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
     } as unknown as ITokenMetadataService;
 
     const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
@@ -1307,7 +1303,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sigRepoError1',
-        providerId: 'helius',
+        providerName: 'helius',
         slot: 100000,
         status: 'success',
         timestamp: Date.now(),

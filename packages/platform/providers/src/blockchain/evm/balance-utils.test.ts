@@ -104,11 +104,11 @@ describe('balance-utils', () => {
 
   describe('isNativeToken', () => {
     it('should return true for null address', () => {
-      expect(isNativeToken()).toBe(true);
+      expect(isNativeToken(void 0)).toBe(true);
     });
 
     it('should return true for undefined address', () => {
-      expect(isNativeToken()).toBe(true);
+      expect(isNativeToken(void 0)).toBe(true);
     });
 
     it('should return true for zero address (full)', () => {
@@ -147,8 +147,8 @@ describe('balance-utils', () => {
       const result = filterNonZeroBalances(balances);
 
       expect(result).toHaveLength(2);
-      expect(result[0].symbol).toBe('ETH');
-      expect(result[1].symbol).toBe('USDC');
+      expect(result[0]?.symbol).toBe('ETH');
+      expect(result[1]?.symbol).toBe('USDC');
     });
 
     it('should return empty array when all balances are zero', () => {
@@ -207,8 +207,8 @@ describe('balance-utils', () => {
       const result = filterByContractAddresses(balances, ['0xabc', '0x123']);
 
       expect(result).toHaveLength(2);
-      expect(result[0].symbol).toBe('ETH');
-      expect(result[1].symbol).toBe('USDC');
+      expect(result[0]?.symbol).toBe('ETH');
+      expect(result[1]?.symbol).toBe('USDC');
     });
 
     it('should return empty array when no addresses match', () => {
@@ -260,7 +260,7 @@ describe('balance-utils', () => {
       const result = filterByContractAddresses(balances, ['0xabc']);
 
       expect(result).toHaveLength(1);
-      expect(result[0].symbol).toBe('ETH');
+      expect(result[0]?.symbol).toBe('ETH');
     });
 
     it('should preserve all object properties', () => {

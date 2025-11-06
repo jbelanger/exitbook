@@ -204,14 +204,14 @@ export class BitcoinTransactionImporter implements IImporter {
     return result.map((response) => {
       // ✅ NEW: API client returns TransactionWithRawData { raw, normalized }
       const transactionsWithRaw = response.data as TransactionWithRawData<BitcoinTransaction>[];
-      const providerId = response.providerName;
+      const providerName = response.providerName;
 
       // ✅ NEW: Both raw and normalized data are already available
       return transactionsWithRaw.map((txWithRaw) => ({
         rawData: txWithRaw.raw, // Original provider response
         normalizedData: txWithRaw.normalized, // Already validated + normalized
         metadata: {
-          providerId,
+          providerName,
           sourceAddress: address,
         },
       }));
@@ -263,7 +263,7 @@ export class BlockstreamApiClient extends BaseApiClient {
         const mapResult = this.mapper.map(
           rawTx,
           {
-            providerId: 'blockstream.info',
+            providerName: 'blockstream.info',
             sourceAddress: address,
           },
           {}
@@ -621,7 +621,7 @@ export interface ExternalTransactionDataTable {
   processing_status: ProcessingStatus;
   processed_at: DateTime | null;
   processing_error: string | null;
-  provider_id: string | null;
+  provider_name: string | null;
 }
 ```
 
@@ -660,14 +660,14 @@ export type PaginationCursor =
   | { type: 'blockNumber'; value: number } // Cross-provider compatible
   | { type: 'timestamp'; value: number } // Cross-provider compatible
   | { type: 'txHash'; value: string } // Cross-provider compatible (same chain)
-  | { type: 'pageToken'; value: string; providerId: string }; // Provider-locked
+  | { type: 'pageToken'; value: string; providerName: string }; // Provider-locked
 
 // NEW: Normalized + raw data pair with deduplication
 export interface NormalizedRawPair {
   normalized: unknown; // Provider-specific normalized format
   raw: unknown; // Original API response
   metadata?: Record<string, unknown>;
-  dedupKey: string; // Canonical dedup identity: `${providerId}:${txHash}:${index}`
+  dedupKey: string; // Canonical dedup identity: `${providerName}:${txHash}:${index}`
 }
 
 // UPDATED: Import result with pagination
@@ -684,7 +684,7 @@ export interface ImportRunResult {
 export interface ImportParams {
   address?: string;
   csvDirectories?: string[];
-  providerId?: string;
+  providerName?: string;
 
   // NEW: Pagination support (server-controlled cursors only)
   cursor?: PaginationCursor; // Computed by server from session state
@@ -1006,7 +1006,7 @@ export class BitcoinTransactionImporter implements IImporter {
     return result.map((response) => {
       const paginatedResponse = response.data as PaginatedProviderResponse<unknown[]>;
       const rawTransactions = paginatedResponse.data;
-      const providerId = response.providerName;
+      const providerName = response.providerName;
 
       const normalizedPairs: NormalizedRawPair[] = [];
 
@@ -1022,7 +1022,7 @@ export class BitcoinTransactionImporter implements IImporter {
         // Normalize
         const normalizeResult = this.normalizer.normalize(
           validatedResult.data,
-          { providerId, sourceAddress: address },
+          { providerName, sourceAddress: address },
           { address }
         );
 
@@ -1030,11 +1030,11 @@ export class BitcoinTransactionImporter implements IImporter {
           // Handle skip vs error semantics
           if (normalizeResult.error.type === 'skip') {
             // SKIP: Save raw for observability, log reason, continue
-            const skipDedupKey = `${providerId}:skip:${this.getTransactionId(rawTx)}`;
+            const skipDedupKey = `${providerName}:skip:${this.getTransactionId(rawTx)}`;
             normalizedPairs.push({
               normalized: null, // Mark as skipped
               raw: rawTx,
-              metadata: { providerId, sourceAddress: address, skipReason: normalizeResult.error.reason },
+              metadata: { providerName, sourceAddress: address, skipReason: normalizeResult.error.reason },
               dedupKey: skipDedupKey,
             });
             this.logger.debug(`Skipped transaction: ${normalizeResult.error.reason}`);
@@ -1047,12 +1047,12 @@ export class BitcoinTransactionImporter implements IImporter {
 
         // 3. Store pair with dedup key
         const txId = this.getTransactionId(validatedResult.data);
-        const dedupKey = `${providerId}:${txId}:${rawTransactions.indexOf(rawTx)}`;
+        const dedupKey = `${providerName}:${txId}:${rawTransactions.indexOf(rawTx)}`;
 
         normalizedPairs.push({
           normalized: normalizeResult.value,
           raw: rawTx,
-          metadata: { providerId, sourceAddress: address },
+          metadata: { providerName, sourceAddress: address },
           dedupKey,
         });
       }
@@ -1163,7 +1163,7 @@ async importFromSource(
   const sessionIdResult = await this.sessionRepository.create(
     sourceId,
     sourceType,
-    params.providerId,
+    params.providerName,
     params,
     expectedTotalCount  // ✨ NEW - store expected count
   );
@@ -1180,7 +1180,7 @@ async importFromSource(
     const importer = await this.importerFactory.create(
       sourceId,
       sourceType,
-      params.providerId
+      params.providerName
     );
 
     // Fetch + normalize one page
@@ -1385,7 +1385,7 @@ async processRawDataToTransactions(
 
 1. ✅ Update Bitcoin importer with normalization
 2. ✅ Add Zod validation step (use existing schemas)
-3. ✅ Generate `dedupKey` for each transaction: `${providerId}:${txHash}:${index}`
+3. ✅ Generate `dedupKey` for each transaction: `${providerName}:${txHash}:${index}`
 4. ✅ Handle skip vs error semantics (skip saves raw, error fails page)
 5. ✅ Return `NormalizedRawPair[]` with typed pagination cursor
 6. ✅ Extract cursor from response and type it correctly
@@ -1679,7 +1679,7 @@ This plan incorporates feedback from an architectural review that validated the 
 
 2. **Deduplication Contract**
    - Original plan: Implicit dedup via external_id
-   - Enhanced: Explicit `dedupKey` field with canonical format: `${providerId}:${txHash}:${index}`
+   - Enhanced: Explicit `dedupKey` field with canonical format: `${providerName}:${txHash}:${index}`
    - Impact: Prevents duplicates across provider switches and re-imports
 
 3. **Skip vs Error Semantics**
@@ -1723,7 +1723,7 @@ These contracts must hold for the refactoring to be considered successful:
 **Deduplication Contract:**
 
 ```
-- Every normalized item has a canonical dedupKey: `${providerId}:${txHash}:${index}`
+- Every normalized item has a canonical dedupKey: `${providerName}:${txHash}:${index}`
 - Database enforces uniqueness on dedupKey (UNIQUE index)
 - Retries/re-imports are idempotent (upsert on conflict)
 ```

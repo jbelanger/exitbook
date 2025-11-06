@@ -188,14 +188,14 @@ describe('receipt-utils', () => {
           category: 'external',
           from: '0xsender',
           hash: '0xhash1',
-          metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         },
         {
           blockNum: '0x123457',
           category: 'erc20',
           from: '0xsender',
           hash: '0xhash2',
-          metadata: { blockTimestamp: '2024-01-01T00:01:00Z' },
+          metadata: { blockTimestamp: new Date('2024-01-01T00:01:00Z') },
         },
       ];
 
@@ -236,13 +236,13 @@ describe('receipt-utils', () => {
 
       mergeReceiptsIntoTransfers(transfers, receipts, 'ETH');
 
-      expect(transfers[0]._gasUsed).toBe('21000');
-      expect(transfers[0]._effectiveGasPrice).toBe('50000000000');
-      expect(transfers[0]._nativeCurrency).toBe('ETH');
+      expect(transfers[0]?._gasUsed).toBe('21000');
+      expect(transfers[0]?._effectiveGasPrice).toBe('50000000000');
+      expect(transfers[0]?._nativeCurrency).toBe('ETH');
 
-      expect(transfers[1]._gasUsed).toBe('45000');
-      expect(transfers[1]._effectiveGasPrice).toBe('60000000000');
-      expect(transfers[1]._nativeCurrency).toBe('ETH');
+      expect(transfers[1]?._gasUsed).toBe('45000');
+      expect(transfers[1]?._effectiveGasPrice).toBe('60000000000');
+      expect(transfers[1]?._nativeCurrency).toBe('ETH');
     });
 
     it('should not modify transfers without matching receipts', () => {
@@ -252,14 +252,14 @@ describe('receipt-utils', () => {
           category: 'external',
           from: '0xsender',
           hash: '0xhash1',
-          metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         },
         {
           blockNum: '0x123457',
           category: 'erc20',
           from: '0xsender',
           hash: '0xhash2',
-          metadata: { blockTimestamp: '2024-01-01T00:01:00Z' },
+          metadata: { blockTimestamp: new Date('2024-01-01T00:01:00Z') },
         },
       ];
 
@@ -284,12 +284,12 @@ describe('receipt-utils', () => {
 
       mergeReceiptsIntoTransfers(transfers, receipts, 'ETH');
 
-      expect(transfers[0]._gasUsed).toBe('21000');
-      expect(transfers[0]._nativeCurrency).toBe('ETH');
+      expect(transfers[0]?._gasUsed).toBe('21000');
+      expect(transfers[0]?._nativeCurrency).toBe('ETH');
 
-      expect(transfers[1]._gasUsed).toBeUndefined();
-      expect(transfers[1]._effectiveGasPrice).toBeUndefined();
-      expect(transfers[1]._nativeCurrency).toBeUndefined();
+      expect(transfers[1]?._gasUsed).toBeUndefined();
+      expect(transfers[1]?._effectiveGasPrice).toBeUndefined();
+      expect(transfers[1]?._nativeCurrency).toBeUndefined();
     });
 
     it('should handle empty receipts map', () => {
@@ -299,7 +299,7 @@ describe('receipt-utils', () => {
           category: 'external',
           from: '0xsender',
           hash: '0xhash1',
-          metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         },
       ];
 
@@ -307,9 +307,9 @@ describe('receipt-utils', () => {
 
       mergeReceiptsIntoTransfers(transfers, receipts, 'ETH');
 
-      expect(transfers[0]._gasUsed).toBeUndefined();
-      expect(transfers[0]._effectiveGasPrice).toBeUndefined();
-      expect(transfers[0]._nativeCurrency).toBeUndefined();
+      expect(transfers[0]?._gasUsed).toBeUndefined();
+      expect(transfers[0]?._effectiveGasPrice).toBeUndefined();
+      expect(transfers[0]?._nativeCurrency).toBeUndefined();
     });
 
     it('should handle empty transfers array', () => {
@@ -326,7 +326,7 @@ describe('receipt-utils', () => {
           category: 'external',
           from: '0xsender',
           hash: '0xhash1',
-          metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         },
       ];
 
@@ -350,9 +350,9 @@ describe('receipt-utils', () => {
 
       mergeReceiptsIntoTransfers(transfers, receipts, 'ETH');
 
-      expect(transfers[0]._gasUsed).toBe('21000');
-      expect(transfers[0]._effectiveGasPrice).toBe('0');
-      expect(transfers[0]._nativeCurrency).toBe('ETH');
+      expect(transfers[0]?._gasUsed).toBe('21000');
+      expect(transfers[0]?._effectiveGasPrice).toBe('0');
+      expect(transfers[0]?._nativeCurrency).toBe('ETH');
     });
 
     it('should handle different native currencies', () => {
@@ -362,7 +362,7 @@ describe('receipt-utils', () => {
           category: 'external',
           from: '0xsender',
           hash: '0xhash1',
-          metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         },
       ];
 
@@ -387,7 +387,7 @@ describe('receipt-utils', () => {
 
       mergeReceiptsIntoTransfers(transfers, receipts, 'MATIC');
 
-      expect(transfers[0]._nativeCurrency).toBe('MATIC');
+      expect(transfers[0]?._nativeCurrency).toBe('MATIC');
     });
 
     it('should modify transfers in place', () => {
@@ -397,7 +397,7 @@ describe('receipt-utils', () => {
           category: 'external',
           from: '0xsender',
           hash: '0xhash1',
-          metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         },
       ];
 
@@ -425,7 +425,7 @@ describe('receipt-utils', () => {
       mergeReceiptsIntoTransfers(transfers, receipts, 'ETH');
 
       expect(transfers[0]).toBe(originalTransfer);
-      expect(originalTransfer._gasUsed).toBe('21000');
+      expect(originalTransfer?._gasUsed).toBe('21000');
     });
 
     it('should handle multiple transfers with same hash', () => {
@@ -435,14 +435,14 @@ describe('receipt-utils', () => {
           category: 'external',
           from: '0xsender1',
           hash: '0xhash1',
-          metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         },
         {
           blockNum: '0x123456',
           category: 'internal',
           from: '0xsender2',
           hash: '0xhash1',
-          metadata: { blockTimestamp: '2024-01-01T00:00:00Z' },
+          metadata: { blockTimestamp: new Date('2024-01-01T00:00:00Z') },
         },
       ];
 
@@ -467,10 +467,10 @@ describe('receipt-utils', () => {
 
       mergeReceiptsIntoTransfers(transfers, receipts, 'ETH');
 
-      expect(transfers[0]._gasUsed).toBe('21000');
-      expect(transfers[1]._gasUsed).toBe('21000');
-      expect(transfers[0]._nativeCurrency).toBe('ETH');
-      expect(transfers[1]._nativeCurrency).toBe('ETH');
+      expect(transfers[0]?._gasUsed).toBe('21000');
+      expect(transfers[1]?._gasUsed).toBe('21000');
+      expect(transfers[0]?._nativeCurrency).toBe('ETH');
+      expect(transfers[1]?._nativeCurrency).toBe('ETH');
     });
   });
 });

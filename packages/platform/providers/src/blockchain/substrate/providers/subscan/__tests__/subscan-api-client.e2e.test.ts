@@ -95,13 +95,13 @@ describe('SubscanApiClient Integration', () => {
         expect(normalized).toHaveProperty('currency');
         expect(normalized).toHaveProperty('timestamp');
         expect(normalized).toHaveProperty('status');
-        expect(normalized).toHaveProperty('providerId');
+        expect(normalized).toHaveProperty('providerName');
         expect(normalized).toHaveProperty('feeAmount');
         expect(normalized).toHaveProperty('feeCurrency');
 
         expect(normalized.currency).toBe('DOT');
         expect(normalized.feeCurrency).toBe('DOT');
-        expect(normalized.providerId).toBe('subscan');
+        expect(normalized.providerName).toBe('subscan');
         expect(normalized.chainName).toBe('polkadot');
         expect(['success', 'failed']).toContain(normalized.status);
         expect(typeof normalized.amount).toBe('string');

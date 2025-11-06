@@ -48,8 +48,7 @@ export function createMockDataSourceRepository(): Mocked<IDataSourceRepository> 
 export function createMockTokenMetadataService(): Mocked<ITokenMetadataService> {
   return {
     enrichBatch: vi.fn().mockResolvedValue(ok()),
-    // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
-    getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+    getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
   } as unknown as Mocked<ITokenMetadataService>;
 }
 

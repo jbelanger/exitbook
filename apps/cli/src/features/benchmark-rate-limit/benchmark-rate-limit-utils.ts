@@ -61,8 +61,7 @@ export function parseNumRequests(numRequests?: string): Result<number, Error> {
  */
 export function parseCustomRates(rates?: string): Result<number[] | undefined, Error> {
   if (!rates) {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for clarity
-    return ok(undefined);
+    return ok(void 0);
   }
 
   const parsed = rates.split(',').map((r) => parseFloat(r.trim()));

@@ -35,8 +35,7 @@ describe('command-execution', () => {
       expect(unwrapResult(ok(123))).toBe(123);
       expect(unwrapResult(ok({ key: 'value' }))).toEqual({ key: 'value' });
       expect(unwrapResult(ok(['array', 'items']))).toEqual(['array', 'items']);
-      // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined is returned
-      expect(unwrapResult(ok(undefined))).toBe(undefined);
+      expect(unwrapResult(ok(void 0))).toBe(undefined);
     });
   });
 

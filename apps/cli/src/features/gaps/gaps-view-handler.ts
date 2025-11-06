@@ -1,18 +1,22 @@
 // Handler for gaps view command
 
+import type { TransactionLinkRepository } from '@exitbook/accounting';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import type { GapsViewParams, GapsViewResult } from './gaps-view-utils.js';
-import { analyzeFeeGaps } from './gaps-view-utils.js';
+import { analyzeFeeGaps, analyzeLinkGaps } from './gaps-view-utils.js';
 
 /**
  * Handler for viewing data quality gaps.
  */
 export class GapsViewHandler {
-  constructor(private readonly txRepo: TransactionRepository) {}
+  constructor(
+    private readonly txRepo: TransactionRepository,
+    private readonly linkRepo: TransactionLinkRepository
+  ) {}
 
   /**
    * Execute the gaps view command.
@@ -38,7 +42,7 @@ export class GapsViewHandler {
         case 'prices':
           return err(new Error('Price gap analysis not yet implemented'));
         case 'links':
-          return err(new Error('Link gap analysis not yet implemented'));
+          return this.analyzeLinks(transactions);
         case 'validation':
           return err(new Error('Validation gap analysis not yet implemented'));
         default:
@@ -61,6 +65,23 @@ export class GapsViewHandler {
 
     const result: GapsViewResult = {
       category: 'fees',
+      analysis,
+    };
+
+    return ok(result);
+  }
+
+  private async analyzeLinks(transactions: UniversalTransaction[]): Promise<Result<GapsViewResult, Error>> {
+    const linksResult = await this.linkRepo.findAll();
+
+    if (linksResult.isErr()) {
+      return err(linksResult.error);
+    }
+
+    const analysis = analyzeLinkGaps(transactions, linksResult.value);
+
+    const result: GapsViewResult = {
+      category: 'links',
       analysis,
     };
 

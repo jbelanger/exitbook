@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- acceptable for tests */
 import type { UniversalTransaction } from '@exitbook/core';
+import { Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -9,17 +9,17 @@ describe('parseDate', () => {
   it('should parse valid ISO date string', () => {
     const result = parseDate('2024-01-01');
     expect(result).toBeInstanceOf(Date);
-    expect(result.getFullYear()).toBe(2024);
-    expect(result.getMonth()).toBe(0); // January
-    expect(result.getDate()).toBe(1);
+    expect(result.getUTCFullYear()).toBe(2024);
+    expect(result.getUTCMonth()).toBe(0); // January
+    expect(result.getUTCDate()).toBe(1);
   });
 
   it('should parse ISO date with time', () => {
     const result = parseDate('2024-01-01T12:30:45Z');
     expect(result).toBeInstanceOf(Date);
-    expect(result.getHours()).toBe(12);
-    expect(result.getMinutes()).toBe(30);
-    expect(result.getSeconds()).toBe(45);
+    expect(result.getUTCHours()).toBe(12);
+    expect(result.getUTCMinutes()).toBe(30);
+    expect(result.getUTCSeconds()).toBe(45);
   });
 
   it('should parse date with timezone offset', () => {
@@ -57,36 +57,36 @@ describe('parseDate', () => {
   it('should parse leap year date', () => {
     const result = parseDate('2024-02-29');
     expect(result).toBeInstanceOf(Date);
-    expect(result.getMonth()).toBe(1); // February
-    expect(result.getDate()).toBe(29);
+    expect(result.getUTCMonth()).toBe(1); // February
+    expect(result.getUTCDate()).toBe(29);
   });
 
   it('should auto-correct invalid dates like non-leap year Feb 29', () => {
     // JavaScript Date constructor auto-corrects invalid dates
     // 2023-02-29 becomes 2023-03-01
     const result = parseDate('2023-02-29');
-    expect(result.getMonth()).toBe(2); // March
-    expect(result.getDate()).toBe(1);
+    expect(result.getUTCMonth()).toBe(2); // March
+    expect(result.getUTCDate()).toBe(1);
   });
 
   it('should parse dates far in the past', () => {
     const result = parseDate('1900-01-01');
     expect(result).toBeInstanceOf(Date);
-    expect(result.getFullYear()).toBe(1900);
+    expect(result.getUTCFullYear()).toBe(1900);
   });
 
   it('should parse dates far in the future', () => {
     const result = parseDate('2100-12-31');
     expect(result).toBeInstanceOf(Date);
-    expect(result.getFullYear()).toBe(2100);
+    expect(result.getUTCFullYear()).toBe(2100);
   });
 
   it('should handle short date format', () => {
     const result = parseDate('2024-1-1');
     expect(result).toBeInstanceOf(Date);
-    expect(result.getFullYear()).toBe(2024);
-    expect(result.getMonth()).toBe(0);
-    expect(result.getDate()).toBe(1);
+    expect(result.getUTCFullYear()).toBe(2024);
+    expect(result.getUTCMonth()).toBe(0);
+    expect(result.getUTCDate()).toBe(1);
   });
 });
 
@@ -219,10 +219,7 @@ describe('getAllMovements', () => {
       inflows: [
         {
           asset: 'BTC',
-          quantity: new Decimal('1'),
-          quantityUsd: new Decimal('50000'),
-          priceUsd: new Decimal('50000'),
-          location: 'kraken',
+          grossAmount: new Decimal('1'),
         },
       ],
       outflows: [],
@@ -232,7 +229,7 @@ describe('getAllMovements', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]!.asset).toBe('BTC');
-    expect(result[0]!.quantity.toFixed()).toBe('1');
+    expect(result[0]!.grossAmount.toFixed()).toBe('1');
   });
 
   it('should return only outflows when no inflows', () => {
@@ -241,10 +238,7 @@ describe('getAllMovements', () => {
       outflows: [
         {
           asset: 'BTC',
-          quantity: new Decimal('1'),
-          quantityUsd: new Decimal('50000'),
-          priceUsd: new Decimal('50000'),
-          location: 'kraken',
+          grossAmount: new Decimal('1'),
         },
       ],
     };
@@ -253,7 +247,7 @@ describe('getAllMovements', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]!.asset).toBe('BTC');
-    expect(result[0]!.quantity.toFixed()).toBe('1');
+    expect(result[0]!.grossAmount.toFixed()).toBe('1');
   });
 
   it('should combine inflows and outflows', () => {
@@ -261,19 +255,13 @@ describe('getAllMovements', () => {
       inflows: [
         {
           asset: 'BTC',
-          quantity: new Decimal('1'),
-          quantityUsd: new Decimal('50000'),
-          priceUsd: new Decimal('50000'),
-          location: 'wallet',
+          grossAmount: new Decimal('1'),
         },
       ],
       outflows: [
         {
           asset: 'BTC',
-          quantity: new Decimal('0.5'),
-          quantityUsd: new Decimal('25000'),
-          priceUsd: new Decimal('50000'),
-          location: 'kraken',
+          grossAmount: new Decimal('0.5'),
         },
       ],
     };
@@ -282,11 +270,9 @@ describe('getAllMovements', () => {
 
     expect(result).toHaveLength(2);
     expect(result[0]!.asset).toBe('BTC');
-    expect(result[0]!.quantity.toFixed()).toBe('1');
-    expect(result[0]!.location).toBe('wallet');
+    expect(result[0]!.grossAmount.toFixed()).toBe('1');
     expect(result[1]!.asset).toBe('BTC');
-    expect(result[1]!.quantity.toFixed()).toBe('0.5');
-    expect(result[1]!.location).toBe('kraken');
+    expect(result[1]!.grossAmount.toFixed()).toBe('0.5');
   });
 
   it('should handle multiple inflows and outflows', () => {
@@ -294,33 +280,21 @@ describe('getAllMovements', () => {
       inflows: [
         {
           asset: 'BTC',
-          quantity: new Decimal('1'),
-          quantityUsd: new Decimal('50000'),
-          priceUsd: new Decimal('50000'),
-          location: 'wallet1',
+          grossAmount: new Decimal('1'),
         },
         {
           asset: 'ETH',
-          quantity: new Decimal('10'),
-          quantityUsd: new Decimal('30000'),
-          priceUsd: new Decimal('3000'),
-          location: 'wallet2',
+          grossAmount: new Decimal('10'),
         },
       ],
       outflows: [
         {
           asset: 'USD',
-          quantity: new Decimal('80000'),
-          quantityUsd: new Decimal('80000'),
-          priceUsd: new Decimal('1'),
-          location: 'bank',
+          grossAmount: new Decimal('80000'),
         },
         {
           asset: 'BTC',
-          quantity: new Decimal('0.1'),
-          quantityUsd: new Decimal('5000'),
-          priceUsd: new Decimal('50000'),
-          location: 'fee',
+          grossAmount: new Decimal('0.1'),
         },
       ],
     };
@@ -340,10 +314,7 @@ describe('getAllMovements', () => {
       outflows: [
         {
           asset: 'BTC',
-          quantity: new Decimal('1'),
-          quantityUsd: new Decimal('50000'),
-          priceUsd: new Decimal('50000'),
-          location: 'kraken',
+          grossAmount: new Decimal('1'),
         },
       ],
     };
@@ -359,10 +330,7 @@ describe('getAllMovements', () => {
       inflows: [
         {
           asset: 'BTC',
-          quantity: new Decimal('1'),
-          quantityUsd: new Decimal('50000'),
-          priceUsd: new Decimal('50000'),
-          location: 'kraken',
+          grossAmount: new Decimal('1'),
         },
       ],
       outflows: undefined,
@@ -390,12 +358,16 @@ describe('getAllMovements', () => {
       inflows: [
         {
           asset: 'BTC',
-          quantity: new Decimal('1.23456789'),
-          quantityUsd: new Decimal('50000.12345'),
-          priceUsd: new Decimal('40500.5'),
-          location: 'my-wallet',
-          feeAmount: new Decimal('0.001'),
-          tags: ['trade', 'important'],
+          grossAmount: new Decimal('1.23456789'),
+          netAmount: new Decimal('1.23356789'),
+          priceAtTxTime: {
+            price: {
+              amount: new Decimal('40500.5'),
+              currency: Currency.create('USD'),
+            },
+            source: 'test-provider',
+            fetchedAt: new Date('2024-01-01'),
+          },
         },
       ],
       outflows: [],
@@ -404,22 +376,16 @@ describe('getAllMovements', () => {
     const result = getAllMovements(movements);
 
     expect(result[0]!.asset).toBe('BTC');
-    expect(result[0]!.quantity.toFixed()).toBe('1.23456789');
-    expect(result[0]!.quantityUsd?.toFixed()).toBe('50000.12345');
-    expect(result[0]!.priceUsd?.toFixed()).toBe('40500.5');
-    expect(result[0]!.location).toBe('my-wallet');
-    expect(result[0]!.feeAmount?.toFixed()).toBe('0.001');
-    expect(result[0]!.tags).toEqual(['trade', 'important']);
+    expect(result[0]!.grossAmount.toFixed()).toBe('1.23456789');
+    expect(result[0]!.netAmount?.toFixed()).toBe('1.23356789');
+    expect(result[0]!.priceAtTxTime?.price.amount.toFixed()).toBe('40500.5');
   });
 
   it('should not modify original movements arrays', () => {
     const inflows = [
       {
         asset: 'BTC',
-        quantity: new Decimal('1'),
-        quantityUsd: new Decimal('50000'),
-        priceUsd: new Decimal('50000'),
-        location: 'kraken',
+        grossAmount: new Decimal('1'),
       },
     ];
     const movements: UniversalTransaction['movements'] = {

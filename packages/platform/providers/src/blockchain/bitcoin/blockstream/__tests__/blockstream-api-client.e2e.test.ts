@@ -62,7 +62,7 @@ describe('BlockstreamApiClient E2E', () => {
         expect(tx.id).toBeDefined();
         expect(typeof tx.id).toBe('string');
         expect(tx.currency).toBe('BTC');
-        expect(tx.providerId).toBe('blockstream.info');
+        expect(tx.providerName).toBe('blockstream.info');
         expect(Array.isArray(tx.inputs)).toBe(true);
         expect(Array.isArray(tx.outputs)).toBe(true);
       }

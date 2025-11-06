@@ -70,7 +70,7 @@ describe('Decimal Utilities', () => {
     it('should work without out parameter', () => {
       expect(tryParseDecimal('123.456')).toBe(true);
       expect(tryParseDecimal('invalid')).toBe(false);
-      expect(tryParseDecimal()).toBe(true);
+      expect(tryParseDecimal(void 0)).toBe(true);
     });
 
     it('should handle negative numbers', () => {
@@ -119,7 +119,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should return zero for undefined', () => {
-      const result = parseDecimal();
+      const result = parseDecimal(void 0);
       expect(result.isZero()).toBe(true);
     });
 
@@ -226,7 +226,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should return zero for undefined', () => {
-      const result = moneyToNumber();
+      const result = moneyToNumber(void 0);
 
       expect(result).toBe(0);
     });
@@ -441,13 +441,13 @@ describe('Decimal Utilities', () => {
     });
 
     it('should return true when both are undefined', () => {
-      expect(moneyEquals()).toBe(true);
+      expect(moneyEquals(void 0, void 0)).toBe(true);
     });
 
     it('should return false when one is undefined', () => {
       const money = createMoney('100', 'USD');
 
-      expect(moneyEquals(money)).toBe(false);
+      expect(moneyEquals(money, void 0)).toBe(false);
       expect(moneyEquals(undefined, money)).toBe(false);
     });
 
@@ -488,7 +488,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should return true for undefined', () => {
-      expect(isZeroMoney()).toBe(true);
+      expect(isZeroMoney(void 0)).toBe(true);
     });
 
     it('should return false for non-zero money', () => {
@@ -525,7 +525,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should return undefined for undefined input', () => {
-      const result = decimalToString();
+      const result = decimalToString(void 0);
 
       expect(result).toBeUndefined();
     });
@@ -576,7 +576,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should return zero for undefined', () => {
-      const result = stringToDecimal();
+      const result = stringToDecimal(void 0);
 
       expect(result.isZero()).toBe(true);
     });
@@ -621,7 +621,7 @@ describe('Decimal Utilities', () => {
     });
 
     it('should return undefined for undefined Money', () => {
-      const result = moneyToDbString();
+      const result = moneyToDbString(void 0);
 
       expect(result).toBeUndefined();
     });

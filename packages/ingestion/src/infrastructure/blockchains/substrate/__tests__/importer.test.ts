@@ -186,7 +186,7 @@ describe('SubstrateImporter', () => {
 
         // Verify first transaction
         expect(result.value.rawTransactions[0]).toMatchObject({
-          providerId: 'subscan',
+          providerName: 'subscan',
           sourceAddress: address,
           normalizedData: mockSubstrateTx1,
           rawData: { original: 'data1' },
@@ -195,7 +195,7 @@ describe('SubstrateImporter', () => {
 
         // Verify second transaction
         expect(result.value.rawTransactions[1]).toMatchObject({
-          providerId: 'subscan',
+          providerName: 'subscan',
           sourceAddress: address,
           normalizedData: mockSubstrateTx2,
           rawData: { original: 'data2' },
@@ -516,8 +516,8 @@ describe('SubstrateImporter', () => {
       expect(bittensorResult.isOk()).toBe(true);
 
       if (polkadotResult.isOk() && bittensorResult.isOk()) {
-        expect(polkadotResult.value.rawTransactions[0]!.providerId).toBe('subscan');
-        expect(bittensorResult.value.rawTransactions[0]!.providerId).toBe('taostats');
+        expect(polkadotResult.value.rawTransactions[0]!.providerName).toBe('subscan');
+        expect(bittensorResult.value.rawTransactions[0]!.providerName).toBe('taostats');
       }
     });
   });
@@ -636,7 +636,7 @@ describe('SubstrateImporter', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.rawTransactions[0]!.providerId).toBe('custom-provider');
+        expect(result.value.rawTransactions[0]!.providerName).toBe('custom-provider');
       }
     });
   });

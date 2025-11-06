@@ -137,7 +137,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
             hasSwaps: fundFlow.hasSwaps,
             hasTokenTransfers: fundFlow.hasTokenTransfers,
             instructionCount: fundFlow.instructionCount,
-            providerId: normalizedTx.providerId,
+            providerName: normalizedTx.providerName,
             signature: normalizedTx.signature,
             slot: normalizedTx.slot,
             tokenAddress: fundFlow.primary.tokenAddress,

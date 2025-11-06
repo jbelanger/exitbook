@@ -37,8 +37,8 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         query = query.where('data_source_id', '=', filters.dataSourceId);
       }
 
-      if (filters?.providerId) {
-        query = query.where('provider_id', '=', filters.providerId);
+      if (filters?.providerName) {
+        query = query.where('provider_name', '=', filters.providerName);
       }
 
       if (filters?.processingStatus) {
@@ -117,7 +117,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             data_source_id: dataSourceId,
             normalized_data: JSON.stringify(item.normalizedData),
             processing_status: 'pending',
-            provider_id: item.providerId,
+            provider_name: item.providerName,
             source_address: item.sourceAddress ?? null,
             transaction_type_hint: item.transactionTypeHint ?? null,
             raw_data: JSON.stringify(item.rawData),
@@ -166,7 +166,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
               data_source_id: dataSourceId,
               normalized_data: JSON.stringify(item.normalizedData),
               processing_status: 'pending',
-              provider_id: item.providerId,
+              provider_name: item.providerName,
               source_address: item.sourceAddress ?? null,
               transaction_type_hint: item.transactionTypeHint ?? null,
               raw_data: JSON.stringify(item.rawData),
@@ -337,15 +337,15 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       return err(normalizedDataResult.error);
     }
 
-    // providerId is required in the domain model
-    if (!row.provider_id) {
-      return err(new Error('Missing required provider_id field'));
+    // providerName is required in the domain model
+    if (!row.provider_name) {
+      return err(new Error('Missing required provider_name field'));
     }
 
     return ok({
       id: row.id,
       dataSourceId: row.data_source_id,
-      providerId: row.provider_id,
+      providerName: row.provider_name,
       sourceAddress: row.source_address ?? undefined,
       transactionTypeHint: row.transaction_type_hint ?? undefined,
       externalId: row.external_id,

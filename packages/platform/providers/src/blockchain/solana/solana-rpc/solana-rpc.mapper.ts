@@ -70,7 +70,7 @@ export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCTrans
 
       // Log messages
       logMessages: tx.meta.logMessages || [],
-      providerId: 'solana-rpc',
+      providerName: 'solana-rpc',
       signature,
       slot: tx.slot,
       status: tx.meta.err ? 'failed' : 'success',

@@ -234,7 +234,7 @@ describe('ThetaExplorerTransactionMapper', () => {
         expect(normalized.to).toBe('0x3b2cf117129bb01c47d51557e6efdbe3ae3637c4');
         expect(normalized.blockHeight).toBe(30599571);
         expect(normalized.timestamp).toBe(1752686427000); // milliseconds
-        expect(normalized.providerId).toBe('theta-explorer');
+        expect(normalized.providerName).toBe('theta-explorer');
         expect(normalized.status).toBe('success');
       }
     });

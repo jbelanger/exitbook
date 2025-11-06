@@ -1,3 +1,5 @@
+import type { Result } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -211,7 +213,7 @@ describe('processItems', () => {
   }
 
   const extractor = (item: TestRawItem) => item;
-  const validator = (raw: unknown) => {
+  const validator = (raw: unknown): Result<TestValidatedItem, Error> => {
     const schema = z.object({
       id: z.string(),
       time: z.number(),
@@ -219,9 +221,9 @@ describe('processItems', () => {
     });
     const result = schema.safeParse(raw);
     if (!result.success) {
-      return { isOk: () => false, isErr: () => true, error: new Error('Validation failed') } as unknown;
+      return err(new Error('Validation failed'));
     }
-    return { isOk: () => true, isErr: () => false, value: result.data } as unknown;
+    return ok(result.data);
   };
 
   const metadataMapper = (
@@ -263,7 +265,7 @@ describe('processItems', () => {
     if (result.isOk()) {
       expect(result.value).toHaveLength(1);
       expect(result.value[0]!.externalId).toBe('tx-1');
-      expect(result.value[0]!.providerId).toBe('kraken');
+      expect(result.value[0]!.providerName).toBe('kraken');
       expect(result.value[0]!.cursor).toEqual({ lastTime: 1704067200000 });
     }
   });
@@ -289,7 +291,7 @@ describe('processItems', () => {
   it('should fail on validation error and return partial results', () => {
     const items: TestRawItem[] = [
       { id: 'tx-1', time: 1704067200000, amount: '100' },
-      { id: 'tx-2', time: 0 as unknown, amount: '200' }, // Invalid
+      { id: 'tx-2', time: 0, amount: '200' } as TestRawItem,
     ];
 
     const result = processItems(items, extractor, validator, metadataMapper, 'kraken', {});
@@ -305,7 +307,7 @@ describe('processItems', () => {
 
   it('should fail immediately on first validation error', () => {
     const items: TestRawItem[] = [
-      { id: 'tx-1', time: 0 as unknown, amount: '100' }, // Invalid (first item)
+      { id: 'tx-1', time: 0, amount: '100' } as TestRawItem,
       { id: 'tx-2', time: 1704067200000, amount: '200' },
     ];
 
@@ -335,7 +337,7 @@ describe('processItems', () => {
   it('should preserve current cursor and update in error', () => {
     const items: TestRawItem[] = [
       { id: 'tx-1', time: 1704067200000, amount: '100' },
-      { id: 'tx-2', time: 0 as unknown, amount: '200' }, // Invalid
+      { id: 'tx-2', time: 0, amount: '200' } as TestRawItem,
     ];
     const currentCursor = { lastTime: 1000000000000 };
 
@@ -348,13 +350,20 @@ describe('processItems', () => {
   });
 
   it('should validate normalized data against schema', () => {
-    const invalidMetadataMapper = (_parsed: TestValidatedItem, _item: TestRawItem) => ({
+    const invalidMetadataMapper = (
+      _parsed: TestValidatedItem,
+      _item: TestRawItem
+    ): {
+      cursor: Record<string, number>;
+      externalId: string;
+      normalizedData: ExchangeLedgerEntry;
+    } => ({
       cursor: { lastTime: 1000 },
       externalId: 'tx-1',
       normalizedData: {
         id: 'tx-1',
         // Missing required fields - will fail ExchangeLedgerEntrySchema validation
-      } as unknown,
+      } as ExchangeLedgerEntry,
     });
 
     const items: TestRawItem[] = [{ id: 'tx-1', time: 1704067200000, amount: '100' }];
@@ -392,14 +401,14 @@ describe('processItems', () => {
     }
   });
 
-  it('should set correct providerId', () => {
+  it('should set correct providerName', () => {
     const items: TestRawItem[] = [{ id: 'tx-1', time: 1704067200000, amount: '100' }];
 
     const result = processItems(items, extractor, validator, metadataMapper, 'binance', {});
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value[0]!.providerId).toBe('binance');
+      expect(result.value[0]!.providerName).toBe('binance');
     }
   });
 });

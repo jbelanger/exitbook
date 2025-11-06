@@ -35,7 +35,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: USER_ADDRESS,
         id: 'tx456',
         messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
@@ -71,7 +71,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: EXTERNAL_ADDRESS,
         id: 'tx123',
         messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
@@ -108,7 +108,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: USER_ADDRESS,
         id: 'tx789',
         messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
@@ -143,7 +143,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: USER_ADDRESS, // User signs to claim rewards
         id: 'txRewardClaim',
         messageType: '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
@@ -182,7 +182,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: VALIDATOR_ADDRESS, // Validator submits claim
         id: 'txPeggyDeposit',
         messageType: '/injective.peggy.v1.MsgSendToInjective',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
@@ -222,7 +222,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: USER_ADDRESS, // User signs withdrawal
         id: 'txPeggyWithdrawal',
         messageType: '/injective.peggy.v1.MsgSendToEthereum',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
@@ -258,7 +258,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: EXTERNAL_ADDRESS, // Sender/relayer
         id: 'txIbcReceive',
         messageType: '/ibc.applications.transfer.v1.MsgTransfer',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         sourceChannel: 'channel-8',
         sourcePort: 'transfer',
         status: 'success',
@@ -296,7 +296,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: USER_ADDRESS, // User signs IBC transfer
         id: 'txIbcSend',
         messageType: '/ibc.applications.transfer.v1.MsgTransfer',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         sourceChannel: 'channel-8',
         sourcePort: 'transfer',
         status: 'success',
@@ -333,7 +333,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: USER_ADDRESS, // User signs delegation
         id: 'txDelegate',
         messageType: '/cosmos.staking.v1beta1.MsgDelegate',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         status: 'success',
         timestamp: Date.now(),
         to: VALIDATOR_ADDRESS,
@@ -368,7 +368,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: USER_ADDRESS, // User signs undelegation
         id: 'txUndelegate',
         messageType: '/cosmos.staking.v1beta1.MsgUndelegate',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS, // Funds return to user after unbonding
@@ -402,7 +402,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: USER_ADDRESS, // User signs vote
         id: 'txGovVote',
         messageType: '/cosmos.gov.v1beta1.MsgVote',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         status: 'success',
         timestamp: Date.now(),
         to: 'gov', // Governance module
@@ -437,7 +437,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: USER_ADDRESS, // User signs contract execution
         id: 'txContractExecute',
         messageType: '/cosmwasm.wasm.v1.MsgExecuteContract',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
@@ -474,7 +474,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: USER_ADDRESS, // User signs
         id: 'txContractCall',
         messageType: '/cosmwasm.wasm.v1.MsgExecuteContract',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
@@ -509,7 +509,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: USER_ADDRESS, // User signed failed transaction
         id: 'txFailed',
         messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         status: 'failed',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
@@ -548,7 +548,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: USER_ADDRESS.toLowerCase(), // Normalized by schema
         id: 'txCaseTest',
         messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
@@ -581,7 +581,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
         from: USER_ADDRESS,
         id: 'txNoFee',
         messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
         status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,

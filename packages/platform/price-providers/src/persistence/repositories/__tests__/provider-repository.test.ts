@@ -98,9 +98,9 @@ describe('ProviderRepository', () => {
       expect(providerResult.isOk()).toBe(true);
       if (!providerResult.isOk()) return;
 
-      const providerId = providerResult.value.id;
+      const providerName = providerResult.value.id;
 
-      const updateResult = await repository.updateProviderSync(providerId, 5000);
+      const updateResult = await repository.updateProviderSync(providerName, 5000);
 
       expect(updateResult.isOk()).toBe(true);
 
@@ -114,12 +114,12 @@ describe('ProviderRepository', () => {
   });
 
   describe('upsertCoinMappings', () => {
-    let providerId: number;
+    let providerName: number;
 
     beforeEach(async () => {
       const providerResult = await repository.upsertProvider('coingecko', 'CoinGecko');
       if (providerResult.isOk()) {
-        providerId = providerResult.value.id;
+        providerName = providerResult.value.id;
       }
     });
 
@@ -130,11 +130,11 @@ describe('ProviderRepository', () => {
         { symbol: 'SOL', coin_id: 'solana', coin_name: 'Solana' },
       ];
 
-      const result = await repository.upsertCoinMappings(providerId, mappings);
+      const result = await repository.upsertCoinMappings(providerName, mappings);
 
       expect(result.isOk()).toBe(true);
 
-      const allMappings = await repository.getAllCoinMappings(providerId);
+      const allMappings = await repository.getAllCoinMappings(providerName);
       expect(allMappings.isOk()).toBe(true);
       if (allMappings.isOk()) {
         expect(allMappings.value).toHaveLength(3);
@@ -147,16 +147,16 @@ describe('ProviderRepository', () => {
         { symbol: 'ETH', coin_id: 'ethereum', coin_name: 'Ethereum' },
       ];
 
-      await repository.upsertCoinMappings(providerId, mappings1);
+      await repository.upsertCoinMappings(providerName, mappings1);
 
       const mappings2: CoinMappingInput[] = [
         { symbol: 'BTC', coin_id: 'bitcoin-new', coin_name: 'Bitcoin Updated' },
         { symbol: 'SOL', coin_id: 'solana', coin_name: 'Solana' },
       ];
 
-      await repository.upsertCoinMappings(providerId, mappings2);
+      await repository.upsertCoinMappings(providerName, mappings2);
 
-      const allMappings = await repository.getAllCoinMappings(providerId);
+      const allMappings = await repository.getAllCoinMappings(providerName);
       expect(allMappings.isOk()).toBe(true);
       if (allMappings.isOk()) {
         expect(allMappings.value).toHaveLength(2);
@@ -180,11 +180,11 @@ describe('ProviderRepository', () => {
         });
       }
 
-      const result = await repository.upsertCoinMappings(providerId, mappings);
+      const result = await repository.upsertCoinMappings(providerName, mappings);
 
       expect(result.isOk()).toBe(true);
 
-      const allMappings = await repository.getAllCoinMappings(providerId);
+      const allMappings = await repository.getAllCoinMappings(providerName);
       expect(allMappings.isOk()).toBe(true);
       if (allMappings.isOk()) {
         expect(allMappings.value).toHaveLength(1000);
@@ -194,9 +194,9 @@ describe('ProviderRepository', () => {
     it('should normalize symbols to uppercase', async () => {
       const mappings: CoinMappingInput[] = [{ symbol: 'btc', coin_id: 'bitcoin', coin_name: 'Bitcoin' }];
 
-      await repository.upsertCoinMappings(providerId, mappings);
+      await repository.upsertCoinMappings(providerName, mappings);
 
-      const result = await repository.getCoinIdForSymbol(providerId, Currency.create('BTC'));
+      const result = await repository.getCoinIdForSymbol(providerName, Currency.create('BTC'));
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -210,9 +210,9 @@ describe('ProviderRepository', () => {
         { symbol: 'BTC', coin_id: 'bitcoin', coin_name: 'Bitcoin', priority: 1 },
       ];
 
-      await repository.upsertCoinMappings(providerId, mappings);
+      await repository.upsertCoinMappings(providerName, mappings);
 
-      const allMappings = await repository.getAllCoinMappings(providerId);
+      const allMappings = await repository.getAllCoinMappings(providerName);
       expect(allMappings.isOk()).toBe(true);
       if (allMappings.isOk()) {
         const btcMapping = allMappings.value.find((m) => m.symbol === 'BTC');
@@ -222,12 +222,12 @@ describe('ProviderRepository', () => {
   });
 
   describe('getCoinIdForSymbol', () => {
-    let providerId: number;
+    let providerName: number;
 
     beforeEach(async () => {
       const providerResult = await repository.upsertProvider('coingecko', 'CoinGecko');
       if (providerResult.isOk()) {
-        providerId = providerResult.value.id;
+        providerName = providerResult.value.id;
       }
 
       const mappings: CoinMappingInput[] = [
@@ -235,11 +235,11 @@ describe('ProviderRepository', () => {
         { symbol: 'ETH', coin_id: 'ethereum', coin_name: 'Ethereum', priority: 1 },
       ];
 
-      await repository.upsertCoinMappings(providerId, mappings);
+      await repository.upsertCoinMappings(providerName, mappings);
     });
 
     it('should return coin ID for existing symbol', async () => {
-      const result = await repository.getCoinIdForSymbol(providerId, Currency.create('BTC'));
+      const result = await repository.getCoinIdForSymbol(providerName, Currency.create('BTC'));
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -248,7 +248,7 @@ describe('ProviderRepository', () => {
     });
 
     it('should return undefined for non-existent symbol', async () => {
-      const result = await repository.getCoinIdForSymbol(providerId, Currency.create('XYZ'));
+      const result = await repository.getCoinIdForSymbol(providerName, Currency.create('XYZ'));
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -257,7 +257,7 @@ describe('ProviderRepository', () => {
     });
 
     it('should be case-insensitive', async () => {
-      const result = await repository.getCoinIdForSymbol(providerId, Currency.create('btc'));
+      const result = await repository.getCoinIdForSymbol(providerName, Currency.create('btc'));
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -273,9 +273,9 @@ describe('ProviderRepository', () => {
         { symbol: 'USDT', coin_id: 'tether-trc20', coin_name: 'Tether (TRC20)', priority: 3 },
       ];
 
-      await repository.upsertCoinMappings(providerId, mappings);
+      await repository.upsertCoinMappings(providerName, mappings);
 
-      const result = await repository.getCoinIdForSymbol(providerId, Currency.create('USDT'));
+      const result = await repository.getCoinIdForSymbol(providerName, Currency.create('USDT'));
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -285,17 +285,17 @@ describe('ProviderRepository', () => {
   });
 
   describe('getAllCoinMappings', () => {
-    let providerId: number;
+    let providerName: number;
 
     beforeEach(async () => {
       const providerResult = await repository.upsertProvider('coingecko', 'CoinGecko');
       if (providerResult.isOk()) {
-        providerId = providerResult.value.id;
+        providerName = providerResult.value.id;
       }
     });
 
     it('should return empty array when no mappings exist', async () => {
-      const result = await repository.getAllCoinMappings(providerId);
+      const result = await repository.getAllCoinMappings(providerName);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -310,9 +310,9 @@ describe('ProviderRepository', () => {
         { symbol: 'SOL', coin_id: 'solana', coin_name: 'Solana' },
       ];
 
-      await repository.upsertCoinMappings(providerId, mappings);
+      await repository.upsertCoinMappings(providerName, mappings);
 
-      const result = await repository.getAllCoinMappings(providerId);
+      const result = await repository.getAllCoinMappings(providerName);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -329,11 +329,11 @@ describe('ProviderRepository', () => {
       if (!provider2Result.isOk()) return;
       const provider2Id = provider2Result.value.id;
 
-      await repository.upsertCoinMappings(providerId, [{ symbol: 'BTC', coin_id: 'bitcoin', coin_name: 'Bitcoin' }]);
+      await repository.upsertCoinMappings(providerName, [{ symbol: 'BTC', coin_id: 'bitcoin', coin_name: 'Bitcoin' }]);
 
       await repository.upsertCoinMappings(provider2Id, [{ symbol: 'ETH', coin_id: 'ethereum', coin_name: 'Ethereum' }]);
 
-      const result1 = await repository.getAllCoinMappings(providerId);
+      const result1 = await repository.getAllCoinMappings(providerName);
       expect(result1.isOk()).toBe(true);
       if (result1.isOk()) {
         expect(result1.value).toHaveLength(1);
@@ -408,7 +408,7 @@ describe('ProviderRepository', () => {
       expect(providerResult.isOk()).toBe(true);
       if (!providerResult.isOk()) return;
 
-      const providerId = providerResult.value.id;
+      const providerName = providerResult.value.id;
 
       // Manually set last sync to 8 days ago
       const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
@@ -418,10 +418,10 @@ describe('ProviderRepository', () => {
           last_coin_list_sync: eightDaysAgo.toISOString(),
           coin_list_count: 5000,
         })
-        .where('id', '=', providerId)
+        .where('id', '=', providerName)
         .execute();
 
-      const result = await repository.needsCoinListSync(providerId);
+      const result = await repository.needsCoinListSync(providerName);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {

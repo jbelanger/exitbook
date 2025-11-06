@@ -104,13 +104,13 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
           expect(normalized).toHaveProperty('currency');
           expect(normalized).toHaveProperty('timestamp');
           expect(normalized).toHaveProperty('status');
-          expect(normalized).toHaveProperty('providerId');
+          expect(normalized).toHaveProperty('providerName');
           expect(normalized).toHaveProperty('feeAmount');
           expect(normalized).toHaveProperty('feeCurrency');
 
           expect(normalized.currency).toBe('TAO');
           expect(normalized.feeCurrency).toBe('TAO');
-          expect(normalized.providerId).toBe('taostats');
+          expect(normalized.providerName).toBe('taostats');
           expect(normalized.chainName).toBe('bittensor');
           expect(normalized.status).toBe('success');
           expect(typeof normalized.amount).toBe('string');
