@@ -75,11 +75,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('movements_outflows', 'text')
     // Structured fees
     .addColumn('fees', 'text') // Stores fees array: Array<FeeMovement>
-    // Remove old columns (replaced by single fees column):
-    // .addColumn('fees_network', 'text')
-    // .addColumn('fees_platform', 'text')
-    // .addColumn('fees_total', 'text')
-    // Enhanced operation classification
+    // Operation classification
     .addColumn('operation_category', 'text')
     .addColumn('operation_type', 'text')
     // Blockchain metadata

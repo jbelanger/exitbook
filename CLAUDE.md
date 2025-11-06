@@ -279,6 +279,7 @@ logger.debug({ metadata }, 'debug message');
 
 ## Code Requirements
 
+- **No Sub-Agents:** Do not use Task tool with sub-agents (Explore, Plan, etc.) unless explicitly requested by the user. Sub-agents are costly in terms of tokens. Use direct tool calls (Read, Grep, Glob, etc.) instead.
 - **No Technical Debt:** Stop and report architectural issues immediately before implementing. Fix foundational problems first rather than building on a weak base
 - Use `exactOptionalPropertyTypes` - add `| undefined` to optional properties
 - Add new tables/fields to initial migration (`001_initial_schema.ts`) - database is dropped during development, not versioned incrementally

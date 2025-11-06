@@ -173,6 +173,136 @@ describe('TransactionRepository - delete methods', () => {
   });
 });
 
+describe('TransactionRepository - scam token filtering', () => {
+  let db: KyselyDB;
+  let repository: TransactionRepository;
+
+  beforeEach(async () => {
+    db = createDatabase(':memory:');
+    await runMigrations(db);
+    repository = new TransactionRepository(db);
+
+    // Create mock import session
+    await db
+      .insertInto('data_sources')
+      .values({
+        id: 1,
+        source_type: 'blockchain',
+        source_id: 'ethereum',
+        started_at: new Date().toISOString(),
+        status: 'completed',
+        import_params: '{}',
+        import_result_metadata: '{}',
+        created_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+      })
+      .execute();
+
+    // Create regular transactions
+    for (let i = 1; i <= 3; i++) {
+      await db
+        .insertInto('transactions')
+        .values({
+          id: i,
+          data_source_id: 1,
+          source_id: 'ethereum',
+          source_type: 'blockchain' as const,
+          external_id: `tx-${i}`,
+          transaction_status: 'success' as const,
+          transaction_datetime: new Date().toISOString(),
+          excluded_from_accounting: false,
+          raw_normalized_data: '{}',
+          movements_inflows: JSON.stringify([{ asset: 'ETH', grossAmount: '1.0', netAmount: '1.0' }]),
+          operation_type: 'transfer' as const,
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+    }
+
+    // Create scam token transactions
+    for (let i = 4; i <= 5; i++) {
+      await db
+        .insertInto('transactions')
+        .values({
+          id: i,
+          data_source_id: 1,
+          source_id: 'ethereum',
+          source_type: 'blockchain' as const,
+          external_id: `scam-tx-${i}`,
+          transaction_status: 'success' as const,
+          transaction_datetime: new Date().toISOString(),
+          note_type: 'SCAM_TOKEN',
+          note_severity: 'error' as const,
+          note_message: 'Scam token detected',
+          excluded_from_accounting: true, // Scam tokens excluded
+          raw_normalized_data: '{}',
+          movements_inflows: JSON.stringify([{ asset: 'SCAM', grossAmount: '1000.0', netAmount: '1000.0' }]),
+          operation_type: 'transfer' as const,
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+    }
+  });
+
+  afterEach(async () => {
+    await db.destroy();
+  });
+
+  it('should exclude scam tokens by default', async () => {
+    const result = await repository.getTransactions({ sessionId: 1 });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      // Should only return the 3 non-scam transactions
+      expect(result.value).toHaveLength(3);
+      expect(result.value.every((tx) => tx.note?.type !== 'SCAM_TOKEN')).toBe(true);
+    }
+  });
+
+  it('should exclude scam tokens when includeExcluded is false', async () => {
+    const result = await repository.getTransactions({ sessionId: 1, includeExcluded: false });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toHaveLength(3);
+      expect(result.value.every((tx) => tx.note?.type !== 'SCAM_TOKEN')).toBe(true);
+    }
+  });
+
+  it('should include scam tokens when includeExcluded is true', async () => {
+    const result = await repository.getTransactions({ sessionId: 1, includeExcluded: true });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      // Should return all 5 transactions (3 regular + 2 scam)
+      expect(result.value).toHaveLength(5);
+      const scamTransactions = result.value.filter((tx) => tx.note?.type === 'SCAM_TOKEN');
+      expect(scamTransactions).toHaveLength(2);
+    }
+  });
+
+  it('should exclude scam tokens from balance calculations', async () => {
+    // Verify at the SQL level that the filter works
+    const allTx = await db.selectFrom('transactions').selectAll().where('data_source_id', '=', 1).execute();
+    expect(allTx).toHaveLength(5);
+
+    const nonExcluded = await db
+      .selectFrom('transactions')
+      .selectAll()
+      .where('data_source_id', '=', 1)
+      .where('excluded_from_accounting', '=', false)
+      .execute();
+    expect(nonExcluded).toHaveLength(3);
+
+    // Verify through repository
+    const result = await repository.getTransactions({ sessionId: 1 });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toHaveLength(3);
+    }
+  });
+});
+
 describe('TransactionRepository - updateMovementsWithPrices', () => {
   let db: KyselyDB;
   let repository: TransactionRepository;

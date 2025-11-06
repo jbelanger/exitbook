@@ -1,4 +1,4 @@
-import type { VerificationMetadata } from '@exitbook/core';
+import { parseDecimal, type VerificationMetadata } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import { TokenMetadataRepository, TransactionRepository } from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchanges';
@@ -82,7 +82,7 @@ export class BalanceHandler {
       }
 
       const liveSnapshot = liveBalanceResult.value;
-      const liveBalances = convertBalancesToDecimals(liveSnapshot.balances);
+      let liveBalances = convertBalancesToDecimals(liveSnapshot.balances);
 
       // 2. Fetch and calculate balance from transactions
       const calculatedBalancesResult = await this.calculateBalancesFromTransactions(params);
@@ -91,6 +91,21 @@ export class BalanceHandler {
       }
 
       const calculatedBalances = calculatedBalancesResult.value;
+
+      // 2.5. Get excluded asset amounts (scam tokens) and subtract them from live balance
+      const excludedAmountsResult = await this.getExcludedAssetAmounts(params);
+      if (excludedAmountsResult.isErr()) {
+        return err(excludedAmountsResult.error);
+      }
+
+      const excludedAmounts = excludedAmountsResult.value;
+      if (Object.keys(excludedAmounts).length > 0) {
+        const excludedAssets = Object.keys(excludedAmounts);
+        logger.info(
+          `Subtracting excluded amounts from live balance for ${excludedAssets.length} assets: ${excludedAssets.join(', ')}`
+        );
+        liveBalances = this.subtractExcludedAmounts(liveBalances, excludedAmounts);
+      }
 
       // 3. Compare balances
       const comparisons = compareBalances(calculatedBalances, liveBalances);
@@ -387,6 +402,106 @@ export class BalanceHandler {
     }
 
     return ok(result.value);
+  }
+
+  /**
+   * Get excluded asset amounts (scam tokens) for the given source.
+   * Returns a map of asset -> total amount to subtract from live balance.
+   */
+  private async getExcludedAssetAmounts(params: BalanceHandlerParams): Promise<Result<Record<string, Decimal>, Error>> {
+    try {
+      // Find the matching session
+      const sessionsResult = await this.sessionRepository.findBySource(params.sourceName);
+      if (sessionsResult.isErr()) {
+        return err(sessionsResult.error);
+      }
+
+      const sessions = sessionsResult.value;
+      if (sessions.length === 0) {
+        return ok({});
+      }
+
+      // For blockchain: find session matching the specific address
+      // For exchange: use the most recent completed session
+      let targetSessionId: number | undefined;
+
+      if (params.sourceType === 'blockchain' && params.address) {
+        const normalizedAddress = params.address.toLowerCase();
+        const matchingSession = sessions.find((session) => {
+          const importParams = session.importParams;
+          return importParams.address?.toLowerCase() === normalizedAddress;
+        });
+        targetSessionId = matchingSession?.id;
+      } else {
+        // For exchanges, use the most recent completed session
+        const completedSessions = sessions
+          .filter((session) => session.status === 'completed')
+          .sort((a, b) => {
+            const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+            const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+            return bTime - aTime;
+          });
+        targetSessionId = completedSessions[0]?.id;
+      }
+
+      if (!targetSessionId) {
+        return ok({});
+      }
+
+      // Fetch all transactions with excluded_from_accounting = true
+      const excludedTxResult = await this.transactionRepository.getTransactions({
+        sessionId: targetSessionId,
+        includeExcluded: true, // Must include to get the excluded ones
+      });
+
+      if (excludedTxResult.isErr()) {
+        return err(excludedTxResult.error);
+      }
+
+      // Sum up amounts from excluded transactions (inflows only - scams are airdrops)
+      const excludedAmounts: Record<string, Decimal> = {};
+
+      for (const tx of excludedTxResult.value) {
+        if (tx.excludedFromAccounting) {
+          // Sum inflow amounts from scam transactions
+          for (const inflow of tx.movements.inflows ?? []) {
+            const currentAmount = excludedAmounts[inflow.asset] || parseDecimal('0');
+            excludedAmounts[inflow.asset] = currentAmount.plus(inflow.grossAmount);
+          }
+        }
+      }
+
+      return ok(excludedAmounts);
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  /**
+   * Subtract excluded amounts from live balance.
+   * For each asset with excluded amounts, subtract that amount from the live balance.
+   * If the result is zero or negative, remove the asset entirely.
+   */
+  private subtractExcludedAmounts(
+    balances: Record<string, Decimal>,
+    excludedAmounts: Record<string, Decimal>
+  ): Record<string, Decimal> {
+    const adjusted: Record<string, Decimal> = { ...balances };
+
+    for (const [asset, excludedAmount] of Object.entries(excludedAmounts)) {
+      if (adjusted[asset]) {
+        const newBalance = adjusted[asset].minus(excludedAmount);
+
+        // If balance becomes zero or negative, remove the asset
+        if (newBalance.lte(0)) {
+          delete adjusted[asset];
+        } else {
+          adjusted[asset] = newBalance;
+        }
+      }
+    }
+
+    return adjusted;
   }
 
   /**

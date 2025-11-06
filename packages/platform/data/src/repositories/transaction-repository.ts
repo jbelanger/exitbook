@@ -418,6 +418,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         type: row.operation_type ?? 'transfer',
       },
       metadata: metadataResult.value,
+      excludedFromAccounting: row.excluded_from_accounting ? true : undefined,
     };
 
     // Add blockchain data if present
