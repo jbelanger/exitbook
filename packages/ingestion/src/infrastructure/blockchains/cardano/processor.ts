@@ -126,7 +126,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
             blockId: normalizedTx.blockId,
             inputCount: fundFlow.inputCount,
             outputCount: fundFlow.outputCount,
-            providerId: normalizedTx.providerId,
+            providerName: normalizedTx.providerName,
           },
 
           // Add note if there's classification uncertainty

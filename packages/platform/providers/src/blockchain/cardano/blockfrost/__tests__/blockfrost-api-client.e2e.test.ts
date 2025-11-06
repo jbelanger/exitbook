@@ -88,7 +88,7 @@ describe('BlockfrostApiClient E2E', () => {
         expect(typeof tx.id).toBe('string');
         expect(tx.id.length).toBeGreaterThan(0);
         expect(tx.currency).toBe('ADA');
-        expect(tx.providerId).toBe('blockfrost');
+        expect(tx.providerName).toBe('blockfrost');
         // Verify status is set based on valid_contract field from Blockfrost API
         // This was fixed to use valid_contract instead of always being 'confirmed'
         expect(tx.status).toMatch(/^(success|failed)$/);

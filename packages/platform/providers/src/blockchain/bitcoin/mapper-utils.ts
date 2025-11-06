@@ -51,7 +51,7 @@ export function mapBlockstreamTransaction(
     id: rawData.txid,
     inputs,
     outputs,
-    providerId: 'blockstream.info',
+    providerName: 'blockstream.info',
     status: rawData.status.confirmed ? 'success' : 'pending',
     timestamp,
   };
@@ -98,7 +98,7 @@ export function mapMempoolSpaceTransaction(
     id: rawData.txid,
     inputs,
     outputs,
-    providerId: 'mempool.space',
+    providerName: 'mempool.space',
     status: rawData.status.confirmed ? 'success' : 'pending',
     timestamp,
   };
@@ -144,7 +144,7 @@ export function mapTatumTransaction(
     id: rawData.hash,
     inputs,
     outputs,
-    providerId: 'tatum',
+    providerName: 'tatum',
     status: rawData.blockNumber ? 'success' : 'pending',
     timestamp,
   };
@@ -191,7 +191,7 @@ export function mapBlockchainComTransaction(
     id: rawData.hash,
     inputs,
     outputs,
-    providerId: 'blockchain.com',
+    providerName: 'blockchain.com',
     status: rawData.block_height ? 'success' : 'pending',
     timestamp,
   };
@@ -234,7 +234,7 @@ export function mapBlockCypherTransaction(
     id: rawData.hash,
     inputs,
     outputs,
-    providerId: 'blockcypher',
+    providerName: 'blockcypher',
     status: rawData.confirmations > 0 ? 'success' : 'pending',
     timestamp,
   };

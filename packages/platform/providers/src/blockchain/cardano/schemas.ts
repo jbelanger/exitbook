@@ -90,7 +90,7 @@ export const CardanoTransactionSchema = z.object({
   id: z.string().min(1, 'Transaction ID must not be empty'),
   inputs: z.array(CardanoTransactionInputSchema).min(1, 'Transaction must have at least one input'),
   outputs: z.array(CardanoTransactionOutputSchema).min(1, 'Transaction must have at least one output'),
-  providerId: z.string().min(1, 'Provider ID must not be empty'),
+  providerName: z.string().min(1, 'Provider ID must not be empty'),
   status: z.enum(['success', 'failed', 'pending']),
   timestamp: z.number().positive('Timestamp must be positive'),
 });

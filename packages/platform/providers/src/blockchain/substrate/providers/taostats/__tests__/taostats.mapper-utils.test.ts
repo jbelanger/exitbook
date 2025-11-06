@@ -33,7 +33,7 @@ describe('taostats.mapper-utils', () => {
       expect(result.status).toBe('success');
       expect(result.currency).toBe('TAO');
       expect(result.chainName).toBe('bittensor');
-      expect(result.providerId).toBe('taostats');
+      expect(result.providerName).toBe('taostats');
     });
 
     it('should handle missing fee', () => {

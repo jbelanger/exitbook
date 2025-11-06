@@ -119,7 +119,7 @@ describe('SolanaTransactionImporter', () => {
 
         // Verify SOL transaction
         expect(result.value.rawTransactions[0]).toMatchObject({
-          providerId: 'helius',
+          providerName: 'helius',
           sourceAddress: address,
           normalizedData: mockNormalizedSol,
           rawData: mockSolTx,
@@ -128,7 +128,7 @@ describe('SolanaTransactionImporter', () => {
 
         // Verify token transaction
         expect(result.value.rawTransactions[1]).toMatchObject({
-          providerId: 'helius',
+          providerName: 'helius',
           sourceAddress: address,
           normalizedData: mockNormalizedToken,
           rawData: mockTokenTx,

@@ -80,7 +80,7 @@ describe('ImportHandler', () => {
 
       expect(mockImportService.importFromSource).toHaveBeenCalledWith('bitcoin', 'blockchain', {
         address: 'bc1qtest',
-        providerId: undefined,
+        providerName: undefined,
       });
     });
 

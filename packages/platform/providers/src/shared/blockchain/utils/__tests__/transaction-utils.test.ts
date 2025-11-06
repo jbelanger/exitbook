@@ -166,7 +166,7 @@ describe('transaction-utils', () => {
         timestamp: 1234567890,
         type: 'transfer',
         status: 'success',
-        providerId: 'alchemy',
+        providerName: 'alchemy',
       };
 
       const externalId1 = generateUniqueTransactionId(tx);
@@ -186,7 +186,7 @@ describe('transaction-utils', () => {
         timestamp: 1234567890,
         type: 'token_transfer',
         status: 'success',
-        providerId: 'alchemy',
+        providerName: 'alchemy',
       };
 
       const tx1: EvmTransaction = {
@@ -213,7 +213,7 @@ describe('transaction-utils', () => {
         currency: 'BTC',
         timestamp: 1234567890,
         status: 'success',
-        providerId: 'blockstream',
+        providerName: 'blockstream',
         inputs: [
           {
             address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
@@ -251,7 +251,7 @@ describe('transaction-utils', () => {
         amount: '1000000000',
         timestamp: 1234567890,
         status: 'success',
-        providerId: 'helius',
+        providerName: 'helius',
       };
 
       const externalId = generateUniqueTransactionId({
@@ -271,7 +271,7 @@ describe('transaction-utils', () => {
         amount: '1000000000000',
         timestamp: 1234567890,
         status: 'success',
-        providerId: 'subscan',
+        providerName: 'subscan',
       };
 
       const externalId = generateUniqueTransactionId({
@@ -291,7 +291,7 @@ describe('transaction-utils', () => {
         amount: '1000000000000000000',
         timestamp: 1234567890,
         status: 'success',
-        providerId: 'injective-explorer',
+        providerName: 'injective-explorer',
       };
 
       const externalId = generateUniqueTransactionId({

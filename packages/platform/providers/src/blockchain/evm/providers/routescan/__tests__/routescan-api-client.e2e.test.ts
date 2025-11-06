@@ -61,7 +61,7 @@ describe('RoutescanApiClient Integration - Ethereum', () => {
           expect(firstTx.normalized).toHaveProperty('from');
           expect(firstTx.normalized).toHaveProperty('to');
           expect(firstTx.normalized.currency).toBe('ETH');
-          expect(firstTx.normalized.providerId).toBe('routescan');
+          expect(firstTx.normalized.providerName).toBe('routescan');
         }
       }
     }, 60000);
@@ -84,7 +84,7 @@ describe('RoutescanApiClient Integration - Ethereum', () => {
           expect(firstTx.normalized).toHaveProperty('id');
           expect(firstTx.normalized).toHaveProperty('from');
           expect(firstTx.normalized).toHaveProperty('to');
-          expect(firstTx.normalized.providerId).toBe('routescan');
+          expect(firstTx.normalized.providerName).toBe('routescan');
         }
       }
     }, 60000);
@@ -107,7 +107,7 @@ describe('RoutescanApiClient Integration - Ethereum', () => {
           expect(firstTx).toHaveProperty('normalized');
           expect(firstTx.normalized).toHaveProperty('id');
           expect(firstTx.normalized.type).toBe('token_transfer');
-          expect(firstTx.normalized.providerId).toBe('routescan');
+          expect(firstTx.normalized.providerName).toBe('routescan');
         }
       }
     }, 60000);
@@ -162,7 +162,7 @@ describe('RoutescanApiClient Integration - Optimism', () => {
         if (transactions.length > 0) {
           const firstTx = transactions[0]!;
           expect(firstTx.normalized.currency).toBe('ETH');
-          expect(firstTx.normalized.providerId).toBe('routescan');
+          expect(firstTx.normalized.providerName).toBe('routescan');
         }
       }
     }, 60000);
@@ -220,7 +220,7 @@ describe('RoutescanApiClient Integration - BSC', () => {
         if (transactions.length > 0) {
           const firstTx = transactions[0]!;
           expect(firstTx.normalized.currency).toBe('BNB');
-          expect(firstTx.normalized.providerId).toBe('routescan');
+          expect(firstTx.normalized.providerName).toBe('routescan');
         }
       }
     }, 60000);

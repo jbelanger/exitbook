@@ -74,7 +74,7 @@ async function promptBlockchainParams(): Promise<ImportHandlerParams> {
   const address = await promptWalletAddress(sourceName);
 
   // Step 4: Provider (optional)
-  const providerId = await promptProvider(sourceName);
+  const providerName = await promptProvider(sourceName);
 
   // Step 5: Process after import?
   const shouldProcess = await promptConfirm('Process data after import?', true);
@@ -83,7 +83,7 @@ async function promptBlockchainParams(): Promise<ImportHandlerParams> {
     sourceName,
     sourceType: 'blockchain',
     address,
-    providerId,
+    providerName,
     shouldProcess,
   };
 }

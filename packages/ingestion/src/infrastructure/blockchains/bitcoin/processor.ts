@@ -146,7 +146,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
           },
 
           metadata: {
-            providerId: normalizedTx.providerId,
+            providerName: normalizedTx.providerName,
           },
         };
 

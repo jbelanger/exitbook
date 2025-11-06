@@ -127,7 +127,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
             call: fundFlow.call,
             chainName: fundFlow.chainName,
             module: fundFlow.module,
-            providerId: normalizedTx.providerId,
+            providerName: normalizedTx.providerName,
             events: normalizedTx.events ?? [],
           },
         };

@@ -127,7 +127,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
           // Minimal metadata - only Cosmos-specific data
           metadata: {
-            providerId: normalizedTx.providerId,
+            providerName: normalizedTx.providerName,
             blockId: normalizedTx.blockId,
             bridgeType: fundFlow.bridgeType,
             messageType: normalizedTx.messageType,

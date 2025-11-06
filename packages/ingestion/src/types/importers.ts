@@ -7,7 +7,7 @@ export interface ImportParams {
   credentials?: ExchangeCredentials | undefined;
   csvDirectories?: string[] | undefined;
   cursor?: Record<string, number> | undefined;
-  providerId?: string | undefined;
+  providerName?: string | undefined;
 }
 
 export interface ImportResult {

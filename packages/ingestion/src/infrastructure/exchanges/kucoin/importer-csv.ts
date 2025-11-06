@@ -93,7 +93,7 @@ export class KucoinCsvImporter implements IImporter {
                 for (const row of validationResult.valid) {
                   const externalId = this.getUniqueExternalId(row['Order ID']);
                   rawTransactions.push({
-                    providerId: 'kucoin',
+                    providerName: 'kucoin',
                     transactionTypeHint: 'spot_order',
                     rawData: { _rowType: 'spot_order', ...row },
                     normalizedData: { _rowType: 'spot_order', ...row },
@@ -131,7 +131,7 @@ export class KucoinCsvImporter implements IImporter {
                   const baseId = row.Hash || this.generateExternalId('deposit', row['Time(UTC)'], row.Coin, row.Amount);
                   const externalId = this.getUniqueExternalId(baseId);
                   rawTransactions.push({
-                    providerId: 'kucoin',
+                    providerName: 'kucoin',
                     transactionTypeHint: 'deposit',
                     rawData: { _rowType: 'deposit', ...row },
                     normalizedData: { _rowType: 'deposit', ...row },
@@ -170,7 +170,7 @@ export class KucoinCsvImporter implements IImporter {
                     row.Hash || this.generateExternalId('withdrawal', row['Time(UTC)'], row.Coin, row.Amount);
                   const externalId = this.getUniqueExternalId(baseId);
                   rawTransactions.push({
-                    providerId: 'kucoin',
+                    providerName: 'kucoin',
                     transactionTypeHint: 'withdrawal',
                     normalizedData: { _rowType: 'withdrawal', ...row },
                     rawData: { _rowType: 'withdrawal', ...row },
@@ -208,7 +208,7 @@ export class KucoinCsvImporter implements IImporter {
                   const baseId = this.generateExternalId(row.Type, row['Time(UTC)'], row.Currency, row.Amount);
                   const externalId = this.getUniqueExternalId(baseId);
                   rawTransactions.push({
-                    providerId: 'kucoin',
+                    providerName: 'kucoin',
                     transactionTypeHint: 'account_history',
                     normalizedData: { _rowType: 'account_history', ...row },
                     rawData: { _rowType: 'account_history', ...row },
@@ -257,7 +257,7 @@ export class KucoinCsvImporter implements IImporter {
                   const baseId = `${row['Order ID']}-${row['Filled Time(UTC)']}`;
                   const externalId = this.getUniqueExternalId(baseId);
                   rawTransactions.push({
-                    providerId: 'kucoin',
+                    providerName: 'kucoin',
                     transactionTypeHint: 'order_splitting',
                     normalizedData: { _rowType: 'order_splitting', ...row },
                     rawData: { _rowType: 'order_splitting', ...row },
@@ -295,7 +295,7 @@ export class KucoinCsvImporter implements IImporter {
                   const baseId = `${row['Order ID']}-${row['Time Filled(UTC)']}`;
                   const externalId = this.getUniqueExternalId(baseId);
                   rawTransactions.push({
-                    providerId: 'kucoin',
+                    providerName: 'kucoin',
                     transactionTypeHint: 'trading_bot',
                     normalizedData: { _rowType: 'trading_bot', ...row },
                     rawData: { _rowType: 'trading_bot', ...row },

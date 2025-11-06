@@ -27,7 +27,7 @@ export interface ProvidersTable {
  */
 export interface ProviderCoinMappingsTable {
   id: ColumnType<number, never, number>;
-  provider_id: number;
+  provider_name: number;
   symbol: string; // e.g., 'BTC'
   coin_id: string; // e.g., 'bitcoin' (provider-specific ID)
   coin_name: string; // e.g., 'Bitcoin'

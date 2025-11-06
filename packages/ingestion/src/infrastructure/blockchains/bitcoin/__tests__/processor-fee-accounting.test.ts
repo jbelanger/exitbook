@@ -39,7 +39,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
             value: '100000000', // 1.0 BTC sent
           },
         ],
-        providerId: 'blockstream.info',
+        providerName: 'blockstream.info',
         status: 'success',
         timestamp: Date.now(),
       },
@@ -89,7 +89,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
             value: '200000000', // 2.0 BTC received
           },
         ],
-        providerId: 'mempool.space',
+        providerName: 'mempool.space',
         status: 'success',
         timestamp: Date.now(),
       },
@@ -136,7 +136,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
             value: '50000000', // 0.5 BTC (minus fee)
           },
         ],
-        providerId: 'blockstream.info',
+        providerName: 'blockstream.info',
         status: 'success',
         timestamp: Date.now(),
       },
@@ -193,7 +193,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
             value: '200000000', // 2.0 BTC change
           },
         ],
-        providerId: 'mempool.space',
+        providerName: 'mempool.space',
         status: 'success',
         timestamp: Date.now(),
       },
@@ -255,7 +255,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
             value: '80000000', // 0.8 BTC sent
           },
         ],
-        providerId: 'blockstream.info',
+        providerName: 'blockstream.info',
         status: 'success',
         timestamp: Date.now(),
       },
@@ -307,7 +307,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
             value: '200000000', // 2.0 BTC to someone else
           },
         ],
-        providerId: 'mempool.space',
+        providerName: 'mempool.space',
         status: 'success',
         timestamp: Date.now(),
       },
@@ -358,7 +358,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
             value: '100000000', // 1.0 BTC sent
           },
         ],
-        providerId: 'blockstream.info',
+        providerName: 'blockstream.info',
         status: 'success',
         timestamp: Date.now(),
       },
@@ -406,7 +406,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
             value: '150000000', // 1.5 BTC
           },
         ],
-        providerId: 'mempool.space',
+        providerName: 'mempool.space',
         status: 'success',
         timestamp: Date.now(),
       },
@@ -455,7 +455,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
             value: '100000000',
           },
         ],
-        providerId: 'blockstream.info',
+        providerName: 'blockstream.info',
         status: 'success',
         timestamp: Date.now(),
       },
@@ -500,7 +500,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
             value: '100000000',
           },
         ],
-        providerId: 'blockstream.info',
+        providerName: 'blockstream.info',
         status: 'failed',
         timestamp: Date.now(),
       },
@@ -547,7 +547,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
             value: '0', // 0-value OP_RETURN output
           },
         ],
-        providerId: 'blockstream.info',
+        providerName: 'blockstream.info',
         status: 'success',
         timestamp: Date.now(),
       },
@@ -607,7 +607,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
             value: '149970000', // Total - fee
           },
         ],
-        providerId: 'blockstream.info',
+        providerName: 'blockstream.info',
         status: 'success',
         timestamp: Date.now(),
       },
@@ -662,7 +662,7 @@ describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
             value: '40000000', // 0.4 BTC
           },
         ],
-        providerId: 'blockstream.info',
+        providerName: 'blockstream.info',
         status: 'success',
         timestamp: Date.now(),
       },

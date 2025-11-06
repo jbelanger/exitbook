@@ -41,7 +41,7 @@ describe('ThetaScanApiClient Integration', () => {
           expect(firstTx.normalized).toHaveProperty('to');
           expect(firstTx.normalized).toHaveProperty('blockHeight');
           expect(firstTx.normalized).toHaveProperty('timestamp');
-          expect(firstTx.normalized.providerId).toBe('thetascan');
+          expect(firstTx.normalized.providerName).toBe('thetascan');
         }
       }
     }, 30000);

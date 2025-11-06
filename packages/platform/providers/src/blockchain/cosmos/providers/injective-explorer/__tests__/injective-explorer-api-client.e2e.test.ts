@@ -108,11 +108,11 @@ describe('InjectiveExplorerApiClient Integration', () => {
         expect(normalized).toHaveProperty('id');
         expect(normalized).toHaveProperty('timestamp');
         expect(normalized).toHaveProperty('status');
-        expect(normalized).toHaveProperty('providerId');
+        expect(normalized).toHaveProperty('providerName');
         expect(normalized).toHaveProperty('feeAmount');
         expect(normalized).toHaveProperty('feeCurrency');
 
-        expect(normalized.providerId).toBe('injective-explorer');
+        expect(normalized.providerName).toBe('injective-explorer');
         expect(['success', 'failed']).toContain(normalized.status);
         expect(normalized.feeCurrency).toBe('INJ');
         expect(typeof normalized.timestamp).toBe('number');

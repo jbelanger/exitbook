@@ -18,9 +18,9 @@ registerBlockchain({
     return ok(address);
   },
 
-  createImporter: (providerManager: BlockchainProviderManager, providerId?: string) =>
+  createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
     new SolanaTransactionImporter(providerManager, {
-      preferredProvider: providerId,
+      preferredProvider: providerName,
     }),
 
   createProcessor: (tokenMetadataService?: ITokenMetadataService) => {

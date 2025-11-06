@@ -92,7 +92,7 @@ export class BlockfrostTransactionMapper extends BaseRawDataMapper<
       id: rawData.hash,
       inputs,
       outputs,
-      providerId: 'blockfrost',
+      providerName: 'blockfrost',
       status,
       timestamp: rawData.block_time.getTime(), // Convert Date to milliseconds
     };

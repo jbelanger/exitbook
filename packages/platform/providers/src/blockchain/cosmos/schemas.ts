@@ -65,7 +65,7 @@ export const CosmosTransactionSchema = z.object({
   blockId: z.string().optional(),
 
   // Provider identification
-  providerId: z.string().min(1, 'Provider ID must not be empty'),
+  providerName: z.string().min(1, 'Provider ID must not be empty'),
 
   // Cosmos-specific metadata
   messageType: z.string().optional(),

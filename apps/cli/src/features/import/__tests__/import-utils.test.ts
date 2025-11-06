@@ -80,7 +80,7 @@ describe('validateImportParams', () => {
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-        providerId: 'blockstream',
+        providerName: 'blockstream',
       };
 
       const result = validateImportParams(params);
@@ -249,7 +249,7 @@ describe('buildImportParamsFromFlags', () => {
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
       expect(params.address).toBe('bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
-      expect(params.providerId).toBe('blockstream');
+      expect(params.providerName).toBe('blockstream');
       expect(params.shouldProcess).toBe(true);
     });
 

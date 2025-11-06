@@ -21,8 +21,8 @@ registerBlockchain({
     return ok(normalized);
   },
 
-  createImporter: (providerManager: BlockchainProviderManager, providerId?: string) =>
-    new CardanoTransactionImporter(providerManager, { preferredProvider: providerId }),
+  createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
+    new CardanoTransactionImporter(providerManager, { preferredProvider: providerName }),
 
   createProcessor: (_tokenMetadataService?: ITokenMetadataService) => ok(new CardanoTransactionProcessor()),
 });

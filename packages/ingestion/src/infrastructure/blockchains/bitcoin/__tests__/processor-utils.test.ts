@@ -31,7 +31,7 @@ describe('analyzeBitcoinFundFlow', () => {
           value: '100000000', // 1.0 BTC
         },
       ],
-      providerId: 'blockstream.info',
+      providerName: 'blockstream.info',
       status: 'success',
       timestamp: Date.now(),
     };
@@ -72,7 +72,7 @@ describe('analyzeBitcoinFundFlow', () => {
           value: '200000000', // 2.0 BTC
         },
       ],
-      providerId: 'mempool.space',
+      providerName: 'mempool.space',
       status: 'success',
       timestamp: Date.now(),
     };
@@ -118,7 +118,7 @@ describe('analyzeBitcoinFundFlow', () => {
           value: '200000000', // 2.0 BTC change
         },
       ],
-      providerId: 'mempool.space',
+      providerName: 'mempool.space',
       status: 'success',
       timestamp: Date.now(),
     };
@@ -164,7 +164,7 @@ describe('analyzeBitcoinFundFlow', () => {
           value: '100000000', // 1.0 BTC sent
         },
       ],
-      providerId: 'blockstream.info',
+      providerName: 'blockstream.info',
       status: 'success',
       timestamp: Date.now(),
     };
@@ -206,7 +206,7 @@ describe('analyzeBitcoinFundFlow', () => {
           value: '100000000',
         },
       ],
-      providerId: 'blockstream.info',
+      providerName: 'blockstream.info',
       status: 'success',
       timestamp: Date.now(),
     };

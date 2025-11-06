@@ -41,7 +41,7 @@ const mockCosmosTransaction = {
   to: 'inj1def...',
   id: 'tx123',
   status: 'pending',
-  providerId: 'cosmos',
+  providerName: 'cosmos',
 } as CosmosTransaction;
 
 const mockIbcTransaction = {
@@ -58,7 +58,7 @@ const mockIbcTransaction = {
   to: 'osmo1def...',
   id: 'tx456',
   status: 'pending',
-  providerId: 'cosmos',
+  providerName: 'cosmos',
 };
 
 type ProviderManagerMock = Mocked<
@@ -160,7 +160,7 @@ describe('CosmosImporter', () => {
 
         // Verify transaction metadata and data structure
         expect(result.value.rawTransactions[0]).toMatchObject({
-          providerId: 'injective-explorer',
+          providerName: 'injective-explorer',
           sourceAddress: address,
           normalizedData: mockCosmosTransaction,
           rawData: { block_timestamp: mockCosmosTransaction.timestamp, id: mockCosmosTransaction.id },

@@ -115,7 +115,7 @@ export class TransactionImportService {
       dataSourceCreated = true;
       this.logger.info(`Created data source: ${dataSourceId}`);
 
-      const importer = config.createImporter(this.providerManager, normalizedParams.providerId);
+      const importer = config.createImporter(this.providerManager, normalizedParams.providerName);
       this.logger.info(`Importer for ${sourceId} created successfully`);
 
       this.logger.info('Starting raw data import...');

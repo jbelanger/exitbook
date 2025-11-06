@@ -41,7 +41,7 @@ export interface ImportHandlerParams {
   address?: string | undefined;
 
   /** Provider ID (for blockchain imports) */
-  providerId?: string | undefined;
+  providerName?: string | undefined;
 
   /** API credentials (for exchange API imports) */
   credentials?:
@@ -139,7 +139,7 @@ export class ImportHandler {
         }
       } else {
         importParams.address = params.address;
-        importParams.providerId = params.providerId;
+        importParams.providerName = params.providerName;
       }
 
       // Import raw data

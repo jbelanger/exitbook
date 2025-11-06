@@ -29,7 +29,7 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
       currency,
       from: normalizeEvmAddress(rawData.from) ?? '',
       id: rawData.hash,
-      providerId: 'alchemy',
+      providerName: 'alchemy',
       status: 'success',
       timestamp,
       to: normalizeEvmAddress(rawData.to),

@@ -160,7 +160,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
           hasContractInteraction: fundFlow.hasContractInteraction,
           hasInternalTransactions: fundFlow.hasInternalTransactions,
           hasTokenTransfers: fundFlow.hasTokenTransfers,
-          providerId: primaryTx.providerId,
+          providerName: primaryTx.providerName,
           tokenAddress: fundFlow.primary.tokenAddress,
           tokenDecimals: fundFlow.primary.tokenDecimals,
         },

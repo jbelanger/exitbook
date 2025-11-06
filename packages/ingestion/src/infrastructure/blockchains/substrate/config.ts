@@ -24,9 +24,9 @@ for (const chainName of Object.keys(SUBSTRATE_CHAINS)) {
       return ok(address);
     },
 
-    createImporter: (providerManager: BlockchainProviderManager, providerId?: string) =>
+    createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
       new SubstrateImporter(config, providerManager, {
-        preferredProvider: providerId,
+        preferredProvider: providerName,
       }),
 
     createProcessor: (_tokenMetadataService?: ITokenMetadataService) => ok(new SubstrateProcessor(config)),

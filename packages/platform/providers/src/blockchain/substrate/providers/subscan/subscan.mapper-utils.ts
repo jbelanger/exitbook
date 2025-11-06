@@ -64,7 +64,7 @@ export function convertSubscanTransaction(
       id: transfer.hash,
       module: transfer.module,
 
-      providerId: 'subscan',
+      providerName: 'subscan',
       ss58Format: chainConfig.ss58Format,
       status: transfer.success ? 'success' : 'failed',
 

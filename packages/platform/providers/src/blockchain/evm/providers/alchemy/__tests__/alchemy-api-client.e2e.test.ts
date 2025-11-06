@@ -39,7 +39,7 @@ describe('AlchemyApiClient Integration', () => {
           expect(firstTx.normalized).toHaveProperty('from');
           expect(firstTx.normalized).toHaveProperty('to');
           expect(firstTx.normalized).toHaveProperty('blockHeight');
-          expect(firstTx.normalized.providerId).toBe('alchemy');
+          expect(firstTx.normalized.providerName).toBe('alchemy');
 
           // Verify gas fee data is populated
           expect(firstTx.normalized).toHaveProperty('gasUsed');
@@ -70,7 +70,7 @@ describe('AlchemyApiClient Integration', () => {
           expect(firstTx.normalized).toHaveProperty('id');
           expect(firstTx.normalized).toHaveProperty('from');
           expect(firstTx.normalized).toHaveProperty('to');
-          expect(firstTx.normalized.providerId).toBe('alchemy');
+          expect(firstTx.normalized.providerName).toBe('alchemy');
         }
       }
     }, 30000);
@@ -93,7 +93,7 @@ describe('AlchemyApiClient Integration', () => {
           expect(firstTx).toHaveProperty('normalized');
           expect(firstTx.normalized).toHaveProperty('id');
           expect(firstTx.normalized.type).toBe('token_transfer');
-          expect(firstTx.normalized.providerId).toBe('alchemy');
+          expect(firstTx.normalized.providerName).toBe('alchemy');
 
           // Verify gas fee data is populated (even for token transfers, gas is paid in native currency)
           expect(firstTx.normalized).toHaveProperty('gasUsed');

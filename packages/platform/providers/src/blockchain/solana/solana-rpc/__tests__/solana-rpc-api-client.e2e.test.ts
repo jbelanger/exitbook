@@ -64,7 +64,7 @@ describe('SolanaRPCApiClient Integration', () => {
         expect(txData).toHaveProperty('normalized');
 
         const normalized = txData.normalized;
-        expect(normalized.providerId).toBe('solana-rpc');
+        expect(normalized.providerName).toBe('solana-rpc');
         expect(typeof normalized.id).toBe('string');
         expect(normalized.id.length).toBeGreaterThan(0);
         expect(['success', 'failed']).toContain(normalized.status);

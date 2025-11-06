@@ -61,13 +61,13 @@ export async function fetchBlockchainBalance(
   tokenMetadataRepository: TokenMetadataRepository,
   blockchain: string,
   address: string,
-  providerId?: string
+  providerName?: string
 ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
   try {
     // Auto-register providers for this blockchain with optional provider preference
     const existingProviders = providerManager.getProviders(blockchain);
     if (!existingProviders || existingProviders.length === 0) {
-      providerManager.autoRegisterFromConfig(blockchain, providerId);
+      providerManager.autoRegisterFromConfig(blockchain, providerName);
     }
 
     const balances: Record<string, string> = {};
@@ -153,13 +153,13 @@ export async function fetchBitcoinXpubBalance(
   tokenMetadataRepository: TokenMetadataRepository,
   xpubAddress: string,
   derivedAddresses: string[],
-  providerId?: string
+  providerName?: string
 ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
   try {
     // Auto-register providers for bitcoin with optional provider preference
     const existingProviders = providerManager.getProviders('bitcoin');
     if (!existingProviders || existingProviders.length === 0) {
-      providerManager.autoRegisterFromConfig('bitcoin', providerId);
+      providerManager.autoRegisterFromConfig('bitcoin', providerName);
     }
 
     // Fetch balance for each derived address

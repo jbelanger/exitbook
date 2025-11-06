@@ -110,7 +110,7 @@ describe('import-service-utils', () => {
       const sourceId = 'bitcoin';
       const params: ImportParams = {
         address: 'BC1Q...',
-        providerId: 'blockstream',
+        providerName: 'blockstream',
       };
       const config: BlockchainConfig = {
         blockchain: 'bitcoin',
@@ -128,7 +128,7 @@ describe('import-service-utils', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.address).toBe('bc1q...');
-        expect(result.value.providerId).toBe('blockstream');
+        expect(result.value.providerName).toBe('blockstream');
       }
     });
   });

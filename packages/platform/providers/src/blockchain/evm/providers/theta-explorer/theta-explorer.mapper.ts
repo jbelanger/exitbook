@@ -106,7 +106,7 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
       currency,
       from,
       id: rawData.hash,
-      providerId: 'theta-explorer',
+      providerName: 'theta-explorer',
       status: 'success',
       timestamp,
       to,

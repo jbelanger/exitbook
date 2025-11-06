@@ -72,7 +72,7 @@ describe.skip('BlockCypherApiClient E2E', () => {
           expect(tx.id).toBeDefined();
           expect(typeof tx.id).toBe('string');
           expect(tx.currency).toBe('BTC');
-          expect(tx.providerId).toBe('blockcypher');
+          expect(tx.providerName).toBe('blockcypher');
           expect(Array.isArray(tx.inputs)).toBe(true);
           expect(Array.isArray(tx.outputs)).toBe(true);
         }

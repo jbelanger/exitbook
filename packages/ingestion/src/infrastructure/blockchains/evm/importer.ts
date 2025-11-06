@@ -124,10 +124,10 @@ export class EvmImporter implements IImporter {
 
     return result.map((response) => {
       const transactionsWithRaw = response.data as TransactionWithRawData<EvmTransaction>[];
-      const providerId = response.providerName;
+      const providerName = response.providerName;
 
       return transactionsWithRaw.map((txWithRaw) => ({
-        providerId,
+        providerName,
         externalId: generateUniqueTransactionId(txWithRaw.normalized),
         transactionTypeHint: 'normal',
         sourceAddress: address,
@@ -150,10 +150,10 @@ export class EvmImporter implements IImporter {
 
     return result.map((response) => {
       const transactionsWithRaw = response.data as TransactionWithRawData<EvmTransaction>[];
-      const providerId = response.providerName;
+      const providerName = response.providerName;
 
       return transactionsWithRaw.map((txWithRaw) => ({
-        providerId,
+        providerName,
         externalId: generateUniqueTransactionId(txWithRaw.normalized),
         transactionTypeHint: 'internal',
         sourceAddress: address,
@@ -176,10 +176,10 @@ export class EvmImporter implements IImporter {
 
     return result.map((response) => {
       const transactionsWithRaw = response.data as TransactionWithRawData<EvmTransaction>[];
-      const providerId = response.providerName;
+      const providerName = response.providerName;
 
       return transactionsWithRaw.map((txWithRaw) => ({
-        providerId,
+        providerName,
         externalId: generateUniqueTransactionId(txWithRaw.normalized),
         transactionTypeHint: 'token',
         sourceAddress: address,

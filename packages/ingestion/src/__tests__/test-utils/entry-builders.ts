@@ -122,7 +122,7 @@ export class BitcoinTransactionBuilder {
     feeCurrency: 'BTC',
     inputs: [],
     outputs: [],
-    providerId: 'blockstream.info',
+    providerName: 'blockstream.info',
     status: 'success',
   };
 
@@ -157,8 +157,8 @@ export class BitcoinTransactionBuilder {
     return this;
   }
 
-  withProviderId(providerId: string): this {
-    this.tx.providerId = providerId;
+  withProviderId(providerName: string): this {
+    this.tx.providerName = providerName;
     return this;
   }
 
@@ -188,7 +188,7 @@ export class CosmosTransactionBuilder {
     feeCurrency: 'INJ',
     messageType: '/cosmos.bank.v1beta1.MsgSend',
     tokenType: 'native',
-    providerId: 'injective-explorer',
+    providerName: 'injective-explorer',
     status: 'success',
   };
 
@@ -239,8 +239,8 @@ export class CosmosTransactionBuilder {
     return this;
   }
 
-  withProviderId(providerId: string): this {
-    this.tx.providerId = providerId;
+  withProviderId(providerName: string): this {
+    this.tx.providerName = providerName;
     return this;
   }
 
@@ -269,7 +269,7 @@ export class EvmTransactionBuilder {
     currency: 'ETH',
     gasUsed: '21000',
     gasPrice: '50000000000',
-    providerId: 'alchemy',
+    providerName: 'alchemy',
     status: 'success',
   };
 
@@ -310,8 +310,8 @@ export class EvmTransactionBuilder {
     return this;
   }
 
-  withProviderId(providerId: string): this {
-    this.tx.providerId = providerId;
+  withProviderId(providerName: string): this {
+    this.tx.providerName = providerName;
     return this;
   }
 
@@ -340,7 +340,7 @@ export class SolanaTransactionBuilder {
     feeAmount: '5000',
     feeCurrency: 'SOL',
     accountChanges: [],
-    providerId: 'helius',
+    providerName: 'helius',
     status: 'success',
   };
 
@@ -389,8 +389,8 @@ export class SolanaTransactionBuilder {
     return this;
   }
 
-  withProviderId(providerId: string): this {
-    this.tx.providerId = providerId;
+  withProviderId(providerName: string): this {
+    this.tx.providerName = providerName;
     return this;
   }
 

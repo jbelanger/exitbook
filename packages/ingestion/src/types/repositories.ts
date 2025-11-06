@@ -20,7 +20,7 @@ import type { ImportParams } from './importers.js';
 export interface LoadRawDataFilters {
   dataSourceId?: number | undefined;
   processingStatus?: ProcessingStatus | undefined;
-  providerId?: string | undefined;
+  providerName?: string | undefined;
   since?: number | undefined;
   sourceId?: string | undefined;
 }

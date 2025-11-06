@@ -48,7 +48,7 @@ describe('BlockfrostTransactionMapper', () => {
 
         // Transaction identification
         expect(normalized.id).toBe(mockTransaction.hash);
-        expect(normalized.providerId).toBe('blockfrost');
+        expect(normalized.providerName).toBe('blockfrost');
 
         // Block metadata
         expect(normalized.blockHeight).toBe(8129403);
@@ -75,7 +75,7 @@ describe('BlockfrostTransactionMapper', () => {
 
         expect(normalized.inputs).toHaveLength(1);
         expect(normalized.inputs[0]).toEqual({
-          address: mockTransaction.inputs[0].address,
+          address: mockTransaction.inputs[0]?.address,
           amounts: [
             {
               unit: 'lovelace',
@@ -84,7 +84,7 @@ describe('BlockfrostTransactionMapper', () => {
               decimals: 6,
             },
           ],
-          txHash: mockTransaction.inputs[0].tx_hash,
+          txHash: mockTransaction.inputs[0]?.tx_hash,
           outputIndex: 0,
         });
       }
@@ -100,7 +100,7 @@ describe('BlockfrostTransactionMapper', () => {
 
         expect(normalized.outputs).toHaveLength(1);
         expect(normalized.outputs[0]).toEqual({
-          address: mockTransaction.outputs[0].address,
+          address: mockTransaction.outputs[0]?.address,
           amounts: [
             {
               unit: 'lovelace',
@@ -325,28 +325,28 @@ describe('BlockfrostTransactionMapper', () => {
         const normalized = result.value;
 
         // Check input has both ADA and native token
-        expect(normalized.inputs[0].amounts).toHaveLength(2);
-        expect(normalized.inputs[0].amounts[0]).toEqual({
+        expect(normalized.inputs[0]?.amounts).toHaveLength(2);
+        expect(normalized.inputs[0]?.amounts[0]).toEqual({
           unit: 'lovelace',
           quantity: '5000000',
           symbol: 'ADA',
           decimals: 6,
         });
-        expect(normalized.inputs[0].amounts[1]).toEqual({
+        expect(normalized.inputs[0]?.amounts[1]).toEqual({
           unit: 'b0d07d45fe9514f80213f4020e5a61241458be626841cde717cb38a76e7574636f696e',
           quantity: '1000',
           // symbol and decimals should be undefined for native tokens (to be enriched later)
         });
 
         // Check output has both ADA and native token
-        expect(normalized.outputs[0].amounts).toHaveLength(2);
-        expect(normalized.outputs[0].amounts[0]).toEqual({
+        expect(normalized.outputs[0]?.amounts).toHaveLength(2);
+        expect(normalized.outputs[0]?.amounts[0]).toEqual({
           unit: 'lovelace',
           quantity: '4830000',
           symbol: 'ADA',
           decimals: 6,
         });
-        expect(normalized.outputs[0].amounts[1]).toEqual({
+        expect(normalized.outputs[0]?.amounts[1]).toEqual({
           unit: 'b0d07d45fe9514f80213f4020e5a61241458be626841cde717cb38a76e7574636f696e',
           quantity: '1000',
         });
@@ -377,13 +377,13 @@ describe('BlockfrostTransactionMapper', () => {
       if (result.isOk()) {
         const normalized = result.value;
 
-        expect(normalized.outputs[0].amounts[0]).toEqual({
+        expect(normalized.outputs[0]?.amounts[0]).toEqual({
           unit: 'f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a6e7574636f696e',
           quantity: '500000',
           // No symbol or decimals defined - to be enriched later
         });
-        expect(normalized.outputs[0].amounts[0].symbol).toBeUndefined();
-        expect(normalized.outputs[0].amounts[0].decimals).toBeUndefined();
+        expect(normalized.outputs[0]?.amounts[0]?.symbol).toBeUndefined();
+        expect(normalized.outputs[0]?.amounts[0]?.decimals).toBeUndefined();
       }
     });
 
@@ -432,10 +432,10 @@ describe('BlockfrostTransactionMapper', () => {
         expect(normalized.outputs).toHaveLength(2);
 
         // Verify all inputs and outputs are mapped correctly
-        expect(normalized.inputs[0].amounts[0].quantity).toBe('3000000');
-        expect(normalized.inputs[1].amounts[0].quantity).toBe('2000000');
-        expect(normalized.outputs[0].amounts[0].quantity).toBe('2500000');
-        expect(normalized.outputs[1].amounts[0].quantity).toBe('2330000');
+        expect(normalized.inputs[0]?.amounts[0]?.quantity).toBe('3000000');
+        expect(normalized.inputs[1]?.amounts[0]?.quantity).toBe('2000000');
+        expect(normalized.outputs[0]?.amounts[0]?.quantity).toBe('2500000');
+        expect(normalized.outputs[1]?.amounts[0]?.quantity).toBe('2330000');
       }
     });
   });
@@ -495,7 +495,7 @@ describe('BlockfrostTransactionMapper', () => {
 
         // Verify all top-level fields
         expect(normalized.id).toBe(mockTransaction.hash);
-        expect(normalized.providerId).toBe('blockfrost');
+        expect(normalized.providerName).toBe('blockfrost');
         expect(normalized.currency).toBe('ADA');
         expect(normalized.status).toBe('success');
 
@@ -510,19 +510,19 @@ describe('BlockfrostTransactionMapper', () => {
 
         // Verify inputs structure
         expect(normalized.inputs).toHaveLength(1);
-        expect(normalized.inputs[0].address).toBe(mockTransaction.inputs[0].address);
-        expect(normalized.inputs[0].txHash).toBe(mockTransaction.inputs[0].tx_hash);
-        expect(normalized.inputs[0].outputIndex).toBe(2);
-        expect(normalized.inputs[0].amounts).toHaveLength(2);
+        expect(normalized.inputs[0]?.address).toBe(mockTransaction.inputs[0]?.address);
+        expect(normalized.inputs[0]?.txHash).toBe(mockTransaction.inputs[0]?.tx_hash);
+        expect(normalized.inputs[0]?.outputIndex).toBe(2);
+        expect(normalized.inputs[0]?.amounts).toHaveLength(2);
 
         // Verify outputs structure
         expect(normalized.outputs).toHaveLength(2);
-        expect(normalized.outputs[0].address).toBe(mockTransaction.outputs[0].address);
-        expect(normalized.outputs[0].outputIndex).toBe(0);
-        expect(normalized.outputs[0].amounts).toHaveLength(2);
-        expect(normalized.outputs[1].address).toBe(mockTransaction.outputs[1].address);
-        expect(normalized.outputs[1].outputIndex).toBe(1);
-        expect(normalized.outputs[1].amounts).toHaveLength(1);
+        expect(normalized.outputs[0]?.address).toBe(mockTransaction.outputs[0]?.address);
+        expect(normalized.outputs[0]?.outputIndex).toBe(0);
+        expect(normalized.outputs[0]?.amounts).toHaveLength(2);
+        expect(normalized.outputs[1]?.address).toBe(mockTransaction.outputs[1]?.address);
+        expect(normalized.outputs[1]?.outputIndex).toBe(1);
+        expect(normalized.outputs[1]?.amounts).toHaveLength(1);
       }
     });
   });

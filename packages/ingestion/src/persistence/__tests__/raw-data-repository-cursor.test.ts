@@ -54,7 +54,7 @@ describe('RawDataRepository - Cursor Management', () => {
           processing_status: 'pending',
           raw_data: '{}',
           normalized_data: '{}',
-          provider_id: 'kraken',
+          provider_name: 'kraken',
         })
         .execute();
 
@@ -78,7 +78,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -88,7 +88,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -98,7 +98,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
         ])
         .execute();
@@ -124,7 +124,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -134,7 +134,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -144,7 +144,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -154,7 +154,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
         ])
         .execute();
@@ -182,7 +182,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -192,7 +192,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -202,7 +202,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -212,7 +212,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
         ])
         .execute();
@@ -240,7 +240,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -250,7 +250,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -260,7 +260,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
         ])
         .execute();
@@ -300,7 +300,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -310,7 +310,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kucoin',
+            provider_name: 'kucoin',
           },
         ])
         .execute();
@@ -336,7 +336,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
           {
             created_at: new Date().toISOString(),
@@ -346,7 +346,7 @@ describe('RawDataRepository - Cursor Management', () => {
             processing_status: 'pending',
             raw_data: '{}',
             normalized_data: '{}',
-            provider_id: 'kraken',
+            provider_name: 'kraken',
           },
         ])
         .execute();

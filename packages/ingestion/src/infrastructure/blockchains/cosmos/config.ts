@@ -25,9 +25,9 @@ for (const chainName of Object.keys(COSMOS_CHAINS)) {
       return ok(address);
     },
 
-    createImporter: (providerManager: BlockchainProviderManager, providerId?: string) =>
+    createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
       new CosmosImporter(config, providerManager, {
-        preferredProvider: providerId,
+        preferredProvider: providerName,
       }),
 
     createProcessor: (_tokenMetadataService?: ITokenMetadataService) => ok(new CosmosProcessor(config)),

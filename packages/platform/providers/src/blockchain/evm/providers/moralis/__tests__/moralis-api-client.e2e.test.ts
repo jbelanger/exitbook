@@ -60,7 +60,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
             expect(firstTx.normalized).toHaveProperty('to');
             expect(firstTx.normalized).toHaveProperty('blockHeight');
             expect(firstTx.normalized.currency).toBe('ETH');
-            expect(firstTx.normalized.providerId).toBe('moralis');
+            expect(firstTx.normalized.providerName).toBe('moralis');
           }
         }
       }, 30000);
@@ -266,7 +266,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
             expect(firstTx).toHaveProperty('normalized');
             expect(firstTx.normalized).toHaveProperty('id');
             expect(firstTx.normalized.currency).toBe('AVAX');
-            expect(firstTx.normalized.providerId).toBe('moralis');
+            expect(firstTx.normalized.providerName).toBe('moralis');
           }
         }
       }, 30000);

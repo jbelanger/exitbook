@@ -222,7 +222,7 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
       id: transactionId,
       memo: rawData.memo,
       messageType,
-      providerId: 'injective-explorer',
+      providerName: 'injective-explorer',
       sourceChannel,
       sourcePort,
       status: rawData.code === 0 ? 'success' : 'failed',

@@ -142,7 +142,7 @@ describe('EvmImporter', () => {
 
         // Verify normal transaction
         expect(result.value.rawTransactions[0]).toMatchObject({
-          providerId: 'alchemy',
+          providerName: 'alchemy',
           sourceAddress: address,
           transactionTypeHint: 'normal',
           rawData: mockNormalTx,
@@ -152,7 +152,7 @@ describe('EvmImporter', () => {
 
         // Verify internal transaction
         expect(result.value.rawTransactions[1]).toMatchObject({
-          providerId: 'alchemy',
+          providerName: 'alchemy',
           sourceAddress: address,
           transactionTypeHint: 'internal',
           rawData: mockInternalTx,
@@ -162,7 +162,7 @@ describe('EvmImporter', () => {
 
         // Verify token transaction
         expect(result.value.rawTransactions[2]).toMatchObject({
-          providerId: 'alchemy',
+          providerName: 'alchemy',
           sourceAddress: address,
           transactionTypeHint: 'token',
           rawData: mockTokenTx,

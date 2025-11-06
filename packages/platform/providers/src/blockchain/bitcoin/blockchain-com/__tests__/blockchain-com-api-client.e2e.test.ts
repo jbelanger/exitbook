@@ -62,7 +62,7 @@ describe.skip('BlockchainComApiClient E2E', () => {
         expect(tx.id).toBeDefined();
         expect(typeof tx.id).toBe('string');
         expect(tx.currency).toBe('BTC');
-        expect(tx.providerId).toBe('blockchain.com');
+        expect(tx.providerName).toBe('blockchain.com');
         expect(Array.isArray(tx.inputs)).toBe(true);
         expect(Array.isArray(tx.outputs)).toBe(true);
       }
