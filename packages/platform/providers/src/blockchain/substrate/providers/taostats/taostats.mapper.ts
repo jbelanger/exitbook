@@ -39,7 +39,6 @@ export class TaostatsTransactionMapper extends BaseRawDataMapper<TaostatsTransac
 
     // Get chain-specific info from augmented fields
     const nativeCurrency = rawData._nativeCurrency;
-    const nativeDecimals = rawData._nativeDecimals;
 
     // Get Bittensor chain config for ss58Format
     const chainConfig = SUBSTRATE_CHAINS.bittensor;
@@ -50,14 +49,11 @@ export class TaostatsTransactionMapper extends BaseRawDataMapper<TaostatsTransac
       });
     }
 
-    // Parse amount (in rao, smallest unit) - Zod already validated it's numeric
-    const amountRao = parseDecimal(rawData.amount);
-    const divisor = parseDecimal('10').pow(nativeDecimals);
-    const amountTao = amountRao.dividedBy(divisor);
+    // Parse amount (rao = smallest unit). Provider already returns planck values so keep raw units.
+    const amountPlanck = parseDecimal(rawData.amount);
 
-    // Parse fee if available - Zod already validated it's numeric
-    const feeRao = parseDecimal(rawData.fee || '0');
-    const feeTao = feeRao.dividedBy(divisor);
+    // Parse fee if available - remains in planck units for processor normalization.
+    const feePlanck = parseDecimal(rawData.fee || '0');
 
     // Parse timestamp (ISO string to milliseconds) - Zod already validated format
     const timestamp = new Date(rawData.timestamp).getTime();
@@ -66,12 +62,12 @@ export class TaostatsTransactionMapper extends BaseRawDataMapper<TaostatsTransac
     // Note: Taostats only provides basic transfer data, no module/call/events information
     // The processor will handle classification based on available fields
     const transaction: SubstrateTransaction = {
-      amount: amountTao.toFixed(),
+      amount: amountPlanck.toFixed(),
       blockHeight: rawData.block_number,
       chainName: chainConfig.chainName, // Use chain config for consistency
       currency: nativeCurrency,
       extrinsicIndex: rawData.extrinsic_id,
-      feeAmount: feeTao.toFixed(),
+      feeAmount: feePlanck.toFixed(),
       feeCurrency: nativeCurrency,
       from: fromAddress,
       id: rawData.transaction_hash,
