@@ -1,0 +1,356 @@
+import { parseDecimal } from '@exitbook/core';
+import type { CardanoTransaction } from '@exitbook/providers';
+import type { Decimal } from 'decimal.js';
+import { type Result, err, ok } from 'neverthrow';
+
+import type { CardanoFundFlow, CardanoMovement } from './types.js';
+
+/**
+ * Convert lovelace (smallest unit) to ADA
+ * 1 ADA = 1,000,000 lovelace
+ */
+export function convertLovelaceToAda(lovelace: string): string {
+  const lovelaceDecimal = parseDecimal(lovelace);
+  return lovelaceDecimal.dividedBy(1_000_000).toFixed();
+}
+
+/**
+ * Parse Cardano asset unit identifier
+ * - ADA: 'lovelace'
+ * - Native tokens: 'policyId' + 'assetName' (concatenated hex strings)
+ */
+export function parseCardanoAssetUnit(unit: string): {
+  assetName?: string | undefined;
+  isAda: boolean;
+  policyId?: string | undefined;
+} {
+  if (unit === 'lovelace') {
+    return { isAda: true };
+  }
+
+  // Native token format: policyId (56 hex chars) + optional assetName (hex)
+  // Policy ID is always 56 characters (28 bytes in hex)
+  if (unit.length >= 56) {
+    const policyId = unit.slice(0, 56);
+    const assetName = unit.length > 56 ? unit.slice(56) : undefined;
+
+    return {
+      assetName,
+      isAda: false,
+      policyId,
+    };
+  }
+
+  // Fallback: treat as unknown token
+  return {
+    isAda: false,
+    policyId: unit,
+  };
+}
+
+/**
+ * Consolidate duplicate assets by summing amounts
+ */
+export function consolidateCardanoMovements(movements: CardanoMovement[]): CardanoMovement[] {
+  const assetMap = new Map<
+    string,
+    {
+      amount: Decimal;
+      assetName?: string | undefined;
+      decimals?: number | undefined;
+      policyId?: string | undefined;
+      symbol?: string | undefined;
+    }
+  >();
+
+  for (const movement of movements) {
+    const existing = assetMap.get(movement.unit);
+    if (existing) {
+      existing.amount = existing.amount.plus(parseDecimal(movement.amount));
+    } else {
+      const entry: {
+        amount: Decimal;
+        assetName?: string | undefined;
+        decimals?: number | undefined;
+        policyId?: string | undefined;
+        symbol?: string | undefined;
+      } = {
+        amount: parseDecimal(movement.amount),
+        decimals: movement.decimals,
+        policyId: movement.policyId,
+        assetName: movement.assetName,
+        symbol: movement.asset,
+      };
+      assetMap.set(movement.unit, entry);
+    }
+  }
+
+  return Array.from(assetMap.entries()).map(([unit, data]) => ({
+    amount: data.amount.toFixed(),
+    asset: data.symbol || unit,
+    assetName: data.assetName,
+    decimals: data.decimals,
+    policyId: data.policyId,
+    unit,
+  }));
+}
+
+/**
+ * Normalize asset amount using decimals
+ * For ADA (lovelace), decimals = 6 (1 ADA = 1,000,000 lovelace)
+ * For native tokens, use provided decimals or default to 0 (no decimals)
+ */
+export function normalizeCardanoAmount(quantity: string, decimals: number | undefined): string {
+  const quantityDecimal = parseDecimal(quantity);
+
+  if (decimals === undefined || decimals === 0) {
+    return quantityDecimal.toFixed();
+  }
+
+  const divisor = parseDecimal('10').pow(decimals);
+  return quantityDecimal.dividedBy(divisor).toFixed();
+}
+
+/**
+ * Check if a decimal string value is zero
+ */
+export function isZeroDecimal(value: string): boolean {
+  try {
+    return parseDecimal(value || '0').isZero();
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Analyze fund flow from normalized Cardano transaction data
+ * Handles multi-asset UTXO model
+ */
+export function analyzeCardanoFundFlow(
+  tx: CardanoTransaction,
+  sessionMetadata: Record<string, unknown>
+): Result<CardanoFundFlow, string> {
+  if (!sessionMetadata.address || typeof sessionMetadata.address !== 'string') {
+    return err('Missing user address in session metadata');
+  }
+
+  const userAddress = sessionMetadata.address;
+  const derivedAddresses = Array.isArray(sessionMetadata.derivedAddresses)
+    ? sessionMetadata.derivedAddresses.filter((addr): addr is string => typeof addr === 'string')
+    : [];
+  const allWalletAddresses = new Set<string>([userAddress, ...derivedAddresses]);
+
+  const inflows: CardanoMovement[] = [];
+  const outflows: CardanoMovement[] = [];
+
+  // Track wallet involvement in inputs/outputs
+  let userOwnsInput = false;
+  let userReceivesOutput = false;
+
+  // Analyze inputs (assets being spent)
+  for (const input of tx.inputs) {
+    const isUserInput = allWalletAddresses.has(input.address);
+
+    if (isUserInput) {
+      userOwnsInput = true;
+
+      // Track all assets in this input as outflows
+      for (const assetAmount of input.amounts) {
+        const { isAda, policyId, assetName } = parseCardanoAssetUnit(assetAmount.unit);
+
+        // Normalize amount using decimals
+        // For ADA (lovelace), we use 6 decimals
+        const decimals = isAda ? 6 : assetAmount.decimals;
+        const normalizedAmount = normalizeCardanoAmount(assetAmount.quantity, decimals);
+
+        if (isZeroDecimal(normalizedAmount)) {
+          continue;
+        }
+
+        outflows.push({
+          amount: normalizedAmount,
+          asset: isAda ? 'ADA' : assetAmount.symbol || assetAmount.unit,
+          assetName,
+          decimals,
+          policyId,
+          unit: assetAmount.unit,
+        });
+      }
+    }
+  }
+
+  // Analyze outputs (assets being received)
+  for (const output of tx.outputs) {
+    const isUserOutput = allWalletAddresses.has(output.address);
+
+    if (isUserOutput) {
+      userReceivesOutput = true;
+
+      // Track all assets in this output as inflows
+      for (const assetAmount of output.amounts) {
+        const { isAda, policyId, assetName } = parseCardanoAssetUnit(assetAmount.unit);
+
+        // Normalize amount using decimals
+        const decimals = isAda ? 6 : assetAmount.decimals;
+        const normalizedAmount = normalizeCardanoAmount(assetAmount.quantity, decimals);
+
+        if (isZeroDecimal(normalizedAmount)) {
+          continue;
+        }
+
+        inflows.push({
+          amount: normalizedAmount,
+          asset: isAda ? 'ADA' : assetAmount.symbol || assetAmount.unit,
+          assetName,
+          decimals,
+          policyId,
+          unit: assetAmount.unit,
+        });
+      }
+    }
+  }
+
+  // Consolidate movements by asset
+  const consolidatedInflows = consolidateCardanoMovements(inflows);
+  const consolidatedOutflows = consolidateCardanoMovements(outflows);
+
+  // Determine fee information
+  // Fee is always paid in ADA and deducted from user's balance
+  const feeAmount = tx.feeAmount || '0';
+  const normalizedFeeAmount = normalizeCardanoAmount(feeAmount, 6); // ADA has 6 decimals
+  const feePaidByUser = userOwnsInput && !isZeroDecimal(normalizedFeeAmount);
+
+  // Subtract fee from ADA outflows to avoid double-counting
+  if (feePaidByUser) {
+    let remainingFee = parseDecimal(normalizedFeeAmount);
+
+    for (const movement of consolidatedOutflows) {
+      if (movement.asset !== 'ADA') {
+        continue;
+      }
+
+      const movementAmount = parseDecimal(movement.amount);
+      if (movementAmount.isZero()) {
+        continue;
+      }
+
+      if (movementAmount.lessThanOrEqualTo(remainingFee)) {
+        remainingFee = remainingFee.minus(movementAmount);
+        movement.amount = '0';
+      } else {
+        movement.amount = movementAmount.minus(remainingFee).toFixed();
+        remainingFee = parseDecimal('0');
+        break;
+      }
+    }
+
+    // Remove zero-value ADA movements
+    for (let i = consolidatedOutflows.length - 1; i >= 0; i--) {
+      const movement = consolidatedOutflows[i];
+      if (movement?.asset === 'ADA' && isZeroDecimal(movement.amount)) {
+        consolidatedOutflows.splice(i, 1);
+      }
+    }
+  }
+
+  // Determine flow direction
+  const isIncoming = userReceivesOutput && !userOwnsInput;
+  const isOutgoing = userOwnsInput && !userReceivesOutput;
+
+  // Determine primary addresses
+  const fromAddress = isOutgoing
+    ? tx.inputs.find((input) => allWalletAddresses.has(input.address))?.address
+    : tx.inputs[0]?.address;
+
+  const toAddress = isIncoming
+    ? tx.outputs.find((output) => allWalletAddresses.has(output.address))?.address
+    : tx.outputs[0]?.address;
+
+  // Select primary asset (largest movement)
+  let primary: CardanoMovement = {
+    amount: '0',
+    asset: 'ADA',
+    unit: 'lovelace',
+  };
+
+  // Prioritize largest inflow
+  const largestInflow = consolidatedInflows
+    .sort((a, b) => {
+      try {
+        return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
+      } catch {
+        return 0;
+      }
+    })
+    .find((inflow) => !isZeroDecimal(inflow.amount));
+
+  if (largestInflow) {
+    primary = { ...largestInflow };
+  } else {
+    // If no inflows, use largest outflow
+    const largestOutflow = consolidatedOutflows
+      .sort((a, b) => {
+        try {
+          return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
+        } catch {
+          return 0;
+        }
+      })
+      .find((outflow) => !isZeroDecimal(outflow.amount));
+
+    if (largestOutflow) {
+      primary = { ...largestOutflow };
+    }
+  }
+
+  // Track uncertainty for complex transactions
+  let classificationUncertainty: string | undefined;
+  if (consolidatedInflows.length > 1 || consolidatedOutflows.length > 1) {
+    classificationUncertainty = `Complex multi-asset transaction with ${consolidatedOutflows.length} outflow(s) and ${consolidatedInflows.length} inflow(s). May be a token swap or batch operation.`;
+  }
+
+  const fundFlow: CardanoFundFlow = {
+    classificationUncertainty,
+    feeAmount: normalizedFeeAmount,
+    feeCurrency: 'ADA',
+    feePaidByUser,
+    fromAddress,
+    inflows: consolidatedInflows,
+    inputCount: tx.inputs.length,
+    isIncoming,
+    isOutgoing,
+    outflows: consolidatedOutflows,
+    outputCount: tx.outputs.length,
+    primary,
+    toAddress,
+  };
+
+  return ok(fundFlow);
+}
+
+/**
+ * Determine transaction type from fund flow analysis
+ */
+export function determineCardanoTransactionType(
+  fundFlow: CardanoFundFlow
+): 'deposit' | 'fee' | 'transfer' | 'withdrawal' {
+  const { isIncoming, isOutgoing, inflows, outflows, primary } = fundFlow;
+
+  // Fee-only transaction (no actual asset movements)
+  const primaryAmount = parseDecimal(primary.amount || '0');
+  if (primaryAmount.isZero() && inflows.length === 0 && outflows.length === 0) {
+    return 'fee';
+  }
+
+  // Determine transaction type based on flow direction
+  if (isIncoming && !isOutgoing) {
+    // Only receiving - deposit
+    return 'deposit';
+  } else if (isOutgoing && !isIncoming) {
+    // Only sending - withdrawal
+    return 'withdrawal';
+  } else {
+    // Both or neither - transfer (self-send with change)
+    return 'transfer';
+  }
+}
