@@ -6,6 +6,8 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import { getDefaultReviewer, validateLinkStatusForReject } from './links-utils.js';
+
 const logger = getLogger('LinksRejectHandler');
 
 /**
@@ -52,13 +54,20 @@ export class LinksRejectHandler {
         return err(new Error(`Link with ID ${params.linkId} not found`));
       }
 
-      // Check current status - idempotent if already rejected
-      if (link.status === 'rejected') {
+      // Validate if link can be rejected
+      const validationResult = validateLinkStatusForReject(link.status);
+
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
+
+      // If already rejected (idempotent), return success with existing data
+      if (!validationResult.value) {
         logger.warn({ linkId: params.linkId }, 'Link is already rejected');
         return ok({
           linkId: link.id,
           newStatus: 'rejected',
-          reviewedBy: link.reviewedBy ?? 'cli-user',
+          reviewedBy: link.reviewedBy ?? getDefaultReviewer(),
           reviewedAt: link.reviewedAt ?? new Date(),
         });
       }
@@ -70,7 +79,7 @@ export class LinksRejectHandler {
       }
 
       // Update link status to rejected
-      const reviewedBy = 'cli-user'; // TODO: Get actual user from auth context when available
+      const reviewedBy = getDefaultReviewer();
       const updateResult = await this.linkRepo.updateStatus(params.linkId, 'rejected', reviewedBy);
 
       if (updateResult.isErr()) {

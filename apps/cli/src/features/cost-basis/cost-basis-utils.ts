@@ -1,5 +1,6 @@
-import type { CostBasisConfig, FiatCurrency } from '@exitbook/accounting';
-import { getDefaultDateRange } from '@exitbook/accounting';
+import type { CostBasisConfig, FiatCurrency, IJurisdictionRules } from '@exitbook/accounting';
+import { CanadaRules, getDefaultDateRange, USRules } from '@exitbook/accounting';
+import { Currency, type UniversalTransaction } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 /**
@@ -216,4 +217,108 @@ export function validateCostBasisParams(params: CostBasisHandlerParams): Result<
   }
 
   return ok();
+}
+
+/**
+ * Filter transactions by date range
+ */
+export function filterTransactionsByDateRange(
+  transactions: UniversalTransaction[],
+  startDate: Date,
+  endDate: Date
+): UniversalTransaction[] {
+  return transactions.filter((tx) => {
+    const txDate = new Date(tx.timestamp);
+    return txDate >= startDate && txDate <= endDate;
+  });
+}
+
+/**
+ * Check if a transaction has all required prices
+ *
+ * Only non-fiat crypto movements need prices. Fiat movements don't need prices
+ * since we don't track cost basis for fiat currencies.
+ */
+export function transactionHasAllPrices(tx: UniversalTransaction, _requiredCurrency: string): boolean {
+  // Check all non-fiat inflows
+  const inflows = tx.movements.inflows || [];
+  for (const inflow of inflows) {
+    try {
+      const currency = Currency.create(inflow.asset);
+      if (!currency.isFiat() && !inflow.priceAtTxTime) {
+        return false;
+      }
+    } catch {
+      // If we can't create a Currency, assume it's crypto and needs a price
+      if (!inflow.priceAtTxTime) {
+        return false;
+      }
+    }
+  }
+
+  // Check all non-fiat outflows
+  const outflows = tx.movements.outflows || [];
+  for (const outflow of outflows) {
+    try {
+      const currency = Currency.create(outflow.asset);
+      if (!currency.isFiat() && !outflow.priceAtTxTime) {
+        return false;
+      }
+    } catch {
+      // If we can't create a Currency, assume it's crypto and needs a price
+      if (!outflow.priceAtTxTime) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Validate that transactions have prices in the required currency
+ */
+export function validateTransactionPrices(
+  transactions: UniversalTransaction[],
+  requiredCurrency: string
+): Result<{ missingPricesCount: number; validTransactions: UniversalTransaction[] }, Error> {
+  const validTransactions: UniversalTransaction[] = [];
+  let missingPricesCount = 0;
+
+  for (const tx of transactions) {
+    // Check if any movements are missing prices
+    const hasAllPrices = transactionHasAllPrices(tx, requiredCurrency);
+
+    if (hasAllPrices) {
+      validTransactions.push(tx);
+    } else {
+      missingPricesCount++;
+    }
+  }
+
+  // If ALL transactions are missing prices, this is a critical error
+  if (validTransactions.length === 0) {
+    return err(
+      new Error(
+        `All transactions are missing price data in ${requiredCurrency}. Please run 'exitbook prices fetch' before calculating cost basis.`
+      )
+    );
+  }
+
+  return ok({ validTransactions, missingPricesCount });
+}
+
+/**
+ * Get jurisdiction-specific tax rules
+ */
+export function getJurisdictionRules(jurisdiction: 'CA' | 'US' | 'UK' | 'EU'): IJurisdictionRules {
+  switch (jurisdiction) {
+    case 'CA':
+      return new CanadaRules();
+    case 'US':
+      return new USRules();
+    case 'UK':
+    case 'EU':
+      throw new Error(`${jurisdiction} jurisdiction rules not yet implemented`);
+  }
 }
