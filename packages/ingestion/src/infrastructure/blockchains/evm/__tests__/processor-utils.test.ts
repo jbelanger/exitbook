@@ -4,8 +4,8 @@ import {
   consolidateEvmMovementsByAsset,
   selectPrimaryEvmMovement,
   determineEvmOperationFromFundFlow,
-} from './processor-utils.ts';
-import type { EvmFundFlow, EvmMovement } from './types.ts';
+} from '../processor-utils.ts';
+import type { EvmFundFlow, EvmMovement } from '../types.ts';
 
 describe('consolidateEvmMovementsByAsset', () => {
   it('consolidates duplicate assets by summing amounts', () => {

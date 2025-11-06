@@ -2,14 +2,13 @@ import type { DataSource } from '@exitbook/core';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { BlockchainConfig } from '../infrastructure/blockchains/shared/blockchain-config.ts';
-import type { ImportParams } from '../types/importers.ts';
-
+import type { BlockchainConfig } from '../../infrastructure/blockchains/shared/blockchain-config.ts';
+import type { ImportParams } from '../../types/importers.ts';
 import {
   normalizeBlockchainImportParams,
   prepareImportSession,
   shouldReuseExistingImport,
-} from './import-service-utils.ts';
+} from '../import-service-utils.ts';
 
 describe('import-service-utils', () => {
   describe('shouldReuseExistingImport', () => {

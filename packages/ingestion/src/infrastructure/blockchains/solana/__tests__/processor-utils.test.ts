@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-useless-undefined -- needed by testing logic */
 import type { SolanaTransaction } from '@exitbook/providers';
 import { describe, expect, it } from 'vitest';
 
@@ -8,13 +9,13 @@ import {
   detectSolanaStakingInstructions,
   detectSolanaSwapInstructions,
   detectSolanaTokenTransferInstructions,
-} from './processor-utils.js';
-import type { SolanaFundFlow, SolanaMovement } from './types.js';
+} from '../processor-utils.ts';
+import type { SolanaFundFlow, SolanaMovement } from '../types.ts';
 
 describe('Solana Processor Utils', () => {
   describe('detectSolanaStakingInstructions', () => {
     it('should return false for undefined instructions', () => {
-      expect(detectSolanaStakingInstructions()).toBe(false);
+      expect(detectSolanaStakingInstructions(undefined)).toBe(false);
     });
 
     it('should return false for empty instructions', () => {
@@ -81,7 +82,7 @@ describe('Solana Processor Utils', () => {
 
   describe('detectSolanaSwapInstructions', () => {
     it('should return false for undefined instructions', () => {
-      expect(detectSolanaSwapInstructions()).toBe(false);
+      expect(detectSolanaSwapInstructions(undefined)).toBe(false);
     });
 
     it('should return false for empty instructions', () => {
@@ -136,7 +137,7 @@ describe('Solana Processor Utils', () => {
 
   describe('detectSolanaTokenTransferInstructions', () => {
     it('should return false for undefined instructions', () => {
-      expect(detectSolanaTokenTransferInstructions()).toBe(false);
+      expect(detectSolanaTokenTransferInstructions(undefined)).toBe(false);
     });
 
     it('should return false for empty instructions', () => {
@@ -173,7 +174,7 @@ describe('Solana Processor Utils', () => {
 
   describe('detectSolanaNFTInstructions', () => {
     it('should return false for undefined instructions', () => {
-      expect(detectSolanaNFTInstructions()).toBe(false);
+      expect(detectSolanaNFTInstructions(undefined)).toBe(false);
     });
 
     it('should return false for empty instructions', () => {

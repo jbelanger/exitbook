@@ -7,9 +7,9 @@ import {
   detectExchangeClassificationUncertainty,
   determinePrimaryDirection,
   selectPrimaryMovement,
-} from './correlating-exchange-processor-utils.ts';
-import type { FeeInput, MovementInput } from './strategies/index.ts';
-import type { ExchangeFundFlow } from './types.ts';
+} from '../correlating-exchange-processor-utils.ts';
+import type { FeeInput, MovementInput } from '../strategies/index.ts';
+import type { ExchangeFundFlow } from '../types.ts';
 
 describe('correlating-exchange-processor-utils', () => {
   describe('selectPrimaryMovement', () => {
