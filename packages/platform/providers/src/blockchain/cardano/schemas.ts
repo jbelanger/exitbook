@@ -9,36 +9,34 @@ import { z } from 'zod';
 /**
  * Cardano address schema with validation but NO case transformation.
  *
- * Unlike Bitcoin addresses which are case-insensitive,
- * Cardano addresses use Bech32 encoding which is case-sensitive and must be lowercase.
- * The same address with different casing is invalid.
+ * Supports both Byron-era and Shelley-era addresses:
  *
- * Address formats:
- * - Mainnet payment addresses: addr1... (shelley era)
- * - Mainnet stake addresses: stake1... (reward addresses)
+ * Byron-era addresses (base58 encoding):
+ * - Start with prefixes: Ae2, DdzFF
+ * - Case-sensitive
+ * - Use base58 charset (alphanumeric excluding 0, O, I, l)
+ *
+ * Shelley-era addresses (Bech32 encoding):
+ * - Mainnet payment addresses: addr1...
+ * - Mainnet stake addresses: stake1...
  * - Testnet payment addresses: addr_test1...
  * - Testnet stake addresses: stake_test1...
- *
- * Examples:
- * - 'addr1qxy...' (mainnet payment address)
- * - 'stake1uxyz...' (mainnet stake address)
- * - 'addr_test1qp...' (testnet payment address)
- * - 'stake_test1up...' (testnet stake address)
- *
- * Bech32 encoding rules:
  * - Case-sensitive (must be lowercase)
  * - Uses charset: a-z and 0-9 (no uppercase)
- * - HRP (human-readable part) followed by separator (1) and data
  *
- * Therefore, we do NOT normalize to lowercase - addresses must be provided exactly as encoded.
+ * Examples:
+ * - 'DdzFFzCqrht...' (Byron mainnet address)
+ * - 'addr1qxy...' (Shelley mainnet payment address)
+ * - 'stake1uxyz...' (Shelley mainnet stake address)
+ *
  * Invalid casing will fail validation naturally through the regex pattern.
  */
 export const CardanoAddressSchema = z
   .string()
   .min(1, 'Cardano address must not be empty')
   .regex(
-    /^(addr1|addr_test1|stake1|stake_test1)[a-z0-9]+$/,
-    'Cardano address must be a valid Bech32 address (addr1..., addr_test1..., stake1..., or stake_test1...)'
+    /^(addr1|addr_test1|stake1|stake_test1|Ae2|DdzFF)[A-Za-z0-9]+$/,
+    'Cardano address must be a valid Byron (Ae2..., DdzFF...) or Shelley (addr1..., stake1...) address'
   );
 
 /**

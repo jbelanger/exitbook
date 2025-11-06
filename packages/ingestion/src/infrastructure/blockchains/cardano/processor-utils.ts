@@ -220,38 +220,10 @@ export function analyzeCardanoFundFlow(
   const feeAmount = tx.feeAmount || '0';
   const feePaidByUser = userOwnsInput && !isZeroDecimal(feeAmount);
 
-  // Subtract fee from ADA outflows to avoid double-counting
-  if (feePaidByUser) {
-    let remainingFee = parseDecimal(feeAmount);
-
-    for (const movement of consolidatedOutflows) {
-      if (movement.asset !== 'ADA') {
-        continue;
-      }
-
-      const movementAmount = parseDecimal(movement.amount);
-      if (movementAmount.isZero()) {
-        continue;
-      }
-
-      if (movementAmount.lessThanOrEqualTo(remainingFee)) {
-        remainingFee = remainingFee.minus(movementAmount);
-        movement.amount = '0';
-      } else {
-        movement.amount = movementAmount.minus(remainingFee).toFixed();
-        remainingFee = parseDecimal('0');
-        break;
-      }
-    }
-
-    // Remove zero-value ADA movements
-    for (let i = consolidatedOutflows.length - 1; i >= 0; i--) {
-      const movement = consolidatedOutflows[i];
-      if (movement?.asset === 'ADA' && isZeroDecimal(movement.amount)) {
-        consolidatedOutflows.splice(i, 1);
-      }
-    }
-  }
+  // ADR-005: For UTXO chains, preserve gross amounts (includes fee) in outflows.
+  // The fee is recorded separately with settlement='on-chain', and the processor
+  // will set netAmount = grossAmount - fee for ADA outflows.
+  // Balance calculation subtracts grossAmount and ignores on-chain fees (already in gross).
 
   // Determine flow direction
   const isIncoming = userReceivesOutput && !userOwnsInput;
