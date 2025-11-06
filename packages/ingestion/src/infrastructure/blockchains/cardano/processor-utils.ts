@@ -216,13 +216,13 @@ export function analyzeCardanoFundFlow(
 
   // Determine fee information
   // Fee is always paid in ADA and deducted from user's balance
+  // feeAmount is already in ADA (converted from lovelace in the mapper)
   const feeAmount = tx.feeAmount || '0';
-  const normalizedFeeAmount = normalizeCardanoAmount(feeAmount, 6); // ADA has 6 decimals
-  const feePaidByUser = userOwnsInput && !isZeroDecimal(normalizedFeeAmount);
+  const feePaidByUser = userOwnsInput && !isZeroDecimal(feeAmount);
 
   // Subtract fee from ADA outflows to avoid double-counting
   if (feePaidByUser) {
-    let remainingFee = parseDecimal(normalizedFeeAmount);
+    let remainingFee = parseDecimal(feeAmount);
 
     for (const movement of consolidatedOutflows) {
       if (movement.asset !== 'ADA') {
@@ -311,7 +311,7 @@ export function analyzeCardanoFundFlow(
 
   const fundFlow: CardanoFundFlow = {
     classificationUncertainty,
-    feeAmount: normalizedFeeAmount,
+    feeAmount,
     feeCurrency: 'ADA',
     feePaidByUser,
     fromAddress,
