@@ -162,7 +162,7 @@ export class BitcoinTransactionBuilder {
     return this;
   }
 
-  withStatus(status: 'pending' | 'success' | 'canceled' | 'failed'): this {
+  withStatus(status: 'pending' | 'success' | 'failed'): this {
     this.tx.status = status;
     return this;
   }
@@ -244,7 +244,7 @@ export class CosmosTransactionBuilder {
     return this;
   }
 
-  withStatus(status: 'pending' | 'success' | 'canceled' | 'failed'): this {
+  withStatus(status: 'pending' | 'success' | 'failed'): this {
     this.tx.status = status;
     return this;
   }
@@ -259,12 +259,13 @@ export class CosmosTransactionBuilder {
  */
 export class EvmTransactionBuilder {
   private tx: EvmTransaction = {
-    hash: '0x123',
-    blockNumber: 1000000,
+    id: '0x123',
+    type: 'transfer',
+    blockHeight: 1000000,
     timestamp: TEST_TIMESTAMPS.now,
     from: '0xabc',
     to: '0xdef',
-    value: '1000000000000000000',
+    amount: '1000000000000000000',
     currency: 'ETH',
     gasUsed: '21000',
     gasPrice: '50000000000',
@@ -272,13 +273,13 @@ export class EvmTransactionBuilder {
     status: 'success',
   };
 
-  withHash(hash: string): this {
-    this.tx.hash = hash;
+  withId(id: string): this {
+    this.tx.id = id;
     return this;
   }
 
-  withBlockNumber(blockNumber: number): this {
-    this.tx.blockNumber = blockNumber;
+  withBlockHeight(blockHeight: number): this {
+    this.tx.blockHeight = blockHeight;
     return this;
   }
 
@@ -297,8 +298,8 @@ export class EvmTransactionBuilder {
     return this;
   }
 
-  withValue(value: string, currency = 'ETH'): this {
-    this.tx.value = value;
+  withAmount(amount: string, currency = 'ETH'): this {
+    this.tx.amount = amount;
     this.tx.currency = currency;
     return this;
   }
@@ -314,7 +315,7 @@ export class EvmTransactionBuilder {
     return this;
   }
 
-  withStatus(status: 'pending' | 'success' | 'canceled' | 'failed'): this {
+  withStatus(status: 'pending' | 'success' | 'failed'): this {
     this.tx.status = status;
     return this;
   }
@@ -381,6 +382,9 @@ export class SolanaTransactionBuilder {
   }
 
   addAccountChange(account: string, preBalance: string, postBalance: string): this {
+    if (!this.tx.accountChanges) {
+      this.tx.accountChanges = [];
+    }
     this.tx.accountChanges.push({ account, preBalance, postBalance });
     return this;
   }
@@ -390,12 +394,15 @@ export class SolanaTransactionBuilder {
     return this;
   }
 
-  withStatus(status: 'pending' | 'success' | 'canceled' | 'failed'): this {
+  withStatus(status: 'pending' | 'success' | 'failed'): this {
     this.tx.status = status;
     return this;
   }
 
   build(): SolanaTransaction {
-    return { ...this.tx, accountChanges: [...this.tx.accountChanges] };
+    return {
+      ...this.tx,
+      accountChanges: this.tx.accountChanges ? [...this.tx.accountChanges] : undefined,
+    };
   }
 }

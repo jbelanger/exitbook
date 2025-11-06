@@ -3,12 +3,14 @@ import type { SolanaTransaction } from '@exitbook/providers';
 import { describe, expect, it } from 'vitest';
 
 import {
+  analyzeSolanaBalanceChanges,
   classifySolanaOperationFromFundFlow,
   consolidateSolanaMovements,
   detectSolanaNFTInstructions,
   detectSolanaStakingInstructions,
   detectSolanaSwapInstructions,
   detectSolanaTokenTransferInstructions,
+  isZeroDecimal,
 } from '../processor-utils.ts';
 import type { SolanaFundFlow, SolanaMovement } from '../types.ts';
 
@@ -328,6 +330,7 @@ describe('Solana Processor Utils', () => {
           feeAmount: '0.000005',
           feeCurrency: 'SOL',
           feePaidByUser: true,
+          feeAbsorbedByMovement: false,
           fromAddress: 'user123',
           toAddress: 'stake456',
           hasMultipleInstructions: true,
@@ -352,6 +355,7 @@ describe('Solana Processor Utils', () => {
           feeAmount: '0.000005',
           feeCurrency: 'SOL',
           feePaidByUser: true,
+          feeAbsorbedByMovement: false,
           fromAddress: 'stake456',
           toAddress: 'user123',
           hasMultipleInstructions: true,
@@ -376,6 +380,7 @@ describe('Solana Processor Utils', () => {
           feeAmount: '0.000005',
           feeCurrency: 'SOL',
           feePaidByUser: true,
+          feeAbsorbedByMovement: false,
           fromAddress: 'stake456',
           toAddress: 'user123',
           hasMultipleInstructions: true,
@@ -400,6 +405,7 @@ describe('Solana Processor Utils', () => {
           feeAmount: '0.000005',
           feeCurrency: 'SOL',
           feePaidByUser: true,
+          feeAbsorbedByMovement: false,
           fromAddress: 'user123',
           toAddress: 'stake456',
           hasMultipleInstructions: true,
@@ -427,6 +433,7 @@ describe('Solana Processor Utils', () => {
           feeAmount: '0.000005',
           feeCurrency: 'SOL',
           feePaidByUser: true,
+          feeAbsorbedByMovement: false,
           fromAddress: 'user123',
           toAddress: 'user123',
           hasMultipleInstructions: false,
@@ -453,6 +460,7 @@ describe('Solana Processor Utils', () => {
           feeAmount: '0.000005',
           feeCurrency: 'SOL',
           feePaidByUser: true,
+          feeAbsorbedByMovement: false,
           fromAddress: 'user123',
           toAddress: 'user123',
           hasMultipleInstructions: true,
@@ -479,6 +487,7 @@ describe('Solana Processor Utils', () => {
           feeAmount: '0.000005',
           feeCurrency: 'SOL',
           feePaidByUser: true,
+          feeAbsorbedByMovement: false,
           fromAddress: 'user123',
           toAddress: 'user123',
           hasMultipleInstructions: true,
@@ -509,6 +518,7 @@ describe('Solana Processor Utils', () => {
           feeAmount: '0.000005',
           feeCurrency: 'SOL',
           feePaidByUser: false,
+          feeAbsorbedByMovement: false,
           fromAddress: 'sender123',
           toAddress: 'user123',
           hasMultipleInstructions: false,
@@ -535,6 +545,7 @@ describe('Solana Processor Utils', () => {
           feeAmount: '0.000005',
           feeCurrency: 'SOL',
           feePaidByUser: true,
+          feeAbsorbedByMovement: false,
           fromAddress: 'user123',
           toAddress: 'recipient456',
           hasMultipleInstructions: false,
@@ -561,6 +572,7 @@ describe('Solana Processor Utils', () => {
           feeAmount: '0.000005',
           feeCurrency: 'SOL',
           feePaidByUser: true,
+          feeAbsorbedByMovement: false,
           fromAddress: 'user123',
           toAddress: 'user456',
           hasMultipleInstructions: false,
@@ -587,6 +599,7 @@ describe('Solana Processor Utils', () => {
           feeAmount: '0.000005',
           feeCurrency: 'SOL',
           feePaidByUser: true,
+          feeAbsorbedByMovement: false,
           fromAddress: 'user123',
           toAddress: 'pool456',
           hasMultipleInstructions: true,
@@ -623,6 +636,7 @@ describe('Solana Processor Utils', () => {
           feeAmount: '0.000005',
           feeCurrency: 'SOL',
           feePaidByUser: true,
+          feeAbsorbedByMovement: false,
           fromAddress: 'user123',
           toAddress: 'user123',
           hasMultipleInstructions: true,
@@ -657,6 +671,7 @@ describe('Solana Processor Utils', () => {
           feeAmount: '0.000005',
           feeCurrency: 'SOL',
           feePaidByUser: true,
+          feeAbsorbedByMovement: false,
           fromAddress: 'user123',
           toAddress: 'unknown456',
           hasMultipleInstructions: false,
@@ -682,6 +697,495 @@ describe('Solana Processor Utils', () => {
         expect(result.note?.type).toBe('classification_failed');
         expect(result.note?.severity).toBe('warning');
       });
+    });
+  });
+
+  describe('analyzeSolanaBalanceChanges', () => {
+    const userAddress = 'userAddress123';
+    const otherAddress = 'otherAddress456';
+    const allWalletAddresses = new Set([userAddress]);
+
+    // Helper to create minimal valid SolanaTransaction
+    const createTx = (overrides: Partial<SolanaTransaction> = {}): SolanaTransaction => ({
+      amount: '0',
+      currency: 'SOL',
+      from: userAddress,
+      id: 'tx1',
+      providerId: 'helius',
+      status: 'success',
+      timestamp: Date.now(),
+      to: otherAddress,
+      ...overrides,
+    });
+
+    it('should collect SOL outflows from account changes', () => {
+      const tx = createTx({
+        feeAmount: '0.000005',
+        feeCurrency: 'SOL',
+        accountChanges: [
+          {
+            account: userAddress,
+            preBalance: '1000000000', // 1 SOL in lamports
+            postBalance: '500000000', // 0.5 SOL in lamports
+          },
+        ],
+      });
+
+      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+      expect(result.outflows).toHaveLength(1);
+      expect(result.outflows[0]?.asset).toBe('SOL');
+      expect(result.outflows[0]?.amount).toBe('0.499995'); // 0.5 - 0.000005 fee
+      expect(result.inflows).toHaveLength(0);
+    });
+
+    it('should collect SOL inflows from account changes', () => {
+      const tx = createTx({
+        from: otherAddress,
+        to: userAddress,
+        feeAmount: '0.000005',
+        feeCurrency: 'SOL',
+        accountChanges: [
+          {
+            account: userAddress,
+            preBalance: '500000000', // 0.5 SOL in lamports
+            postBalance: '1000000000', // 1 SOL in lamports
+          },
+        ],
+      });
+
+      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+      expect(result.inflows).toHaveLength(1);
+      expect(result.inflows[0]?.asset).toBe('SOL');
+      expect(result.inflows[0]?.amount).toBe('0.5');
+      expect(result.outflows).toHaveLength(0);
+    });
+
+    it('should collect token outflows from token changes', () => {
+      const tx = createTx({
+        feeAmount: '0.000005',
+        feeCurrency: 'SOL',
+        tokenChanges: [
+          {
+            account: 'tokenAccount123',
+            owner: userAddress,
+            mint: 'USDCMint',
+            symbol: 'USDC',
+            decimals: 6,
+            preAmount: '1000000', // 1 USDC in smallest units
+            postAmount: '500000', // 0.5 USDC in smallest units
+          },
+        ],
+      });
+
+      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+      expect(result.outflows).toHaveLength(1);
+      expect(result.outflows[0]?.asset).toBe('USDC');
+      expect(result.outflows[0]?.amount).toBe('0.5');
+      expect(result.outflows[0]?.decimals).toBe(6);
+      expect(result.outflows[0]?.tokenAddress).toBe('USDCMint');
+      expect(result.inflows).toHaveLength(0);
+    });
+
+    it('should collect token inflows from token changes', () => {
+      const tx = createTx({
+        from: otherAddress,
+        to: userAddress,
+        feeAmount: '0.000005',
+        feeCurrency: 'SOL',
+        tokenChanges: [
+          {
+            account: 'tokenAccount123',
+            owner: userAddress,
+            mint: 'USDCMint',
+            symbol: 'USDC',
+            decimals: 6,
+            preAmount: '500000', // 0.5 USDC in smallest units
+            postAmount: '1000000', // 1 USDC in smallest units
+          },
+        ],
+      });
+
+      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+      expect(result.inflows).toHaveLength(1);
+      expect(result.inflows[0]?.asset).toBe('USDC');
+      expect(result.inflows[0]?.amount).toBe('0.5');
+      expect(result.outflows).toHaveLength(0);
+    });
+
+    it('should determine feePaidByUser when user has outflows', () => {
+      const tx = createTx({
+        feeAmount: '0.000005',
+        feeCurrency: 'SOL',
+        accountChanges: [
+          {
+            account: userAddress,
+            preBalance: '1000000000',
+            postBalance: '500000000',
+          },
+        ],
+      });
+
+      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+      expect(result.feePaidByUser).toBe(true);
+    });
+
+    it('should determine feePaidByUser is false when user only has inflows', () => {
+      const tx = createTx({
+        from: otherAddress,
+        to: userAddress,
+        feeAmount: '0.000005',
+        feeCurrency: 'SOL',
+        accountChanges: [
+          {
+            account: userAddress,
+            preBalance: '500000000',
+            postBalance: '1000000000',
+          },
+        ],
+      });
+
+      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+      expect(result.feePaidByUser).toBe(false);
+    });
+
+    it('should determine feePaidByUser when user initiated transaction with no movements', () => {
+      const tx = createTx({
+        from: userAddress,
+        to: userAddress,
+        feeAmount: '0.000005',
+        feeCurrency: 'SOL',
+        accountChanges: [],
+        tokenChanges: [],
+      });
+
+      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+      expect(result.feePaidByUser).toBe(true);
+    });
+
+    describe('Fee deduction logic (Issue #78)', () => {
+      it('should deduct fee from SOL outflow', () => {
+        const tx = createTx({
+          feeAmount: '0.000005',
+          feeCurrency: 'SOL',
+          accountChanges: [
+            {
+              account: userAddress,
+              preBalance: '1000000000', // 1 SOL
+              postBalance: '999994995', // 0.999994995 SOL (already includes fee deduction)
+            },
+          ],
+        });
+
+        const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+        // The raw outflow is 0.000005005, fee is 0.000005, so result should be 0.000000005
+        expect(result.outflows).toHaveLength(1);
+        expect(result.outflows[0]?.asset).toBe('SOL');
+        expect(parseFloat(result.outflows[0]?.amount || '0')).toBeCloseTo(0.000000005, 9);
+      });
+
+      it('should handle fee-only transaction by removing zero outflow', () => {
+        const tx = createTx({
+          from: userAddress,
+          to: userAddress,
+          feeAmount: '0.000005',
+          feeCurrency: 'SOL',
+          accountChanges: [
+            {
+              account: userAddress,
+              preBalance: '1000000000', // 1 SOL
+              postBalance: '999995000', // 0.999995 SOL (only fee deducted)
+            },
+          ],
+        });
+
+        const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+        // Fee exactly matches outflow, so outflow is removed
+        expect(result.outflows).toHaveLength(0);
+        expect(result.feeAbsorbedByMovement).toBe(true);
+      });
+
+      it('should set feeAbsorbedByMovement when fee removes all outflows', () => {
+        const tx = createTx({
+          from: userAddress,
+          to: userAddress,
+          feeAmount: '0.000005',
+          feeCurrency: 'SOL',
+          accountChanges: [
+            {
+              account: userAddress,
+              preBalance: '1000000000',
+              postBalance: '999995000',
+            },
+          ],
+        });
+
+        const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+        expect(result.feeAbsorbedByMovement).toBe(true);
+      });
+
+      it('should not set feeAbsorbedByMovement when outflows remain after fee deduction', () => {
+        const tx = createTx({
+          feeAmount: '0.000005',
+          feeCurrency: 'SOL',
+          accountChanges: [
+            {
+              account: userAddress,
+              preBalance: '1000000000',
+              postBalance: '500000000',
+            },
+          ],
+        });
+
+        const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+        expect(result.feeAbsorbedByMovement).toBe(false);
+        expect(result.outflows.length).toBeGreaterThan(0);
+      });
+
+      it('should not deduct fee from token outflows, only SOL', () => {
+        const tx = createTx({
+          feeAmount: '0.000005',
+          feeCurrency: 'SOL',
+          tokenChanges: [
+            {
+              account: 'tokenAccount123',
+              owner: userAddress,
+              mint: 'USDCMint',
+              symbol: 'USDC',
+              decimals: 6,
+              preAmount: '1000000',
+              postAmount: '500000',
+            },
+          ],
+          accountChanges: [
+            {
+              account: userAddress,
+              preBalance: '1000000000',
+              postBalance: '999995000', // Only fee deducted
+            },
+          ],
+        });
+
+        const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+        // USDC outflow should not be affected by fee
+        const usdcOutflow = result.outflows.find((o) => o.asset === 'USDC');
+        expect(usdcOutflow?.amount).toBe('0.5');
+
+        // SOL outflow should be removed (fee-only)
+        const solOutflow = result.outflows.find((o) => o.asset === 'SOL');
+        expect(solOutflow).toBeUndefined();
+      });
+
+      it('should handle multiple SOL outflows with fee deduction', () => {
+        const tx = createTx({
+          feeAmount: '0.000010',
+          feeCurrency: 'SOL',
+          accountChanges: [
+            {
+              account: userAddress,
+              preBalance: '1000000000',
+              postBalance: '999990000', // 0.99999 SOL (0.00001 outflow including fee)
+            },
+          ],
+        });
+
+        const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+        // After fee deduction, outflow should be zero
+        expect(result.outflows).toHaveLength(0);
+        expect(result.feeAbsorbedByMovement).toBe(true);
+      });
+    });
+
+    it('should skip zero balance changes', () => {
+      const tx = createTx({
+        feeAmount: '0.000005',
+        feeCurrency: 'SOL',
+        accountChanges: [
+          {
+            account: userAddress,
+            preBalance: '1000000000',
+            postBalance: '1000000000', // No change
+          },
+        ],
+      });
+
+      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+      expect(result.inflows).toHaveLength(0);
+      expect(result.outflows).toHaveLength(0);
+    });
+
+    it('should ignore non-user accounts', () => {
+      const tx = createTx({
+        from: otherAddress,
+        to: otherAddress,
+        feeAmount: '0.000005',
+        feeCurrency: 'SOL',
+        accountChanges: [
+          {
+            account: otherAddress,
+            preBalance: '1000000000',
+            postBalance: '500000000',
+          },
+        ],
+      });
+
+      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+      expect(result.inflows).toHaveLength(0);
+      expect(result.outflows).toHaveLength(0);
+    });
+
+    it('should set classification uncertainty for multi-asset transactions', () => {
+      const tx = createTx({
+        feeAmount: '0.000005',
+        feeCurrency: 'SOL',
+        tokenChanges: [
+          {
+            account: 'tokenAccount123',
+            owner: userAddress,
+            mint: 'USDCMint',
+            symbol: 'USDC',
+            decimals: 6,
+            preAmount: '500000',
+            postAmount: '1000000',
+          },
+          {
+            account: 'tokenAccount456',
+            owner: userAddress,
+            mint: 'USDTMint',
+            symbol: 'USDT',
+            decimals: 6,
+            preAmount: '500000',
+            postAmount: '1000000',
+          },
+          {
+            account: 'tokenAccount789',
+            owner: userAddress,
+            mint: 'BonkMint',
+            symbol: 'BONK',
+            decimals: 5,
+            preAmount: '1000000',
+            postAmount: '500000',
+          },
+        ],
+      });
+
+      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+      expect(result.classificationUncertainty).toBeDefined();
+      expect(result.classificationUncertainty).toContain('Complex transaction');
+      expect(result.classificationUncertainty).toContain('2 inflow(s)');
+    });
+
+    it('should select largest inflow as primary', () => {
+      const tx = createTx({
+        from: otherAddress,
+        to: userAddress,
+        feeAmount: '0.000005',
+        feeCurrency: 'SOL',
+        tokenChanges: [
+          {
+            account: 'tokenAccount123',
+            owner: userAddress,
+            mint: 'USDCMint',
+            symbol: 'USDC',
+            decimals: 6,
+            preAmount: '500000',
+            postAmount: '2000000', // +1.5 USDC
+          },
+          {
+            account: 'tokenAccount456',
+            owner: userAddress,
+            mint: 'USDTMint',
+            symbol: 'USDT',
+            decimals: 6,
+            preAmount: '500000',
+            postAmount: '1000000', // +0.5 USDT
+          },
+        ],
+      });
+
+      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+      expect(result.primary.asset).toBe('USDC');
+      expect(result.primary.amount).toBe('1.5');
+    });
+
+    it('should select largest outflow as primary when no inflows', () => {
+      const tx = createTx({
+        feeAmount: '0.000005',
+        feeCurrency: 'SOL',
+        accountChanges: [
+          {
+            account: userAddress,
+            preBalance: '2000000000',
+            postBalance: '1000000000', // -1 SOL + fee
+          },
+        ],
+        tokenChanges: [
+          {
+            account: 'tokenAccount123',
+            owner: userAddress,
+            mint: 'USDCMint',
+            symbol: 'USDC',
+            decimals: 6,
+            preAmount: '1000000',
+            postAmount: '500000', // -0.5 USDC
+          },
+        ],
+      });
+
+      const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+
+      // SOL outflow (0.999995) is larger than USDC (0.5)
+      expect(result.primary.asset).toBe('SOL');
+    });
+  });
+
+  describe('isZeroDecimal', () => {
+    it('should return true for "0"', () => {
+      expect(isZeroDecimal('0')).toBe(true);
+    });
+
+    it('should return true for "0.0"', () => {
+      expect(isZeroDecimal('0.0')).toBe(true);
+    });
+
+    it('should return true for "0.00000"', () => {
+      expect(isZeroDecimal('0.00000')).toBe(true);
+    });
+
+    it('should return true for empty string', () => {
+      expect(isZeroDecimal('')).toBe(true);
+    });
+
+    it('should return false for "1"', () => {
+      expect(isZeroDecimal('1')).toBe(false);
+    });
+
+    it('should return false for "0.1"', () => {
+      expect(isZeroDecimal('0.1')).toBe(false);
+    });
+
+    it('should return false for "-0.1"', () => {
+      expect(isZeroDecimal('-0.1')).toBe(false);
+    });
+
+    it('should return true for invalid decimal string', () => {
+      expect(isZeroDecimal('invalid')).toBe(true);
     });
   });
 });

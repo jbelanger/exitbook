@@ -36,7 +36,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         ],
         amount: '1000000000', // 1 SOL sent
         currency: 'SOL',
-        feeAmount: '5000', // 0.000005 SOL fee
+        feeAmount: '0.000005', // 0.000005 SOL fee
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sig1abc',
@@ -59,7 +59,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
 
     // User paid the fee (outflow exists), so it should be deducted
     // Fees are stored in lamports (raw units), not SOL
-    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('5000');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('0.000005');
     expect(transaction.operation.type).toBe('withdrawal');
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.inflows).toHaveLength(0);
@@ -79,7 +79,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         ],
         amount: '1000000000', // 1 SOL received
         currency: 'SOL',
-        feeAmount: '5000', // 0.000005 SOL fee (paid by sender)
+        feeAmount: '0.000005', // 0.000005 SOL fee (paid by sender)
         feeCurrency: 'SOL',
         from: EXTERNAL_ADDRESS, // External sender (not user)
         id: 'sig2def',
@@ -121,7 +121,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         ],
         amount: '0', // Self-transfer (net zero)
         currency: 'SOL',
-        feeAmount: '5000', // 0.000005 SOL fee
+        feeAmount: '0.000005', // 0.000005 SOL fee
         feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sig3ghi',
@@ -144,7 +144,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
 
     // User initiated the self-transfer, so they paid the fee
     // (The balance change from fee creates an outflow, triggering fee deduction)
-    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('5000');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('0.000005');
     expect(transaction.from).toBe(USER_ADDRESS);
     expect(transaction.to).toBe(USER_ADDRESS);
   });
@@ -163,7 +163,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         ],
         amount: '0', // No transfer, just program interaction
         currency: 'SOL',
-        feeAmount: '5000', // 0.000005 SOL fee
+        feeAmount: '0.000005', // 0.000005 SOL fee
         feeCurrency: 'SOL',
         from: USER_ADDRESS, // User initiates interaction
         id: 'sig4jkl',
@@ -191,7 +191,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
 
     // User initiated program interaction, so they paid the fee
     // (Outflow from fee deduction triggers fee logic)
-    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('5000');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('0.000005');
   });
 
   test('does NOT deduct fee for incoming token transfers (airdrop/mint scenario)', async () => {
@@ -201,7 +201,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       {
         amount: '1000000', // 1 USDC received
         currency: 'USDC',
-        feeAmount: '5000', // 0.000005 SOL fee (paid by minter/airdropper)
+        feeAmount: '0.000005', // 0.000005 SOL fee (paid by minter/airdropper)
         feeCurrency: 'SOL',
         from: CONTRACT_ADDRESS, // Contract/minter is sender
         id: 'sig5mno',
@@ -252,7 +252,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         accountChanges: [], // Failed transaction may have no balance changes
         amount: '2000000000', // 2 SOL (failed send)
         currency: 'SOL',
-        feeAmount: '5000', // 0.000005 SOL fee (still consumed on failure)
+        feeAmount: '0.000005', // 0.000005 SOL fee (still consumed on failure)
         feeCurrency: 'SOL',
         from: USER_ADDRESS, // User initiated transaction
         id: 'sig6pqr',
@@ -275,7 +275,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
 
     // User initiated failed transaction, so they still paid the gas fee
     // (No outflows due to failure, but from === userAddress triggers fee deduction)
-    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('5000');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('0.000005');
     expect(transaction.status).toBe('failed');
   });
 
@@ -293,7 +293,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         ],
         amount: '500000000', // 0.5 SOL sent
         currency: 'SOL',
-        feeAmount: '5000', // 0.000005 SOL fee
+        feeAmount: '0.000005', // 0.000005 SOL fee
         feeCurrency: 'SOL',
         from: USER_ADDRESS, // User initiates swap
         id: 'sigSwap1',
@@ -331,7 +331,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User initiated swap, so they paid the fee
-    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('5000');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('0.000005');
     expect(transaction.operation.type).toBe('swap');
     expect(transaction.movements.outflows).toHaveLength(1); // SOL out
     expect(transaction.movements.inflows).toHaveLength(1); // USDC in
@@ -353,7 +353,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         ],
         amount: '1000000000',
         currency: 'SOL',
-        feeAmount: '5000',
+        feeAmount: '0.000005',
         feeCurrency: 'SOL',
         from: mixedCaseUser.toUpperCase(), // Different case but same address
         id: 'sig7stu',
@@ -375,7 +375,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // Should correctly identify user as sender despite case difference
-    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('5000');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('0.000005');
   });
 
   test('does NOT deduct fee when receiving staking rewards', async () => {
@@ -439,7 +439,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         ],
         amount: '500000000', // 0.5 SOL staked
         currency: 'SOL',
-        feeAmount: '5000', // 0.000005 SOL fee
+        feeAmount: '0.000005', // 0.000005 SOL fee
         feeCurrency: 'SOL',
         from: USER_ADDRESS, // User initiates staking
         id: 'sigStake1',
@@ -466,7 +466,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User initiated staking, so they paid the fee
-    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('5000');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('0.000005');
     expect(transaction.operation.type).toBe('stake');
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.inflows).toHaveLength(0);
@@ -489,7 +489,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         ],
         amount: '1000000000',
         currency: 'SOL',
-        feeAmount: '5000',
+        feeAmount: '0.000005',
         feeCurrency: 'SOL',
         from: EXTERNAL_ADDRESS, // Someone else sends to derived wallet
         id: 'sig8vwx',
@@ -535,7 +535,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         ],
         amount: '1000000000',
         currency: 'SOL',
-        feeAmount: '5000',
+        feeAmount: '0.000005',
         feeCurrency: 'SOL',
         from: derivedAddress1, // Derived wallet sends
         id: 'sig9xyz',
@@ -560,7 +560,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User (via derived wallet) initiated transaction, so they paid fee
-    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('5000');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('0.000005');
     expect(transaction.operation.type).toBe('withdrawal');
   });
 
@@ -578,7 +578,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         ],
         amount: '500000000',
         currency: 'SOL',
-        feeAmount: '5000', // 0.000005 SOL fee
+        feeAmount: '0.000005', // 0.000005 SOL fee
         feeCurrency: 'SOL',
         from: USER_ADDRESS, // User initiates liquidity provision
         id: 'sigDefi1',
@@ -620,7 +620,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     if (!transaction) return;
 
     // User initiated DeFi operation (has outflows), so they paid the fee
-    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('5000');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('0.000005');
     expect(transaction.movements.outflows?.length).toBeGreaterThan(0);
   });
 
@@ -631,7 +631,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       {
         amount: '1', // 1 NFT
         currency: 'NFT',
-        feeAmount: '5000', // Fee paid by minter
+        feeAmount: '0.000005', // Fee paid by minter
         feeCurrency: 'SOL',
         from: CONTRACT_ADDRESS, // Candy machine/minter
         id: 'sigNFT1',

@@ -39,5 +39,6 @@ export interface DeletionPreview {
   links: number;
   lots: number;
   disposals: number;
+  transfers: number;
   calculations: number;
 }

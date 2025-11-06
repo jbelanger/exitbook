@@ -18,6 +18,7 @@ export interface SolanaBalanceChangeAnalysis {
   fromAddress: string;
   toAddress: string;
   feePaidByUser: boolean;
+  feeAbsorbedByMovement: boolean;
   classificationUncertainty?: string | undefined;
 }
 
@@ -39,6 +40,7 @@ export interface SolanaFundFlow {
   feeAmount: string;
   feeCurrency: string;
   feePaidByUser: boolean; // Whether the user paid the transaction fee
+  feeAbsorbedByMovement: boolean; // Whether the fee was fully absorbed by movement adjustment
 
   // Addresses involved
   fromAddress?: string | undefined;

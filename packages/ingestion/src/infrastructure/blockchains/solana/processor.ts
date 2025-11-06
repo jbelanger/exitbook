@@ -65,14 +65,10 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         // Determine transaction type and operation classification based on fund flow
         const classification = classifySolanaOperationFromFundFlow(fundFlow, normalizedTx.instructions || []);
 
-        // Only include fees if user was the signer/broadcaster (they paid the fee)
-        // For incoming transactions (deposits, airdrops, received transfers), the sender/protocol paid the fee
-        // User paid fee if:
-        // 1. They have ANY outflows (sent funds, swapped, staked, etc.) OR
-        // 2. They initiated a transaction with no outflows (contract interactions, approvals, account creation)
-        // Note: Solana addresses are case-sensitive (base58), so we compare them directly
-        const userAddress = sessionMetadata.address as string;
-        const userPaidFee = fundFlow.outflows.length > 0 || normalizedTx.from === userAddress;
+        // Fix Issue #78: Only record fees when user paid AND fee wasn't absorbed by movement
+        // `feeAbsorbedByMovement` prevents double-counting for fee-only transactions where
+        // the fee was already deducted from SOL outflows (which are derived from accountChanges)
+        const userPaidFee = fundFlow.feePaidByUser && !fundFlow.feeAbsorbedByMovement;
 
         // Convert to UniversalTransaction with structured fields
         const universalTransaction: UniversalTransaction = {

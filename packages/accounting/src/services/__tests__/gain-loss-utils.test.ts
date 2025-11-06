@@ -30,6 +30,7 @@ function createLot(
 ): AcquisitionLot {
   return {
     id,
+    calculationId: 'calc-1',
     asset,
     acquisitionDate,
     quantity: new Decimal(quantity),
@@ -37,6 +38,10 @@ function createLot(
     totalCostBasis: new Decimal(quantity).times(costBasisPerUnit),
     remainingQuantity: new Decimal(quantity),
     acquisitionTransactionId: 1,
+    method: 'fifo',
+    status: 'open',
+    createdAt: new Date('2023-01-01T00:00:00Z'),
+    updatedAt: new Date('2023-01-01T00:00:00Z'),
   };
 }
 
@@ -68,6 +73,7 @@ function createDisposal(
     gainLoss,
     holdingPeriodDays,
     disposalTransactionId: 1,
+    createdAt: new Date('2023-01-01T00:00:00Z'),
   };
 }
 
@@ -553,6 +559,7 @@ describe('calculateGainLoss', () => {
       asset: 'BTC',
       lots: [lot],
       disposals: [disposal],
+      lotTransfers: [],
     };
 
     const result = calculateGainLoss([assetResult], rules);
@@ -573,6 +580,7 @@ describe('calculateGainLoss', () => {
       asset: 'USD',
       lots: [],
       disposals: [],
+      lotTransfers: [],
     };
 
     const result = calculateGainLoss([assetResult], rules);
@@ -601,6 +609,7 @@ describe('calculateGainLoss', () => {
       asset: 'BTC',
       lots: [],
       disposals: [disposal],
+      lotTransfers: [],
     };
 
     const result = calculateGainLoss([assetResult], rules);
@@ -623,6 +632,7 @@ describe('calculateGainLoss', () => {
       asset: 'BTC',
       lots: [lot],
       disposals: [disposal],
+      lotTransfers: [],
     };
 
     const result = calculateGainLoss([assetResult], usRules);
@@ -658,6 +668,7 @@ describe('calculateGainLoss', () => {
       asset: 'BTC',
       lots: [lot1, lot2],
       disposals: [disposal],
+      lotTransfers: [],
     };
 
     const result = calculateGainLoss([assetResult], rules);
@@ -681,8 +692,8 @@ describe('calculateGainLoss', () => {
     const ethDisposal = createDisposal('d2', 'lot2', 'ETH', new Date('2023-07-01'), '5.0', '2500', '2000', 91);
 
     const assetResults: AssetLotMatchResult[] = [
-      { asset: 'BTC', lots: [btcLot], disposals: [btcDisposal] },
-      { asset: 'ETH', lots: [ethLot], disposals: [ethDisposal] },
+      { asset: 'BTC', lots: [btcLot], disposals: [btcDisposal], lotTransfers: [] },
+      { asset: 'ETH', lots: [ethLot], disposals: [ethDisposal], lotTransfers: [] },
     ];
 
     const result = calculateGainLoss(assetResults, rules);
@@ -702,6 +713,7 @@ describe('calculateGainLoss', () => {
       asset: 'USD',
       lots: [],
       disposals: [],
+      lotTransfers: [],
     };
 
     const result = calculateGainLoss([assetResult], rules);

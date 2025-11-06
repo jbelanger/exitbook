@@ -424,6 +424,57 @@ export function analyzeSolanaBalanceChanges(
   const consolidatedInflows = consolidateSolanaMovements(inflows);
   const consolidatedOutflows = consolidateSolanaMovements(outflows);
 
+  // Determine if the user paid the transaction fee
+  // User pays fee when:
+  // 1. They have outflows (sent funds, swapped, staked, etc.), OR
+  // 2. They initiated a transaction with no movements (contract interactions, failed txs)
+  const hasInflows = consolidatedInflows.length > 0;
+  const hasOutflows = consolidatedOutflows.length > 0;
+  const initiatorIsUser = tx.from ? allWalletAddresses.has(tx.from) : false;
+  const inferredSenderIsUser = fromAddress ? allWalletAddresses.has(fromAddress) : false;
+  const feePaidByUser = hasOutflows || (!hasInflows && (initiatorIsUser || inferredSenderIsUser));
+
+  // Fix Issue #78: Prevent double-counting of fees in SOL balance calculations
+  // Solana accountChanges already include fees (net lamport deltas), so we must
+  // deduct fees from SOL outflows to avoid subtracting them twice in accounting.
+  // For fee-only transactions, this reduces the outflow to zero, which we track
+  // via `feeAbsorbedByMovement` to avoid recording a separate fee entry later.
+  let hadOutflowsBeforeFeeAdjustment = false;
+  if (feePaidByUser && tx.feeAmount) {
+    let remainingFee = parseDecimal(tx.feeAmount);
+
+    if (!remainingFee.isZero()) {
+      for (const movement of consolidatedOutflows) {
+        if (movement.asset !== 'SOL') {
+          continue;
+        }
+
+        const movementAmount = parseDecimal(movement.amount);
+        if (movementAmount.isZero()) {
+          continue;
+        }
+
+        hadOutflowsBeforeFeeAdjustment = true;
+        if (movementAmount.lessThanOrEqualTo(remainingFee)) {
+          remainingFee = remainingFee.minus(movementAmount);
+          movement.amount = '0';
+        } else {
+          movement.amount = movementAmount.minus(remainingFee).toFixed();
+          remainingFee = parseDecimal('0');
+          break;
+        }
+      }
+
+      // Remove zero-value SOL movements that resulted from fee deduction
+      for (let index = consolidatedOutflows.length - 1; index >= 0; index--) {
+        const movement = consolidatedOutflows[index];
+        if (movement?.asset === 'SOL' && isZeroDecimal(movement.amount)) {
+          consolidatedOutflows.splice(index, 1);
+        }
+      }
+    }
+  }
+
   // Select primary asset for simplified consumption and single-asset display
   // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions
   let primary: SolanaMovement = {
@@ -467,11 +518,13 @@ export function analyzeSolanaBalanceChanges(
     classificationUncertainty = `Complex transaction with ${consolidatedOutflows.length} outflow(s) and ${consolidatedInflows.length} inflow(s). May be liquidity provision, batch operation, or multi-asset swap.`;
   }
 
-  // Determine fee payer
-  const feePaidByUser = allWalletAddresses.has(tx.from) || allWalletAddresses.has(fromAddress);
+  // Track fee-only transactions where the fee was fully absorbed by movement adjustment
+  // When true, prevents recording a duplicate fee entry in the transaction record
+  const feeAbsorbedByMovement = hadOutflowsBeforeFeeAdjustment && consolidatedOutflows.length === 0;
 
   return {
     classificationUncertainty,
+    feeAbsorbedByMovement,
     feePaidByUser,
     fromAddress,
     inflows: consolidatedInflows,
@@ -515,6 +568,7 @@ export function analyzeSolanaFundFlow(
     feeAmount: tx.feeAmount || '0',
     feeCurrency: tx.feeCurrency || 'SOL',
     feePaidByUser: flowAnalysis.feePaidByUser,
+    feeAbsorbedByMovement: flowAnalysis.feeAbsorbedByMovement,
     fromAddress: flowAnalysis.fromAddress,
     toAddress: flowAnalysis.toAddress,
     hasMultipleInstructions,

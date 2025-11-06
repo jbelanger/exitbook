@@ -1,4 +1,4 @@
-import type { CostBasisRepository, TransactionLinkRepository } from '@exitbook/accounting';
+import type { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import type { KyselyDB, TransactionRepository } from '@exitbook/data';
 import type { DataSourceRepository, RawDataRepository } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/shared-logger';
@@ -25,6 +25,7 @@ export class ClearHandler {
     private transactionRepo: TransactionRepository,
     private transactionLinkRepo: TransactionLinkRepository,
     private costBasisRepo: CostBasisRepository,
+    private lotTransferRepo: LotTransferRepository,
     private rawDataRepo: RawDataRepository,
     private dataSourceRepo: DataSourceRepository
   ) {}
@@ -56,6 +57,7 @@ export class ClearHandler {
       const links = await countTable('transaction_links', false);
       const lots = await countTable('acquisition_lots', false);
       const disposals = await countTable('lot_disposals', false);
+      const transfers = await countTable('lot_transfers', false);
       const calculations = await countTable('cost_basis_calculations', false);
 
       return ok({
@@ -65,6 +67,7 @@ export class ClearHandler {
         lots,
         rawData,
         sessions,
+        transfers,
         transactions,
       });
     } catch (error) {
@@ -92,6 +95,7 @@ export class ClearHandler {
         preview.value.links +
         preview.value.lots +
         preview.value.disposals +
+        preview.value.transfers +
         preview.value.calculations;
 
       if (totalItems === 0) {
@@ -107,6 +111,10 @@ export class ClearHandler {
         if (disposalsResult.isErr()) {
           return err(disposalsResult.error);
         }
+
+        // Note: Cannot delete lot_transfers by source directly as they don't have source_id
+        // For now, we'll skip lot_transfers deletion for source-specific clears
+        // This is acceptable as lot_transfers are part of cost basis calculations
 
         const lotsResult = await this.costBasisRepo.deleteLotsBySource(params.source);
         if (lotsResult.isErr()) {
@@ -141,10 +149,15 @@ export class ClearHandler {
           }
         }
       } else {
-        // Delete all data
+        // Delete all data (except external_transaction_data and data_sources)
         const disposalsResult = await this.costBasisRepo.deleteAllDisposals();
         if (disposalsResult.isErr()) {
           return err(disposalsResult.error);
+        }
+
+        const transfersResult = await this.lotTransferRepo.deleteAll();
+        if (transfersResult.isErr()) {
+          return err(transfersResult.error);
         }
 
         const lotsResult = await this.costBasisRepo.deleteAllLots();

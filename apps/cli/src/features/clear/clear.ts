@@ -44,17 +44,22 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
 
     // Create handler to preview deletion
     const { initializeDatabase, closeDatabase, TransactionRepository: TxRepo } = await import('@exitbook/data');
-    const { TransactionLinkRepository: TLRepo, CostBasisRepository: CBRepo } = await import('@exitbook/accounting');
+    const {
+      TransactionLinkRepository: TLRepo,
+      CostBasisRepository: CBRepo,
+      LotTransferRepository: LTRepo,
+    } = await import('@exitbook/accounting');
     const { RawDataRepository: RDRepo, DataSourceRepository: DSRepo } = await import('@exitbook/ingestion');
 
     const database = await initializeDatabase();
     const txRepo = new TxRepo(database);
     const tlRepo = new TLRepo(database);
     const cbRepo = new CBRepo(database);
+    const ltRepo = new LTRepo(database);
     const rdRepo = new RDRepo(database);
     const dsRepo = new DSRepo(database);
 
-    const handler = new ClearHandler(database, txRepo, tlRepo, cbRepo, rdRepo, dsRepo);
+    const handler = new ClearHandler(database, txRepo, tlRepo, cbRepo, ltRepo, rdRepo, dsRepo);
 
     const previewResult = await handler.previewDeletion(params);
     handler.destroy();
@@ -69,7 +74,12 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
 
     // Check if there's anything to delete
     const totalToDelete =
-      preview.transactions + preview.links + preview.lots + preview.disposals + preview.calculations;
+      preview.transactions +
+      preview.links +
+      preview.lots +
+      preview.disposals +
+      preview.transfers +
+      preview.calculations;
     if (totalToDelete === 0 && (!params.includeRaw || (preview.sessions === 0 && preview.rawData === 0))) {
       if (output.isTextMode()) {
         console.error('No data to clear.');
@@ -88,6 +98,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
         if (preview.links > 0) console.error(`  • ${preview.links} transaction links`);
         if (preview.lots > 0) console.error(`  • ${preview.lots} acquisition lots`);
         if (preview.disposals > 0) console.error(`  • ${preview.disposals} lot disposals`);
+        if (preview.transfers > 0) console.error(`  • ${preview.transfers} lot transfers`);
         if (preview.calculations > 0) console.error(`  • ${preview.calculations} cost basis calculations`);
 
         if (params.includeRaw) {
@@ -128,13 +139,16 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
       closeDatabase: closeDb,
       TransactionRepository,
     } = await import('@exitbook/data');
-    const { TransactionLinkRepository, CostBasisRepository } = await import('@exitbook/accounting');
+    const { TransactionLinkRepository, CostBasisRepository, LotTransferRepository } = await import(
+      '@exitbook/accounting'
+    );
     const { RawDataRepository, DataSourceRepository } = await import('@exitbook/ingestion');
 
     const db = await initDb();
     const transactionRepo = new TransactionRepository(db);
     const transactionLinkRepo = new TransactionLinkRepository(db);
     const costBasisRepo = new CostBasisRepository(db);
+    const lotTransferRepo = new LotTransferRepository(db);
     const rawDataRepo = new RawDataRepository(db);
     const dataSourceRepo = new DataSourceRepository(db);
 
@@ -143,6 +157,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
       transactionRepo,
       transactionLinkRepo,
       costBasisRepo,
+      lotTransferRepo,
       rawDataRepo,
       dataSourceRepo
     );
@@ -182,6 +197,8 @@ function handleClearSuccess(
   if (clearResult.deleted.transactions > 0) parts.push(`${clearResult.deleted.transactions} transactions`);
   if (clearResult.deleted.links > 0) parts.push(`${clearResult.deleted.links} links`);
   if (clearResult.deleted.lots > 0) parts.push(`${clearResult.deleted.lots} lots`);
+  if (clearResult.deleted.disposals > 0) parts.push(`${clearResult.deleted.disposals} disposals`);
+  if (clearResult.deleted.transfers > 0) parts.push(`${clearResult.deleted.transfers} transfers`);
   if (clearResult.deleted.rawData > 0) parts.push(`${clearResult.deleted.rawData} raw items`);
   if (clearResult.deleted.sessions > 0) parts.push(`${clearResult.deleted.sessions} sessions`);
 

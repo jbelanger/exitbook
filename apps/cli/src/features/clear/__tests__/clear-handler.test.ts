@@ -1,4 +1,4 @@
-import type { CostBasisRepository, TransactionLinkRepository } from '@exitbook/accounting';
+import type { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import type { KyselyDB, TransactionRepository } from '@exitbook/data';
 import type { DataSourceRepository, RawDataRepository } from '@exitbook/ingestion';
 import { ok } from 'neverthrow';
@@ -12,6 +12,7 @@ describe('ClearHandler', () => {
   let mockTransactionRepo: TransactionRepository;
   let mockTransactionLinkRepo: TransactionLinkRepository;
   let mockCostBasisRepo: CostBasisRepository;
+  let mockLotTransferRepo: LotTransferRepository;
   let mockRawDataRepo: RawDataRepository;
   let mockDataSourceRepo: DataSourceRepository;
   let handler: ClearHandler;
@@ -27,6 +28,7 @@ describe('ClearHandler', () => {
   let mockDeleteDisposalsBySource: Mock;
   let mockDeleteAllLots: Mock;
   let mockDeleteLotsBySource: Mock;
+  let mockDeleteAllTransfers: Mock;
   let mockDeleteAllCalculations: Mock;
   let mockDeleteAllRawData: Mock;
   let mockDeleteRawDataBySource: Mock;
@@ -56,6 +58,7 @@ describe('ClearHandler', () => {
     mockDeleteDisposalsBySource = vi.fn().mockResolvedValue(ok(3));
     mockDeleteAllLots = vi.fn().mockResolvedValue(ok(4));
     mockDeleteLotsBySource = vi.fn().mockResolvedValue(ok(4));
+    mockDeleteAllTransfers = vi.fn().mockResolvedValue(ok(2));
     mockDeleteAllCalculations = vi.fn().mockResolvedValue(ok(2));
     mockDeleteAllRawData = vi.fn().mockResolvedValue(ok(100));
     mockDeleteRawDataBySource = vi.fn().mockResolvedValue(ok(100));
@@ -83,6 +86,10 @@ describe('ClearHandler', () => {
       deleteLotsBySource: mockDeleteLotsBySource,
     } as unknown as CostBasisRepository;
 
+    mockLotTransferRepo = {
+      deleteAll: mockDeleteAllTransfers,
+    } as unknown as LotTransferRepository;
+
     mockRawDataRepo = {
       deleteAll: mockDeleteAllRawData,
       deleteBySource: mockDeleteRawDataBySource,
@@ -100,6 +107,7 @@ describe('ClearHandler', () => {
       mockTransactionRepo,
       mockTransactionLinkRepo,
       mockCostBasisRepo,
+      mockLotTransferRepo,
       mockRawDataRepo,
       mockDataSourceRepo
     );
@@ -117,7 +125,7 @@ describe('ClearHandler', () => {
         where: vi.fn().mockReturnThis(),
       });
 
-      const counts = [3, 150, 100, 25, 50, 20, 10];
+      const counts = [3, 150, 100, 25, 50, 20, 15, 10];
       let callIndex = 0;
 
       mockSelectFrom.mockImplementation(() => {
@@ -132,6 +140,7 @@ describe('ClearHandler', () => {
       expect(preview.sessions).toBe(3);
       expect(preview.rawData).toBe(150);
       expect(preview.transactions).toBe(100);
+      expect(preview.transfers).toBe(15);
     });
   });
 
@@ -157,6 +166,7 @@ describe('ClearHandler', () => {
 
       // Verify repository methods were called
       expect(mockDeleteAllDisposals).toHaveBeenCalled();
+      expect(mockDeleteAllTransfers).toHaveBeenCalled();
       expect(mockDeleteAllLots).toHaveBeenCalled();
       expect(mockDeleteAllCalculations).toHaveBeenCalled();
       expect(mockDeleteAllLinks).toHaveBeenCalled();

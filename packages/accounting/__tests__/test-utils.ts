@@ -1,9 +1,4 @@
-import type {
-  AssetMovement,
-  Fee,
-  PriceAtTxTime,
-  UniversalTransaction,
-} from '@exitbook/core';
+import type { AssetMovement, FeeMovement, OperationType, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
 import { Currency, parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { ok } from 'neverthrow';
@@ -21,7 +16,7 @@ export function createPriceAtTxTime(
   currency = 'USD',
   options?: {
     fetchedAt?: Date;
-    granularity?: 'exact' | 'hourly' | 'daily';
+    granularity?: 'exact' | 'minute' | 'hour' | 'day';
     source?: string;
   }
 ): PriceAtTxTime {
@@ -39,12 +34,7 @@ export function createPriceAtTxTime(
 /**
  * Creates an AssetMovement object with price
  */
-export function createMovement(
-  asset: string,
-  amount: string,
-  priceAmount: string,
-  currency = 'USD'
-): AssetMovement {
+export function createMovement(asset: string, amount: string, priceAmount: string, currency = 'USD'): AssetMovement {
   return {
     asset,
     grossAmount: parseDecimal(amount),
@@ -53,7 +43,7 @@ export function createMovement(
 }
 
 /**
- * Creates a Fee object with common defaults
+ * Creates a FeeMovement object with common defaults
  */
 export function createFee(
   asset: string,
@@ -64,7 +54,7 @@ export function createFee(
     scope?: 'platform' | 'network';
     settlement?: 'balance' | 'on-chain';
   }
-): Fee {
+): FeeMovement {
   return {
     asset,
     amount: parseDecimal(amount),
@@ -86,12 +76,12 @@ export function createTransaction(
   outflows: { amount: string; asset: string; price: string }[] = [],
   options?: {
     category?: 'trade' | 'transfer';
-    fees?: Fee[];
+    fees?: FeeMovement[];
     source?: string;
-    type?: string;
+    type?: OperationType;
   }
 ): UniversalTransaction {
-  const fees: Fee[] = options?.fees ?? [];
+  const fees: FeeMovement[] = options?.fees ?? [];
 
   return {
     id,
@@ -123,7 +113,7 @@ export function createTransactionWithFee(
   outflows: { amount: string; asset: string; price: string }[],
   platformFee?: { amount: string; asset: string; price: string }
 ): UniversalTransaction {
-  const fees: Fee[] = platformFee
+  const fees: FeeMovement[] = platformFee
     ? [
         createFee(platformFee.asset, platformFee.amount, {
           priceAmount: platformFee.price,
@@ -153,9 +143,7 @@ export function createLot(
 ): AcquisitionLot {
   const qty = new Decimal(quantity);
   const costBasis = new Decimal(costBasisPerUnit);
-  const remaining = options?.remainingQuantity
-    ? new Decimal(options.remainingQuantity)
-    : qty;
+  const remaining = options?.remainingQuantity ? new Decimal(options.remainingQuantity) : qty;
 
   return {
     id,
@@ -198,7 +186,7 @@ export function createMockLotTransferRepository(): LotTransferRepository {
 /**
  * Assertion helper to unwrap Result and assert it's ok
  */
-export function assertOk<T, E>(result: { error: E; isOk(): boolean; value: T; }): T {
+export function assertOk<T, E>(result: { error: E; isOk(): boolean; value: T }): T {
   if (!result.isOk()) {
     throw new Error(`Expected Result to be Ok, but got Error: ${String(result.error)}`);
   }
@@ -208,7 +196,7 @@ export function assertOk<T, E>(result: { error: E; isOk(): boolean; value: T; })
 /**
  * Assertion helper to unwrap Result and assert it's error
  */
-export function assertErr<T, E>(result: { error: E; isErr(): boolean; value: T; }): E {
+export function assertErr<T, E>(result: { error: E; isErr(): boolean; value: T }): E {
   if (!result.isErr()) {
     throw new Error(`Expected Result to be Err, but got Ok: ${String(result.value)}`);
   }

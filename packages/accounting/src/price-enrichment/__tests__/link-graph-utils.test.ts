@@ -33,7 +33,14 @@ function createTx(
   };
 
   if (options.blockchain) {
-    return { ...base, blockchain: options.blockchain };
+    return {
+      ...base,
+      blockchain: {
+        name: options.blockchain,
+        transaction_hash: `hash-${id}`,
+        is_confirmed: true,
+      },
+    };
   }
 
   return base;
@@ -49,8 +56,18 @@ function createLink(
     id: `link-${sourceId}-${targetId}`,
     sourceTransactionId: sourceId,
     targetTransactionId: targetId,
+    asset: 'BTC',
+    sourceAmount: parseDecimal('1.0'),
+    targetAmount: parseDecimal('1.0'),
+    linkType: 'exchange_to_blockchain',
+    confidenceScore: parseDecimal('0.95'),
+    matchCriteria: {
+      assetMatch: true,
+      amountSimilarity: parseDecimal('1.0'),
+      timingValid: true,
+      timingHours: 0.5,
+    },
     status,
-    confidence: 0.95,
     createdAt: new Date('2023-01-01T00:00:00Z'),
     updatedAt: new Date('2023-01-01T00:00:00Z'),
   };
