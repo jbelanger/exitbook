@@ -9,7 +9,7 @@ import type { Decimal } from 'decimal.js';
  * @returns Balance as a decimal string
  */
 export function convertWeiToDecimal(balanceWei: string, decimals: number): string {
-  return parseDecimal(balanceWei).div(parseDecimal('10').pow(decimals)).toString();
+  return parseDecimal(balanceWei).div(parseDecimal('10').pow(decimals)).toFixed();
 }
 
 /**
