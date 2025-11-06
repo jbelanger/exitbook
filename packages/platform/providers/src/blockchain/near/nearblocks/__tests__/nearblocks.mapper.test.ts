@@ -11,21 +11,26 @@ describe('NearBlocksTransactionMapper', () => {
         actions: [
           {
             action: 'TRANSFER',
-            deposit: '1000000000000000000000000',
-            from: 'alice.near',
-            to: 'bob.near',
+            args: undefined,
+            deposit: 1000000000000000000000000,
+            method: undefined,
           },
         ],
-        block_height: 100000,
+        block: {
+          block_height: 100000,
+        },
         block_timestamp: '1640000000000000000',
         outcomes: {
-          '8S8R8o9ZN5e8RD3H8A1JjgFmxhYCwPpYxRQyKwqBgYdF': {
-            status: true,
-            tokens_burnt: '5000000000000000000000',
-          },
+          status: true,
         },
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receipt_outcome: {
+          executor_account_id: 'bob.near',
+          gas_burnt: 4174947687500,
+          status: true,
+          tokens_burnt: 5000000000000000000000,
+        },
+        receiver_account_id: 'bob.near',
         transaction_hash: 'AbCdEf123456',
       };
 
@@ -56,8 +61,8 @@ describe('NearBlocksTransactionMapper', () => {
     it('should validate input data with schema', () => {
       const invalidRawData = {
         block_timestamp: '1640000000000000000',
-        receiver_id: 'bob.near',
-        signer_id: '', // Invalid: empty signer_id
+        predecessor_account_id: '', // Invalid: empty
+        receiver_account_id: 'bob.near',
         transaction_hash: 'InvalidTx',
       };
 
@@ -72,8 +77,8 @@ describe('NearBlocksTransactionMapper', () => {
     it('should validate output data with schema', () => {
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receiver_account_id: 'bob.near',
         transaction_hash: 'ValidTx',
       };
 
@@ -94,8 +99,8 @@ describe('NearBlocksTransactionMapper', () => {
     it('should handle transaction with missing optional fields', () => {
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receiver_account_id: 'bob.near',
         transaction_hash: 'MinimalTx',
       };
 
@@ -118,12 +123,10 @@ describe('NearBlocksTransactionMapper', () => {
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
         outcomes: {
-          FT3ZqXb7YG8RnxV7C2K9HmVPpN4WtQ6sA3Lm2DxRyBkE: {
-            status: false,
-          },
+          status: false,
         },
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receiver_account_id: 'bob.near',
         transaction_hash: 'FailedTx',
       };
 
@@ -141,22 +144,25 @@ describe('NearBlocksTransactionMapper', () => {
           {
             action: 'FUNCTION_CALL',
             args: { receiver_id: 'token.near', amount: '1000000' },
-            deposit: '1',
-            from: 'alice.near',
+            deposit: 1,
             method: 'ft_transfer',
-            to: 'usdt.tether-token.near',
           },
         ],
-        block_height: 100001,
+        block: {
+          block_height: 100001,
+        },
         block_timestamp: '1640000001000000000',
         outcomes: {
-          BQ7LmN3R5vYx4TwP9KqGzC8HdXs6FpAtVj2EbZnRyJmS: {
-            status: true,
-            tokens_burnt: '3000000000000000000000',
-          },
+          status: true,
         },
-        receiver_id: 'usdt.tether-token.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receipt_outcome: {
+          executor_account_id: 'usdt.tether-token.near',
+          gas_burnt: 3000000000000,
+          status: true,
+          tokens_burnt: 3000000000000000000000,
+        },
+        receiver_account_id: 'usdt.tether-token.near',
         transaction_hash: 'FunctionCallTx',
       };
 
@@ -177,8 +183,8 @@ describe('NearBlocksTransactionMapper', () => {
     it('should reject invalid transaction hash (empty)', () => {
       const invalidRawData = {
         block_timestamp: '1640000000000000000',
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receiver_account_id: 'bob.near',
         transaction_hash: '', // Invalid: empty
       };
 
@@ -193,8 +199,8 @@ describe('NearBlocksTransactionMapper', () => {
     it('should reject invalid block_timestamp (empty)', () => {
       const invalidRawData = {
         block_timestamp: '', // Invalid: empty
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receiver_account_id: 'bob.near',
         transaction_hash: 'ValidTx',
       };
 
@@ -209,8 +215,8 @@ describe('NearBlocksTransactionMapper', () => {
     it('should reject invalid account IDs', () => {
       const invalidRawData = {
         block_timestamp: '1640000000000000000',
-        receiver_id: '', // Invalid: empty
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receiver_account_id: '', // Invalid: empty
         transaction_hash: 'ValidTx',
       };
 
@@ -227,30 +233,29 @@ describe('NearBlocksTransactionMapper', () => {
         actions: [
           {
             action: 'TRANSFER',
-            deposit: '1000000000000000000000000',
-            from: 'alice.near',
-            to: 'bob.near',
+            args: undefined,
+            deposit: 1e24,
+            method: undefined,
           },
           {
             action: 'TRANSFER',
-            deposit: '2000000000000000000000000',
-            from: 'alice.near',
-            to: 'charlie.near',
+            args: undefined,
+            deposit: 2e24,
+            method: undefined,
           },
         ],
         block_timestamp: '1640000000000000000',
         outcomes: {
-          CM5nW8xQ7LtP9JfVz2KgR4HdYs3GpBuXj6EcZqRyNmT: {
-            status: true,
-            tokens_burnt: '5000000000000000000000',
-          },
-          DP6oX9yR8MuQ0KgWA3LhS5IeZt4HqCvYk7FdArSzOnU: {
-            status: true,
-            tokens_burnt: '6000000000000000000000',
-          },
+          status: true,
         },
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receipt_outcome: {
+          executor_account_id: 'bob.near',
+          gas_burnt: 8000000000000,
+          status: true,
+          tokens_burnt: 11000000000000000000000,
+        },
+        receiver_account_id: 'bob.near',
         transaction_hash: 'MultiActionTx',
       };
 
@@ -270,8 +275,8 @@ describe('NearBlocksTransactionMapper', () => {
 
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
-        receiver_id: implicitReceiver,
-        signer_id: implicitSigner,
+        predecessor_account_id: implicitSigner,
+        receiver_account_id: implicitReceiver,
         transaction_hash: 'ImplicitTx',
       };
 
@@ -287,8 +292,8 @@ describe('NearBlocksTransactionMapper', () => {
     it('should preserve provider name from source context', () => {
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receiver_account_id: 'bob.near',
         transaction_hash: 'CustomProviderTx',
       };
 
@@ -303,8 +308,8 @@ describe('NearBlocksTransactionMapper', () => {
     it('should default to nearblocks when provider name not in context', () => {
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receiver_account_id: 'bob.near',
         transaction_hash: 'NoProviderTx',
       };
 

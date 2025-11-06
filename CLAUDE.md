@@ -171,6 +171,7 @@ logger.error({ error }, 'error message');
 
 - **No Sub-Agents:** Do not use Task tool with sub-agents (Explore, Plan, etc.) unless explicitly requested by the user. Sub-agents are costly in terms of tokens. Use direct tool calls (Read, Grep, Glob, etc.) instead.
 - **No Technical Debt:** Stop and report architectural issues immediately before implementing. Fix foundational problems first rather than building on a weak base
+- **Never Silently Hide Errors:** This is a financial system where accuracy is critical. Never catch and suppress errors without logging them. Never make silent assumptions or apply default values for unexpected behavior. Always log warnings for edge cases, validation failures, or data inconsistencies. Use `logger.warn()` liberally when encountering unexpected but recoverable conditions. If you encounter an error you cannot handle, propagate it upward via Result types rather than swallowing it
 - Use `exactOptionalPropertyTypes` - add `| undefined` to optional properties
 - Add new tables/fields to initial migration (`001_initial_schema.ts`) - database is dropped during development, not versioned incrementally
 - Remove all legacy code paths and backward compatibility when refactoring - clean breaks only

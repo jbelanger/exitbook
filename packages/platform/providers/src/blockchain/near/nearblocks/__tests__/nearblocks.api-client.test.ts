@@ -84,21 +84,26 @@ describe('NearBlocksApiClient', () => {
       actions: [
         {
           action: 'TRANSFER',
-          deposit: '1000000000000000000000000',
-          from: 'alice.near',
-          to: 'bob.near',
+          args: undefined,
+          deposit: 100000000000000000000,
+          method: undefined,
         },
       ],
-      block_height: 100000,
+      block: {
+        block_height: 100000,
+      },
       block_timestamp: '1640000000000000000',
       outcomes: {
-        receipt1: {
-          status: true,
-          tokens_burnt: '5000000000000000000000',
-        },
+        status: true,
       },
-      receiver_id: 'bob.near',
-      signer_id: 'alice.near',
+      predecessor_account_id: 'alice.near',
+      receipt_outcome: {
+        executor_account_id: 'bob.near',
+        gas_burnt: 4174947687500,
+        status: true,
+        tokens_burnt: 5000000000000000000000,
+      },
+      receiver_account_id: 'bob.near',
       transaction_hash: 'AbCdEf123456',
     };
 
@@ -317,7 +322,7 @@ describe('NearBlocksApiClient', () => {
         txns: [
           {
             ...mockTransaction,
-            signer_id: implicitAddress,
+            predecessor_account_id: implicitAddress,
           },
         ],
       };
@@ -340,9 +345,13 @@ describe('NearBlocksApiClient', () => {
     const mockAddress = 'alice.near';
 
     const mockBalance: NearBlocksAccount = {
-      account_id: 'alice.near',
-      amount: '1000000000000000000000000',
-      block_height: 100000,
+      account: [
+        {
+          account_id: 'alice.near',
+          amount: '1000000000000000000000000',
+          block_height: 100000,
+        },
+      ],
     };
 
     it('should fetch balance successfully', async () => {
@@ -369,8 +378,12 @@ describe('NearBlocksApiClient', () => {
 
     it('should handle zero balance', async () => {
       const zeroBalance: NearBlocksAccount = {
-        account_id: 'alice.near',
-        amount: '0',
+        account: [
+          {
+            account_id: 'alice.near',
+            amount: '0',
+          },
+        ],
       };
 
       mockHttpGet.mockResolvedValue(ok(zeroBalance));
@@ -429,8 +442,12 @@ describe('NearBlocksApiClient', () => {
 
     it('should return error for invalid response schema', async () => {
       const invalidResponse = {
-        account_id: '',
-        amount: '1000000000000000000000000',
+        account: [
+          {
+            account_id: '',
+            amount: '1000000000000000000000000',
+          },
+        ],
       };
 
       mockHttpGet.mockResolvedValue(ok(invalidResponse));
@@ -452,8 +469,12 @@ describe('NearBlocksApiClient', () => {
       const implicitAddress = '98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de';
 
       const mockBalance: NearBlocksAccount = {
-        account_id: implicitAddress,
-        amount: '500000000000000000000000',
+        account: [
+          {
+            account_id: implicitAddress,
+            amount: '500000000000000000000000',
+          },
+        ],
       };
 
       mockHttpGet.mockResolvedValue(ok(mockBalance));
@@ -479,8 +500,12 @@ describe('NearBlocksApiClient', () => {
 
     it('should handle very large balances', async () => {
       const largeBalance: NearBlocksAccount = {
-        account_id: 'alice.near',
-        amount: '1000000000000000000000000000000',
+        account: [
+          {
+            account_id: 'alice.near',
+            amount: '1000000000000000000000000000000',
+          },
+        ],
       };
 
       mockHttpGet.mockResolvedValue(ok(largeBalance));

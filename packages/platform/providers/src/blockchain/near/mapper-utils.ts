@@ -35,24 +35,12 @@ export function parseNearBlocksTimestamp(timestamp: string): number {
 /**
  * Determine transaction status from NearBlocks outcomes
  */
-export function determineTransactionStatus(
-  outcomes?: Record<string, { status: boolean | Record<string, unknown> }>
-): 'success' | 'failed' | 'pending' {
-  if (!outcomes || Object.keys(outcomes).length === 0) {
+export function determineTransactionStatus(outcomes?: { status: boolean }): 'success' | 'failed' | 'pending' {
+  if (!outcomes) {
     return 'pending';
   }
 
-  // Check all outcomes - if any failed, transaction failed
-  for (const outcome of Object.values(outcomes)) {
-    if (typeof outcome.status === 'boolean') {
-      if (!outcome.status) return 'failed';
-    } else if (typeof outcome.status === 'object') {
-      // If status is an object, check for SuccessValue or Failure
-      if ('Failure' in outcome.status) return 'failed';
-    }
-  }
-
-  return 'success';
+  return outcomes.status ? 'success' : 'failed';
 }
 
 /**
@@ -61,11 +49,10 @@ export function determineTransactionStatus(
 export function mapNearBlocksActions(
   actions?: {
     action: string;
-    args?: Record<string, unknown> | undefined;
-    deposit?: string | undefined;
-    from: string;
-    method?: string | undefined;
-    to: string;
+    args?: Record<string, unknown> | string | null | undefined;
+    deposit?: number | undefined;
+    fee?: number | undefined;
+    method?: string | null | undefined;
   }[]
 ): NearAction[] {
   if (!actions || actions.length === 0) {
@@ -74,17 +61,17 @@ export function mapNearBlocksActions(
 
   return actions.map((action) => ({
     actionType: action.action,
-    args: action.args,
-    deposit: action.deposit,
-    methodName: action.method,
-    receiverId: action.to,
+    args: typeof action.args === 'object' && action.args !== null ? action.args : undefined,
+    deposit: action.deposit?.toString(),
+    methodName: action.method ?? undefined,
+    receiverId: undefined,
   }));
 }
 
 /**
  * Calculate total deposit amount from actions
  */
-export function calculateTotalDeposit(actions?: { deposit?: string | undefined }[]): string {
+export function calculateTotalDeposit(actions?: { deposit?: number | undefined }[]): string {
   if (!actions || actions.length === 0) {
     return '0';
   }
@@ -92,7 +79,7 @@ export function calculateTotalDeposit(actions?: { deposit?: string | undefined }
   let total = parseDecimal('0');
   for (const action of actions) {
     if (action.deposit) {
-      total = total.add(parseDecimal(action.deposit));
+      total = total.add(parseDecimal(action.deposit.toString()));
     }
   }
 
@@ -100,23 +87,19 @@ export function calculateTotalDeposit(actions?: { deposit?: string | undefined }
 }
 
 /**
- * Calculate total gas burnt from outcomes
+ * Calculate total gas burnt from receipt outcome
  */
-export function calculateTotalGasBurnt(
-  outcomes?: Record<string, { gas_burnt?: number | undefined; tokens_burnt?: string | undefined }>
-): string | undefined {
-  if (!outcomes || Object.keys(outcomes).length === 0) {
+export function calculateTotalGasBurnt(receiptOutcome?: {
+  executor_account_id: string;
+  gas_burnt: number;
+  status: boolean;
+  tokens_burnt: number;
+}): string | undefined {
+  if (!receiptOutcome) {
     return undefined;
   }
 
-  let totalTokensBurnt = parseDecimal('0');
-  for (const outcome of Object.values(outcomes)) {
-    if (outcome.tokens_burnt) {
-      totalTokensBurnt = totalTokensBurnt.add(parseDecimal(outcome.tokens_burnt));
-    }
-  }
-
-  return totalTokensBurnt.toFixed();
+  return parseDecimal(receiptOutcome.tokens_burnt.toString()).toFixed();
 }
 
 /**
@@ -145,22 +128,22 @@ export function mapNearBlocksTransaction(
   const status = determineTransactionStatus(validatedRawData.outcomes);
   const actions = mapNearBlocksActions(validatedRawData.actions);
   const totalDeposit = calculateTotalDeposit(validatedRawData.actions);
-  const totalGasBurnt = calculateTotalGasBurnt(validatedRawData.outcomes);
+  const totalGasBurnt = calculateTotalGasBurnt(validatedRawData.receipt_outcome);
 
   const normalized: NearTransaction = {
     actions,
     amount: totalDeposit,
     currency: 'NEAR',
-    from: validatedRawData.signer_id,
+    from: validatedRawData.predecessor_account_id,
     id: validatedRawData.transaction_hash,
     providerName: (sourceContext.providerName as string | undefined) || 'nearblocks',
     status,
     timestamp,
-    to: validatedRawData.receiver_id,
+    to: validatedRawData.receiver_account_id,
   };
 
-  if (validatedRawData.block_height) {
-    normalized.blockHeight = validatedRawData.block_height;
+  if (validatedRawData.block?.block_height) {
+    normalized.blockHeight = validatedRawData.block.block_height;
   }
 
   if (totalGasBurnt && totalGasBurnt !== '0') {

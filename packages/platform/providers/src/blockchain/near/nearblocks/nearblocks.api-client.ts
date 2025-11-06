@@ -113,7 +113,19 @@ export class NearBlocksApiClient extends BaseApiClient {
       return err(new Error('Invalid account data from NearBlocks'));
     }
 
-    const accountData = parseResult.data;
+    // Extract first account from the array
+    const accounts = parseResult.data.account;
+    if (accounts.length === 0) {
+      return err(new Error('No account data returned from NearBlocks'));
+    }
+
+    if (accounts.length > 1) {
+      this.logger.warn(
+        `Unexpected: NearBlocks returned ${accounts.length} accounts for address ${maskAddress(address)}, using first account`
+      );
+    }
+
+    const accountData = accounts[0]!;
     const balanceData = transformNearBalance(accountData.amount);
 
     this.logger.debug(
@@ -165,9 +177,16 @@ export class NearBlocksApiClient extends BaseApiClient {
       // Validate response with schema
       const parseResult = NearBlocksTransactionsResponseSchema.safeParse(response);
       if (!parseResult.success) {
-        this.logger.error(`Provider data validation failed on page ${page}`);
+        const validationErrors = parseResult.error.issues
+          .slice(0, 5)
+          .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+          .join('; ');
+        const errorCount = parseResult.error.issues.length;
+        this.logger.error(
+          `Provider data validation failed on page ${page} - Address: ${maskAddress(address)}, Errors (showing first 5 of ${errorCount}): ${validationErrors}`
+        );
         if (page === 1) {
-          return err(new Error('Provider data validation failed'));
+          return err(new Error(`Provider data validation failed: ${validationErrors}`));
         }
         break;
       }

@@ -79,56 +79,14 @@ describe('mapper-utils', () => {
       expect(determineTransactionStatus()).toBe('pending');
     });
 
-    it('should return "pending" when outcomes is empty', () => {
-      expect(determineTransactionStatus({})).toBe('pending');
-    });
-
-    it('should return "success" when all outcomes have status true', () => {
-      const outcomes = {
-        receipt1: { status: true },
-        receipt2: { status: true },
-      };
+    it('should return "success" when status is true', () => {
+      const outcomes = { status: true };
       expect(determineTransactionStatus(outcomes)).toBe('success');
     });
 
-    it('should return "failed" when any outcome has status false', () => {
-      const outcomes = {
-        receipt1: { status: true },
-        receipt2: { status: false },
-      };
+    it('should return "failed" when status is false', () => {
+      const outcomes = { status: false };
       expect(determineTransactionStatus(outcomes)).toBe('failed');
-    });
-
-    it('should return "success" when status is object with SuccessValue', () => {
-      const outcomes = {
-        receipt1: { status: { SuccessValue: '' } },
-      };
-      expect(determineTransactionStatus(outcomes)).toBe('success');
-    });
-
-    it('should return "failed" when status is object with Failure', () => {
-      const outcomes = {
-        receipt1: { status: { Failure: { ActionError: 'some error' } } },
-      };
-      expect(determineTransactionStatus(outcomes)).toBe('failed');
-    });
-
-    it('should return "failed" if any outcome fails in mixed status types', () => {
-      const outcomes = {
-        receipt1: { status: true },
-        receipt2: { status: { SuccessValue: '' } },
-        receipt3: { status: { Failure: 'error' } },
-      };
-      expect(determineTransactionStatus(outcomes)).toBe('failed');
-    });
-
-    it('should return "success" for all successful mixed status types', () => {
-      const outcomes = {
-        receipt1: { status: true },
-        receipt2: { status: { SuccessValue: 'value' } },
-        receipt3: { status: { SuccessReceiptId: 'id' } },
-      };
-      expect(determineTransactionStatus(outcomes)).toBe('success');
     });
   });
 
@@ -137,17 +95,15 @@ describe('mapper-utils', () => {
       const actions = [
         {
           action: 'TRANSFER',
-          deposit: '1000000000000000000000000',
-          from: 'alice.near',
-          to: 'bob.near',
+          deposit: 100000000000000000000,
+          method: undefined,
+          args: undefined,
         },
         {
           action: 'FUNCTION_CALL',
           args: { method: 'transfer', amount: '100' },
-          deposit: '0',
-          from: 'alice.near',
+          deposit: 0,
           method: 'ft_transfer',
-          to: 'token.near',
         },
       ];
 
@@ -156,8 +112,8 @@ describe('mapper-utils', () => {
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({
         actionType: 'TRANSFER',
-        deposit: '1000000000000000000000000',
-        receiverId: 'bob.near',
+        deposit: '100000000000000000000',
+        receiverId: undefined,
         args: undefined,
         methodName: undefined,
       });
@@ -166,7 +122,7 @@ describe('mapper-utils', () => {
         args: { method: 'transfer', amount: '100' },
         deposit: '0',
         methodName: 'ft_transfer',
-        receiverId: 'token.near',
+        receiverId: undefined,
       });
     });
 
@@ -182,8 +138,6 @@ describe('mapper-utils', () => {
       const actions = [
         {
           action: 'STAKE',
-          from: 'alice.near',
-          to: 'validator.near',
         },
       ];
 
@@ -192,7 +146,7 @@ describe('mapper-utils', () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
         actionType: 'STAKE',
-        receiverId: 'validator.near',
+        receiverId: undefined,
         args: undefined,
         deposit: undefined,
         methodName: undefined,
@@ -203,9 +157,9 @@ describe('mapper-utils', () => {
   describe('calculateTotalDeposit', () => {
     it('should sum deposit amounts from multiple actions', () => {
       const actions = [
-        { deposit: '1000000000000000000000000' },
-        { deposit: '500000000000000000000000' },
-        { deposit: '250000000000000000000000' },
+        { deposit: 1000000000000000000000000 },
+        { deposit: 500000000000000000000000 },
+        { deposit: 250000000000000000000000 },
       ];
 
       const result = calculateTotalDeposit(actions);
@@ -213,7 +167,7 @@ describe('mapper-utils', () => {
     });
 
     it('should handle actions without deposits', () => {
-      const actions = [{ deposit: '1000000000000000000000000' }, {}, { deposit: '500000000000000000000000' }];
+      const actions = [{ deposit: 1000000000000000000000000 }, {}, { deposit: 500000000000000000000000 }];
 
       const result = calculateTotalDeposit(actions);
       expect(result).toBe('1500000000000000000000000');
@@ -233,71 +187,41 @@ describe('mapper-utils', () => {
     });
 
     it('should handle zero deposits', () => {
-      const actions = [{ deposit: '0' }, { deposit: '0' }];
+      const actions = [{ deposit: 0 }, { deposit: 0 }];
       expect(calculateTotalDeposit(actions)).toBe('0');
     });
 
     it('should handle mixed zero and non-zero deposits', () => {
-      const actions = [{ deposit: '0' }, { deposit: '1000000000000000000000000' }, { deposit: '0' }];
+      const actions = [{ deposit: 0 }, { deposit: 1000000000000000000000000 }, { deposit: 0 }];
       expect(calculateTotalDeposit(actions)).toBe('1000000000000000000000000');
     });
   });
 
   describe('calculateTotalGasBurnt', () => {
-    it('should sum tokens_burnt from outcomes', () => {
-      const outcomes = {
-        receipt1: { tokens_burnt: '1000000000000000000000' },
-        receipt2: { tokens_burnt: '500000000000000000000' },
-        receipt3: { tokens_burnt: '250000000000000000000' },
+    it('should get tokens_burnt from receipt outcome', () => {
+      const receiptOutcome = {
+        executor_account_id: 'test.near',
+        gas_burnt: 1000000,
+        status: true,
+        tokens_burnt: 1750000000000000000000,
       };
 
-      const result = calculateTotalGasBurnt(outcomes);
+      const result = calculateTotalGasBurnt(receiptOutcome);
       expect(result).toBe('1750000000000000000000');
     });
 
-    it('should handle outcomes without tokens_burnt', () => {
-      const outcomes = {
-        receipt1: { tokens_burnt: '1000000000000000000000' },
-        receipt2: {},
-        receipt3: { tokens_burnt: '500000000000000000000' },
-      };
-
-      const result = calculateTotalGasBurnt(outcomes);
-      expect(result).toBe('1500000000000000000000');
-    });
-
-    it('should return undefined for undefined outcomes', () => {
+    it('should return undefined for undefined receipt outcome', () => {
       expect(calculateTotalGasBurnt()).toBeUndefined();
     });
 
-    it('should return undefined for empty outcomes', () => {
-      expect(calculateTotalGasBurnt({})).toBeUndefined();
-    });
-
-    it('should handle all outcomes without tokens_burnt', () => {
-      const outcomes = {
-        receipt1: {},
-        receipt2: {},
-      };
-      expect(calculateTotalGasBurnt(outcomes)).toBe('0');
-    });
-
     it('should handle zero tokens_burnt', () => {
-      const outcomes = {
-        receipt1: { tokens_burnt: '0' },
-        receipt2: { tokens_burnt: '0' },
+      const receiptOutcome = {
+        executor_account_id: 'test.near',
+        gas_burnt: 1000000,
+        status: true,
+        tokens_burnt: 0,
       };
-      expect(calculateTotalGasBurnt(outcomes)).toBe('0');
-    });
-
-    it('should handle gas_burnt field (even though we only use tokens_burnt)', () => {
-      const outcomes = {
-        receipt1: { gas_burnt: 1000000, tokens_burnt: '1000000000000000000000' },
-        receipt2: { gas_burnt: 500000, tokens_burnt: '500000000000000000000' },
-      };
-
-      const result = calculateTotalGasBurnt(outcomes);
-      expect(result).toBe('1500000000000000000000');
+      expect(calculateTotalGasBurnt(receiptOutcome)).toBe('0');
     });
   });
 
@@ -307,21 +231,26 @@ describe('mapper-utils', () => {
         actions: [
           {
             action: 'TRANSFER',
-            deposit: '1000000000000000000000000',
-            from: 'alice.near',
-            to: 'bob.near',
+            deposit: 100000000000000000000,
+            method: undefined,
+            args: undefined,
           },
         ],
-        block_height: 100000,
+        block: {
+          block_height: 100000,
+        },
         block_timestamp: '1640000000000000000',
         outcomes: {
-          receipt1: {
-            status: true,
-            tokens_burnt: '5000000000000000000000',
-          },
+          status: true,
         },
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receipt_outcome: {
+          executor_account_id: 'bob.near',
+          gas_burnt: 4174947687500,
+          status: true,
+          tokens_burnt: 5000000000000000000000,
+        },
+        receiver_account_id: 'bob.near',
         transaction_hash: 'AbCdEf123456',
       };
 
@@ -333,13 +262,13 @@ describe('mapper-utils', () => {
           actions: [
             {
               actionType: 'TRANSFER',
-              deposit: '1000000000000000000000000',
-              receiverId: 'bob.near',
+              deposit: '100000000000000000000',
+              receiverId: undefined,
               args: undefined,
               methodName: undefined,
             },
           ],
-          amount: '1000000000000000000000000',
+          amount: '100000000000000000000',
           blockHeight: 100000,
           currency: 'NEAR',
           feeAmount: '0.005',
@@ -357,8 +286,8 @@ describe('mapper-utils', () => {
     it('should map transaction without optional fields', () => {
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receiver_account_id: 'bob.near',
         transaction_hash: 'TxHash123',
       };
 
@@ -384,12 +313,10 @@ describe('mapper-utils', () => {
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
         outcomes: {
-          receipt1: {
-            status: { Failure: { ActionError: 'Insufficient balance' } },
-          },
+          status: false,
         },
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receiver_account_id: 'bob.near',
         transaction_hash: 'FailedTx',
       };
 
@@ -405,13 +332,16 @@ describe('mapper-utils', () => {
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
         outcomes: {
-          receipt1: {
-            status: true,
-            tokens_burnt: '0',
-          },
+          status: true,
         },
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receipt_outcome: {
+          executor_account_id: 'bob.near',
+          gas_burnt: 0,
+          status: true,
+          tokens_burnt: 0,
+        },
+        receiver_account_id: 'bob.near',
         transaction_hash: 'ZeroGasTx',
       };
 
@@ -430,22 +360,25 @@ describe('mapper-utils', () => {
           {
             action: 'FUNCTION_CALL',
             args: { receiver_id: 'token.near', amount: '1000000' },
-            deposit: '1',
-            from: 'alice.near',
+            deposit: 1,
             method: 'ft_transfer',
-            to: 'usdt.tether-token.near',
           },
         ],
-        block_height: 100001,
+        block: {
+          block_height: 100001,
+        },
         block_timestamp: '1640000001000000000',
         outcomes: {
-          receipt1: {
-            status: true,
-            tokens_burnt: '3000000000000000000000',
-          },
+          status: true,
         },
-        receiver_id: 'usdt.tether-token.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receipt_outcome: {
+          executor_account_id: 'usdt.tether-token.near',
+          gas_burnt: 3000000000000,
+          status: true,
+          tokens_burnt: 3000000000000000000000,
+        },
+        receiver_account_id: 'usdt.tether-token.near',
         transaction_hash: 'FunctionCallTx',
       };
 
@@ -458,7 +391,7 @@ describe('mapper-utils', () => {
           args: { receiver_id: 'token.near', amount: '1000000' },
           deposit: '1',
           methodName: 'ft_transfer',
-          receiverId: 'usdt.tether-token.near',
+          receiverId: undefined,
         });
       }
     });
@@ -468,20 +401,20 @@ describe('mapper-utils', () => {
         actions: [
           {
             action: 'TRANSFER',
-            deposit: '1000000000000000000000000',
-            from: 'alice.near',
-            to: 'bob.near',
+            deposit: 1e24,
+            method: undefined,
+            args: undefined,
           },
           {
             action: 'TRANSFER',
-            deposit: '2000000000000000000000000',
-            from: 'alice.near',
-            to: 'charlie.near',
+            deposit: 2e24,
+            method: undefined,
+            args: undefined,
           },
         ],
         block_timestamp: '1640000000000000000',
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receiver_account_id: 'bob.near',
         transaction_hash: 'MultiActionTx',
       };
 
@@ -497,8 +430,8 @@ describe('mapper-utils', () => {
     it('should use custom provider name from sourceContext', () => {
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receiver_account_id: 'bob.near',
         transaction_hash: 'CustomProviderTx',
       };
 
@@ -513,8 +446,8 @@ describe('mapper-utils', () => {
     it('should default to nearblocks when provider name not specified', () => {
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
-        receiver_id: 'bob.near',
-        signer_id: 'alice.near',
+        predecessor_account_id: 'alice.near',
+        receiver_account_id: 'bob.near',
         transaction_hash: 'NoProviderTx',
       };
 
