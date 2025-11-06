@@ -150,10 +150,7 @@ export function parseBankSendMessage(message: InjectiveMessage, decimals = 18): 
  * @param decimals - Number of decimals for amount conversion (default: 18)
  * @returns Parsed transfer data, or undefined if not an IBC transfer message
  */
-export function parseIbcTransferMessage(
-  message: InjectiveMessage,
-  decimals = 18
-): IbcTransferResult | undefined {
+export function parseIbcTransferMessage(message: InjectiveMessage, decimals = 18): IbcTransferResult | undefined {
   if (message.type !== '/ibc.applications.transfer.v1.MsgTransfer') {
     return undefined;
   }
@@ -248,10 +245,7 @@ export function parseCosmwasmExecuteMessage(
  * @param decimals - Number of decimals for amount conversion (default: 18)
  * @returns Parsed contract execution data, or undefined if not a wasmx message
  */
-export function parseWasmxExecuteMessage(
-  message: InjectiveMessage,
-  decimals = 18
-): WasmxExecuteResult | undefined {
+export function parseWasmxExecuteMessage(message: InjectiveMessage, decimals = 18): WasmxExecuteResult | undefined {
   if (message.type !== '/injective.wasmx.v1.MsgExecuteContractCompat') {
     return undefined;
   }
@@ -304,10 +298,7 @@ export function parseWasmxExecuteMessage(
  * @param decimals - Number of decimals for amount conversion (default: 18)
  * @returns Parsed withdrawal data, or undefined if not a Peggy withdrawal message
  */
-export function parsePeggySendToEthMessage(
-  message: InjectiveMessage,
-  decimals = 18
-): PeggySendToEthResult | undefined {
+export function parsePeggySendToEthMessage(message: InjectiveMessage, decimals = 18): PeggySendToEthResult | undefined {
   if (message.type !== '/injective.peggy.v1.MsgSendToEth') {
     return undefined;
   }

@@ -824,7 +824,7 @@ export function processTransferSource(
   strategy: ICostBasisStrategy,
   calculationId: string,
   jurisdiction: { sameAssetTransferFeePolicy: 'disposal' | 'add-to-basis' },
-  varianceTolerance?: { error: number; warn: number }  
+  varianceTolerance?: { error: number; warn: number }
 ): Result<
   {
     disposals: LotDisposal[];
@@ -1043,7 +1043,7 @@ export function processTransferTarget(
   lotTransfers: LotTransfer[],
   calculationId: string,
   strategyName: 'fifo' | 'lifo' | 'specific-id' | 'average-cost',
-  varianceTolerance?: { error: number; warn: number }  
+  varianceTolerance?: { error: number; warn: number }
 ): Result<
   {
     lot: AcquisitionLot;
