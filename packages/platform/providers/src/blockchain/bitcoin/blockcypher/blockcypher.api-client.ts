@@ -25,6 +25,7 @@ import type {
 } from '../../../shared/blockchain/index.ts';
 import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
+import { calculateSimpleBalance, createRawBalanceData } from '../balance-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
 import { BlockCypherTransactionMapper } from './blockcypher.mapper.ts';
@@ -222,19 +223,13 @@ export class BlockCypherApiClient extends BaseApiClient {
     }
 
     const addressInfo = result.value;
-
-    const balanceBTC = (addressInfo.final_balance / 100000000).toString();
+    const { balanceBTC, balanceSats } = calculateSimpleBalance(addressInfo.final_balance);
 
     this.logger.debug(
       `Successfully retrieved raw address info - Address: ${maskAddress(address)}, Balance: ${addressInfo.final_balance}`
     );
 
-    return ok({
-      rawAmount: addressInfo.final_balance.toString(),
-      symbol: 'BTC',
-      decimals: 8,
-      decimalAmount: balanceBTC,
-    } as RawBalanceData);
+    return ok(createRawBalanceData(balanceSats, balanceBTC));
   }
 
   /**

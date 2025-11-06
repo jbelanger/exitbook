@@ -1,4 +1,4 @@
-import { getErrorMessage, parseDecimal } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
@@ -6,6 +6,7 @@ import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../.
 import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
 import type { RawBalanceData, TransactionWithRawData } from '../../../shared/blockchain/types/index.ts';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
+import { transformSolBalance, transformTokenAccounts } from '../balance-utils.js';
 import type { SolanaSignature, SolanaTokenAccountsResponse, SolanaTransaction } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
@@ -109,19 +110,13 @@ export class SolanaRPCApiClient extends BaseApiClient {
       return err(new Error('Failed to fetch balance from Solana RPC'));
     }
 
-    // Convert from lamports to SOL (1 SOL = 10^9 lamports)
-    const balanceSOL = parseDecimal(response.result.value.toString()).div(parseDecimal('10').pow(9)).toFixed();
+    const balanceData = transformSolBalance(response.result.value);
 
     this.logger.debug(
-      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceSOL}`
+      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceData.decimalAmount}`
     );
 
-    return ok({
-      rawAmount: response.result.value.toString(),
-      decimals: 9,
-      decimalAmount: balanceSOL,
-      symbol: 'SOL',
-    } as RawBalanceData);
+    return ok(balanceData);
   }
 
   private async getAddressTransactions(params: {
@@ -260,19 +255,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    // Convert to RawBalanceData format with symbols
-    const balances: RawBalanceData[] = [];
-    for (const account of tokenAccountsResponse.result.value) {
-      const tokenInfo = account.account.data.parsed.info;
-      const mintAddress = tokenInfo.mint;
-
-      balances.push({
-        contractAddress: mintAddress,
-        decimals: tokenInfo.tokenAmount.decimals,
-        rawAmount: tokenInfo.tokenAmount.amount,
-        decimalAmount: tokenInfo.tokenAmount.uiAmountString,
-      });
-    }
+    const balances = transformTokenAccounts(tokenAccountsResponse.result.value);
 
     this.logger.debug(
       `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${balances.length}`

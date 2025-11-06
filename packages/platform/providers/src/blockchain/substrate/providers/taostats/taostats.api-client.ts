@@ -1,12 +1,14 @@
-import { getErrorMessage, parseDecimal } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
 import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
 import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
+import { convertToMainUnit, createRawBalanceData } from '../../balance-utils.ts';
 import type { SubstrateChainConfig } from '../../chain-config.interface.ts';
 import { getSubstrateChainConfig } from '../../chain-registry.ts';
+import { augmentWithChainConfig } from '../../transaction-utils.ts';
 import type { SubstrateTransaction } from '../../types.ts';
 import { isValidSS58Address } from '../../utils.ts';
 
@@ -126,20 +128,15 @@ export class TaostatsApiClient extends BaseApiClient {
     const balanceRao = response.data?.[0]?.balance_total || '0';
 
     // Convert from smallest unit (rao) to main unit (TAO)
-    const balanceDecimal = parseDecimal(balanceRao)
-      .div(parseDecimal('10').pow(this.chainConfig.nativeDecimals))
-      .toFixed();
+    const balanceDecimal = convertToMainUnit(balanceRao, this.chainConfig.nativeDecimals);
 
     this.logger.debug(
       `Found raw balance for ${maskAddress(address)}: ${balanceDecimal} ${this.chainConfig.nativeCurrency}`
     );
 
-    return ok({
-      rawAmount: balanceRao,
-      decimalAmount: balanceDecimal,
-      decimals: this.chainConfig.nativeDecimals,
-      symbol: this.chainConfig.nativeCurrency,
-    });
+    return ok(
+      createRawBalanceData(balanceRao, balanceDecimal, this.chainConfig.nativeDecimals, this.chainConfig.nativeCurrency)
+    );
   }
 
   private async getAddressTransactions(params: {
@@ -183,12 +180,7 @@ export class TaostatsApiClient extends BaseApiClient {
       const pageTransactions = response.data || [];
 
       // Augment transactions with chain config data
-      const pageAugmentedTransactions = pageTransactions.map((tx) => ({
-        ...tx,
-        _nativeCurrency: this.chainConfig.nativeCurrency,
-        _nativeDecimals: this.chainConfig.nativeDecimals,
-        _chainDisplayName: this.chainConfig.displayName,
-      })) as TaostatsTransactionAugmented[];
+      const pageAugmentedTransactions = augmentWithChainConfig(pageTransactions, this.chainConfig);
 
       augmentedTransactions.push(...pageAugmentedTransactions);
       offset += limit;

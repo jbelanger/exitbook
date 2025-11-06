@@ -1,11 +1,12 @@
-import { isErrorWithMessage, parseDecimal } from '@exitbook/core';
+import { isErrorWithMessage } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../shared/blockchain/base/mapper.ts';
 import type { NormalizationError } from '../../../shared/blockchain/index.ts';
+import { determinePrimaryTransfer, determineRecipient, extractAccountChangesFromSolscan } from '../mapper-utils.js';
 import { SolanaTransactionSchema } from '../schemas.js';
-import type { SolanaAccountChange, SolanaTokenChange, SolanaTransaction } from '../types.js';
+import type { SolanaTokenChange, SolanaTransaction } from '../types.js';
 import { lamportsToSol } from '../utils.js';
 
 import { SolscanRawTransactionDataSchema, type SolscanTransaction } from './solscan.schemas.js';
@@ -31,17 +32,18 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransacti
     const fee = lamportsToSol(tx.fee);
 
     // Extract account balance changes for accurate fund flow analysis
-    const accountChanges = this.extractAccountChanges(tx);
+    const accountChanges = tx.inputAccount ? extractAccountChangesFromSolscan(tx.inputAccount) : [];
 
     // Solscan doesn't provide detailed token balance changes, so we'll create minimal token changes
     // The processor will handle more sophisticated token transfer detection
     const tokenChanges: SolanaTokenChange[] = [];
 
     // Determine primary currency and amount from balance changes
-    const { primaryAmount, primaryCurrency } = this.determinePrimaryTransfer(accountChanges, tokenChanges);
+    const { primaryAmount, primaryCurrency } = determinePrimaryTransfer(accountChanges, tokenChanges);
 
     // Determine basic recipient from account changes
-    const recipient = this.determineRecipient(tx);
+    const feePayerAccount = tx.signer?.[0] || '';
+    const recipient = tx.inputAccount ? determineRecipient(tx.inputAccount, feePayerAccount) : '';
 
     // Extract basic transaction data (pure data extraction, no business logic)
     return {
@@ -59,7 +61,7 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransacti
       feeCurrency: 'SOL',
 
       // Transaction flow (extract raw addresses, processor will determine direction)
-      from: tx.signer?.[0] || '', // First signer is fee payer
+      from: feePayerAccount,
       id: tx.txHash,
 
       // Instruction data (raw extraction from parsedInstruction)
@@ -85,90 +87,5 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransacti
       // Token balance changes (minimal for Solscan)
       tokenChanges,
     };
-  }
-
-  /**
-   * Extract SOL balance changes from Solscan inputAccount data
-   */
-  private extractAccountChanges(tx: SolscanTransaction): SolanaAccountChange[] {
-    const changes: SolanaAccountChange[] = [];
-
-    if (tx.inputAccount) {
-      for (const accountData of tx.inputAccount) {
-        // Only include accounts with balance changes
-        if (accountData.preBalance !== accountData.postBalance) {
-          changes.push({
-            account: accountData.account,
-            postBalance: accountData.postBalance.toString(),
-            preBalance: accountData.preBalance.toString(),
-          });
-        }
-      }
-    }
-
-    return changes;
-  }
-
-  /**
-   * Determine the primary transfer amount and currency from balance changes
-   * Solscan structure is simpler, so this focuses on SOL transfers
-   */
-  private determinePrimaryTransfer(
-    accountChanges: SolanaAccountChange[],
-    _tokenChanges: SolanaTokenChange[]
-  ): { primaryAmount: string; primaryCurrency: string } {
-    // Find the largest SOL change (excluding fee payer which is usually first signer)
-    if (accountChanges.length > 1) {
-      // Skip first account (fee payer) and find largest balance change
-      const largestSolChange = accountChanges.slice(1).reduce((largest, change) => {
-        if (!largest) return change;
-        const changeAmount = parseDecimal(change.postBalance).minus(change.preBalance).abs();
-        const largestAmount = parseDecimal(largest.postBalance).minus(largest.preBalance).abs();
-        return changeAmount.greaterThan(largestAmount) ? change : largest;
-      }, accountChanges[1] ?? accountChanges[0]);
-
-      if (largestSolChange) {
-        const solAmount = parseDecimal(largestSolChange.postBalance).minus(largestSolChange.preBalance).abs();
-        return {
-          primaryAmount: solAmount.toFixed(),
-          primaryCurrency: 'SOL',
-        };
-      }
-    } else if (accountChanges.length === 1 && accountChanges[0]) {
-      // Only one account change (probably fee-only transaction)
-      const solAmount = parseDecimal(accountChanges[0].postBalance).minus(accountChanges[0].preBalance).abs();
-      return {
-        primaryAmount: solAmount.toFixed(),
-        primaryCurrency: 'SOL',
-      };
-    }
-
-    // Default fallback
-    return {
-      primaryAmount: '0',
-      primaryCurrency: 'SOL',
-    };
-  }
-
-  /**
-   * Determine basic recipient from account changes
-   */
-  private determineRecipient(tx: SolscanTransaction): string {
-    // Try to find the account that received funds (positive balance change, not the fee payer)
-    const feePayerAccount = tx.signer?.[0] || '';
-
-    if (tx.inputAccount) {
-      const recipient = tx.inputAccount.find((account) => {
-        const balanceChange = account.postBalance - account.preBalance;
-        return balanceChange > 0 && account.account !== feePayerAccount;
-      });
-
-      if (recipient) {
-        return recipient.account;
-      }
-    }
-
-    // Fallback: return empty string, processor will determine
-    return '';
   }
 }

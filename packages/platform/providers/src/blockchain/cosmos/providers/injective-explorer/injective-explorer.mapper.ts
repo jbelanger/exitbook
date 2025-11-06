@@ -1,18 +1,26 @@
-import { parseDecimal } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts';
 import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
+import { calculateFee } from '../../calculation-utils.js';
+import { formatDenom, generatePeggyId, isTransactionRelevant } from '../../mapper-utils.js';
+import {
+  parseBankSendMessage,
+  parseCosmwasmExecuteMessage,
+  parseIbcTransferMessage,
+  parsePeggyDepositClaimMessage,
+  parsePeggySendToEthMessage,
+  parseWasmxExecuteMessage,
+  shouldSkipMessage,
+} from '../../message-parser-utils.js';
 import { CosmosTransactionSchema } from '../../schemas.ts';
 import type { CosmosTransaction } from '../../types.js';
 
 import {
   InjectiveTransactionSchema as InjectiveExplorerTransactionSchema,
   type InjectiveTransaction as InjectiveApiTransaction,
-  type InjectiveMessageValue,
-  type InjectiveAmount,
 } from './injective-explorer.schemas.js';
 
 export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<InjectiveApiTransaction, CosmosTransaction> {
@@ -30,17 +38,18 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
       return err({ message: 'Invalid address', type: 'error' });
     }
 
-    // Extract address from rich session context
     const relevantAddress = sourceContext.address;
 
+    // Calculate fee using pure function
+    const feeResult = calculateFee(rawData.gas_fee);
+    const feeAmount = feeResult?.feeAmount ?? '0';
+    const feeCurrency = feeResult ? formatDenom(feeResult.feeCurrency) : 'INJ';
+
+    // Initialize transaction fields
     let amount = '0';
-    let feeAmount = '0';
     let from = '';
     let to = '';
     let currency = 'INJ';
-    let feeCurrency = 'INJ';
-
-    // Cosmos-specific fields
     let messageType: string | undefined;
     let bridgeType: 'peggy' | 'ibc' | 'native' | undefined;
     let eventNonce: string | undefined;
@@ -53,258 +62,148 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
     let tokenSymbol: string | undefined;
     let tokenType: 'cw20' | 'native' | 'ibc' | undefined;
 
-    // Parse fee from gas_fee field
-    if (
-      rawData.gas_fee &&
-      rawData.gas_fee.amount &&
-      Array.isArray(rawData.gas_fee.amount) &&
-      rawData.gas_fee.amount.length > 0
-    ) {
-      const firstFee = rawData.gas_fee.amount[0];
-      if (firstFee && firstFee.amount && firstFee.denom) {
-        feeAmount = parseDecimal(firstFee.amount).div(Math.pow(10, 18)).toFixed();
-        feeCurrency = this.formatDenom(firstFee.denom);
-      }
-    }
-
-    // Parse messages to extract transfer information and determine relevance
-    let isRelevantTransaction = false;
-
+    // Parse messages to extract transfer information
     for (const message of rawData.messages) {
       messageType = message.type;
 
-      // Skip Injective-specific non-asset operations
-      if (message.type.startsWith('/injective.exchange.')) {
-        this.logger.debug(`Skipping Injective DEX operation: ${message.type} in tx ${rawData.hash}`);
-        return err({
-          reason: `Injective DEX operation ${message.type} - not an asset transfer`,
-          type: 'skip',
-        });
-      }
-      if (message.type.startsWith('/injective.oracle.')) {
-        this.logger.debug(`Skipping Injective oracle operation: ${message.type} in tx ${rawData.hash}`);
-        return err({
-          reason: `Injective oracle operation ${message.type} - not an asset transfer`,
-          type: 'skip',
-        });
+      // Check if message should be skipped
+      const skipReason = shouldSkipMessage(message.type);
+      if (skipReason) {
+        this.logger.debug(`Skipping message: ${message.type} in tx ${rawData.hash}`);
+        return err({ reason: skipReason, type: 'skip' });
       }
 
-      // Skip Cosmos governance and authz non-transfer operations
-      if (
-        message.type === '/cosmos.gov.v1beta1.MsgVote' ||
-        message.type === '/cosmos.gov.v1beta1.MsgVoteWeighted' ||
-        message.type === '/cosmos.authz.v1beta1.MsgGrant' ||
-        message.type === '/cosmos.authz.v1beta1.MsgRevoke' ||
-        message.type === '/cosmos.slashing.v1beta1.MsgUnjail'
-      ) {
-        this.logger.debug(`Skipping governance/authz operation: ${message.type} in tx ${rawData.hash}`);
-        return err({
-          reason: `Governance/authz operation ${message.type} - not an asset transfer`,
-          type: 'skip',
-        });
-      }
-
-      // Handle bank transfer messages
-      if (message.type === '/cosmos.bank.v1beta1.MsgSend') {
-        from = message.value.from_address || '';
-        to = message.value.to_address || '';
+      // Try parsing as bank send message
+      const bankResult = parseBankSendMessage(message);
+      if (bankResult) {
+        from = bankResult.from;
+        to = bankResult.to;
+        amount = bankResult.amount;
+        currency = formatDenom(bankResult.currency);
+        tokenType = bankResult.tokenType;
+        tokenSymbol = currency;
         bridgeType = 'native';
 
-        if (message.value.amount && Array.isArray(message.value.amount) && message.value.amount.length > 0) {
-          const transferAmount = message.value.amount[0];
-          if (transferAmount) {
-            amount = parseDecimal(transferAmount.amount).div(Math.pow(10, 18)).toFixed();
-            currency = this.formatDenom(transferAmount.denom);
-            tokenType = 'native';
-            tokenSymbol = currency;
-          }
+        if (!isTransactionRelevant(from, to, relevantAddress, amount)) {
+          return err({
+            reason: `Transaction not relevant to wallet. MessageType="${messageType}", relevantAddress="${relevantAddress}", from="${from}", to="${to}"`,
+            type: 'skip',
+          });
         }
-
-        // Determine if this transaction is relevant to our wallet
-        if (to && relevantAddress === to && parseDecimal(amount).toNumber() > 0) {
-          isRelevantTransaction = true;
-        } else if (from && relevantAddress === from && parseDecimal(amount).toNumber() > 0) {
-          isRelevantTransaction = true;
-        }
-        break; // Use first transfer message
+        break;
       }
 
-      // Handle IBC transfer messages
-      else if (message.type === '/ibc.applications.transfer.v1.MsgTransfer') {
-        from = message.value.sender || '';
-        to = message.value.receiver || '';
+      // Try parsing as IBC transfer message
+      const ibcResult = parseIbcTransferMessage(message);
+      if (ibcResult) {
+        from = ibcResult.from;
+        to = ibcResult.to;
+        amount = ibcResult.amount;
+        currency = formatDenom(ibcResult.currency);
+        tokenType = ibcResult.tokenType;
+        tokenSymbol = currency;
         bridgeType = 'ibc';
+        sourceChannel = ibcResult.sourceChannel;
+        sourcePort = ibcResult.sourcePort;
 
-        sourceChannel = message.value.source_channel;
-        sourcePort = message.value.source_port;
-
-        if (message.value.token) {
-          amount = parseDecimal(message.value.token.amount).div(Math.pow(10, 18)).toFixed();
-          currency = this.formatDenom(message.value.token.denom);
-          tokenType = 'ibc';
-          tokenSymbol = currency;
-        }
-
-        // Determine if this transaction is relevant to our wallet
-        if (to && relevantAddress === to && parseDecimal(amount).toNumber() > 0) {
-          isRelevantTransaction = true;
-        } else if (from && relevantAddress === from && parseDecimal(amount).toNumber() > 0) {
-          isRelevantTransaction = true;
+        if (!isTransactionRelevant(from, to, relevantAddress, amount)) {
+          return err({
+            reason: `Transaction not relevant to wallet. MessageType="${messageType}", relevantAddress="${relevantAddress}", from="${from}", to="${to}"`,
+            type: 'skip',
+          });
         }
         break;
       }
 
-      // Handle CosmWasm contract execution (standard)
-      else if (message.type === '/cosmwasm.wasm.v1.MsgExecuteContract') {
-        from = message.value.sender || '';
-        to = message.value.contract || '';
+      // Try parsing as CosmWasm contract execution
+      const cosmwasmResult = parseCosmwasmExecuteMessage(message);
+      if (cosmwasmResult) {
+        from = cosmwasmResult.from;
+        to = cosmwasmResult.to;
+        amount = cosmwasmResult.amount;
+        currency = formatDenom(cosmwasmResult.currency);
+        tokenType = cosmwasmResult.tokenType;
+        tokenSymbol = currency;
 
-        // Check if this is relevant to our wallet (user is the sender)
-        if (from && relevantAddress === from) {
-          isRelevantTransaction = true;
-
-          // Extract funds sent with the contract call (not internal transfers)
-          if (message.value.funds && Array.isArray(message.value.funds) && message.value.funds.length > 0) {
-            const fund = message.value.funds[0];
-            if (fund && fund.amount && fund.denom) {
-              amount = parseDecimal(fund.amount).div(Math.pow(10, 18)).toFixed();
-              currency = this.formatDenom(fund.denom);
-              tokenType = 'native';
-              tokenSymbol = currency;
-            }
-          }
+        // Only relevant if user is the sender
+        if (from !== relevantAddress) {
+          return err({
+            reason: `Contract execution not relevant - sender is not the wallet address`,
+            type: 'skip',
+          });
         }
         break;
       }
 
-      // Handle Injective-specific contract execution (wasmx)
-      else if (message.type === '/injective.wasmx.v1.MsgExecuteContractCompat') {
-        from = message.value.sender || '';
-        to = message.value.contract || '';
+      // Try parsing as Injective wasmx contract execution
+      const wasmxResult = parseWasmxExecuteMessage(message);
+      if (wasmxResult) {
+        from = wasmxResult.from;
+        to = wasmxResult.to;
+        amount = wasmxResult.amount;
+        currency = formatDenom(wasmxResult.currency);
+        tokenType = wasmxResult.tokenType;
+        tokenSymbol = currency;
 
-        // Check if this is relevant to our wallet (user is the sender)
-        if (from && relevantAddress === from) {
-          isRelevantTransaction = true;
-
-          // Extract funds sent with the contract call (string format in wasmx)
-          if (message.value.funds && typeof message.value.funds === 'string') {
-            const fundsValue = parseDecimal(message.value.funds);
-            if (fundsValue.toNumber() > 0) {
-              amount = fundsValue.div(Math.pow(10, 18)).toString();
-              currency = 'INJ'; // Default to INJ for wasmx
-              tokenType = 'native';
-              tokenSymbol = currency;
-            }
-          }
+        // Only relevant if user is the sender
+        if (from !== relevantAddress) {
+          return err({
+            reason: `Wasmx execution not relevant - sender is not the wallet address`,
+            type: 'skip',
+          });
         }
         break;
       }
 
-      // Handle Peggy bridge withdrawal messages (sending funds to Ethereum)
-      else if (message.type === '/injective.peggy.v1.MsgSendToEth') {
-        const messageValue = message.value as InjectiveMessageValue & {
-          amount?: InjectiveAmount | undefined;
-          bridge_fee?: InjectiveAmount | undefined;
-          eth_dest?: string | undefined;
-        };
+      // Try parsing as Peggy withdrawal message
+      const peggyWithdrawalResult = parsePeggySendToEthMessage(message);
+      if (peggyWithdrawalResult) {
+        from = peggyWithdrawalResult.from;
+        to = peggyWithdrawalResult.to;
+        amount = peggyWithdrawalResult.amount;
+        currency = formatDenom(peggyWithdrawalResult.currency);
+        tokenType = peggyWithdrawalResult.tokenType;
+        tokenSymbol = currency;
+        bridgeType = peggyWithdrawalResult.bridgeType;
+        ethereumReceiver = peggyWithdrawalResult.ethereumReceiver;
 
-        bridgeType = 'peggy';
-        from = messageValue.sender || '';
-        to = messageValue.eth_dest || '';
-        ethereumReceiver = messageValue.eth_dest;
-
-        // Check if this is relevant to our wallet (user is the sender)
-        if (from && relevantAddress === from) {
-          isRelevantTransaction = true;
-
-          // Extract amount from the withdrawal
-          if (messageValue.amount && messageValue.amount.amount && messageValue.amount.denom) {
-            amount = parseDecimal(messageValue.amount.amount).div(Math.pow(10, 18)).toFixed();
-            currency = this.formatDenom(messageValue.amount.denom);
-            tokenType = 'native';
-            tokenSymbol = currency;
-          }
+        // Only relevant if user is the sender
+        if (from !== relevantAddress) {
+          return err({
+            reason: `Peggy withdrawal not relevant - sender is not the wallet address`,
+            type: 'skip',
+          });
         }
         break;
       }
 
-      // Handle Peggy bridge deposit messages (when funds come from Ethereum)
-      else if (message.type === '/injective.peggy.v1.MsgDepositClaim') {
-        const messageValue = message.value as InjectiveMessageValue & {
-          cosmos_receiver?: string | undefined;
-          ethereum_receiver?: string | undefined;
-          ethereum_sender?: string | undefined;
-          event_nonce?: string | undefined;
-        };
-
-        bridgeType = 'peggy';
-        eventNonce = messageValue.event_nonce;
-        ethereumSender = messageValue.ethereum_sender;
-        ethereumReceiver = messageValue.ethereum_receiver;
-
-        if (
-          (messageValue.ethereum_receiver && relevantAddress === messageValue.ethereum_receiver) ||
-          (messageValue.cosmos_receiver && relevantAddress === messageValue.cosmos_receiver)
-        ) {
-          isRelevantTransaction = true;
-          to = messageValue.cosmos_receiver || messageValue.ethereum_receiver || '';
-          from = messageValue.ethereum_sender || '';
-
-          // Extract amount from the deposit claim if available
-          if (messageValue.amount && messageValue.token_contract) {
-            let amountValue = '0';
-            if (typeof messageValue.amount === 'string') {
-              amountValue = messageValue.amount;
-            } else if (
-              Array.isArray(messageValue.amount) &&
-              messageValue.amount.length > 0 &&
-              typeof messageValue.amount[0]?.amount === 'string'
-            ) {
-              amountValue = messageValue.amount[0].amount;
-            } else if (typeof (messageValue.amount as InjectiveAmount)?.amount === 'string') {
-              amountValue = (messageValue.amount as InjectiveAmount).amount;
-            }
-            amount = parseDecimal(amountValue).div(Math.pow(10, 18)).toFixed();
-            currency = 'INJ';
-            tokenAddress = messageValue.token_contract;
-            tokenType = 'native';
-            tokenSymbol = currency;
-          }
-        }
+      // Try parsing as Peggy deposit message
+      const peggyDepositResult = parsePeggyDepositClaimMessage(message, relevantAddress);
+      if (peggyDepositResult) {
+        from = peggyDepositResult.from;
+        to = peggyDepositResult.to;
+        amount = peggyDepositResult.amount;
+        currency = formatDenom(peggyDepositResult.currency);
+        tokenType = peggyDepositResult.tokenType;
+        tokenSymbol = currency;
+        bridgeType = peggyDepositResult.bridgeType;
+        eventNonce = peggyDepositResult.eventNonce;
+        ethereumSender = peggyDepositResult.ethereumSender;
+        ethereumReceiver = peggyDepositResult.ethereumReceiver;
+        tokenAddress = peggyDepositResult.tokenAddress;
         break;
       }
 
-      // Unhandled message type - log and skip
-      else {
-        this.logger.debug(`Skipping unsupported message type "${message.type}" in transaction ${rawData.hash}.`);
-        return err({
-          reason: `Unsupported message type ${message.type}`,
-          type: 'skip',
-        });
-      }
-    }
-
-    // Only process transactions that are relevant to our wallet
-    if (!isRelevantTransaction) {
+      // Unsupported message type
+      this.logger.debug(`Skipping unsupported message type "${message.type}" in transaction ${rawData.hash}.`);
       return err({
-        reason:
-          `Transaction not relevant to wallet. ` +
-          `MessageType="${messageType}", relevantAddress="${relevantAddress}", from="${from}", to="${to}"`,
+        reason: `Unsupported message type ${message.type}`,
         type: 'skip',
       });
     }
 
-    // For Peggy deposits, use event_nonce as the unique identifier to deduplicate validator consensus votes
-    // Multiple validators submit the same deposit claim (same event_nonce) as separate blockchain transactions
-    // Fall back to claim_id from transaction level if event_nonce is not available
-    let peggyId: string | undefined;
-    if (eventNonce) {
-      peggyId = eventNonce;
-    } else if (rawData.claim_id && Array.isArray(rawData.claim_id) && rawData.claim_id.length > 0) {
-      peggyId = String(rawData.claim_id[0]);
-    }
-
-    const transactionId = peggyId ? `peggy-deposit-${peggyId}` : rawData.hash;
+    // Generate unique transaction ID (handles Peggy deposit deduplication)
+    const transactionId = generatePeggyId(eventNonce, rawData.claim_id, rawData.hash);
 
     const transaction: CosmosTransaction = {
       amount,
@@ -337,17 +236,5 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
     };
 
     return ok(transaction);
-  }
-
-  private formatDenom(denom: string | undefined): string {
-    if (!denom) {
-      return 'INJ';
-    }
-
-    if (denom === 'inj' || denom === 'uinj') {
-      return 'INJ';
-    }
-
-    return denom.toUpperCase();
   }
 }

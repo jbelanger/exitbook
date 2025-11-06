@@ -4,6 +4,8 @@ import { ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts';
 import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
+import { extractMethodId, getTransactionTypeFromFunctionName } from '../../mapper-utils.ts';
+import { calculateGasFeeBigInt } from '../../receipt-utils.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 import { normalizeEvmAddress } from '../../utils.js';
@@ -89,23 +91,22 @@ export class RoutescanTransactionMapper extends BaseRawDataMapper<
       status: rawData.txreceipt_status === '1' ? 'success' : 'failed',
       timestamp,
       to: normalizeEvmAddress(rawData.to),
-      type: rawData.functionName ? 'contract_call' : 'transfer',
+      type: getTransactionTypeFromFunctionName(rawData.functionName),
     };
 
     // Add optional fields
     if (rawData.functionName) {
       transaction.functionName = rawData.functionName;
     }
-    if (rawData.input && rawData.input.length >= 10) {
+    const methodId = extractMethodId(rawData.input);
+    if (methodId) {
       transaction.inputData = rawData.input;
-      transaction.methodId = rawData.input.slice(0, 10); // First 4 bytes + 0x
+      transaction.methodId = methodId;
     }
 
     // Calculate gas fee
     if (rawData.gasUsed && rawData.gasPrice) {
-      const gasUsed = BigInt(rawData.gasUsed);
-      const gasPrice = BigInt(rawData.gasPrice);
-      transaction.feeAmount = (gasUsed * gasPrice).toString();
+      transaction.feeAmount = calculateGasFeeBigInt(rawData.gasUsed, rawData.gasPrice);
       transaction.feeCurrency = this.nativeCurrency;
     }
 
@@ -137,9 +138,7 @@ export class RoutescanTransactionMapper extends BaseRawDataMapper<
 
     // Calculate gas fee
     if (rawData.gasUsed && rawData.gasPrice) {
-      const gasUsed = BigInt(rawData.gasUsed);
-      const gasPrice = BigInt(rawData.gasPrice);
-      transaction.feeAmount = (gasUsed * gasPrice).toString();
+      transaction.feeAmount = calculateGasFeeBigInt(rawData.gasUsed, rawData.gasPrice);
       transaction.feeCurrency = this.nativeCurrency;
     }
 

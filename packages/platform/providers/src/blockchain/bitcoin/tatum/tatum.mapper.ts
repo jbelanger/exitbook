@@ -1,15 +1,11 @@
-import { parseDecimal } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
-import { type Result, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../shared/blockchain/base/mapper.ts';
 import type { NormalizationError } from '../../../shared/blockchain/index.ts';
+import { mapTatumTransaction } from '../mapper-utils.js';
 import { BitcoinTransactionSchema } from '../schemas.js';
-import type {
-  BitcoinTransactionInput,
-  BitcoinTransactionOutput,
-  BitcoinTransaction as BitcoinTransaction,
-} from '../schemas.ts';
+import type { BitcoinTransaction } from '../schemas.ts';
 
 import { TatumBitcoinTransactionSchema, type TatumBitcoinTransaction } from './tatum.schemas.js';
 
@@ -17,50 +13,10 @@ export class TatumBitcoinTransactionMapper extends BaseRawDataMapper<TatumBitcoi
   protected readonly inputSchema = TatumBitcoinTransactionSchema;
   protected readonly outputSchema = BitcoinTransactionSchema;
 
-  /**
-   * Extracts structured input/output data for sophisticated analysis
-   */
   protected mapInternal(
     rawData: TatumBitcoinTransaction,
-    _sourceContext: SourceMetadata
+    sourceContext: SourceMetadata
   ): Result<BitcoinTransaction, NormalizationError> {
-    const timestamp = rawData.time * 1000;
-
-    const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input, _index) => ({
-      address: input.coin.address,
-      txid: input.prevout.hash,
-      value: input.coin.value.toString(),
-      vout: input.prevout.index,
-    }));
-
-    const outputs: BitcoinTransactionOutput[] = rawData.outputs.map((output, index) => ({
-      address: output.address,
-      index,
-      value: output.value.toString(),
-    }));
-
-    const normalized: BitcoinTransaction = {
-      currency: 'BTC',
-      id: rawData.hash,
-      inputs,
-      outputs,
-      providerId: 'tatum',
-      status: rawData.blockNumber ? 'success' : 'pending',
-      timestamp,
-    };
-
-    if (rawData.blockNumber) {
-      normalized.blockHeight = rawData.blockNumber;
-    }
-    if (rawData.block) {
-      normalized.blockId = rawData.block;
-    }
-    if (rawData.fee > 0) {
-      const btcFee = parseDecimal(rawData.fee.toFixed()).div(100000000).toFixed();
-      normalized.feeAmount = btcFee;
-      normalized.feeCurrency = 'BTC';
-    }
-
-    return ok(normalized);
+    return mapTatumTransaction(rawData, sourceContext);
   }
 }

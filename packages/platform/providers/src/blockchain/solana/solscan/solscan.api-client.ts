@@ -1,4 +1,4 @@
-import { getErrorMessage, parseDecimal } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
@@ -6,6 +6,7 @@ import type { ProviderConfig, ProviderOperation } from '../../../shared/blockcha
 import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
 import type { RawBalanceData, TransactionWithRawData } from '../../../shared/blockchain/types/index.ts';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
+import { transformSolBalance } from '../balance-utils.js';
 import type { SolanaTransaction } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
@@ -120,20 +121,14 @@ export class SolscanApiClient extends BaseApiClient {
       return err(new Error('Failed to fetch balance from Solscan API'));
     }
 
-    // Convert from lamports to SOL (1 SOL = 10^9 lamports)
     const lamports = response.data.lamports || '0';
-    const balanceSOL = parseDecimal(lamports).div(parseDecimal('10').pow(9)).toFixed();
+    const balanceData = transformSolBalance(lamports);
 
     this.logger.debug(
-      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceSOL}`
+      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceData.decimalAmount}`
     );
 
-    return ok({
-      rawAmount: lamports,
-      decimalAmount: balanceSOL,
-      decimals: 9,
-      symbol: 'SOL',
-    });
+    return ok(balanceData);
   }
 
   private async getAddressTransactions(params: {

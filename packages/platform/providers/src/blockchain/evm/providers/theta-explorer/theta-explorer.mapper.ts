@@ -5,6 +5,7 @@ import { type Result, ok, err } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts';
 import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
+import { formatThetaAmount, isThetaTokenTransfer, selectThetaCurrency } from '../../mapper-utils.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 import { normalizeEvmAddress } from '../../utils.js';
@@ -46,27 +47,19 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
       const tfuelWei = parseDecimal(data.target?.coins?.tfuelwei || data.outputs?.[0]?.coins?.tfuelwei || '0');
       const thetaWei = parseDecimal(data.target?.coins?.thetawei || data.outputs?.[0]?.coins?.thetawei || '0');
 
-      if (thetaWei.gt(0)) {
-        currency = 'THETA';
-        amount = thetaWei;
-      } else if (tfuelWei.gt(0)) {
-        currency = 'TFUEL';
-        amount = tfuelWei;
+      const targetResult = selectThetaCurrency(thetaWei, tfuelWei);
+
+      if (targetResult.amount.gt(0)) {
+        currency = targetResult.currency;
+        amount = targetResult.amount;
       } else {
         // If both are zero, check source/inputs for outgoing amounts
         const sourceTfuel = parseDecimal(data.source?.coins?.tfuelwei || data.inputs?.[0]?.coins?.tfuelwei || '0');
         const sourceTheta = parseDecimal(data.source?.coins?.thetawei || data.inputs?.[0]?.coins?.thetawei || '0');
 
-        if (sourceTheta.gt(0)) {
-          currency = 'THETA';
-          amount = sourceTheta;
-        } else if (sourceTfuel.gt(0)) {
-          currency = 'TFUEL';
-          amount = sourceTfuel;
-        } else {
-          currency = 'TFUEL';
-          amount = parseDecimal('0');
-        }
+        const sourceResult = selectThetaCurrency(sourceTheta, sourceTfuel);
+        currency = sourceResult.currency;
+        amount = sourceResult.amount;
       }
     }
     // Type 7: Smart contract transaction
@@ -80,16 +73,9 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
       const tfuelWei = parseDecimal(data.to?.coins?.tfuelwei || '0');
       const thetaWei = parseDecimal(data.to?.coins?.thetawei || '0');
 
-      if (thetaWei.gt(0)) {
-        currency = 'THETA';
-        amount = thetaWei;
-      } else if (tfuelWei.gt(0)) {
-        currency = 'TFUEL';
-        amount = tfuelWei;
-      } else {
-        currency = 'TFUEL';
-        amount = parseDecimal('0');
-      }
+      const result = selectThetaCurrency(thetaWei, tfuelWei);
+      currency = result.currency;
+      amount = result.amount;
     }
     // Other transaction types - skip for now
     else {
@@ -105,16 +91,14 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
     // Theta blockchain has TWO native currencies: THETA and TFUEL
     // The processor expects nativeCurrency to be TFUEL (for fees), so we map THETA
     // transfers as token_transfer to preserve the correct symbol
-    const isThetaTransfer = currency === 'THETA';
+    const isTheta = isThetaTokenTransfer(currency);
     const THETA_DECIMALS = 18;
 
     // Amount handling:
     // - Amounts from API are already in wei (thetawei/tfuelwei)
     // - THETA transfers are mapped as token_transfer, so amounts should be normalized (not wei)
     // - TFUEL transfers are mapped as native transfer, so amounts should stay in wei
-    const amountFormatted = isThetaTransfer
-      ? amount.dividedBy(parseDecimal('10').pow(THETA_DECIMALS)).toFixed()
-      : amount.toFixed(0); // Use toFixed(0) to avoid scientific notation
+    const amountFormatted = formatThetaAmount(amount, isTheta, THETA_DECIMALS);
 
     const transaction: EvmTransaction = {
       amount: amountFormatted,
@@ -126,9 +110,9 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
       status: 'success',
       timestamp,
       to,
-      tokenSymbol: isThetaTransfer ? 'THETA' : 'TFUEL',
+      tokenSymbol: isTheta ? 'THETA' : 'TFUEL',
       tokenType: 'native',
-      type: isThetaTransfer ? 'token_transfer' : 'transfer',
+      type: isTheta ? 'token_transfer' : 'transfer',
     };
 
     return ok(transaction);
