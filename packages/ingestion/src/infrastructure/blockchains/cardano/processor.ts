@@ -68,6 +68,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
 
         // Build movements from fund flow
         // Convert to UniversalTransaction format
+        // ADR-005: For UTXO chains, grossAmount includes fees, netAmount is the actual transfer amount
         const universalTransaction: UniversalTransaction = {
           id: 0, // Will be assigned by database
           externalId: normalizedTx.id,
@@ -85,15 +86,19 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
               return {
                 asset: inflow.asset,
                 grossAmount: amount,
-                netAmount: amount,
+                netAmount: amount, // Inflows: no fee adjustment needed
               };
             }),
             outflows: fundFlow.outflows.map((outflow) => {
-              const amount = parseDecimal(outflow.amount);
+              const grossAmount = parseDecimal(outflow.amount);
+              // For ADA outflows when user paid fee: netAmount = grossAmount - fee
+              // For other assets or when no fee: netAmount = grossAmount
+              const netAmount = outflow.asset === 'ADA' && userPaidFee ? grossAmount.minus(feeAmount) : grossAmount;
+
               return {
                 asset: outflow.asset,
-                grossAmount: amount,
-                netAmount: amount,
+                grossAmount, // Includes fee (total that left wallet)
+                netAmount, // Actual transfer amount (excludes fee)
               };
             }),
           },

@@ -14,11 +14,7 @@ import { createRawBalanceData, lovelaceToAda } from '../balance-utils.js';
 import type { CardanoTransaction } from '../schemas.js';
 
 import { mapBlockfrostTransaction } from './blockfrost.mapper-utils.js';
-import type {
-  BlockfrostAddress,
-  BlockfrostTransactionHash,
-  BlockfrostTransactionWithMetadata,
-} from './blockfrost.schemas.js';
+import type { BlockfrostTransactionHash, BlockfrostTransactionWithMetadata } from './blockfrost.schemas.js';
 import {
   BlockfrostAddressSchema,
   BlockfrostTransactionDetailsSchema,

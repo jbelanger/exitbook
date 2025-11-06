@@ -199,7 +199,12 @@ describe('BlockfrostApiClient E2E', () => {
   }, 60000);
 
   it('should fetch address balance', async () => {
-    const result = await client.execute<{ rawAmount?: string; decimalAmount?: string; symbol?: string; decimals?: number }>({
+    const result = await client.execute<{
+      decimalAmount?: string;
+      decimals?: number;
+      rawAmount?: string;
+      symbol?: string;
+    }>({
       address: testAddress,
       type: 'getAddressBalances',
     });
