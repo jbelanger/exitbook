@@ -21,15 +21,15 @@ export function yoctoNearToNearString(yoctoNear: string | number): string {
 }
 
 /**
- * Parse NearBlocks timestamp to Unix timestamp (seconds)
+ * Parse NearBlocks timestamp to Unix timestamp (milliseconds)
  * NearBlocks timestamps are in nanoseconds (string format)
- * Returns seconds for compatibility with UniversalTransaction schema
+ * Returns milliseconds for compatibility with JavaScript Date constructor and UniversalTransaction schema
  */
 export function parseNearBlocksTimestamp(timestamp: string): number {
-  // Convert nanoseconds to seconds
+  // Convert nanoseconds to milliseconds (divide by 1,000,000)
   const nanoseconds = parseDecimal(timestamp);
-  const seconds = nanoseconds.div(parseDecimal('1000000000'));
-  return parseInt(seconds.toFixed(0), 10);
+  const milliseconds = nanoseconds.div(parseDecimal('1000000'));
+  return parseInt(milliseconds.toFixed(0), 10);
 }
 
 /**

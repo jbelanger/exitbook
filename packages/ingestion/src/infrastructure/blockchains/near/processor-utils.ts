@@ -8,19 +8,40 @@ import { type Result, err, ok } from 'neverthrow';
 import type { NearBalanceChangeAnalysis, NearFundFlow, NearMovement } from './types.js';
 
 /**
- * Action types for staking-related operations on NEAR
+ * NEAR action types (normalized to lowercase for case-insensitive matching)
+ * Handles variations from different API providers (e.g., "FUNCTION_CALL", "FunctionCall")
  */
-const STAKING_ACTION_TYPES: string[] = ['Stake', 'Unstake'];
+enum NearActionType {
+  AddKey = 'add_key',
+  CreateAccount = 'create_account',
+  DeleteAccount = 'delete_account',
+  DeleteKey = 'delete_key',
+  DeployContract = 'deploy_contract',
+  FunctionCall = 'function_call',
+  Stake = 'stake',
+  Transfer = 'transfer',
+  Unstake = 'unstake',
+}
 
 /**
- * Action types for contract interactions on NEAR
- */
-const CONTRACT_ACTION_TYPES: string[] = ['FunctionCall', 'DeployContract'];
-
-/**
- * Action types for token transfers on NEAR (NEP-141)
+ * NEP-141 token transfer method names
  */
 const TOKEN_TRANSFER_METHODS: string[] = ['ft_transfer', 'ft_transfer_call'];
+
+/**
+ * Normalize NEAR action type to lowercase with underscores
+ * Handles multiple formats:
+ * - "FUNCTION_CALL" -> "function_call"
+ * - "FunctionCall" -> "function_call"
+ * - "function_call" -> "function_call"
+ * - "functionCall" -> "function_call"
+ */
+function normalizeActionType(actionType: string): string {
+  // First, handle camelCase/PascalCase by inserting underscores before capital letters
+  const withUnderscores = actionType.replace(/([a-z])([A-Z])/g, '$1_$2');
+  // Then convert everything to lowercase
+  return withUnderscores.toLowerCase();
+}
 
 /**
  * Detect staking-related actions in a NEAR transaction
@@ -28,7 +49,10 @@ const TOKEN_TRANSFER_METHODS: string[] = ['ft_transfer', 'ft_transfer_call'];
 export function detectNearStakingActions(actions?: NearTransaction['actions']): boolean {
   if (!actions) return false;
 
-  return actions.some((action) => STAKING_ACTION_TYPES.includes(action.actionType));
+  return actions.some((action) => {
+    const normalized = normalizeActionType(action.actionType);
+    return normalized === NearActionType.Stake.valueOf() || normalized === NearActionType.Unstake.valueOf();
+  });
 }
 
 /**
@@ -37,7 +61,12 @@ export function detectNearStakingActions(actions?: NearTransaction['actions']): 
 export function detectNearContractCalls(actions?: NearTransaction['actions']): boolean {
   if (!actions) return false;
 
-  return actions.some((action) => CONTRACT_ACTION_TYPES.includes(action.actionType));
+  return actions.some((action) => {
+    const normalized = normalizeActionType(action.actionType);
+    return (
+      normalized === NearActionType.FunctionCall.valueOf() || normalized === NearActionType.DeployContract.valueOf()
+    );
+  });
 }
 
 /**
@@ -46,10 +75,14 @@ export function detectNearContractCalls(actions?: NearTransaction['actions']): b
 export function detectNearTokenTransfers(actions?: NearTransaction['actions']): boolean {
   if (!actions) return false;
 
-  return actions.some(
-    (action) =>
-      action.actionType === 'FunctionCall' && action.methodName && TOKEN_TRANSFER_METHODS.includes(action.methodName)
-  );
+  return actions.some((action) => {
+    const normalized = normalizeActionType(action.actionType);
+    return (
+      normalized === NearActionType.FunctionCall.valueOf() &&
+      action.methodName &&
+      TOKEN_TRANSFER_METHODS.includes(action.methodName)
+    );
+  });
 }
 
 /**

@@ -30,6 +30,17 @@ describe('NEAR Processor Utils - Detection Functions', () => {
     expect(detectNearStakingActions(actions)).toBe(true);
   });
 
+  test('detectNearStakingActions identifies stake action (uppercase)', () => {
+    const actions = [
+      {
+        actionType: 'STAKE',
+        deposit: '1000000000000000000000000',
+      },
+    ];
+
+    expect(detectNearStakingActions(actions)).toBe(true);
+  });
+
   test('detectNearStakingActions identifies unstake action', () => {
     const actions = [
       {
@@ -64,6 +75,18 @@ describe('NEAR Processor Utils - Detection Functions', () => {
     expect(detectNearContractCalls(actions)).toBe(true);
   });
 
+  test('detectNearContractCalls identifies function call (uppercase)', () => {
+    const actions = [
+      {
+        actionType: 'FUNCTION_CALL',
+        gas: '30000000000000',
+        methodName: 'ft_transfer',
+      },
+    ];
+
+    expect(detectNearContractCalls(actions)).toBe(true);
+  });
+
   test('detectNearTokenTransfers identifies token transfer method', () => {
     const actions = [
       {
@@ -82,6 +105,18 @@ describe('NEAR Processor Utils - Detection Functions', () => {
         actionType: 'FunctionCall',
         gas: '30000000000000',
         methodName: 'ft_transfer_call',
+      },
+    ];
+
+    expect(detectNearTokenTransfers(actions)).toBe(true);
+  });
+
+  test('detectNearTokenTransfers identifies token transfer (uppercase action)', () => {
+    const actions = [
+      {
+        actionType: 'FUNCTION_CALL',
+        gas: '30000000000000',
+        methodName: 'ft_transfer',
       },
     ];
 

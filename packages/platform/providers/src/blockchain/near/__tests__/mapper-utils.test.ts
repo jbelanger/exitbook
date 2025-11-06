@@ -42,18 +42,19 @@ describe('mapper-utils', () => {
   });
 
   describe('parseNearBlocksTimestamp', () => {
-    it('should convert nanoseconds to seconds (Unix timestamp)', () => {
+    it('should convert nanoseconds to milliseconds (Unix timestamp)', () => {
       // 1 second in nanoseconds = 1,000,000,000
-      expect(parseNearBlocksTimestamp('1000000000')).toBe(1);
-      // 1 millisecond in nanoseconds = 1,000,000 (rounds to 0 seconds)
-      expect(parseNearBlocksTimestamp('1000000')).toBe(0);
+      // 1 second in milliseconds = 1,000
+      expect(parseNearBlocksTimestamp('1000000000')).toBe(1000);
+      // 1 millisecond in nanoseconds = 1,000,000
+      expect(parseNearBlocksTimestamp('1000000')).toBe(1);
     });
 
     it('should handle real NearBlocks timestamps', () => {
       // Real NearBlocks timestamp: 1640000000000000000 (nanoseconds)
-      // Expected: 1640000000 (Unix timestamp in seconds - December 20, 2021)
-      expect(parseNearBlocksTimestamp('1640000000000000000')).toBe(1640000000);
-      expect(parseNearBlocksTimestamp('1700000000000000000')).toBe(1700000000);
+      // Expected: 1640000000000 (Unix timestamp in milliseconds - December 20, 2021)
+      expect(parseNearBlocksTimestamp('1640000000000000000')).toBe(1640000000000);
+      expect(parseNearBlocksTimestamp('1700000000000000000')).toBe(1700000000000);
     });
 
     it('should handle zero timestamp', () => {
@@ -62,14 +63,14 @@ describe('mapper-utils', () => {
 
     it('should handle very large timestamps', () => {
       // Future timestamp
-      expect(parseNearBlocksTimestamp('2000000000000000000')).toBe(2000000000);
+      expect(parseNearBlocksTimestamp('2000000000000000000')).toBe(2000000000000);
     });
 
-    it('should round to nearest second', () => {
-      // 1.5 seconds in nanoseconds = 1,500,000,000
-      expect(parseNearBlocksTimestamp('1500000000')).toBe(2);
-      // 1.4 seconds in nanoseconds = 1,400,000,000
-      expect(parseNearBlocksTimestamp('1400000000')).toBe(1);
+    it('should round to nearest millisecond', () => {
+      // 1.5 milliseconds in nanoseconds = 1,500,000
+      expect(parseNearBlocksTimestamp('1500000')).toBe(2);
+      // 1.4 milliseconds in nanoseconds = 1,400,000
+      expect(parseNearBlocksTimestamp('1400000')).toBe(1);
     });
   });
 
@@ -347,7 +348,7 @@ describe('mapper-utils', () => {
           id: 'AbCdEf123456',
           providerName: 'nearblocks',
           status: 'success',
-          timestamp: 1640000000,
+          timestamp: 1640000000000,
           to: 'bob.near',
         });
       }
@@ -373,7 +374,7 @@ describe('mapper-utils', () => {
           id: 'TxHash123',
           providerName: 'nearblocks',
           status: 'pending',
-          timestamp: 1640000000,
+          timestamp: 1640000000000,
           to: 'bob.near',
         });
       }
