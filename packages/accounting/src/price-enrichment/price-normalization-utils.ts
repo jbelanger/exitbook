@@ -239,7 +239,7 @@ export async function normalizePriceToUSD(
   fetchFxRate: (
     currency: Currency,
     date: Date
-  ) => Promise<Result<{ fetchedAt: Date; rate: Decimal; source: string; }, Error>>
+  ) => Promise<Result<{ fetchedAt: Date; rate: Decimal; source: string }, Error>>
 ): Promise<Result<PriceAtTxTime, Error>> {
   const sourceCurrency = priceAtTxTime.price.currency;
 
