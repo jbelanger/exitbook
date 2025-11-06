@@ -22,8 +22,13 @@ export type {
 // Services
 export { LotMatcher } from './services/lot-matcher.js';
 export type { LotMatcherConfig, LotMatchResult, AssetLotMatchResult } from './services/lot-matcher.js';
-export { GainLossCalculator } from './services/gain-loss-calculator.js';
 export type { GainLossResult, AssetGainLossSummary, DisposalGainLoss } from './services/gain-loss-calculator.js';
+export {
+  calculateGainLoss,
+  checkLossDisallowance,
+  aggregateAssetGainLoss,
+  aggregateOverallGainLoss,
+} from './services/gain-loss-utils.js';
 export { CostBasisCalculator } from './services/cost-basis-calculator.js';
 export type { CostBasisSummary } from './services/cost-basis-calculator.js';
 

@@ -7,7 +7,7 @@ import { err, ok } from 'neverthrow';
 
 import type { TransactionLinkRepository } from '../persistence/transaction-link-repository.js';
 
-import { LinkGraphBuilder } from './link-graph-builder.js';
+import { buildLinkGraph } from './link-graph-utils.js';
 import { enrichFeePricesFromMovements, inferMultiPass, propagatePricesAcrossLinks } from './price-enrichment-utils.js';
 import type { TransactionGroup } from './types.js';
 
@@ -33,14 +33,10 @@ const logger = getLogger('PriceEnrichmentService');
  * - derive: Recalculate crypto-crypto swap ratios for accurate cost basis
  */
 export class PriceEnrichmentService {
-  private readonly linkGraphBuilder: LinkGraphBuilder;
-
   constructor(
     private readonly transactionRepository: TransactionRepository,
     private readonly linkRepository: TransactionLinkRepository
-  ) {
-    this.linkGraphBuilder = new LinkGraphBuilder();
-  }
+  ) {}
 
   /**
    * Main entry point: enrich prices for all transactions needing prices
@@ -91,7 +87,7 @@ export class PriceEnrichmentService {
 
       // Build link graph: groups transitively linked transactions together
       // This enables price propagation across platforms (exchange → blockchain → exchange)
-      const transactionGroups = this.linkGraphBuilder.buildLinkGraph(allTransactions, confirmedLinks);
+      const transactionGroups = buildLinkGraph(allTransactions, confirmedLinks);
       logger.info({ groupCount: transactionGroups.length }, 'Built transaction groups from links');
 
       let updatedCount = 0;

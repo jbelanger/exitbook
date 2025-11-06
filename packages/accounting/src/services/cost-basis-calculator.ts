@@ -13,11 +13,10 @@ import type { CostBasisRepository } from '../persistence/cost-basis-repository.j
 import type { LotTransferRepository } from '../persistence/lot-transfer-repository.js';
 import type { TransactionLinkRepository } from '../persistence/transaction-link-repository.js';
 
+import { getStrategyForMethod } from './cost-basis-utils.js';
 import { validateTransactionPrices } from './cost-basis-validation-utils.js';
-import { GainLossCalculator } from './gain-loss-calculator.js';
+import { calculateGainLoss } from './gain-loss-utils.js';
 import { LotMatcher } from './lot-matcher.js';
-import { FifoStrategy } from './strategies/fifo-strategy.js';
-import { LifoStrategy } from './strategies/lifo-strategy.js';
 
 /**
  * Summary of cost basis calculation results
@@ -50,7 +49,6 @@ export interface CostBasisSummary {
  */
 export class CostBasisCalculator {
   private readonly lotMatcher: LotMatcher;
-  private readonly gainLossCalculator: GainLossCalculator;
   private readonly logger = getLogger('CostBasisCalculator');
 
   constructor(
@@ -60,7 +58,6 @@ export class CostBasisCalculator {
     linkRepository?: TransactionLinkRepository
   ) {
     this.lotMatcher = new LotMatcher(transactionRepository, linkRepository);
-    this.gainLossCalculator = new GainLossCalculator();
   }
 
   /**
@@ -111,7 +108,7 @@ export class CostBasisCalculator {
       }
 
       // Get strategy based on config
-      const strategy = this.getStrategy(config.method);
+      const strategy = getStrategyForMethod(config.method);
 
       // Get jurisdiction config for transfer fee policy
       const jurisdictionCode = rules.getJurisdiction();
@@ -135,7 +132,7 @@ export class CostBasisCalculator {
       const lotMatchResult = matchResult.value;
 
       // Apply jurisdiction-specific tax rules to calculate gains/losses
-      const gainLossResult = this.gainLossCalculator.calculate(lotMatchResult.assetResults, rules);
+      const gainLossResult = calculateGainLoss(lotMatchResult.assetResults, rules);
 
       if (gainLossResult.isErr()) {
         await this.updateCalculationStatus(calculationId, 'failed', gainLossResult.error.message);
@@ -204,24 +201,6 @@ export class CostBasisCalculator {
         error instanceof Error ? error.message : String(error)
       );
       return err(error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
-  /**
-   * Get strategy instance based on method
-   */
-  private getStrategy(method: CostBasisConfig['method']) {
-    switch (method) {
-      case 'fifo': {
-        return new FifoStrategy();
-      }
-      case 'lifo': {
-        return new LifoStrategy();
-      }
-      case 'specific-id':
-      case 'average-cost': {
-        throw new Error(`${method} method not yet implemented`);
-      }
     }
   }
 

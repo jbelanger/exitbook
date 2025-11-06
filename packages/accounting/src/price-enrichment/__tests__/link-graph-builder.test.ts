@@ -2,7 +2,7 @@ import { parseDecimal, type UniversalTransaction } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { TransactionLink } from '../../linking/types.js';
-import { LinkGraphBuilder } from '../link-graph-builder.js';
+import { buildLinkGraph } from '../link-graph-utils.js';
 
 /**
  * Helper to create a minimal UniversalTransaction for testing
@@ -84,15 +84,12 @@ function createTransactionLink(params: {
 describe('LinkGraphBuilder', () => {
   describe('buildLinkGraph', () => {
     it('should return empty array when no transactions', () => {
-      const builder = new LinkGraphBuilder();
-      const groups = builder.buildLinkGraph([], []);
+      const groups = buildLinkGraph([], []);
 
       expect(groups).toEqual([]);
     });
 
     it('should create single-transaction groups when no links exist (different sources)', () => {
-      const builder = new LinkGraphBuilder();
-
       const transactions: UniversalTransaction[] = [
         createTransaction({
           id: 1,
@@ -114,7 +111,7 @@ describe('LinkGraphBuilder', () => {
         }),
       ];
 
-      const groups = builder.buildLinkGraph(transactions, []);
+      const groups = buildLinkGraph(transactions, []);
 
       // Each transaction should be in its own group (different sources)
       expect(groups).toHaveLength(3);
@@ -128,8 +125,6 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should group same-source transactions together even without links (Phase 1 backward compatibility)', () => {
-      const builder = new LinkGraphBuilder();
-
       const transactions: UniversalTransaction[] = [
         // Kraken trade (buy BTC)
         createTransaction({
@@ -155,7 +150,7 @@ describe('LinkGraphBuilder', () => {
         }),
       ];
 
-      const groups = builder.buildLinkGraph(transactions, []);
+      const groups = buildLinkGraph(transactions, []);
 
       // All Kraken transactions should be in ONE group (same source)
       // This preserves Phase 1 behavior where prices propagate within exchange
@@ -169,8 +164,6 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should NOT group blockchain transactions from same chain (prevents price leakage across wallets)', () => {
-      const builder = new LinkGraphBuilder();
-
       const transactions: UniversalTransaction[] = [
         // Bitcoin wallet A
         createTransaction({
@@ -200,7 +193,7 @@ describe('LinkGraphBuilder', () => {
         }),
       ];
 
-      const groups = builder.buildLinkGraph(transactions, []);
+      const groups = buildLinkGraph(transactions, []);
 
       // Each bitcoin transaction should be isolated (different wallets)
       // This prevents price leakage from wallet A to wallet B
@@ -214,8 +207,6 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('HIGH SEVERITY: should prevent price leakage from linked wallet to unrelated wallet on same chain', () => {
-      const builder = new LinkGraphBuilder();
-
       const transactions: UniversalTransaction[] = [
         // Kraken withdrawal (has price)
         createTransaction({
@@ -256,7 +247,7 @@ describe('LinkGraphBuilder', () => {
         }),
       ];
 
-      const groups = builder.buildLinkGraph(transactions, links);
+      const groups = buildLinkGraph(transactions, links);
 
       // Should create 3 groups:
       // - Group 1: Kraken tx1 + Bitcoin tx2 (linked)
@@ -280,8 +271,6 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should preserve same-exchange grouping while adding cross-platform links', () => {
-      const builder = new LinkGraphBuilder();
-
       const transactions: UniversalTransaction[] = [
         // Kraken trade
         createTransaction({
@@ -324,7 +313,7 @@ describe('LinkGraphBuilder', () => {
         }),
       ];
 
-      const groups = builder.buildLinkGraph(transactions, links);
+      const groups = buildLinkGraph(transactions, links);
 
       // Should create TWO groups:
       // - Group 1: Kraken tx1, tx2 + Bitcoin tx3 (linked via tx2→tx3)
@@ -352,8 +341,6 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should group two transactions with a confirmed link', () => {
-      const builder = new LinkGraphBuilder();
-
       const transactions: UniversalTransaction[] = [
         createTransaction({
           id: 1,
@@ -379,7 +366,7 @@ describe('LinkGraphBuilder', () => {
         }),
       ];
 
-      const groups = builder.buildLinkGraph(transactions, links);
+      const groups = buildLinkGraph(transactions, links);
 
       // Should create one group with both transactions
       expect(groups).toHaveLength(1);
@@ -392,8 +379,6 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should ignore suggested links (only use confirmed)', () => {
-      const builder = new LinkGraphBuilder();
-
       const transactions: UniversalTransaction[] = [
         createTransaction({
           id: 1,
@@ -419,7 +404,7 @@ describe('LinkGraphBuilder', () => {
         }),
       ];
 
-      const groups = builder.buildLinkGraph(transactions, links);
+      const groups = buildLinkGraph(transactions, links);
 
       // Should create two separate groups since link is not confirmed
       expect(groups).toHaveLength(2);
@@ -431,8 +416,6 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should ignore rejected links', () => {
-      const builder = new LinkGraphBuilder();
-
       const transactions: UniversalTransaction[] = [
         createTransaction({
           id: 1,
@@ -458,7 +441,7 @@ describe('LinkGraphBuilder', () => {
         }),
       ];
 
-      const groups = builder.buildLinkGraph(transactions, links);
+      const groups = buildLinkGraph(transactions, links);
 
       // Should create two separate groups since link is rejected
       expect(groups).toHaveLength(2);
@@ -470,8 +453,6 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should handle multi-hop links (transitive grouping)', () => {
-      const builder = new LinkGraphBuilder();
-
       const transactions: UniversalTransaction[] = [
         // Kraken withdrawal
         createTransaction({
@@ -530,7 +511,7 @@ describe('LinkGraphBuilder', () => {
         }),
       ];
 
-      const groups = builder.buildLinkGraph(transactions, links);
+      const groups = buildLinkGraph(transactions, links);
 
       // All four transactions should be in one group (transitive linking)
       expect(groups).toHaveLength(1);
@@ -542,8 +523,6 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should handle circular links (naturally via Union-Find)', () => {
-      const builder = new LinkGraphBuilder();
-
       const transactions: UniversalTransaction[] = [
         createTransaction({
           id: 1,
@@ -590,7 +569,7 @@ describe('LinkGraphBuilder', () => {
         }),
       ];
 
-      const groups = builder.buildLinkGraph(transactions, links);
+      const groups = buildLinkGraph(transactions, links);
 
       // Should still group all transactions together (circular link doesn't break Union-Find)
       expect(groups).toHaveLength(1);
@@ -601,8 +580,6 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should create separate groups for disconnected link chains', () => {
-      const builder = new LinkGraphBuilder();
-
       const transactions: UniversalTransaction[] = [
         // Group 1: Kraken → Bitcoin
         createTransaction({
@@ -656,7 +633,7 @@ describe('LinkGraphBuilder', () => {
         }),
       ];
 
-      const groups = builder.buildLinkGraph(transactions, links);
+      const groups = buildLinkGraph(transactions, links);
 
       // Should create 3 groups (two linked pairs + one unlinked)
       expect(groups).toHaveLength(3);
@@ -676,8 +653,6 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should ignore links to transactions not in the transaction set', () => {
-      const builder = new LinkGraphBuilder();
-
       const transactions: UniversalTransaction[] = [
         createTransaction({
           id: 1,
@@ -712,7 +687,7 @@ describe('LinkGraphBuilder', () => {
         }),
       ];
 
-      const groups = builder.buildLinkGraph(transactions, links);
+      const groups = buildLinkGraph(transactions, links);
 
       // Should create 1 group with the two valid transactions
       expect(groups).toHaveLength(1);
@@ -724,8 +699,6 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should handle mixed link types in same group', () => {
-      const builder = new LinkGraphBuilder();
-
       const transactions: UniversalTransaction[] = [
         // Exchange 1
         createTransaction({
@@ -769,7 +742,7 @@ describe('LinkGraphBuilder', () => {
         }),
       ];
 
-      const groups = builder.buildLinkGraph(transactions, links);
+      const groups = buildLinkGraph(transactions, links);
 
       // All transactions should be in one group
       expect(groups).toHaveLength(1);

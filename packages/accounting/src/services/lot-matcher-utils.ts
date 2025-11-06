@@ -10,8 +10,10 @@ import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
 import { createAcquisitionLot } from '../domain/lot.js';
-import type { AcquisitionLot, LotTransfer } from '../domain/schemas.js';
+import type { AcquisitionLot, LotDisposal, LotTransfer } from '../domain/schemas.js';
 import type { TransactionLink } from '../linking/types.js';
+
+import type { ICostBasisStrategy } from './strategies/base-strategy.js';
 
 /**
  * Build dependency graph from transaction links
@@ -734,4 +736,439 @@ export function calculateTargetCostBasis(
   }
 
   return totalCostBasis.dividedBy(receivedQuantity);
+}
+
+/**
+ * Match an outflow (disposal) to existing acquisition lots
+ *
+ * Pure function that returns updated lots without mutation.
+ */
+export function matchOutflowDisposal(
+  transaction: UniversalTransaction,
+  outflow: AssetMovement,
+  allLots: AcquisitionLot[],
+  strategy: ICostBasisStrategy
+): Result<{ disposals: LotDisposal[]; updatedLots: AcquisitionLot[] }, Error> {
+  try {
+    // Find open lots for this asset
+    const openLots = allLots.filter(
+      (lot) => lot.asset === outflow.asset && (lot.status === 'open' || lot.status === 'partially_disposed')
+    );
+
+    // Calculate net proceeds after fees
+    const proceedsResult = calculateNetProceeds(transaction, outflow);
+    if (proceedsResult.isErr()) {
+      return err(proceedsResult.error);
+    }
+    const { proceedsPerUnit } = proceedsResult.value;
+
+    // Create disposal request
+    const disposal = {
+      transactionId: transaction.id,
+      asset: outflow.asset,
+      quantity: outflow.grossAmount,
+      date: new Date(transaction.datetime),
+      proceedsPerUnit,
+    };
+
+    // Use strategy to match disposal to lots
+    let lotDisposals: LotDisposal[];
+    try {
+      lotDisposals = strategy.matchDisposal(disposal, openLots);
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+
+    // Create updated lots array (no mutation)
+    const updatedLots = allLots.map((lot) => {
+      const lotDisposal = lotDisposals.find((ld) => ld.lotId === lot.id);
+      if (!lotDisposal) {
+        return lot;
+      }
+
+      // Calculate new remaining quantity and status
+      const newRemainingQuantity = lot.remainingQuantity.minus(lotDisposal.quantityDisposed);
+      let newStatus: 'open' | 'partially_disposed' | 'fully_disposed' = lot.status;
+
+      if (newRemainingQuantity.isZero()) {
+        newStatus = 'fully_disposed';
+      } else if (newRemainingQuantity.lt(lot.quantity)) {
+        newStatus = 'partially_disposed';
+      }
+
+      return {
+        ...lot,
+        remainingQuantity: newRemainingQuantity,
+        status: newStatus,
+        updatedAt: new Date(),
+      };
+    });
+
+    return ok({ disposals: lotDisposals, updatedLots });
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+/**
+ * Process a transfer source transaction
+ *
+ * Pure function that validates fees, creates lot transfers and disposals,
+ * and returns updated lots without mutation. Returns warnings for logging.
+ */
+export function processTransferSource(
+  tx: UniversalTransaction,
+  outflow: AssetMovement,
+  link: TransactionLink,
+  lots: AcquisitionLot[],
+  strategy: ICostBasisStrategy,
+  calculationId: string,
+  jurisdiction: { sameAssetTransferFeePolicy: 'disposal' | 'add-to-basis' },
+  varianceTolerance?: { error: number; warn: number }  
+): Result<
+  {
+    disposals: LotDisposal[];
+    transfers: LotTransfer[];
+    updatedLots: AcquisitionLot[];
+    warnings: {
+      data: {
+        asset?: string;
+        feeAmount?: Decimal;
+        linkId?: string;
+        linkTargetAmount?: Decimal;
+        netTransferAmount?: Decimal;
+        variancePct?: Decimal;
+      };
+      type: 'variance' | 'missing-price';
+    }[];
+  },
+  Error
+> {
+  const warnings: {
+    data: {
+      asset?: string;
+      feeAmount?: Decimal;
+      linkId?: string;
+      linkTargetAmount?: Decimal;
+      netTransferAmount?: Decimal;
+      variancePct?: Decimal;
+    };
+    type: 'variance' | 'missing-price';
+  }[] = [];
+
+  const cryptoFeeResult = extractCryptoFee(tx, outflow.asset);
+  if (cryptoFeeResult.isErr()) {
+    return err(cryptoFeeResult.error);
+  }
+
+  const cryptoFee = cryptoFeeResult.value;
+
+  // Validate that netAmount matches grossAmount minus on-chain fees
+  const feeValidationResult = validateOutflowFees(outflow, tx, tx.source, tx.id, varianceTolerance);
+  if (feeValidationResult.isErr()) {
+    return err(feeValidationResult.error);
+  }
+
+  // Use netAmount for transfer validation
+  const netTransferAmount = outflow.netAmount ?? outflow.grossAmount;
+
+  // Validate transfer variance
+  const varianceResult = validateTransferVariance(
+    netTransferAmount,
+    link.targetAmount,
+    tx.source,
+    tx.id,
+    outflow.asset,
+    varianceTolerance
+  );
+  if (varianceResult.isErr()) {
+    return err(varianceResult.error);
+  }
+
+  const { tolerance, variancePct } = varianceResult.value;
+
+  if (variancePct.gt(tolerance.warn)) {
+    warnings.push({
+      type: 'variance',
+      data: {
+        asset: outflow.asset,
+        variancePct,
+        netTransferAmount,
+        linkTargetAmount: link.targetAmount,
+      },
+    });
+  }
+
+  const openLots = lots.filter((lot) => lot.asset === outflow.asset && lot.remainingQuantity.gt(0));
+
+  const feePolicy = jurisdiction.sameAssetTransferFeePolicy;
+  const { amountToMatch } = calculateTransferDisposalAmount(outflow, cryptoFee, feePolicy);
+
+  const disposal = {
+    transactionId: tx.id,
+    asset: outflow.asset,
+    quantity: amountToMatch,
+    date: new Date(tx.datetime),
+    proceedsPerUnit: new Decimal(0),
+  };
+
+  const lotDisposals = strategy.matchDisposal(disposal, openLots);
+
+  let cryptoFeeUsdValue: Decimal | undefined = undefined;
+  if (cryptoFee.amount.gt(0) && feePolicy === 'add-to-basis') {
+    if (!cryptoFee.priceAtTxTime) {
+      warnings.push({
+        type: 'missing-price',
+        data: {
+          asset: outflow.asset,
+          feeAmount: cryptoFee.amount,
+          linkId: link.id,
+        },
+      });
+      cryptoFeeUsdValue = undefined;
+    } else {
+      cryptoFeeUsdValue = cryptoFee.amount.times(cryptoFee.priceAtTxTime.price.amount);
+    }
+  }
+
+  const transfers: LotTransfer[] = [];
+  const quantityToTransfer = netTransferAmount;
+
+  // Create a map for efficient lot lookup during updates
+  const lotUpdates = new Map<string, { quantityToSubtract: Decimal }>();
+
+  for (const lotDisposal of lotDisposals) {
+    // Build metadata for crypto fees if using add-to-basis policy
+    const metadata = cryptoFeeUsdValue
+      ? buildTransferMetadata(
+          { ...cryptoFee, priceAtTxTime: cryptoFee.priceAtTxTime },
+          feePolicy,
+          lotDisposal.quantityDisposed,
+          amountToMatch
+        )
+      : undefined;
+
+    const lot = lots.find((l) => l.id === lotDisposal.lotId);
+    if (!lot) {
+      return err(new Error(`Lot ${lotDisposal.lotId} not found`));
+    }
+
+    transfers.push({
+      id: uuidv4(),
+      calculationId,
+      sourceLotId: lotDisposal.lotId,
+      linkId: link.id,
+      quantityTransferred: lotDisposal.quantityDisposed.times(quantityToTransfer.dividedBy(amountToMatch)),
+      costBasisPerUnit: lot.costBasisPerUnit,
+      sourceTransactionId: tx.id,
+      targetTransactionId: link.targetTransactionId,
+      metadata,
+      createdAt: new Date(),
+    });
+
+    // Track quantity to subtract for this lot
+    const existing = lotUpdates.get(lotDisposal.lotId) || { quantityToSubtract: new Decimal(0) };
+    lotUpdates.set(lotDisposal.lotId, {
+      quantityToSubtract: existing.quantityToSubtract.plus(lotDisposal.quantityDisposed),
+    });
+  }
+
+  const disposals: LotDisposal[] = [];
+
+  if (cryptoFee.amount.gt(0) && feePolicy === 'disposal') {
+    const feeDisposal = {
+      transactionId: tx.id,
+      asset: outflow.asset,
+      quantity: cryptoFee.amount,
+      date: new Date(tx.datetime),
+      proceedsPerUnit: cryptoFee.priceAtTxTime?.price.amount ?? new Decimal(0),
+    };
+
+    const feeDisposals = strategy.matchDisposal(feeDisposal, openLots);
+
+    for (const lotDisposal of feeDisposals) {
+      const lot = lots.find((l) => l.id === lotDisposal.lotId);
+      if (!lot) {
+        return err(new Error(`Lot ${lotDisposal.lotId} not found`));
+      }
+
+      // Track quantity to subtract for this lot
+      const existing = lotUpdates.get(lotDisposal.lotId) || { quantityToSubtract: new Decimal(0) };
+      lotUpdates.set(lotDisposal.lotId, {
+        quantityToSubtract: existing.quantityToSubtract.plus(lotDisposal.quantityDisposed),
+      });
+
+      disposals.push(lotDisposal);
+    }
+  }
+
+  // Create updated lots array (no mutation)
+  const updatedLots = lots.map((lot) => {
+    const update = lotUpdates.get(lot.id);
+    if (!update) {
+      return lot;
+    }
+
+    const newRemainingQuantity = lot.remainingQuantity.minus(update.quantityToSubtract);
+    let newStatus: 'open' | 'partially_disposed' | 'fully_disposed' = lot.status;
+
+    if (newRemainingQuantity.isZero()) {
+      newStatus = 'fully_disposed';
+    } else if (newRemainingQuantity.lt(lot.quantity)) {
+      newStatus = 'partially_disposed';
+    }
+
+    return {
+      ...lot,
+      remainingQuantity: newRemainingQuantity,
+      status: newStatus,
+      updatedAt: new Date(),
+    };
+  });
+
+  return ok({ disposals, transfers, updatedLots, warnings });
+}
+
+/**
+ * Process a transfer target transaction to create acquisition lot with inherited cost basis
+ *
+ * Pure function that calculates cost basis and returns the lot with warnings for logging.
+ * Source transaction must be provided (fetched by caller).
+ */
+export function processTransferTarget(
+  tx: UniversalTransaction,
+  inflow: AssetMovement,
+  link: TransactionLink,
+  sourceTx: UniversalTransaction,
+  lotTransfers: LotTransfer[],
+  calculationId: string,
+  strategyName: 'fifo' | 'lifo' | 'specific-id' | 'average-cost',
+  varianceTolerance?: { error: number; warn: number }  
+): Result<
+  {
+    lot: AcquisitionLot;
+    warnings: {
+      data: {
+        date?: string;
+        feeAmount?: Decimal;
+        feeAsset?: string;
+        linkId?: string;
+        received?: Decimal;
+        sourceTxId?: number;
+        targetTxId?: number;
+        transferred?: Decimal;
+        txId?: number;
+        variancePct?: Decimal;
+      };
+      type: 'no-transfers' | 'variance' | 'missing-price';
+    }[];
+  },
+  Error
+> {
+  const warnings: {
+    data: {
+      date?: string;
+      feeAmount?: Decimal;
+      feeAsset?: string;
+      linkId?: string;
+      received?: Decimal;
+      sourceTxId?: number;
+      targetTxId?: number;
+      transferred?: Decimal;
+      txId?: number;
+      variancePct?: Decimal;
+    };
+    type: 'no-transfers' | 'variance' | 'missing-price';
+  }[] = [];
+
+  const transfers = lotTransfers.filter((t) => t.linkId === link.id);
+
+  if (transfers.length === 0) {
+    warnings.push({
+      type: 'no-transfers',
+      data: {
+        linkId: link.id,
+        targetTxId: tx.id,
+        sourceTxId: link.sourceTransactionId,
+      },
+    });
+    return err(
+      new Error(
+        `No lot transfers found for link ${link.id} (target tx ${tx.id}). ` +
+          `Source transaction ${link.sourceTransactionId} should have been processed first.`
+      )
+    );
+  }
+
+  // Calculate inherited cost basis from source lots
+  const { totalCostBasis: inheritedCostBasis, transferredQuantity } = calculateInheritedCostBasis(transfers);
+
+  const receivedQuantity = inflow.grossAmount;
+
+  // Validate transfer variance
+  const varianceResult = validateTransferVariance(
+    transferredQuantity,
+    receivedQuantity,
+    tx.source,
+    tx.id,
+    inflow.asset,
+    varianceTolerance
+  );
+  if (varianceResult.isErr()) {
+    return err(varianceResult.error);
+  }
+
+  const { tolerance, variancePct } = varianceResult.value;
+
+  if (variancePct.gt(tolerance.warn)) {
+    warnings.push({
+      type: 'variance',
+      data: {
+        linkId: link.id,
+        targetTxId: tx.id,
+        variancePct,
+        transferred: transferredQuantity,
+        received: receivedQuantity,
+      },
+    });
+  }
+
+  const fiatFeesResult = collectFiatFees(sourceTx, tx);
+  if (fiatFeesResult.isErr()) {
+    return err(fiatFeesResult.error);
+  }
+
+  const fiatFees = fiatFeesResult.value;
+
+  // Collect warnings about missing prices on fiat fees
+  for (const fee of fiatFees) {
+    if (!fee.priceAtTxTime) {
+      warnings.push({
+        type: 'missing-price',
+        data: {
+          txId: fee.txId,
+          linkId: link.id,
+          feeAsset: fee.asset,
+          feeAmount: fee.amount,
+          date: fee.date,
+        },
+      });
+    }
+  }
+
+  // Calculate final cost basis including fiat fees
+  const costBasisPerUnit = calculateTargetCostBasis(inheritedCostBasis, fiatFees, receivedQuantity);
+
+  const lot = createAcquisitionLot({
+    id: uuidv4(),
+    calculationId,
+    acquisitionTransactionId: tx.id,
+    asset: inflow.asset,
+    quantity: receivedQuantity,
+    costBasisPerUnit,
+    method: strategyName,
+    transactionDate: new Date(tx.datetime),
+  });
+
+  return ok({ lot, warnings });
 }

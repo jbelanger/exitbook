@@ -3,12 +3,10 @@ import { describe, expect, it } from 'vitest';
 
 import { CanadaRules } from '../../jurisdictions/canada-rules.js';
 import { USRules } from '../../jurisdictions/us-rules.js';
-import { GainLossCalculator } from '../gain-loss-calculator.js';
+import { calculateGainLoss } from '../gain-loss-utils.js';
 import type { AssetLotMatchResult } from '../lot-matcher.js';
 
-describe('GainLossCalculator', () => {
-  const calculator = new GainLossCalculator();
-
+describe('calculateGainLoss', () => {
   describe('calculate', () => {
     it('should calculate basic capital gains', () => {
       const assetResults: AssetLotMatchResult[] = [
@@ -51,7 +49,7 @@ describe('GainLossCalculator', () => {
         },
       ];
 
-      const result = calculator.calculate(assetResults, new USRules());
+      const result = calculateGainLoss(assetResults, new USRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -108,7 +106,7 @@ describe('GainLossCalculator', () => {
         },
       ];
 
-      const result = calculator.calculate(assetResults, new CanadaRules());
+      const result = calculateGainLoss(assetResults, new CanadaRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -188,7 +186,7 @@ describe('GainLossCalculator', () => {
         },
       ];
 
-      const result = calculator.calculate(assetResults, new USRules());
+      const result = calculateGainLoss(assetResults, new USRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -249,7 +247,7 @@ describe('GainLossCalculator', () => {
         },
       ];
 
-      const result = calculator.calculate(assetResults, new CanadaRules());
+      const result = calculateGainLoss(assetResults, new CanadaRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -319,7 +317,7 @@ describe('GainLossCalculator', () => {
         },
       ];
 
-      const result = calculator.calculate(assetResults, new CanadaRules());
+      const result = calculateGainLoss(assetResults, new CanadaRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -411,7 +409,7 @@ describe('GainLossCalculator', () => {
         },
       ];
 
-      const result = calculator.calculate(assetResults, new USRules());
+      const result = calculateGainLoss(assetResults, new USRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -454,7 +452,7 @@ describe('GainLossCalculator', () => {
         },
       ];
 
-      const result = calculator.calculate(assetResults, new USRules());
+      const result = calculateGainLoss(assetResults, new USRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -473,7 +471,7 @@ describe('GainLossCalculator', () => {
     it('should return zeroed summary for empty asset results (fiat-only transactions)', () => {
       // Valid case: user ran cost basis for a period with only fiat transactions
       // Should return zeroed summary, not an error
-      const result = calculator.calculate([], new USRules());
+      const result = calculateGainLoss([], new USRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -535,7 +533,7 @@ describe('GainLossCalculator', () => {
         },
       ];
 
-      const result = calculator.calculate(assetResults, new USRules());
+      const result = calculateGainLoss(assetResults, new USRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -614,7 +612,7 @@ describe('GainLossCalculator', () => {
         },
       ];
 
-      const result = calculator.calculate(assetResults, new USRules());
+      const result = calculateGainLoss(assetResults, new USRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -688,7 +686,7 @@ describe('GainLossCalculator', () => {
         },
       ];
 
-      const result = calculator.calculate(assetResults, new USRules());
+      const result = calculateGainLoss(assetResults, new USRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -766,7 +764,7 @@ describe('GainLossCalculator', () => {
         },
       ];
 
-      const result = calculator.calculate(assetResults, new CanadaRules());
+      const result = calculateGainLoss(assetResults, new CanadaRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -844,7 +842,7 @@ describe('GainLossCalculator', () => {
         },
       ];
 
-      const result = calculator.calculate(assetResults, new USRules());
+      const result = calculateGainLoss(assetResults, new USRules());
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
