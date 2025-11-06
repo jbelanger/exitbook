@@ -986,18 +986,18 @@ describe('blockfrost.schemas', () => {
         expect(result.success).toBe(false);
       });
 
-      it('should reject empty amount array', () => {
-        const invalid = {
+      it('should allow empty amount array (zero balance)', () => {
+        const valid = {
           address: validCardanoAddress,
-          amount: [],
-          type: 'shelley' as const,
+          amount: [], // Empty array indicates zero balance
           script: false,
+          type: 'shelley' as const,
         };
 
-        const result = BlockfrostAddressSchema.safeParse(invalid);
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error.issues[0]?.message).toContain('Address must have at least one asset');
+        const result = BlockfrostAddressSchema.safeParse(valid);
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.amount).toEqual([]);
         }
       });
 

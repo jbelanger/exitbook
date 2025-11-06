@@ -261,7 +261,7 @@ describe('BlockfrostApiClient', () => {
       }
     });
 
-    it('should handle missing lovelace amount', async () => {
+    it('should handle missing lovelace amount (returns zero)', async () => {
       const noLovelace: BlockfrostAddress = {
         address: mockAddress,
         amount: [{ quantity: '1000', unit: 'policyId123assetName' }], // Only native token
@@ -278,9 +278,12 @@ describe('BlockfrostApiClient', () => {
 
       const result = await client.execute<RawBalanceData>(operation);
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('No lovelace amount found');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        // When lovelace is missing, return zero balance
+        expect(result.value.decimalAmount).toBe('0');
+        expect(result.value.rawAmount).toBe('0');
+        expect(result.value.symbol).toBe('ADA');
       }
     });
 
@@ -324,10 +327,10 @@ describe('BlockfrostApiClient', () => {
       }
     });
 
-    it('should handle empty amount array', async () => {
+    it('should handle empty amount array (zero balance)', async () => {
       const emptyAmount = {
         address: mockAddress,
-        amount: [], // Invalid: must have at least one asset
+        amount: [], // Empty array indicates zero balance
         script: false,
         type: 'shelley',
       };
@@ -341,9 +344,12 @@ describe('BlockfrostApiClient', () => {
 
       const result = await client.execute<RawBalanceData>(operation);
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Invalid address balance response');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        // Empty amount array means zero balance
+        expect(result.value.decimalAmount).toBe('0');
+        expect(result.value.rawAmount).toBe('0');
+        expect(result.value.symbol).toBe('ADA');
       }
     });
 
