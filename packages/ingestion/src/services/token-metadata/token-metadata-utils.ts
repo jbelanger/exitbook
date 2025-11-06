@@ -71,8 +71,7 @@ export async function getOrFetchTokenMetadata(
 
     // Provider doesn't support metadata operation
     if (!metadata) {
-      // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety
-      return ok(undefined);
+      return ok(void 0);
     }
 
     // Ensure refreshedAt is populated to satisfy TokenMetadataRecord contract
@@ -118,8 +117,7 @@ async function fetchFromProvider(
     if (result.isErr()) {
       // Check if error is due to unsupported operation (not a failure)
       if (result.error instanceof ProviderError && result.error.code === 'NO_PROVIDERS') {
-        // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety
-        return ok(undefined);
+        return ok(void 0);
       }
       return err(result.error);
     }

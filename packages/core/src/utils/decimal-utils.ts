@@ -120,7 +120,7 @@ export function formatDecimal(decimal: Decimal, maxDecimalPlaces = 8): string {
  * Safe addition of Money objects (same currency)
  */
 export function addMoney(a: Money, b: Money): Money {
-  if (a.currency !== b.currency) {
+  if (!a.currency.equals(b.currency)) {
     throw new Error(`Cannot add different currencies: ${a.currency.toString()} and ${b.currency.toString()}`);
   }
 
@@ -134,7 +134,7 @@ export function addMoney(a: Money, b: Money): Money {
  * Safe subtraction of Money objects (same currency)
  */
 export function subtractMoney(a: Money, b: Money): Money {
-  if (a.currency !== b.currency) {
+  if (!a.currency.equals(b.currency)) {
     throw new Error(`Cannot subtract different currencies: ${a.currency.toString()} and ${b.currency.toString()}`);
   }
 
@@ -151,7 +151,7 @@ export function moneyEquals(a: Money | undefined, b: Money | undefined): boolean
   if (!a && !b) return true;
   if (!a || !b) return false;
 
-  return a.currency === b.currency && a.amount.equals(b.amount);
+  return a.currency.equals(b.currency) && a.amount.equals(b.amount);
 }
 
 /**

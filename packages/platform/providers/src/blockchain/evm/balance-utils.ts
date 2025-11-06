@@ -9,7 +9,7 @@ import type { Decimal } from 'decimal.js';
  * @returns Balance as a decimal string
  */
 export function convertWeiToDecimal(balanceWei: string, decimals: number): string {
-  return parseDecimal(balanceWei).div(parseDecimal('10').pow(decimals)).toString();
+  return parseDecimal(balanceWei).div(parseDecimal('10').pow(decimals)).toFixed();
 }
 
 /**
@@ -54,7 +54,7 @@ export function filterNonZeroBalances<T extends { tokenBalance: string }>(balanc
  * @param contractAddresses - Array of contract addresses to filter by
  * @returns Filtered array containing only specified contracts
  */
-export function filterByContractAddresses<T extends { tokenAddress: string | null }>(
+export function filterByContractAddresses<T extends { tokenAddress: string | undefined }>(
   balances: T[],
   contractAddresses: string[]
 ): T[] {

@@ -11,13 +11,13 @@ export const TatumBitcoinCoinSchema = z.object({
   height: z.number(),
   reqSigs: z
     .number()
-    .nullable()
+    .nullish()
     .optional()
     .transform((val) => val ?? undefined),
   script: z.string(),
   type: z
     .string()
-    .nullable()
+    .nullish()
     .optional()
     .transform((val) => val ?? undefined),
   value: z.number().nonnegative('Value must be non-negative'),
@@ -48,7 +48,7 @@ export const TatumBitcoinInputSchema = z.object({
 export const TatumBitcoinScriptPubKeySchema = z.object({
   reqSigs: z
     .number()
-    .nullable()
+    .nullish()
     .optional()
     .transform((val) => val ?? undefined),
   type: z.string(),

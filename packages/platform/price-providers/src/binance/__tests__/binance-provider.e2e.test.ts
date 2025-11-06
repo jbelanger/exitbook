@@ -87,7 +87,7 @@ describe('Binance Provider E2E', () => {
 
   it('should fetch historical Bitcoin price from 1 week ago', async () => {
     const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    oneWeekAgo.setDate(oneWeekAgo.getUTCDate() - 7);
 
     const result = await provider.fetchPrice({
       asset: Currency.create('BTC'),

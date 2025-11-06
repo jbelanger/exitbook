@@ -107,7 +107,7 @@ describe('CoinGecko Provider E2E', () => {
   it('should fetch historical Bitcoin price', async () => {
     // Use a date from 30 days ago (free API allows 365 days of historical data)
     const historicalDate = new Date();
-    historicalDate.setDate(historicalDate.getDate() - 30);
+    historicalDate.setDate(historicalDate.getUTCDate() - 30);
     historicalDate.setUTCHours(0, 0, 0, 0); // Reset to start of day (UTC)
 
     const result = await provider.fetchPrice({
@@ -156,7 +156,7 @@ describe('CoinGecko Provider E2E', () => {
   it('should use cache on second fetch of same price', async () => {
     // Use a date from 7 days ago (within free API range)
     const queryDate = new Date();
-    queryDate.setDate(queryDate.getDate() - 7);
+    queryDate.setDate(queryDate.getUTCDate() - 7);
     queryDate.setUTCHours(0, 0, 0, 0); // Use UTC to match cache rounding
 
     const query = {

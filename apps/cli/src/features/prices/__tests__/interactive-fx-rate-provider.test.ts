@@ -102,8 +102,7 @@ describe('InteractiveFxRateProvider', () => {
         vi.spyOn(mockUnderlyingProvider, 'getRateToUSD').mockResolvedValue(err(mockError));
 
         // User declines to provide manual rate
-        // eslint-disable-next-line unicorn/no-useless-undefined -- acceptable for test
-        promptManualFxRateSpy.mockResolvedValue(undefined);
+        promptManualFxRateSpy.mockResolvedValue(void 0);
 
         const provider = new InteractiveFxRateProvider(mockUnderlyingProvider, true);
         const result = await provider.getRateToUSD(Currency.create('EUR'), new Date('2023-01-15T10:00:00Z'));
@@ -189,8 +188,7 @@ describe('InteractiveFxRateProvider', () => {
         vi.spyOn(mockUnderlyingProvider, 'getRateFromUSD').mockResolvedValue(err(mockError));
 
         // User declines to provide manual rate
-        // eslint-disable-next-line unicorn/no-useless-undefined -- acceptable for test
-        promptManualFxRateSpy.mockResolvedValue(undefined);
+        promptManualFxRateSpy.mockResolvedValue(void 0);
 
         const provider = new InteractiveFxRateProvider(mockUnderlyingProvider, true);
         const result = await provider.getRateFromUSD(Currency.create('CAD'), new Date('2023-06-20T00:00:00Z'));

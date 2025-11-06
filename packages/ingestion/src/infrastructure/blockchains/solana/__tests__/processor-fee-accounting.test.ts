@@ -14,8 +14,7 @@ function createProcessor() {
   // Create minimal mock for token metadata service
   const mockTokenMetadataService = {
     enrichBatch: vi.fn().mockResolvedValue(ok()),
-    // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
-    getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+    getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
   } as unknown as ITokenMetadataService;
 
   return new SolanaTransactionProcessor(mockTokenMetadataService);

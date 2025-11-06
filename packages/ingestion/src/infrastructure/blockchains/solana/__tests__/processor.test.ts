@@ -15,8 +15,7 @@ function createProcessor() {
   const mockTokenMetadataService = {
     // Return NO_PROVIDERS ProviderError to simulate provider not supporting metadata
     enrichBatch: vi.fn().mockResolvedValue(ok()),
-    // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
-    getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+    getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
   } as unknown as ITokenMetadataService;
 
   return new SolanaTransactionProcessor(mockTokenMetadataService);
@@ -1158,8 +1157,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
             return ok();
           }
         ),
-      // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
-      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+      getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
     } as unknown as ITokenMetadataService;
 
     const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
@@ -1245,8 +1243,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
   test('does not enrich symbols that are already human-readable', async () => {
     const mockTokenMetadataService = {
       enrichBatch: vi.fn().mockResolvedValue(ok()),
-      // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
-      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+      getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
     } as unknown as ITokenMetadataService;
 
     const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
@@ -1292,8 +1289,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
   test('handles service errors gracefully', async () => {
     const mockTokenMetadataService = {
       enrichBatch: vi.fn().mockResolvedValue(ok()),
-      // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for type safety in tests
-      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
+      getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
     } as unknown as ITokenMetadataService;
 
     const processor = new SolanaTransactionProcessor(mockTokenMetadataService);

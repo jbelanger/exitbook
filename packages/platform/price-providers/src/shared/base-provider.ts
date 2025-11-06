@@ -89,8 +89,7 @@ export abstract class BasePriceProvider implements IPriceProvider {
       return ok(cachedResult.value);
     }
 
-    // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined when not found
-    return ok(undefined);
+    return ok(void 0);
   }
 
   /**

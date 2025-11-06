@@ -270,8 +270,7 @@ describe('CostBasisReportGenerator', () => {
 
     it('should return error if calculation not found', async () => {
       const repository = {
-        // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined for not found
-        findCalculationById: vi.fn().mockResolvedValue(ok(undefined)),
+        findCalculationById: vi.fn().mockResolvedValue(ok(void 0)),
         findDisposalsByCalculationId: vi.fn(),
       } as unknown as CostBasisRepository;
 

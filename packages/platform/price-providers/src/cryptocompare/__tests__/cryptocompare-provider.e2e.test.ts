@@ -107,7 +107,7 @@ describe('CryptoCompare Provider E2E', () => {
   it('should fetch historical Bitcoin price using minute data', async () => {
     // Use a date from 2 days ago (within minute data range ~7 days)
     const historicalDate = new Date();
-    historicalDate.setDate(historicalDate.getDate() - 2);
+    historicalDate.setDate(historicalDate.getUTCDate() - 2);
     historicalDate.setUTCHours(12, 0, 0, 0); // Noon UTC
 
     const result = await provider.fetchPrice({
@@ -135,7 +135,7 @@ describe('CryptoCompare Provider E2E', () => {
   it('should fetch historical Bitcoin price using hour data', async () => {
     // Use a date from 30 days ago (within hour data range ~90 days)
     const historicalDate = new Date();
-    historicalDate.setDate(historicalDate.getDate() - 30);
+    historicalDate.setDate(historicalDate.getUTCDate() - 30);
     historicalDate.setUTCHours(12, 0, 0, 0); // Noon UTC
 
     const result = await provider.fetchPrice({
@@ -163,7 +163,7 @@ describe('CryptoCompare Provider E2E', () => {
   it('should fetch historical Bitcoin price using day data', async () => {
     // Use a date from 180 days ago (uses day data)
     const historicalDate = new Date();
-    historicalDate.setDate(historicalDate.getDate() - 180);
+    historicalDate.setDate(historicalDate.getUTCDate() - 180);
     historicalDate.setUTCHours(0, 0, 0, 0); // Start of day UTC
 
     const result = await provider.fetchPrice({
@@ -191,7 +191,7 @@ describe('CryptoCompare Provider E2E', () => {
   it('should use cache on second fetch of same price', async () => {
     // Use a date from 10 days ago
     const queryDate = new Date();
-    queryDate.setDate(queryDate.getDate() - 10);
+    queryDate.setDate(queryDate.getUTCDate() - 10);
     queryDate.setUTCHours(12, 0, 0, 0); // Noon UTC
 
     const query = {

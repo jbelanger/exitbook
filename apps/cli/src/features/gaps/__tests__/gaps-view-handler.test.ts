@@ -1,3 +1,4 @@
+import type { TransactionLink, TransactionLinkRepository } from '@exitbook/accounting';
 import type { UniversalTransaction } from '@exitbook/core';
 import { Currency, parseDecimal } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
@@ -20,6 +21,9 @@ describe('GapsViewHandler', () => {
   let mockTransactionRepository: {
     getTransactions: Mock;
   };
+  let mockTransactionLinkRepository: {
+    findAll: Mock;
+  };
   let handler: GapsViewHandler;
 
   beforeEach(() => {
@@ -30,7 +34,14 @@ describe('GapsViewHandler', () => {
       getTransactions: vi.fn(),
     };
 
-    handler = new GapsViewHandler(mockTransactionRepository as unknown as TransactionRepository);
+    mockTransactionLinkRepository = {
+      findAll: vi.fn().mockResolvedValue(ok([])),
+    };
+
+    handler = new GapsViewHandler(
+      mockTransactionRepository as unknown as TransactionRepository,
+      mockTransactionLinkRepository as unknown as TransactionLinkRepository
+    );
   });
 
   const createMockTransaction = (overrides: Partial<UniversalTransaction> = {}): UniversalTransaction => ({
@@ -178,17 +189,96 @@ describe('GapsViewHandler', () => {
       expect(result._unsafeUnwrapErr().message).toContain('not yet implemented');
     });
 
-    it('should return error for links category (not implemented)', async () => {
-      const params: GapsViewParams = {
-        category: 'links',
-      };
+    describe('execute - links category', () => {
+      const createBlockchainDeposit = (overrides: Partial<UniversalTransaction> = {}): UniversalTransaction =>
+        createMockTransaction({
+          id: 10,
+          externalId: 'btc-deposit',
+          source: 'bitcoin',
+          blockchain: {
+            name: 'bitcoin',
+            transaction_hash: 'hash',
+            is_confirmed: true,
+          },
+          movements: {
+            inflows: [
+              {
+                asset: 'BTC',
+                grossAmount: parseDecimal('0.5'),
+                netAmount: parseDecimal('0.5'),
+              },
+            ],
+            outflows: [],
+          },
+          operation: {
+            category: 'transfer',
+            type: 'deposit',
+          },
+          ...overrides,
+        });
 
-      mockTransactionRepository.getTransactions.mockResolvedValue(ok([]));
+      it('should detect missing link coverage for blockchain inflows', async () => {
+        const params: GapsViewParams = {
+          category: 'links',
+        };
 
-      const result = await handler.execute(params);
+        const transactions: UniversalTransaction[] = [createBlockchainDeposit()];
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('not yet implemented');
+        mockTransactionRepository.getTransactions.mockResolvedValue(ok(transactions));
+        mockTransactionLinkRepository.findAll.mockResolvedValue(ok([]));
+
+        const result = await handler.execute(params);
+
+        expect(result.isOk()).toBe(true);
+        const gapsResult = result._unsafeUnwrap();
+        expect(gapsResult.category).toBe('links');
+        expect(gapsResult.analysis.summary.total_issues).toBe(1);
+        expect(gapsResult.analysis.issues[0]!.asset).toBe('BTC');
+      });
+
+      it('should treat confirmed links as covered', async () => {
+        const params: GapsViewParams = {
+          category: 'links',
+        };
+
+        const transactions: UniversalTransaction[] = [createBlockchainDeposit()];
+
+        const links: TransactionLink[] = [
+          {
+            id: 'link-1',
+            sourceTransactionId: 1,
+            targetTransactionId: 10,
+            asset: 'BTC',
+            sourceAmount: parseDecimal('0.5'),
+            targetAmount: parseDecimal('0.5'),
+            linkType: 'exchange_to_blockchain',
+            confidenceScore: parseDecimal('0.98'),
+            matchCriteria: {
+              assetMatch: true,
+              amountSimilarity: parseDecimal('0.99'),
+              timingValid: true,
+              timingHours: 2,
+              addressMatch: true,
+            },
+            status: 'confirmed',
+            reviewedBy: undefined,
+            reviewedAt: undefined,
+            createdAt: new Date('2024-01-01T00:00:00Z'),
+            updatedAt: new Date('2024-01-01T00:00:00Z'),
+            metadata: undefined,
+          },
+        ];
+
+        mockTransactionRepository.getTransactions.mockResolvedValue(ok(transactions));
+        mockTransactionLinkRepository.findAll.mockResolvedValue(ok(links));
+
+        const result = await handler.execute(params);
+
+        expect(result.isOk()).toBe(true);
+        const gapsResult = result._unsafeUnwrap();
+        expect(gapsResult.category).toBe('links');
+        expect(gapsResult.analysis.summary.total_issues).toBe(0);
+      });
     });
 
     it('should return error for validation category (not implemented)', async () => {

@@ -35,8 +35,7 @@ export class TokenMetadataRepository extends BaseRepository {
 
       if (!result) {
         this.logger.debug(`Token metadata not found - Blockchain: ${blockchain}, Contract: ${contractAddress}`);
-        // eslint-disable-next-line unicorn/no-useless-undefined -- undefined indicates not found
-        return ok(undefined);
+        return ok(void 0);
       }
 
       const metadata: TokenMetadataRecord = {

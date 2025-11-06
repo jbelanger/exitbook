@@ -155,8 +155,7 @@ describe('LinksRejectHandler', () => {
         linkId: 'non-existent-link',
       };
 
-      // eslint-disable-next-line unicorn/no-useless-undefined -- Explicit for clarity
-      mockLinkRepository.findById.mockResolvedValue(ok(undefined));
+      mockLinkRepository.findById.mockResolvedValue(ok(void 0));
 
       const result = await handler.execute(params);
 
