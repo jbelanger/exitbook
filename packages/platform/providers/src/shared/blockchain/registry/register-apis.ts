@@ -4,5 +4,6 @@ import '../../../blockchain/bitcoin/register-apis.js';
 import '../../../blockchain/cardano/register-apis.js';
 import '../../../blockchain/cosmos/register-apis.js';
 import '../../../blockchain/evm/register-apis.js';
+import '../../../blockchain/near/register-apis.js';
 import '../../../blockchain/solana/register-apis.js';
 import '../../../blockchain/substrate/register-apis.js';

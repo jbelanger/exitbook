@@ -3,6 +3,7 @@ import './bitcoin/config.js';
 import './cardano/config.js';
 import './cosmos/config.js';
 import './evm/config.js';
+import './near/config.js';
 import './solana/config.js';
 import './substrate/config.js';
 

@@ -1,0 +1,103 @@
+/**
+ * Zod validation schemas for NEAR transaction data formats
+ *
+ * These schemas validate the structure and content of transaction data
+ * from different NEAR API providers before processing.
+ */
+import { z } from 'zod';
+
+/**
+ * NEAR address (account ID) schema with validation
+ *
+ * NEAR uses human-readable account IDs with specific format requirements:
+ * - 2-64 characters long
+ * - Contains only: lowercase letters (a-z), digits (0-9), underscores (_), hyphens (-)
+ * - Must not have consecutive separators
+ * - Implicit accounts (64 chars hex) and named accounts (.near, .testnet) are supported
+ *
+ * Examples:
+ * - 'alice.near' (named account)
+ * - 'token.sweat' (sub-account)
+ * - '98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de' (implicit account)
+ */
+export const NearAccountIdSchema = z
+  .string()
+  .min(2, 'NEAR account ID must be at least 2 characters')
+  .max(64, 'NEAR account ID must not exceed 64 characters')
+  .refine(
+    (val) => {
+      // Allow implicit accounts (64 character hex strings)
+      if (/^[0-9a-f]{64}$/.test(val)) return true;
+      // Validate named accounts
+      return /^[a-z0-9_.-]+$/.test(val);
+    },
+    { message: 'NEAR account ID must contain only lowercase letters, digits, underscores, hyphens, and dots' }
+  );
+
+/**
+ * Numeric string validator for amounts/values
+ */
+const numericString = z
+  .string()
+  .refine((val) => !isNaN(parseFloat(val)) && isFinite(parseFloat(val)), { message: 'Must be a valid numeric string' });
+
+/**
+ * Schema for NEAR action (part of a transaction)
+ */
+export const NearActionSchema = z.object({
+  actionType: z.string().min(1, 'Action type must not be empty'),
+  args: z.record(z.string(), z.unknown()).optional(),
+  deposit: numericString.optional(),
+  gas: numericString.optional(),
+  methodName: z.string().optional(),
+  publicKey: z.string().optional(),
+  receiverId: NearAccountIdSchema.optional(),
+});
+
+/**
+ * Schema for NEAR account balance change within a transaction
+ */
+export const NearAccountChangeSchema = z.object({
+  account: NearAccountIdSchema,
+  postBalance: numericString,
+  preBalance: numericString,
+});
+
+/**
+ * Schema for NEAR token transfer
+ */
+export const NearTokenTransferSchema = z.object({
+  amount: numericString,
+  contractAddress: NearAccountIdSchema,
+  decimals: z.number().nonnegative(),
+  from: NearAccountIdSchema,
+  symbol: z.string().optional(),
+  to: NearAccountIdSchema,
+});
+
+/**
+ * Schema for normalized NEAR transaction
+ */
+export const NearTransactionSchema = z.object({
+  accountChanges: z.array(NearAccountChangeSchema).optional(),
+  actions: z.array(NearActionSchema).optional(),
+  amount: numericString,
+  blockHeight: z.number().optional(),
+  blockId: z.string().optional(),
+  currency: z.string().min(1, 'Currency must not be empty'),
+  feeAmount: numericString.optional(),
+  feeCurrency: z.string().optional(),
+  from: NearAccountIdSchema,
+  id: z.string().min(1, 'Transaction ID must not be empty'),
+  providerName: z.string().min(1, 'Provider name must not be empty'),
+  status: z.enum(['success', 'failed', 'pending']),
+  timestamp: z.number().positive('Timestamp must be positive'),
+  to: NearAccountIdSchema,
+  tokenTransfers: z.array(NearTokenTransferSchema).optional(),
+});
+
+// Type exports inferred from schemas (single source of truth)
+export type NearAction = z.infer<typeof NearActionSchema>;
+export type NearAccountChange = z.infer<typeof NearAccountChangeSchema>;
+export type NearTokenTransfer = z.infer<typeof NearTokenTransferSchema>;
+export type NearTransaction = z.infer<typeof NearTransactionSchema>;
