@@ -198,6 +198,49 @@ describe('BlockfrostApiClient E2E', () => {
     }
   }, 60000);
 
+  it('should fetch address balance', async () => {
+    const result = await client.execute<{ rawAmount?: string; decimalAmount?: string; symbol?: string; decimals?: number }>({
+      address: testAddress,
+      type: 'getAddressBalances',
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const balanceData = result.value;
+
+      // Verify structure
+      expect(balanceData).toHaveProperty('rawAmount');
+      expect(balanceData).toHaveProperty('decimalAmount');
+      expect(balanceData).toHaveProperty('symbol');
+      expect(balanceData).toHaveProperty('decimals');
+
+      // Verify balance data
+      expect(balanceData.symbol).toBe('ADA');
+      expect(balanceData.decimals).toBe(6);
+
+      // Verify rawAmount (lovelace) is a numeric string
+      expect(typeof balanceData.rawAmount).toBe('string');
+      if (balanceData.rawAmount) {
+        const lovelace = parseFloat(balanceData.rawAmount);
+        expect(lovelace).toBeGreaterThanOrEqual(0);
+      }
+
+      // Verify decimalAmount (ADA) is a numeric string
+      expect(typeof balanceData.decimalAmount).toBe('string');
+      if (balanceData.decimalAmount) {
+        const ada = parseFloat(balanceData.decimalAmount);
+        expect(ada).toBeGreaterThanOrEqual(0);
+
+        // Verify conversion is correct: 1 ADA = 1,000,000 lovelace
+        if (balanceData.rawAmount) {
+          const lovelace = parseFloat(balanceData.rawAmount);
+          const expectedAda = lovelace / 1000000;
+          expect(Math.abs(ada - expectedAda)).toBeLessThan(0.000001); // Allow for floating point precision
+        }
+      }
+    }
+  }, 60000);
+
   it('should handle unsupported operations gracefully', async () => {
     const result = await client.execute<unknown>({
       address: testAddress,

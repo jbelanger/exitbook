@@ -4,13 +4,26 @@ import { err, ok, type Result } from 'neverthrow';
 import { BaseApiClient } from '../../../shared/blockchain/base/api-client.js';
 import type { ProviderConfig } from '../../../shared/blockchain/index.js';
 import { RegisterApiClient } from '../../../shared/blockchain/index.js';
-import type { ProviderOperation, TransactionWithRawData } from '../../../shared/blockchain/types/index.js';
+import type {
+  ProviderOperation,
+  RawBalanceData,
+  TransactionWithRawData,
+} from '../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
+import { createRawBalanceData, lovelaceToAda } from '../balance-utils.js';
 import type { CardanoTransaction } from '../schemas.js';
 
 import { mapBlockfrostTransaction } from './blockfrost.mapper-utils.js';
-import type { BlockfrostTransactionHash, BlockfrostTransactionWithMetadata } from './blockfrost.schemas.js';
-import { BlockfrostTransactionDetailsSchema, BlockfrostTransactionUtxosSchema } from './blockfrost.schemas.js';
+import type {
+  BlockfrostAddress,
+  BlockfrostTransactionHash,
+  BlockfrostTransactionWithMetadata,
+} from './blockfrost.schemas.js';
+import {
+  BlockfrostAddressSchema,
+  BlockfrostTransactionDetailsSchema,
+  BlockfrostTransactionUtxosSchema,
+} from './blockfrost.schemas.js';
 
 /**
  * Blockfrost API client for Cardano blockchain data.
@@ -66,7 +79,9 @@ export class BlockfrostApiClient extends BaseApiClient {
           limit: 'limit' in operation ? (operation.limit as number) : undefined,
         })) as Result<T, Error>;
       case 'getAddressBalances':
-        return err(new Error('getAddressBalances not yet implemented for Blockfrost')) as Result<T, Error>;
+        return (await this.getAddressBalances({
+          address: operation.address,
+        })) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
     }
@@ -79,6 +94,59 @@ export class BlockfrostApiClient extends BaseApiClient {
         return typeof response === 'object' && response !== null && 'is_healthy' in response;
       },
     };
+  }
+
+  /**
+   * Get address balance information.
+   *
+   * Fetches the balance for a Cardano address from /addresses/{address}.
+   * Returns the ADA balance with lovelace as the raw amount.
+   *
+   * @param params - Parameters containing the Cardano address
+   * @returns Result containing balance data with raw and decimal amounts
+   */
+  private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
+    const { address } = params;
+
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}`);
+
+    const result = await this.httpClient.get<unknown>(`/addresses/${address}`, {
+      headers: { project_id: this.apiKey },
+    });
+
+    if (result.isErr()) {
+      this.logger.error(
+        `Failed to fetch address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
+      );
+      return err(result.error);
+    }
+
+    // Validate the address response
+    const parseResult = BlockfrostAddressSchema.safeParse(result.value);
+    if (!parseResult.success) {
+      const errorMsg = `Invalid address balance response: ${parseResult.error.message}`;
+      this.logger.error(`${errorMsg} - Address: ${maskAddress(address)}`);
+      return err(new Error(errorMsg));
+    }
+
+    const addressInfo = parseResult.data;
+
+    // Find the lovelace amount (ADA native currency)
+    const lovelaceAmount = addressInfo.amount.find((asset) => asset.unit === 'lovelace');
+
+    if (!lovelaceAmount) {
+      this.logger.error(`No lovelace amount found in address response - Address: ${maskAddress(address)}`);
+      return err(new Error('No lovelace amount found in address response'));
+    }
+
+    const ada = lovelaceToAda(lovelaceAmount.quantity);
+    const balanceData = createRawBalanceData(lovelaceAmount.quantity, ada);
+
+    this.logger.debug(
+      `Successfully retrieved address balance - Address: ${maskAddress(address)}, ADA: ${ada}, Lovelace: ${lovelaceAmount.quantity}`
+    );
+
+    return ok(balanceData);
   }
 
   /**

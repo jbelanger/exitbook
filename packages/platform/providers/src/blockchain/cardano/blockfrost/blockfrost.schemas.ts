@@ -149,6 +149,20 @@ export const BlockfrostTransactionWithMetadataSchema = BlockfrostTransactionUtxo
   valid_contract: z.boolean(),
 });
 
+/**
+ * Schema for Blockfrost address information from /addresses/{address}
+ * Returns address details including balance and staking information
+ */
+export const BlockfrostAddressSchema = z
+  .object({
+    address: CardanoAddressSchema,
+    amount: z.array(BlockfrostAssetAmountSchema).min(1, 'Address must have at least one asset'),
+    stake_address: z.string().nullable().optional(),
+    type: z.enum(['byron', 'shelley']),
+    script: z.boolean(),
+  })
+  .strict();
+
 // Type exports inferred from schemas
 export type BlockfrostTransactionHash = z.infer<typeof BlockfrostTransactionHashSchema>;
 export type BlockfrostAssetAmount = z.infer<typeof BlockfrostAssetAmountSchema>;
@@ -157,3 +171,4 @@ export type BlockfrostUtxoOutput = z.infer<typeof BlockfrostUtxoOutputSchema>;
 export type BlockfrostTransactionUtxos = z.infer<typeof BlockfrostTransactionUtxosSchema>;
 export type BlockfrostTransactionDetails = z.infer<typeof BlockfrostTransactionDetailsSchema>;
 export type BlockfrostTransactionWithMetadata = z.infer<typeof BlockfrostTransactionWithMetadataSchema>;
+export type BlockfrostAddress = z.infer<typeof BlockfrostAddressSchema>;
