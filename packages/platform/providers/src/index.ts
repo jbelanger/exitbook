@@ -22,5 +22,6 @@ export * from './shared/blockchain/index.js';
 export * from './blockchain/bitcoin/index.js';
 export * from './blockchain/cosmos/index.js';
 export * from './blockchain/evm/index.js';
+export * from './blockchain/near/index.js';
 export * from './blockchain/solana/index.js';
 export * from './blockchain/substrate/index.js';

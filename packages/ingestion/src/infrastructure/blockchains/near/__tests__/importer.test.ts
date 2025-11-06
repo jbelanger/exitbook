@@ -1,0 +1,459 @@
+/**
+ * Unit tests for the NEAR importer
+ * Tests transaction fetching with provider failover
+ */
+
+import type { FailoverExecutionResult } from '@exitbook/providers';
+import { ProviderError, type BlockchainProviderManager } from '@exitbook/providers';
+import { assertOperationType } from '@exitbook/providers/blockchain/__tests__/test-utils.js';
+import { err, ok } from 'neverthrow';
+import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
+
+import { NearTransactionImporter } from '../importer.js';
+
+const mockNearTx = {
+  id: 'AbCdEf123456',
+  from: 'alice.near',
+  to: 'bob.near',
+  amount: '1000000000000000000000000', // 1 NEAR in yoctoNEAR
+  currency: 'NEAR',
+  timestamp: 1640000000,
+  status: 'success',
+  feeAmount: '0.005',
+  feeCurrency: 'NEAR',
+};
+
+const mockNearFunctionCallTx = {
+  id: 'FunctionCallTx456',
+  from: 'alice.near',
+  to: 'usdt.tether-token.near',
+  amount: '1',
+  currency: 'NEAR',
+  timestamp: 1640000001,
+  status: 'success',
+  feeAmount: '0.003',
+  feeCurrency: 'NEAR',
+  actions: [
+    {
+      actionType: 'FUNCTION_CALL',
+      methodName: 'ft_transfer',
+      receiverId: 'usdt.tether-token.near',
+      deposit: '1',
+    },
+  ],
+};
+
+type ProviderManagerMock = Mocked<
+  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'executeWithFailover' | 'getProviders'>
+>;
+
+describe('NearTransactionImporter', () => {
+  let mockProviderManager: ProviderManagerMock;
+
+  beforeEach(() => {
+    mockProviderManager = {
+      autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
+      executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
+      getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
+    } as unknown as ProviderManagerMock;
+
+    mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
+    mockProviderManager.getProviders.mockReturnValue([
+      {
+        name: 'mock-provider',
+        blockchain: 'near',
+        benchmarkRateLimit: vi.fn().mockResolvedValue({
+          maxSafeRate: 1,
+          recommended: { maxRequestsPerSecond: 1 },
+          testResults: [],
+        }),
+        capabilities: { supportedOperations: [] },
+        execute: vi.fn(),
+        isHealthy: vi.fn().mockResolvedValue(true),
+        rateLimit: { requestsPerSecond: 1 },
+      },
+    ]);
+  });
+
+  const createImporter = (options?: { preferredProvider?: string | undefined }): NearTransactionImporter =>
+    new NearTransactionImporter(mockProviderManager as unknown as BlockchainProviderManager, options);
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('Constructor', () => {
+    test('should initialize with NEAR provider manager', () => {
+      const importer = createImporter();
+
+      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('near', undefined);
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('near');
+      expect(importer).toBeDefined();
+    });
+
+    test('should initialize with preferred provider', () => {
+      const importer = createImporter({
+        preferredProvider: 'nearblocks',
+      });
+
+      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('near', 'nearblocks');
+      expect(importer).toBeDefined();
+    });
+
+    test('should throw error if provider manager is not provided', () => {
+      expect(() => new NearTransactionImporter(undefined as unknown as BlockchainProviderManager)).toThrow(
+        'Provider manager required for NEAR importer'
+      );
+    });
+  });
+
+  describe('Import - Success Cases', () => {
+    test('should successfully fetch transactions', async () => {
+      const importer = createImporter();
+      const address = 'alice.near';
+
+      const mockNormalizedTransfer = mockNearTx;
+      const mockNormalizedFunctionCall = mockNearFunctionCallTx;
+
+      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
+        ok({
+          data: [
+            { normalized: mockNormalizedTransfer, raw: { transaction_hash: 'AbCdEf123456' } },
+            { normalized: mockNormalizedFunctionCall, raw: { transaction_hash: 'FunctionCallTx456' } },
+          ],
+          providerName: 'nearblocks',
+        } as FailoverExecutionResult<unknown>)
+      );
+
+      const result = await importer.import({ address });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.rawTransactions).toHaveLength(2);
+
+        // Verify transfer transaction
+        expect(result.value.rawTransactions[0]).toMatchObject({
+          providerName: 'nearblocks',
+          sourceAddress: address,
+          normalizedData: mockNormalizedTransfer,
+          rawData: { transaction_hash: 'AbCdEf123456' },
+        });
+        expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+
+        // Verify function call transaction
+        expect(result.value.rawTransactions[1]).toMatchObject({
+          providerName: 'nearblocks',
+          sourceAddress: address,
+          normalizedData: mockNormalizedFunctionCall,
+          rawData: { transaction_hash: 'FunctionCallTx456' },
+        });
+        expect(result.value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+      }
+
+      // Verify API call was made
+      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(1);
+
+      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
+        mockProviderManager.executeWithFailover.mock.calls;
+
+      const [, operation] = executeCalls[0]!;
+      assertOperationType(operation, 'getAddressTransactions');
+      expect(operation.address).toBe(address);
+      expect(operation.getCacheKey).toBeDefined();
+    });
+
+    test('should handle empty transaction list', async () => {
+      const importer = createImporter();
+      const address = 'alice.near';
+
+      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
+        ok({
+          data: [],
+          providerName: 'nearblocks',
+        } as FailoverExecutionResult<unknown>)
+      );
+
+      const result = await importer.import({ address });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.rawTransactions).toHaveLength(0);
+      }
+    });
+
+    test('should handle array of transactions from provider', async () => {
+      const importer = createImporter();
+      const address = 'alice.near';
+
+      const tx1 = mockNearTx;
+      const tx2 = { ...mockNearTx, id: 'Tx789' };
+      const tx3 = { ...mockNearTx, id: 'Tx012' };
+
+      const multipleTxs = [
+        { normalized: tx1, raw: { transaction_hash: 'AbCdEf123456' } },
+        { normalized: tx2, raw: { transaction_hash: 'Tx789' } },
+        { normalized: tx3, raw: { transaction_hash: 'Tx012' } },
+      ];
+
+      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
+        ok({
+          data: multipleTxs,
+          providerName: 'nearblocks',
+        } as FailoverExecutionResult<unknown>)
+      );
+
+      const result = await importer.import({ address });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.rawTransactions).toHaveLength(3);
+        expect(result.value.rawTransactions[0]!.rawData).toEqual({ transaction_hash: 'AbCdEf123456' });
+        expect(result.value.rawTransactions[1]!.rawData).toEqual({ transaction_hash: 'Tx789' });
+        expect(result.value.rawTransactions[2]!.rawData).toEqual({ transaction_hash: 'Tx012' });
+      }
+    });
+
+    test('should handle implicit account addresses', async () => {
+      const importer = createImporter();
+      const implicitAddress = '98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de';
+
+      const mockNormalizedTx = { ...mockNearTx, from: implicitAddress };
+
+      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
+        ok({
+          data: [{ normalized: mockNormalizedTx, raw: { transaction_hash: 'ImplicitTx' } }],
+          providerName: 'nearblocks',
+        } as FailoverExecutionResult<unknown>)
+      );
+
+      const result = await importer.import({ address: implicitAddress });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.rawTransactions).toHaveLength(1);
+        expect(result.value.rawTransactions[0]?.sourceAddress).toBe(implicitAddress);
+      }
+    });
+
+    test('should handle sub-account addresses', async () => {
+      const importer = createImporter();
+      const subAccount = 'sub.alice.near';
+
+      const mockNormalizedTx = { ...mockNearTx, from: subAccount };
+
+      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
+        ok({
+          data: [{ normalized: mockNormalizedTx, raw: { transaction_hash: 'SubAccountTx' } }],
+          providerName: 'nearblocks',
+        } as FailoverExecutionResult<unknown>)
+      );
+
+      const result = await importer.import({ address: subAccount });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.rawTransactions).toHaveLength(1);
+        expect(result.value.rawTransactions[0]?.sourceAddress).toBe(subAccount);
+      }
+    });
+  });
+
+  describe('Import - Error Cases', () => {
+    test('should fail if provider fails', async () => {
+      const importer = createImporter();
+      const address = 'alice.near';
+
+      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
+        err(
+          new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
+            blockchain: 'near',
+          })
+        )
+      );
+
+      const result = await importer.import({ address });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toBe('Failed to fetch transactions');
+      }
+    });
+
+    test('should return error if address is not provided', async () => {
+      const importer = createImporter();
+
+      const result = await importer.import({});
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toBe('Address required for NEAR transaction import');
+      }
+    });
+
+    test('should fail with network timeout error', async () => {
+      const importer = createImporter();
+      const address = 'alice.near';
+
+      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
+        err(
+          new ProviderError('Network timeout', 'ALL_PROVIDERS_FAILED', {
+            blockchain: 'near',
+            lastError: 'Network timeout',
+          })
+        )
+      );
+
+      const result = await importer.import({ address });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toBe('Network timeout');
+      }
+    });
+
+    test('should fail with rate limit error', async () => {
+      const importer = createImporter();
+      const address = 'alice.near';
+
+      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
+        err(
+          new ProviderError('Rate limit exceeded', 'ALL_PROVIDERS_FAILED', {
+            blockchain: 'near',
+            lastError: 'Rate limit exceeded',
+          })
+        )
+      );
+
+      const result = await importer.import({ address });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toBe('Rate limit exceeded');
+      }
+    });
+  });
+
+  describe('Cache Key Generation', () => {
+    test('should generate correct cache key for named accounts', async () => {
+      const importer = createImporter();
+      const address = 'alice.near';
+
+      mockProviderManager.executeWithFailover.mockResolvedValue(
+        ok({
+          data: [],
+          providerName: 'nearblocks',
+        } as FailoverExecutionResult<unknown>)
+      );
+
+      await importer.import({ address });
+
+      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
+        mockProviderManager.executeWithFailover.mock.calls;
+
+      const call = calls[0]![1];
+      const cacheKey = call.getCacheKey!(call);
+      expect(cacheKey).toBe('near:raw-txs:alice.near:all');
+    });
+
+    test('should generate correct cache key for implicit accounts', async () => {
+      const importer = createImporter();
+      const address = '98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de';
+
+      mockProviderManager.executeWithFailover.mockResolvedValue(
+        ok({
+          data: [],
+          providerName: 'nearblocks',
+        } as FailoverExecutionResult<unknown>)
+      );
+
+      await importer.import({ address });
+
+      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
+        mockProviderManager.executeWithFailover.mock.calls;
+
+      const call = calls[0]![1];
+      const cacheKey = call.getCacheKey!(call);
+      expect(cacheKey).toBe(`near:raw-txs:${address}:all`);
+    });
+
+    test('should generate correct cache key for sub-accounts', async () => {
+      const importer = createImporter();
+      const address = 'token.sub.alice.near';
+
+      mockProviderManager.executeWithFailover.mockResolvedValue(
+        ok({
+          data: [],
+          providerName: 'nearblocks',
+        } as FailoverExecutionResult<unknown>)
+      );
+
+      await importer.import({ address });
+
+      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
+        mockProviderManager.executeWithFailover.mock.calls;
+
+      const call = calls[0]![1];
+      const cacheKey = call.getCacheKey!(call);
+      expect(cacheKey).toBe('near:raw-txs:token.sub.alice.near:all');
+    });
+  });
+
+  describe('Transaction ID Generation', () => {
+    test('should generate unique transaction IDs', async () => {
+      const importer = createImporter();
+      const address = 'alice.near';
+
+      const tx1 = { ...mockNearTx, id: 'Tx1' };
+      const tx2 = { ...mockNearTx, id: 'Tx2' };
+
+      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
+        ok({
+          data: [
+            { normalized: tx1, raw: { transaction_hash: 'Tx1' } },
+            { normalized: tx2, raw: { transaction_hash: 'Tx2' } },
+          ],
+          providerName: 'nearblocks',
+        } as FailoverExecutionResult<unknown>)
+      );
+
+      const result = await importer.import({ address });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const id1 = result.value.rawTransactions[0]?.externalId;
+        const id2 = result.value.rawTransactions[1]?.externalId;
+
+        expect(id1).toBeDefined();
+        expect(id2).toBeDefined();
+        expect(id1).not.toBe(id2); // Should be unique
+        expect(id1).toMatch(/^[a-f0-9]{64}$/);
+        expect(id2).toMatch(/^[a-f0-9]{64}$/);
+      }
+    });
+
+    test('should generate consistent IDs for same transaction', async () => {
+      const importer = createImporter();
+      const address = 'alice.near';
+
+      mockProviderManager.executeWithFailover.mockResolvedValue(
+        ok({
+          data: [{ normalized: mockNearTx, raw: { transaction_hash: 'AbCdEf123456' } }],
+          providerName: 'nearblocks',
+        } as FailoverExecutionResult<unknown>)
+      );
+
+      const result1 = await importer.import({ address });
+      const result2 = await importer.import({ address });
+
+      expect(result1.isOk()).toBe(true);
+      expect(result2.isOk()).toBe(true);
+
+      if (result1.isOk() && result2.isOk()) {
+        const id1 = result1.value.rawTransactions[0]?.externalId;
+        const id2 = result2.value.rawTransactions[0]?.externalId;
+
+        expect(id1).toBe(id2); // Should be consistent
+      }
+    });
+  });
+});

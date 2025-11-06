@@ -5,3 +5,4 @@ import '../../../blockchain/evm/register-apis.js';
 import '../../../blockchain/cosmos/register-apis.js';
 import '../../../blockchain/substrate/register-apis.js';
 import '../../../blockchain/solana/register-apis.js';
+import '../../../blockchain/near/register-apis.js';
