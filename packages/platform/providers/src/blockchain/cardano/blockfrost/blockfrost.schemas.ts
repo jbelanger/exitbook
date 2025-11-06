@@ -70,6 +70,7 @@ export const BlockfrostUtxoInputSchema = z
  * - reference_script_hash: Hash of reference script attached to output (Plutus V2+, allows script reuse)
  * - collateral: True if this UTXO is used as collateral for smart contract execution
  * - reference: True if this is a reference input (read-only, Plutus V2+, not consumed by transaction)
+ * - consumed_by_tx: Transaction hash that consumed this output (if spent)
  */
 export const BlockfrostUtxoOutputSchema = z
   .object({
@@ -81,6 +82,7 @@ export const BlockfrostUtxoOutputSchema = z
     reference_script_hash: z.string().nullable().optional(),
     collateral: z.boolean().optional(),
     reference: z.boolean().optional(),
+    consumed_by_tx: z.string().nullable().optional(),
   })
   .strict();
 
@@ -122,6 +124,15 @@ export const BlockfrostTransactionDetailsSchema = z
     asset_mint_or_burn_count: z.number().nonnegative('Asset mint/burn count must be non-negative'),
     redeemer_count: z.number().nonnegative('Redeemer count must be non-negative'),
     valid_contract: z.boolean(),
+    output_amount: z
+      .array(
+        z.object({
+          unit: z.string(),
+          quantity: z.string(),
+        })
+      )
+      .optional(),
+    deposit: z.string().regex(/^\d+$/, 'Deposit must be a numeric string (lovelace)').optional(),
   })
   .strict();
 

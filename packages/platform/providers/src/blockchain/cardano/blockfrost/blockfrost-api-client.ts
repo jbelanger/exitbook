@@ -66,6 +66,7 @@ export class BlockfrostApiClient extends BaseApiClient {
       case 'getAddressTransactions':
         return (await this.getAddressTransactions({
           address: operation.address,
+          limit: 'limit' in operation ? (operation.limit as number) : undefined,
         })) as Result<T, Error>;
       case 'getAddressBalances':
         return err(new Error('getAddressBalances not yet implemented for Blockfrost')) as Result<T, Error>;
@@ -93,18 +94,21 @@ export class BlockfrostApiClient extends BaseApiClient {
    * Handles pagination automatically (100 transactions per page).
    * Combines transaction details and UTXO data before passing to mapper for normalization.
    *
-   * @param params - Parameters containing the Cardano address
+   * @param params - Parameters containing the Cardano address and optional limit
    * @returns Result containing array of transactions with raw and normalized data
    */
   private async getAddressTransactions(params: {
     address: string;
+    limit?: number;
   }): Promise<Result<TransactionWithRawData<CardanoTransaction>[], Error>> {
-    const { address } = params;
+    const { address, limit } = params;
 
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
+    this.logger.debug(
+      `Fetching raw address transactions - Address: ${maskAddress(address)}, Limit: ${limit ?? 'none'}`
+    );
 
     // Step 1: Fetch all transaction hashes for the address
-    const txHashesResult = await this.fetchTransactionHashes(address);
+    const txHashesResult = await this.fetchTransactionHashes(address, limit);
 
     if (txHashesResult.isErr()) {
       this.logger.error(
@@ -216,16 +220,28 @@ export class BlockfrostApiClient extends BaseApiClient {
    * This method handles pagination automatically to fetch all transactions.
    *
    * @param address - Cardano address to fetch transactions for
+   * @param limit - Optional maximum number of transactions to fetch
    * @returns Result containing array of transaction hash entries
    */
-  private async fetchTransactionHashes(address: string): Promise<Result<BlockfrostTransactionHash[], Error>> {
+  private async fetchTransactionHashes(
+    address: string,
+    limit?: number
+  ): Promise<Result<BlockfrostTransactionHash[], Error>> {
     const allTxHashes: BlockfrostTransactionHash[] = [];
     let page = 1;
     let hasMore = true;
     const maxPages = 100; // Safety limit to prevent infinite loops
 
     while (hasMore && page <= maxPages) {
-      const endpoint = `/addresses/${address}/transactions?order=desc&count=100&page=${page}`;
+      // If a limit is specified, adjust the count to fetch only what's needed
+      const remainingToFetch = limit !== undefined ? limit - allTxHashes.length : 100;
+      const count = Math.min(remainingToFetch, 100);
+
+      if (count <= 0) {
+        break;
+      }
+
+      const endpoint = `/addresses/${address}/transactions?order=desc&count=${count}&page=${page}`;
 
       const result = await this.httpClient.get<BlockfrostTransactionHash[]>(endpoint, {
         headers: { project_id: this.apiKey },
@@ -251,8 +267,13 @@ export class BlockfrostApiClient extends BaseApiClient {
 
       allTxHashes.push(...txHashes);
 
-      // If we got less than 100 transactions, we've reached the end
-      hasMore = txHashes.length === 100;
+      // Stop if we've reached the limit
+      if (limit !== undefined && allTxHashes.length >= limit) {
+        break;
+      }
+
+      // If we got less than the requested count, we've reached the end
+      hasMore = txHashes.length === count;
       page++;
     }
 
