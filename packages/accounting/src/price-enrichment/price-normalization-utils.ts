@@ -9,7 +9,7 @@
  * Following "Functional Core, Imperative Shell" pattern from CLAUDE.md
  */
 
-import type { AssetMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
+import type { AssetMovement, FeeMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
 import { Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
@@ -192,4 +192,274 @@ export function classifyMovementPrice(
   }
 
   return 'crypto';
+}
+
+/**
+ * Result for normalizing a single item (movement or fee)
+ */
+export interface ItemNormalizationResult<T> {
+  /** The normalized or original item */
+  item: T;
+  /** Whether normalization was performed */
+  wasNormalized: boolean;
+  /** Error message if normalization failed */
+  error?: string;
+}
+
+/**
+ * Result for normalizing an entire transaction
+ */
+export interface TransactionNormalizationResult {
+  /** Normalized transaction (or undefined if no changes needed) */
+  transaction: UniversalTransaction | undefined;
+  /** Number of movements normalized */
+  movementsNormalized: number;
+  /** Number of movements skipped */
+  movementsSkipped: number;
+  /** Movements with crypto prices (unexpected) */
+  cryptoPriceMovements: AssetMovement[];
+  /** Errors that occurred during normalization */
+  errors: { item: string; message: string }[];
+}
+
+/**
+ * Normalize a single price to USD using provided FX rate fetcher
+ *
+ * This is a pure business logic function that delegates FX fetching to a callback.
+ * The service layer injects the actual FX provider implementation.
+ *
+ * @param priceAtTxTime - Price to normalize
+ * @param timestamp - Transaction timestamp for FX rate lookup
+ * @param fetchFxRate - Callback to fetch FX rate (injected by service)
+ * @returns Normalized price in USD with FX metadata
+ */
+export async function normalizePriceToUSD(
+  priceAtTxTime: PriceAtTxTime,
+  timestamp: Date,
+  fetchFxRate: (
+    currency: Currency,
+    date: Date
+  ) => Promise<Result<{ fetchedAt: Date; rate: Decimal; source: string; }, Error>>
+): Promise<Result<PriceAtTxTime, Error>> {
+  const sourceCurrency = priceAtTxTime.price.currency;
+
+  // Fetch FX rate via injected callback
+  const fxRateResult = await fetchFxRate(sourceCurrency, timestamp);
+
+  if (fxRateResult.isErr()) {
+    return err(fxRateResult.error);
+  }
+
+  const fxData = fxRateResult.value;
+  const fxRate = fxData.rate;
+
+  // Validate FX rate
+  const validationResult = validateFxRate(fxRate);
+  if (validationResult.isErr()) {
+    return err(
+      new Error(
+        `Invalid FX rate for ${sourceCurrency.toString()} → USD: ${validationResult.error.message} (rate: ${fxRate.toString()}, source: ${fxData.source})`
+      )
+    );
+  }
+
+  // Create normalized price
+  const normalizedPrice = createNormalizedPrice(priceAtTxTime, fxRate, fxData.source, fxData.fetchedAt);
+
+  return ok(normalizedPrice);
+}
+
+/**
+ * Normalize an array of asset movements
+ *
+ * Pure function that processes each movement and returns normalization results.
+ * The service layer handles logging and statistics aggregation.
+ *
+ * @param movements - Movements to normalize
+ * @param txDatetime - Transaction datetime (ISO string)
+ * @param normalizePriceFn - Function to normalize a single price (injected by caller)
+ * @returns Array of normalization results for each movement
+ */
+export async function normalizeMovementArray(
+  movements: AssetMovement[],
+  txDatetime: string,
+  normalizePriceFn: (price: PriceAtTxTime, date: Date) => Promise<Result<PriceAtTxTime, Error>>
+): Promise<ItemNormalizationResult<AssetMovement>[]> {
+  const results: ItemNormalizationResult<AssetMovement>[] = [];
+
+  for (const movement of movements) {
+    // Check if normalization needed
+    if (!movementNeedsNormalization(movement)) {
+      results.push({
+        item: movement,
+        wasNormalized: false,
+      });
+      continue;
+    }
+
+    // Normalize the price
+    const normalizedPrice = await normalizePriceFn(movement.priceAtTxTime!, new Date(txDatetime));
+
+    if (normalizedPrice.isErr()) {
+      const priceCurrency = movement.priceAtTxTime!.price.currency;
+      results.push({
+        item: movement,
+        wasNormalized: false,
+        error: `Asset ${movement.asset} (${priceCurrency.toString()} → USD): ${normalizedPrice.error.message}`,
+      });
+      continue;
+    }
+
+    // Success - return normalized movement
+    results.push({
+      item: {
+        ...movement,
+        priceAtTxTime: normalizedPrice.value,
+      },
+      wasNormalized: true,
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Check if a fee needs FX normalization
+ *
+ * @param fee - Fee to check
+ * @returns True if fee has non-USD fiat price
+ */
+export function feeNeedsNormalization(fee: FeeMovement): boolean {
+  if (!fee.priceAtTxTime) {
+    return false;
+  }
+
+  const priceCurrency = fee.priceAtTxTime.price.currency;
+
+  // Skip if already USD
+  if (priceCurrency.toString() === 'USD') {
+    return false;
+  }
+
+  // Only normalize fiat currencies (EUR, CAD, GBP, etc.)
+  return priceCurrency.isFiat();
+}
+
+/**
+ * Normalize an array of fees
+ *
+ * Pure function that processes each fee and returns normalization results.
+ * The service layer handles logging and statistics aggregation.
+ *
+ * @param fees - Fees to normalize
+ * @param txDatetime - Transaction datetime (ISO string)
+ * @param normalizePriceFn - Function to normalize a single price (injected by caller)
+ * @returns Array of normalization results for each fee
+ */
+export async function normalizeFeeArray(
+  fees: FeeMovement[],
+  txDatetime: string,
+  normalizePriceFn: (price: PriceAtTxTime, date: Date) => Promise<Result<PriceAtTxTime, Error>>
+): Promise<ItemNormalizationResult<FeeMovement>[]> {
+  const results: ItemNormalizationResult<FeeMovement>[] = [];
+
+  for (const fee of fees) {
+    // Check if normalization needed
+    if (!feeNeedsNormalization(fee)) {
+      results.push({
+        item: fee,
+        wasNormalized: false,
+      });
+      continue;
+    }
+
+    // Normalize the price
+    const normalizedPrice = await normalizePriceFn(fee.priceAtTxTime!, new Date(txDatetime));
+
+    if (normalizedPrice.isErr()) {
+      const priceCurrency = fee.priceAtTxTime!.price.currency;
+      results.push({
+        item: fee,
+        wasNormalized: false,
+        error: `Fee ${fee.asset} (${priceCurrency.toString()} → USD): ${normalizedPrice.error.message}`,
+      });
+      continue;
+    }
+
+    // Success - return normalized fee
+    results.push({
+      item: {
+        ...fee,
+        priceAtTxTime: normalizedPrice.value,
+      },
+      wasNormalized: true,
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Normalize all movements and fees in a transaction
+ *
+ * Pure orchestration function that coordinates normalization of all price data
+ * in a transaction. Returns structured results that the service layer can use
+ * for logging and statistics.
+ *
+ * @param tx - Transaction to normalize
+ * @param normalizePriceFn - Function to normalize a single price (injected by caller)
+ * @returns Normalization result with statistics
+ */
+export async function normalizeTransactionMovements(
+  tx: UniversalTransaction,
+  normalizePriceFn: (price: PriceAtTxTime, date: Date) => Promise<Result<PriceAtTxTime, Error>>
+): Promise<TransactionNormalizationResult> {
+  const inflows = tx.movements.inflows ?? [];
+  const outflows = tx.movements.outflows ?? [];
+  const fees = tx.fees ?? [];
+
+  // Classify movements to determine what needs normalization
+  const classification = extractMovementsNeedingNormalization(tx);
+
+  // Check if any fees need normalization
+  const feesNeedingNormalization = fees.filter((fee) => feeNeedsNormalization(fee));
+
+  // Early exit if nothing to normalize
+  if (classification.needsNormalization.length === 0 && feesNeedingNormalization.length === 0) {
+    return {
+      transaction: undefined,
+      movementsNormalized: 0,
+      movementsSkipped: classification.skipped.length,
+      cryptoPriceMovements: classification.cryptoPrices,
+      errors: [],
+    };
+  }
+
+  // Normalize movements and fees
+  const inflowResults = await normalizeMovementArray(inflows, tx.datetime, normalizePriceFn);
+  const outflowResults = await normalizeMovementArray(outflows, tx.datetime, normalizePriceFn);
+  const feeResults = await normalizeFeeArray(fees, tx.datetime, normalizePriceFn);
+
+  // Aggregate statistics
+  const allResults = [...inflowResults, ...outflowResults, ...feeResults];
+  const movementsNormalized = allResults.filter((r) => r.wasNormalized).length;
+  const errors = allResults.filter((r) => r.error).map((r) => ({ item: 'movement/fee', message: r.error! }));
+
+  // Build normalized transaction
+  const normalizedTransaction: UniversalTransaction = {
+    ...tx,
+    movements: {
+      inflows: inflowResults.map((r) => r.item),
+      outflows: outflowResults.map((r) => r.item),
+    },
+    fees: feeResults.map((r) => r.item),
+  };
+
+  return {
+    transaction: normalizedTransaction,
+    movementsNormalized,
+    movementsSkipped: classification.skipped.length,
+    cryptoPriceMovements: classification.cryptoPrices,
+    errors,
+  };
 }
