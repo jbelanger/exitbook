@@ -6,6 +6,7 @@ import type { ProviderConfig, TransactionWithRawData } from '../../../shared/blo
 import { RegisterApiClient } from '../../../shared/blockchain/index.js';
 import type { ProviderOperation, RawBalanceData } from '../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
+import { calculateTatumBalance, createRawBalanceData } from '../balance-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
 import { TatumBitcoinTransactionMapper } from './tatum.mapper.js';
@@ -104,7 +105,6 @@ export class TatumBitcoinApiClient extends BaseApiClient {
   async getAddressBalances(address: string): Promise<Result<RawBalanceData, Error>> {
     this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
 
-    // Get balance data
     const balanceResult = await this.makeRequest<TatumBitcoinBalance>(`/address/balance/${address}`);
 
     if (balanceResult.isErr()) {
@@ -115,23 +115,13 @@ export class TatumBitcoinApiClient extends BaseApiClient {
     }
 
     const balanceData = balanceResult.value;
-
-    // Tatum API returns satoshi values as strings - convert to BTC
-    const incomingSats = parseFloat(balanceData.incoming);
-    const outgoingSats = parseFloat(balanceData.outgoing);
-    const balanceSats = incomingSats - outgoingSats;
-    const balanceBTC = (balanceSats / 100000000).toString();
+    const { balanceBTC, balanceSats } = calculateTatumBalance(balanceData.incoming, balanceData.outgoing);
 
     this.logger.debug(
       `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, BalanceBTC: ${balanceBTC}`
     );
 
-    return ok({
-      rawAmount: balanceSats.toString(),
-      symbol: 'BTC',
-      decimals: 8,
-      decimalAmount: balanceBTC,
-    } as RawBalanceData);
+    return ok(createRawBalanceData(balanceSats, balanceBTC));
   }
 
   /**

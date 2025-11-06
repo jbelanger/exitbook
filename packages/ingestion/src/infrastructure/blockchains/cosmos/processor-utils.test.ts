@@ -1,4 +1,3 @@
- 
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/providers';
 import { describe, expect, it } from 'vitest';
 

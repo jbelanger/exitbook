@@ -1,0 +1,126 @@
+import { describe, expect, it } from 'vitest';
+
+import { convertTaostatsTransaction, isTransactionRelevant } from '../taostats.mapper-utils.ts';
+import type { TaostatsTransactionAugmented } from '../taostats.schemas.js';
+
+describe('taostats.mapper-utils', () => {
+  describe('convertTaostatsTransaction', () => {
+    it('should convert a valid Taostats transaction', () => {
+      const rawData: TaostatsTransactionAugmented = {
+        transaction_hash: '0xabc123',
+        from: { ss58: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY', hex: '0x123' },
+        to: { ss58: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty', hex: '0x456' },
+        amount: '1000000000',
+        fee: '100000',
+        block_number: 12345,
+        timestamp: new Date('2024-01-01T00:00:00Z'),
+        extrinsic_id: '12345-2',
+        network: 'finney',
+        id: 'txid123',
+        _nativeCurrency: 'TAO',
+        _nativeDecimals: 9,
+        _chainDisplayName: 'Bittensor Network',
+      };
+
+      const result = convertTaostatsTransaction(rawData, 'TAO');
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe('0xabc123');
+      expect(result.from).toBe('5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY');
+      expect(result.to).toBe('5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty');
+      expect(result.amount).toBe('1000000000');
+      expect(result.feeAmount).toBe('100000');
+      expect(result.status).toBe('success');
+      expect(result.currency).toBe('TAO');
+      expect(result.chainName).toBe('bittensor');
+      expect(result.providerId).toBe('taostats');
+    });
+
+    it('should handle missing fee', () => {
+      const rawData: TaostatsTransactionAugmented = {
+        transaction_hash: '0xabc123',
+        from: { ss58: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY', hex: '0x123' },
+        to: { ss58: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty', hex: '0x456' },
+        amount: '1000000000',
+        block_number: 12345,
+        timestamp: new Date('2024-01-01T00:00:00Z'),
+        extrinsic_id: '12345-2',
+        network: 'finney',
+        id: 'txid123',
+        _nativeCurrency: 'TAO',
+        _nativeDecimals: 9,
+        _chainDisplayName: 'Bittensor Network',
+      };
+
+      const result = convertTaostatsTransaction(rawData, 'TAO');
+
+      expect(result).toBeDefined();
+      expect(result.feeAmount).toBe('0');
+    });
+  });
+
+  describe('isTransactionRelevant', () => {
+    it('should return true if from address is relevant', () => {
+      const rawData: TaostatsTransactionAugmented = {
+        transaction_hash: '0xabc123',
+        from: { ss58: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY', hex: '0x123' },
+        to: { ss58: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty', hex: '0x456' },
+        amount: '1000000000',
+        block_number: 12345,
+        timestamp: new Date('2024-01-01T00:00:00Z'),
+        extrinsic_id: '12345-2',
+        network: 'finney',
+        id: 'txid123',
+        _nativeCurrency: 'TAO',
+        _nativeDecimals: 9,
+        _chainDisplayName: 'Bittensor Network',
+      };
+
+      const relevantAddresses = new Set(['5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY']);
+
+      expect(isTransactionRelevant(rawData, relevantAddresses)).toBe(true);
+    });
+
+    it('should return true if to address is relevant', () => {
+      const rawData: TaostatsTransactionAugmented = {
+        transaction_hash: '0xabc123',
+        from: { ss58: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY', hex: '0x123' },
+        to: { ss58: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty', hex: '0x456' },
+        amount: '1000000000',
+        block_number: 12345,
+        timestamp: new Date('2024-01-01T00:00:00Z'),
+        extrinsic_id: '12345-2',
+        network: 'finney',
+        id: 'txid123',
+        _nativeCurrency: 'TAO',
+        _nativeDecimals: 9,
+        _chainDisplayName: 'Bittensor Network',
+      };
+
+      const relevantAddresses = new Set(['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty']);
+
+      expect(isTransactionRelevant(rawData, relevantAddresses)).toBe(true);
+    });
+
+    it('should return false if neither address is relevant', () => {
+      const rawData: TaostatsTransactionAugmented = {
+        transaction_hash: '0xabc123',
+        from: { ss58: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY', hex: '0x123' },
+        to: { ss58: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty', hex: '0x456' },
+        amount: '1000000000',
+        block_number: 12345,
+        timestamp: new Date('2024-01-01T00:00:00Z'),
+        extrinsic_id: '12345-2',
+        network: 'finney',
+        id: 'txid123',
+        _nativeCurrency: 'TAO',
+        _nativeDecimals: 9,
+        _chainDisplayName: 'Bittensor Network',
+      };
+
+      const relevantAddresses = new Set(['5SomeOtherAddress']);
+
+      expect(isTransactionRelevant(rawData, relevantAddresses)).toBe(false);
+    });
+  });
+});

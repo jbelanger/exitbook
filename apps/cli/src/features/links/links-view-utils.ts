@@ -62,8 +62,8 @@ export interface LinksViewResult {
  */
 export function filterLinksByConfidence(
   links: TransactionLink[],
-  minConfidence?: number  ,
-  maxConfidence?: number  
+  minConfidence?: number,
+  maxConfidence?: number
 ): TransactionLink[] {
   return links.filter((link) => {
     const score = link.confidenceScore.toNumber();
@@ -101,8 +101,8 @@ export function mapTransactionToDetails(tx: UniversalTransaction): TransactionDe
  */
 export function formatLinkInfo(
   link: TransactionLink,
-  sourceTx?: UniversalTransaction  ,
-  targetTx?: UniversalTransaction  
+  sourceTx?: UniversalTransaction,
+  targetTx?: UniversalTransaction
 ): LinkInfo {
   const linkInfo: LinkInfo = {
     id: link.id,

@@ -1,9 +1,10 @@
-import { parseDecimal } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.js';
 import type { NormalizationError } from '../../../../shared/blockchain/index.js';
+import { extractMethodId } from '../../mapper-utils.js';
+import { calculateGasFee } from '../../receipt-utils.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 import { normalizeEvmAddress } from '../../utils.js';
@@ -31,9 +32,7 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
     const timestamp = new Date(rawData.block_timestamp).getTime();
 
     // Calculate gas fee in wei - Zod already validated they're numeric
-    const gasUsed = parseDecimal(rawData.receipt_gas_used || '0');
-    const gasPrice = parseDecimal(rawData.gas_price || '0');
-    const feeWei = gasUsed.mul(gasPrice).toString();
+    const feeWei = calculateGasFee(rawData.receipt_gas_used || '0', rawData.gas_price || '0').toString();
 
     const transaction: EvmTransaction = {
       amount: valueWei,
@@ -47,7 +46,7 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
       gasUsed: rawData.receipt_gas_used && rawData.receipt_gas_used !== '' ? rawData.receipt_gas_used : undefined,
       id: rawData.hash,
       inputData: rawData.input && rawData.input !== '' ? rawData.input : undefined,
-      methodId: rawData.input && rawData.input.length >= 10 ? rawData.input.slice(0, 10) : undefined,
+      methodId: extractMethodId(rawData.input),
       providerId: 'moralis',
       status: rawData.receipt_status === '1' ? 'success' : 'failed',
       timestamp,

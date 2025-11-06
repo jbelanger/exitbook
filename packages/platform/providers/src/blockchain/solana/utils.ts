@@ -27,6 +27,25 @@ export function solToLamports(sol: number | string): Decimal {
 }
 
 /**
+ * Deduplicate transactions by signature
+ * Returns a map of unique transactions keyed by signature
+ */
+export function deduplicateTransactionsBySignature<
+  T extends { signature?: string | undefined; transaction?: { signatures?: string[] | undefined } | undefined },
+>(transactions: T[]): Map<string, T> {
+  const uniqueTransactions = new Map<string, T>();
+
+  for (const tx of transactions) {
+    const signature = tx.transaction?.signatures?.[0] ?? tx.signature;
+    if (signature && !uniqueTransactions.has(signature)) {
+      uniqueTransactions.set(signature, tx);
+    }
+  }
+
+  return uniqueTransactions;
+}
+
+/**
  * Parse Solana transaction type from instructions
  *
  * @public

@@ -1,11 +1,12 @@
 import type { TokenMetadata } from '@exitbook/core';
-import { getErrorMessage, parseDecimal } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/core';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.js';
 import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.js';
 import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.js';
+import { convertWeiToDecimal } from '../../balance-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
 import type { EvmTransaction } from '../../types.js';
@@ -202,9 +203,7 @@ export class MoralisApiClient extends BaseApiClient {
     const response = result.value;
 
     // Convert from wei to decimal
-    const balanceDecimal = parseDecimal(response.balance)
-      .div(parseDecimal('10').pow(this.chainConfig.nativeDecimals))
-      .toString();
+    const balanceDecimal = convertWeiToDecimal(response.balance, this.chainConfig.nativeDecimals);
 
     this.logger.debug(`Found raw native balance for ${address}: ${balanceDecimal}`);
     return ok({
@@ -336,7 +335,7 @@ export class MoralisApiClient extends BaseApiClient {
     const balances: RawBalanceData[] = [];
     for (const balance of rawBalances) {
       // Convert from smallest units to decimal string
-      const balanceDecimal = parseDecimal(balance.balance).div(parseDecimal('10').pow(balance.decimals)).toFixed();
+      const balanceDecimal = convertWeiToDecimal(balance.balance, balance.decimals);
 
       balances.push({
         rawAmount: balance.balance,

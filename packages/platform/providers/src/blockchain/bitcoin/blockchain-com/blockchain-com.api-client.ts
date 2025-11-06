@@ -10,6 +10,7 @@ import type {
 } from '../../../shared/blockchain/index.js';
 import { RegisterApiClient } from '../../../shared/blockchain/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
+import { calculateSimpleBalance, createRawBalanceData } from '../balance-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
 import { BlockchainComTransactionMapper } from './blockchain-com.mapper.js';
@@ -125,17 +126,11 @@ export class BlockchainComApiClient extends BaseApiClient {
     }
 
     const addressInfo = result.value;
-
-    const balanceBTC = (addressInfo.final_balance / 100000000).toString();
+    const { balanceBTC, balanceSats } = calculateSimpleBalance(addressInfo.final_balance);
 
     this.logger.debug(`Successfully retrieved raw address info - Address: ${maskAddress(address)}`);
 
-    return ok({
-      rawAmount: addressInfo.final_balance.toString(),
-      symbol: 'BTC',
-      decimals: 8,
-      decimalAmount: balanceBTC,
-    } as RawBalanceData);
+    return ok(createRawBalanceData(balanceSats, balanceBTC));
   }
 
   /**

@@ -1,5 +1,5 @@
 import type { TokenMetadata } from '@exitbook/core';
-import { getErrorMessage, parseDecimal } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../shared/blockchain/base/api-client.js';
@@ -7,13 +7,14 @@ import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../.
 import { RegisterApiClient } from '../../../shared/blockchain/index.js';
 import type { RawBalanceData, TransactionWithRawData } from '../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
+import { transformSolBalance, transformTokenAccounts } from '../balance-utils.js';
 import type {
   SolanaAccountBalance,
   SolanaSignature,
   SolanaTokenAccountsResponse,
   SolanaTransaction,
 } from '../types.js';
-import { isValidSolanaAddress } from '../utils.js';
+import { deduplicateTransactionsBySignature, isValidSolanaAddress } from '../utils.js';
 
 import { HeliusTransactionMapper } from './helius.mapper.js';
 import type { HeliusAssetResponse, HeliusTransaction } from './helius.schemas.js';
@@ -97,6 +98,22 @@ export class HeliusApiClient extends BaseApiClient {
     }
   }
 
+  getHealthCheckConfig() {
+    return {
+      body: {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getHealth',
+      },
+      endpoint: '/',
+      method: 'POST' as const,
+      validate: (response: unknown) => {
+        const data = response as JsonRpcResponse<string>;
+        return data?.result === 'ok';
+      },
+    };
+  }
+
   async getTokenMetadata(mintAddress: string): Promise<Result<TokenMetadata, Error>> {
     const result = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>('/', {
       id: 1,
@@ -120,34 +137,20 @@ export class HeliusApiClient extends BaseApiClient {
     }
 
     const asset = response.result;
+    return ok(this.extractTokenMetadata(asset, mintAddress));
+  }
+
+  private extractTokenMetadata(asset: HeliusAssetResponse, mintAddress: string): TokenMetadata {
     const metadata = asset.content?.metadata;
     const tokenInfo = asset.token_info;
     const links = asset.content?.links;
 
-    return ok({
+    return {
       contractAddress: mintAddress,
-      refreshedAt: new Date(),
       decimals: tokenInfo?.decimals ?? undefined,
       logoUrl: links?.image ?? undefined,
       name: metadata?.name ?? undefined,
       symbol: metadata?.symbol ?? undefined,
-      source: 'helius',
-    });
-  }
-
-  getHealthCheckConfig() {
-    return {
-      body: {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'getHealth',
-      },
-      endpoint: '/',
-      method: 'POST' as const,
-      validate: (response: unknown) => {
-        const data = response as JsonRpcResponse<string>;
-        return data?.result === 'ok';
-      },
     };
   }
 
@@ -243,21 +246,13 @@ export class HeliusApiClient extends BaseApiClient {
       return err(new Error('Failed to fetch balance from Helius RPC'));
     }
 
-    // Convert from lamports to SOL (1 SOL = 10^9 lamports)
-    const balanceSOL = parseDecimal(response.result.value?.toString() || '0')
-      .div(parseDecimal('10').pow(9))
-      .toFixed();
+    const balanceData = transformSolBalance(response.result.value);
 
     this.logger.debug(
-      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceSOL}`
+      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceData.decimalAmount}`
     );
 
-    return ok({
-      rawAmount: response.result.value.toString(),
-      decimals: 9,
-      decimalAmount: balanceSOL,
-      symbol: 'SOL',
-    } as RawBalanceData);
+    return ok(balanceData);
   }
 
   private async getAddressTransactions(params: {
@@ -293,13 +288,7 @@ export class HeliusApiClient extends BaseApiClient {
     const allRawTransactions = [...directTransactions, ...tokenAccountTransactions];
 
     // Deduplicate transactions by signature (same tx can appear in both direct and token account lists)
-    const uniqueTransactions = new Map<string, HeliusTransaction>();
-    for (const tx of allRawTransactions) {
-      const signature = tx.transaction.signatures?.[0] ?? tx.signature;
-      if (signature && !uniqueTransactions.has(signature)) {
-        uniqueTransactions.set(signature, tx);
-      }
-    }
+    const uniqueTransactions = deduplicateTransactionsBySignature(allRawTransactions);
 
     this.logger.debug(
       `Deduplicated transactions - Address: ${maskAddress(address)}, Total: ${allRawTransactions.length}, Unique: ${uniqueTransactions.size}`
@@ -369,20 +358,7 @@ export class HeliusApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    // Convert to RawBalanceData format with mint addresses
-    const balances: RawBalanceData[] = [];
-    for (const account of tokenAccountsResponse.result.value) {
-      const tokenInfo = account.account.data.parsed.info;
-      const mintAddress = tokenInfo.mint;
-
-      balances.push({
-        contractAddress: mintAddress,
-        decimals: tokenInfo.tokenAmount.decimals,
-        decimalAmount: tokenInfo.tokenAmount.uiAmountString,
-        symbol: undefined,
-        rawAmount: tokenInfo.tokenAmount.amount,
-      });
-    }
+    const balances = transformTokenAccounts(tokenAccountsResponse.result.value);
 
     this.logger.debug(
       `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${balances.length}`

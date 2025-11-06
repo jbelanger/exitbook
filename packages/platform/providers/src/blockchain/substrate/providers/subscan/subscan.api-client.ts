@@ -1,12 +1,14 @@
-import { getErrorMessage, parseDecimal } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.js';
 import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.js';
 import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.js';
+import { convertToMainUnit, createRawBalanceData } from '../../balance-utils.js';
 import type { SubstrateChainConfig } from '../../chain-config.interface.js';
 import { getSubstrateChainConfig } from '../../chain-registry.js';
+import { augmentWithChainConfig } from '../../transaction-utils.js';
 import type { SubstrateTransaction } from '../../types.js';
 import { isValidSS58Address } from '../../utils.js';
 
@@ -229,20 +231,20 @@ export class SubscanApiClient extends BaseApiClient {
 
     // Convert from smallest unit to main unit
     const balanceSmallest = response.data?.balance || '0';
-    const balanceDecimal = parseDecimal(balanceSmallest)
-      .div(parseDecimal('10').pow(this.chainConfig.nativeDecimals))
-      .toString();
+    const balanceDecimal = convertToMainUnit(balanceSmallest, this.chainConfig.nativeDecimals);
 
     this.logger.debug(
       `Found raw balance for ${maskAddress(address)}: ${balanceDecimal} ${this.chainConfig.nativeCurrency}`
     );
 
-    return ok({
-      rawAmount: balanceSmallest,
-      decimalAmount: balanceDecimal,
-      decimals: this.chainConfig.nativeDecimals,
-      symbol: this.chainConfig.nativeCurrency,
-    });
+    return ok(
+      createRawBalanceData(
+        balanceSmallest,
+        balanceDecimal,
+        this.chainConfig.nativeDecimals,
+        this.chainConfig.nativeCurrency
+      )
+    );
   }
 
   private async getAddressTransactions(params: {
@@ -293,12 +295,7 @@ export class SubscanApiClient extends BaseApiClient {
       const pageTransfers = response.data?.transfers || [];
 
       // Augment transfers with chain config data
-      const augmentedTransfers = pageTransfers.map((tx) => ({
-        ...tx,
-        _nativeCurrency: this.chainConfig.nativeCurrency,
-        _nativeDecimals: this.chainConfig.nativeDecimals,
-        _chainDisplayName: this.chainConfig.displayName,
-      })) as SubscanTransferAugmented[];
+      const augmentedTransfers = augmentWithChainConfig(pageTransfers, this.chainConfig);
 
       transfers.push(...augmentedTransfers);
       page++;

@@ -1,4 +1,4 @@
-import { getErrorMessage, parseDecimal } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/core';
 import { HttpClient } from '@exitbook/platform-http';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -6,6 +6,7 @@ import type { ProviderConfig, ProviderOperation } from '../../../../shared/block
 import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.js';
 import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.js';
+import { convertBalance, createZeroBalance, findNativeBalance } from '../../balance-utils.js';
 import type { CosmosChainConfig } from '../../chain-config.interface.js';
 import { COSMOS_CHAINS } from '../../chain-registry.js';
 import type { CosmosTransaction } from '../../types.js';
@@ -167,9 +168,7 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
-    // Use the REST client (Bank module API)
     const endpoint = `/cosmos/bank/v1beta1/balances/${address}`;
-
     const result = await this.restClient.get<InjectiveBalanceResponse>(endpoint);
 
     if (result.isErr()) {
@@ -183,47 +182,29 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
 
     if (!response.balances || response.balances.length === 0) {
       this.logger.debug(`No balance found for address - Address: ${maskAddress(address)}`);
-      return ok({
-        rawAmount: '0',
-        symbol: this.chainConfig.nativeCurrency,
-        decimals: this.chainConfig.nativeDecimals,
-        decimalAmount: '0',
-      } as RawBalanceData);
+      return ok(createZeroBalance(this.chainConfig.nativeCurrency, this.chainConfig.nativeDecimals) as RawBalanceData);
     }
 
-    // Find the native token balance (denom is typically "inj" for Injective)
-    const nativeBalance = response.balances.find(
-      (balance) => balance.denom === 'inj' || balance.denom === this.chainConfig.nativeCurrency.toLowerCase()
-    );
+    const nativeBalance = findNativeBalance(response.balances, this.chainConfig.nativeCurrency);
 
     if (!nativeBalance) {
       this.logger.debug(
         `No native currency balance found for address - Address: ${maskAddress(address)}, Denoms found: ${response.balances.map((b) => b.denom).join(', ')}`
       );
-      return ok({
-        rawAmount: '0',
-        symbol: this.chainConfig.nativeCurrency,
-        decimals: this.chainConfig.nativeDecimals,
-        decimalAmount: '0',
-      } as RawBalanceData);
+      return ok(createZeroBalance(this.chainConfig.nativeCurrency, this.chainConfig.nativeDecimals) as RawBalanceData);
     }
 
-    // Convert from smallest unit (e.g., uinj = 10^-18 INJ) to main unit
-    const balanceSmallest = nativeBalance.amount;
-    const balanceDecimal = parseDecimal(balanceSmallest)
-      .div(parseDecimal('10').pow(this.chainConfig.nativeDecimals))
-      .toString();
-
-    this.logger.debug(
-      `Found raw balance for ${maskAddress(address)}: ${balanceDecimal} ${this.chainConfig.nativeCurrency}`
+    const balanceResult = convertBalance(
+      nativeBalance.amount,
+      this.chainConfig.nativeDecimals,
+      this.chainConfig.nativeCurrency
     );
 
-    return ok({
-      rawAmount: balanceSmallest,
-      decimalAmount: balanceDecimal,
-      decimals: this.chainConfig.nativeDecimals,
-      symbol: this.chainConfig.nativeCurrency,
-    } as RawBalanceData);
+    this.logger.debug(
+      `Found raw balance for ${maskAddress(address)}: ${balanceResult.decimalAmount} ${this.chainConfig.nativeCurrency}`
+    );
+
+    return ok(balanceResult as RawBalanceData);
   }
 
   private validateAddress(address: string): boolean {

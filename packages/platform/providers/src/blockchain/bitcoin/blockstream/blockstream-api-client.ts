@@ -10,6 +10,7 @@ import type {
   TransactionWithRawData,
 } from '../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
+import { calculateBlockstreamBalance, createRawBalanceData } from '../balance-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
 import { BlockstreamTransactionMapper } from './blockstream.mapper.js';
@@ -98,8 +99,7 @@ export class BlockstreamApiClient extends BaseApiClient {
     }
 
     const addressInfo = result.value;
-    const txCount = addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
-    const hasTransactions = txCount > 0;
+    const { hasTransactions } = calculateBlockstreamBalance(addressInfo);
 
     this.logger.debug(
       `Address transaction check complete - Address: ${maskAddress(address)}, HasTransactions: ${hasTransactions}`
@@ -126,23 +126,13 @@ export class BlockstreamApiClient extends BaseApiClient {
     }
 
     const addressInfo = result.value;
-
-    const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
-    const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
-    const totalBalanceSats = chainBalance + mempoolBalance;
-
-    const balanceBTC = (totalBalanceSats / 100000000).toString();
+    const { balanceBTC, totalBalanceSats } = calculateBlockstreamBalance(addressInfo);
 
     this.logger.debug(
       `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, BalanceBTC: ${balanceBTC}`
     );
 
-    return ok({
-      rawAmount: totalBalanceSats.toString(),
-      symbol: 'BTC',
-      decimals: 8,
-      decimalAmount: balanceBTC,
-    } as RawBalanceData);
+    return ok(createRawBalanceData(totalBalanceSats, balanceBTC));
   }
 
   /**

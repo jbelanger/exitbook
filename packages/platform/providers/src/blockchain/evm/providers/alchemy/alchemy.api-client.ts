@@ -27,8 +27,11 @@ import type {
   TransactionWithRawData,
 } from '../../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.js';
+import { isNativeToken } from '../../balance-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
+import { extractAlchemyNetworkName } from '../../mapper-utils.js';
+import { deduplicateTransactionHashes, mergeReceiptsIntoTransfers } from '../../receipt-utils.js';
 import type { EvmTransaction } from '../../types.js';
 
 import { AlchemyTransactionMapper } from './alchemy.mapper.js';
@@ -199,9 +202,7 @@ export class AlchemyApiClient extends BaseApiClient {
   }
 
   private getAlchemyNetworkName(): string {
-    // Extract network name from baseUrl: https://eth-mainnet.g.alchemy.com/v2 -> eth-mainnet
-    const match = this.baseUrl.match(/https:\/\/([^.]+)\.g\.alchemy\.com/);
-    return match?.[1] || `${this.blockchain}-mainnet`;
+    return extractAlchemyNetworkName(this.baseUrl, this.blockchain);
   }
 
   private async getAssetTransfers(
@@ -309,8 +310,7 @@ export class AlchemyApiClient extends BaseApiClient {
   private async getTransactionReceipts(
     txHashes: string[]
   ): Promise<Result<Map<string, AlchemyTransactionReceipt>, Error>> {
-    // Deduplicate transaction hashes
-    const uniqueHashes = [...new Set(txHashes)];
+    const uniqueHashes = deduplicateTransactionHashes(txHashes);
 
     if (uniqueHashes.length === 0) {
       return ok(new Map());
@@ -367,27 +367,6 @@ export class AlchemyApiClient extends BaseApiClient {
     return ok(receiptMap);
   }
 
-  /**
-   * Merges receipt data (gas fees) into asset transfers.
-   * Modifies transfers in place by adding _gasUsed, _effectiveGasPrice, and _nativeCurrency fields.
-   */
-  private mergeReceiptsIntoTransfers(
-    transfers: AlchemyAssetTransfer[],
-    receipts: Map<string, AlchemyTransactionReceipt>
-  ): void {
-    const nativeCurrency = this.chainConfig.nativeCurrency;
-
-    for (const transfer of transfers) {
-      const receipt = receipts.get(transfer.hash);
-      if (receipt) {
-        // Add receipt data as underscore-prefixed fields to avoid conflicts
-        transfer._gasUsed = receipt.gasUsed;
-        transfer._effectiveGasPrice = receipt.effectiveGasPrice || '0';
-        transfer._nativeCurrency = nativeCurrency;
-      }
-    }
-  }
-
   private async getAddressInternalTransactions(
     address: string
   ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
@@ -417,7 +396,7 @@ export class AlchemyApiClient extends BaseApiClient {
     }
 
     // Merge receipt data into transfers
-    this.mergeReceiptsIntoTransfers(rawTransactions, receiptsResult.value);
+    mergeReceiptsIntoTransfers(rawTransactions, receiptsResult.value, this.chainConfig.nativeCurrency);
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
@@ -470,7 +449,7 @@ export class AlchemyApiClient extends BaseApiClient {
     }
 
     // Merge receipt data into transfers
-    this.mergeReceiptsIntoTransfers(rawTransactions, receiptsResult.value);
+    mergeReceiptsIntoTransfers(rawTransactions, receiptsResult.value, this.chainConfig.nativeCurrency);
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
@@ -526,12 +505,7 @@ export class AlchemyApiClient extends BaseApiClient {
     const tokenBalances = parseResult.data.data.tokens;
 
     // Find the native token (tokenAddress is null for native token)
-    const nativeBalance = tokenBalances.find(
-      (balance) =>
-        !balance.tokenAddress ||
-        balance.tokenAddress === '0x0000000000000000000000000000000000000000' ||
-        balance.tokenAddress === '0x0'
-    );
+    const nativeBalance = tokenBalances.find((balance) => isNativeToken(balance.tokenAddress));
 
     if (!nativeBalance) {
       this.logger.debug(`No native balance found for ${address}`);
@@ -649,7 +623,7 @@ export class AlchemyApiClient extends BaseApiClient {
     }
 
     // Merge receipt data into transfers
-    this.mergeReceiptsIntoTransfers(rawTransactions, receiptsResult.value);
+    mergeReceiptsIntoTransfers(rawTransactions, receiptsResult.value, this.chainConfig.nativeCurrency);
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
