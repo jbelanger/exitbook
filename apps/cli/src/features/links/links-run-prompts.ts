@@ -1,9 +1,9 @@
 import * as p from '@clack/prompts';
 import { parseDecimal } from '@exitbook/core';
 
-import { handleCancellation, isCancelled } from '../shared/prompts.ts';
+import { handleCancellation, isCancelled } from '../shared/prompts.js';
 
-import type { LinksRunHandlerParams } from './links-run-utils.ts';
+import type { LinksRunHandlerParams } from './links-run-utils.js';
 
 /**
  * Prompt user for links run parameters in interactive mode.

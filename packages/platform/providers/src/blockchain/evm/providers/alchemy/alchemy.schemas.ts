@@ -4,8 +4,8 @@ import {
   hexOrNumericToNumericOptional,
   hexOrNumericToNumericRequired,
   timestampToDate,
-} from '../../../../shared/blockchain/utils/zod-utils.ts';
-import { EvmAddressSchema } from '../../schemas.ts';
+} from '../../../../shared/blockchain/utils/zod-utils.js';
+import { EvmAddressSchema } from '../../schemas.js';
 
 /**
  * Schema for Alchemy raw contract structure

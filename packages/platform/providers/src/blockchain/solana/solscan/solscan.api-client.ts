@@ -1,15 +1,15 @@
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
-import type { ProviderConfig, ProviderOperation } from '../../../shared/blockchain/index.ts';
-import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
-import type { RawBalanceData, TransactionWithRawData } from '../../../shared/blockchain/types/index.ts';
-import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
+import { BaseApiClient } from '../../../shared/blockchain/base/api-client.js';
+import type { ProviderConfig, ProviderOperation } from '../../../shared/blockchain/index.js';
+import { RegisterApiClient } from '../../../shared/blockchain/index.js';
+import type { RawBalanceData, TransactionWithRawData } from '../../../shared/blockchain/types/index.js';
+import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import type { SolanaTransaction } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
-import { SolscanTransactionMapper } from './solscan.mapper.ts';
+import { SolscanTransactionMapper } from './solscan.mapper.js';
 import type { SolscanTransaction, SolscanResponse } from './solscan.schemas.js';
 
 export interface SolscanRawBalanceData {

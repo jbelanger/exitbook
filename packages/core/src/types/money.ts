@@ -1,1 +1,1 @@
-export type { Money } from '../schemas/money.ts';
+export type { Money } from '../schemas/money.js';

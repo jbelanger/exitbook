@@ -1,11 +1,11 @@
 import type { Command } from 'commander';
 
-import { withDatabaseAndHandler } from '../shared/command-execution.ts';
-import { ExitCodes } from '../shared/exit-codes.ts';
-import { OutputManager } from '../shared/output.ts';
+import { withDatabaseAndHandler } from '../shared/command-execution.js';
+import { ExitCodes } from '../shared/exit-codes.js';
+import { OutputManager } from '../shared/output.js';
 
-import type { ProcessResult } from './process-handler.ts';
-import { ProcessHandler } from './process-handler.ts';
+import type { ProcessResult } from './process-handler.js';
+import { ProcessHandler } from './process-handler.js';
 
 /**
  * Process command options.

@@ -6,13 +6,13 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import type z from 'zod';
 
-import { PartialImportError } from '../core/errors.ts';
-import * as ExchangeUtils from '../core/exchange-utils.ts';
-import type { ExchangeLedgerEntry } from '../core/schemas.ts';
-import type { BalanceSnapshot, ExchangeCredentials, FetchParams, IExchangeClient } from '../core/types.ts';
+import { PartialImportError } from '../core/errors.js';
+import * as ExchangeUtils from '../core/exchange-utils.js';
+import type { ExchangeLedgerEntry } from '../core/schemas.js';
+import type { BalanceSnapshot, ExchangeCredentials, FetchParams, IExchangeClient } from '../core/types.js';
 
-import { CoinbaseCredentialsSchema, CoinbaseLedgerEntrySchema, RawCoinbaseLedgerEntrySchema } from './schemas.ts';
-import type { RawCoinbaseLedgerEntry } from './types.ts';
+import { CoinbaseCredentialsSchema, CoinbaseLedgerEntrySchema, RawCoinbaseLedgerEntrySchema } from './schemas.js';
+import type { RawCoinbaseLedgerEntry } from './types.js';
 
 export type CoinbaseLedgerEntry = z.infer<typeof CoinbaseLedgerEntrySchema>;
 

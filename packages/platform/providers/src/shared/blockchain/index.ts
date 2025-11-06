@@ -1,20 +1,20 @@
-// export * from './provider-manager.ts';
+// export * from './provider-manager.js';
 // export * from './normalizer.js';
 // export * from './registry/index.js';
 
 // Base classes (foundation)
-export * from './base/api-client.ts';
-export * from './base/mapper.ts';
+export * from './base/api-client.js';
+export * from './base/mapper.js';
 
 // Core types
-export * from './types/index.ts';
+export * from './types/index.js';
 
 // Registry system
-export * from './registry/decorators.ts';
-export * from './registry/provider-registry.ts';
+export * from './registry/decorators.js';
+export * from './registry/provider-registry.js';
 
 // Provider management
-export * from './provider-manager.ts';
+export * from './provider-manager.js';
 
 // Utilities (if public)
-export * from './utils/index.ts';
+export * from './utils/index.js';

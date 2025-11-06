@@ -1,11 +1,11 @@
 import type { TokenMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../shared/blockchain/index.ts';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
-import type { SolanaTransaction } from '../../types.ts';
-import { lamportsToSol } from '../../utils.ts';
-import { HeliusApiClient } from '../helius.api-client.ts';
+import { ProviderRegistry } from '../../../../shared/blockchain/index.js';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.js';
+import type { SolanaTransaction } from '../../types.js';
+import { lamportsToSol } from '../../utils.js';
+import { HeliusApiClient } from '../helius.api-client.js';
 import type { HeliusTransaction } from '../helius.schemas.js';
 
 describe('HeliusApiClient Integration', () => {

@@ -12,9 +12,9 @@ export type {
   LotTransferMetadata,
   SameAssetTransferFeePolicy,
   VarianceTolerance,
-} from './schemas.ts';
+} from './schemas.js';
 
-import type { AcquisitionLot, CostBasisCalculation, LotDisposal } from './schemas.ts';
+import type { AcquisitionLot, CostBasisCalculation, LotDisposal } from './schemas.js';
 
 /**
  * Result of a cost basis calculation

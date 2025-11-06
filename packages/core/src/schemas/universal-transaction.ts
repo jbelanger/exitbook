@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-import { parseDecimal } from '../utils/decimal-utils.ts';
+import { parseDecimal } from '../utils/decimal-utils.js';
 
-import { DateSchema, DecimalSchema, MoneySchema } from './money.ts';
+import { DateSchema, DecimalSchema, MoneySchema } from './money.js';
 
 // Transaction type schema
 export const TransactionTypeSchema = z.enum([
@@ -130,15 +130,15 @@ export const AssetMovementSchema = z
  *
  * DOWNSTREAM USAGE:
  *
- * For Disposal Proceeds (lot-matcher-utils.ts:calculateFeesInFiat):
+ * For Disposal Proceeds (lot-matcher-utils.js:calculateFeesInFiat):
  * - Include ONLY fees where settlement='on-chain' (reduces what you received)
  * - Exclude fees where settlement='balance' (separate cost, doesn't affect proceeds)
  *
- * For Acquisition Cost Basis (lot-matcher-utils.ts:calculateFeesInFiat):
+ * For Acquisition Cost Basis (lot-matcher-utils.js:calculateFeesInFiat):
  * - Include ALL fees (all settlements, all scopes except 'spread')
  * - Fees increase what you paid to acquire the asset
  *
- * For Balance Calculation (balance-calculator.ts):
+ * For Balance Calculation (balance-calculator.js):
  * - UTXO chains (settlement='on-chain'): Deduct grossAmount (fee embedded), skip fee subtraction
  * - Account-based chains (settlement='balance'): Deduct grossAmount + fee amount separately
  * - This ensures accurate balance tracking across different blockchain architectures

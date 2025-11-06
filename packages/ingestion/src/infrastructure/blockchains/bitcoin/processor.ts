@@ -3,9 +3,9 @@ import type { UniversalTransaction } from '@exitbook/core';
 import type { BitcoinTransaction } from '@exitbook/providers';
 import { type Result, err, okAsync } from 'neverthrow';
 
-import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
+import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
-import { analyzeBitcoinFundFlow, determineBitcoinTransactionType } from './processor-utils.ts';
+import { analyzeBitcoinFundFlow, determineBitcoinTransactionType } from './processor-utils.js';
 
 /**
  * Bitcoin transaction processor that converts raw blockchain transaction data

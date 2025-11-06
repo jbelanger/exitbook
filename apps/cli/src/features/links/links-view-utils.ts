@@ -4,7 +4,7 @@ import type { LinkStatus, MatchCriteria } from '@exitbook/accounting';
 import type { AssetMovement } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { CommonViewFilters } from '../shared/view-utils.ts';
+import type { CommonViewFilters } from '../shared/view-utils.js';
 
 /**
  * Parameters for links view command.

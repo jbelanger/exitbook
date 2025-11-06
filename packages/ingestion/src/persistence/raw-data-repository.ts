@@ -10,7 +10,7 @@ import type { StoredRawData } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IRawDataRepository, LoadRawDataFilters } from '../types/repositories.ts';
+import type { IRawDataRepository, LoadRawDataFilters } from '../types/repositories.js';
 
 /**
  * Kysely-based repository for raw data database operations.

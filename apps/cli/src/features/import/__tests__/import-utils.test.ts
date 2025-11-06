@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ImportHandlerParams } from '../import-handler.ts';
-import { buildImportParamsFromFlags, validateImportParams, type ImportCommandOptions } from '../import-utils.ts';
+import type { ImportHandlerParams } from '../import-handler.js';
+import { buildImportParamsFromFlags, validateImportParams, type ImportCommandOptions } from '../import-utils.js';
 
 describe('validateImportParams', () => {
   describe('exchange sources', () => {

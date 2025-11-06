@@ -12,8 +12,8 @@ import {
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import { ProviderRegistry } from './registry/provider-registry.ts';
-import { ProviderError } from './types/errors.ts';
+import { ProviderRegistry } from './registry/provider-registry.js';
+import { ProviderError } from './types/errors.js';
 import type {
   FailoverExecutionResult,
   IBlockchainProvider,
@@ -22,8 +22,8 @@ import type {
   ProviderHealth,
   ProviderOperation,
   ProviderOperationType,
-} from './types/index.ts';
-import type { BlockchainExplorersConfig, ProviderOverride } from './utils/config-utils.ts';
+} from './types/index.js';
+import type { BlockchainExplorersConfig, ProviderOverride } from './utils/config-utils.js';
 
 const logger = getLogger('BlockchainProviderManager');
 

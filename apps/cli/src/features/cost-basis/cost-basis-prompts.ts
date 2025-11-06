@@ -2,9 +2,9 @@ import * as p from '@clack/prompts';
 import type { CostBasisConfig } from '@exitbook/accounting';
 import { getDefaultDateRange } from '@exitbook/accounting';
 
-import { handleCancellation, isCancelled } from '../shared/prompts.ts';
+import { handleCancellation, isCancelled } from '../shared/prompts.js';
 
-import type { CostBasisHandlerParams } from './cost-basis-utils.ts';
+import type { CostBasisHandlerParams } from './cost-basis-utils.js';
 
 /**
  * Prompt user for cost basis parameters in interactive mode.

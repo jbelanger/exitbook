@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeNativeAmount, normalizeTokenAmount } from '../amount-utils.ts';
+import { normalizeNativeAmount, normalizeTokenAmount } from '../amount-utils.js';
 
 describe('amount-utils', () => {
   describe('normalizeTokenAmount', () => {

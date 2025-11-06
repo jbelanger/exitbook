@@ -1,6 +1,6 @@
 import type { IBlockchainProvider, ProviderConfig, ProviderFactory, ProviderMetadata } from '../types/index.js';
 
-import { ProviderRegistry } from './provider-registry.ts';
+import { ProviderRegistry } from './provider-registry.js';
 
 /**
  * Decorator to register an API client class with the registry

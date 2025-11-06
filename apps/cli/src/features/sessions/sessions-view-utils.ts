@@ -2,7 +2,7 @@
 
 import type { SourceType } from '@exitbook/core';
 
-import type { CommonViewFilters } from '../shared/view-utils.ts';
+import type { CommonViewFilters } from '../shared/view-utils.js';
 
 /**
  * Parameters for view sessions command.

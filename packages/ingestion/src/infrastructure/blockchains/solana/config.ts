@@ -1,11 +1,11 @@
 import type { BlockchainProviderManager } from '@exitbook/providers';
 import { err, ok } from 'neverthrow';
 
-import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.ts';
-import { registerBlockchain } from '../shared/blockchain-config.ts';
+import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
+import { registerBlockchain } from '../shared/blockchain-config.js';
 
-import { SolanaTransactionImporter } from './importer.ts';
-import { SolanaTransactionProcessor } from './processor.ts';
+import { SolanaTransactionImporter } from './importer.js';
+import { SolanaTransactionProcessor } from './processor.js';
 
 registerBlockchain({
   blockchain: 'solana',

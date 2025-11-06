@@ -2,8 +2,8 @@ import type { KyselyDB } from '@exitbook/data';
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
-import type { OutputManager } from './output.ts';
-import { handleCancellation, promptConfirm } from './prompts.ts';
+import type { OutputManager } from './output.js';
+import { handleCancellation, promptConfirm } from './prompts.js';
 
 /**
  * Command handler interface.

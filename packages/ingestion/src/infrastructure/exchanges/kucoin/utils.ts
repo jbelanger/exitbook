@@ -2,7 +2,7 @@
  * Validation utilities for KuCoin CSV data formats
  *
  * These utilities provide validation functions for KuCoin CSV data using
- * the schemas defined in schemas.ts.
+ * the schemas defined in schemas.js.
  */
 import type { z } from 'zod';
 

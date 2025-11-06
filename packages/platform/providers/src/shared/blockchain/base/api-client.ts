@@ -5,14 +5,14 @@ import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import { ProviderRegistry } from '../registry/provider-registry.ts';
+import { ProviderRegistry } from '../registry/provider-registry.js';
 import type {
   IBlockchainProvider,
   ProviderCapabilities,
   ProviderConfig,
   ProviderMetadata,
   ProviderOperation,
-} from '../types/index.ts';
+} from '../types/index.js';
 
 /**
  * Abstract base class for registry-based providers

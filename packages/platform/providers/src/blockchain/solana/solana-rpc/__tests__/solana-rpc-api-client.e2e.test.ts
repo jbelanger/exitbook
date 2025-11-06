@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../shared/blockchain/index.ts';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
-import type { SolanaTransaction } from '../../types.ts';
-import { SolanaRPCApiClient } from '../solana-rpc.api-client.ts';
+import { ProviderRegistry } from '../../../../shared/blockchain/index.js';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.js';
+import type { SolanaTransaction } from '../../types.js';
+import { SolanaRPCApiClient } from '../solana-rpc.api-client.js';
 
 describe('SolanaRPCApiClient Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('solana', 'solana-rpc');

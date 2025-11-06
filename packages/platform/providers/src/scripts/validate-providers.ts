@@ -7,7 +7,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import { initializeProviders } from '../initialize.js';
-import { ProviderRegistry } from '../shared/blockchain/index.ts';
+import { ProviderRegistry } from '../shared/blockchain/index.js';
 
 // Initialize all providers
 initializeProviders();

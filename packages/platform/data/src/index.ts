@@ -1,14 +1,14 @@
-export { createDatabase, clearDatabase, closeDatabase, type KyselyDB } from './storage/database.ts';
-export { runMigrations, getMigrationStatus } from './storage/migrations.ts';
-export { initializeDatabase } from './storage/initialization.ts';
-export { BaseRepository } from './repositories/base-repository.ts';
-export { TransactionRepository } from './repositories/transaction-repository.ts';
-export type { ITransactionRepository, TransactionFilters } from './repositories/transaction-repository.interface.ts';
-export { TokenMetadataRepository } from './repositories/token-metadata-repository.ts';
-export type { DatabaseSchema, TransactionLinksTable } from './schema/database-schema.ts';
+export { createDatabase, clearDatabase, closeDatabase, type KyselyDB } from './storage/database.js';
+export { runMigrations, getMigrationStatus } from './storage/migrations.js';
+export { initializeDatabase } from './storage/initialization.js';
+export { BaseRepository } from './repositories/base-repository.js';
+export { TransactionRepository } from './repositories/transaction-repository.js';
+export type { ITransactionRepository, TransactionFilters } from './repositories/transaction-repository.interface.js';
+export { TokenMetadataRepository } from './repositories/token-metadata-repository.js';
+export type { DatabaseSchema, TransactionLinksTable } from './schema/database-schema.js';
 export type {
   StoredRawData,
   StoredDataSource,
   SourceQuery as ImportSessionQuery,
   DataSourceUpdate,
-} from './types/data-types.ts';
+} from './types/data-types.js';

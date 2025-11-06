@@ -11,7 +11,7 @@ import '../../../blockchain/evm/register-apis.js';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { BlockchainProviderManager } from '../provider-manager.ts';
+import { BlockchainProviderManager } from '../provider-manager.js';
 import { ProviderRegistry } from '../registry/provider-registry.js';
 import type { ProviderInfo } from '../types/index.js';
 import {

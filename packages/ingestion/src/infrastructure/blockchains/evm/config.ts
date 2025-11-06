@@ -2,11 +2,11 @@ import type { BlockchainProviderManager } from '@exitbook/providers';
 import { EVM_CHAINS, getEvmChainConfig } from '@exitbook/providers';
 import { err, ok } from 'neverthrow';
 
-import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.ts';
-import { registerBlockchain } from '../shared/blockchain-config.ts';
+import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
+import { registerBlockchain } from '../shared/blockchain-config.js';
 
-import { EvmImporter } from './importer.ts';
-import { EvmTransactionProcessor } from './processor.ts';
+import { EvmImporter } from './importer.js';
+import { EvmTransactionProcessor } from './processor.js';
 
 // Register all EVM chains from the chain registry
 for (const chainName of Object.keys(EVM_CHAINS)) {

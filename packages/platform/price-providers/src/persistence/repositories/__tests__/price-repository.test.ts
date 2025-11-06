@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { PriceData } from '../../../shared/types/index.js';
 import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../database.js';
-import { PriceRepository } from '../price-repository.ts';
+import { PriceRepository } from '../price-repository.js';
 
 describe('PriceRepository', () => {
   let db: PricesDB;

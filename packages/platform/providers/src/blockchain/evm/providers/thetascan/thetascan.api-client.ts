@@ -1,13 +1,13 @@
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
-import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
-import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
-import type { EvmTransaction } from '../../types.ts';
+import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.js';
+import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.js';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.js';
+import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.js';
+import type { EvmTransaction } from '../../types.js';
 
-import { ThetaScanTransactionMapper } from './thetascan.mapper.ts';
+import { ThetaScanTransactionMapper } from './thetascan.mapper.js';
 import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBalance } from './thetascan.schemas.js';
 
 @RegisterApiClient({

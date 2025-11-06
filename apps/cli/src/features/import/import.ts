@@ -1,14 +1,14 @@
 import { configureLogger, resetLoggerContext } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
-import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.ts';
-import { ExitCodes } from '../shared/exit-codes.ts';
-import { OutputManager } from '../shared/output.ts';
+import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.js';
+import { ExitCodes } from '../shared/exit-codes.js';
+import { OutputManager } from '../shared/output.js';
 
-import type { ImportResult } from './import-handler.ts';
-import { ImportHandler } from './import-handler.ts';
-import { promptForImportParams } from './import-prompts.ts';
-import { buildImportParamsFromFlags, type ImportCommandOptions } from './import-utils.ts';
+import type { ImportResult } from './import-handler.js';
+import { ImportHandler } from './import-handler.js';
+import { promptForImportParams } from './import-prompts.js';
+import { buildImportParamsFromFlags, type ImportCommandOptions } from './import-utils.js';
 
 /**
  * Extended import command options (adds CLI-specific flags not needed by handler).

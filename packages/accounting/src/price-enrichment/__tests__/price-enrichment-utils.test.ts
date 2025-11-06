@@ -11,7 +11,7 @@ import { Currency, parseDecimal } from '@exitbook/core';
 import type { AssetMovement, FeeMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { enrichFeePricesFromMovements, inferMultiPass, propagatePricesAcrossLinks } from '../price-enrichment-utils.ts';
+import { enrichFeePricesFromMovements, inferMultiPass, propagatePricesAcrossLinks } from '../price-enrichment-utils.js';
 import type { TransactionGroup } from '../types.js';
 
 describe('inferMultiPass', () => {

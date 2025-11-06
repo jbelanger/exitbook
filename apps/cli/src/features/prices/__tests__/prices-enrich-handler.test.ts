@@ -14,8 +14,8 @@
 import type { KyselyDB } from '@exitbook/data';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { PricesEnrichHandler } from '../prices-enrich-handler.ts';
-import type { PricesEnrichOptions } from '../prices-enrich-handler.ts';
+import { PricesEnrichHandler } from '../prices-enrich-handler.js';
+import type { PricesEnrichOptions } from '../prices-enrich-handler.js';
 
 describe('PricesEnrichHandler', () => {
   let mockDb: KyselyDB;
@@ -110,9 +110,9 @@ describe('PricesEnrichHandler', () => {
      * - 2020-03-12: Multiple stablecoins de-pegged during Black Thursday
      *
      * Implementation verified in:
-     * - price-calculation-utils.ts:69-71 - Only actual USD used for derivation
-     * - price-calculation-utils.test.ts:60-80 - USDT trade skipped
-     * - price-calculation-utils.test.ts:105-125 - USDC trade skipped
+     * - price-calculation-utils.js:69-71 - Only actual USD used for derivation
+     * - price-calculation-utils.test.js:60-80 - USDT trade skipped
+     * - price-calculation-utils.test.js:105-125 - USDC trade skipped
      *
      * Pipeline behavior:
      * - Stage 1 (Normalize): Skips stablecoins (they're crypto, not fiat)
@@ -145,9 +145,9 @@ describe('PricesEnrichHandler', () => {
      * - Enables consistent cost basis calculations
      *
      * Implementation verified in:
-     * - price-normalization-service.ts:250-300 - FX conversion to USD
-     * - price-normalization-utils.ts:119-139 - createNormalizedPrice()
-     * - price-normalization-utils.test.ts:257-302 - Test coverage
+     * - price-normalization-service.js:250-300 - FX conversion to USD
+     * - price-normalization-utils.js:119-139 - createNormalizedPrice()
+     * - price-normalization-utils.test.js:257-302 - Test coverage
      */
     it('documents USD-only normalization requirements', () => {
       const requirements = {
@@ -167,7 +167,7 @@ describe('PricesEnrichHandler', () => {
      * CRITICAL: Pure Function Extraction
      * From PR #155 Review: "Extract normalization logic to pure functions"
      *
-     * Implemented in price-normalization-utils.ts:
+     * Implemented in price-normalization-utils.js:
      * - extractMovementsNeedingNormalization() - Classifies movements
      * - validateFxRate() - Validates FX rates (positive, bounds)
      * - createNormalizedPrice() - Builds normalized price with metadata
@@ -182,7 +182,7 @@ describe('PricesEnrichHandler', () => {
     it('documents pure function extraction requirements', () => {
       const requirements = {
         pure_functions_exist: true,
-        location: 'packages/accounting/src/price-enrichment/price-normalization-utils.ts',
+        location: 'packages/accounting/src/price-enrichment/price-normalization-utils.js',
         test_coverage: 22,
         testable_without_mocks: true,
         follows_functional_core_pattern: true,
@@ -198,7 +198,7 @@ describe('PricesEnrichHandler', () => {
      * CRITICAL: Code Duplication Elimination
      * From PR #155 Review: "Extract to shared factory function"
      *
-     * Implemented in prices-utils.ts:createDefaultPriceProviderManager()
+     * Implemented in prices-utils.js:createDefaultPriceProviderManager()
      * - Eliminates 90 lines of duplicated code
      * - Used by both PricesEnrichHandler and PricesFetchHandler
      * - Centralizes provider configuration
@@ -206,7 +206,7 @@ describe('PricesEnrichHandler', () => {
     it('documents duplication elimination requirements', () => {
       const requirements = {
         shared_factory_exists: true,
-        location: 'apps/cli/src/features/prices/prices-utils.ts',
+        location: 'apps/cli/src/features/prices/prices-utils.js',
         eliminates_duplication: true,
         lines_saved: 90,
       };

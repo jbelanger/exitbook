@@ -12,7 +12,7 @@ import type {
   BlockchainInfo,
   BlockchainListSummary,
   ListBlockchainsCommandOptions,
-} from './list-blockchains-utils.ts';
+} from './list-blockchains-utils.js';
 import {
   buildBlockchainInfo,
   buildSummary,
@@ -20,7 +20,7 @@ import {
   filterByCategory,
   sortBlockchains,
   validateCategory,
-} from './list-blockchains-utils.ts';
+} from './list-blockchains-utils.js';
 
 /**
  * Result data for list-blockchains command.

@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createPriceProviders, getAvailableProviderNames, createPriceProviderManager } from '../factory.ts';
+import { createPriceProviders, getAvailableProviderNames, createPriceProviderManager } from '../factory.js';
 
 // Mock database initialization
 vi.mock('../../pricing/database.js', () => ({
@@ -237,7 +237,7 @@ describe('createPriceProviders', () => {
   });
 
   it('should pass empty config when no config provided', async () => {
-    const { createCoinGeckoProvider } = await import('../../coingecko/provider.ts');
+    const { createCoinGeckoProvider } = await import('../../coingecko/provider.js');
     await createPriceProviders();
 
     // Factory passes empty config, individual providers read from process.env
@@ -250,7 +250,7 @@ describe('createPriceProviders', () => {
   it('should prefer config over env vars', async () => {
     process.env.COINGECKO_API_KEY = 'env-key';
 
-    const { createCoinGeckoProvider } = await import('../../coingecko/provider.ts');
+    const { createCoinGeckoProvider } = await import('../../coingecko/provider.js');
     await createPriceProviders({
       coingecko: { apiKey: 'config-key' },
     });
@@ -299,7 +299,7 @@ describe('createPriceProviders', () => {
 
   it('should skip provider if initialization fails', async () => {
     // Mock CoinGecko to fail initialization
-    const { createCoinGeckoProvider } = await import('../../coingecko/provider.ts');
+    const { createCoinGeckoProvider } = await import('../../coingecko/provider.js');
     const { ok, err } = await import('neverthrow');
     // Provide all required properties for CoinGeckoProvider mock
     vi.mocked(createCoinGeckoProvider).mockReturnValueOnce(
@@ -341,7 +341,7 @@ describe('createPriceProviders', () => {
         fetchPrice: vi.fn(),
         fetchHistoricalPrice: vi.fn(),
         close: vi.fn(),
-      } as unknown as import('../../coingecko/provider.ts').CoinGeckoProvider)
+      } as unknown as import('../../coingecko/provider.js').CoinGeckoProvider)
     );
 
     const result = await createPriceProviders();
@@ -415,7 +415,7 @@ describe('createPriceProviderManager', () => {
   });
 
   it('should pass provider config to createPriceProviders', async () => {
-    const { createCoinGeckoProvider } = await import('../../coingecko/provider.ts');
+    const { createCoinGeckoProvider } = await import('../../coingecko/provider.js');
 
     await createPriceProviderManager({
       providers: {

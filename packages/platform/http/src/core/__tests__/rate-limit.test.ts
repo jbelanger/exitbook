@@ -9,8 +9,8 @@ import {
   getRateLimitStatus,
   refillTokens,
   shouldAllowRequest,
-} from '../rate-limit.ts';
-import { createInitialRateLimitState } from '../types.ts';
+} from '../rate-limit.js';
+import { createInitialRateLimitState } from '../types.js';
 
 describe('rate-limit (pure functions)', () => {
   describe('refillTokens', () => {

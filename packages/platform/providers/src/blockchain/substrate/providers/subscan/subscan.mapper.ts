@@ -2,8 +2,8 @@ import { parseDecimal } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts';
-import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
+import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.js';
+import type { NormalizationError } from '../../../../shared/blockchain/index.js';
 import { SUBSTRATE_CHAINS } from '../../chain-registry.js';
 import { SubstrateTransactionSchema } from '../../schemas.js';
 import type { SubstrateTransaction } from '../../types.js';
@@ -86,18 +86,18 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
         return undefined; // Not relevant to this address
       }
 
-      // Subscan returns amount in human-readable format (already divided by decimals)
-      // but returns fee in raw blockchain units (needs to be divided)
-      const amount = parseDecimal(transfer.amount || '0');
-      // Amount is already in main unit from Subscan API
+      // Subscan returns amount in human-readable format while fee is already in raw units.
+      const decimalsMultiplier = parseDecimal('10').pow(nativeDecimals);
+      const amountHuman = parseDecimal(transfer.amount || '0');
 
-      const fee = parseDecimal(transfer.fee || '0');
-      const divisor = parseDecimal('10').pow(nativeDecimals);
-      const feeInMainUnit = fee.dividedBy(divisor);
+      // Subscan `amount` field is already in main units. Convert back to smallest units
+      const amountPlanck = amountHuman.times(decimalsMultiplier);
+
+      const feePlanck = parseDecimal(transfer.fee || '0');
 
       return {
         // Value information
-        amount: amount.toFixed(),
+        amount: amountPlanck.toFixed(0),
         // Block context
         blockHeight: transfer.block_num,
         blockId: transfer.hash, // Use transaction hash as block identifier
@@ -109,7 +109,7 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
         // Substrate-specific information
         extrinsicIndex: transfer.extrinsic_index,
         // Fee information
-        feeAmount: feeInMainUnit.toFixed(),
+        feeAmount: feePlanck.toFixed(),
 
         feeCurrency: nativeCurrency,
         // Transaction flow data

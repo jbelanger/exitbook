@@ -3,8 +3,8 @@ import { loadExplorerConfig, ProviderRegistry } from '@exitbook/providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { BenchmarkParams } from './benchmark-rate-limit-utils.ts';
-import { buildBenchmarkParams } from './benchmark-rate-limit-utils.ts';
+import type { BenchmarkParams } from './benchmark-rate-limit-utils.js';
+import { buildBenchmarkParams } from './benchmark-rate-limit-utils.js';
 
 interface BenchmarkTestResult {
   rate: number;

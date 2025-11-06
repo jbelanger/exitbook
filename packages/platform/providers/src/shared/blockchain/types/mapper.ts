@@ -1,7 +1,7 @@
 import type { SourceMetadata } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
-import type { NormalizationError } from './errors.ts';
+import type { NormalizationError } from './errors.js';
 
 /**
  * Interface for blockchain-specific raw data mappers that transform

@@ -1,3 +1,3 @@
-export * from './types.ts';
-export * from './chain-config.interface.ts';
-export * from './chain-registry.ts';
+export * from './types.js';
+export * from './chain-config.interface.js';
+export * from './chain-registry.js';

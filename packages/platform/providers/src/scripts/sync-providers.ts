@@ -9,11 +9,11 @@ import { initializeProviders } from '../initialize.js';
  * Sync registered providers with blockchain configuration
  * Detects missing providers and can automatically fix config drift
  */
-import { ProviderRegistry } from '../shared/blockchain/index.ts';
+import { ProviderRegistry } from '../shared/blockchain/index.js';
 import {
   BlockchainExplorersConfigSchema,
   type BlockchainExplorersConfig,
-} from '../shared/blockchain/utils/config-utils.ts';
+} from '../shared/blockchain/utils/config-utils.js';
 
 // Initialize all providers
 initializeProviders();

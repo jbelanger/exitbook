@@ -13,4 +13,4 @@ export type {
   SourceParams,
   SourceType,
   VerificationMetadata,
-} from '../schemas/data-source.ts';
+} from '../schemas/data-source.js';

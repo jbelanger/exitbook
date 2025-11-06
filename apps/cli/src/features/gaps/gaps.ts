@@ -3,7 +3,7 @@
 
 import type { Command } from 'commander';
 
-import { registerGapsViewCommand } from './gaps-view.ts';
+import { registerGapsViewCommand } from './gaps-view.js';
 
 /**
  * Register the unified gaps command with all subcommands.

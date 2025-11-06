@@ -25,10 +25,10 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { IFxRateProvider } from './fx-rate-provider.interface.ts';
-import { normalizeTransactionMovements } from './price-normalization-utils.ts';
-import type { TransactionNormalizationResult } from './price-normalization-utils.ts';
-import { normalizePriceToUSD as normalizePriceToUSDUtil } from './price-normalization-utils.ts';
+import type { IFxRateProvider } from './fx-rate-provider.interface.js';
+import { normalizeTransactionMovements } from './price-normalization-utils.js';
+import type { TransactionNormalizationResult } from './price-normalization-utils.js';
+import { normalizePriceToUSD as normalizePriceToUSDUtil } from './price-normalization-utils.js';
 
 const logger = getLogger('PriceNormalizationService');
 

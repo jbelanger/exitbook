@@ -2,8 +2,8 @@ import type { UniversalTransaction } from '@exitbook/core';
 import { Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { analyzeFeeGaps, formatFeeGapAnalysis, formatGapsViewResult } from '../gaps-view-utils.ts';
-import type { GapsViewResult } from '../gaps-view-utils.ts';
+import { analyzeFeeGaps, formatFeeGapAnalysis, formatGapsViewResult } from '../gaps-view-utils.js';
+import type { GapsViewResult } from '../gaps-view-utils.js';
 
 describe('gaps-view-utils', () => {
   const createMockTransaction = (overrides: Partial<UniversalTransaction> = {}): UniversalTransaction => ({

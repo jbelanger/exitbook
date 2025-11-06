@@ -11,7 +11,7 @@ import {
   validateExportParams,
   type ExportCommandOptions,
   type ExportHandlerParams,
-} from '../export-utils.ts';
+} from '../export-utils.js';
 
 describe('export-utils', () => {
   describe('validateExportFormat', () => {

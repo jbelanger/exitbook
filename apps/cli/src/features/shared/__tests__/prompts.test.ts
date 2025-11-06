@@ -8,7 +8,7 @@ import {
   handleCancellation,
   isCancelled,
   sortBlockchainsByCategory,
-} from '../prompts.ts';
+} from '../prompts.js';
 
 // Mock @clack/prompts
 vi.mock('@clack/prompts', () => ({

@@ -2,7 +2,7 @@ import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 
-import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
+import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import {
   classifyExchangeOperationFromFundFlow,
@@ -10,15 +10,15 @@ import {
   consolidateExchangeMovements,
   detectExchangeClassificationUncertainty,
   selectPrimaryMovement,
-} from './correlating-exchange-processor-utils.ts';
+} from './correlating-exchange-processor-utils.js';
 import type {
   FeeInput,
   GroupingStrategy,
   InterpretationStrategy,
   MovementInput,
   RawTransactionWithMetadata,
-} from './strategies/index.ts';
-import type { ExchangeFundFlow } from './types.ts';
+} from './strategies/index.js';
+import type { ExchangeFundFlow } from './types.js';
 
 /**
  * Base processor for exchange transactions using strategy composition.

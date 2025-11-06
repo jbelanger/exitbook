@@ -1,7 +1,7 @@
 import { Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { createTestPriceData } from '../../__tests__/test-helpers.ts';
+import { createTestPriceData } from '../../__tests__/test-helpers.js';
 import {
   calculatePriceChange,
   createCacheKey,
@@ -13,8 +13,8 @@ import {
   sortByTimestamp,
   validatePriceData,
   validateQueryTimeRange,
-} from '../shared-utils.ts';
-import type { PriceData, PriceQuery } from '../types/index.ts';
+} from '../shared-utils.js';
+import type { PriceData, PriceQuery } from '../types/index.js';
 
 describe('roundToDay', () => {
   it('should round down to start of day in UTC', () => {

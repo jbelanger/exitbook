@@ -7,7 +7,7 @@ import { wrapError } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { PricesDB } from '../database.ts';
+import type { PricesDB } from '../database.js';
 
 export interface ProviderRecord {
   id: number;

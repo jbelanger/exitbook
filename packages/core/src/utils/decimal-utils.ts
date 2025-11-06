@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 
-import type { Money } from '../index.ts';
-import { Currency } from '../index.ts';
+import type { Money } from '../index.js';
+import { Currency } from '../index.js';
 
 // Configure Decimal.js for cryptocurrency precision
 // Most cryptocurrencies use up to 18 decimal places, so we set precision high

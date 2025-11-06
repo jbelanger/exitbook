@@ -18,20 +18,20 @@ import { getErrorMessage } from '@exitbook/core';
 import { HttpClient } from '@exitbook/platform-http';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig } from '../../../../shared/blockchain/index.ts';
-import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
+import type { ProviderConfig } from '../../../../shared/blockchain/index.js';
+import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.js';
 import type {
   ProviderOperation,
   JsonRpcResponse,
   RawBalanceData,
   TransactionWithRawData,
-} from '../../../../shared/blockchain/types/index.ts';
-import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
-import type { EvmChainConfig } from '../../chain-config.interface.ts';
-import { getEvmChainConfig } from '../../chain-registry.ts';
-import type { EvmTransaction } from '../../types.ts';
+} from '../../../../shared/blockchain/types/index.js';
+import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.js';
+import type { EvmChainConfig } from '../../chain-config.interface.js';
+import { getEvmChainConfig } from '../../chain-registry.js';
+import type { EvmTransaction } from '../../types.js';
 
-import { AlchemyTransactionMapper } from './alchemy.mapper.ts';
+import { AlchemyTransactionMapper } from './alchemy.mapper.js';
 import type {
   AlchemyAssetTransfer,
   AlchemyAssetTransferParams,

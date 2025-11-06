@@ -9,7 +9,7 @@ import { z } from 'zod';
  *
  * The same public key can have different SS58 address representations depending on the
  * network format prefix (e.g., Polkadot format 0, Kusama format 2, Generic format 42).
- * Use `isSamePolkadotAddress()` from utils.ts to compare addresses by their underlying
+ * Use `isSamePolkadotAddress()` from utils.js to compare addresses by their underlying
  * public key.
  *
  * IMPORTANT: No transformation is applied. Different casing = different addresses.

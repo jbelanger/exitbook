@@ -4,7 +4,7 @@ import type { ITransactionRepository } from '@exitbook/data';
 import type { SubstrateTransaction, SubstrateChainConfig } from '@exitbook/providers';
 import { type Result, err, okAsync } from 'neverthrow';
 
-import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
+import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import {
   analyzeFundFlowFromNormalized,

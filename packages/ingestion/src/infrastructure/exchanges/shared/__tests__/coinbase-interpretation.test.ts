@@ -1,7 +1,7 @@
 import type { CoinbaseLedgerEntry } from '@exitbook/exchanges';
 import { describe, expect, test } from 'vitest';
 
-import { coinbaseGrossAmounts, type RawTransactionWithMetadata } from '../strategies/index.ts';
+import { coinbaseGrossAmounts, type RawTransactionWithMetadata } from '../strategies/index.js';
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];

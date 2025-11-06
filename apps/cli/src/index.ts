@@ -5,19 +5,19 @@ import { initializeProviders } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { Command } from 'commander';
 
-import { registerBalanceCommand } from './features/balance/balance.ts';
-import { registerBenchmarkRateLimitCommand } from './features/benchmark-rate-limit/benchmark-rate-limit.ts';
-import { registerClearCommand } from './features/clear/clear.ts';
-import { registerCostBasisCommand } from './features/cost-basis/cost-basis.ts';
-import { registerExportCommand } from './features/export/export.ts';
-import { registerGapsCommand } from './features/gaps/gaps.ts';
-import { registerImportCommand } from './features/import/import.ts';
-import { registerLinksCommand } from './features/links/links.ts';
-import { registerListBlockchainsCommand } from './features/list-blockchains/list-blockchains.ts';
-import { registerPricesCommand } from './features/prices/prices.ts';
-import { registerProcessCommand } from './features/process/process.ts';
-import { registerSessionsCommand } from './features/sessions/sessions.ts';
-import { registerTransactionsCommand } from './features/transactions/transactions.ts';
+import { registerBalanceCommand } from './features/balance/balance.js';
+import { registerBenchmarkRateLimitCommand } from './features/benchmark-rate-limit/benchmark-rate-limit.js';
+import { registerClearCommand } from './features/clear/clear.js';
+import { registerCostBasisCommand } from './features/cost-basis/cost-basis.js';
+import { registerExportCommand } from './features/export/export.js';
+import { registerGapsCommand } from './features/gaps/gaps.js';
+import { registerImportCommand } from './features/import/import.js';
+import { registerLinksCommand } from './features/links/links.js';
+import { registerListBlockchainsCommand } from './features/list-blockchains/list-blockchains.js';
+import { registerPricesCommand } from './features/prices/prices.js';
+import { registerProcessCommand } from './features/process/process.js';
+import { registerSessionsCommand } from './features/sessions/sessions.js';
+import { registerTransactionsCommand } from './features/transactions/transactions.js';
 
 // Initialize all providers at startup
 initializeProviders();

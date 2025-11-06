@@ -8,14 +8,14 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { createBankOfCanadaProvider } from '../bank-of-canada/provider.ts';
-import { createBinanceProvider } from '../binance/provider.ts';
-import { createCoinGeckoProvider } from '../coingecko/provider.ts';
-import { createCryptoCompareProvider } from '../cryptocompare/provider.ts';
-import { createECBProvider } from '../ecb/provider.ts';
-import { createFrankfurterProvider } from '../frankfurter/provider.ts';
-import type { PricesDB } from '../persistence/database.ts';
-import { createPricesDatabase, initializePricesDatabase } from '../persistence/database.ts';
+import { createBankOfCanadaProvider } from '../bank-of-canada/provider.js';
+import { createBinanceProvider } from '../binance/provider.js';
+import { createCoinGeckoProvider } from '../coingecko/provider.js';
+import { createCryptoCompareProvider } from '../cryptocompare/provider.js';
+import { createECBProvider } from '../ecb/provider.js';
+import { createFrankfurterProvider } from '../frankfurter/provider.js';
+import type { PricesDB } from '../persistence/database.js';
+import { createPricesDatabase, initializePricesDatabase } from '../persistence/database.js';
 
 import { PriceProviderManager } from './provider-manager.js';
 import type { IPriceProvider, ProviderManagerConfig } from './types/index.js';

@@ -3,13 +3,13 @@ import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import type { BalanceVerificationResult } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
-import { unwrapResult } from '../shared/command-execution.ts';
-import { ExitCodes } from '../shared/exit-codes.ts';
-import { OutputManager } from '../shared/output.ts';
+import { unwrapResult } from '../shared/command-execution.js';
+import { ExitCodes } from '../shared/exit-codes.js';
+import { OutputManager } from '../shared/output.js';
 
-import { BalanceHandler } from './balance-handler.ts';
-import type { BalanceCommandResult, ExtendedBalanceCommandOptions } from './balance-types.ts';
-import { buildBalanceParamsFromFlags } from './balance-utils.ts';
+import { BalanceHandler } from './balance-handler.js';
+import type { BalanceCommandResult, ExtendedBalanceCommandOptions } from './balance-types.js';
+import { buildBalanceParamsFromFlags } from './balance-utils.js';
 
 /**
  * Register the balance command.

@@ -2,15 +2,15 @@ import type { TokenMetadata } from '@exitbook/core';
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 
-import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
-import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.ts';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
-import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
-import type { EvmChainConfig } from '../../chain-config.interface.ts';
-import { getEvmChainConfig } from '../../chain-registry.ts';
-import type { EvmTransaction } from '../../types.ts';
+import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.js';
+import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.js';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.js';
+import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.js';
+import type { EvmChainConfig } from '../../chain-config.interface.js';
+import { getEvmChainConfig } from '../../chain-registry.js';
+import type { EvmTransaction } from '../../types.js';
 
-import { MoralisTransactionMapper, MoralisTokenTransferMapper } from './moralis.mapper.ts';
+import { MoralisTransactionMapper, MoralisTokenTransferMapper } from './moralis.mapper.js';
 import {
   MoralisTokenMetadataSchema,
   type MoralisNativeBalance,
@@ -19,7 +19,7 @@ import {
   type MoralisTokenTransferResponse,
   type MoralisTransaction,
   type MoralisTransactionResponse,
-} from './moralis.schemas.ts';
+} from './moralis.schemas.js';
 
 /**
  * Maps EVM chain names to Moralis-specific chain identifiers

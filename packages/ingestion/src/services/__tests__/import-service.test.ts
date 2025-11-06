@@ -41,7 +41,7 @@ const mockImportFn = vi.fn().mockResolvedValue(
 );
 
 // Mock blockchain config
-vi.mock('../../infrastructure/blockchains/index.ts', () => ({
+vi.mock('../../infrastructure/blockchains/index.js', () => ({
   getBlockchainConfig: (id: string) => {
     if (id === 'bitcoin' || id === 'ethereum') {
       return {
@@ -67,7 +67,7 @@ const mockExchangeImportFn = vi.fn().mockResolvedValue(
 );
 
 // Mock exchange importer factory
-vi.mock('../../infrastructure/exchanges/shared/exchange-importer-factory.ts', () => ({
+vi.mock('../../infrastructure/exchanges/shared/exchange-importer-factory.js', () => ({
   createExchangeImporter: (sourceId: string, _params: ImportParams) => {
     if (sourceId === 'kraken') {
       return ok({

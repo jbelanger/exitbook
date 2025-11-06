@@ -5,7 +5,7 @@ import type { SourceType } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { ImportHandlerParams } from './import-handler.ts';
+import type { ImportHandlerParams } from './import-handler.js';
 
 /**
  * CLI options structure for building import parameters.

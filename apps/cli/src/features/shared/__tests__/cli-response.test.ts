@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createErrorResponse, createSuccessResponse, exitCodeToErrorCode } from '../cli-response.ts';
-import { ExitCodes, type ExitCode } from '../exit-codes.ts';
+import { createErrorResponse, createSuccessResponse, exitCodeToErrorCode } from '../cli-response.js';
+import { ExitCodes, type ExitCode } from '../exit-codes.js';
 
 describe('cli-response', () => {
   beforeEach(() => {
@@ -96,10 +96,10 @@ describe('cli-response', () => {
       process.env.NODE_ENV = 'development';
 
       const error = new Error('Test error');
-      error.stack = 'Error: Test error\n    at test.ts:1:1';
+      error.stack = 'Error: Test error\n    at test.js:1:1';
       const response = createErrorResponse('test-command', error, 'GENERAL_ERROR');
 
-      expect(response.error?.stack).toBe('Error: Test error\n    at test.ts:1:1');
+      expect(response.error?.stack).toBe('Error: Test error\n    at test.js:1:1');
 
       process.env.NODE_ENV = originalEnv;
     });
@@ -109,7 +109,7 @@ describe('cli-response', () => {
       process.env.NODE_ENV = 'production';
 
       const error = new Error('Test error');
-      error.stack = 'Error: Test error\n    at test.ts:1:1';
+      error.stack = 'Error: Test error\n    at test.js:1:1';
       const response = createErrorResponse('test-command', error, 'GENERAL_ERROR');
 
       expect(response.error?.stack).toBeUndefined();

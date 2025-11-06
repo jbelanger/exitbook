@@ -1,7 +1,7 @@
 import { Currency, parseDecimal, type UniversalTransaction } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { initializeStats, extractAssetsNeedingPrices, createPriceQuery, validateAssetFilter } from '../prices-utils.ts';
+import { initializeStats, extractAssetsNeedingPrices, createPriceQuery, validateAssetFilter } from '../prices-utils.js';
 
 describe('validateAssetFilter', () => {
   it('should return empty array when asset is undefined', () => {

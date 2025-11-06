@@ -1,9 +1,9 @@
 import type { BlockchainProviderManager } from '@exitbook/providers';
 import { type Result } from 'neverthrow';
 
-import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.ts';
-import type { IImporter } from '../../../types/importers.ts';
-import type { ITransactionProcessor } from '../../../types/processors.ts';
+import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
+import type { IImporter } from '../../../types/importers.js';
+import type { ITransactionProcessor } from '../../../types/processors.js';
 
 export interface BlockchainConfig {
   blockchain: string;

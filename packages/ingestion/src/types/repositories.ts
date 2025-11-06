@@ -11,7 +11,7 @@ import type {
 import type { DataSourceUpdate, ImportSessionQuery } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
-import type { ImportParams } from './importers.ts';
+import type { ImportParams } from './importers.js';
 
 /**
  * Filter options for loading raw data from repository

@@ -2,12 +2,12 @@ import { BlockchainProviderManager } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
-import { ExitCodes } from '../shared/exit-codes.ts';
-import { OutputManager } from '../shared/output.ts';
+import { ExitCodes } from '../shared/exit-codes.js';
+import { OutputManager } from '../shared/output.js';
 
-import { BenchmarkRateLimitHandler } from './benchmark-rate-limit-handler.ts';
-import type { BenchmarkRateLimitCommandOptions } from './benchmark-rate-limit-utils.ts';
-import { buildConfigOverride } from './benchmark-rate-limit-utils.ts';
+import { BenchmarkRateLimitHandler } from './benchmark-rate-limit-handler.js';
+import type { BenchmarkRateLimitCommandOptions } from './benchmark-rate-limit-utils.js';
+import { buildConfigOverride } from './benchmark-rate-limit-utils.js';
 
 const logger = getLogger('BenchmarkRateLimitCommand');
 

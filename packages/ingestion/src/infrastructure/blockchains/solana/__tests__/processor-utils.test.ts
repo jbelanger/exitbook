@@ -11,8 +11,8 @@ import {
   detectSolanaSwapInstructions,
   detectSolanaTokenTransferInstructions,
   isZeroDecimal,
-} from '../processor-utils.ts';
-import type { SolanaFundFlow, SolanaMovement } from '../types.ts';
+} from '../processor-utils.js';
+import type { SolanaFundFlow, SolanaMovement } from '../types.js';
 
 describe('Solana Processor Utils', () => {
   describe('detectSolanaStakingInstructions', () => {

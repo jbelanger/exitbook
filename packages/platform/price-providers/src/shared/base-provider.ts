@@ -10,7 +10,7 @@ import { err, ok } from 'neverthrow';
 
 import type { PriceRepository } from '../persistence/repositories/price-repository.js';
 
-import { validatePriceData, validateQueryTimeRange } from './shared-utils.ts';
+import { validatePriceData, validateQueryTimeRange } from './shared-utils.js';
 import type { IPriceProvider, PriceData, PriceQuery, ProviderMetadata } from './types/index.js';
 
 /**

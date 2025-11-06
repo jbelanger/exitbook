@@ -3,9 +3,9 @@ import type { KyselyDB } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import type { CommandHandler } from '../command-execution.ts';
-import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../command-execution.ts';
-import type { OutputManager } from '../output.ts';
+import type { CommandHandler } from '../command-execution.js';
+import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../command-execution.js';
+import type { OutputManager } from '../output.js';
 
 // Mock dependencies
 vi.mock('@exitbook/data', () => ({
@@ -13,7 +13,7 @@ vi.mock('@exitbook/data', () => ({
   initializeDatabase: vi.fn(),
 }));
 
-vi.mock('../prompts.ts', () => ({
+vi.mock('../prompts.js', () => ({
   handleCancellation: vi.fn(),
   promptConfirm: vi.fn(),
 }));
@@ -180,7 +180,7 @@ describe('command-execution', () => {
       };
 
       // Mock prompts
-      const promptsModule = await import('../prompts.ts');
+      const promptsModule = await import('../prompts.js');
       promptConfirm = vi.mocked(promptsModule.promptConfirm) as Mock;
       handleCancellation = vi.mocked(promptsModule.handleCancellation) as Mock;
     });

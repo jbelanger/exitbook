@@ -1,8 +1,8 @@
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { FeeInput, MovementInput } from './strategies/index.ts';
-import type { ExchangeFundFlow } from './types.ts';
+import type { FeeInput, MovementInput } from './strategies/index.js';
+import type { ExchangeFundFlow } from './types.js';
 
 /**
  * Result of operation classification

@@ -10,7 +10,7 @@ import { generateUniqueTransactionId } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 
-import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.ts';
+import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.js';
 
 /**
  * Generic Substrate transaction importer that fetches raw transaction data from blockchain APIs.

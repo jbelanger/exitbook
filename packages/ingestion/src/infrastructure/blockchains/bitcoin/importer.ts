@@ -11,7 +11,7 @@ import { getLogger, type Logger } from '@exitbook/shared-logger';
 import * as bitcoin from 'bitcoinjs-lib';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ImportParams, IImporter, ImportRunResult } from '../../../types/importers.ts';
+import type { ImportParams, IImporter, ImportRunResult } from '../../../types/importers.js';
 
 /**
  * Bitcoin transaction importer that fetches raw transaction data from blockchain APIs.
