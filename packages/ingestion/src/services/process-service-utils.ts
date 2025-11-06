@@ -80,5 +80,7 @@ export function buildSessionProcessingQueue(sessions: SessionProcessingData[]): 
  * @returns Array of unique data source IDs
  */
 export function extractUniqueDataSourceIds(rawData: ExternalTransactionData[]): number[] {
-  return [...new Set(rawData.map((item) => item.dataSourceId).filter((id): id is number => id !== null))];
+  return [
+    ...new Set(rawData.map((item) => item.dataSourceId).filter((id): id is number => id !== null && id !== undefined)),
+  ];
 }
