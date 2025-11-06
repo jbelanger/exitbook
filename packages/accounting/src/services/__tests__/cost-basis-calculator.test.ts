@@ -446,7 +446,7 @@ describe('CostBasisCalculator', () => {
     it('should disallow wash sale loss with fee allocation (US)', async () => {
       const transactions: UniversalTransaction[] = [
         // Buy 1 BTC @ $50k (Jan 1)
-        createTransactionWithFee(1, '2024-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '50000' }], [], undefined),
+        createTransactionWithFee(1, '2024-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '50000' }], []),
         // Sell 1 BTC @ $30k with $100 fee (Feb 1) - creates loss
         createTransactionWithFee(2, '2024-02-01T00:00:00Z', [], [{ asset: 'BTC', amount: '1', price: '30000' }], {
           asset: 'USD',
