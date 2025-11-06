@@ -528,7 +528,6 @@ describe('NearBlocksApiClient', () => {
       expect(config.validate({ stats: 'data' })).toBe(true);
       expect(config.validate({})).toBe(true);
       expect(config.validate()).toBe(false);
-      expect(config.validate()).toBe(false);
     });
   });
 

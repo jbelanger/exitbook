@@ -119,7 +119,7 @@ describe('NearBlocksApiClient E2E', () => {
       expect(normalized.tokenTransfers!.length).toBeGreaterThan(0);
 
       const tokenTransfer = normalized.tokenTransfers![0]!;
-      expect(typeof tokenTransfer.tokenContract).toBe('string');
+      expect(typeof tokenTransfer.contractAddress).toBe('string');
       expect(typeof tokenTransfer.from).toBe('string');
       expect(typeof tokenTransfer.to).toBe('string');
       expect(typeof tokenTransfer.amount).toBe('string');
@@ -163,11 +163,10 @@ describe('NearBlocksApiClient E2E', () => {
         const normalized = txData.normalized;
 
         expect(Array.isArray(normalized.actions)).toBe(true);
-        if (normalized.actions.length > 0) {
+        if (normalized.actions && normalized.actions.length > 0) {
           const action = normalized.actions[0]!;
-          expect(typeof action.action).toBe('string');
-          expect(typeof action.from).toBe('string');
-          expect(typeof action.to).toBe('string');
+          expect(typeof action.actionType).toBe('string');
+          expect(action.actionType.length).toBeGreaterThan(0);
         }
       }
     }, 30000);
