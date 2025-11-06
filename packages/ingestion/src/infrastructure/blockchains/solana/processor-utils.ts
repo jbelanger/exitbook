@@ -441,8 +441,7 @@ export function analyzeSolanaBalanceChanges(
   // via `feeAbsorbedByMovement` to avoid recording a separate fee entry later.
   let hadOutflowsBeforeFeeAdjustment = false;
   if (feePaidByUser && tx.feeAmount) {
-    // Normalize fee amount from lamports to SOL (9 decimals) to match normalized movements
-    let remainingFee = parseDecimal(normalizeNativeAmount(tx.feeAmount, 9));
+    let remainingFee = parseDecimal(tx.feeAmount);
 
     if (!remainingFee.isZero()) {
       for (const movement of consolidatedOutflows) {

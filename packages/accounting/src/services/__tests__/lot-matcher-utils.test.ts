@@ -3,28 +3,27 @@ import { Currency, type AssetMovement, type PriceAtTxTime, type UniversalTransac
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import type { LotTransfer } from '../domain/schemas.js';
-import type { TransactionLink } from '../linking/types.js';
-
+import type { LotTransfer } from '../../domain/schemas.ts';
+import type { TransactionLink } from '../../linking/types.ts';
 import {
-  buildAcquisitionLotFromInflow,
   buildDependencyGraph,
-  buildTransferMetadata,
-  calculateFeesInFiat,
-  calculateInheritedCostBasis,
-  calculateNetProceeds,
-  calculateTargetCostBasis,
-  calculateTransferDisposalAmount,
-  collectFiatFees,
-  extractCryptoFee,
-  extractOnChainFees,
-  filterTransactionsWithoutPrices,
-  getVarianceTolerance,
-  groupTransactionsByAsset,
   sortWithLogicalOrdering,
-  validateOutflowFees,
+  getVarianceTolerance,
+  extractOnChainFees,
+  extractCryptoFee,
+  collectFiatFees,
+  filterTransactionsWithoutPrices,
+  calculateFeesInFiat,
+  groupTransactionsByAsset,
+  buildAcquisitionLotFromInflow,
+  calculateNetProceeds,
   validateTransferVariance,
-} from './lot-matcher-utils.js';
+  validateOutflowFees,
+  calculateTransferDisposalAmount,
+  buildTransferMetadata,
+  calculateInheritedCostBasis,
+  calculateTargetCostBasis,
+} from '../lot-matcher-utils.ts';
 
 // Helper functions
 function createMockTransaction(

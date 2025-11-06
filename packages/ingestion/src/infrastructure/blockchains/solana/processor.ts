@@ -65,10 +65,14 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         // Determine transaction type and operation classification based on fund flow
         const classification = classifySolanaOperationFromFundFlow(fundFlow, normalizedTx.instructions || []);
 
-        // Fix Issue #78: Only record fees when user paid AND fee wasn't absorbed by movement
-        // `feeAbsorbedByMovement` prevents double-counting for fee-only transactions where
-        // the fee was already deducted from SOL outflows (which are derived from accountChanges)
-        const userPaidFee = fundFlow.feePaidByUser && !fundFlow.feeAbsorbedByMovement;
+        // Fix Issue #78: Record fees when the user paid them and they aren't already accounted for
+        // within remaining SOL outflows. When the fee fully consumes the SOL movement (fee-only
+        // transactions), we still need an explicit fee entry to avoid undercounting balances.
+        const feeAccountedInMovements =
+          fundFlow.feeAbsorbedByMovement &&
+          fundFlow.outflows.some((movement) => movement.asset === (fundFlow.feeCurrency || 'SOL'));
+
+        const userPaidFee = fundFlow.feePaidByUser && !feeAccountedInMovements;
 
         // Convert to UniversalTransaction with structured fields
         const universalTransaction: UniversalTransaction = {

@@ -2,15 +2,15 @@ import { Currency, type UniversalTransaction } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
+import type { PriceValidationResult } from '../cost-basis-validation-utils.ts';
 import {
   collectPricedEntities,
-  formatValidationError,
-  validateFxAuditTrail,
   validatePriceCompleteness,
   validatePriceCurrency,
+  validateFxAuditTrail,
+  formatValidationError,
   validateTransactionPrices,
-  type PriceValidationResult,
-} from './cost-basis-validation-utils.js';
+} from '../cost-basis-validation-utils.ts';
 
 describe('cost-basis-validation-utils', () => {
   describe('collectPricedEntities', () => {
@@ -169,7 +169,7 @@ describe('cost-basis-validation-utils', () => {
         hasFxMetadata: true,
       });
       expect(entity.fxMetadata).toBeDefined();
-      expect(entity.fxMetadata!).toMatchObject({
+      expect(entity.fxMetadata).toMatchObject({
         rate: '1.35',
         source: 'ECB',
         timestamp: '2024-01-15T10:00:00.000Z',

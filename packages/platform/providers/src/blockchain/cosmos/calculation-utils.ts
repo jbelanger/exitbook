@@ -40,10 +40,7 @@ export interface AmountConversionResult {
  * // Returns { feeAmount: "1.0", feeCurrency: "INJ" }
  * ```
  */
-export function calculateFee(
-  gasFee: InjectiveGasFee | undefined,
-  decimals = 18
-): FeeCalculationResult | undefined {
+export function calculateFee(gasFee: InjectiveGasFee | undefined, decimals = 18): FeeCalculationResult | undefined {
   if (!gasFee?.amount?.length) {
     return undefined;
   }

@@ -34,7 +34,7 @@ describe('calculation-utils', () => {
     });
 
     it('should return undefined for empty gas fee', () => {
-      const result = calculateFee();
+      const result = calculateFee(void 0);
       expect(result).toBeUndefined();
     });
 
@@ -156,7 +156,7 @@ describe('calculation-utils', () => {
     });
 
     it('should return undefined for undefined array', () => {
-      const result = convertAmountFromArray();
+      const result = convertAmountFromArray(void 0);
       expect(result).toBeUndefined();
     });
 

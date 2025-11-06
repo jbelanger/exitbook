@@ -4,11 +4,10 @@ import type { TransactionRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { TransactionLink } from '../linking/types.js';
-import type { TransactionLinkRepository } from '../persistence/transaction-link-repository.js';
-
-import { LotMatcher } from './lot-matcher.js';
-import { FifoStrategy } from './strategies/fifo-strategy.js';
+import type { TransactionLink } from '../../linking/types.ts';
+import type { TransactionLinkRepository } from '../../persistence/transaction-link-repository.ts';
+import { LotMatcher } from '../lot-matcher.ts';
+import { FifoStrategy } from '../strategies/fifo-strategy.ts';
 
 describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () => {
   const createPriceAtTxTime = (amount: string, currency = 'USD') => ({

@@ -68,7 +68,7 @@ describe('mapper-utils', () => {
     });
 
     it('should handle undefined by returning default "INJ"', () => {
-      expect(formatDenom()).toBe('INJ');
+      expect(formatDenom(void 0)).toBe('INJ');
     });
 
     it('should handle empty string', () => {
