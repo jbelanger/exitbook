@@ -128,18 +128,15 @@ export class BlockfrostApiClient extends BaseApiClient {
     const addressInfo = parseResult.data;
 
     // Find the lovelace amount (ADA native currency)
+    // Empty amount array indicates zero balance
     const lovelaceAmount = addressInfo.amount.find((asset) => asset.unit === 'lovelace');
+    const lovelaceQuantity = lovelaceAmount?.quantity ?? '0';
 
-    if (!lovelaceAmount) {
-      this.logger.error(`No lovelace amount found in address response - Address: ${maskAddress(address)}`);
-      return err(new Error('No lovelace amount found in address response'));
-    }
-
-    const ada = lovelaceToAda(lovelaceAmount.quantity);
-    const balanceData = createRawBalanceData(lovelaceAmount.quantity, ada);
+    const ada = lovelaceToAda(lovelaceQuantity);
+    const balanceData = createRawBalanceData(lovelaceQuantity, ada);
 
     this.logger.debug(
-      `Successfully retrieved address balance - Address: ${maskAddress(address)}, ADA: ${ada}, Lovelace: ${lovelaceAmount.quantity}`
+      `Successfully retrieved address balance - Address: ${maskAddress(address)}, ADA: ${ada}, Lovelace: ${lovelaceQuantity}`
     );
 
     return ok(balanceData);

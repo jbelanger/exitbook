@@ -156,9 +156,9 @@ export const BlockfrostTransactionWithMetadataSchema = BlockfrostTransactionUtxo
 export const BlockfrostAddressSchema = z
   .object({
     address: CardanoAddressSchema,
-    amount: z.array(BlockfrostAssetAmountSchema).min(1, 'Address must have at least one asset'),
+    amount: z.array(BlockfrostAssetAmountSchema),
     stake_address: z.string().nullable().optional(),
-    type: z.enum(['byron', 'shelley']),
+    type: z.enum(['byron', 'shelley', 'stake', 'pointer']),
     script: z.boolean(),
   })
   .strict();
