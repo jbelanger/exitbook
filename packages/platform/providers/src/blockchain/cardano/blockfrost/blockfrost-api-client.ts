@@ -9,14 +9,16 @@ import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import type { CardanoTransaction } from '../schemas.js';
 
 import { BlockfrostTransactionMapper } from './blockfrost.mapper.js';
-import type { BlockfrostTransactionHash, BlockfrostTransactionUtxos } from './blockfrost.schemas.js';
+import type { BlockfrostTransactionHash, BlockfrostTransactionWithMetadata } from './blockfrost.schemas.js';
+import { BlockfrostTransactionDetailsSchema, BlockfrostTransactionUtxosSchema } from './blockfrost.schemas.js';
 
 /**
  * Blockfrost API client for Cardano blockchain data.
  *
- * Implements a two-call pattern to fetch complete transaction data:
- * 1. GET /addresses/{address}/transactions - Fetches transaction hashes with metadata
- * 2. GET /txs/{hash}/utxos - Fetches detailed UTXO data for each transaction
+ * Implements a three-call pattern to fetch complete transaction data:
+ * 1. GET /addresses/{address}/transactions - Fetches transaction hashes with basic metadata
+ * 2. GET /txs/{hash} - Fetches complete transaction details including fees and block info
+ * 3. GET /txs/{hash}/utxos - Fetches detailed UTXO data for each transaction
  *
  * Blockfrost requires an API key provided via the BLOCKFROST_API_KEY environment variable.
  * The API key is sent in the "project_id" header for authentication.
@@ -82,13 +84,14 @@ export class BlockfrostApiClient extends BaseApiClient {
   }
 
   /**
-   * Get raw transaction data for an address using two-call pattern.
+   * Get raw transaction data for an address using three-call pattern.
    *
    * Step 1: Fetch transaction hashes from /addresses/{address}/transactions
-   * Step 2: For each transaction hash, fetch detailed UTXO data from /txs/{hash}/utxos
+   * Step 2: For each transaction hash, fetch complete transaction details from /txs/{hash}
+   * Step 3: For each transaction hash, fetch detailed UTXO data from /txs/{hash}/utxos
    *
    * Handles pagination automatically (100 transactions per page).
-   * Uses the BlockfrostTransactionMapper to normalize raw UTXO data.
+   * Combines transaction details and UTXO data before passing to mapper for normalization.
    *
    * @param params - Parameters containing the Cardano address
    * @returns Result containing array of transactions with raw and normalized data
@@ -118,17 +121,39 @@ export class BlockfrostApiClient extends BaseApiClient {
     }
 
     this.logger.debug(
-      `Retrieved ${txHashes.length} transaction hashes - Address: ${maskAddress(address)}, fetching detailed UTXO data...`
+      `Retrieved ${txHashes.length} transaction hashes - Address: ${maskAddress(address)}, fetching transaction details and UTXO data...`
     );
 
-    // Step 2: Fetch detailed UTXO data for each transaction and normalize
+    // Step 2 & 3: Fetch transaction details and UTXO data for each transaction
     const allTransactions: TransactionWithRawData<CardanoTransaction>[] = [];
 
     for (const txHashEntry of txHashes) {
       const txHash = txHashEntry.tx_hash;
 
+      // Fetch complete transaction details (including fees, block hash, status)
+      const detailsResult = await this.httpClient.get<unknown>(`/txs/${txHash}`, {
+        headers: { project_id: this.apiKey },
+      });
+
+      if (detailsResult.isErr()) {
+        this.logger.error(
+          `Failed to fetch transaction details - TxHash: ${txHash}, Address: ${maskAddress(address)}, Error: ${getErrorMessage(detailsResult.error)}`
+        );
+        return err(detailsResult.error);
+      }
+
+      // Validate the transaction details response
+      const parseResult = BlockfrostTransactionDetailsSchema.safeParse(detailsResult.value);
+      if (!parseResult.success) {
+        const errorMsg = `Invalid transaction details response: ${parseResult.error.message}`;
+        this.logger.error(`${errorMsg} - TxHash: ${txHash}`);
+        return err(new Error(errorMsg));
+      }
+
+      const txDetails = parseResult.data;
+
       // Fetch UTXO details for this transaction
-      const utxoResult = await this.httpClient.get<BlockfrostTransactionUtxos>(`/txs/${txHash}/utxos`, {
+      const utxoResult = await this.httpClient.get<unknown>(`/txs/${txHash}/utxos`, {
         headers: { project_id: this.apiKey },
       });
 
@@ -139,10 +164,29 @@ export class BlockfrostApiClient extends BaseApiClient {
         return err(utxoResult.error);
       }
 
-      const rawUtxo = utxoResult.value;
+      // Validate the UTXO response
+      const utxoParseResult = BlockfrostTransactionUtxosSchema.safeParse(utxoResult.value);
+      if (!utxoParseResult.success) {
+        const errorMsg = `Invalid UTXO response: ${utxoParseResult.error.message}`;
+        this.logger.error(`${errorMsg} - TxHash: ${txHash}`);
+        return err(new Error(errorMsg));
+      }
 
-      // Map and validate the raw UTXO data
-      const mapResult = this.mapper.map(rawUtxo, {});
+      const rawUtxo = utxoParseResult.data;
+
+      // Combine UTXO data with transaction metadata
+      const combinedData: BlockfrostTransactionWithMetadata = {
+        ...rawUtxo,
+        block_height: txDetails.block_height,
+        block_time: txDetails.block_time,
+        block_hash: txDetails.block,
+        fees: txDetails.fees,
+        tx_index: txHashEntry.tx_index,
+        valid_contract: txDetails.valid_contract,
+      };
+
+      // Map and validate the combined data
+      const mapResult = this.mapper.map(combinedData, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -153,7 +197,7 @@ export class BlockfrostApiClient extends BaseApiClient {
       }
 
       allTransactions.push({
-        raw: rawUtxo,
+        raw: combinedData,
         normalized: mapResult.value,
       });
     }

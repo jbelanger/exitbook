@@ -1,4 +1,5 @@
 import type { SourceMetadata } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
 import { ok, type Result } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../shared/blockchain/base/mapper.js';
@@ -13,38 +14,53 @@ import { CardanoTransactionSchema } from '../schemas.js';
 
 import type {
   BlockfrostAssetAmount,
-  BlockfrostTransactionUtxos,
+  BlockfrostTransactionWithMetadata,
   BlockfrostUtxoInput,
   BlockfrostUtxoOutput,
 } from './blockfrost.schemas.js';
-import { BlockfrostTransactionUtxosSchema } from './blockfrost.schemas.js';
+import { BlockfrostTransactionWithMetadataSchema } from './blockfrost.schemas.js';
 
 /**
- * Mapper for transforming Blockfrost transaction UTXOs into normalized Cardano transactions.
+ * Utility function to convert lovelace (smallest unit) to ADA.
+ * 1 ADA = 1,000,000 lovelace
  *
- * Blockfrost's /txs/{hash}/utxos endpoint provides detailed input/output information but does not
- * include block metadata (height, hash, timestamp) or fee information. These fields are handled as follows:
- * - timestamp: Uses current time (Date.now()) since block_time is not available in this endpoint
- * - blockHeight/blockId: Left undefined (will be enriched later if needed)
- * - fee: Set to "0" (will be calculated or enriched later)
- *
- * The mapper handles Cardano's multi-asset support where each input/output can contain multiple
- * assets (ADA and/or native tokens). ADA amounts are identified by unit "lovelace" and automatically
- * tagged with symbol "ADA" and decimals 6.
+ * @param lovelace - Amount in lovelace as a string
+ * @returns Amount in ADA as a string with full precision
  */
-export class BlockfrostTransactionMapper extends BaseRawDataMapper<BlockfrostTransactionUtxos, CardanoTransaction> {
-  protected readonly inputSchema = BlockfrostTransactionUtxosSchema;
+function lovelaceToAda(lovelace: string): string {
+  return new Decimal(lovelace).dividedBy(1_000_000).toFixed();
+}
+
+/**
+ * Mapper for transforming Blockfrost transaction data into normalized Cardano transactions.
+ *
+ * Accepts combined transaction data from:
+ * - /txs/{hash}/utxos: Detailed input/output UTXO information
+ * - /txs/{hash}: Transaction details including fees, block metadata, and status
+ *
+ * The mapper properly handles:
+ * - Real timestamps from block_time (converted to milliseconds)
+ * - Transaction fees converted from lovelace to ADA
+ * - Block height and block hash for transaction tracking
+ * - Multi-asset support where each input/output can contain ADA and/or native tokens
+ * - Failed smart contract transactions (valid_contract = false)
+ */
+export class BlockfrostTransactionMapper extends BaseRawDataMapper<
+  BlockfrostTransactionWithMetadata,
+  CardanoTransaction
+> {
+  protected readonly inputSchema = BlockfrostTransactionWithMetadataSchema;
   protected readonly outputSchema = CardanoTransactionSchema;
 
   /**
    * Transform validated Blockfrost transaction data into normalized CardanoTransaction format.
    *
-   * @param rawData - Validated Blockfrost transaction UTXOs data
+   * @param rawData - Validated Blockfrost transaction data with metadata
    * @param _sourceContext - Source metadata (not used in current implementation)
    * @returns Result containing normalized CardanoTransaction or NormalizationError
    */
   protected mapInternal(
-    rawData: BlockfrostTransactionUtxos,
+    rawData: BlockfrostTransactionWithMetadata,
     _sourceContext: SourceMetadata
   ): Result<CardanoTransaction, NormalizationError> {
     // Map inputs from Blockfrost format to normalized format
@@ -62,21 +78,24 @@ export class BlockfrostTransactionMapper extends BaseRawDataMapper<BlockfrostTra
       outputIndex: output.output_index,
     }));
 
-    // Build normalized transaction
+    // Determine transaction status based on smart contract validation
+    // valid_contract = false means the smart contract failed
+    const status = rawData.valid_contract ? 'success' : 'failed';
+
+    // Build normalized transaction with real metadata
     const normalized: CardanoTransaction = {
+      blockHeight: rawData.block_height,
+      blockId: rawData.block_hash,
       currency: 'ADA',
-      feeAmount: '0', // Blockfrost /txs/{hash}/utxos doesn't include fee; set to "0" for Phase 1
+      feeAmount: lovelaceToAda(rawData.fees),
       feeCurrency: 'ADA',
       id: rawData.hash,
       inputs,
       outputs,
       providerId: 'blockfrost',
-      status: 'success', // Assume all fetched transactions are confirmed
-      timestamp: Date.now(), // Blockfrost /txs/{hash}/utxos doesn't include timestamp; use current time
+      status,
+      timestamp: rawData.block_time.getTime(), // Convert Date to milliseconds
     };
-
-    // Note: blockHeight and blockId are left undefined as they're not available in the
-    // /txs/{hash}/utxos endpoint. They can be enriched later if needed.
 
     return ok(normalized);
   }

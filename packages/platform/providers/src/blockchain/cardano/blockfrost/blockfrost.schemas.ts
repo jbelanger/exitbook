@@ -96,9 +96,53 @@ export const BlockfrostTransactionUtxosSchema = z
   })
   .strict();
 
+/**
+ * Schema for Blockfrost transaction details from /txs/{hash}
+ * Returns complete transaction information including fees, block metadata, and status
+ */
+export const BlockfrostTransactionDetailsSchema = z
+  .object({
+    hash: z.string().min(1, 'Transaction hash must not be empty'),
+    block: z.string().min(1, 'Block hash must not be empty'),
+    block_height: z.number().nonnegative('Block height must be non-negative'),
+    block_time: timestampToDate,
+    slot: z.number().nonnegative('Slot must be non-negative'),
+    index: z.number().nonnegative('Transaction index must be non-negative'),
+    fees: z.string().regex(/^\d+$/, 'Fee must be a numeric string (lovelace)'),
+    size: z.number().nonnegative('Transaction size must be non-negative'),
+    invalid_before: z.string().nullable().optional(),
+    invalid_hereafter: z.string().nullable().optional(),
+    utxo_count: z.number().nonnegative('UTXO count must be non-negative'),
+    withdrawal_count: z.number().nonnegative('Withdrawal count must be non-negative'),
+    mir_cert_count: z.number().nonnegative('MIR cert count must be non-negative'),
+    delegation_count: z.number().nonnegative('Delegation count must be non-negative'),
+    stake_cert_count: z.number().nonnegative('Stake cert count must be non-negative'),
+    pool_update_count: z.number().nonnegative('Pool update count must be non-negative'),
+    pool_retire_count: z.number().nonnegative('Pool retire count must be non-negative'),
+    asset_mint_or_burn_count: z.number().nonnegative('Asset mint/burn count must be non-negative'),
+    redeemer_count: z.number().nonnegative('Redeemer count must be non-negative'),
+    valid_contract: z.boolean(),
+  })
+  .strict();
+
+/**
+ * Schema combining transaction metadata with UTXO data for mapper input.
+ * This provides complete transaction information including fees and block metadata.
+ */
+export const BlockfrostTransactionWithMetadataSchema = BlockfrostTransactionUtxosSchema.extend({
+  block_height: z.number().nonnegative('Block height must be non-negative'),
+  block_time: z.date(),
+  block_hash: z.string().min(1, 'Block hash must not be empty'),
+  fees: z.string().regex(/^\d+$/, 'Fee must be a numeric string (lovelace)'),
+  tx_index: z.number().nonnegative('Transaction index must be non-negative'),
+  valid_contract: z.boolean(),
+});
+
 // Type exports inferred from schemas
 export type BlockfrostTransactionHash = z.infer<typeof BlockfrostTransactionHashSchema>;
 export type BlockfrostAssetAmount = z.infer<typeof BlockfrostAssetAmountSchema>;
 export type BlockfrostUtxoInput = z.infer<typeof BlockfrostUtxoInputSchema>;
 export type BlockfrostUtxoOutput = z.infer<typeof BlockfrostUtxoOutputSchema>;
 export type BlockfrostTransactionUtxos = z.infer<typeof BlockfrostTransactionUtxosSchema>;
+export type BlockfrostTransactionDetails = z.infer<typeof BlockfrostTransactionDetailsSchema>;
+export type BlockfrostTransactionWithMetadata = z.infer<typeof BlockfrostTransactionWithMetadataSchema>;
