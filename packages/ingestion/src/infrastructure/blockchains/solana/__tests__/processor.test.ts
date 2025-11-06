@@ -76,7 +76,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
           {
             account: USER_ADDRESS,
             postBalance: '500000000', // 0.5 SOL
-            preBalance: '2500000000', // 2.5 SOL
+            preBalance: '2500005000', // 2.500005 SOL (includes fee)
           },
         ],
         amount: '2000000000', // 2 SOL in lamports
@@ -119,7 +119,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
         accountChanges: [
           {
             account: USER_ADDRESS,
-            postBalance: '995000', // Same balance minus fee (self-transfer)
+            postBalance: '995000', // Same balance minus fee (fee-only transaction)
             preBalance: '1000000',
           },
         ],
@@ -146,12 +146,12 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Check structured fields - balance change from fee creates self-transfer pattern
-    // (SOL out for fee, results in transfer classification)
+    // Check structured fields - balance change equals fee, so this is a fee-only transaction
+    // After fee deduction logic, no movements remain, correctly classified as 'fee'
     expect(transaction.from).toBe(USER_ADDRESS);
     expect(transaction.to).toBe(USER_ADDRESS);
-    expect(transaction.operation.category).toBe('transfer');
-    expect(transaction.operation.type).toBe('withdrawal'); // Outflow from fee
+    expect(transaction.operation.category).toBe('fee');
+    expect(transaction.operation.type).toBe('fee');
   });
 
   test('classifies incoming token transfer as deposit', async () => {
@@ -375,7 +375,7 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
           {
             account: USER_ADDRESS,
             postBalance: '500000000', // -0.5 SOL
-            preBalance: '1000000000',
+            preBalance: '1000005000', // 1.000005 SOL (includes fee)
           },
         ],
         amount: '1000000000',
