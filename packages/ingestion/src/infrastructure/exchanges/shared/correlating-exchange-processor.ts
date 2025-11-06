@@ -1,10 +1,16 @@
 import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import type { Decimal } from 'decimal.js';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
+import {
+  classifyExchangeOperationFromFundFlow,
+  consolidateExchangeFees,
+  consolidateExchangeMovements,
+  detectExchangeClassificationUncertainty,
+  selectPrimaryMovement,
+} from './correlating-exchange-processor-utils.ts';
 import type {
   FeeInput,
   GroupingStrategy,
@@ -63,7 +69,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
       }
 
       const fundFlow = fundFlowResult.value;
-      const classification = this.determineOperationFromFundFlow(fundFlow);
+      const classification = classifyExchangeOperationFromFundFlow(fundFlow);
       const primaryEntry = this.selectPrimaryEntry(entryGroup, fundFlow);
 
       if (!primaryEntry) {
@@ -179,15 +185,18 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     }
 
     // Consolidate duplicates (e.g., multiple BTC entries → sum them)
-    const consolidatedInflows = this.consolidateMovements(allInflows);
-    const consolidatedOutflows = this.consolidateMovements(allOutflows);
-    const consolidatedFees = this.consolidateFees(allFees);
+    const consolidatedInflows = consolidateExchangeMovements(allInflows);
+    const consolidatedOutflows = consolidateExchangeMovements(allOutflows);
+    const consolidatedFees = consolidateExchangeFees(allFees);
 
     // Select primary asset (largest inflow, or largest outflow if no inflows)
-    const primary = this.selectPrimaryMovement(consolidatedInflows, consolidatedOutflows);
+    const primary = selectPrimaryMovement(consolidatedInflows, consolidatedOutflows);
 
     const primaryEntry = entryGroup[0]!;
-    const classificationUncertainty = this.detectClassificationUncertainty(consolidatedInflows, consolidatedOutflows);
+    const classificationUncertainty = detectExchangeClassificationUncertainty(
+      consolidatedInflows,
+      consolidatedOutflows
+    );
 
     return ok({
       inflows: consolidatedInflows,
@@ -214,102 +223,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
       type: 'swap' | 'deposit' | 'withdrawal' | 'transfer' | 'fee' | 'refund' | 'reward';
     };
   } {
-    const { inflows, outflows } = fundFlow;
-
-    // Pattern 1: Single asset swap
-    if (outflows.length === 1 && inflows.length === 1) {
-      const outAsset = outflows[0]?.asset;
-      const inAsset = inflows[0]?.asset;
-
-      if (outAsset !== inAsset) {
-        return {
-          operation: {
-            category: 'trade',
-            type: 'swap',
-          },
-        };
-      }
-    }
-
-    // Pattern 2: Simple deposit
-    if (outflows.length === 0 && inflows.length >= 1) {
-      return {
-        operation: {
-          category: 'transfer',
-          type: 'deposit',
-        },
-      };
-    }
-
-    // Pattern 3: Simple withdrawal
-    if (outflows.length >= 1 && inflows.length === 0) {
-      return {
-        operation: {
-          category: 'transfer',
-          type: 'withdrawal',
-        },
-      };
-    }
-
-    // Pattern 4: Self-transfer (same asset in and out)
-    if (outflows.length === 1 && inflows.length === 1) {
-      const outAsset = outflows[0]?.asset;
-      const inAsset = inflows[0]?.asset;
-
-      if (outAsset === inAsset) {
-        return {
-          operation: {
-            category: 'transfer',
-            type: 'transfer',
-          },
-        };
-      }
-    }
-
-    // Pattern 5: Fee-only entry
-    if (inflows.length === 0 && outflows.length === 0 && fundFlow.fees.length > 0) {
-      return {
-        operation: {
-          category: 'fee',
-          type: 'fee',
-        },
-      };
-    }
-
-    // Pattern 6: Complex multi-asset transaction
-    if (fundFlow.classificationUncertainty) {
-      return {
-        note: {
-          message: fundFlow.classificationUncertainty,
-          metadata: {
-            inflows: inflows.map((i) => ({ amount: i.grossAmount, asset: i.asset })),
-            outflows: outflows.map((o) => ({ amount: o.grossAmount, asset: o.asset })),
-          },
-          severity: 'info',
-          type: 'classification_uncertain',
-        },
-        operation: {
-          category: 'transfer',
-          type: 'transfer',
-        },
-      };
-    }
-
-    return {
-      note: {
-        message: 'Unable to determine transaction classification using confident patterns.',
-        metadata: {
-          inflows: inflows.map((i) => ({ amount: i.grossAmount, asset: i.asset })),
-          outflows: outflows.map((o) => ({ amount: o.grossAmount, asset: o.asset })),
-        },
-        severity: 'warning',
-        type: 'classification_failed',
-      },
-      operation: {
-        category: 'transfer',
-        type: 'transfer',
-      },
-    };
+    return classifyExchangeOperationFromFundFlow(fundFlow);
   }
 
   /**
@@ -321,157 +235,5 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     _fundFlow: ExchangeFundFlow
   ): RawTransactionWithMetadata<TRaw> | undefined {
     return entryGroup[0];
-  }
-
-  /**
-   * Select primary movement (largest inflow, or largest outflow if no inflows).
-   */
-  private selectPrimaryMovement(
-    consolidatedInflows: MovementInput[],
-    consolidatedOutflows: MovementInput[]
-  ): { amount: string; asset: string } {
-    let primary = {
-      amount: '0',
-      asset: consolidatedInflows[0]?.asset || consolidatedOutflows[0]?.asset || 'UNKNOWN',
-    };
-
-    const largestInflow = consolidatedInflows
-      .sort((a, b) => {
-        try {
-          return parseDecimal(b.grossAmount).comparedTo(parseDecimal(a.grossAmount));
-        } catch {
-          return 0;
-        }
-      })
-      .find((inflow) => !parseDecimal(inflow.grossAmount).isZero());
-
-    if (largestInflow) {
-      primary = {
-        amount: largestInflow.grossAmount,
-        asset: largestInflow.asset,
-      };
-    } else {
-      const largestOutflow = consolidatedOutflows
-        .sort((a, b) => {
-          try {
-            return parseDecimal(b.grossAmount).comparedTo(parseDecimal(a.grossAmount));
-          } catch {
-            return 0;
-          }
-        })
-        .find((outflow) => !parseDecimal(outflow.grossAmount).isZero());
-
-      if (largestOutflow) {
-        primary = {
-          amount: largestOutflow.grossAmount,
-          asset: largestOutflow.asset,
-        };
-      }
-    }
-
-    return primary;
-  }
-
-  /**
-   * Detect if classification may be uncertain due to complex fund flow.
-   */
-  private detectClassificationUncertainty(
-    consolidatedInflows: MovementInput[],
-    consolidatedOutflows: MovementInput[]
-  ): string | undefined {
-    if (consolidatedInflows.length > 1 || consolidatedOutflows.length > 1) {
-      return `Complex transaction with ${consolidatedOutflows.length} outflow(s) and ${consolidatedInflows.length} inflow(s). May be multi-asset swap or batch operation.`;
-    }
-    return undefined;
-  }
-
-  /**
-   * Determine primary direction based on fund flow.
-   */
-  private determinePrimaryDirection(fundFlow: ExchangeFundFlow): 'in' | 'out' | 'neutral' {
-    const hasInflow = fundFlow.inflows.some((i) => i.asset === fundFlow.primary.asset);
-    const hasOutflow = fundFlow.outflows.some((o) => o.asset === fundFlow.primary.asset);
-
-    if (hasInflow && hasOutflow) return 'neutral';
-    if (hasInflow) return 'in';
-    if (hasOutflow) return 'out';
-    return 'neutral';
-  }
-
-  /**
-   * Consolidate duplicate assets by summing amounts.
-   */
-  private consolidateMovements(movements: MovementInput[]): MovementInput[] {
-    const assetMap = new Map<
-      string,
-      {
-        amount: Decimal;
-        grossAmount: Decimal;
-        netAmount: Decimal;
-      }
-    >();
-
-    for (const movement of movements) {
-      const existing = assetMap.get(movement.asset);
-      const amount = parseDecimal(movement.grossAmount);
-      const grossAmount = movement.grossAmount ? parseDecimal(movement.grossAmount) : amount;
-      const netAmount = movement.netAmount ? parseDecimal(movement.netAmount) : grossAmount;
-
-      if (existing) {
-        assetMap.set(movement.asset, {
-          amount: existing.amount.plus(amount),
-          grossAmount: existing.grossAmount.plus(grossAmount),
-          netAmount: existing.netAmount.plus(netAmount),
-        });
-      } else {
-        assetMap.set(movement.asset, {
-          amount,
-          grossAmount,
-          netAmount,
-        });
-      }
-    }
-
-    return Array.from(assetMap.entries()).map(([asset, amounts]) => ({
-      asset,
-      amount: amounts.amount.toFixed(),
-      grossAmount: amounts.grossAmount.toFixed(),
-      netAmount: amounts.netAmount?.toFixed(),
-    }));
-  }
-
-  /**
-   * Consolidate fees by asset, scope, and settlement.
-   * Multiple fees with same dimensions are summed together.
-   */
-  private consolidateFees(fees: FeeInput[]): FeeInput[] {
-    // Key format: `${asset}:${scope}:${settlement}`
-    const feeMap = new Map<string, Omit<FeeInput, 'amount'> & { amount: Decimal }>();
-
-    for (const fee of fees) {
-      const key = `${fee.asset}:${fee.scope}:${fee.settlement}`;
-      const existing = feeMap.get(key);
-
-      if (existing) {
-        feeMap.set(key, {
-          ...existing,
-          amount: existing.amount.plus(parseDecimal(fee.amount)),
-        });
-      } else {
-        feeMap.set(key, {
-          asset: fee.asset,
-          amount: parseDecimal(fee.amount),
-          scope: fee.scope,
-          settlement: fee.settlement,
-        });
-      }
-    }
-
-    return Array.from(feeMap.values()).map((fee) => ({
-      asset: fee.asset,
-      amount: fee.amount.toFixed(),
-      scope: fee.scope,
-      settlement: fee.settlement,
-    }));
   }
 }

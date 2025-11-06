@@ -1,15 +1,19 @@
-import type { OperationClassification, UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers';
-import type { Decimal } from 'decimal.js';
 import { err, okAsync, ok, type Result } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.ts';
 import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.ts';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
+import {
+  consolidateEvmMovementsByAsset,
+  selectPrimaryEvmMovement,
+  determineEvmOperationFromFundFlow,
+} from './processor-utils.ts';
 import type { EvmFundFlow, EvmMovement } from './types.ts';
 
 /**
@@ -75,7 +79,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       const fundFlow = fundFlowResult.value;
 
       // Determine transaction type and operation classification based on fund flow analysis
-      const classification = this.determineOperationFromFundFlow(fundFlow);
+      const classification = determineEvmOperationFromFundFlow(fundFlow);
 
       const primaryTx = this.selectPrimaryTransaction(txGroup, fundFlow);
       if (!primaryTx) {
@@ -384,90 +388,24 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     }
 
     // Consolidate duplicate assets (sum amounts for same asset)
-    const consolidateMovements = (movements: EvmMovement[]): EvmMovement[] => {
-      const assetMap = new Map<
-        string,
-        { amount: Decimal; tokenAddress?: string | undefined; tokenDecimals?: number | undefined }
-      >();
-
-      for (const movement of movements) {
-        const existing = assetMap.get(movement.asset);
-        if (existing) {
-          existing.amount = existing.amount.plus(parseDecimal(movement.amount));
-        } else {
-          const entry: { amount: Decimal; tokenAddress?: string; tokenDecimals?: number } = {
-            amount: parseDecimal(movement.amount),
-          };
-          if (movement.tokenAddress !== undefined) {
-            entry.tokenAddress = movement.tokenAddress;
-          }
-          if (movement.tokenDecimals !== undefined) {
-            entry.tokenDecimals = movement.tokenDecimals;
-          }
-          assetMap.set(movement.asset, entry);
-        }
-      }
-
-      return Array.from(assetMap.entries()).map(([asset, data]) => {
-        const result: EvmMovement = {
-          amount: data.amount.toFixed(),
-          asset,
-          tokenAddress: data.tokenAddress,
-          tokenDecimals: data.tokenDecimals,
-        };
-        return result;
-      });
-    };
-
-    const consolidatedInflows = consolidateMovements(inflows);
-    const consolidatedOutflows = consolidateMovements(outflows);
+    const consolidatedInflows = consolidateEvmMovementsByAsset(inflows);
+    const consolidatedOutflows = consolidateEvmMovementsByAsset(outflows);
 
     // Select primary asset for simplified consumption and single-asset display
     // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions
-    let primary: EvmMovement = {
-      asset: this.chainConfig.nativeCurrency,
-      amount: '0',
-    };
+    const primaryFromInflows = selectPrimaryEvmMovement(consolidatedInflows, {
+      nativeCurrency: this.chainConfig.nativeCurrency,
+    });
 
-    // Use largest inflow as primary (prefer token over native)
-    const largestInflow = consolidatedInflows
-      .sort((a, b) => {
-        try {
-          return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
-        } catch {
-          return 0;
-        }
-      })
-      .find((inflow) => !this.isZero(inflow.amount));
-
-    if (largestInflow) {
-      primary = {
-        asset: largestInflow.asset,
-        amount: largestInflow.amount,
-        tokenAddress: largestInflow.tokenAddress,
-        tokenDecimals: largestInflow.tokenDecimals,
-      };
-    } else {
-      // If no inflows, use largest outflow
-      const largestOutflow = consolidatedOutflows
-        .sort((a, b) => {
-          try {
-            return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
-          } catch {
-            return 0;
-          }
-        })
-        .find((outflow) => !this.isZero(outflow.amount));
-
-      if (largestOutflow) {
-        primary = {
-          asset: largestOutflow.asset,
-          amount: largestOutflow.amount,
-          tokenAddress: largestOutflow.tokenAddress,
-          tokenDecimals: largestOutflow.tokenDecimals,
-        };
-      }
-    }
+    const primary: EvmMovement =
+      primaryFromInflows && !this.isZero(primaryFromInflows.amount)
+        ? primaryFromInflows
+        : selectPrimaryEvmMovement(consolidatedOutflows, {
+            nativeCurrency: this.chainConfig.nativeCurrency,
+          }) || {
+            asset: this.chainConfig.nativeCurrency,
+            amount: '0',
+          };
 
     // Get fee from the parent transaction (NOT from token_transfer events)
     // A single on-chain transaction has only ONE fee, but providers may duplicate it across
@@ -497,138 +435,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       toAddress,
       transactionCount: txGroup.length,
     });
-  }
-
-  /**
-   * Conservative operation classification based purely on fund flow structure.
-   * Only classifies patterns we're confident about. Complex cases get notes.
-   */
-  private determineOperationFromFundFlow(fundFlow: EvmFundFlow): OperationClassification {
-    const { inflows, outflows } = fundFlow;
-    const amount = parseDecimal(fundFlow.primary.amount || '0').abs();
-    const isZero = amount.isZero();
-
-    // Pattern 1: Contract interaction with zero value
-    // Approvals, staking operations, state changes - classified as transfer with note
-    if (isZero && (fundFlow.hasContractInteraction || fundFlow.hasTokenTransfers)) {
-      return {
-        note: {
-          message: `Contract interaction with zero value. May be approval, staking, or other state change.`,
-          metadata: {
-            hasContractInteraction: fundFlow.hasContractInteraction,
-            hasTokenTransfers: fundFlow.hasTokenTransfers,
-          },
-          severity: 'info',
-          type: 'contract_interaction',
-        },
-        operation: {
-          category: 'transfer',
-          type: 'transfer',
-        },
-      };
-    }
-
-    // Pattern 2: Fee-only transaction
-    // Zero value with NO fund movements at all
-    if (isZero && inflows.length === 0 && outflows.length === 0) {
-      return {
-        operation: {
-          category: 'fee',
-          type: 'fee',
-        },
-      };
-    }
-
-    // Pattern 3: Single asset swap
-    // One asset out, different asset in
-    if (outflows.length === 1 && inflows.length === 1) {
-      const outAsset = outflows[0]?.asset;
-      const inAsset = inflows[0]?.asset;
-
-      if (outAsset !== inAsset) {
-        return {
-          operation: {
-            category: 'trade',
-            type: 'swap',
-          },
-        };
-      }
-    }
-
-    // Pattern 4: Simple deposit
-    // Only inflows, no outflows (can be multiple assets)
-    if (outflows.length === 0 && inflows.length >= 1) {
-      return {
-        operation: {
-          category: 'transfer',
-          type: 'deposit',
-        },
-      };
-    }
-
-    // Pattern 5: Simple withdrawal
-    // Only outflows, no inflows (can be multiple assets)
-    if (outflows.length >= 1 && inflows.length === 0) {
-      return {
-        operation: {
-          category: 'transfer',
-          type: 'withdrawal',
-        },
-      };
-    }
-
-    // Pattern 6: Self-transfer
-    // Same asset in and out
-    if (outflows.length === 1 && inflows.length === 1) {
-      const outAsset = outflows[0]?.asset;
-      const inAsset = inflows[0]?.asset;
-
-      if (outAsset === inAsset) {
-        return {
-          operation: {
-            category: 'transfer',
-            type: 'transfer',
-          },
-        };
-      }
-    }
-
-    // Pattern 7: Complex multi-asset transaction (UNCERTAIN - add note)
-    // Multiple inflows or outflows - could be LP, batch, multi-swap
-    if (fundFlow.classificationUncertainty) {
-      return {
-        note: {
-          message: fundFlow.classificationUncertainty,
-          metadata: {
-            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
-          },
-          severity: 'info',
-          type: 'classification_uncertain',
-        },
-        operation: {
-          category: 'transfer',
-          type: 'transfer',
-        },
-      };
-    }
-
-    // Ultimate fallback: Couldn't match any confident pattern
-    return {
-      note: {
-        message: 'Unable to determine transaction classification using confident patterns.',
-        metadata: {
-          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
-        },
-        severity: 'warning',
-        type: 'classification_failed',
-      },
-      operation: {
-        category: 'transfer',
-        type: 'transfer',
-      },
-    };
   }
 
   private selectPrimaryTransaction(txGroup: EvmTransaction[], fundFlow: EvmFundFlow): EvmTransaction | undefined {

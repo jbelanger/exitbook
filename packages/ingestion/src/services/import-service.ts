@@ -11,6 +11,12 @@ import { createExchangeImporter } from '../infrastructure/exchanges/shared/excha
 import type { ImportParams, ImportResult } from '../types/importers.ts';
 import type { IDataSourceRepository, IRawDataRepository } from '../types/repositories.ts';
 
+import {
+  normalizeBlockchainImportParams,
+  prepareImportSession,
+  shouldReuseExistingImport,
+} from './import-service-utils.ts';
+
 export class TransactionImportService {
   private logger: Logger;
 
@@ -47,24 +53,20 @@ export class TransactionImportService {
     // Normalize sourceId to lowercase for config lookup (registry keys are lowercase)
     const normalizedSourceId = sourceId.toLowerCase();
 
-    // Get blockchain config and normalize params BEFORE anything else
+    // Get blockchain config
     const config = getBlockchainConfig(normalizedSourceId);
     if (!config) {
       return err(new Error(`Unknown blockchain: ${sourceId}`));
     }
 
-    if (!params.address) {
-      return err(new Error(`Address required for blockchain ${sourceId}`));
+    // Normalize and validate params using pure function
+    const normalizedParamsResult = normalizeBlockchainImportParams(sourceId, params, config);
+    if (normalizedParamsResult.isErr()) {
+      return err(normalizedParamsResult.error);
     }
+    const normalizedParams = normalizedParamsResult.value;
 
-    const normalizedResult = config.normalizeAddress(params.address);
-    if (normalizedResult.isErr()) {
-      return err(normalizedResult.error);
-    }
-
-    // Use normalized params for everything from here on
-    const normalizedParams = { ...params, address: normalizedResult.value };
-
+    // Check for existing completed import
     const existingDataSourceResult = await this.dataSourceRepository.findCompletedWithMatchingParams(
       sourceId,
       sourceType,
@@ -77,13 +79,14 @@ export class TransactionImportService {
 
     const existingDataSource = existingDataSourceResult.value;
 
-    if (existingDataSource) {
+    // Use pure function to decide if we should reuse existing import
+    if (shouldReuseExistingImport(existingDataSource ?? undefined, normalizedParams)) {
       this.logger.info(
-        `Found existing completed data source ${existingDataSource.id} with matching parameters - reusing data`
+        `Found existing completed data source ${existingDataSource!.id} with matching parameters - reusing data`
       );
 
       const rawDataResult = await this.rawDataRepository.load({
-        dataSourceId: existingDataSource.id,
+        dataSourceId: existingDataSource!.id,
       });
 
       if (rawDataResult.isErr()) {
@@ -94,7 +97,7 @@ export class TransactionImportService {
 
       return ok({
         imported: rawDataCount,
-        dataSourceId: existingDataSource.id,
+        dataSourceId: existingDataSource!.id,
       });
     }
 
@@ -192,30 +195,37 @@ export class TransactionImportService {
     const sourceType = 'exchange';
     this.logger.info(`Starting exchange import for ${sourceId}`);
 
+    // Check for existing data source
     const existingDataSourceResult = await this.dataSourceRepository.findBySource(sourceId);
-
     if (existingDataSourceResult.isErr()) {
       return err(existingDataSourceResult.error);
     }
-
     const existingDataSource = existingDataSourceResult.value[0];
+
+    // Get latest cursor if resuming
+    let latestCursor: Record<string, number> | undefined = undefined;
+    if (existingDataSource) {
+      const latestCursorResult = await this.rawDataRepository.getLatestCursor(existingDataSource.id);
+      if (latestCursorResult.isOk() && latestCursorResult.value) {
+        latestCursor = latestCursorResult.value;
+      }
+    }
+
+    // Use pure function to prepare import session config
+    const sessionConfig = prepareImportSession(sourceId, params, existingDataSource || undefined, latestCursor);
 
     const startTime = Date.now();
     let dataSourceCreated = false;
     let dataSourceId: number;
 
-    if (existingDataSource) {
-      dataSourceId = existingDataSource.id;
-      this.logger.info(`Resuming existing data source : ${dataSourceId}`);
-
-      const latestCursorResult = await this.rawDataRepository.getLatestCursor(dataSourceId);
-      if (latestCursorResult.isOk() && latestCursorResult.value) {
-        const latestCursor = latestCursorResult.value;
-        params.cursor = latestCursor;
+    if (sessionConfig.shouldResume && sessionConfig.existingDataSourceId) {
+      dataSourceId = sessionConfig.existingDataSourceId;
+      this.logger.info(`Resuming existing data source: ${dataSourceId}`);
+      if (latestCursor) {
         this.logger.info(`Resuming from cursor: ${JSON.stringify(latestCursor)}`);
       }
     } else {
-      const dataSourceCreateResult = await this.dataSourceRepository.create(sourceId, sourceType, params);
+      const dataSourceCreateResult = await this.dataSourceRepository.create(sourceId, sourceType, sessionConfig.params);
 
       if (dataSourceCreateResult.isErr()) {
         return err(dataSourceCreateResult.error);
@@ -223,11 +233,11 @@ export class TransactionImportService {
 
       dataSourceId = dataSourceCreateResult.value;
       dataSourceCreated = true;
-      this.logger.info(`Created new data source : ${dataSourceId}`);
+      this.logger.info(`Created new data source: ${dataSourceId}`);
     }
 
     try {
-      const importerResult = await createExchangeImporter(sourceId, params);
+      const importerResult = await createExchangeImporter(sourceId, sessionConfig.params);
 
       if (importerResult.isErr()) {
         return err(importerResult.error);
@@ -237,7 +247,7 @@ export class TransactionImportService {
       this.logger.info(`Importer for ${sourceId} created successfully`);
 
       this.logger.info('Starting raw data import...');
-      const importResultOrError = await importer.import(params);
+      const importResultOrError = await importer.import(sessionConfig.params);
 
       if (importResultOrError.isErr()) {
         const error = importResultOrError.error;
