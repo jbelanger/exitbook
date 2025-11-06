@@ -165,6 +165,45 @@ export function initializeStats(): PriceFetchStats {
 }
 
 /**
+ * Options for determining enrichment stages
+ */
+export interface EnrichmentStageOptions {
+  normalizeOnly?: boolean | undefined;
+  deriveOnly?: boolean | undefined;
+  fetchOnly?: boolean | undefined;
+}
+
+/**
+ * Enrichment stages configuration
+ */
+export interface EnrichmentStages {
+  normalize: boolean;
+  derive: boolean;
+  fetch: boolean;
+}
+
+/**
+ * Determine which enrichment stages should run based on command options
+ *
+ * Stage selection logic:
+ * - If only one stage flag is set, only that stage runs
+ * - If no stage flags are set, all stages run (default pipeline)
+ * - Multiple stage flags are mutually exclusive
+ *
+ * Examples:
+ * - {} → { normalize: true, derive: true, fetch: true } (all stages)
+ * - { deriveOnly: true } → { normalize: false, derive: true, fetch: false }
+ * - { fetchOnly: true } → { normalize: false, derive: false, fetch: true }
+ */
+export function determineEnrichmentStages(options: EnrichmentStageOptions): EnrichmentStages {
+  return {
+    normalize: !options.deriveOnly && !options.fetchOnly,
+    derive: !options.normalizeOnly && !options.fetchOnly,
+    fetch: !options.normalizeOnly && !options.deriveOnly,
+  };
+}
+
+/**
  * Create default price provider manager with all providers enabled
  *
  * This factory centralizes the provider configuration to eliminate duplication

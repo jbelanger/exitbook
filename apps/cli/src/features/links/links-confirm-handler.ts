@@ -6,6 +6,8 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import { getDefaultReviewer, validateLinkStatusForConfirm } from './links-utils.js';
+
 const logger = getLogger('LinksConfirmHandler');
 
 /**
@@ -52,24 +54,26 @@ export class LinksConfirmHandler {
         return err(new Error(`Link with ID ${params.linkId} not found`));
       }
 
-      // Check current status
-      if (link.status === 'confirmed') {
+      // Validate if link can be confirmed
+      const validationResult = validateLinkStatusForConfirm(link.status);
+
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
+
+      // If already confirmed (idempotent), return success with existing data
+      if (!validationResult.value) {
         logger.warn({ linkId: params.linkId }, 'Link is already confirmed');
-        // Return success anyway with existing data
         return ok({
           linkId: link.id,
           newStatus: 'confirmed',
-          reviewedBy: link.reviewedBy ?? 'cli-user',
+          reviewedBy: link.reviewedBy ?? getDefaultReviewer(),
           reviewedAt: link.reviewedAt ?? new Date(),
         });
       }
 
-      if (link.status === 'rejected') {
-        return err(new Error(`Link ${params.linkId} was previously rejected. Create a new link instead.`));
-      }
-
       // Update link status to confirmed
-      const reviewedBy = 'cli-user'; // TODO: Get actual user from auth context when available
+      const reviewedBy = getDefaultReviewer();
       const updateResult = await this.linkRepo.updateStatus(params.linkId, 'confirmed', reviewedBy);
 
       if (updateResult.isErr()) {

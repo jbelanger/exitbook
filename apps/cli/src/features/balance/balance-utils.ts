@@ -1,4 +1,10 @@
-import type { DataSource, SourceParams, SourceType } from '@exitbook/core';
+import {
+  parseDecimal,
+  type DataSource,
+  type SourceParams,
+  type SourceType,
+  type UniversalTransaction,
+} from '@exitbook/core';
 import type { ExchangeCredentials } from '@exitbook/exchanges';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -152,4 +158,90 @@ export function decimalRecordToStringRecord(record: Record<string, Decimal>): Re
     result[key] = value.toFixed();
   }
   return result;
+}
+
+/**
+ * Sort sessions by completed date in descending order.
+ * Pure function for session sorting.
+ */
+export function sortSessionsByCompletedDate(sessions: DataSource[]): DataSource[] {
+  return [...sessions].sort((a, b) => {
+    const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+    const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+    return bTime - aTime;
+  });
+}
+
+/**
+ * Find the most recent completed session from a list of sessions.
+ * Pure function that filters to completed sessions and returns the most recent.
+ */
+export function findMostRecentCompletedSession(sessions: DataSource[]): DataSource | undefined {
+  const completedSessions = sessions.filter((s) => s.status === 'completed');
+  if (completedSessions.length === 0) {
+    return undefined;
+  }
+  const sorted = sortSessionsByCompletedDate(completedSessions);
+  return sorted[0];
+}
+
+/**
+ * Find a session matching a specific blockchain address.
+ * Pure function that searches for a session with matching address in import params.
+ */
+export function findSessionByAddress(sessions: DataSource[], address: string): DataSource | undefined {
+  const normalizedAddress = address.toLowerCase();
+  return sessions.find((session) => {
+    const importParams = session.importParams;
+    return importParams.address?.toLowerCase() === normalizedAddress;
+  });
+}
+
+/**
+ * Subtract excluded amounts from live balance.
+ * For each asset with excluded amounts, subtract that amount from the live balance.
+ * If the result is zero or negative, remove the asset entirely.
+ * Pure function for balance arithmetic.
+ */
+export function subtractExcludedAmounts(
+  balances: Record<string, Decimal>,
+  excludedAmounts: Record<string, Decimal>
+): Record<string, Decimal> {
+  const adjusted: Record<string, Decimal> = { ...balances };
+
+  for (const [asset, excludedAmount] of Object.entries(excludedAmounts)) {
+    if (adjusted[asset]) {
+      const newBalance = adjusted[asset].minus(excludedAmount);
+
+      // If balance becomes zero or negative, remove the asset
+      if (newBalance.lte(0)) {
+        delete adjusted[asset];
+      } else {
+        adjusted[asset] = newBalance;
+      }
+    }
+  }
+
+  return adjusted;
+}
+
+/**
+ * Sum up inflow amounts from excluded transactions.
+ * Scam tokens are typically received via airdrops (inflows only).
+ * Pure function for excluded amount calculation.
+ */
+export function sumExcludedInflowAmounts(transactions: UniversalTransaction[]): Record<string, Decimal> {
+  const excludedAmounts: Record<string, Decimal> = {};
+
+  for (const tx of transactions) {
+    if (tx.excludedFromAccounting) {
+      // Sum inflow amounts from scam transactions
+      for (const inflow of tx.movements.inflows ?? []) {
+        const currentAmount = excludedAmounts[inflow.asset] || parseDecimal('0');
+        excludedAmounts[inflow.asset] = currentAmount.plus(inflow.grossAmount);
+      }
+    }
+  }
+
+  return excludedAmounts;
 }
