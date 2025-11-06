@@ -34,7 +34,7 @@ vi.mock('../cryptocompare-utils.js', async () => {
 import { Currency, parseDecimal } from '@exitbook/core';
 
 // Import after mocks so they receive mocked dependencies
-import { CryptoCompareProvider } from '../provider.ts';
+import { CryptoCompareProvider } from '../provider.js';
 
 describe('CryptoCompareProvider', () => {
   const defaultTimestamp = new Date('2024-01-01T00:00:00Z');

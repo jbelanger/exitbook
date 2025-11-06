@@ -11,12 +11,12 @@
 import { configureLogger, resetLoggerContext } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
-import { withDatabaseAndHandler } from '../shared/command-execution.ts';
-import { ExitCodes } from '../shared/exit-codes.ts';
-import { OutputManager } from '../shared/output.ts';
+import { withDatabaseAndHandler } from '../shared/command-execution.js';
+import { ExitCodes } from '../shared/exit-codes.js';
+import { OutputManager } from '../shared/output.js';
 
-import { PricesEnrichHandler } from './prices-enrich-handler.ts';
-import type { PricesEnrichOptions, PricesEnrichResult } from './prices-enrich-handler.ts';
+import { PricesEnrichHandler } from './prices-enrich-handler.js';
+import type { PricesEnrichOptions, PricesEnrichResult } from './prices-enrich-handler.js';
 
 /**
  * Extended command options (adds CLI-specific flags)

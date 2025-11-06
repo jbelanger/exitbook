@@ -8,7 +8,7 @@ import type { HttpClient } from '@exitbook/platform-http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { PricesDB } from '../persistence/database.ts';
+import type { PricesDB } from '../persistence/database.js';
 import { PriceRepository } from '../persistence/repositories/price-repository.js';
 import { BasePriceProvider } from '../shared/base-provider.js';
 import { CoinNotFoundError } from '../shared/errors.js';
@@ -90,7 +90,7 @@ export function createBinanceProvider(
  * Falls back to daily data for older timestamps
  *
  * Imperative shell managing HTTP client, DB repositories, and orchestration
- * Uses pure functions from binance-utils.ts for all transformations
+ * Uses pure functions from binance-utils.js for all transformations
  */
 export class BinanceProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;

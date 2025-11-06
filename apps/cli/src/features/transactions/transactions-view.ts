@@ -3,14 +3,14 @@
 import { configureLogger, resetLoggerContext } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
-import { ExitCodes } from '../shared/exit-codes.ts';
-import { OutputManager } from '../shared/output.ts';
-import type { ViewCommandResult } from '../shared/view-utils.ts';
-import { buildViewMeta } from '../shared/view-utils.ts';
+import { ExitCodes } from '../shared/exit-codes.js';
+import { OutputManager } from '../shared/output.js';
+import type { ViewCommandResult } from '../shared/view-utils.js';
+import { buildViewMeta } from '../shared/view-utils.js';
 
-import { ViewTransactionsHandler } from './transactions-view-handler.ts';
-import type { TransactionInfo, ViewTransactionsParams, ViewTransactionsResult } from './transactions-view-utils.ts';
-import { formatTransactionsListForDisplay } from './transactions-view-utils.ts';
+import { ViewTransactionsHandler } from './transactions-view-handler.js';
+import type { TransactionInfo, ViewTransactionsParams, ViewTransactionsResult } from './transactions-view-utils.js';
+import { formatTransactionsListForDisplay } from './transactions-view-utils.js';
 
 /**
  * Extended command options (adds CLI-specific flags).

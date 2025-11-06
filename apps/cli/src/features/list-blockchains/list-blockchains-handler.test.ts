@@ -3,7 +3,7 @@ import type { ProviderInfo } from '@exitbook/providers';
 import { ProviderRegistry } from '@exitbook/providers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ListBlockchainsHandler } from './list-blockchains-handler.ts';
+import { ListBlockchainsHandler } from './list-blockchains-handler.js';
 
 // Mock dependencies
 vi.mock('@exitbook/ingestion');

@@ -7,7 +7,7 @@ import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { getOrFetchTokenMetadata } from '../token-metadata/token-metadata-utils.ts';
+import { getOrFetchTokenMetadata } from '../token-metadata/token-metadata-utils.js';
 
 /**
  * Unified balance snapshot format for both exchanges and blockchains

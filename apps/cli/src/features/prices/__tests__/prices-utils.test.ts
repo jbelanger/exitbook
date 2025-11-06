@@ -1,7 +1,13 @@
 import { Currency, parseDecimal, type UniversalTransaction } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { initializeStats, extractAssetsNeedingPrices, createPriceQuery, validateAssetFilter } from '../prices-utils.ts';
+import {
+  initializeStats,
+  extractAssetsNeedingPrices,
+  createPriceQuery,
+  validateAssetFilter,
+  determineEnrichmentStages,
+} from '../prices-utils.js';
 
 describe('validateAssetFilter', () => {
   it('should return empty array when asset is undefined', () => {
@@ -461,5 +467,195 @@ describe('initializeStats', () => {
     expect(stats).toHaveProperty('skipped');
     expect(stats).toHaveProperty('manualEntries');
     expect(stats).toHaveProperty('granularity');
+  });
+});
+
+describe('determineEnrichmentStages', () => {
+  describe('default behavior (no flags)', () => {
+    it('should enable all stages when no flags are set', () => {
+      const stages = determineEnrichmentStages({});
+
+      expect(stages).toEqual({
+        normalize: true,
+        derive: true,
+        fetch: true,
+      });
+    });
+
+    it('should enable all stages when all flags are undefined', () => {
+      const stages = determineEnrichmentStages({
+        normalizeOnly: undefined,
+        deriveOnly: undefined,
+        fetchOnly: undefined,
+      });
+
+      expect(stages).toEqual({
+        normalize: true,
+        derive: true,
+        fetch: true,
+      });
+    });
+
+    it('should enable all stages when all flags are false', () => {
+      const stages = determineEnrichmentStages({
+        normalizeOnly: false,
+        deriveOnly: false,
+        fetchOnly: false,
+      });
+
+      expect(stages).toEqual({
+        normalize: true,
+        derive: true,
+        fetch: true,
+      });
+    });
+  });
+
+  describe('single stage flags', () => {
+    it('should only enable normalize stage when normalizeOnly is true', () => {
+      const stages = determineEnrichmentStages({
+        normalizeOnly: true,
+      });
+
+      expect(stages).toEqual({
+        normalize: true,
+        derive: false,
+        fetch: false,
+      });
+    });
+
+    it('should only enable derive stage when deriveOnly is true', () => {
+      const stages = determineEnrichmentStages({
+        deriveOnly: true,
+      });
+
+      expect(stages).toEqual({
+        normalize: false,
+        derive: true,
+        fetch: false,
+      });
+    });
+
+    it('should only enable fetch stage when fetchOnly is true', () => {
+      const stages = determineEnrichmentStages({
+        fetchOnly: true,
+      });
+
+      expect(stages).toEqual({
+        normalize: false,
+        derive: false,
+        fetch: true,
+      });
+    });
+  });
+
+  describe('multiple stage flags (edge cases)', () => {
+    it('should disable all stages when normalizeOnly and deriveOnly are both true', () => {
+      const stages = determineEnrichmentStages({
+        normalizeOnly: true,
+        deriveOnly: true,
+      });
+
+      expect(stages).toEqual({
+        normalize: false,
+        derive: false,
+        fetch: false,
+      });
+    });
+
+    it('should disable all stages when normalizeOnly and fetchOnly are both true', () => {
+      const stages = determineEnrichmentStages({
+        normalizeOnly: true,
+        fetchOnly: true,
+      });
+
+      expect(stages).toEqual({
+        normalize: false,
+        derive: false,
+        fetch: false,
+      });
+    });
+
+    it('should disable all stages when deriveOnly and fetchOnly are both true', () => {
+      const stages = determineEnrichmentStages({
+        deriveOnly: true,
+        fetchOnly: true,
+      });
+
+      expect(stages).toEqual({
+        normalize: false,
+        derive: false,
+        fetch: false,
+      });
+    });
+
+    it('should disable all stages when all flags are true', () => {
+      const stages = determineEnrichmentStages({
+        normalizeOnly: true,
+        deriveOnly: true,
+        fetchOnly: true,
+      });
+
+      expect(stages).toEqual({
+        normalize: false,
+        derive: false,
+        fetch: false,
+      });
+    });
+  });
+
+  describe('mixed true/false flags', () => {
+    it('should enable normalize and derive when fetchOnly is explicitly false', () => {
+      const stages = determineEnrichmentStages({
+        normalizeOnly: false,
+        deriveOnly: false,
+        fetchOnly: false,
+      });
+
+      expect(stages).toEqual({
+        normalize: true,
+        derive: true,
+        fetch: true,
+      });
+    });
+
+    it('should only enable normalize when deriveOnly is false and fetchOnly is true', () => {
+      const stages = determineEnrichmentStages({
+        deriveOnly: false,
+        fetchOnly: true,
+      });
+
+      expect(stages).toEqual({
+        normalize: false,
+        derive: false,
+        fetch: true,
+      });
+    });
+
+    it('should only enable derive when normalizeOnly is false and fetchOnly is true', () => {
+      const stages = determineEnrichmentStages({
+        normalizeOnly: false,
+        fetchOnly: true,
+      });
+
+      expect(stages).toEqual({
+        normalize: false,
+        derive: false,
+        fetch: true,
+      });
+    });
+
+    it('should only enable fetch when normalizeOnly is true and deriveOnly is false', () => {
+      const stages = determineEnrichmentStages({
+        normalizeOnly: true,
+        deriveOnly: false,
+      });
+
+      expect(stages).toEqual({
+        normalize: true,
+        derive: false,
+        fetch: false,
+      });
+    });
   });
 });

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ExitCodes, exitWithCode } from '../exit-codes.ts';
+import { ExitCodes, exitWithCode } from '../exit-codes.js';
 
 describe('exit-codes', () => {
   describe('ExitCodes', () => {

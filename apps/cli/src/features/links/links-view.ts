@@ -3,13 +3,13 @@
 import { configureLogger, resetLoggerContext } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
-import { ExitCodes } from '../shared/exit-codes.ts';
-import { OutputManager } from '../shared/output.ts';
-import { buildViewMeta, type ViewCommandResult } from '../shared/view-utils.ts';
+import { ExitCodes } from '../shared/exit-codes.js';
+import { OutputManager } from '../shared/output.js';
+import { buildViewMeta, type ViewCommandResult } from '../shared/view-utils.js';
 
-import { LinksViewHandler } from './links-view-handler.ts';
-import type { LinkInfo, LinksViewParams, LinksViewResult } from './links-view-utils.ts';
-import { formatLinksListForDisplay } from './links-view-utils.ts';
+import { LinksViewHandler } from './links-view-handler.js';
+import type { LinkInfo, LinksViewParams, LinksViewResult } from './links-view-utils.js';
+import { formatLinksListForDisplay } from './links-view-utils.js';
 
 /**
  * Extended command options (adds CLI-specific flags).

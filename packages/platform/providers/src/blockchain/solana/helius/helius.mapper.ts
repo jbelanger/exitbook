@@ -2,8 +2,8 @@ import { isErrorWithMessage } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseRawDataMapper } from '../../../shared/blockchain/base/mapper.ts';
-import type { NormalizationError } from '../../../shared/blockchain/index.ts';
+import { BaseRawDataMapper } from '../../../shared/blockchain/base/mapper.js';
+import type { NormalizationError } from '../../../shared/blockchain/index.js';
 import { determinePrimaryTransfer, extractAccountChanges, extractTokenChanges } from '../mapper-utils.js';
 import { SolanaTransactionSchema } from '../schemas.js';
 import type { SolanaTransaction } from '../types.js';

@@ -1,6 +1,14 @@
+import type { UniversalTransaction } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { buildCostBasisParamsFromFlags, type CostBasisCommandOptions } from '../cost-basis-utils.ts';
+import {
+  buildCostBasisParamsFromFlags,
+  type CostBasisCommandOptions,
+  filterTransactionsByDateRange,
+  getJurisdictionRules,
+  transactionHasAllPrices,
+  validateTransactionPrices,
+} from '../cost-basis-utils.js';
 
 describe('Cost Basis Utils', () => {
   describe('buildCostBasisParamsFromFlags', () => {
@@ -406,6 +414,272 @@ describe('Cost Basis Utils', () => {
           expect(result.error.message).toContain('out of reasonable range');
         }
       });
+    });
+  });
+
+  describe('filterTransactionsByDateRange', () => {
+    it('should filter transactions within date range', () => {
+      const transactions: UniversalTransaction[] = [
+        { timestamp: '2024-01-01T00:00:00Z' } as unknown as UniversalTransaction,
+        { timestamp: '2024-06-01T00:00:00Z' } as unknown as UniversalTransaction,
+        { timestamp: '2024-12-31T23:59:59Z' } as unknown as UniversalTransaction,
+        { timestamp: '2025-01-01T00:00:00Z' } as unknown as UniversalTransaction,
+      ];
+
+      const result = filterTransactionsByDateRange(
+        transactions,
+        new Date('2024-06-01T00:00:00Z'),
+        new Date('2024-12-31T23:59:59Z')
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result[0]?.timestamp).toBe('2024-06-01T00:00:00Z');
+      expect(result[1]?.timestamp).toBe('2024-12-31T23:59:59Z');
+    });
+
+    it('should return empty array when no transactions in range', () => {
+      const transactions: UniversalTransaction[] = [
+        { timestamp: '2023-01-01T00:00:00Z' } as unknown as UniversalTransaction,
+        { timestamp: '2023-12-31T00:00:00Z' } as unknown as UniversalTransaction,
+      ];
+
+      const result = filterTransactionsByDateRange(
+        transactions,
+        new Date('2024-01-01T00:00:00Z'),
+        new Date('2024-12-31T23:59:59Z')
+      );
+
+      expect(result).toHaveLength(0);
+    });
+
+    it('should include transactions on boundary dates', () => {
+      const transactions: UniversalTransaction[] = [
+        { timestamp: '2024-01-01T00:00:00Z' } as unknown as UniversalTransaction,
+        { timestamp: '2024-12-31T23:59:59Z' } as unknown as UniversalTransaction,
+      ];
+
+      const result = filterTransactionsByDateRange(
+        transactions,
+        new Date('2024-01-01T00:00:00Z'),
+        new Date('2024-12-31T23:59:59Z')
+      );
+
+      expect(result).toHaveLength(2);
+    });
+  });
+
+  describe('transactionHasAllPrices', () => {
+    it('should return true when all crypto movements have prices', () => {
+      const tx: UniversalTransaction = {
+        movements: {
+          inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' }],
+          outflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: '3000.00' }],
+        },
+      } as unknown as UniversalTransaction;
+
+      expect(transactionHasAllPrices(tx, 'USD')).toBe(true);
+    });
+
+    it('should return false when crypto inflow is missing price', () => {
+      const tx: UniversalTransaction = {
+        movements: {
+          inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: undefined }],
+          outflows: [],
+        },
+      } as unknown as UniversalTransaction;
+
+      expect(transactionHasAllPrices(tx, 'USD')).toBe(false);
+    });
+
+    it('should return false when crypto outflow is missing price', () => {
+      const tx: UniversalTransaction = {
+        movements: {
+          inflows: [],
+          outflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: undefined }],
+        },
+      } as unknown as UniversalTransaction;
+
+      expect(transactionHasAllPrices(tx, 'USD')).toBe(false);
+    });
+
+    it('should return true when only fiat movements (no price needed)', () => {
+      const tx: UniversalTransaction = {
+        movements: {
+          inflows: [{ asset: 'USD', amount: '1000.0', priceAtTxTime: undefined }],
+          outflows: [{ asset: 'CAD', amount: '1300.0', priceAtTxTime: undefined }],
+        },
+      } as unknown as UniversalTransaction;
+
+      expect(transactionHasAllPrices(tx, 'USD')).toBe(true);
+    });
+
+    it('should return true when fiat and crypto both present, crypto has price', () => {
+      const tx: UniversalTransaction = {
+        movements: {
+          inflows: [
+            { asset: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' },
+            { asset: 'USD', amount: '50000.0', priceAtTxTime: undefined },
+          ],
+          outflows: [],
+        },
+      } as unknown as UniversalTransaction;
+
+      expect(transactionHasAllPrices(tx, 'USD')).toBe(true);
+    });
+
+    it('should return false when fiat and crypto both present, crypto missing price', () => {
+      const tx: UniversalTransaction = {
+        movements: {
+          inflows: [
+            { asset: 'BTC', amount: '1.0', priceAtTxTime: undefined },
+            { asset: 'USD', amount: '50000.0', priceAtTxTime: undefined },
+          ],
+          outflows: [],
+        },
+      } as unknown as UniversalTransaction;
+
+      expect(transactionHasAllPrices(tx, 'USD')).toBe(false);
+    });
+
+    it('should handle empty inflows and outflows', () => {
+      const tx: UniversalTransaction = {
+        movements: {
+          inflows: [],
+          outflows: [],
+        },
+      } as unknown as UniversalTransaction;
+
+      expect(transactionHasAllPrices(tx, 'USD')).toBe(true);
+    });
+  });
+
+  describe('validateTransactionPrices', () => {
+    it('should return all valid transactions when all have prices', () => {
+      const transactions: UniversalTransaction[] = [
+        {
+          movements: {
+            inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' }],
+            outflows: [],
+          },
+        } as unknown as UniversalTransaction,
+        {
+          movements: {
+            inflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: '3000.00' }],
+            outflows: [],
+          },
+        } as unknown as UniversalTransaction,
+      ];
+
+      const result = validateTransactionPrices(transactions, 'USD');
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.validTransactions).toHaveLength(2);
+        expect(result.value.missingPricesCount).toBe(0);
+      }
+    });
+
+    it('should filter out transactions missing prices', () => {
+      const transactions: UniversalTransaction[] = [
+        {
+          movements: {
+            inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' }],
+            outflows: [],
+          },
+        } as unknown as UniversalTransaction,
+        {
+          movements: {
+            inflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: undefined }],
+            outflows: [],
+          },
+        } as unknown as UniversalTransaction,
+        {
+          movements: {
+            inflows: [{ asset: 'SOL', amount: '100.0', priceAtTxTime: '150.00' }],
+            outflows: [],
+          },
+        } as unknown as UniversalTransaction,
+      ];
+
+      const result = validateTransactionPrices(transactions, 'USD');
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.validTransactions).toHaveLength(2);
+        expect(result.value.missingPricesCount).toBe(1);
+      }
+    });
+
+    it('should return error when ALL transactions missing prices', () => {
+      const transactions: UniversalTransaction[] = [
+        {
+          movements: {
+            inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: undefined }],
+            outflows: [],
+          },
+        } as unknown as UniversalTransaction,
+        {
+          movements: {
+            inflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: undefined }],
+            outflows: [],
+          },
+        } as unknown as UniversalTransaction,
+      ];
+
+      const result = validateTransactionPrices(transactions, 'USD');
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('All transactions are missing price data');
+        expect(result.error.message).toContain('USD');
+      }
+    });
+
+    it('should count fiat-only transactions as valid (no prices needed)', () => {
+      const transactions: UniversalTransaction[] = [
+        {
+          movements: {
+            inflows: [{ asset: 'USD', amount: '1000.0', priceAtTxTime: undefined }],
+            outflows: [],
+          },
+        } as unknown as UniversalTransaction,
+        {
+          movements: {
+            inflows: [{ asset: 'CAD', amount: '1300.0', priceAtTxTime: undefined }],
+            outflows: [],
+          },
+        } as unknown as UniversalTransaction,
+      ];
+
+      const result = validateTransactionPrices(transactions, 'USD');
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.validTransactions).toHaveLength(2);
+        expect(result.value.missingPricesCount).toBe(0);
+      }
+    });
+  });
+
+  describe('getJurisdictionRules', () => {
+    it('should return CanadaRules for CA jurisdiction', () => {
+      const rules = getJurisdictionRules('CA');
+      expect(rules).toBeDefined();
+      expect(rules.constructor.name).toBe('CanadaRules');
+    });
+
+    it('should return USRules for US jurisdiction', () => {
+      const rules = getJurisdictionRules('US');
+      expect(rules).toBeDefined();
+      expect(rules.constructor.name).toBe('USRules');
+    });
+
+    it('should throw error for UK jurisdiction (not implemented)', () => {
+      expect(() => getJurisdictionRules('UK')).toThrow('UK jurisdiction rules not yet implemented');
+    });
+
+    it('should throw error for EU jurisdiction (not implemented)', () => {
+      expect(() => getJurisdictionRules('EU')).toThrow('EU jurisdiction rules not yet implemented');
     });
   });
 });

@@ -1,6 +1,6 @@
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ITransactionProcessor } from '../../../types/processors.ts';
+import type { ITransactionProcessor } from '../../../types/processors.js';
 
 export async function createExchangeProcessor(
   exchange: string,
@@ -10,12 +10,12 @@ export async function createExchangeProcessor(
 
   switch (exchangeLower) {
     case 'kraken': {
-      const { DefaultExchangeProcessor } = await import('./default-exchange-processor.ts');
+      const { DefaultExchangeProcessor } = await import('./default-exchange-processor.js');
       return ok(new DefaultExchangeProcessor('kraken'));
     }
 
     case 'coinbase': {
-      const { CoinbaseProcessor } = await import('../coinbase/processor.ts');
+      const { CoinbaseProcessor } = await import('../coinbase/processor.js');
       return ok(new CoinbaseProcessor());
     }
 
@@ -23,11 +23,11 @@ export async function createExchangeProcessor(
       const importMethod = metadata?.importMethod as string | undefined;
 
       if (importMethod === 'csv') {
-        const { KucoinProcessor } = await import('../kucoin/processor-csv.ts');
+        const { KucoinProcessor } = await import('../kucoin/processor-csv.js');
         return ok(new KucoinProcessor());
       }
 
-      const { DefaultExchangeProcessor } = await import('./default-exchange-processor.ts');
+      const { DefaultExchangeProcessor } = await import('./default-exchange-processor.js');
       return ok(new DefaultExchangeProcessor('kucoin'));
     }
 

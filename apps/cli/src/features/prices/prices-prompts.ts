@@ -5,7 +5,7 @@ import * as p from '@clack/prompts';
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import { handleCancellation, isCancelled } from '../shared/prompts.ts';
+import { handleCancellation, isCancelled } from '../shared/prompts.js';
 
 /**
  * Manual price entry data

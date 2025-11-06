@@ -5,7 +5,7 @@ import type { ProviderInfo } from '@exitbook/providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../shared/prompts.ts';
+import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../shared/prompts.js';
 
 /**
  * CLI options structure for list-blockchains command.

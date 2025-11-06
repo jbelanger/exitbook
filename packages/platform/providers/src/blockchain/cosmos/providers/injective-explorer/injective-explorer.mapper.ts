@@ -2,8 +2,8 @@ import type { SourceMetadata } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts';
-import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
+import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.js';
+import type { NormalizationError } from '../../../../shared/blockchain/index.js';
 import { calculateFee } from '../../calculation-utils.js';
 import { formatDenom, generatePeggyId, isTransactionRelevant } from '../../mapper-utils.js';
 import {
@@ -15,7 +15,7 @@ import {
   parseWasmxExecuteMessage,
   shouldSkipMessage,
 } from '../../message-parser-utils.js';
-import { CosmosTransactionSchema } from '../../schemas.ts';
+import { CosmosTransactionSchema } from '../../schemas.js';
 import type { CosmosTransaction } from '../../types.js';
 
 import {

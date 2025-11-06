@@ -1,19 +1,19 @@
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
+import { BaseApiClient } from '../../../shared/blockchain/base/api-client.js';
 import type {
   ProviderConfig,
   ProviderOperation,
   RawBalanceData,
   TransactionWithRawData,
-} from '../../../shared/blockchain/index.ts';
-import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
-import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
+} from '../../../shared/blockchain/index.js';
+import { RegisterApiClient } from '../../../shared/blockchain/index.js';
+import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import { calculateSimpleBalance, createRawBalanceData } from '../balance-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
-import { BlockchainComTransactionMapper } from './blockchain-com.mapper.ts';
+import { BlockchainComTransactionMapper } from './blockchain-com.mapper.js';
 import type { BlockchainComAddressResponse } from './blockchain-com.schemas.js';
 
 @RegisterApiClient({

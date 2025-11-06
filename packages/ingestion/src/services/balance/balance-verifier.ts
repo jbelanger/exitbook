@@ -2,7 +2,7 @@ import type { SourceType } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { BalanceComparison, BalanceVerificationResult } from './balance-verifier.types.ts';
+import type { BalanceComparison, BalanceVerificationResult } from './balance-verifier.types.js';
 
 /**
  * Compare calculated balances against live balances from an API.

@@ -5,18 +5,18 @@ import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, Result } from 'neverthrow';
 
-import { getBlockchainConfig } from '../infrastructure/blockchains/index.ts';
-import { createExchangeProcessor } from '../infrastructure/exchanges/shared/exchange-processor-factory.ts';
-import type { ITokenMetadataService } from '../services/token-metadata/token-metadata-service.interface.ts';
-import type { ProcessResult } from '../types/processors.ts';
-import type { IDataSourceRepository, IRawDataRepository, LoadRawDataFilters } from '../types/repositories.ts';
+import { getBlockchainConfig } from '../infrastructure/blockchains/index.js';
+import { createExchangeProcessor } from '../infrastructure/exchanges/shared/exchange-processor-factory.js';
+import type { ITokenMetadataService } from '../services/token-metadata/token-metadata-service.interface.js';
+import type { ProcessResult } from '../types/processors.js';
+import type { IDataSourceRepository, IRawDataRepository, LoadRawDataFilters } from '../types/repositories.js';
 
 import {
   buildSessionProcessingQueue,
   extractUniqueDataSourceIds,
   filterSessionsWithPendingData,
   groupRawDataBySession,
-} from './process-service-utils.ts';
+} from './process-service-utils.js';
 
 export class TransactionProcessService {
   private logger: Logger;

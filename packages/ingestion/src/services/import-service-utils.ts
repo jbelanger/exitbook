@@ -2,8 +2,8 @@ import type { DataSource } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { BlockchainConfig } from '../infrastructure/blockchains/shared/blockchain-config.ts';
-import type { ImportParams } from '../types/importers.ts';
+import type { BlockchainConfig } from '../infrastructure/blockchains/shared/blockchain-config.js';
+import type { ImportParams } from '../types/importers.js';
 
 /**
  * Configuration for an import session after preparation

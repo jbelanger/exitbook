@@ -1,6 +1,6 @@
 import { sql, type Kysely } from 'kysely';
 
-import type { KyselyDB } from '../storage/database.ts';
+import type { KyselyDB } from '../storage/database.js';
 
 export async function up(db: Kysely<KyselyDB>): Promise<void> {
   // Create data_sources table

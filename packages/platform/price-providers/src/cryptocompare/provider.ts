@@ -8,7 +8,7 @@ import type { HttpClient } from '@exitbook/platform-http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { PricesDB } from '../persistence/database.ts';
+import type { PricesDB } from '../persistence/database.js';
 import { PriceRepository } from '../persistence/repositories/price-repository.js';
 import { BasePriceProvider } from '../shared/base-provider.js';
 import { CoinNotFoundError } from '../shared/errors.js';
@@ -99,7 +99,7 @@ export function createCryptoCompareProvider(
  * Free tier: ~100,000 calls/month
  *
  * Imperative shell managing HTTP client, DB repositories, and orchestration
- * Uses pure functions from cryptocompare-utils.ts for all transformations
+ * Uses pure functions from cryptocompare-utils.js for all transformations
  */
 export class CryptoCompareProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;

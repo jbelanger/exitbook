@@ -1,7 +1,7 @@
 import type { CoinbaseLedgerEntry } from '@exitbook/exchanges';
 
-import { CorrelatingExchangeProcessor } from '../shared/correlating-exchange-processor.ts';
-import { byCorrelationId, coinbaseGrossAmounts } from '../shared/strategies/index.ts';
+import { CorrelatingExchangeProcessor } from '../shared/correlating-exchange-processor.js';
+import { byCorrelationId, coinbaseGrossAmounts } from '../shared/strategies/index.js';
 
 /**
  * Coinbase processor with correlation and gross amount semantics.

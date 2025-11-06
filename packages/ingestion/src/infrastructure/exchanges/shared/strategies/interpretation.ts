@@ -1,7 +1,7 @@
 import { parseDecimal } from '@exitbook/core';
 import type { CoinbaseLedgerEntry } from '@exitbook/exchanges';
 
-import type { RawTransactionWithMetadata } from './grouping.ts';
+import type { RawTransactionWithMetadata } from './grouping.js';
 
 /**
  * Movement input with amount semantics (used before parsing to Decimal)

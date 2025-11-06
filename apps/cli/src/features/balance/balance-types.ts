@@ -1,6 +1,6 @@
 import type { BalanceCommandStatus, SourceType } from '@exitbook/core';
 
-import type { BalanceCommandOptions } from './balance-utils.ts';
+import type { BalanceCommandOptions } from './balance-utils.js';
 
 /**
  * Extended balance command options (adds CLI-specific flags).

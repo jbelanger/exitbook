@@ -1,7 +1,7 @@
 import type { BitcoinTransaction } from '@exitbook/providers';
 import { type Result, ok } from 'neverthrow';
 
-import type { BitcoinFundFlow } from './types.ts';
+import type { BitcoinFundFlow } from './types.js';
 
 /**
  * Analyze fund flow from normalized Bitcoin transaction with structured input/output data.

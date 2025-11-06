@@ -6,8 +6,8 @@ import { getErrorMessage, type ExternalTransaction } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.ts';
-import { parseCsvFile, validateCsvHeaders } from '../shared/csv-parser-utils.ts';
+import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.js';
+import { parseCsvFile, validateCsvHeaders } from '../shared/csv-parser-utils.js';
 
 import { CSV_FILE_TYPES } from './constants.js';
 import type {

@@ -3,7 +3,7 @@
 
 import type { Command } from 'commander';
 
-import { registerSessionsViewCommand } from './sessions-view.ts';
+import { registerSessionsViewCommand } from './sessions-view.js';
 
 /**
  * Register the unified sessions command with all subcommands.

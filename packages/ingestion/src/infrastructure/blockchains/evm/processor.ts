@@ -4,16 +4,16 @@ import type { ITransactionRepository } from '@exitbook/data';
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
 import { err, okAsync, ok, type Result } from 'neverthrow';
 
-import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.ts';
-import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.ts';
-import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
+import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
+import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.js';
+import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import {
   determineEvmOperationFromFundFlow,
   groupEvmTransactionsByHash,
   analyzeEvmFundFlow,
   selectPrimaryEvmTransaction,
-} from './processor-utils.ts';
+} from './processor-utils.js';
 
 /**
  * Unified EVM transaction processor that applies Avalanche-style transaction correlation

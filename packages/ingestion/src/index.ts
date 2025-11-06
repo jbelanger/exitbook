@@ -1,36 +1,36 @@
 // Initialize blockchain configs by importing the registry
 import './infrastructure/blockchains';
 
-export { TransactionImportService } from './services/import-service.ts';
-export { TransactionProcessService } from './services/process-service.ts';
+export { TransactionImportService } from './services/import-service.js';
+export { TransactionProcessService } from './services/process-service.js';
 
 // Token metadata services
-export { TokenMetadataService } from './services/token-metadata/token-metadata-service.ts';
-export type { ITokenMetadataService } from './services/token-metadata/token-metadata-service.interface.ts';
+export { TokenMetadataService } from './services/token-metadata/token-metadata-service.js';
+export type { ITokenMetadataService } from './services/token-metadata/token-metadata-service.interface.js';
 
 // Balance services
-export { calculateBalances } from './services/balance/balance-calculator.ts';
+export { calculateBalances } from './services/balance/balance-calculator.js';
 export {
   fetchExchangeBalance,
   fetchBlockchainBalance,
   fetchBitcoinXpubBalance,
   convertBalancesToDecimals,
   type UnifiedBalanceSnapshot,
-} from './services/balance/balance-utils.ts';
+} from './services/balance/balance-utils.js';
 export {
   compareBalances,
   createVerificationResult,
   generateVerificationReport,
-} from './services/balance/balance-verifier.ts';
-export type { BalanceComparison, BalanceVerificationResult } from './services/balance/balance-verifier.types.ts';
+} from './services/balance/balance-verifier.js';
+export type { BalanceComparison, BalanceVerificationResult } from './services/balance/balance-verifier.types.js';
 
 // Types
-export type { ImportResult, ImportParams } from './types/importers.ts';
-export type { IRawDataRepository, IDataSourceRepository, LoadRawDataFilters } from './types/repositories.ts';
+export type { ImportResult, ImportParams } from './types/importers.js';
+export type { IRawDataRepository, IDataSourceRepository, LoadRawDataFilters } from './types/repositories.js';
 
 // Concrete implementations
-export { RawDataRepository } from './persistence/raw-data-repository.ts';
-export { DataSourceRepository } from './persistence/data-source-repository.ts';
+export { RawDataRepository } from './persistence/raw-data-repository.js';
+export { DataSourceRepository } from './persistence/data-source-repository.js';
 
 // Blockchain configuration
 export {
@@ -38,8 +38,8 @@ export {
   getAllBlockchains,
   hasBlockchainConfig,
   type BlockchainConfig,
-} from './infrastructure/blockchains/shared/blockchain-config.ts';
+} from './infrastructure/blockchains/shared/blockchain-config.js';
 
 // Exchange factories
-export { createExchangeImporter } from './infrastructure/exchanges/shared/exchange-importer-factory.ts';
-export { createExchangeProcessor } from './infrastructure/exchanges/shared/exchange-processor-factory.ts';
+export { createExchangeImporter } from './infrastructure/exchanges/shared/exchange-importer-factory.js';
+export { createExchangeProcessor } from './infrastructure/exchanges/shared/exchange-processor-factory.js';

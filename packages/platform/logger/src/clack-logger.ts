@@ -67,10 +67,10 @@
  * @see {@link https://github.com/natemoo-re/clack @clack/prompts documentation}
  */
 
-import { getLogger as getPinoLogger, type Logger } from './pino-logger.ts';
+import { getLogger as getPinoLogger, type Logger } from './pino-logger.js';
 
 // Re-export Logger type
-export type { Logger } from './pino-logger.ts';
+export type { Logger } from './pino-logger.js';
 
 /**
  * Spinner interface (compatible with @clack/prompts).

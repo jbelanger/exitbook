@@ -1,6 +1,6 @@
 import type { RateLimitConfig } from '@exitbook/platform-http';
 
-import type { IBlockchainProvider, ProviderCapabilities } from './provider.ts';
+import type { IBlockchainProvider, ProviderCapabilities } from './provider.js';
 
 /**
  * Configuration passed to provider constructor

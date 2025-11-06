@@ -10,7 +10,7 @@ import type {
   TransactionStatusSchema,
   UniversalTransactionSchema,
   FeeMovementSchema,
-} from '../schemas/universal-transaction.ts';
+} from '../schemas/universal-transaction.js';
 
 export type MovementDirection = z.infer<typeof MovementDirectionSchema>;
 export type TransactionStatus = z.infer<typeof TransactionStatusSchema>;

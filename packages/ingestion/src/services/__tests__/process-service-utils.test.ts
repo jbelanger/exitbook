@@ -7,7 +7,7 @@ import {
   filterSessionsWithPendingData,
   groupRawDataBySession,
   type SessionProcessingData,
-} from '../process-service-utils.ts';
+} from '../process-service-utils.js';
 
 describe('process-service-utils', () => {
   describe('groupRawDataBySession', () => {

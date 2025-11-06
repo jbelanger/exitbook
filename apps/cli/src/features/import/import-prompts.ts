@@ -12,9 +12,9 @@ import {
   promptProvider,
   isCancelled,
   handleCancellation,
-} from '../shared/prompts.ts';
+} from '../shared/prompts.js';
 
-import type { ImportHandlerParams } from './import-handler.ts';
+import type { ImportHandlerParams } from './import-handler.js';
 
 /**
  * Interactive prompt flow for import parameters.

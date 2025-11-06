@@ -3,10 +3,10 @@
 
 import type { Command } from 'commander';
 
-import { registerLinksConfirmCommand } from './links-confirm.ts';
-import { registerLinksRejectCommand } from './links-reject.ts';
-import { registerLinksRunCommand } from './links-run.ts';
-import { registerLinksViewCommand } from './links-view.ts';
+import { registerLinksConfirmCommand } from './links-confirm.js';
+import { registerLinksRejectCommand } from './links-reject.js';
+import { registerLinksRunCommand } from './links-run.js';
+import { registerLinksViewCommand } from './links-view.js';
 
 /**
  * Register the unified links command with all subcommands.

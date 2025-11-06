@@ -1,16 +1,16 @@
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../shared/blockchain/base/api-client.ts';
-import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../shared/blockchain/index.ts';
-import { RegisterApiClient } from '../../../shared/blockchain/index.ts';
-import type { RawBalanceData, TransactionWithRawData } from '../../../shared/blockchain/types/index.ts';
-import { maskAddress } from '../../../shared/blockchain/utils/address-utils.ts';
+import { BaseApiClient } from '../../../shared/blockchain/base/api-client.js';
+import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../shared/blockchain/index.js';
+import { RegisterApiClient } from '../../../shared/blockchain/index.js';
+import type { RawBalanceData, TransactionWithRawData } from '../../../shared/blockchain/types/index.js';
+import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import { transformSolBalance, transformTokenAccounts } from '../balance-utils.js';
 import type { SolanaSignature, SolanaTokenAccountsResponse, SolanaTransaction } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
-import { SolanaRPCTransactionMapper } from './solana-rpc.mapper.ts';
+import { SolanaRPCTransactionMapper } from './solana-rpc.mapper.js';
 import type { SolanaRPCTransaction } from './solana-rpc.schemas.js';
 
 @RegisterApiClient({

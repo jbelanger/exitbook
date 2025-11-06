@@ -5,8 +5,8 @@ import type { TransactionRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { GapsViewParams, GapsViewResult } from './gaps-view-utils.ts';
-import { analyzeFeeGaps } from './gaps-view-utils.ts';
+import type { GapsViewParams, GapsViewResult } from './gaps-view-utils.js';
+import { analyzeFeeGaps } from './gaps-view-utils.js';
 
 /**
  * Handler for viewing data quality gaps.

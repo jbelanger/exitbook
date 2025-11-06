@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BitcoinTransaction } from '../../../../blockchain/bitcoin/schemas.ts';
-import type { CosmosTransaction } from '../../../../blockchain/cosmos/types.ts';
-import type { EvmTransaction } from '../../../../blockchain/evm/types.ts';
-import type { SolanaTransaction } from '../../../../blockchain/solana/types.ts';
-import type { SubstrateTransaction } from '../../../../blockchain/substrate/types.ts';
-import { generateUniqueTransactionId, type TransactionIdFields } from '../transaction-utils.ts';
+import type { BitcoinTransaction } from '../../../../blockchain/bitcoin/schemas.js';
+import type { CosmosTransaction } from '../../../../blockchain/cosmos/types.js';
+import type { EvmTransaction } from '../../../../blockchain/evm/types.js';
+import type { SolanaTransaction } from '../../../../blockchain/solana/types.js';
+import type { SubstrateTransaction } from '../../../../blockchain/substrate/types.js';
+import { generateUniqueTransactionId, type TransactionIdFields } from '../transaction-utils.js';
 
 describe('transaction-utils', () => {
   describe('generateUniqueTransactionId', () => {

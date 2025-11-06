@@ -13,15 +13,15 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { promptManualPrice } from './prices-prompts.ts';
-import type { PricesFetchCommandOptions, PricesFetchResult } from './prices-utils.ts';
+import { promptManualPrice } from './prices-prompts.js';
+import type { PricesFetchCommandOptions, PricesFetchResult } from './prices-utils.js';
 import {
   createDefaultPriceProviderManager,
   createPriceQuery,
   extractAssetsNeedingPrices,
   initializeStats,
   validateAssetFilter,
-} from './prices-utils.ts';
+} from './prices-utils.js';
 
 const logger = getLogger('PricesHandler');
 
@@ -233,7 +233,7 @@ export class PricesFetchHandler {
             return { ...fee, priceAtTxTime: newPrice };
           }
 
-          // Helper to get priority (same as in movement-enrichment-utils.ts)
+          // Helper to get priority (same as in movement-enrichment-utils.js)
           const getPriority = (source: string): number => {
             const priorities: Record<string, number> = {
               'exchange-execution': 3,

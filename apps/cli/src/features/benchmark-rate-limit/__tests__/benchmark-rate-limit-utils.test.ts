@@ -7,7 +7,7 @@ import {
   parseCustomRates,
   parseMaxRate,
   parseNumRequests,
-} from '../benchmark-rate-limit-utils.ts';
+} from '../benchmark-rate-limit-utils.js';
 
 describe('benchmark-rate-limit-utils', () => {
   describe('parseMaxRate', () => {

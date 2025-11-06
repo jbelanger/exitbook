@@ -1,5 +1,5 @@
-import { CorrelatingExchangeProcessor } from './correlating-exchange-processor.ts';
-import { byCorrelationId, standardAmounts } from './strategies/index.ts';
+import { CorrelatingExchangeProcessor } from './correlating-exchange-processor.js';
+import { byCorrelationId, standardAmounts } from './strategies/index.js';
 
 /**
  * Default exchange processor using standard correlation and amount semantics.

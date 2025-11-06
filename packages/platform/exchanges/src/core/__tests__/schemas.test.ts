@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { ExchangeLedgerEntrySchema } from '../schemas.ts';
+import { ExchangeLedgerEntrySchema } from '../schemas.js';
 
 describe('ExchangeLedgerEntrySchema', () => {
   const validEntry = {

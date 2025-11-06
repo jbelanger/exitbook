@@ -1,10 +1,10 @@
 // Utilities and types for links view command
 
-import type { LinkStatus, MatchCriteria } from '@exitbook/accounting';
-import type { AssetMovement } from '@exitbook/core';
+import type { LinkStatus, MatchCriteria, TransactionLink } from '@exitbook/accounting';
+import type { AssetMovement, UniversalTransaction } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { CommonViewFilters } from '../shared/view-utils.ts';
+import type { CommonViewFilters } from '../shared/view-utils.js';
 
 /**
  * Parameters for links view command.
@@ -55,6 +55,79 @@ export interface LinkInfo {
 export interface LinksViewResult {
   links: LinkInfo[];
   count: number;
+}
+
+/**
+ * Filter links by confidence score range.
+ */
+export function filterLinksByConfidence(
+  links: TransactionLink[],
+  minConfidence?: number,
+  maxConfidence?: number
+): TransactionLink[] {
+  return links.filter((link) => {
+    const score = link.confidenceScore.toNumber();
+
+    if (minConfidence !== undefined && score < minConfidence) {
+      return false;
+    }
+
+    if (maxConfidence !== undefined && score > maxConfidence) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+/**
+ * Map UniversalTransaction to TransactionDetails for display.
+ */
+export function mapTransactionToDetails(tx: UniversalTransaction): TransactionDetails {
+  return {
+    external_id: tx.externalId ?? undefined,
+    from_address: tx.from ?? undefined,
+    id: tx.id ?? 0,
+    movements_inflows: tx.movements?.inflows ?? [],
+    movements_outflows: tx.movements?.outflows ?? [],
+    source_id: tx.source,
+    timestamp: tx.datetime,
+    to_address: tx.to ?? undefined,
+  };
+}
+
+/**
+ * Format link info with optional transaction details.
+ */
+export function formatLinkInfo(
+  link: TransactionLink,
+  sourceTx?: UniversalTransaction,
+  targetTx?: UniversalTransaction
+): LinkInfo {
+  const linkInfo: LinkInfo = {
+    id: link.id,
+    source_transaction_id: link.sourceTransactionId,
+    target_transaction_id: link.targetTransactionId,
+    link_type: link.linkType,
+    confidence_score: link.confidenceScore.toFixed(),
+    match_criteria: link.matchCriteria,
+    status: link.status,
+    reviewed_by: link.reviewedBy,
+    reviewed_at: link.reviewedAt?.toISOString(),
+    created_at: link.createdAt.toISOString(),
+    updated_at: link.updatedAt.toISOString(),
+  };
+
+  // Add transaction details if provided
+  if (sourceTx) {
+    linkInfo.source_transaction = mapTransactionToDetails(sourceTx);
+  }
+
+  if (targetTx) {
+    linkInfo.target_transaction = mapTransactionToDetails(targetTx);
+  }
+
+  return linkInfo;
 }
 
 /**

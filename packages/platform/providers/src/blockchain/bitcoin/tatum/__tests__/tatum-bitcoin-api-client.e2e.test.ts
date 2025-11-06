@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/index.ts';
-import { ProviderRegistry } from '../../../../shared/blockchain/index.ts';
-import type { BitcoinTransaction } from '../../schemas.ts';
-import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/index.js';
+import { ProviderRegistry } from '../../../../shared/blockchain/index.js';
+import type { BitcoinTransaction } from '../../schemas.js';
+import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
 
 describe('TatumBitcoinApiClient E2E', () => {
   const config = ProviderRegistry.createDefaultConfig('bitcoin', 'tatum');

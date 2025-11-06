@@ -1,8 +1,10 @@
 // Utilities and types for view transactions command
 
-import type { SourceType } from '@exitbook/core';
+import type { SourceType, UniversalTransaction } from '@exitbook/core';
+import { computePrimaryMovement } from '@exitbook/core';
 
-import type { CommonViewFilters } from '../shared/view-utils.ts';
+import { parseDate } from '../shared/view-utils.js';
+import type { CommonViewFilters } from '../shared/view-utils.js';
 
 /**
  * Parameters for view transactions command.
@@ -31,6 +33,11 @@ export interface TransactionInfo {
   to_address: string | null | undefined;
   blockchain_transaction_hash: string | null | undefined;
 }
+
+/**
+ * Type alias for formatted transaction (same as TransactionInfo).
+ */
+export type FormattedTransaction = TransactionInfo;
 
 /**
  * Result of view transactions command.
@@ -65,9 +72,69 @@ export function formatOperationLabel(category: string | null | undefined, type: 
 }
 
 /**
- * Format a single transaction for text display.
+ * Apply filters to transactions based on provided parameters.
  */
-export function formatTransactionForDisplay(tx: TransactionInfo): string {
+export function applyTransactionFilters(
+  transactions: UniversalTransaction[],
+  params: ViewTransactionsParams
+): UniversalTransaction[] {
+  let filtered = transactions;
+
+  // Filter by until date
+  if (params.until) {
+    const untilDate = parseDate(params.until);
+    filtered = filtered.filter((tx) => new Date(tx.datetime) <= untilDate);
+  }
+
+  // Filter by asset
+  if (params.asset) {
+    filtered = filtered.filter((tx) => {
+      const hasInflow = tx.movements.inflows?.some((m) => m.asset === params.asset);
+      const hasOutflow = tx.movements.outflows?.some((m) => m.asset === params.asset);
+      return hasInflow || hasOutflow;
+    });
+  }
+
+  // Filter by operation type
+  if (params.operationType) {
+    filtered = filtered.filter((tx) => tx.operation.type === params.operationType);
+  }
+
+  // Filter by no price
+  if (params.noPrice) {
+    filtered = filtered.filter((tx) => !(tx.movements.inflows?.length === 0 || tx.movements.outflows?.length === 0));
+  }
+
+  return filtered;
+}
+
+/**
+ * Format a UniversalTransaction for display.
+ */
+export function formatTransactionForDisplay(tx: UniversalTransaction): FormattedTransaction {
+  const primary = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);
+
+  return {
+    id: tx.id,
+    external_id: tx.externalId,
+    source_id: tx.source,
+    source_type: tx.blockchain ? ('blockchain' as const) : ('exchange' as const),
+    transaction_datetime: tx.datetime,
+    operation_category: tx.operation.category,
+    operation_type: tx.operation.type,
+    movements_primary_asset: primary?.asset ?? undefined,
+    movements_primary_amount: primary?.amount.toFixed() ?? undefined,
+    movements_primary_direction: primary?.direction ?? undefined,
+    from_address: tx.from,
+    to_address: tx.to,
+    blockchain_transaction_hash: tx.blockchain?.transaction_hash,
+  };
+}
+
+/**
+ * Render a TransactionInfo as a text string.
+ */
+export function renderTransactionInfo(tx: TransactionInfo): string {
   const lines: string[] = [];
   const operationLabel = formatOperationLabel(tx.operation_category, tx.operation_type);
 
@@ -109,7 +176,7 @@ export function formatTransactionsListForDisplay(transactions: TransactionInfo[]
     lines.push('No transactions found.');
   } else {
     for (const tx of transactions) {
-      lines.push(formatTransactionForDisplay(tx));
+      lines.push(renderTransactionInfo(tx));
       lines.push('');
     }
   }

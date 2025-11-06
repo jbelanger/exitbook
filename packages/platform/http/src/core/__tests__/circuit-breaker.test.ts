@@ -10,8 +10,8 @@ import {
   recordSuccess,
   resetCircuit,
   shouldCircuitBlock,
-} from '../circuit-breaker.ts';
-import { createInitialCircuitState } from '../types.ts';
+} from '../circuit-breaker.js';
+import { createInitialCircuitState } from '../types.js';
 
 describe('circuit-breaker (pure functions)', () => {
   describe('getCircuitStatus', () => {

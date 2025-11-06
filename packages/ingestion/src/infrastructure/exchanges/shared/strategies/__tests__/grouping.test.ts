@@ -1,7 +1,7 @@
 import type { ExchangeLedgerEntry } from '@exitbook/exchanges';
 import { describe, expect, test } from 'vitest';
 
-import { byCorrelationId, byTimestamp, noGrouping, type RawTransactionWithMetadata } from '../grouping.ts';
+import { byCorrelationId, byTimestamp, noGrouping, type RawTransactionWithMetadata } from '../grouping.js';
 
 function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
   return {

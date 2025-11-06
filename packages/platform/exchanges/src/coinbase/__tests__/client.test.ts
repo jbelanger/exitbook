@@ -1,8 +1,8 @@
 import * as ccxt from 'ccxt';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { PartialImportError } from '../../core/errors.ts';
-import type { IExchangeClient } from '../../core/types.ts';
+import { PartialImportError } from '../../core/errors.js';
+import type { IExchangeClient } from '../../core/types.js';
 import { createCoinbaseClient } from '../client.js';
 
 // Mock ccxt

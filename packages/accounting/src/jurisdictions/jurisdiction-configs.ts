@@ -1,4 +1,4 @@
-import type { JurisdictionConfig } from '../domain/types.ts';
+import type { JurisdictionConfig } from '../domain/types.js';
 
 /**
  * Predefined jurisdiction configurations for major tax jurisdictions.

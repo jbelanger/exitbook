@@ -1,8 +1,8 @@
 import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts';
-import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
+import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.js';
+import type { NormalizationError } from '../../../../shared/blockchain/index.js';
 import { SUBSTRATE_CHAINS } from '../../chain-registry.js';
 import { SubstrateTransactionSchema } from '../../schemas.js';
 import type { SubstrateTransaction } from '../../types.js';

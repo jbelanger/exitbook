@@ -2,7 +2,7 @@ import type { KyselyDB } from '@exitbook/data';
 import type { BlockchainProviderManager } from '@exitbook/providers';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { ProcessHandler } from '../process-handler.ts';
+import { ProcessHandler } from '../process-handler.js';
 
 describe('ProcessHandler', () => {
   let mockDatabase: KyselyDB;

@@ -1,16 +1,21 @@
 import { parseDecimal } from '@exitbook/core';
-import type { DataSource } from '@exitbook/core';
+import type { DataSource, UniversalTransaction } from '@exitbook/core';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   buildBalanceParamsFromFlags,
   buildSourceParams,
   decimalRecordToStringRecord,
+  findMostRecentCompletedSession,
+  findSessionByAddress,
   getExchangeCredentialsFromEnv,
+  sortSessionsByCompletedDate,
+  subtractExcludedAmounts,
+  sumExcludedInflowAmounts,
   validateBalanceParams,
   type BalanceCommandOptions,
   type BalanceHandlerParams,
-} from './balance-utils.ts';
+} from './balance-utils.js';
 
 describe('buildBalanceParamsFromFlags', () => {
   it('should return error when neither exchange nor blockchain is specified', () => {
@@ -443,5 +448,518 @@ describe('decimalRecordToStringRecord', () => {
       SHIB: '1000000000000',
       WEI: '999999999999999999',
     });
+  });
+});
+
+describe('sortSessionsByCompletedDate', () => {
+  it('should sort sessions by completed date in descending order', () => {
+    const sessions: DataSource[] = [
+      {
+        id: 1,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        status: 'completed',
+        importParams: {},
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+        startedAt: new Date('2024-01-01T00:00:00Z'),
+        completedAt: new Date('2024-01-01T01:00:00Z'),
+        durationMs: 60000,
+      },
+      {
+        id: 2,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        status: 'completed',
+        importParams: {},
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-02T00:00:00Z'),
+        startedAt: new Date('2024-01-02T00:00:00Z'),
+        completedAt: new Date('2024-01-02T01:00:00Z'),
+        durationMs: 60000,
+      },
+      {
+        id: 3,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        status: 'completed',
+        importParams: {},
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-03T00:00:00Z'),
+        startedAt: new Date('2024-01-03T00:00:00Z'),
+        completedAt: new Date('2024-01-03T01:00:00Z'),
+        durationMs: 60000,
+      },
+    ];
+
+    const result = sortSessionsByCompletedDate(sessions);
+
+    expect(result[0]?.id).toBe(3);
+    expect(result[1]?.id).toBe(2);
+    expect(result[2]?.id).toBe(1);
+  });
+
+  it('should handle sessions with no completed date', () => {
+    const sessions: DataSource[] = [
+      {
+        id: 1,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        status: 'completed',
+        importParams: {},
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+        startedAt: new Date('2024-01-01T00:00:00Z'),
+        completedAt: new Date('2024-01-02T01:00:00Z'),
+        durationMs: 60000,
+      },
+      {
+        id: 2,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        status: 'started',
+        importParams: {},
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-02T00:00:00Z'),
+        startedAt: new Date('2024-01-02T00:00:00Z'),
+        durationMs: undefined,
+      },
+    ];
+
+    const result = sortSessionsByCompletedDate(sessions);
+
+    expect(result[0]?.id).toBe(1);
+    expect(result[1]?.id).toBe(2);
+  });
+
+  it('should not mutate the original array', () => {
+    const sessions: DataSource[] = [
+      {
+        id: 1,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        status: 'completed',
+        importParams: {},
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+        startedAt: new Date('2024-01-01T00:00:00Z'),
+        completedAt: new Date('2024-01-01T01:00:00Z'),
+        durationMs: 60000,
+      },
+      {
+        id: 2,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        status: 'completed',
+        importParams: {},
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-02T00:00:00Z'),
+        startedAt: new Date('2024-01-02T00:00:00Z'),
+        completedAt: new Date('2024-01-02T01:00:00Z'),
+        durationMs: 60000,
+      },
+    ];
+
+    const original = [...sessions];
+    sortSessionsByCompletedDate(sessions);
+
+    expect(sessions).toEqual(original);
+  });
+});
+
+describe('findMostRecentCompletedSession', () => {
+  it('should return the most recent completed session', () => {
+    const sessions: DataSource[] = [
+      {
+        id: 1,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        status: 'completed',
+        importParams: {},
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+        startedAt: new Date('2024-01-01T00:00:00Z'),
+        completedAt: new Date('2024-01-01T01:00:00Z'),
+        durationMs: 60000,
+      },
+      {
+        id: 2,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        status: 'completed',
+        importParams: {},
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-02T00:00:00Z'),
+        startedAt: new Date('2024-01-02T00:00:00Z'),
+        completedAt: new Date('2024-01-02T01:00:00Z'),
+        durationMs: 60000,
+      },
+      {
+        id: 3,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        status: 'started',
+        importParams: {},
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-03T00:00:00Z'),
+        startedAt: new Date('2024-01-03T00:00:00Z'),
+        durationMs: undefined,
+      },
+    ];
+
+    const result = findMostRecentCompletedSession(sessions);
+
+    expect(result?.id).toBe(2);
+  });
+
+  it('should return undefined when no completed sessions', () => {
+    const sessions: DataSource[] = [
+      {
+        id: 1,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        status: 'started',
+        importParams: {},
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+        startedAt: new Date('2024-01-01T00:00:00Z'),
+        durationMs: undefined,
+      },
+    ];
+
+    const result = findMostRecentCompletedSession(sessions);
+
+    expect(result).toBeUndefined();
+  });
+
+  it('should return undefined when sessions array is empty', () => {
+    const result = findMostRecentCompletedSession([]);
+
+    expect(result).toBeUndefined();
+  });
+});
+
+describe('findSessionByAddress', () => {
+  it('should find session by address (case insensitive)', () => {
+    const sessions: DataSource[] = [
+      {
+        id: 1,
+        sourceId: 'bitcoin',
+        sourceType: 'blockchain',
+        status: 'completed',
+        importParams: { address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' },
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+        startedAt: new Date('2024-01-01T00:00:00Z'),
+        completedAt: new Date('2024-01-01T01:00:00Z'),
+        durationMs: 60000,
+      },
+      {
+        id: 2,
+        sourceId: 'bitcoin',
+        sourceType: 'blockchain',
+        status: 'completed',
+        importParams: { address: 'bc1qtest123' },
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-02T00:00:00Z'),
+        startedAt: new Date('2024-01-02T00:00:00Z'),
+        completedAt: new Date('2024-01-02T01:00:00Z'),
+        durationMs: 60000,
+      },
+    ];
+
+    const result = findSessionByAddress(sessions, 'BC1QXY2KGDYGJRSQTZQ2N0YRF2493P83KKFJHX0WLH');
+
+    expect(result?.id).toBe(1);
+  });
+
+  it('should return undefined when address not found', () => {
+    const sessions: DataSource[] = [
+      {
+        id: 1,
+        sourceId: 'bitcoin',
+        sourceType: 'blockchain',
+        status: 'completed',
+        importParams: { address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' },
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+        startedAt: new Date('2024-01-01T00:00:00Z'),
+        completedAt: new Date('2024-01-01T01:00:00Z'),
+        durationMs: 60000,
+      },
+    ];
+
+    const result = findSessionByAddress(sessions, 'bc1qnotfound');
+
+    expect(result).toBeUndefined();
+  });
+
+  it('should return undefined when sessions array is empty', () => {
+    const result = findSessionByAddress([], 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
+
+    expect(result).toBeUndefined();
+  });
+
+  it('should handle sessions without address in importParams', () => {
+    const sessions: DataSource[] = [
+      {
+        id: 1,
+        sourceId: 'bitcoin',
+        sourceType: 'blockchain',
+        status: 'completed',
+        importParams: {},
+        importResultMetadata: {},
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+        startedAt: new Date('2024-01-01T00:00:00Z'),
+        completedAt: new Date('2024-01-01T01:00:00Z'),
+        durationMs: 60000,
+      },
+    ];
+
+    const result = findSessionByAddress(sessions, 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
+
+    expect(result).toBeUndefined();
+  });
+});
+
+describe('subtractExcludedAmounts', () => {
+  it('should subtract excluded amounts from balances', () => {
+    const balances = {
+      BTC: parseDecimal('1.5'),
+      ETH: parseDecimal('10.0'),
+      SCAM: parseDecimal('1000000'),
+    };
+
+    const excludedAmounts = {
+      SCAM: parseDecimal('1000000'),
+      ETH: parseDecimal('2.0'),
+    };
+
+    const result = subtractExcludedAmounts(balances, excludedAmounts);
+
+    expect(result.BTC?.toFixed()).toBe('1.5');
+    expect(result.ETH?.toFixed()).toBe('8');
+    expect(result.SCAM).toBeUndefined();
+  });
+
+  it('should remove assets when balance becomes zero', () => {
+    const balances = {
+      BTC: parseDecimal('1.0'),
+      SCAM: parseDecimal('100'),
+    };
+
+    const excludedAmounts = {
+      SCAM: parseDecimal('100'),
+    };
+
+    const result = subtractExcludedAmounts(balances, excludedAmounts);
+
+    expect(result.BTC?.toFixed()).toBe('1');
+    expect(result.SCAM).toBeUndefined();
+  });
+
+  it('should remove assets when balance becomes negative', () => {
+    const balances = {
+      BTC: parseDecimal('1.0'),
+      SCAM: parseDecimal('100'),
+    };
+
+    const excludedAmounts = {
+      SCAM: parseDecimal('200'),
+    };
+
+    const result = subtractExcludedAmounts(balances, excludedAmounts);
+
+    expect(result.BTC?.toFixed()).toBe('1');
+    expect(result.SCAM).toBeUndefined();
+  });
+
+  it('should handle excluded amounts for assets not in balances', () => {
+    const balances = {
+      BTC: parseDecimal('1.0'),
+    };
+
+    const excludedAmounts = {
+      SCAM: parseDecimal('1000000'),
+    };
+
+    const result = subtractExcludedAmounts(balances, excludedAmounts);
+
+    expect(result.BTC?.toFixed()).toBe('1');
+    expect(result.SCAM).toBeUndefined();
+  });
+
+  it('should not mutate the original balances', () => {
+    const balances = {
+      BTC: parseDecimal('1.5'),
+      SCAM: parseDecimal('1000000'),
+    };
+
+    const excludedAmounts = {
+      SCAM: parseDecimal('1000000'),
+    };
+
+    const original = { ...balances };
+    subtractExcludedAmounts(balances, excludedAmounts);
+
+    expect(balances.BTC.toFixed()).toBe(original.BTC.toFixed());
+    expect(balances.SCAM.toFixed()).toBe(original.SCAM.toFixed());
+  });
+
+  it('should handle empty excluded amounts', () => {
+    const balances = {
+      BTC: parseDecimal('1.5'),
+      ETH: parseDecimal('10.0'),
+    };
+
+    const result = subtractExcludedAmounts(balances, {});
+
+    expect(result.BTC?.toFixed()).toBe('1.5');
+    expect(result.ETH?.toFixed()).toBe('10');
+  });
+});
+
+describe('sumExcludedInflowAmounts', () => {
+  it('should sum inflow amounts from excluded transactions', () => {
+    const transactions: UniversalTransaction[] = [
+      {
+        id: 1,
+        externalId: 'tx1',
+        datetime: '2024-01-01T00:00:00Z',
+        timestamp: new Date('2024-01-01T00:00:00Z').getTime(),
+        source: 'test',
+        status: 'success',
+        operation: { category: 'transfer', type: 'airdrop' },
+        movements: {
+          inflows: [
+            { asset: 'SCAM1', grossAmount: parseDecimal('1000000') },
+            { asset: 'SCAM2', grossAmount: parseDecimal('500000') },
+          ],
+        },
+        fees: [],
+        excludedFromAccounting: true,
+      },
+      {
+        id: 2,
+        externalId: 'tx2',
+        datetime: '2024-01-02T00:00:00Z',
+        timestamp: new Date('2024-01-02T00:00:00Z').getTime(),
+        source: 'test',
+        status: 'success',
+        operation: { category: 'transfer', type: 'airdrop' },
+        movements: {
+          inflows: [{ asset: 'SCAM1', grossAmount: parseDecimal('2000000') }],
+        },
+        fees: [],
+        excludedFromAccounting: true,
+      },
+      {
+        id: 3,
+        externalId: 'tx3',
+        datetime: '2024-01-03T00:00:00Z',
+        timestamp: new Date('2024-01-03T00:00:00Z').getTime(),
+        source: 'test',
+        status: 'success',
+        operation: { category: 'trade', type: 'buy' },
+        movements: {
+          inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.0') }],
+        },
+        fees: [],
+        excludedFromAccounting: false,
+      },
+    ];
+
+    const result = sumExcludedInflowAmounts(transactions);
+
+    expect(result.SCAM1?.toFixed()).toBe('3000000');
+    expect(result.SCAM2?.toFixed()).toBe('500000');
+    expect(result.BTC).toBeUndefined();
+  });
+
+  it('should handle transactions with no inflows', () => {
+    const transactions: UniversalTransaction[] = [
+      {
+        id: 1,
+        externalId: 'tx1',
+        datetime: '2024-01-01T00:00:00Z',
+        timestamp: new Date('2024-01-01T00:00:00Z').getTime(),
+        source: 'test',
+        status: 'success',
+        operation: { category: 'transfer', type: 'withdrawal' },
+        movements: {
+          outflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.0') }],
+        },
+        fees: [],
+        excludedFromAccounting: true,
+      },
+    ];
+
+    const result = sumExcludedInflowAmounts(transactions);
+
+    expect(Object.keys(result).length).toBe(0);
+  });
+
+  it('should handle empty transactions array', () => {
+    const result = sumExcludedInflowAmounts([]);
+
+    expect(Object.keys(result).length).toBe(0);
+  });
+
+  it('should only sum excluded transactions', () => {
+    const transactions: UniversalTransaction[] = [
+      {
+        id: 1,
+        externalId: 'tx1',
+        datetime: '2024-01-01T00:00:00Z',
+        timestamp: new Date('2024-01-01T00:00:00Z').getTime(),
+        source: 'test',
+        status: 'success',
+        operation: { category: 'transfer', type: 'airdrop' },
+        movements: {
+          inflows: [{ asset: 'SCAM', grossAmount: parseDecimal('1000000') }],
+        },
+        fees: [],
+        excludedFromAccounting: true,
+      },
+      {
+        id: 2,
+        externalId: 'tx2',
+        datetime: '2024-01-02T00:00:00Z',
+        timestamp: new Date('2024-01-02T00:00:00Z').getTime(),
+        source: 'test',
+        status: 'success',
+        operation: { category: 'transfer', type: 'airdrop' },
+        movements: {
+          inflows: [{ asset: 'SCAM', grossAmount: parseDecimal('500000') }],
+        },
+        fees: [],
+        excludedFromAccounting: false,
+      },
+    ];
+
+    const result = sumExcludedInflowAmounts(transactions);
+
+    expect(result.SCAM?.toFixed()).toBe('1000000');
+  });
+
+  it('should handle transactions with undefined inflows', () => {
+    const transactions: UniversalTransaction[] = [
+      {
+        id: 1,
+        externalId: 'tx1',
+        datetime: '2024-01-01T00:00:00Z',
+        timestamp: new Date('2024-01-01T00:00:00Z').getTime(),
+        source: 'test',
+        status: 'success',
+        operation: { category: 'transfer', type: 'withdrawal' },
+        movements: {},
+        fees: [],
+        excludedFromAccounting: true,
+      },
+    ];
+
+    const result = sumExcludedInflowAmounts(transactions);
+
+    expect(Object.keys(result).length).toBe(0);
   });
 });

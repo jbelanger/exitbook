@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { DateSchema } from './money.ts';
+import { DateSchema } from './money.js';
 
 /**
  * Schema for token metadata from API clients (write-side)

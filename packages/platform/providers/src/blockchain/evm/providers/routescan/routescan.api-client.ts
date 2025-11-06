@@ -2,16 +2,16 @@ import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { ServiceError } from '@exitbook/platform-http';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../../shared/blockchain/base/api-client.ts';
-import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.ts';
-import { RegisterApiClient } from '../../../../shared/blockchain/index.ts';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.ts';
-import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.ts';
-import type { EvmChainConfig } from '../../chain-config.interface.ts';
-import { getEvmChainConfig } from '../../chain-registry.ts';
-import type { EvmTransaction } from '../../types.ts';
+import { BaseApiClient } from '../../../../shared/blockchain/base/api-client.js';
+import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.js';
+import { RegisterApiClient } from '../../../../shared/blockchain/index.js';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.js';
+import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.js';
+import type { EvmChainConfig } from '../../chain-config.interface.js';
+import { getEvmChainConfig } from '../../chain-registry.js';
+import type { EvmTransaction } from '../../types.js';
 
-import { RoutescanTransactionMapper } from './routescan.mapper.ts';
+import { RoutescanTransactionMapper } from './routescan.mapper.js';
 import type {
   RoutescanApiResponse,
   RoutescanInternalTransaction,

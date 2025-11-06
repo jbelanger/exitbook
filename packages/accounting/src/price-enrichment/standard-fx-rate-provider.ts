@@ -12,7 +12,7 @@ import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { FxRateData, IFxRateProvider } from './fx-rate-provider.interface.ts';
+import type { FxRateData, IFxRateProvider } from './fx-rate-provider.interface.js';
 
 /**
  * Standard implementation that delegates to PriceProviderManager

@@ -1,10 +1,10 @@
 import type { SourceMetadata } from '@exitbook/core';
 import { type Result, ok } from 'neverthrow';
 
-import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.ts';
-import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
-import { determineTransactionType, extractAmountAndCurrency, isTokenTransfer } from '../../mapper-utils.ts';
-import { calculateGasFee } from '../../receipt-utils.ts';
+import { BaseRawDataMapper } from '../../../../shared/blockchain/base/mapper.js';
+import type { NormalizationError } from '../../../../shared/blockchain/index.js';
+import { determineTransactionType, extractAmountAndCurrency, isTokenTransfer } from '../../mapper-utils.js';
+import { calculateGasFee } from '../../receipt-utils.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 import { normalizeEvmAddress } from '../../utils.js';

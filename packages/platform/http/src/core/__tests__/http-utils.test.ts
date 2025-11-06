@@ -8,7 +8,7 @@ import {
   parseRetryAfter,
   parseUnixTimestamp,
   sanitizeUrl,
-} from '../http-utils.ts';
+} from '../http-utils.js';
 
 describe('http-utils (pure functions)', () => {
   describe('buildUrl', () => {

@@ -4,8 +4,8 @@ import type { TransactionRepository } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { GapsViewHandler } from '../gaps-view-handler.ts';
-import type { GapsViewParams } from '../gaps-view-utils.ts';
+import { GapsViewHandler } from '../gaps-view-handler.js';
+import type { GapsViewParams } from '../gaps-view-utils.js';
 
 // Mock dependencies
 vi.mock('@exitbook/data', async () => {

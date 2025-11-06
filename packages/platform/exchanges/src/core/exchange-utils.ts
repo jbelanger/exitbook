@@ -6,8 +6,8 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { type ZodSchema } from 'zod';
 
-import { PartialImportError } from './errors.ts';
-import { ExchangeLedgerEntrySchema, type ExchangeLedgerEntry } from './schemas.ts';
+import { PartialImportError } from './errors.js';
+import { ExchangeLedgerEntrySchema, type ExchangeLedgerEntry } from './schemas.js';
 
 /**
  * Validate credentials against a Zod schema

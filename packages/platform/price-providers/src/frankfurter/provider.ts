@@ -18,7 +18,7 @@ import type { HttpClient } from '@exitbook/platform-http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { PricesDB } from '../persistence/database.ts';
+import type { PricesDB } from '../persistence/database.js';
 import { PriceRepository } from '../persistence/repositories/price-repository.js';
 import { BasePriceProvider } from '../shared/base-provider.js';
 import { createProviderHttpClient, type ProviderRateLimitConfig } from '../shared/shared-utils.js';

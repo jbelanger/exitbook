@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/index.ts';
-import { ProviderRegistry } from '../../../../shared/blockchain/index.ts';
-import type { BitcoinTransaction } from '../../schemas.ts';
-import { MempoolSpaceApiClient } from '../mempool-space-api-client.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/index.js';
+import { ProviderRegistry } from '../../../../shared/blockchain/index.js';
+import type { BitcoinTransaction } from '../../schemas.js';
+import { MempoolSpaceApiClient } from '../mempool-space-api-client.js';
 
 describe('MempoolSpaceProvider Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('bitcoin', 'mempool.space');

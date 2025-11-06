@@ -2,7 +2,7 @@ import type { AssetMovement } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { calculatePriceFromTrade, extractTradeMovements } from '../price-calculation-utils.ts';
+import { calculatePriceFromTrade, extractTradeMovements } from '../price-calculation-utils.js';
 
 describe('extractTradeMovements', () => {
   it('should extract simple trade pattern (1 inflow + 1 outflow)', () => {

@@ -7,8 +7,8 @@
 import { getErrorMessage } from '@exitbook/core';
 
 import { initializeProviders } from '../initialize.js';
-import { ProviderRegistry } from '../shared/blockchain/index.ts';
-import { loadExplorerConfig } from '../shared/blockchain/utils/config-utils.ts';
+import { ProviderRegistry } from '../shared/blockchain/index.js';
+import { loadExplorerConfig } from '../shared/blockchain/utils/config-utils.js';
 
 // Initialize all providers
 initializeProviders();

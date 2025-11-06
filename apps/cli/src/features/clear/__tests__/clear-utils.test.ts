@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildClearParamsFromFlags, type ClearCommandOptions } from '../clear-utils.ts';
+import { buildClearParamsFromFlags, type ClearCommandOptions } from '../clear-utils.js';
 
 describe('clear-utils', () => {
   describe('buildClearParamsFromFlags', () => {

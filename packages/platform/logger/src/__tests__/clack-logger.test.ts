@@ -1,9 +1,9 @@
 import type { MockInstance } from 'vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Logger } from '../clack-logger.ts';
-import { configureLogger, getLogger, getLoggerContext, resetLoggerContext, type Spinner } from '../clack-logger.ts';
-import * as pinoLoggerModule from '../pino-logger.ts';
+import type { Logger } from '../clack-logger.js';
+import { configureLogger, getLogger, getLoggerContext, resetLoggerContext, type Spinner } from '../clack-logger.js';
+import * as pinoLoggerModule from '../pino-logger.js';
 
 interface MockLogger {
   info: ReturnType<typeof vi.fn>;

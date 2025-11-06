@@ -10,7 +10,7 @@ import {
   createPricesDatabase,
   initializePricesDatabase,
   type PricesDB,
-} from '../database.ts';
+} from '../database.js';
 
 describe('Database', () => {
   let tempDir: string;

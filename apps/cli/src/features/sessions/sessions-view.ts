@@ -3,14 +3,14 @@
 import { configureLogger, resetLoggerContext } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
-import { ExitCodes } from '../shared/exit-codes.ts';
-import { OutputManager } from '../shared/output.ts';
-import type { ViewCommandResult } from '../shared/view-utils.ts';
-import { buildViewMeta } from '../shared/view-utils.ts';
+import { ExitCodes } from '../shared/exit-codes.js';
+import { OutputManager } from '../shared/output.js';
+import type { ViewCommandResult } from '../shared/view-utils.js';
+import { buildViewMeta } from '../shared/view-utils.js';
 
-import { ViewSessionsHandler } from './sessions-view-handler.ts';
-import type { SessionInfo, ViewSessionsParams, ViewSessionsResult } from './sessions-view-utils.ts';
-import { formatSessionsListForDisplay } from './sessions-view-utils.ts';
+import { ViewSessionsHandler } from './sessions-view-handler.js';
+import type { SessionInfo, ViewSessionsParams, ViewSessionsResult } from './sessions-view-utils.js';
+import { formatSessionsListForDisplay } from './sessions-view-utils.js';
 
 /**
  * Extended command options (adds CLI-specific flags).

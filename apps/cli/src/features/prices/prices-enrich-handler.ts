@@ -34,10 +34,10 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { InteractiveFxRateProvider } from './interactive-fx-rate-provider.ts';
-import { PricesFetchHandler } from './prices-handler.ts';
-import { createDefaultPriceProviderManager } from './prices-utils.ts';
-import type { PricesFetchResult } from './prices-utils.ts';
+import { InteractiveFxRateProvider } from './interactive-fx-rate-provider.js';
+import { PricesFetchHandler } from './prices-handler.js';
+import { createDefaultPriceProviderManager, determineEnrichmentStages } from './prices-utils.js';
+import type { PricesFetchResult } from './prices-utils.js';
 
 const logger = getLogger('PricesEnrichHandler');
 
@@ -99,11 +99,7 @@ export class PricesEnrichHandler {
       logger.info('Starting unified price enrichment pipeline');
 
       // Determine which stages to run
-      const stages = {
-        normalize: !options.deriveOnly && !options.fetchOnly,
-        derive: !options.normalizeOnly && !options.fetchOnly,
-        fetch: !options.normalizeOnly && !options.deriveOnly,
-      };
+      const stages = determineEnrichmentStages(options);
 
       logger.info(
         {

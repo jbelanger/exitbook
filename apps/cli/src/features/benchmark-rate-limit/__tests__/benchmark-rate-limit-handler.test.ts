@@ -1,7 +1,7 @@
 import { loadExplorerConfig, ProviderRegistry } from '@exitbook/providers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { BenchmarkRateLimitHandler } from '../benchmark-rate-limit-handler.ts';
+import { BenchmarkRateLimitHandler } from '../benchmark-rate-limit-handler.js';
 
 // Mock dependencies
 vi.mock('@exitbook/providers', async () => {

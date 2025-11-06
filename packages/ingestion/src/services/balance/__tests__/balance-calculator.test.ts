@@ -2,7 +2,7 @@ import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { calculateBalances } from '../balance-calculator.ts';
+import { calculateBalances } from '../balance-calculator.js';
 
 // Helper function to create a base test transaction with all required fields
 function createTestTransaction(overrides: Partial<UniversalTransaction>): UniversalTransaction {

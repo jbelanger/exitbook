@@ -16,7 +16,7 @@ import {
   extractMovementsNeedingNormalization,
   movementNeedsNormalization,
   validateFxRate,
-} from '../price-normalization-utils.ts';
+} from '../price-normalization-utils.js';
 
 describe('extractMovementsNeedingNormalization', () => {
   it('identifies EUR prices needing normalization', () => {

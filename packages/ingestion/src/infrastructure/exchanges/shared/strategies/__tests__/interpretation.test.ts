@@ -1,8 +1,8 @@
 import type { ExchangeLedgerEntry } from '@exitbook/exchanges';
 import { describe, expect, test } from 'vitest';
 
-import type { RawTransactionWithMetadata } from '../grouping.ts';
-import { standardAmounts } from '../interpretation.ts';
+import type { RawTransactionWithMetadata } from '../grouping.js';
+import { standardAmounts } from '../interpretation.js';
 
 function createEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
   return {

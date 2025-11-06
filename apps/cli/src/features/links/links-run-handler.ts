@@ -5,8 +5,8 @@ import { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { LinksRunHandlerParams } from './links-run-utils.ts';
-import { validateLinksRunParams } from './links-run-utils.ts';
+import type { LinksRunHandlerParams } from './links-run-utils.js';
+import { validateLinksRunParams } from './links-run-utils.js';
 
 // Re-export for convenience
 export type { LinksRunHandlerParams };

@@ -5,8 +5,8 @@ import { TransactionRepository } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { LinksConfirmHandler } from '../links-confirm-handler.ts';
-import type { LinksConfirmParams } from '../links-confirm-handler.ts';
+import { LinksConfirmHandler } from '../links-confirm-handler.js';
+import type { LinksConfirmParams } from '../links-confirm-handler.js';
 
 // Mock dependencies
 vi.mock('@exitbook/data', async () => {

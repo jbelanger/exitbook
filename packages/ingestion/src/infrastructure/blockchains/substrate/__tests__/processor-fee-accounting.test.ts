@@ -1,7 +1,7 @@
 import { SUBSTRATE_CHAINS, type SubstrateTransaction } from '@exitbook/providers';
 import { describe, expect, test } from 'vitest';
 
-import { SubstrateProcessor } from '../processor.ts';
+import { SubstrateProcessor } from '../processor.js';
 
 const USER_ADDRESS = '1exampleUserAddress1234567890abcdefghijklmn';
 const EXTERNAL_ADDRESS = '1externalAddress1234567890abcdefghijklmnop';

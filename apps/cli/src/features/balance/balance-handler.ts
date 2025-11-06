@@ -1,4 +1,4 @@
-import { parseDecimal, type VerificationMetadata } from '@exitbook/core';
+import type { VerificationMetadata } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import { TokenMetadataRepository, TransactionRepository } from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchanges';
@@ -25,13 +25,17 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { BalanceHandlerParams } from './balance-utils.ts';
+import type { BalanceHandlerParams } from './balance-utils.js';
 import {
   buildSourceParams,
   decimalRecordToStringRecord,
+  findMostRecentCompletedSession,
+  findSessionByAddress,
   getExchangeCredentialsFromEnv,
+  subtractExcludedAmounts,
+  sumExcludedInflowAmounts,
   validateBalanceParams,
-} from './balance-utils.ts';
+} from './balance-utils.js';
 
 const logger = getLogger('BalanceHandler');
 
@@ -104,7 +108,7 @@ export class BalanceHandler {
         logger.info(
           `Subtracting excluded amounts from live balance for ${excludedAssets.length} assets: ${excludedAssets.join(', ')}`
         );
-        liveBalances = this.subtractExcludedAmounts(liveBalances, excludedAmounts);
+        liveBalances = subtractExcludedAmounts(liveBalances, excludedAmounts);
       }
 
       // 3. Compare balances
@@ -224,11 +228,7 @@ export class BalanceHandler {
 
       // For blockchain sources, find session matching the specific address
       if (params.sourceType === 'blockchain' && params.address) {
-        const normalizedAddress = params.address.toLowerCase();
-        const matchingSession = completedSessions.find((session) => {
-          const importParams = session.importParams;
-          return importParams.address?.toLowerCase() === normalizedAddress;
-        });
+        const matchingSession = findSessionByAddress(completedSessions, params.address);
 
         if (!matchingSession) {
           return undefined;
@@ -237,13 +237,8 @@ export class BalanceHandler {
         return matchingSession.completedAt?.getTime();
       }
 
-      // For exchanges, sort by completedAt desc to ensure we get the most recent
-      const sortedSessions = completedSessions.sort((a, b) => {
-        const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
-        const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
-        return bTime - aTime;
-      });
-      const mostRecentSession = sortedSessions[0];
+      // For exchanges, find the most recent completed session
+      const mostRecentSession = findMostRecentCompletedSession(sessions);
       return mostRecentSession?.completedAt ? new Date(mostRecentSession.completedAt).getTime() : undefined;
     } catch (error) {
       logger.warn(`Error fetching last import timestamp: ${error instanceof Error ? error.message : String(error)}`);
@@ -275,25 +270,14 @@ export class BalanceHandler {
 
       if (params.sourceType === 'blockchain' && params.address) {
         // Find session matching this specific address
-        const normalizedAddress = params.address.toLowerCase();
-        matchingSession = sessions.find((session) => {
-          const importParams = session.importParams;
-          return importParams.address?.toLowerCase() === normalizedAddress;
-        });
+        matchingSession = findSessionByAddress(sessions, params.address);
 
         if (!matchingSession) {
           return err(new Error(`No data source found for address ${params.address}`));
         }
       } else {
-        // For exchanges, filter to completed sessions and use the most recent
-        const completedSessions = sessions
-          .filter((session) => session.status === 'completed')
-          .sort((a, b) => {
-            const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
-            const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
-            return bTime - aTime;
-          });
-        matchingSession = completedSessions[0];
+        // For exchanges, use the most recent completed session
+        matchingSession = findMostRecentCompletedSession(sessions);
       }
 
       if (!matchingSession) {
@@ -426,22 +410,12 @@ export class BalanceHandler {
       let targetSessionId: number | undefined;
 
       if (params.sourceType === 'blockchain' && params.address) {
-        const normalizedAddress = params.address.toLowerCase();
-        const matchingSession = sessions.find((session) => {
-          const importParams = session.importParams;
-          return importParams.address?.toLowerCase() === normalizedAddress;
-        });
+        const matchingSession = findSessionByAddress(sessions, params.address);
         targetSessionId = matchingSession?.id;
       } else {
         // For exchanges, use the most recent completed session
-        const completedSessions = sessions
-          .filter((session) => session.status === 'completed')
-          .sort((a, b) => {
-            const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
-            const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
-            return bTime - aTime;
-          });
-        targetSessionId = completedSessions[0]?.id;
+        const mostRecentSession = findMostRecentCompletedSession(sessions);
+        targetSessionId = mostRecentSession?.id;
       }
 
       if (!targetSessionId) {
@@ -459,49 +433,12 @@ export class BalanceHandler {
       }
 
       // Sum up amounts from excluded transactions (inflows only - scams are airdrops)
-      const excludedAmounts: Record<string, Decimal> = {};
-
-      for (const tx of excludedTxResult.value) {
-        if (tx.excludedFromAccounting) {
-          // Sum inflow amounts from scam transactions
-          for (const inflow of tx.movements.inflows ?? []) {
-            const currentAmount = excludedAmounts[inflow.asset] || parseDecimal('0');
-            excludedAmounts[inflow.asset] = currentAmount.plus(inflow.grossAmount);
-          }
-        }
-      }
+      const excludedAmounts = sumExcludedInflowAmounts(excludedTxResult.value);
 
       return ok(excludedAmounts);
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
-  }
-
-  /**
-   * Subtract excluded amounts from live balance.
-   * For each asset with excluded amounts, subtract that amount from the live balance.
-   * If the result is zero or negative, remove the asset entirely.
-   */
-  private subtractExcludedAmounts(
-    balances: Record<string, Decimal>,
-    excludedAmounts: Record<string, Decimal>
-  ): Record<string, Decimal> {
-    const adjusted: Record<string, Decimal> = { ...balances };
-
-    for (const [asset, excludedAmount] of Object.entries(excludedAmounts)) {
-      if (adjusted[asset]) {
-        const newBalance = adjusted[asset].minus(excludedAmount);
-
-        // If balance becomes zero or negative, remove the asset
-        if (newBalance.lte(0)) {
-          delete adjusted[asset];
-        } else {
-          adjusted[asset] = newBalance;
-        }
-      }
-    }
-
-    return adjusted;
   }
 
   /**
@@ -529,28 +466,17 @@ export class BalanceHandler {
       }
 
       // For blockchain: find session matching the specific address
-      // For exchange: filter to completed sessions and use the most recent
+      // For exchange: use the most recent completed session
       let targetSession: (typeof sessions)[0] | undefined;
       if (params.sourceType === 'blockchain' && params.address) {
-        const normalizedAddress = params.address.toLowerCase();
-        targetSession = sessions.find((session: (typeof sessions)[0]) => {
-          const importParams = session.importParams;
-          return importParams.address?.toLowerCase() === normalizedAddress;
-        });
+        targetSession = findSessionByAddress(sessions, params.address);
 
         if (!targetSession) {
           return err(new Error(`No data source  found for ${params.sourceName} with address ${params.address}`));
         }
       } else {
-        // For exchanges, filter to completed sessions and sort by completed_at desc
-        const completedSessions = sessions
-          .filter((session) => session.status === 'completed')
-          .sort((a, b) => {
-            const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
-            const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
-            return bTime - aTime;
-          });
-        targetSession = completedSessions[0];
+        // For exchanges, use the most recent completed session
+        targetSession = findMostRecentCompletedSession(sessions);
       }
 
       // Ensure we found a session

@@ -5,7 +5,7 @@ import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { EvmFundFlow, EvmMovement } from './types.ts';
+import type { EvmFundFlow, EvmMovement } from './types.js';
 
 export interface SelectionCriteria {
   nativeCurrency: string;

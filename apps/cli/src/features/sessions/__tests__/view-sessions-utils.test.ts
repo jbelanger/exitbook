@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { SessionInfo } from '../sessions-view-utils.ts';
-import { getStatusIcon, formatSessionForDisplay, formatSessionsListForDisplay } from '../sessions-view-utils.ts';
+import type { SessionInfo } from '../sessions-view-utils.js';
+import { getStatusIcon, formatSessionForDisplay, formatSessionsListForDisplay } from '../sessions-view-utils.js';
 
 describe('view-sessions-utils', () => {
   describe('getStatusIcon', () => {

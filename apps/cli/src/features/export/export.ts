@@ -1,14 +1,14 @@
 import type { Command } from 'commander';
 
-import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.ts';
-import { ExitCodes } from '../shared/exit-codes.ts';
-import { OutputManager } from '../shared/output.ts';
+import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.js';
+import { ExitCodes } from '../shared/exit-codes.js';
+import { OutputManager } from '../shared/output.js';
 
-import type { ExportResult } from './export-handler.ts';
-import { ExportHandler } from './export-handler.ts';
-import { promptForExportParams } from './export-prompts.ts';
-import type { ExportCommandOptions } from './export-utils.ts';
-import { buildExportParamsFromFlags } from './export-utils.ts';
+import type { ExportResult } from './export-handler.js';
+import { ExportHandler } from './export-handler.js';
+import { promptForExportParams } from './export-prompts.js';
+import type { ExportCommandOptions } from './export-utils.js';
+import { buildExportParamsFromFlags } from './export-utils.js';
 
 /**
  * Extended export command options (adds CLI-specific flags not needed by handler).

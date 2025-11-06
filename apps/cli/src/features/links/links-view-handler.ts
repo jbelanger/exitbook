@@ -1,12 +1,17 @@
 // Handler for links view command
 
-import type { TransactionLink, TransactionLinkRepository } from '@exitbook/accounting';
-import type { UniversalTransaction } from '@exitbook/core';
+import type { TransactionLinkRepository } from '@exitbook/accounting';
 import type { TransactionRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { LinkInfo, LinksViewParams, LinksViewResult, TransactionDetails } from './links-view-utils.ts';
+import {
+  filterLinksByConfidence,
+  formatLinkInfo,
+  type LinkInfo,
+  type LinksViewParams,
+  type LinksViewResult,
+} from './links-view-utils.js';
 
 /**
  * Handler for viewing transaction links.
@@ -30,9 +35,9 @@ export class LinksViewHandler {
 
     let links = linksResult.value;
 
-    // Apply confidence filters if provided
+    // Apply confidence filters if provided (functional core)
     if (params.minConfidence !== undefined || params.maxConfidence !== undefined) {
-      links = this.filterByConfidence(links, params.minConfidence, params.maxConfidence);
+      links = filterLinksByConfidence(links, params.minConfidence, params.maxConfidence);
     }
 
     // Apply limit
@@ -40,10 +45,27 @@ export class LinksViewHandler {
       links = links.slice(0, params.limit);
     }
 
-    // Fetch transaction details if verbose mode and txRepo is available
+    // Format links with transaction details if verbose mode
     const linkInfos: LinkInfo[] = [];
     for (const link of links) {
-      const linkInfo = await this.formatLink(link, params.verbose);
+      // Fetch transactions if verbose mode and txRepo is available (imperative shell)
+      let sourceTx;
+      let targetTx;
+
+      if (params.verbose && this.txRepo) {
+        const sourceTxResult = await this.txRepo.findById(link.sourceTransactionId);
+        if (sourceTxResult.isOk() && sourceTxResult.value) {
+          sourceTx = sourceTxResult.value;
+        }
+
+        const targetTxResult = await this.txRepo.findById(link.targetTransactionId);
+        if (targetTxResult.isOk() && targetTxResult.value) {
+          targetTx = targetTxResult.value;
+        }
+      }
+
+      // Format link info (functional core)
+      const linkInfo = formatLinkInfo(link, sourceTx, targetTx);
       linkInfos.push(linkInfo);
     }
 
@@ -58,78 +80,5 @@ export class LinksViewHandler {
 
   destroy(): void {
     // No cleanup needed
-  }
-
-  /**
-   * Filter links by confidence score range.
-   */
-  private filterByConfidence(
-    links: TransactionLink[],
-    minConfidence?: number,
-    maxConfidence?: number
-  ): TransactionLink[] {
-    return links.filter((link) => {
-      const score = link.confidenceScore.toNumber();
-
-      if (minConfidence !== undefined && score < minConfidence) {
-        return false;
-      }
-
-      if (maxConfidence !== undefined && score > maxConfidence) {
-        return false;
-      }
-
-      return true;
-    });
-  }
-
-  /**
-   * Format link for display.
-   */
-  private async formatLink(link: TransactionLink, verbose?: boolean): Promise<LinkInfo> {
-    const linkInfo: LinkInfo = {
-      id: link.id,
-      source_transaction_id: link.sourceTransactionId,
-      target_transaction_id: link.targetTransactionId,
-      link_type: link.linkType,
-      confidence_score: link.confidenceScore.toString(),
-      match_criteria: link.matchCriteria,
-      status: link.status,
-      reviewed_by: link.reviewedBy,
-      reviewed_at: link.reviewedAt?.toISOString(),
-      created_at: link.createdAt.toISOString(),
-      updated_at: link.updatedAt.toISOString(),
-    };
-
-    // Fetch transaction details if verbose mode and txRepo is available
-    if (verbose && this.txRepo) {
-      const sourceTxResult = await this.txRepo.findById(link.sourceTransactionId);
-      if (sourceTxResult.isOk() && sourceTxResult.value) {
-        linkInfo.source_transaction = this.formatTransactionDetails(sourceTxResult.value);
-      }
-
-      const targetTxResult = await this.txRepo.findById(link.targetTransactionId);
-      if (targetTxResult.isOk() && targetTxResult.value) {
-        linkInfo.target_transaction = this.formatTransactionDetails(targetTxResult.value);
-      }
-    }
-
-    return linkInfo;
-  }
-
-  /**
-   * Format transaction for display.
-   */
-  private formatTransactionDetails(tx: UniversalTransaction): TransactionDetails {
-    return {
-      external_id: tx.externalId ?? undefined,
-      from_address: tx.from ?? undefined,
-      id: tx.id ?? 0,
-      movements_inflows: tx.movements?.inflows ?? [],
-      movements_outflows: tx.movements?.outflows ?? [],
-      source_id: tx.source,
-      timestamp: tx.datetime,
-      to_address: tx.to ?? undefined,
-    };
   }
 }

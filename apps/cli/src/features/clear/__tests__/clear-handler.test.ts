@@ -4,8 +4,8 @@ import type { DataSourceRepository, RawDataRepository } from '@exitbook/ingestio
 import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { ClearHandler } from '../clear-handler.ts';
-import type { ClearHandlerParams } from '../clear-utils.ts';
+import { ClearHandler } from '../clear-handler.js';
+import type { ClearHandlerParams } from '../clear-utils.js';
 
 describe('ClearHandler', () => {
   let mockDatabase: KyselyDB;

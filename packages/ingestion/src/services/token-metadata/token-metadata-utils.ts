@@ -143,7 +143,7 @@ async function fetchFromProvider(
  * Generic function that works with any item type that has contract addresses.
  * The source field is automatically populated with the actual provider name.
  *
- * This follows the pattern from exchange-utils.ts - pure functional core with dependency injection.
+ * This follows the pattern from exchange-utils.js - pure functional core with dependency injection.
  *
  * @param items - Array of items to enrich
  * @param blockchain - Blockchain identifier

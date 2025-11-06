@@ -2,8 +2,8 @@ import { Currency } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../database.js';
-import type { CoinMappingInput } from '../provider-repository.ts';
-import { ProviderRepository } from '../provider-repository.ts';
+import type { CoinMappingInput } from '../provider-repository.js';
+import { ProviderRepository } from '../provider-repository.js';
 
 describe('ProviderRepository', () => {
   let db: PricesDB;

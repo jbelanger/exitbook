@@ -2,7 +2,7 @@
 import type { DataSourceStatus, SourceType } from '@exitbook/core';
 import type { Selectable, Insertable, Updateable } from 'kysely';
 
-import type { ExternalTransactionDataTable, DataSourcesTable, TransactionsTable } from '../schema/database-schema.ts';
+import type { ExternalTransactionDataTable, DataSourcesTable, TransactionsTable } from '../schema/database-schema.js';
 
 export type NewTransaction = Insertable<TransactionsTable>;
 export type TransactionUpdate = Updateable<TransactionsTable>;

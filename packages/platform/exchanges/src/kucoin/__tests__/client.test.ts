@@ -1,8 +1,8 @@
 import * as ccxt from 'ccxt';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import type { IExchangeClient } from '../../core/types.ts';
-import { createKuCoinClient } from '../client.ts';
+import type { IExchangeClient } from '../../core/types.js';
+import { createKuCoinClient } from '../client.js';
 
 vi.mock('ccxt', () => {
   const mockKuCoin = vi.fn();

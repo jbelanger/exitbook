@@ -1,6 +1,6 @@
 // Utilities and types for view prices command
 
-import type { CommonViewFilters } from '../shared/view-utils.ts';
+import type { CommonViewFilters } from '../shared/view-utils.js';
 
 /**
  * Parameters for view prices command.

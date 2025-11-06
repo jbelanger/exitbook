@@ -1,15 +1,15 @@
 import { getLogger } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
-import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.ts';
-import { ExitCodes } from '../shared/exit-codes.ts';
-import { OutputManager } from '../shared/output.ts';
+import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.js';
+import { ExitCodes } from '../shared/exit-codes.js';
+import { OutputManager } from '../shared/output.js';
 
-import type { LinksRunResult } from './links-run-handler.ts';
-import { LinksRunHandler } from './links-run-handler.ts';
-import { promptForLinksRunParams } from './links-run-prompts.ts';
-import type { LinksRunCommandOptions } from './links-run-utils.ts';
-import { buildLinksRunParamsFromFlags } from './links-run-utils.ts';
+import type { LinksRunResult } from './links-run-handler.js';
+import { LinksRunHandler } from './links-run-handler.js';
+import { promptForLinksRunParams } from './links-run-prompts.js';
+import type { LinksRunCommandOptions } from './links-run-utils.js';
+import { buildLinksRunParamsFromFlags } from './links-run-utils.js';
 
 const logger = getLogger('LinksRunCommand');
 
