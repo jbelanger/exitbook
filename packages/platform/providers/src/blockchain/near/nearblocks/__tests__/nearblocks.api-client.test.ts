@@ -127,7 +127,7 @@ describe('NearBlocksApiClient', () => {
           id: 'AbCdEf123456',
           providerName: 'nearblocks',
           status: 'success',
-          timestamp: 1640000000,
+          timestamp: 1640000000000,
           to: 'bob.near',
         });
         expect(txData[0]?.raw).toEqual(mockTransaction);
@@ -527,7 +527,7 @@ describe('NearBlocksApiClient', () => {
 
       expect(config.validate({ stats: 'data' })).toBe(true);
       expect(config.validate({})).toBe(true);
-      expect(config.validate()).toBe(false);
+      expect(config.validate(void 0)).toBe(false);
     });
   });
 

@@ -44,7 +44,7 @@ describe('NearBlocksTransactionMapper', () => {
         expect(normalized.amount).toBe('1000000000000000000000000');
         expect(normalized.currency).toBe('NEAR');
         expect(normalized.status).toBe('success');
-        expect(normalized.timestamp).toBe(1640000000);
+        expect(normalized.timestamp).toBe(1640000000000);
         expect(normalized.blockHeight).toBe(100000);
         expect(normalized.feeAmount).toBe('0.005');
         expect(normalized.feeCurrency).toBe('NEAR');
