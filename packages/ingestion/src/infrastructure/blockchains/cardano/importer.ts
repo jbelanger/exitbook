@@ -2,26 +2,30 @@ import type { ExternalTransaction } from '@exitbook/core';
 import type {
   BlockchainProviderManager,
   CardanoTransaction,
+  CardanoWalletAddress,
   ProviderError,
   TransactionWithRawData,
 } from '@exitbook/providers';
-import { generateUniqueTransactionId } from '@exitbook/providers';
+import { CardanoUtils, generateUniqueTransactionId } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
-import { err, type Result } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 
 import type { ImportParams, IImporter, ImportRunResult } from '../../../types/importers.js';
 
 /**
  * Cardano transaction importer that fetches raw transaction data from blockchain APIs.
+ * Supports both regular Cardano addresses and extended public keys (xpub).
  * Uses provider manager for failover between multiple blockchain API providers.
  */
 export class CardanoTransactionImporter implements IImporter {
   private readonly logger: Logger;
+  private addressGap: number;
   private providerManager: BlockchainProviderManager;
+  private walletAddresses: CardanoWalletAddress[] = [];
 
   constructor(
     blockchainProviderManager: BlockchainProviderManager,
-    options?: { preferredProvider?: string | undefined }
+    options?: { addressGap?: number; preferredProvider?: string | undefined }
   ) {
     this.logger = getLogger('cardanoImporter');
 
@@ -30,11 +34,12 @@ export class CardanoTransactionImporter implements IImporter {
     }
 
     this.providerManager = blockchainProviderManager;
+    this.addressGap = options?.addressGap || 10;
 
     this.providerManager.autoRegisterFromConfig('cardano', options?.preferredProvider);
 
     this.logger.info(
-      `Initialized Cardano transaction importer - ProvidersCount: ${this.providerManager.getProviders('cardano').length}`
+      `Initialized Cardano transaction importer - AddressGap: ${this.addressGap}, ProvidersCount: ${this.providerManager.getProviders('cardano').length}`
     );
   }
 
@@ -48,15 +53,34 @@ export class CardanoTransactionImporter implements IImporter {
 
     this.logger.info(`Starting Cardano transaction import for address: ${params.address.substring(0, 20)}...`);
 
-    const result = await this.fetchRawTransactionsForAddress(params.address);
+    const wallet: CardanoWalletAddress = {
+      address: params.address,
+      type: CardanoUtils.isExtendedPublicKey(params.address) ? 'xpub' : 'address',
+    };
+
+    if (CardanoUtils.isExtendedPublicKey(params.address)) {
+      this.logger.info(`Processing xpub: ${params.address.substring(0, 20)}...`);
+      const initResult = await this.initializeXpubWallet(wallet);
+      if (initResult.isErr()) {
+        return err(initResult.error);
+      }
+    } else {
+      this.logger.info(`Processing regular address: ${params.address}`);
+      const era = CardanoUtils.getAddressEra(params.address);
+      wallet.era = era !== 'unknown' ? era : undefined;
+    }
+
+    this.walletAddresses.push(wallet);
+
+    const result = wallet.derivedAddresses
+      ? await this.fetchFromXpubWallet(wallet.derivedAddresses)
+      : await this.fetchRawTransactionsForAddress(params.address);
 
     return result
-      .map((externalTransactions) => {
-        this.logger.info(`Cardano import completed: ${externalTransactions.length} transactions`);
-        return {
-          metadata: undefined,
-          rawTransactions: externalTransactions,
-        };
+      .map((allSourcedTransactions) => {
+        this.logger.info(`Cardano import completed: ${allSourcedTransactions.length} transactions`);
+        const metadata = wallet.derivedAddresses ? { derivedAddresses: wallet.derivedAddresses } : undefined;
+        return { metadata, rawTransactions: allSourcedTransactions };
       })
       .mapErr((error) => {
         this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
@@ -95,5 +119,49 @@ export class CardanoTransactionImporter implements IImporter {
         sourceAddress: address,
       }));
     });
+  }
+
+  /**
+   * Fetch transactions from xpub wallet's derived addresses.
+   */
+  private async fetchFromXpubWallet(derivedAddresses: string[]): Promise<Result<ExternalTransaction[], Error>> {
+    this.logger.info(`Fetching from ${derivedAddresses.length} derived addresses`);
+    const allSourcedTransactions = await this.fetchRawTransactionsForDerivedAddresses(derivedAddresses);
+    return ok(allSourcedTransactions);
+  }
+
+  /**
+   * Fetch raw transactions for derived addresses from an xpub wallet.
+   */
+  private async fetchRawTransactionsForDerivedAddresses(derivedAddresses: string[]): Promise<ExternalTransaction[]> {
+    const uniqueTransactions = new Map<string, ExternalTransaction>();
+
+    for (const address of derivedAddresses) {
+      const result = await this.fetchRawTransactionsForAddress(address);
+
+      if (result.isErr()) {
+        this.logger.error(`Failed to fetch raw transactions for address ${address}: ${result.error.message}`);
+        continue;
+      }
+
+      const rawTransactions = result.value;
+
+      for (const rawTx of rawTransactions) {
+        const normalizedTx = rawTx.normalizedData as CardanoTransaction;
+        uniqueTransactions.set(normalizedTx.id, rawTx);
+      }
+
+      this.logger.debug(`Found ${rawTransactions.length} transactions for address ${address}`);
+    }
+
+    this.logger.info(`Found ${uniqueTransactions.size} unique raw transactions across all derived addresses`);
+    return Array.from(uniqueTransactions.values());
+  }
+
+  /**
+   * Initialize an xpub wallet using CardanoUtils.
+   */
+  private async initializeXpubWallet(walletAddress: CardanoWalletAddress): Promise<Result<void, Error>> {
+    return CardanoUtils.initializeXpubWallet(walletAddress, this.providerManager, this.addressGap);
   }
 }

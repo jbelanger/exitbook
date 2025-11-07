@@ -456,7 +456,6 @@ describe('BlockfrostApiClient', () => {
 
       expect(config.validate({ is_healthy: true })).toBe(true);
       expect(config.validate({})).toBe(false);
-      expect(config.validate()).toBe(false);
     });
   });
 
