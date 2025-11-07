@@ -4,8 +4,23 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../shared/blockchain/index.js';
 
-import { NearBlocksTransactionSchema, type NearBlocksTransaction } from './nearblocks/nearblocks.schemas.js';
-import { NearTransactionSchema, type NearAction, type NearTransaction } from './schemas.js';
+import {
+  NearBlocksActivitySchema,
+  NearBlocksFtTransactionSchema,
+  NearBlocksTransactionSchema,
+  type NearBlocksActivity,
+  type NearBlocksFtTransaction,
+  type NearBlocksTransaction,
+} from './nearblocks/nearblocks.schemas.js';
+import {
+  NearAccountChangeSchema,
+  NearTokenTransferSchema,
+  NearTransactionSchema,
+  type NearAccountChange,
+  type NearAction,
+  type NearTokenTransfer,
+  type NearTransaction,
+} from './schemas.js';
 
 /**
  * Pure functions for NEAR transaction mapping
@@ -100,6 +115,133 @@ export function calculateTotalGasBurnt(receiptOutcome?: {
   }
 
   return parseDecimal(receiptOutcome.tokens_burnt.toString()).toFixed();
+}
+
+/**
+ * Convert NearBlocks activity to NearAccountChange
+ * Handles yocto to NEAR conversion and computes signed deltas
+ */
+export function mapNearBlocksActivityToAccountChange(
+  activity: NearBlocksActivity,
+  accountId: string
+): Result<NearAccountChange, NormalizationError> {
+  // Validate input data
+  const inputValidationResult = NearBlocksActivitySchema.safeParse(activity);
+  if (!inputValidationResult.success) {
+    const errors = inputValidationResult.error.issues.map((issue) => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
+    return err({
+      message: `Invalid NearBlocks activity input data: ${errors.join(', ')}`,
+      type: 'error',
+    });
+  }
+
+  const validatedActivity = inputValidationResult.data;
+
+  // Convert yoctoNEAR to NEAR
+  const absoluteAmount = yoctoNearToNearString(validatedActivity.absolute_nonstaked_amount);
+
+  // Compute signed delta based on direction
+  // INBOUND means the account received NEAR (positive delta)
+  // OUTBOUND means the account sent NEAR (negative delta)
+  const delta = parseDecimal(absoluteAmount);
+  const signedDelta = validatedActivity.direction === 'INBOUND' ? delta : delta.negated();
+
+  // For account changes, we need preBalance and postBalance
+  // Since the API only provides absolute amounts and direction, we synthesize these
+  // preBalance = 0 (we don't have historical balance)
+  // postBalance = signed delta (representing the change)
+  // Note: The importer layer should aggregate these to compute actual pre/post balances
+  const accountChange: NearAccountChange = {
+    account: accountId,
+    postBalance: signedDelta.toFixed(),
+    preBalance: '0',
+  };
+
+  // Validate output data
+  const outputValidationResult = NearAccountChangeSchema.safeParse(accountChange);
+  if (!outputValidationResult.success) {
+    const errors = outputValidationResult.error.issues.map((issue) => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
+    return err({
+      message: `Invalid NearAccountChange output data: ${errors.join(', ')}`,
+      type: 'error',
+    });
+  }
+
+  return ok(accountChange);
+}
+
+/**
+ * Convert NearBlocks FT transaction to NearTokenTransfer
+ * Normalizes amounts by decimals and handles missing symbols
+ */
+export function mapNearBlocksFtTransactionToTokenTransfer(
+  ftTx: NearBlocksFtTransaction,
+  accountId: string
+): Result<NearTokenTransfer, NormalizationError> {
+  // Validate input data
+  const inputValidationResult = NearBlocksFtTransactionSchema.safeParse(ftTx);
+  if (!inputValidationResult.success) {
+    const errors = inputValidationResult.error.issues.map((issue) => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
+    return err({
+      message: `Invalid NearBlocks FT transaction input data: ${errors.join(', ')}`,
+      type: 'error',
+    });
+  }
+
+  const validatedFtTx = inputValidationResult.data;
+
+  // Ensure we have FT metadata
+  if (!validatedFtTx.ft) {
+    return err({
+      message: 'FT transaction missing token metadata',
+      type: 'error',
+    });
+  }
+
+  // Normalize amount by decimals
+  const rawAmount = validatedFtTx.delta_amount || '0';
+  const decimals = validatedFtTx.ft.decimals;
+  const normalizedAmount = parseDecimal(rawAmount).div(parseDecimal('10').pow(decimals));
+
+  // Determine from/to based on affected_account_id and involved_account_id
+  // If affected_account_id matches the queried account, they are the receiver (INBOUND)
+  // If involved_account_id matches the queried account, they are the sender (OUTBOUND)
+  const isInbound = validatedFtTx.affected_account_id === accountId;
+  const from = isInbound ? validatedFtTx.involved_account_id || validatedFtTx.ft.contract : accountId;
+  const to = isInbound ? accountId : validatedFtTx.involved_account_id || validatedFtTx.ft.contract;
+
+  const tokenTransfer: NearTokenTransfer = {
+    amount: normalizedAmount.abs().toFixed(),
+    contractAddress: validatedFtTx.ft.contract,
+    decimals: validatedFtTx.ft.decimals,
+    from,
+    symbol: validatedFtTx.ft.symbol,
+    to,
+  };
+
+  // Validate output data
+  const outputValidationResult = NearTokenTransferSchema.safeParse(tokenTransfer);
+  if (!outputValidationResult.success) {
+    const errors = outputValidationResult.error.issues.map((issue) => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
+    return err({
+      message: `Invalid NearTokenTransfer output data: ${errors.join(', ')}`,
+      type: 'error',
+    });
+  }
+
+  return ok(tokenTransfer);
 }
 
 /**

@@ -113,6 +113,85 @@ export const NearBlocksAccountSchema = z.object({
   account: z.array(NearBlocksAccountDataSchema).min(1, 'Account array must not be empty'),
 });
 
+/**
+ * Schema for NearBlocks activity direction enum
+ */
+export const NearBlocksActivityDirectionSchema = z.enum(['INBOUND', 'OUTBOUND']);
+
+/**
+ * Schema for NearBlocks activity item
+ * From /v1/account/{account}/activity endpoint
+ */
+export const NearBlocksActivitySchema = z.object({
+  absolute_nonstaked_amount: z.string().min(1, 'Absolute non-staked amount must not be empty'),
+  block_timestamp: z.string().min(1, 'Block timestamp must not be empty'),
+  cause: z.string().optional(),
+  counterparty: z.string().optional(),
+  delta_nonstaked_amount: z.string().optional(),
+  direction: NearBlocksActivityDirectionSchema,
+  receipt_id: z.string().min(1, 'Receipt ID must not be empty'),
+  transaction_hash: z.string().optional(),
+});
+
+/**
+ * Schema for NearBlocks paginated activity response
+ */
+export const NearBlocksActivitiesResponseSchema = z.object({
+  cursor: z.string().optional(),
+  txns: z.array(NearBlocksActivitySchema),
+});
+
+/**
+ * Schema for NearBlocks receipt item
+ * From /v1/account/{account}/receipts endpoint
+ */
+export const NearBlocksReceiptSchema = z.object({
+  block_timestamp: z.string().optional(),
+  originated_from_transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
+  predecessor_account_id: z.string().min(1, 'Predecessor account ID must not be empty'),
+  receipt_id: z.string().min(1, 'Receipt ID must not be empty'),
+  receiver_account_id: z.string().min(1, 'Receiver account ID must not be empty'),
+});
+
+/**
+ * Schema for NearBlocks paginated receipts response
+ */
+export const NearBlocksReceiptsResponseSchema = z.object({
+  cursor: z.string().optional(),
+  receipts: z.array(NearBlocksReceiptSchema),
+});
+
+/**
+ * Schema for NearBlocks FT (fungible token) transaction item
+ * From /v1/account/{account}/ft-txns endpoint
+ */
+export const NearBlocksFtTransactionSchema = z.object({
+  affected_account_id: z.string().min(1, 'Affected account ID must not be empty'),
+  block_height: z.number().optional(),
+  block_timestamp: z.string().min(1, 'Block timestamp must not be empty'),
+  cause: z.string().optional(),
+  delta_amount: z.string().optional(),
+  ft: z
+    .object({
+      contract: z.string().min(1, 'Contract must not be empty'),
+      decimals: z.number().nonnegative(),
+      name: z.string().optional(),
+      symbol: z.string().optional(),
+    })
+    .optional(),
+  involved_account_id: z.string().optional(),
+  receipt_id: z.string().min(1, 'Receipt ID must not be empty'),
+  transaction_hash: z.string().optional(),
+});
+
+/**
+ * Schema for NearBlocks paginated FT transactions response
+ */
+export const NearBlocksFtTransactionsResponseSchema = z.object({
+  cursor: z.string().optional(),
+  txns: z.array(NearBlocksFtTransactionSchema),
+});
+
 // Type exports
 export type NearBlocksAction = z.infer<typeof NearBlocksActionSchema>;
 export type NearBlocksBlock = z.infer<typeof NearBlocksBlockSchema>;
@@ -123,3 +202,10 @@ export type NearBlocksTransaction = z.infer<typeof NearBlocksTransactionSchema>;
 export type NearBlocksTransactionsResponse = z.infer<typeof NearBlocksTransactionsResponseSchema>;
 export type NearBlocksAccountData = z.infer<typeof NearBlocksAccountDataSchema>;
 export type NearBlocksAccount = z.infer<typeof NearBlocksAccountSchema>;
+export type NearBlocksActivityDirection = z.infer<typeof NearBlocksActivityDirectionSchema>;
+export type NearBlocksActivity = z.infer<typeof NearBlocksActivitySchema>;
+export type NearBlocksActivitiesResponse = z.infer<typeof NearBlocksActivitiesResponseSchema>;
+export type NearBlocksReceipt = z.infer<typeof NearBlocksReceiptSchema>;
+export type NearBlocksReceiptsResponse = z.infer<typeof NearBlocksReceiptsResponseSchema>;
+export type NearBlocksFtTransaction = z.infer<typeof NearBlocksFtTransactionSchema>;
+export type NearBlocksFtTransactionsResponse = z.infer<typeof NearBlocksFtTransactionsResponseSchema>;

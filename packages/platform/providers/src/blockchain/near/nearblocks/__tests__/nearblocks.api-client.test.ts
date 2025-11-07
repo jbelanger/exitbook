@@ -565,4 +565,407 @@ describe('NearBlocksApiClient', () => {
       expect(capabilities.supportedOperations).toHaveLength(2);
     });
   });
+
+  describe('getAccountReceipts', () => {
+    const mockAddress = 'alice.near';
+
+    it('should fetch receipts successfully', async () => {
+      const mockReceipts = [
+        {
+          originated_from_transaction_hash: 'tx123',
+          predecessor_account_id: 'alice.near',
+          receipt_id: 'receipt123',
+          receiver_account_id: 'bob.near',
+        },
+        {
+          block_timestamp: '1640000000000000000',
+          originated_from_transaction_hash: 'tx456',
+          predecessor_account_id: 'bob.near',
+          receipt_id: 'receipt456',
+          receiver_account_id: 'alice.near',
+        },
+      ];
+
+      const mockResponse = {
+        receipts: mockReceipts,
+      };
+
+      mockHttpGet.mockResolvedValue(ok(mockResponse));
+
+      const result = await client.getAccountReceipts(mockAddress);
+
+      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/receipts?page=1&per_page=50`);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toHaveLength(2);
+        expect(result.value[0]?.receipt_id).toBe('receipt123');
+        expect(result.value[1]?.receipt_id).toBe('receipt456');
+      }
+    });
+
+    it('should fetch receipts with custom pagination', async () => {
+      const mockResponse = {
+        receipts: [],
+      };
+
+      mockHttpGet.mockResolvedValue(ok(mockResponse));
+
+      const result = await client.getAccountReceipts(mockAddress, 2, 25);
+
+      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/receipts?page=2&per_page=25`);
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should handle empty receipts', async () => {
+      const mockResponse = {
+        receipts: [],
+      };
+
+      mockHttpGet.mockResolvedValue(ok(mockResponse));
+
+      const result = await client.getAccountReceipts(mockAddress);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toHaveLength(0);
+      }
+    });
+
+    it('should return error for invalid NEAR account ID', async () => {
+      const invalidAddress = 'INVALID@ADDRESS';
+
+      const result = await client.getAccountReceipts(invalidAddress);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Invalid NEAR account ID');
+      }
+      expect(mockHttpGet).not.toHaveBeenCalled();
+    });
+
+    it('should return error on API failure', async () => {
+      const error = new Error('API Error');
+      mockHttpGet.mockResolvedValue(err(error));
+
+      const result = await client.getAccountReceipts(mockAddress);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toBe('API Error');
+      }
+    });
+
+    it('should return error for invalid response schema', async () => {
+      const invalidResponse = {
+        receipts: [
+          {
+            originated_from_transaction_hash: '',
+            predecessor_account_id: 'alice.near',
+            receipt_id: 'receipt123',
+            receiver_account_id: 'bob.near',
+          },
+        ],
+      };
+
+      mockHttpGet.mockResolvedValue(ok(invalidResponse));
+
+      const result = await client.getAccountReceipts(mockAddress);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Provider data validation failed');
+      }
+    });
+  });
+
+  describe('getAccountActivities', () => {
+    const mockAddress = 'alice.near';
+
+    it('should fetch activities successfully', async () => {
+      const mockActivities = [
+        {
+          absolute_nonstaked_amount: '1000000000000000000000000',
+          block_timestamp: '1640000000000000000',
+          direction: 'INBOUND' as const,
+          receipt_id: 'receipt123',
+        },
+        {
+          absolute_nonstaked_amount: '500000000000000000000000',
+          block_timestamp: '1640000001000000000',
+          cause: 'CONTRACT_REWARD',
+          counterparty: 'validator.near',
+          delta_nonstaked_amount: '500000000000000000000000',
+          direction: 'OUTBOUND' as const,
+          receipt_id: 'receipt456',
+          transaction_hash: 'tx456',
+        },
+      ];
+
+      const mockResponse = {
+        txns: mockActivities,
+      };
+
+      mockHttpGet.mockResolvedValue(ok(mockResponse));
+
+      const result = await client.getAccountActivities(mockAddress);
+
+      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/activity?page=1&per_page=50`);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toHaveLength(2);
+        expect(result.value[0]?.direction).toBe('INBOUND');
+        expect(result.value[1]?.direction).toBe('OUTBOUND');
+      }
+    });
+
+    it('should fetch activities with custom pagination', async () => {
+      const mockResponse = {
+        txns: [],
+      };
+
+      mockHttpGet.mockResolvedValue(ok(mockResponse));
+
+      const result = await client.getAccountActivities(mockAddress, 3, 20);
+
+      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/activity?page=3&per_page=20`);
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should handle empty activities', async () => {
+      const mockResponse = {
+        txns: [],
+      };
+
+      mockHttpGet.mockResolvedValue(ok(mockResponse));
+
+      const result = await client.getAccountActivities(mockAddress);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toHaveLength(0);
+      }
+    });
+
+    it('should return error for invalid NEAR account ID', async () => {
+      const invalidAddress = 'INVALID@ADDRESS';
+
+      const result = await client.getAccountActivities(invalidAddress);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Invalid NEAR account ID');
+      }
+      expect(mockHttpGet).not.toHaveBeenCalled();
+    });
+
+    it('should return error on API failure', async () => {
+      const error = new Error('API Error');
+      mockHttpGet.mockResolvedValue(err(error));
+
+      const result = await client.getAccountActivities(mockAddress);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toBe('API Error');
+      }
+    });
+
+    it('should return error for invalid response schema', async () => {
+      const invalidResponse = {
+        txns: [
+          {
+            absolute_nonstaked_amount: '',
+            block_timestamp: '1640000000000000000',
+            direction: 'INBOUND',
+            receipt_id: 'receipt123',
+          },
+        ],
+      };
+
+      mockHttpGet.mockResolvedValue(ok(invalidResponse));
+
+      const result = await client.getAccountActivities(mockAddress);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Provider data validation failed');
+      }
+    });
+
+    it('should handle activities with cursor', async () => {
+      const mockResponse = {
+        cursor: 'next-page-cursor',
+        txns: [],
+      };
+
+      mockHttpGet.mockResolvedValue(ok(mockResponse));
+
+      const result = await client.getAccountActivities(mockAddress);
+
+      expect(result.isOk()).toBe(true);
+    });
+  });
+
+  describe('getAccountFtTransactions', () => {
+    const mockAddress = 'alice.near';
+
+    it('should fetch FT transactions successfully', async () => {
+      const mockFtTxs = [
+        {
+          affected_account_id: 'alice.near',
+          block_timestamp: '1640000000000000000',
+          ft: {
+            contract: 'usdc.near',
+            decimals: 6,
+            name: 'USD Coin',
+            symbol: 'USDC',
+          },
+          receipt_id: 'receipt123',
+        },
+        {
+          affected_account_id: 'alice.near',
+          block_height: 100000,
+          block_timestamp: '1640000001000000000',
+          cause: 'TRANSFER',
+          delta_amount: '1000000',
+          ft: {
+            contract: 'dai.near',
+            decimals: 18,
+            symbol: 'DAI',
+          },
+          involved_account_id: 'bob.near',
+          receipt_id: 'receipt456',
+          transaction_hash: 'tx456',
+        },
+      ];
+
+      const mockResponse = {
+        txns: mockFtTxs,
+      };
+
+      mockHttpGet.mockResolvedValue(ok(mockResponse));
+
+      const result = await client.getAccountFtTransactions(mockAddress);
+
+      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/ft-txns?page=1&per_page=50`);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toHaveLength(2);
+        expect(result.value[0]?.ft?.symbol).toBe('USDC');
+        expect(result.value[1]?.ft?.symbol).toBe('DAI');
+      }
+    });
+
+    it('should fetch FT transactions with custom pagination', async () => {
+      const mockResponse = {
+        txns: [],
+      };
+
+      mockHttpGet.mockResolvedValue(ok(mockResponse));
+
+      const result = await client.getAccountFtTransactions(mockAddress, 4, 10);
+
+      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/ft-txns?page=4&per_page=10`);
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should handle empty FT transactions', async () => {
+      const mockResponse = {
+        txns: [],
+      };
+
+      mockHttpGet.mockResolvedValue(ok(mockResponse));
+
+      const result = await client.getAccountFtTransactions(mockAddress);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toHaveLength(0);
+      }
+    });
+
+    it('should return error for invalid NEAR account ID', async () => {
+      const invalidAddress = 'INVALID@ADDRESS';
+
+      const result = await client.getAccountFtTransactions(invalidAddress);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Invalid NEAR account ID');
+      }
+      expect(mockHttpGet).not.toHaveBeenCalled();
+    });
+
+    it('should return error on API failure', async () => {
+      const error = new Error('API Error');
+      mockHttpGet.mockResolvedValue(err(error));
+
+      const result = await client.getAccountFtTransactions(mockAddress);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toBe('API Error');
+      }
+    });
+
+    it('should return error for invalid response schema', async () => {
+      const invalidResponse = {
+        txns: [
+          {
+            affected_account_id: '',
+            block_timestamp: '1640000000000000000',
+            receipt_id: 'receipt123',
+          },
+        ],
+      };
+
+      mockHttpGet.mockResolvedValue(ok(invalidResponse));
+
+      const result = await client.getAccountFtTransactions(mockAddress);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Provider data validation failed');
+      }
+    });
+
+    it('should handle FT transactions with cursor', async () => {
+      const mockResponse = {
+        cursor: 'next-page-cursor',
+        txns: [],
+      };
+
+      mockHttpGet.mockResolvedValue(ok(mockResponse));
+
+      const result = await client.getAccountFtTransactions(mockAddress);
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should handle FT transactions with minimal metadata', async () => {
+      const mockResponse = {
+        txns: [
+          {
+            affected_account_id: 'alice.near',
+            block_timestamp: '1640000000000000000',
+            ft: {
+              contract: 'token.near',
+              decimals: 18,
+            },
+            receipt_id: 'receipt123',
+          },
+        ],
+      };
+
+      mockHttpGet.mockResolvedValue(ok(mockResponse));
+
+      const result = await client.getAccountFtTransactions(mockAddress);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value[0]?.ft?.contract).toBe('token.near');
+        expect(result.value[0]?.ft?.symbol).toBeUndefined();
+      }
+    });
+  });
 });

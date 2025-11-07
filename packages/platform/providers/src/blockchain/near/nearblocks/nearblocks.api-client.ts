@@ -13,8 +13,17 @@ import { isValidNearAccountId } from '../utils.js';
 
 import {
   NearBlocksAccountSchema,
+  NearBlocksActivitiesResponseSchema,
+  NearBlocksFtTransactionsResponseSchema,
+  NearBlocksReceiptsResponseSchema,
   NearBlocksTransactionsResponseSchema,
   type NearBlocksAccount,
+  type NearBlocksActivitiesResponse,
+  type NearBlocksActivity,
+  type NearBlocksFtTransaction,
+  type NearBlocksFtTransactionsResponse,
+  type NearBlocksReceipt,
+  type NearBlocksReceiptsResponse,
   type NearBlocksTransaction,
   type NearBlocksTransactionsResponse,
 } from './nearblocks.schemas.js';
@@ -85,6 +94,168 @@ export class NearBlocksApiClient extends BaseApiClient {
         return response !== null && response !== undefined && typeof response === 'object';
       },
     };
+  }
+
+  /**
+   * Fetch account receipts from NearBlocks API
+   * @param address - NEAR account ID
+   * @param page - Page number (default: 1)
+   * @param perPage - Items per page (default: 50, max: 50)
+   * @returns Array of NearBlocks receipts
+   */
+  async getAccountReceipts(
+    address: string,
+    page = 1,
+    perPage = 50
+  ): Promise<Result<NearBlocksReceipt[], Error>> {
+    if (!isValidNearAccountId(address)) {
+      return err(new Error(`Invalid NEAR account ID: ${address}`));
+    }
+
+    this.logger.debug(`Fetching account receipts - Address: ${maskAddress(address)}, Page: ${page}`);
+
+    const result = await this.httpClient.get<NearBlocksReceiptsResponse>(
+      `/v1/account/${address}/receipts?page=${page}&per_page=${perPage}`
+    );
+
+    if (result.isErr()) {
+      this.logger.error(
+        `Failed to get account receipts - Address: ${maskAddress(address)}, Page: ${page}, Error: ${getErrorMessage(result.error)}`
+      );
+      return err(result.error);
+    }
+
+    const response = result.value;
+
+    // Validate response with schema
+    const parseResult = NearBlocksReceiptsResponseSchema.safeParse(response);
+    if (!parseResult.success) {
+      const validationErrors = parseResult.error.issues
+        .slice(0, 5)
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; ');
+      const errorCount = parseResult.error.issues.length;
+      this.logger.error(
+        `Provider data validation failed - Address: ${maskAddress(address)}, Page: ${page}, Errors (showing first 5 of ${errorCount}): ${validationErrors}`
+      );
+      return err(new Error(`Provider data validation failed: ${validationErrors}`));
+    }
+
+    const receiptsData = parseResult.data;
+
+    this.logger.debug(
+      `Fetched receipts - Address: ${maskAddress(address)}, Page: ${page}, Count: ${receiptsData.receipts.length}`
+    );
+
+    return ok(receiptsData.receipts);
+  }
+
+  /**
+   * Fetch account activities from NearBlocks API
+   * @param address - NEAR account ID
+   * @param page - Page number (default: 1)
+   * @param perPage - Items per page (default: 50, max: 50)
+   * @returns Array of NearBlocks activities
+   */
+  async getAccountActivities(
+    address: string,
+    page = 1,
+    perPage = 50
+  ): Promise<Result<NearBlocksActivity[], Error>> {
+    if (!isValidNearAccountId(address)) {
+      return err(new Error(`Invalid NEAR account ID: ${address}`));
+    }
+
+    this.logger.debug(`Fetching account activities - Address: ${maskAddress(address)}, Page: ${page}`);
+
+    const result = await this.httpClient.get<NearBlocksActivitiesResponse>(
+      `/v1/account/${address}/activity?page=${page}&per_page=${perPage}`
+    );
+
+    if (result.isErr()) {
+      this.logger.error(
+        `Failed to get account activities - Address: ${maskAddress(address)}, Page: ${page}, Error: ${getErrorMessage(result.error)}`
+      );
+      return err(result.error);
+    }
+
+    const response = result.value;
+
+    // Validate response with schema
+    const parseResult = NearBlocksActivitiesResponseSchema.safeParse(response);
+    if (!parseResult.success) {
+      const validationErrors = parseResult.error.issues
+        .slice(0, 5)
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; ');
+      const errorCount = parseResult.error.issues.length;
+      this.logger.error(
+        `Provider data validation failed - Address: ${maskAddress(address)}, Page: ${page}, Errors (showing first 5 of ${errorCount}): ${validationErrors}`
+      );
+      return err(new Error(`Provider data validation failed: ${validationErrors}`));
+    }
+
+    const activitiesData = parseResult.data;
+
+    this.logger.debug(
+      `Fetched activities - Address: ${maskAddress(address)}, Page: ${page}, Count: ${activitiesData.txns.length}`
+    );
+
+    return ok(activitiesData.txns);
+  }
+
+  /**
+   * Fetch account FT (fungible token) transactions from NearBlocks API
+   * @param address - NEAR account ID
+   * @param page - Page number (default: 1)
+   * @param perPage - Items per page (default: 50, max: 50)
+   * @returns Array of NearBlocks FT transactions
+   */
+  async getAccountFtTransactions(
+    address: string,
+    page = 1,
+    perPage = 50
+  ): Promise<Result<NearBlocksFtTransaction[], Error>> {
+    if (!isValidNearAccountId(address)) {
+      return err(new Error(`Invalid NEAR account ID: ${address}`));
+    }
+
+    this.logger.debug(`Fetching account FT transactions - Address: ${maskAddress(address)}, Page: ${page}`);
+
+    const result = await this.httpClient.get<NearBlocksFtTransactionsResponse>(
+      `/v1/account/${address}/ft-txns?page=${page}&per_page=${perPage}`
+    );
+
+    if (result.isErr()) {
+      this.logger.error(
+        `Failed to get account FT transactions - Address: ${maskAddress(address)}, Page: ${page}, Error: ${getErrorMessage(result.error)}`
+      );
+      return err(result.error);
+    }
+
+    const response = result.value;
+
+    // Validate response with schema
+    const parseResult = NearBlocksFtTransactionsResponseSchema.safeParse(response);
+    if (!parseResult.success) {
+      const validationErrors = parseResult.error.issues
+        .slice(0, 5)
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; ');
+      const errorCount = parseResult.error.issues.length;
+      this.logger.error(
+        `Provider data validation failed - Address: ${maskAddress(address)}, Page: ${page}, Errors (showing first 5 of ${errorCount}): ${validationErrors}`
+      );
+      return err(new Error(`Provider data validation failed: ${validationErrors}`));
+    }
+
+    const ftTransactionsData = parseResult.data;
+
+    this.logger.debug(
+      `Fetched FT transactions - Address: ${maskAddress(address)}, Page: ${page}, Count: ${ftTransactionsData.txns.length}`
+    );
+
+    return ok(ftTransactionsData.txns);
   }
 
   private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
