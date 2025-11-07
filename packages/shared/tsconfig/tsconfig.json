@@ -15,7 +15,8 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    "strictNullChecks": true
   },
   "exclude": ["node_modules", "tmp"]
 }

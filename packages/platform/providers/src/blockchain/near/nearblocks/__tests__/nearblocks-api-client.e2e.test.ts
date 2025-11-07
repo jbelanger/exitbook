@@ -1,16 +1,57 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/index.js';
 import { ProviderRegistry } from '../../../../shared/blockchain/index.js';
 import type { NearTransaction } from '../../types.js';
 import { NearBlocksApiClient } from '../nearblocks.api-client.js';
-import type { NearBlocksTransaction } from '../nearblocks.schemas.js';
+import type {
+  NearBlocksActivity,
+  NearBlocksFtTransaction,
+  NearBlocksReceipt,
+  NearBlocksTransaction,
+} from '../nearblocks.schemas.js';
 
-describe('NearBlocksApiClient E2E', () => {
+describe.sequential('NearBlocksApiClient E2E', () => {
   const config = ProviderRegistry.createDefaultConfig('near', 'nearblocks');
   const client = new NearBlocksApiClient(config);
-  const testAddress = 'foundation.near'; // Well-known NEAR Foundation account
+  const testAddress = '3c49dfe359205e7ceb0cfac58f3592d12b14554e73f1f5448ea938cb04cf5fcc'; // 'b9c69753f8c5367eb42e1d958804298f7f3d4e0dddb780b396a2bf57bd595f1e'; // Address with token txs and receipts
   const emptyAddress = 'nonexistent12345.near'; // Unlikely to exist
+
+  // Cache fetched data to reuse across tests
+  let cachedTransactions: TransactionWithRawData<NearTransaction>[] = [];
+  let cachedReceipts: NearBlocksReceipt[] = [];
+  let cachedActivities: NearBlocksActivity[] = [];
+  let cachedFtTransactions: NearBlocksFtTransaction[] = [];
+
+  // Fetch data once before all tests
+  beforeAll(async () => {
+    // Fetch transactions
+    const txResult = await client.execute<TransactionWithRawData<NearTransaction>[]>({
+      address: testAddress,
+      type: 'getAddressTransactions',
+    });
+    if (txResult.isOk()) {
+      cachedTransactions = txResult.value;
+    } else throw new Error(`Failed to fetch transactions for setup: ${txResult.error.message}`);
+
+    // Fetch receipts
+    const receiptsResult = await client.getAccountReceipts(testAddress);
+    if (receiptsResult.isOk()) {
+      cachedReceipts = receiptsResult.value;
+    } else throw new Error(`Failed to fetch receipts for setup: ${receiptsResult.error.message}`);
+
+    // Fetch activities
+    const activitiesResult = await client.getAccountActivities(testAddress);
+    if (activitiesResult.isOk()) {
+      cachedActivities = activitiesResult.value;
+    } else throw new Error(`Failed to fetch activities for setup: ${activitiesResult.error.message}`);
+
+    // Fetch FT transactions
+    const ftResult = await client.getAccountFtTransactions(testAddress);
+    if (ftResult.isOk()) {
+      cachedFtTransactions = ftResult.value;
+    } else throw new Error(`Failed to fetch FT transactions for setup: ${ftResult.error.message}`);
+  }, 90000);
 
   describe('Health Checks', () => {
     it('should report healthy when API is accessible', async () => {
@@ -23,23 +64,12 @@ describe('NearBlocksApiClient E2E', () => {
   });
 
   describe('Address Transactions with Normalization', () => {
-    it('should fetch and normalize transactions successfully', async () => {
-      const result = await client.execute<TransactionWithRawData<NearTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
+    it('should fetch and normalize transactions successfully', () => {
+      expect(Array.isArray(cachedTransactions)).toBe(true);
+      expect(cachedTransactions.length).toBeGreaterThan(0);
 
-      if (result.isErr()) {
-        console.error('Transaction fetch error:', result.error.message);
-        console.error('Full error:', result.error);
-      }
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
-
-      const transactions = result.value;
-      expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0) {
-        const txData = transactions[0]!;
+      if (cachedTransactions.length > 0) {
+        const txData = cachedTransactions[0]!;
 
         expect(txData).toHaveProperty('raw');
         expect(txData).toHaveProperty('normalized');
@@ -64,19 +94,10 @@ describe('NearBlocksApiClient E2E', () => {
         expect(normalized.from).toBe(raw.predecessor_account_id);
         expect(normalized.to).toBe(raw.receiver_account_id);
       }
-    }, 60000);
+    });
 
-    it('should include account balance changes in normalized transactions', async () => {
-      const result = await client.execute<TransactionWithRawData<NearTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
-
-      const transactions = result.value;
-      const txWithBalanceChanges = transactions.find(
+    it('should include account balance changes in normalized transactions', () => {
+      const txWithBalanceChanges = cachedTransactions.find(
         (tx) => tx.normalized.accountChanges && tx.normalized.accountChanges.length > 0
       );
 
@@ -93,18 +114,10 @@ describe('NearBlocksApiClient E2E', () => {
       expect(typeof change.account).toBe('string');
       expect(typeof change.preBalance).toBe('string');
       expect(typeof change.postBalance).toBe('string');
-    }, 30000);
+    });
 
-    it('should include token transfers when present', async () => {
-      const result = await client.execute<TransactionWithRawData<NearTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
-
-      const transactions = result.value;
+    it('should include token transfers when present', () => {
+      const transactions = cachedTransactions;
       const txWithTokenTransfers = transactions.find(
         (tx) => tx.normalized.tokenTransfers && tx.normalized.tokenTransfers.length > 0
       );
@@ -123,18 +136,10 @@ describe('NearBlocksApiClient E2E', () => {
       expect(typeof tokenTransfer.from).toBe('string');
       expect(typeof tokenTransfer.to).toBe('string');
       expect(typeof tokenTransfer.amount).toBe('string');
-    }, 30000);
+    });
 
-    it('should convert fees from gas burnt to NEAR', async () => {
-      const result = await client.execute<TransactionWithRawData<NearTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
-
-      const transactions = result.value;
+    it('should convert fees from gas burnt to NEAR', () => {
+      const transactions = cachedTransactions;
       if (transactions.length > 0) {
         const txData = transactions[0]!;
         const normalized = txData.normalized;
@@ -146,18 +151,10 @@ describe('NearBlocksApiClient E2E', () => {
           expect(feeNum).toBeGreaterThan(0);
         }
       }
-    }, 30000);
+    });
 
-    it('should include action types in normalized transactions', async () => {
-      const result = await client.execute<TransactionWithRawData<NearTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
-
-      const transactions = result.value;
+    it('should include action types in normalized transactions', () => {
+      const transactions = cachedTransactions;
       if (transactions.length > 0) {
         const txData = transactions[0]!;
         const normalized = txData.normalized;
@@ -169,7 +166,7 @@ describe('NearBlocksApiClient E2E', () => {
           expect(action.actionType.length).toBeGreaterThan(0);
         }
       }
-    }, 30000);
+    });
   });
 
   describe('Address Balance', () => {
@@ -242,20 +239,12 @@ describe('NearBlocksApiClient E2E', () => {
 
   describe('Enrichment Endpoints', () => {
     describe('getAccountReceipts', () => {
-      it('should fetch account receipts successfully', async () => {
-        const result = await client.getAccountReceipts(testAddress);
+      it('should fetch account receipts successfully', () => {
+        expect(Array.isArray(cachedReceipts)).toBe(true);
+        expect(cachedReceipts.length).toBeGreaterThan(0);
 
-        expect(result.isOk()).toBe(true);
-        if (result.isErr()) {
-          console.error('Receipts fetch error:', result.error.message);
-          return;
-        }
-
-        const receipts = result.value;
-        expect(Array.isArray(receipts)).toBe(true);
-
-        if (receipts.length > 0) {
-          const receipt = receipts[0]!;
+        if (cachedReceipts.length > 0) {
+          const receipt = cachedReceipts[0]!;
           expect(receipt).toHaveProperty('receipt_id');
           expect(receipt).toHaveProperty('originated_from_transaction_hash');
           expect(receipt).toHaveProperty('predecessor_account_id');
@@ -263,7 +252,7 @@ describe('NearBlocksApiClient E2E', () => {
           expect(typeof receipt.receipt_id).toBe('string');
           expect(receipt.receipt_id.length).toBeGreaterThan(0);
         }
-      }, 30000);
+      });
 
       it('should support pagination for receipts', async () => {
         const page1Result = await client.getAccountReceipts(testAddress, 1, 10);
@@ -297,20 +286,12 @@ describe('NearBlocksApiClient E2E', () => {
     });
 
     describe('getAccountActivities', () => {
-      it('should fetch account activities successfully', async () => {
-        const result = await client.getAccountActivities(testAddress);
+      it('should fetch account activities successfully', () => {
+        expect(Array.isArray(cachedActivities)).toBe(true);
+        expect(cachedActivities.length).toBeGreaterThan(0);
 
-        expect(result.isOk()).toBe(true);
-        if (result.isErr()) {
-          console.error('Activities fetch error:', result.error.message);
-          return;
-        }
-
-        const activities = result.value;
-        expect(Array.isArray(activities)).toBe(true);
-
-        if (activities.length > 0) {
-          const activity = activities[0]!;
+        if (cachedActivities.length > 0) {
+          const activity = cachedActivities[0]!;
           expect(activity).toHaveProperty('transaction_hash');
           expect(activity).toHaveProperty('receipt_id');
           expect(activity).toHaveProperty('direction');
@@ -319,7 +300,7 @@ describe('NearBlocksApiClient E2E', () => {
           expect(typeof activity.absolute_nonstaked_amount).toBe('string');
           expect(activity.absolute_nonstaked_amount.length).toBeGreaterThan(0);
         }
-      }, 30000);
+      });
 
       it('should support pagination for activities', async () => {
         const page1Result = await client.getAccountActivities(testAddress, 1, 10);
@@ -338,19 +319,16 @@ describe('NearBlocksApiClient E2E', () => {
         expect(Array.isArray(page2Activities)).toBe(true);
       }, 30000);
 
-      it('should validate activity direction enum', async () => {
-        const result = await client.getAccountActivities(testAddress);
+      it('should validate activity direction enum', () => {
+        const activities = cachedActivities;
+        expect(activities.length).toBeGreaterThan(0);
 
-        expect(result.isOk()).toBe(true);
-        if (result.isErr()) return;
-
-        const activities = result.value;
         if (activities.length > 0) {
           activities.forEach((activity) => {
             expect(['INBOUND', 'OUTBOUND']).toContain(activity.direction);
           });
         }
-      }, 30000);
+      });
 
       it('should handle invalid address for activities', async () => {
         const result = await client.getAccountActivities('invalid!@#$%');
@@ -362,30 +340,22 @@ describe('NearBlocksApiClient E2E', () => {
     });
 
     describe('getAccountFtTransactions', () => {
-      it('should fetch account FT transactions successfully', async () => {
-        const result = await client.getAccountFtTransactions(testAddress);
+      it('should fetch account FT transactions successfully', () => {
+        expect(Array.isArray(cachedFtTransactions)).toBe(true);
+        expect(cachedFtTransactions.length).toBeGreaterThan(0);
 
-        expect(result.isOk()).toBe(true);
-        if (result.isErr()) {
-          console.error('FT transactions fetch error:', result.error.message);
-          return;
-        }
-
-        const ftTransactions = result.value;
-        expect(Array.isArray(ftTransactions)).toBe(true);
-
-        if (ftTransactions.length > 0) {
-          const ftTx = ftTransactions[0]!;
+        if (cachedFtTransactions.length > 0) {
+          const ftTx = cachedFtTransactions[0]!;
           expect(ftTx).toHaveProperty('transaction_hash');
           expect(ftTx).toHaveProperty('affected_account_id');
           expect(ftTx).toHaveProperty('involved_account_id');
           expect(ftTx).toHaveProperty('delta_amount');
           expect(ftTx).toHaveProperty('ft');
           expect(typeof ftTx.transaction_hash).toBe('string');
-          expect(typeof ftTx.ft.contract).toBe('string');
-          expect(typeof ftTx.ft.decimals).toBe('number');
+          expect(typeof ftTx.ft?.contract).toBe('string');
+          expect(typeof ftTx.ft?.decimals).toBe('number');
         }
-      }, 30000);
+      });
 
       it('should support pagination for FT transactions', async () => {
         const page1Result = await client.getAccountFtTransactions(testAddress, 1, 10);
@@ -404,20 +374,17 @@ describe('NearBlocksApiClient E2E', () => {
         expect(Array.isArray(page2FtTxs)).toBe(true);
       }, 30000);
 
-      it('should validate FT transaction structure', async () => {
-        const result = await client.getAccountFtTransactions(testAddress);
+      it('should validate FT transaction structure', () => {
+        const ftTransactions = cachedFtTransactions;
+        expect(ftTransactions.length).toBeGreaterThan(0);
 
-        expect(result.isOk()).toBe(true);
-        if (result.isErr()) return;
-
-        const ftTransactions = result.value;
         if (ftTransactions.length > 0) {
           ftTransactions.forEach((ftTx) => {
-            expect(ftTx.ft.decimals).toBeGreaterThanOrEqual(0);
-            expect(ftTx.ft.decimals).toBeLessThanOrEqual(24);
+            expect(ftTx.ft?.decimals).toBeGreaterThanOrEqual(0);
+            expect(ftTx.ft?.decimals).toBeLessThanOrEqual(24);
           });
         }
-      }, 30000);
+      });
 
       it('should handle invalid address for FT transactions', async () => {
         const result = await client.getAccountFtTransactions('invalid!@#$%');
@@ -429,25 +396,12 @@ describe('NearBlocksApiClient E2E', () => {
     });
 
     describe('Enrichment Data Correlation', () => {
-      it('should be able to correlate receipts, activities, and transactions', async () => {
-        // Fetch transactions
-        const txResult = await client.execute<TransactionWithRawData<NearTransaction>[]>({
-          address: testAddress,
-          type: 'getAddressTransactions',
-        });
-        expect(txResult.isOk()).toBe(true);
-        if (txResult.isErr()) return;
+      it('should be able to correlate receipts, activities, and transactions', () => {
+        const transactions = cachedTransactions;
+        const receipts = cachedReceipts;
 
-        const transactions = txResult.value;
-        if (transactions.length === 0) return;
-
-        // Fetch receipts
-        const receiptsResult = await client.getAccountReceipts(testAddress);
-        expect(receiptsResult.isOk()).toBe(true);
-        if (receiptsResult.isErr()) return;
-
-        const receipts = receiptsResult.value;
-        if (receipts.length === 0) return;
+        expect(transactions.length).toBeGreaterThan(0);
+        expect(receipts.length).toBeGreaterThan(0);
 
         // Verify we can find matching transaction hashes
         const txHashes = transactions.map((tx) => tx.normalized.id);
@@ -455,27 +409,14 @@ describe('NearBlocksApiClient E2E', () => {
 
         const hasMatchingHashes = txHashes.some((hash) => receiptTxHashes.includes(hash));
         expect(hasMatchingHashes).toBe(true);
-      }, 60000);
+      });
 
-      it('should be able to correlate activities with transactions', async () => {
-        // Fetch transactions
-        const txResult = await client.execute<TransactionWithRawData<NearTransaction>[]>({
-          address: testAddress,
-          type: 'getAddressTransactions',
-        });
-        expect(txResult.isOk()).toBe(true);
-        if (txResult.isErr()) return;
+      it('should be able to correlate activities with transactions', () => {
+        const transactions = cachedTransactions;
+        const activities = cachedActivities;
 
-        const transactions = txResult.value;
-        if (transactions.length === 0) return;
-
-        // Fetch activities
-        const activitiesResult = await client.getAccountActivities(testAddress);
-        expect(activitiesResult.isOk()).toBe(true);
-        if (activitiesResult.isErr()) return;
-
-        const activities = activitiesResult.value;
-        if (activities.length === 0) return;
+        expect(transactions.length).toBeGreaterThan(0);
+        expect(activities.length).toBeGreaterThan(0);
 
         // Verify we can find matching transaction hashes
         const txHashes = transactions.map((tx) => tx.normalized.id);
@@ -483,7 +424,7 @@ describe('NearBlocksApiClient E2E', () => {
 
         const hasMatchingHashes = txHashes.some((hash) => activityTxHashes.includes(hash));
         expect(hasMatchingHashes).toBe(true);
-      }, 60000);
+      });
     });
   });
 

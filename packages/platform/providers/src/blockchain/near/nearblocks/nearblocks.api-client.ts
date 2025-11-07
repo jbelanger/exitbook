@@ -37,10 +37,10 @@ import {
   },
   defaultConfig: {
     rateLimit: {
-      burstLimit: 5,
-      requestsPerHour: 1000,
-      requestsPerMinute: 60,
-      requestsPerSecond: 2,
+      burstLimit: 2,
+      requestsPerHour: 250,
+      requestsPerMinute: 6,
+      requestsPerSecond: 0.1,
     },
     retries: 3,
     timeout: 30000,
@@ -103,11 +103,7 @@ export class NearBlocksApiClient extends BaseApiClient {
    * @param perPage - Items per page (default: 50, max: 50)
    * @returns Array of NearBlocks receipts
    */
-  async getAccountReceipts(
-    address: string,
-    page = 1,
-    perPage = 50
-  ): Promise<Result<NearBlocksReceipt[], Error>> {
+  async getAccountReceipts(address: string, page = 1, perPage = 50): Promise<Result<NearBlocksReceipt[], Error>> {
     if (!isValidNearAccountId(address)) {
       return err(new Error(`Invalid NEAR account ID: ${address}`));
     }
@@ -157,11 +153,7 @@ export class NearBlocksApiClient extends BaseApiClient {
    * @param perPage - Items per page (default: 50, max: 50)
    * @returns Array of NearBlocks activities
    */
-  async getAccountActivities(
-    address: string,
-    page = 1,
-    perPage = 50
-  ): Promise<Result<NearBlocksActivity[], Error>> {
+  async getAccountActivities(address: string, page = 1, perPage = 50): Promise<Result<NearBlocksActivity[], Error>> {
     if (!isValidNearAccountId(address)) {
       return err(new Error(`Invalid NEAR account ID: ${address}`));
     }
