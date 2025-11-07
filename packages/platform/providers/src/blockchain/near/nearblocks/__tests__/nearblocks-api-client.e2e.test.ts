@@ -240,6 +240,253 @@ describe('NearBlocksApiClient E2E', () => {
     }, 30000);
   });
 
+  describe('Enrichment Endpoints', () => {
+    describe('getAccountReceipts', () => {
+      it('should fetch account receipts successfully', async () => {
+        const result = await client.getAccountReceipts(testAddress);
+
+        expect(result.isOk()).toBe(true);
+        if (result.isErr()) {
+          console.error('Receipts fetch error:', result.error.message);
+          return;
+        }
+
+        const receipts = result.value;
+        expect(Array.isArray(receipts)).toBe(true);
+
+        if (receipts.length > 0) {
+          const receipt = receipts[0]!;
+          expect(receipt).toHaveProperty('receipt_id');
+          expect(receipt).toHaveProperty('originated_from_transaction_hash');
+          expect(receipt).toHaveProperty('predecessor_account_id');
+          expect(receipt).toHaveProperty('receiver_account_id');
+          expect(typeof receipt.receipt_id).toBe('string');
+          expect(receipt.receipt_id.length).toBeGreaterThan(0);
+        }
+      }, 30000);
+
+      it('should support pagination for receipts', async () => {
+        const page1Result = await client.getAccountReceipts(testAddress, 1, 10);
+        expect(page1Result.isOk()).toBe(true);
+        if (page1Result.isErr()) return;
+
+        const page1Receipts = page1Result.value;
+        expect(Array.isArray(page1Receipts)).toBe(true);
+
+        // Try fetching page 2
+        const page2Result = await client.getAccountReceipts(testAddress, 2, 10);
+        expect(page2Result.isOk()).toBe(true);
+        if (page2Result.isErr()) return;
+
+        const page2Receipts = page2Result.value;
+        expect(Array.isArray(page2Receipts)).toBe(true);
+
+        // Pages should have different receipts (if both non-empty)
+        if (page1Receipts.length > 0 && page2Receipts.length > 0) {
+          expect(page1Receipts[0]!.receipt_id).not.toBe(page2Receipts[0]!.receipt_id);
+        }
+      }, 30000);
+
+      it('should handle invalid address for receipts', async () => {
+        const result = await client.getAccountReceipts('invalid!@#$%');
+        expect(result.isErr()).toBe(true);
+        if (result.isErr()) {
+          expect(result.error.message).toContain('Invalid NEAR account ID');
+        }
+      });
+    });
+
+    describe('getAccountActivities', () => {
+      it('should fetch account activities successfully', async () => {
+        const result = await client.getAccountActivities(testAddress);
+
+        expect(result.isOk()).toBe(true);
+        if (result.isErr()) {
+          console.error('Activities fetch error:', result.error.message);
+          return;
+        }
+
+        const activities = result.value;
+        expect(Array.isArray(activities)).toBe(true);
+
+        if (activities.length > 0) {
+          const activity = activities[0]!;
+          expect(activity).toHaveProperty('transaction_hash');
+          expect(activity).toHaveProperty('receipt_id');
+          expect(activity).toHaveProperty('direction');
+          expect(activity).toHaveProperty('absolute_nonstaked_amount');
+          expect(['INBOUND', 'OUTBOUND']).toContain(activity.direction);
+          expect(typeof activity.absolute_nonstaked_amount).toBe('string');
+          expect(activity.absolute_nonstaked_amount.length).toBeGreaterThan(0);
+        }
+      }, 30000);
+
+      it('should support pagination for activities', async () => {
+        const page1Result = await client.getAccountActivities(testAddress, 1, 10);
+        expect(page1Result.isOk()).toBe(true);
+        if (page1Result.isErr()) return;
+
+        const page1Activities = page1Result.value;
+        expect(Array.isArray(page1Activities)).toBe(true);
+
+        // Try fetching page 2
+        const page2Result = await client.getAccountActivities(testAddress, 2, 10);
+        expect(page2Result.isOk()).toBe(true);
+        if (page2Result.isErr()) return;
+
+        const page2Activities = page2Result.value;
+        expect(Array.isArray(page2Activities)).toBe(true);
+      }, 30000);
+
+      it('should validate activity direction enum', async () => {
+        const result = await client.getAccountActivities(testAddress);
+
+        expect(result.isOk()).toBe(true);
+        if (result.isErr()) return;
+
+        const activities = result.value;
+        if (activities.length > 0) {
+          activities.forEach((activity) => {
+            expect(['INBOUND', 'OUTBOUND']).toContain(activity.direction);
+          });
+        }
+      }, 30000);
+
+      it('should handle invalid address for activities', async () => {
+        const result = await client.getAccountActivities('invalid!@#$%');
+        expect(result.isErr()).toBe(true);
+        if (result.isErr()) {
+          expect(result.error.message).toContain('Invalid NEAR account ID');
+        }
+      });
+    });
+
+    describe('getAccountFtTransactions', () => {
+      it('should fetch account FT transactions successfully', async () => {
+        const result = await client.getAccountFtTransactions(testAddress);
+
+        expect(result.isOk()).toBe(true);
+        if (result.isErr()) {
+          console.error('FT transactions fetch error:', result.error.message);
+          return;
+        }
+
+        const ftTransactions = result.value;
+        expect(Array.isArray(ftTransactions)).toBe(true);
+
+        if (ftTransactions.length > 0) {
+          const ftTx = ftTransactions[0]!;
+          expect(ftTx).toHaveProperty('transaction_hash');
+          expect(ftTx).toHaveProperty('affected_account_id');
+          expect(ftTx).toHaveProperty('involved_account_id');
+          expect(ftTx).toHaveProperty('delta_amount');
+          expect(ftTx).toHaveProperty('ft');
+          expect(typeof ftTx.transaction_hash).toBe('string');
+          expect(typeof ftTx.ft.contract).toBe('string');
+          expect(typeof ftTx.ft.decimals).toBe('number');
+        }
+      }, 30000);
+
+      it('should support pagination for FT transactions', async () => {
+        const page1Result = await client.getAccountFtTransactions(testAddress, 1, 10);
+        expect(page1Result.isOk()).toBe(true);
+        if (page1Result.isErr()) return;
+
+        const page1FtTxs = page1Result.value;
+        expect(Array.isArray(page1FtTxs)).toBe(true);
+
+        // Try fetching page 2
+        const page2Result = await client.getAccountFtTransactions(testAddress, 2, 10);
+        expect(page2Result.isOk()).toBe(true);
+        if (page2Result.isErr()) return;
+
+        const page2FtTxs = page2Result.value;
+        expect(Array.isArray(page2FtTxs)).toBe(true);
+      }, 30000);
+
+      it('should validate FT transaction structure', async () => {
+        const result = await client.getAccountFtTransactions(testAddress);
+
+        expect(result.isOk()).toBe(true);
+        if (result.isErr()) return;
+
+        const ftTransactions = result.value;
+        if (ftTransactions.length > 0) {
+          ftTransactions.forEach((ftTx) => {
+            expect(ftTx.ft.decimals).toBeGreaterThanOrEqual(0);
+            expect(ftTx.ft.decimals).toBeLessThanOrEqual(24);
+          });
+        }
+      }, 30000);
+
+      it('should handle invalid address for FT transactions', async () => {
+        const result = await client.getAccountFtTransactions('invalid!@#$%');
+        expect(result.isErr()).toBe(true);
+        if (result.isErr()) {
+          expect(result.error.message).toContain('Invalid NEAR account ID');
+        }
+      });
+    });
+
+    describe('Enrichment Data Correlation', () => {
+      it('should be able to correlate receipts, activities, and transactions', async () => {
+        // Fetch transactions
+        const txResult = await client.execute<TransactionWithRawData<NearTransaction>[]>({
+          address: testAddress,
+          type: 'getAddressTransactions',
+        });
+        expect(txResult.isOk()).toBe(true);
+        if (txResult.isErr()) return;
+
+        const transactions = txResult.value;
+        if (transactions.length === 0) return;
+
+        // Fetch receipts
+        const receiptsResult = await client.getAccountReceipts(testAddress);
+        expect(receiptsResult.isOk()).toBe(true);
+        if (receiptsResult.isErr()) return;
+
+        const receipts = receiptsResult.value;
+        if (receipts.length === 0) return;
+
+        // Verify we can find matching transaction hashes
+        const txHashes = transactions.map((tx) => tx.normalized.id);
+        const receiptTxHashes = receipts.map((r) => r.originated_from_transaction_hash);
+
+        const hasMatchingHashes = txHashes.some((hash) => receiptTxHashes.includes(hash));
+        expect(hasMatchingHashes).toBe(true);
+      }, 60000);
+
+      it('should be able to correlate activities with transactions', async () => {
+        // Fetch transactions
+        const txResult = await client.execute<TransactionWithRawData<NearTransaction>[]>({
+          address: testAddress,
+          type: 'getAddressTransactions',
+        });
+        expect(txResult.isOk()).toBe(true);
+        if (txResult.isErr()) return;
+
+        const transactions = txResult.value;
+        if (transactions.length === 0) return;
+
+        // Fetch activities
+        const activitiesResult = await client.getAccountActivities(testAddress);
+        expect(activitiesResult.isOk()).toBe(true);
+        if (activitiesResult.isErr()) return;
+
+        const activities = activitiesResult.value;
+        if (activities.length === 0) return;
+
+        // Verify we can find matching transaction hashes
+        const txHashes = transactions.map((tx) => tx.normalized.id);
+        const activityTxHashes = activities.map((a) => a.transaction_hash);
+
+        const hasMatchingHashes = txHashes.some((hash) => activityTxHashes.includes(hash));
+        expect(hasMatchingHashes).toBe(true);
+      }, 60000);
+    });
+  });
+
   describe('Configuration', () => {
     it('should support NEAR chain with correct configuration', () => {
       const nearConfig = ProviderRegistry.createDefaultConfig('near', 'nearblocks');
