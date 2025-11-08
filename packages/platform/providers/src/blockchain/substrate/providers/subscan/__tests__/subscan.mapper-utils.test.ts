@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { SUBSTRATE_CHAINS } from '../../../chain-registry.js';
 import { convertSubscanTransaction } from '../subscan.mapper-utils.ts';
-import type { SubscanTransferAugmented } from '../subscan.schemas.js';
+import type { SubscanTransfer } from '../subscan.schemas.js';
 
 describe('subscan.mapper-utils', () => {
   describe('convertSubscanTransaction', () => {
@@ -11,7 +11,7 @@ describe('subscan.mapper-utils', () => {
     const nativeDecimals = 10;
 
     it('should convert a valid transaction', () => {
-      const transfer: SubscanTransferAugmented = {
+      const transfer: SubscanTransfer = {
         hash: '0xabc123',
         from: 'addr1',
         to: 'addr2',
@@ -22,9 +22,6 @@ describe('subscan.mapper-utils', () => {
         success: true,
         module: 'balances',
         extrinsic_index: '12345-2',
-        _nativeCurrency: 'DOT',
-        _nativeDecimals: 10,
-        _chainDisplayName: 'Polkadot Relay Chain',
       };
 
       const relevantAddresses = new Set(['addr1']);
@@ -49,7 +46,7 @@ describe('subscan.mapper-utils', () => {
     });
 
     it('should return undefined for irrelevant addresses', () => {
-      const transfer: SubscanTransferAugmented = {
+      const transfer: SubscanTransfer = {
         hash: '0xabc123',
         from: 'addr1',
         to: 'addr2',
@@ -60,9 +57,6 @@ describe('subscan.mapper-utils', () => {
         success: true,
         module: 'balances',
         extrinsic_index: '12345-2',
-        _nativeCurrency: 'DOT',
-        _nativeDecimals: 10,
-        _chainDisplayName: 'Polkadot Relay Chain',
       };
 
       const relevantAddresses = new Set(['addr3']); // Not in from or to
@@ -79,7 +73,7 @@ describe('subscan.mapper-utils', () => {
     });
 
     it('should handle failed transactions', () => {
-      const transfer: SubscanTransferAugmented = {
+      const transfer: SubscanTransfer = {
         hash: '0xabc123',
         from: 'addr1',
         to: 'addr2',
@@ -90,9 +84,6 @@ describe('subscan.mapper-utils', () => {
         success: false,
         module: 'balances',
         extrinsic_index: '12345-2',
-        _nativeCurrency: 'DOT',
-        _nativeDecimals: 10,
-        _chainDisplayName: 'Polkadot Relay Chain',
       };
 
       const relevantAddresses = new Set(['addr1']);

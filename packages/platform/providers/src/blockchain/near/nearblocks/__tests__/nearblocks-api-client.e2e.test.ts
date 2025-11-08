@@ -46,8 +46,8 @@ describe('NearBlocksApiClient E2E', () => {
 
         const raw = txData.raw as NearBlocksTransaction;
         expect(raw).toHaveProperty('transaction_hash');
-        expect(raw).toHaveProperty('signer_id');
-        expect(raw).toHaveProperty('receiver_id');
+        expect(raw).toHaveProperty('predecessor_account_id');
+        expect(raw).toHaveProperty('receiver_account_id');
         expect(raw).toHaveProperty('block_timestamp');
         expect(raw).toHaveProperty('actions');
 

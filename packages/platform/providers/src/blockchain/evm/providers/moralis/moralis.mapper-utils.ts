@@ -19,9 +19,10 @@ import type { MoralisTransaction, MoralisTokenTransfer } from './moralis.schemas
  */
 export function mapMoralisTransaction(
   rawData: MoralisTransaction,
-  _sourceContext: SourceMetadata
+  _sourceContext: SourceMetadata,
+  nativeCurrency?: string
 ): Result<EvmTransaction, NormalizationError> {
-  const nativeCurrency = rawData._nativeCurrency || 'UNKNOWN';
+  const currency = nativeCurrency || 'UNKNOWN';
 
   // Moralis returns values in smallest units (wei for ETH)
   // Keep them in wei - the processor will convert to decimal when needed
@@ -35,9 +36,9 @@ export function mapMoralisTransaction(
     amount: valueWei,
     blockHeight: parseInt(rawData.block_number),
     blockId: rawData.block_hash,
-    currency: nativeCurrency,
+    currency,
     feeAmount: feeWei,
-    feeCurrency: nativeCurrency,
+    feeCurrency: currency,
     from: normalizeEvmAddress(rawData.from_address) ?? '',
     gasPrice: rawData.gas_price && rawData.gas_price !== '' ? rawData.gas_price : undefined,
     gasUsed: rawData.receipt_gas_used && rawData.receipt_gas_used !== '' ? rawData.receipt_gas_used : undefined,

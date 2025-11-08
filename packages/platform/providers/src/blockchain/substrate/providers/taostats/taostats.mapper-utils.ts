@@ -3,20 +3,17 @@ import { parseDecimal } from '@exitbook/core';
 import { SUBSTRATE_CHAINS } from '../../chain-registry.js';
 import type { SubstrateTransaction } from '../../types.js';
 
-import type { TaostatsTransactionAugmented } from './taostats.schemas.js';
+import type { TaostatsTransaction } from './taostats.schemas.js';
 
 /**
  * Converts a Taostats transaction to a SubstrateTransaction.
  * Handles amount/fee parsing, timestamp conversion, and sets defaults for Bittensor.
  *
- * @param rawData - Augmented Taostats transaction object
+ * @param rawData - Taostats transaction object
  * @param nativeCurrency - Native currency symbol (TAO)
  * @returns SubstrateTransaction
  */
-export function convertTaostatsTransaction(
-  rawData: TaostatsTransactionAugmented,
-  nativeCurrency: string
-): SubstrateTransaction {
+export function convertTaostatsTransaction(rawData: TaostatsTransaction, nativeCurrency: string): SubstrateTransaction {
   // Extract SS58 addresses from address objects
   const fromAddress = rawData.from.ss58;
   const toAddress = rawData.to.ss58;
@@ -65,7 +62,7 @@ export function convertTaostatsTransaction(
  * @param relevantAddresses - Set of addresses to check against
  * @returns True if transaction involves any of the relevant addresses
  */
-export function isTransactionRelevant(rawData: TaostatsTransactionAugmented, relevantAddresses: Set<string>): boolean {
+export function isTransactionRelevant(rawData: TaostatsTransaction, relevantAddresses: Set<string>): boolean {
   const fromAddress = rawData.from.ss58;
   const toAddress = rawData.to.ss58;
 

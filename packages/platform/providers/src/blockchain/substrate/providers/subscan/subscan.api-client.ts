@@ -8,12 +8,11 @@ import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.j
 import { convertToMainUnit, createRawBalanceData } from '../../balance-utils.js';
 import type { SubstrateChainConfig } from '../../chain-config.interface.js';
 import { getSubstrateChainConfig } from '../../chain-registry.js';
-import { augmentWithChainConfig } from '../../transaction-utils.js';
 import type { SubstrateTransaction } from '../../types.js';
 import { isValidSS58Address } from '../../utils.js';
 
 import { convertSubscanTransaction } from './subscan.mapper-utils.js';
-import type { SubscanAccountResponse, SubscanTransferAugmented, SubscanTransfersResponse } from './subscan.schemas.js';
+import type { SubscanAccountResponse, SubscanTransfer, SubscanTransfersResponse } from './subscan.schemas.js';
 
 /**
  * Maps blockchain names to Subscan-specific subdomain identifiers
@@ -255,7 +254,7 @@ export class SubscanApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    const transfers: SubscanTransferAugmented[] = [];
+    const transfers: SubscanTransfer[] = [];
     let page = 0;
     const maxPages = 100; // Safety limit to prevent infinite loops
     const rowsPerPage = 100;
@@ -290,10 +289,7 @@ export class SubscanApiClient extends BaseApiClient {
 
       const pageTransfers = response.data?.transfers || [];
 
-      // Augment transfers with chain config data
-      const augmentedTransfers = augmentWithChainConfig(pageTransfers, this.chainConfig);
-
-      transfers.push(...augmentedTransfers);
+      transfers.push(...pageTransfers);
       page++;
 
       // Check if there are more pages

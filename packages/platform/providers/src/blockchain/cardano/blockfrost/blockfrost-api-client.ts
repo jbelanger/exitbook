@@ -39,7 +39,7 @@ import {
   baseUrl: 'https://cardano-mainnet.blockfrost.io/api/v0',
   blockchain: 'cardano',
   capabilities: {
-    supportedOperations: ['getAddressTransactions', 'getAddressBalances'],
+    supportedOperations: ['getAddressTransactions', 'getAddressBalances', 'hasAddressTransactions'],
   },
   defaultConfig: {
     rateLimit: {
@@ -78,6 +78,10 @@ export class BlockfrostApiClient extends BaseApiClient {
         return (await this.getAddressBalances({
           address: operation.address,
         })) as Result<T, Error>;
+      case 'hasAddressTransactions':
+        return (await this.hasAddressTransactions({
+          address: operation.address,
+        })) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
     }
@@ -98,6 +102,9 @@ export class BlockfrostApiClient extends BaseApiClient {
    * Fetches the balance for a Cardano address from /addresses/{address}.
    * Returns the ADA balance with lovelace as the raw amount.
    *
+   * BlockFrost returns 404 for addresses that have never been used on-chain.
+   * These are treated as zero balance rather than an error.
+   *
    * @param params - Parameters containing the Cardano address
    * @returns Result containing balance data with raw and decimal amounts
    */
@@ -111,9 +118,19 @@ export class BlockfrostApiClient extends BaseApiClient {
     });
 
     if (result.isErr()) {
-      this.logger.error(
-        `Failed to fetch address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
+      const errorMessage = getErrorMessage(result.error);
+
+      // BlockFrost returns 404 for addresses that have never been used on-chain
+      // Treat 404 as zero balance rather than an error
+      if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+        this.logger.debug(
+          `Address has no activity (404 response), returning zero balance - Address: ${maskAddress(address)}`
+        );
+        const balanceData = createRawBalanceData('0', '0');
+        return ok(balanceData);
+      }
+
+      this.logger.error(`Failed to fetch address balance - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
       return err(result.error);
     }
 
@@ -140,6 +157,48 @@ export class BlockfrostApiClient extends BaseApiClient {
     );
 
     return ok(balanceData);
+  }
+
+  /**
+   * Check if an address has any transactions.
+   *
+   * Uses the /addresses/{address}/transactions endpoint with a limit of 1
+   * to efficiently check for transaction existence.
+   *
+   * @param params - Parameters containing the Cardano address
+   * @returns Result containing boolean indicating if address has transactions
+   */
+  private async hasAddressTransactions(params: { address: string }): Promise<Result<boolean, Error>> {
+    const { address } = params;
+
+    this.logger.debug(`Checking if address has transactions - Address: ${maskAddress(address)}`);
+
+    // Fetch just one transaction hash to check if any exist
+    const txHashesResult = await this.fetchTransactionHashes(address, 1);
+
+    if (txHashesResult.isErr()) {
+      const errorMessage = getErrorMessage(txHashesResult.error);
+
+      // BlockFrost returns 404 for addresses that have never been used
+      // Treat 404 as "no transactions" rather than an error
+      if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+        this.logger.debug(`Address has no transactions (404 response) - Address: ${maskAddress(address)}`);
+        return ok(false);
+      }
+
+      this.logger.error(
+        `Failed to check address transactions - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+      );
+      return err(txHashesResult.error);
+    }
+
+    const hasTransactions = txHashesResult.value.length > 0;
+
+    this.logger.debug(
+      `Address transaction check complete - Address: ${maskAddress(address)}, HasTransactions: ${hasTransactions}`
+    );
+
+    return ok(hasTransactions);
   }
 
   /**
@@ -306,8 +365,17 @@ export class BlockfrostApiClient extends BaseApiClient {
       });
 
       if (result.isErr()) {
+        const errorMessage = getErrorMessage(result.error);
+
+        // BlockFrost returns 404 for addresses that have never been used on-chain
+        // Treat 404 as "no transactions" rather than an error
+        if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+          this.logger.debug(`Address has no transactions (404 response) - Address: ${maskAddress(address)}`);
+          return ok([]);
+        }
+
         this.logger.error(
-          `Failed to fetch transaction hashes page - Address: ${maskAddress(address)}, Page: ${page}, Error: ${getErrorMessage(result.error)}`
+          `Failed to fetch transaction hashes page - Address: ${maskAddress(address)}, Page: ${page}, Error: ${errorMessage}`
         );
         return err(result.error);
       }

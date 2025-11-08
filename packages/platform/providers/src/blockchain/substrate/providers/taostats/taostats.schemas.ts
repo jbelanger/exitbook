@@ -17,7 +17,7 @@ export const TaostatsAddressSchema = z.object({
 /**
  * Schema for raw Taostats transaction structure (actual API response)
  */
-export const TaostatsTransactionRawSchema = z.object({
+export const TaostatsTransactionSchema = z.object({
   amount: z.string().regex(/^\d+$/, 'Amount must be a numeric string'),
   block_number: z.number().nonnegative('Block number must be non-negative'),
   extrinsic_id: z.string().min(1, 'Extrinsic ID must not be empty'),
@@ -28,16 +28,6 @@ export const TaostatsTransactionRawSchema = z.object({
   timestamp: timestampToDate,
   to: TaostatsAddressSchema,
   transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
-  // Augmented fields added by API client
-  _chainDisplayName: z.string().min(1, 'Chain display name must not be empty'),
-  _nativeCurrency: z.string().min(1, 'Native currency must not be empty'),
-  _nativeDecimals: z.number().int().nonnegative('Native decimals must be non-negative integer'),
-});
-
-export const TaostatsTransactionBaseSchema = TaostatsTransactionRawSchema.omit({
-  _chainDisplayName: true,
-  _nativeCurrency: true,
-  _nativeDecimals: true,
 });
 
 /**
@@ -75,7 +65,6 @@ export const TaostatsBalanceResponseSchema = z.object({
 
 // Type exports inferred from schemas
 export type TaostatsAddress = z.infer<typeof TaostatsAddressSchema>;
-export type TaostatsTransactionRaw = z.infer<typeof TaostatsTransactionBaseSchema>;
-export type TaostatsTransactionAugmented = z.infer<typeof TaostatsTransactionRawSchema>;
+export type TaostatsTransaction = z.infer<typeof TaostatsTransactionSchema>;
 export type TaostatsAccountData = z.infer<typeof TaostatsAccountDataSchema>;
 export type TaostatsBalanceResponse = z.infer<typeof TaostatsBalanceResponseSchema>;

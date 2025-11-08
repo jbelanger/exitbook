@@ -244,14 +244,7 @@ export class MoralisApiClient extends BaseApiClient {
       const response = result.value;
       const pageTransactions = response.result || [];
 
-      // Augment transactions with native currency from chain config
-      const augmentedTransactions = pageTransactions.map((tx) => ({
-        ...tx,
-        _nativeCurrency: this.chainConfig.nativeCurrency,
-        _nativeDecimals: this.chainConfig.nativeDecimals,
-      })) as MoralisTransaction[];
-
-      rawTransactions.push(...augmentedTransactions);
+      rawTransactions.push(...pageTransactions);
       cursor = response.cursor;
       pageCount++;
 
@@ -273,7 +266,7 @@ export class MoralisApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = mapMoralisTransaction(rawTx, {});
+      const mapResult = mapMoralisTransaction(rawTx, {}, this.chainConfig.nativeCurrency);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
