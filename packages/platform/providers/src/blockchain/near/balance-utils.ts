@@ -33,7 +33,7 @@ export function transformTokenBalance(
   decimals: number,
   rawAmount: string,
   decimalAmount: string,
-  symbol?: string  
+  symbol?: string
 ): RawBalanceData {
   return {
     contractAddress,

@@ -61,8 +61,8 @@ describe('NearBlocksApiClient E2E', () => {
         expect(normalized.timestamp).toBeGreaterThan(0);
 
         expect(normalized.id).toBe(raw.transaction_hash);
-        expect(normalized.from).toBe(raw.signer_id);
-        expect(normalized.to).toBe(raw.receiver_id);
+        expect(normalized.from).toBe(raw.predecessor_account_id);
+        expect(normalized.to).toBe(raw.receiver_account_id);
       }
     }, 60000);
 
