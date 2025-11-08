@@ -3,13 +3,13 @@ import { parseDecimal } from '@exitbook/core';
 import type { SUBSTRATE_CHAINS } from '../../chain-registry.js';
 import type { SubstrateTransaction } from '../../types.js';
 
-import type { SubscanTransferAugmented } from './subscan.schemas.js';
+import type { SubscanTransfer } from './subscan.schemas.js';
 
 /**
  * Converts a Subscan transfer to a SubstrateTransaction.
  * Handles address relevance checking, amount/fee conversion, and status mapping.
  *
- * @param transfer - Augmented Subscan transfer object
+ * @param transfer - Subscan transfer object
  * @param relevantAddresses - Set of addresses to check relevance
  * @param chainConfig - Chain configuration
  * @param nativeCurrency - Native currency symbol (DOT, KSM, etc.)
@@ -17,7 +17,7 @@ import type { SubscanTransferAugmented } from './subscan.schemas.js';
  * @returns SubstrateTransaction or undefined if not relevant
  */
 export function convertSubscanTransaction(
-  transfer: SubscanTransferAugmented,
+  transfer: SubscanTransfer,
   relevantAddresses: Set<string>,
   chainConfig: (typeof SUBSTRATE_CHAINS)[keyof typeof SUBSTRATE_CHAINS],
   nativeCurrency: string,

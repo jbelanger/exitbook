@@ -12,11 +12,14 @@ import { getEvmChainConfig } from '../../chain-registry.js';
 import type { EvmTransaction } from '../../types.js';
 
 import { mapRoutescanTransaction } from './routescan.mapper-utils.js';
-import type {
-  RoutescanApiResponse,
-  RoutescanInternalTransaction,
-  RoutescanTransaction,
-  RoutescanTokenTransfer,
+import {
+  RoutescanInternalTransactionSchema,
+  RoutescanTokenTransferSchema,
+  RoutescanTransactionSchema,
+  type RoutescanApiResponse,
+  type RoutescanInternalTransaction,
+  type RoutescanTransaction,
+  type RoutescanTokenTransfer,
 } from './routescan.schemas.js';
 
 /**
@@ -221,7 +224,19 @@ export class RoutescanApiClient extends BaseApiClient {
         );
       }
 
-      const transactions = (res.result as RoutescanInternalTransaction[]) || [];
+      // Parse and validate each transaction through Zod schema
+      const rawTransactions = res.result || [];
+      const transactions: RoutescanInternalTransaction[] = [];
+      for (const rawTx of rawTransactions) {
+        const parseResult = RoutescanInternalTransactionSchema.safeParse(rawTx);
+        if (!parseResult.success) {
+          this.logger.warn(
+            `Failed to parse internal transaction - Error: ${parseResult.error.message}, RawData: ${JSON.stringify(rawTx)}`
+          );
+          continue;
+        }
+        transactions.push(parseResult.data);
+      }
       allTransactions.push(...transactions);
 
       // If we got less than the max offset, we've reached the end
@@ -279,7 +294,19 @@ export class RoutescanApiClient extends BaseApiClient {
         return err(new ServiceError(`Routescan API error: ${res.message}`, this.name, 'getNormalTransactions'));
       }
 
-      const transactions = (res.result as RoutescanTransaction[]) || [];
+      // Parse and validate each transaction through Zod schema
+      const rawTransactions = res.result || [];
+      const transactions: RoutescanTransaction[] = [];
+      for (const rawTx of rawTransactions) {
+        const parseResult = RoutescanTransactionSchema.safeParse(rawTx);
+        if (!parseResult.success) {
+          this.logger.warn(
+            `Failed to parse transaction - Error: ${parseResult.error.message}, RawData: ${JSON.stringify(rawTx)}`
+          );
+          continue;
+        }
+        transactions.push(parseResult.data);
+      }
       allTransactions.push(...transactions);
 
       // If we got less than the max offset, we've reached the end
@@ -463,7 +490,19 @@ export class RoutescanApiClient extends BaseApiClient {
         return err(new ServiceError(`Routescan API error: ${res.message}`, this.name, 'getTokenTransfers'));
       }
 
-      const transactions = (res.result as RoutescanTokenTransfer[]) || [];
+      // Parse and validate each transaction through Zod schema
+      const rawTransactions = res.result || [];
+      const transactions: RoutescanTokenTransfer[] = [];
+      for (const rawTx of rawTransactions) {
+        const parseResult = RoutescanTokenTransferSchema.safeParse(rawTx);
+        if (!parseResult.success) {
+          this.logger.warn(
+            `Failed to parse token transfer - Error: ${parseResult.error.message}, RawData: ${JSON.stringify(rawTx)}`
+          );
+          continue;
+        }
+        transactions.push(parseResult.data);
+      }
       allTransactions.push(...transactions);
 
       // If we got less than the max offset, we've reached the end

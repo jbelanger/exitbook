@@ -7,8 +7,7 @@ import {
   compareBalances,
   convertBalancesToDecimals,
   createVerificationResult,
-  fetchBitcoinXpubBalance,
-  fetchCardanoXpubBalance,
+  fetchDerivedAddressesBalance,
   fetchBlockchainBalance,
   fetchExchangeBalance,
   DataSourceRepository,
@@ -16,13 +15,7 @@ import {
   type BalanceVerificationResult,
   type UnifiedBalanceSnapshot,
 } from '@exitbook/ingestion';
-import {
-  BitcoinUtils,
-  CardanoUtils,
-  BlockchainProviderManager,
-  loadExplorerConfig,
-  type BlockchainExplorersConfig,
-} from '@exitbook/providers';
+import { BlockchainProviderManager, loadExplorerConfig, type BlockchainExplorersConfig } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -159,8 +152,8 @@ export class BalanceHandler {
   }
 
   /**
-   * Get derived addresses from session metadata for Bitcoin xpub addresses.
-   * Returns the list of derived addresses stored during import.
+   * Get derived addresses from session metadata for extended public keys.
+   * Returns the list of derived addresses stored during import (e.g., from xpub).
    */
   private async getDerivedAddressesFromSession(params: BalanceHandlerParams): Promise<Result<string[], Error>> {
     try {
@@ -344,51 +337,24 @@ export class BalanceHandler {
 
   /**
    * Fetch balance from a blockchain.
-   * For Bitcoin xpub addresses, fetches balances from all derived addresses and sums them.
+   * For addresses with derived addresses (e.g., xpub), fetches balances from all derived addresses and sums them.
    */
   private async fetchBlockchainBalance(params: BalanceHandlerParams): Promise<Result<UnifiedBalanceSnapshot, Error>> {
     if (!params.address) {
       return err(new Error('Address is required for blockchain balance fetch'));
     }
 
-    // Special handling for Bitcoin xpub addresses
-    if (params.sourceName === 'bitcoin' && BitcoinUtils.isXpub(params.address)) {
-      logger.info('Detected Bitcoin xpub address, fetching derived addresses from session');
+    // Check if this address has derived addresses (e.g., from xpub import)
+    const derivedAddressesResult = await this.getDerivedAddressesFromSession(params);
 
-      // Get derived addresses from session metadata
-      const derivedAddressesResult = await this.getDerivedAddressesFromSession(params);
-      if (derivedAddressesResult.isErr()) {
-        return err(derivedAddressesResult.error);
-      }
-
+    if (derivedAddressesResult.isOk()) {
       const derivedAddresses = derivedAddressesResult.value;
       logger.info(`Fetching balances for ${derivedAddresses.length} derived addresses`);
 
-      // Fetch and sum balances from all derived addresses
-      return fetchBitcoinXpubBalance(
+      return fetchDerivedAddressesBalance(
         this.providerManager,
         this.tokenMetadataRepository,
-        params.address,
-        derivedAddresses,
-        params.providerName
-      );
-    }
-
-    // Special handling for Cardano xpub addresses
-    if (params.sourceName === 'cardano' && CardanoUtils.isExtendedPublicKey(params.address)) {
-      logger.info('Detected Cardano xpub address, fetching derived addresses from session');
-
-      const derivedAddressesResult = await this.getDerivedAddressesFromSession(params);
-      if (derivedAddressesResult.isErr()) {
-        return err(derivedAddressesResult.error);
-      }
-
-      const derivedAddresses = derivedAddressesResult.value;
-      logger.info(`Fetching balances for ${derivedAddresses.length} Cardano derived addresses`);
-
-      return fetchCardanoXpubBalance(
-        this.providerManager,
-        this.tokenMetadataRepository,
+        params.sourceName,
         params.address,
         derivedAddresses,
         params.providerName
@@ -396,19 +362,13 @@ export class BalanceHandler {
     }
 
     // Standard single-address balance fetch
-    const result = await fetchBlockchainBalance(
+    return fetchBlockchainBalance(
       this.providerManager,
       this.tokenMetadataRepository,
       params.sourceName,
       params.address,
       params.providerName
     );
-
-    if (result.isErr()) {
-      return err(result.error);
-    }
-
-    return ok(result.value);
   }
 
   /**

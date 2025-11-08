@@ -25,10 +25,6 @@ export const MoralisTransactionSchema = z
     to_address: EvmAddressSchema,
     transaction_index: z.string(),
     value: z.string().regex(/^\d+$/, 'Value must be numeric string'),
-
-    // Augmented fields added by API client for chain-specific context
-    _nativeCurrency: z.string().optional(),
-    _nativeDecimals: z.number().optional(),
   })
   .passthrough(); // Allow additional fields from API
 

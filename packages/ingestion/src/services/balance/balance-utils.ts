@@ -145,53 +145,17 @@ export async function fetchBlockchainBalance(
 }
 
 /**
- * Fetch balance from multiple Bitcoin addresses (for xpub derived addresses).
+ * Fetch balance from multiple derived addresses (for xpub/extended public keys).
  * Fetches balance for each address and sums them up.
+ * Works for any blockchain that supports address derivation (Bitcoin, Cardano, etc.).
  */
-export async function fetchBitcoinXpubBalance(
-  providerManager: BlockchainProviderManager,
-  tokenMetadataRepository: TokenMetadataRepository,
-  xpubAddress: string,
-  derivedAddresses: string[],
-  providerName?: string
-): Promise<Result<UnifiedBalanceSnapshot, Error>> {
-  return fetchDerivedAddressesBalance(
-    providerManager,
-    tokenMetadataRepository,
-    'bitcoin',
-    xpubAddress,
-    derivedAddresses,
-    providerName,
-    'BTC'
-  );
-}
-
-export async function fetchCardanoXpubBalance(
-  providerManager: BlockchainProviderManager,
-  tokenMetadataRepository: TokenMetadataRepository,
-  xpubAddress: string,
-  derivedAddresses: string[],
-  providerName?: string
-): Promise<Result<UnifiedBalanceSnapshot, Error>> {
-  return fetchDerivedAddressesBalance(
-    providerManager,
-    tokenMetadataRepository,
-    'cardano',
-    xpubAddress,
-    derivedAddresses,
-    providerName,
-    'ADA'
-  );
-}
-
-async function fetchDerivedAddressesBalance(
+export async function fetchDerivedAddressesBalance(
   providerManager: BlockchainProviderManager,
   tokenMetadataRepository: TokenMetadataRepository,
   blockchain: string,
   xpubAddress: string,
   derivedAddresses: string[],
-  providerName?: string,
-  defaultCurrency?: string
+  providerName?: string
 ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
   try {
     if (derivedAddresses.length === 0) {
@@ -226,11 +190,7 @@ async function fetchDerivedAddressesBalance(
     }
 
     if (Object.keys(aggregatedBalances).length === 0) {
-      if (defaultCurrency) {
-        aggregatedBalances[defaultCurrency] = parseDecimal('0');
-      } else {
-        return err(new Error(`Failed to fetch balances for any derived addresses of ${xpubAddress}`));
-      }
+      return err(new Error(`Failed to fetch balances for any derived addresses of ${xpubAddress}`));
     }
 
     const balances = Object.fromEntries(

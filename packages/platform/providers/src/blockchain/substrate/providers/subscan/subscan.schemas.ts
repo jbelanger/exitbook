@@ -120,16 +120,6 @@ export const SubscanTransferBaseSchema = z.object({
 });
 
 /**
- * Schema for Subscan transfer with augmented chain metadata
- */
-export const SubscanTransferSchema = SubscanTransferBaseSchema.extend({
-  // Augmented fields added by API client
-  _nativeCurrency: z.string().min(1, 'Native currency must not be empty'),
-  _nativeDecimals: z.number().nonnegative('Native decimals must be non-negative'),
-  _chainDisplayName: z.string().min(1, 'Chain display name must not be empty'),
-});
-
-/**
  * Schema for Subscan transfers response
  */
 export const SubscanTransfersResponseSchema = z.object({
@@ -173,6 +163,5 @@ export const SubscanAccountResponseSchema = z.object({
 export type SubscanAccountDisplay = z.infer<typeof SubscanAccountDisplaySchema>;
 export type SubscanItemDetail = z.infer<typeof SubscanItemDetailSchema>;
 export type SubscanTransfer = z.infer<typeof SubscanTransferBaseSchema>;
-export type SubscanTransferAugmented = z.infer<typeof SubscanTransferSchema>;
 export type SubscanTransfersResponse = z.infer<typeof SubscanTransfersResponseSchema>;
 export type SubscanAccountResponse = z.infer<typeof SubscanAccountResponseSchema>;

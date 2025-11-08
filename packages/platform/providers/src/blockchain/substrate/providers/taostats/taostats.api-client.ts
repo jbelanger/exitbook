@@ -8,16 +8,11 @@ import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.j
 import { convertToMainUnit, createRawBalanceData } from '../../balance-utils.js';
 import type { SubstrateChainConfig } from '../../chain-config.interface.js';
 import { getSubstrateChainConfig } from '../../chain-registry.js';
-import { augmentWithChainConfig } from '../../transaction-utils.js';
 import type { SubstrateTransaction } from '../../types.js';
 import { isValidSS58Address } from '../../utils.js';
 
 import { convertTaostatsTransaction, isTransactionRelevant } from './taostats.mapper-utils.js';
-import type {
-  TaostatsBalanceResponse,
-  TaostatsTransactionAugmented,
-  TaostatsTransactionRaw,
-} from './taostats.schemas.js';
+import type { TaostatsBalanceResponse, TaostatsTransaction } from './taostats.schemas.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'TAOSTATS_API_KEY',
@@ -147,7 +142,7 @@ export class TaostatsApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    const augmentedTransactions: TaostatsTransactionAugmented[] = [];
+    const transactions: TaostatsTransaction[] = [];
     let offset = 0;
     const maxPages = 100; // Safety limit to prevent infinite loops
     const limit = 100;
@@ -163,7 +158,7 @@ export class TaostatsApiClient extends BaseApiClient {
       });
 
       const endpoint = `/transfer/v1?${params.toString()}`;
-      const result = await this.httpClient.get<{ data?: TaostatsTransactionRaw[] }>(endpoint);
+      const result = await this.httpClient.get<{ data?: TaostatsTransaction[] }>(endpoint);
 
       if (result.isErr()) {
         this.logger.error(
@@ -175,10 +170,7 @@ export class TaostatsApiClient extends BaseApiClient {
       const response = result.value;
       const pageTransactions = response.data || [];
 
-      // Augment transactions with chain config data
-      const pageAugmentedTransactions = augmentWithChainConfig(pageTransactions, this.chainConfig);
-
-      augmentedTransactions.push(...pageAugmentedTransactions);
+      transactions.push(...pageTransactions);
       offset += limit;
 
       // Check if there are more pages
@@ -197,8 +189,8 @@ export class TaostatsApiClient extends BaseApiClient {
 
     // Normalize transactions using pure mapping function
     const relevantAddresses = new Set([address]);
-    const transactions: TransactionWithRawData<SubstrateTransaction>[] = [];
-    for (const rawTx of augmentedTransactions) {
+    const normalizedTransactions: TransactionWithRawData<SubstrateTransaction>[] = [];
+    for (const rawTx of transactions) {
       // Skip transactions that aren't relevant to this address
       if (!isTransactionRelevant(rawTx, relevantAddresses)) {
         continue;
@@ -207,7 +199,7 @@ export class TaostatsApiClient extends BaseApiClient {
       try {
         const normalized = convertTaostatsTransaction(rawTx, this.chainConfig.nativeCurrency);
 
-        transactions.push({
+        normalizedTransactions.push({
           raw: rawTx,
           normalized,
         });
@@ -219,9 +211,9 @@ export class TaostatsApiClient extends BaseApiClient {
     }
 
     this.logger.debug(
-      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}, PagesProcessed: ${Math.floor(offset / limit)}`
+      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${normalizedTransactions.length}, PagesProcessed: ${Math.floor(offset / limit)}`
     );
 
-    return ok(transactions);
+    return ok(normalizedTransactions);
   }
 }
