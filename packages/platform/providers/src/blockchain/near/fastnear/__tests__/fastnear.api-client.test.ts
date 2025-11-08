@@ -409,7 +409,246 @@ describe('FastNearApiClient', () => {
       const capabilities = client.capabilities;
 
       expect(capabilities.supportedOperations).toContain('getAddressBalances');
-      expect(capabilities.supportedOperations).toHaveLength(1);
+      expect(capabilities.supportedOperations).toContain('getAddressTransactions');
+      expect(capabilities.supportedOperations).toHaveLength(2);
+    });
+  });
+
+  describe('getAddressTransactions', () => {
+    let mockHttpPost: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      mockHttpPost = vi.fn();
+      Object.defineProperty(client, 'explorerHttpClient', {
+        configurable: true,
+        value: {
+          post: mockHttpPost,
+        },
+        writable: true,
+      });
+    });
+
+    it('should fetch transactions successfully', async () => {
+      const mockResponse = {
+        account_txs: [
+          {
+            account_id: 'alice.near',
+            signer_id: 'alice.near',
+            transaction_hash: 'ABC123',
+            tx_block_height: 100000000,
+            tx_block_timestamp: '1688940091339135477',
+          },
+        ],
+        transactions: [
+          {
+            execution_outcome: {
+              block_hash: 'BLOCKHASH123',
+              outcome: {
+                executor_id: 'alice.near',
+                gas_burnt: 2428135649664,
+                status: { SuccessReceiptId: 'RECEIPT123' },
+                tokens_burnt: '242813564966400000000',
+              },
+            },
+            transaction: {
+              actions: [{ Transfer: { deposit: '1000000000000000000000000' } }],
+              hash: 'ABC123',
+              nonce: 64885790401249,
+              public_key: 'ed25519:ABC123',
+              receiver_id: 'bob.near',
+              signer_id: 'alice.near',
+            },
+          },
+        ],
+        txs_count: 1,
+      };
+
+      mockHttpPost.mockResolvedValue(ok(mockResponse));
+
+      const operation = {
+        address: 'alice.near',
+        type: 'getAddressTransactions' as const,
+      };
+
+      const result = await client.execute(operation);
+
+      expect(mockHttpPost).toHaveBeenCalledWith('/account', {
+        account_id: 'alice.near',
+        max_block_height: undefined,
+      });
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value as { normalized: { [key: string]: unknown; status: string }; raw: unknown }[];
+        expect(Array.isArray(transactions)).toBe(true);
+        expect(transactions).toHaveLength(1);
+        expect(transactions[0]).toHaveProperty('raw');
+        expect(transactions[0]).toHaveProperty('normalized');
+        expect(transactions[0]?.normalized).toMatchObject({
+          amount: '1000000000000000000000000',
+          blockHeight: 100000000,
+          blockId: 'BLOCKHASH123',
+          currency: 'NEAR',
+          from: 'alice.near',
+          id: 'ABC123',
+          providerName: 'fastnear',
+          status: 'success',
+          to: 'bob.near',
+        });
+      }
+    });
+
+    it('should handle pagination with maxBlockHeight', async () => {
+      const mockResponse = {
+        account_txs: [
+          {
+            account_id: 'alice.near',
+            signer_id: 'alice.near',
+            transaction_hash: 'XYZ789',
+            tx_block_height: 95000000,
+            tx_block_timestamp: '1688940091339135477',
+          },
+        ],
+        transactions: [
+          {
+            execution_outcome: {
+              block_hash: 'BLOCKHASH456',
+              outcome: {
+                executor_id: 'alice.near',
+                gas_burnt: 2428135649664,
+                status: { SuccessValue: 'SUCCESS' },
+                tokens_burnt: '242813564966400000000',
+              },
+            },
+            transaction: {
+              actions: ['CreateAccount'],
+              hash: 'XYZ789',
+              nonce: 64885790401250,
+              public_key: 'ed25519:XYZ789',
+              receiver_id: 'bob.near',
+              signer_id: 'alice.near',
+            },
+          },
+        ],
+      };
+
+      mockHttpPost.mockResolvedValue(ok(mockResponse));
+
+      const operation = {
+        address: 'alice.near',
+        type: 'getAddressTransactions' as const,
+      };
+
+      const result = await client.execute(operation, { maxBlockHeight: 96000000 });
+
+      expect(mockHttpPost).toHaveBeenCalledWith('/account', {
+        account_id: 'alice.near',
+        max_block_height: 96000000,
+      });
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('should handle failed transactions', async () => {
+      const mockResponse = {
+        account_txs: [
+          {
+            account_id: 'alice.near',
+            signer_id: 'alice.near',
+            transaction_hash: 'FAIL123',
+            tx_block_height: 100000000,
+            tx_block_timestamp: '1688940091339135477',
+          },
+        ],
+        transactions: [
+          {
+            execution_outcome: {
+              block_hash: 'BLOCKHASH789',
+              outcome: {
+                executor_id: 'alice.near',
+                gas_burnt: 2428135649664,
+                status: { Failure: { error: 'Some error' } },
+                tokens_burnt: '242813564966400000000',
+              },
+            },
+            transaction: {
+              actions: [{ Transfer: { deposit: '1000000000000000000000000' } }],
+              hash: 'FAIL123',
+              nonce: 64885790401249,
+              public_key: 'ed25519:FAIL123',
+              receiver_id: 'bob.near',
+              signer_id: 'alice.near',
+            },
+          },
+        ],
+      };
+
+      mockHttpPost.mockResolvedValue(ok(mockResponse));
+
+      const operation = {
+        address: 'alice.near',
+        type: 'getAddressTransactions' as const,
+      };
+
+      const result = await client.execute(operation);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value as { normalized: { [key: string]: unknown; status: string }; raw: unknown }[];
+        expect(transactions[0]?.normalized.status).toBe('failed');
+      }
+    });
+
+    it('should handle empty transaction list', async () => {
+      const mockResponse = {
+        account_txs: [],
+        transactions: [],
+      };
+
+      mockHttpPost.mockResolvedValue(ok(mockResponse));
+
+      const operation = {
+        address: 'alice.near',
+        type: 'getAddressTransactions' as const,
+      };
+
+      const result = await client.execute(operation);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        expect(transactions).toHaveLength(0);
+      }
+    });
+
+    it('should return error for invalid NEAR account ID', async () => {
+      const operation = {
+        address: 'INVALID@ADDRESS',
+        type: 'getAddressTransactions' as const,
+      };
+
+      const result = await client.execute(operation);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Invalid NEAR account ID');
+      }
+      expect(mockHttpPost).not.toHaveBeenCalled();
+    });
+
+    it('should return error on API failure', async () => {
+      const error = new Error('API Error');
+      mockHttpPost.mockResolvedValue(err(error));
+
+      const operation = {
+        address: 'alice.near',
+        type: 'getAddressTransactions' as const,
+      };
+
+      const result = await client.execute(operation);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toBe('API Error');
+      }
     });
   });
 });
