@@ -94,6 +94,7 @@ export const NearTransactionSchema = z.object({
   timestamp: z.number().positive('Timestamp must be positive'),
   to: NearAccountIdSchema,
   tokenTransfers: z.array(NearTokenTransferSchema).optional(),
+  type: z.enum(['transfer', 'token_transfer', 'contract_call']),
 });
 
 // Type exports inferred from schemas (single source of truth)

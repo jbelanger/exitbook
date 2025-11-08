@@ -13,9 +13,16 @@ describe('NearBlocksActivitySchema', () => {
   test('should validate valid activity', () => {
     const validActivity = {
       absolute_nonstaked_amount: '1000000000000000000000000',
+      absolute_staked_amount: '0',
+      affected_account_id: 'alice.near',
+      block_height: '100000',
       block_timestamp: '1640000000000000000',
+      cause: 'TRANSFER',
       direction: 'INBOUND',
+      event_index: '1',
+      involved_account_id: undefined,
       receipt_id: 'receipt123',
+      transaction_hash: undefined,
     };
 
     const result = NearBlocksActivitySchema.safeParse(validActivity);
@@ -25,11 +32,15 @@ describe('NearBlocksActivitySchema', () => {
   test('should validate activity with optional fields', () => {
     const activityWithOptionals = {
       absolute_nonstaked_amount: '1000000000000000000000000',
+      absolute_staked_amount: '0',
+      affected_account_id: 'alice.near',
+      block_height: '100001',
       block_timestamp: '1640000000000000000',
       cause: 'CONTRACT_REWARD',
-      counterparty: 'validator.near',
       delta_nonstaked_amount: '100000000000000000000000',
       direction: 'OUTBOUND',
+      event_index: '2',
+      involved_account_id: 'validator.near',
       receipt_id: 'receipt123',
       transaction_hash: 'tx123',
     };
@@ -38,7 +49,7 @@ describe('NearBlocksActivitySchema', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.cause).toBe('CONTRACT_REWARD');
-      expect(result.data.counterparty).toBe('validator.near');
+      expect(result.data.involved_account_id).toBe('validator.near');
     }
   });
 
@@ -93,16 +104,30 @@ describe('NearBlocksActivitySchema', () => {
   test('should accept both INBOUND and OUTBOUND directions', () => {
     const inbound = {
       absolute_nonstaked_amount: '1000000000000000000000000',
+      absolute_staked_amount: '0',
+      affected_account_id: 'alice.near',
+      block_height: '123456',
       block_timestamp: '1640000000000000000',
+      cause: 'TRANSACTION',
       direction: 'INBOUND',
+      event_index: '0',
+      involved_account_id: 'bob.near',
       receipt_id: 'receipt123',
+      transaction_hash: 'tx123',
     };
 
     const outbound = {
       absolute_nonstaked_amount: '1000000000000000000000000',
+      absolute_staked_amount: '0',
+      affected_account_id: 'alice.near',
+      block_height: '123457',
       block_timestamp: '1640000000000000000',
+      cause: 'TRANSACTION',
       direction: 'OUTBOUND',
+      event_index: '0',
+      involved_account_id: 'bob.near',
       receipt_id: 'receipt456',
+      transaction_hash: 'tx456',
     };
 
     expect(NearBlocksActivitySchema.safeParse(inbound).success).toBe(true);
@@ -113,12 +138,19 @@ describe('NearBlocksActivitySchema', () => {
 describe('NearBlocksActivitiesResponseSchema', () => {
   test('should validate response with activities', () => {
     const response = {
-      txns: [
+      activities: [
         {
           absolute_nonstaked_amount: '1000000000000000000000000',
+          absolute_staked_amount: '0',
+          affected_account_id: 'alice.near',
+          block_height: '123456',
           block_timestamp: '1640000000000000000',
-          direction: 'INBOUND',
+          cause: 'TRANSACTION',
+          direction: 'INBOUND' as const,
+          event_index: '0',
+          involved_account_id: 'bob.near',
           receipt_id: 'receipt123',
+          transaction_hash: 'tx123',
         },
       ],
     };
@@ -130,7 +162,7 @@ describe('NearBlocksActivitiesResponseSchema', () => {
   test('should validate response with cursor', () => {
     const response = {
       cursor: 'next-page-cursor',
-      txns: [],
+      activities: [],
     };
 
     const result = NearBlocksActivitiesResponseSchema.safeParse(response);
@@ -142,7 +174,7 @@ describe('NearBlocksActivitiesResponseSchema', () => {
 
   test('should validate empty activities array', () => {
     const response = {
-      txns: [],
+      activities: [],
     };
 
     const result = NearBlocksActivitiesResponseSchema.safeParse(response);
@@ -153,7 +185,7 @@ describe('NearBlocksActivitiesResponseSchema', () => {
 describe('NearBlocksReceiptSchema', () => {
   test('should validate valid receipt', () => {
     const validReceipt = {
-      originated_from_transaction_hash: 'tx123',
+      transaction_hash: 'tx123',
       predecessor_account_id: 'alice.near',
       receipt_id: 'receipt123',
       receiver_account_id: 'bob.near',
@@ -166,7 +198,7 @@ describe('NearBlocksReceiptSchema', () => {
   test('should validate receipt with optional block_timestamp', () => {
     const receiptWithTimestamp = {
       block_timestamp: '1640000000000000000',
-      originated_from_transaction_hash: 'tx123',
+      transaction_hash: 'tx123',
       predecessor_account_id: 'alice.near',
       receipt_id: 'receipt123',
       receiver_account_id: 'bob.near',
@@ -181,7 +213,7 @@ describe('NearBlocksReceiptSchema', () => {
 
   test('should reject receipt with empty transaction_hash', () => {
     const invalidReceipt = {
-      originated_from_transaction_hash: '',
+      transaction_hash: '',
       predecessor_account_id: 'alice.near',
       receipt_id: 'receipt123',
       receiver_account_id: 'bob.near',
@@ -193,7 +225,7 @@ describe('NearBlocksReceiptSchema', () => {
 
   test('should reject receipt with empty predecessor_account_id', () => {
     const invalidReceipt = {
-      originated_from_transaction_hash: 'tx123',
+      transaction_hash: 'tx123',
       predecessor_account_id: '',
       receipt_id: 'receipt123',
       receiver_account_id: 'bob.near',
@@ -205,7 +237,7 @@ describe('NearBlocksReceiptSchema', () => {
 
   test('should reject receipt with empty receipt_id', () => {
     const invalidReceipt = {
-      originated_from_transaction_hash: 'tx123',
+      transaction_hash: 'tx123',
       predecessor_account_id: 'alice.near',
       receipt_id: '',
       receiver_account_id: 'bob.near',
@@ -217,7 +249,7 @@ describe('NearBlocksReceiptSchema', () => {
 
   test('should reject receipt with empty receiver_account_id', () => {
     const invalidReceipt = {
-      originated_from_transaction_hash: 'tx123',
+      transaction_hash: 'tx123',
       predecessor_account_id: 'alice.near',
       receipt_id: 'receipt123',
       receiver_account_id: '',
@@ -231,9 +263,9 @@ describe('NearBlocksReceiptSchema', () => {
 describe('NearBlocksReceiptsResponseSchema', () => {
   test('should validate response with receipts', () => {
     const response = {
-      receipts: [
+      txns: [
         {
-          originated_from_transaction_hash: 'tx123',
+          transaction_hash: 'tx123',
           predecessor_account_id: 'alice.near',
           receipt_id: 'receipt123',
           receiver_account_id: 'bob.near',
@@ -248,7 +280,7 @@ describe('NearBlocksReceiptsResponseSchema', () => {
   test('should validate response with cursor', () => {
     const response = {
       cursor: 'next-page-cursor',
-      receipts: [],
+      txns: [],
     };
 
     const result = NearBlocksReceiptsResponseSchema.safeParse(response);
@@ -260,7 +292,7 @@ describe('NearBlocksReceiptsResponseSchema', () => {
 
   test('should validate empty receipts array', () => {
     const response = {
-      receipts: [],
+      txns: [],
     };
 
     const result = NearBlocksReceiptsResponseSchema.safeParse(response);

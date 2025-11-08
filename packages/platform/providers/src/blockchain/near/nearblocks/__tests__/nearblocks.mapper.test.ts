@@ -12,7 +12,7 @@ describe('NearBlocksTransactionMapper', () => {
           {
             action: 'TRANSFER',
             args: undefined,
-            deposit: 1000000000000000000000000,
+            deposit: '1000000000000000000000000',
             method: undefined,
           },
         ],
@@ -23,12 +23,12 @@ describe('NearBlocksTransactionMapper', () => {
         outcomes: {
           status: true,
         },
-        predecessor_account_id: 'alice.near',
+        signer_account_id: 'alice.near',
         receipt_outcome: {
           executor_account_id: 'bob.near',
-          gas_burnt: 4174947687500,
+          gas_burnt: '4174947687500',
           status: true,
-          tokens_burnt: 5000000000000000000000,
+          tokens_burnt: '5000000000000000000000',
         },
         receiver_account_id: 'bob.near',
         transaction_hash: 'AbCdEf123456',
@@ -61,7 +61,7 @@ describe('NearBlocksTransactionMapper', () => {
     it('should validate input data with schema', () => {
       const invalidRawData = {
         block_timestamp: '1640000000000000000',
-        predecessor_account_id: '', // Invalid: empty
+        signer_account_id: '', // Invalid: empty
         receiver_account_id: 'bob.near',
         transaction_hash: 'InvalidTx',
       };
@@ -77,7 +77,7 @@ describe('NearBlocksTransactionMapper', () => {
     it('should validate output data with schema', () => {
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
-        predecessor_account_id: 'alice.near',
+        signer_account_id: 'alice.near',
         receiver_account_id: 'bob.near',
         transaction_hash: 'ValidTx',
       };
@@ -99,7 +99,7 @@ describe('NearBlocksTransactionMapper', () => {
     it('should handle transaction with missing optional fields', () => {
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
-        predecessor_account_id: 'alice.near',
+        signer_account_id: 'alice.near',
         receiver_account_id: 'bob.near',
         transaction_hash: 'MinimalTx',
       };
@@ -125,7 +125,7 @@ describe('NearBlocksTransactionMapper', () => {
         outcomes: {
           status: false,
         },
-        predecessor_account_id: 'alice.near',
+        signer_account_id: 'alice.near',
         receiver_account_id: 'bob.near',
         transaction_hash: 'FailedTx',
       };
@@ -144,7 +144,7 @@ describe('NearBlocksTransactionMapper', () => {
           {
             action: 'FUNCTION_CALL',
             args: { receiver_id: 'token.near', amount: '1000000' },
-            deposit: 1,
+            deposit: '1',
             method: 'ft_transfer',
           },
         ],
@@ -155,12 +155,12 @@ describe('NearBlocksTransactionMapper', () => {
         outcomes: {
           status: true,
         },
-        predecessor_account_id: 'alice.near',
+        signer_account_id: 'alice.near',
         receipt_outcome: {
           executor_account_id: 'usdt.tether-token.near',
-          gas_burnt: 3000000000000,
+          gas_burnt: '3000000000000',
           status: true,
-          tokens_burnt: 3000000000000000000000,
+          tokens_burnt: '3000000000000000000000',
         },
         receiver_account_id: 'usdt.tether-token.near',
         transaction_hash: 'FunctionCallTx',
@@ -183,7 +183,7 @@ describe('NearBlocksTransactionMapper', () => {
     it('should reject invalid transaction hash (empty)', () => {
       const invalidRawData = {
         block_timestamp: '1640000000000000000',
-        predecessor_account_id: 'alice.near',
+        signer_account_id: 'alice.near',
         receiver_account_id: 'bob.near',
         transaction_hash: '', // Invalid: empty
       };
@@ -199,7 +199,7 @@ describe('NearBlocksTransactionMapper', () => {
     it('should reject invalid block_timestamp (empty)', () => {
       const invalidRawData = {
         block_timestamp: '', // Invalid: empty
-        predecessor_account_id: 'alice.near',
+        signer_account_id: 'alice.near',
         receiver_account_id: 'bob.near',
         transaction_hash: 'ValidTx',
       };
@@ -215,7 +215,7 @@ describe('NearBlocksTransactionMapper', () => {
     it('should reject invalid account IDs', () => {
       const invalidRawData = {
         block_timestamp: '1640000000000000000',
-        predecessor_account_id: 'alice.near',
+        signer_account_id: 'alice.near',
         receiver_account_id: '', // Invalid: empty
         transaction_hash: 'ValidTx',
       };
@@ -234,13 +234,13 @@ describe('NearBlocksTransactionMapper', () => {
           {
             action: 'TRANSFER',
             args: undefined,
-            deposit: 1e24,
+            deposit: '1000000000000000000000000',
             method: undefined,
           },
           {
             action: 'TRANSFER',
             args: undefined,
-            deposit: 2e24,
+            deposit: '2000000000000000000000000',
             method: undefined,
           },
         ],
@@ -248,12 +248,12 @@ describe('NearBlocksTransactionMapper', () => {
         outcomes: {
           status: true,
         },
-        predecessor_account_id: 'alice.near',
+        signer_account_id: 'alice.near',
         receipt_outcome: {
           executor_account_id: 'bob.near',
-          gas_burnt: 8000000000000,
+          gas_burnt: '8000000000000',
           status: true,
-          tokens_burnt: 11000000000000000000000,
+          tokens_burnt: '11000000000000000000000',
         },
         receiver_account_id: 'bob.near',
         transaction_hash: 'MultiActionTx',
@@ -275,7 +275,7 @@ describe('NearBlocksTransactionMapper', () => {
 
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
-        predecessor_account_id: implicitSigner,
+        signer_account_id: implicitSigner,
         receiver_account_id: implicitReceiver,
         transaction_hash: 'ImplicitTx',
       };
@@ -292,7 +292,7 @@ describe('NearBlocksTransactionMapper', () => {
     it('should preserve provider name from source context', () => {
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
-        predecessor_account_id: 'alice.near',
+        signer_account_id: 'alice.near',
         receiver_account_id: 'bob.near',
         transaction_hash: 'CustomProviderTx',
       };
@@ -308,7 +308,7 @@ describe('NearBlocksTransactionMapper', () => {
     it('should default to nearblocks when provider name not in context', () => {
       const rawData: NearBlocksTransaction = {
         block_timestamp: '1640000000000000000',
-        predecessor_account_id: 'alice.near',
+        signer_account_id: 'alice.near',
         receiver_account_id: 'bob.near',
         transaction_hash: 'NoProviderTx',
       };

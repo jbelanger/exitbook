@@ -1,3 +1,4 @@
+import { parseDecimal } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
 import { mapNearBlocksActivityToAccountChange, mapNearBlocksFtTransactionToTokenTransfer } from '../mapper-utils.js';
@@ -6,12 +7,20 @@ import type { NearBlocksActivity, NearBlocksFtTransaction } from '../nearblocks/
 describe('mapNearBlocksActivityToAccountChange', () => {
   const accountId = 'alice.near';
 
-  test('should map INBOUND activity to positive account change', () => {
+  test('should map INBOUND activity to positive account change (with delta)', () => {
     const activity: NearBlocksActivity = {
-      absolute_nonstaked_amount: '1000000000000000000000000', // 1 NEAR in yocto
+      absolute_nonstaked_amount: '231371389459736455600000000', // 231.37 NEAR balance after
+      absolute_staked_amount: '0',
+      affected_account_id: accountId,
+      block_height: '100000',
       block_timestamp: '1640000000000000000',
+      cause: 'TRANSFER',
+      delta_nonstaked_amount: '100000000000000000000000', // +0.0001 NEAR actual change
       direction: 'INBOUND',
+      event_index: '1',
+      involved_account_id: undefined,
       receipt_id: 'receipt123',
+      transaction_hash: undefined,
     };
 
     const result = mapNearBlocksActivityToAccountChange(activity, accountId);
@@ -19,17 +28,28 @@ describe('mapNearBlocksActivityToAccountChange', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.account).toBe(accountId);
-      expect(result.value.postBalance).toBe('1'); // Positive for INBOUND
-      expect(result.value.preBalance).toBe('0');
+      expect(result.value.postBalance).toBe('231371389459736455600000000'); // Balance after
+      expect(result.value.preBalance).toBe('231271389459736455600000000'); // Balance before (postBalance - delta)
+      // Verify the delta: postBalance - preBalance should equal delta_nonstaked_amount
+      const delta = parseDecimal(result.value.postBalance).sub(parseDecimal(result.value.preBalance));
+      expect(delta.toFixed()).toBe('100000000000000000000000');
     }
   });
 
-  test('should map OUTBOUND activity to negative account change', () => {
+  test('should map OUTBOUND activity to negative account change (with delta)', () => {
     const activity: NearBlocksActivity = {
-      absolute_nonstaked_amount: '500000000000000000000000', // 0.5 NEAR in yocto
+      absolute_nonstaked_amount: '26582126544881235000000000', // 26.58 NEAR balance after
+      absolute_staked_amount: '0',
+      affected_account_id: accountId,
+      block_height: '100001',
       block_timestamp: '1640000000000000000',
+      cause: 'TRANSFER',
+      delta_nonstaked_amount: '-204970000000000000000000000', // -204.97 NEAR actual change
       direction: 'OUTBOUND',
+      event_index: '2',
+      involved_account_id: undefined,
       receipt_id: 'receipt456',
+      transaction_hash: undefined,
     };
 
     const result = mapNearBlocksActivityToAccountChange(activity, accountId);
@@ -37,51 +57,80 @@ describe('mapNearBlocksActivityToAccountChange', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.account).toBe(accountId);
-      expect(result.value.postBalance).toBe('-0.5'); // Negative for OUTBOUND
-      expect(result.value.preBalance).toBe('0');
+      expect(result.value.postBalance).toBe('26582126544881235000000000'); // Balance after
+      expect(result.value.preBalance).toBe('231552126544881235000000000'); // Balance before (postBalance - delta)
+      // Verify the delta: postBalance - preBalance should equal delta_nonstaked_amount
+      const delta = parseDecimal(result.value.postBalance).sub(parseDecimal(result.value.preBalance));
+      expect(delta.toFixed()).toBe('-204970000000000000000000000');
     }
   });
 
-  test('should handle very large amounts', () => {
+  test('should handle very large amounts with delta', () => {
     const activity: NearBlocksActivity = {
-      absolute_nonstaked_amount: '1000000000000000000000000000000', // 1M NEAR in yocto
+      absolute_nonstaked_amount: '1000000000000000000000000000000', // 1M NEAR in yocto balance after
+      absolute_staked_amount: '0',
+      affected_account_id: accountId,
+      block_height: '100002',
       block_timestamp: '1640000000000000000',
+      cause: 'TRANSFER',
+      delta_nonstaked_amount: '50000000000000000000000000', // +50 NEAR actual change
       direction: 'INBOUND',
+      event_index: '3',
+      involved_account_id: undefined,
       receipt_id: 'receipt789',
+      transaction_hash: undefined,
     };
 
     const result = mapNearBlocksActivityToAccountChange(activity, accountId);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.postBalance).toBe('1000000');
+      expect(result.value.postBalance).toBe('1000000000000000000000000000000');
+      expect(result.value.preBalance).toBe('999950000000000000000000000000');
+      const delta = parseDecimal(result.value.postBalance).sub(parseDecimal(result.value.preBalance));
+      expect(delta.toFixed()).toBe('50000000000000000000000000');
     }
   });
 
-  test('should handle zero amounts', () => {
+  test('should handle zero delta amounts', () => {
     const activity: NearBlocksActivity = {
-      absolute_nonstaked_amount: '0',
+      absolute_nonstaked_amount: '5000000000000000000000000', // 5 NEAR balance
+      absolute_staked_amount: '0',
+      affected_account_id: accountId,
+      block_height: '100003',
       block_timestamp: '1640000000000000000',
+      cause: 'TRANSFER',
+      delta_nonstaked_amount: '0', // No actual change
       direction: 'INBOUND',
+      event_index: '4',
+      involved_account_id: undefined,
       receipt_id: 'receipt000',
+      transaction_hash: undefined,
     };
 
     const result = mapNearBlocksActivityToAccountChange(activity, accountId);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.postBalance).toBe('0');
+      expect(result.value.postBalance).toBe('5000000000000000000000000');
+      expect(result.value.preBalance).toBe('5000000000000000000000000'); // Same as post, no change
+      const delta = parseDecimal(result.value.postBalance).sub(parseDecimal(result.value.preBalance));
+      expect(delta.toFixed()).toBe('0');
     }
   });
 
-  test('should handle activity with optional fields', () => {
+  test('should handle staking activity with negative delta', () => {
     const activity: NearBlocksActivity = {
-      absolute_nonstaked_amount: '2000000000000000000000000',
+      absolute_nonstaked_amount: '4082355433508820000000000', // 4.08 NEAR balance after
+      absolute_staked_amount: '0',
+      affected_account_id: accountId,
+      block_height: '100004',
       block_timestamp: '1640000000000000000',
-      cause: 'CONTRACT_REWARD',
-      counterparty: 'validator.near',
-      delta_nonstaked_amount: '100000000000000000000000',
-      direction: 'INBOUND',
+      cause: 'STAKE',
+      delta_nonstaked_amount: '-200000000000000000000000000', // -200 NEAR staked
+      direction: 'OUTBOUND',
+      event_index: '5',
+      involved_account_id: 'validator.near',
       receipt_id: 'receipt123',
       transaction_hash: 'tx123',
     };
@@ -91,7 +140,11 @@ describe('mapNearBlocksActivityToAccountChange', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.account).toBe(accountId);
-      expect(result.value.postBalance).toBe('2');
+      expect(result.value.postBalance).toBe('4082355433508820000000000'); // Balance after
+      expect(result.value.preBalance).toBe('204082355433508820000000000'); // Balance before
+      // Verify the delta is negative (staking removes from liquid balance)
+      const delta = parseDecimal(result.value.postBalance).sub(parseDecimal(result.value.preBalance));
+      expect(delta.toFixed()).toBe('-200000000000000000000000000');
     }
   });
 
@@ -129,9 +182,17 @@ describe('mapNearBlocksActivityToAccountChange', () => {
     const implicitAccountId = '98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de';
     const activity: NearBlocksActivity = {
       absolute_nonstaked_amount: '1000000000000000000000000',
+      absolute_staked_amount: '0',
+      affected_account_id: implicitAccountId,
+      block_height: '100005',
       block_timestamp: '1640000000000000000',
+      cause: 'TRANSFER',
+      delta_nonstaked_amount: '1000000000000000000000000',
       direction: 'INBOUND',
+      event_index: '6',
+      involved_account_id: undefined,
       receipt_id: 'receipt123',
+      transaction_hash: undefined,
     };
 
     const result = mapNearBlocksActivityToAccountChange(activity, implicitAccountId);
@@ -139,6 +200,56 @@ describe('mapNearBlocksActivityToAccountChange', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.account).toBe(implicitAccountId);
+    }
+  });
+
+  test('should fallback to direction-based calculation when delta_nonstaked_amount is missing (INBOUND)', () => {
+    const activity: NearBlocksActivity = {
+      absolute_nonstaked_amount: '1000000000000000000000000', // 1 NEAR
+      absolute_staked_amount: '0',
+      affected_account_id: accountId,
+      block_height: '100006',
+      block_timestamp: '1640000000000000000',
+      cause: 'TRANSFER',
+      direction: 'INBOUND',
+      event_index: '7',
+      involved_account_id: undefined,
+      receipt_id: 'receipt789',
+      transaction_hash: undefined,
+    };
+
+    const result = mapNearBlocksActivityToAccountChange(activity, accountId);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      // Fallback: treats absolute_nonstaked_amount as delta
+      expect(result.value.postBalance).toBe('1000000000000000000000000');
+      expect(result.value.preBalance).toBe('0'); // postBalance - absolute_nonstaked_amount
+    }
+  });
+
+  test('should fallback to direction-based calculation when delta_nonstaked_amount is missing (OUTBOUND)', () => {
+    const activity: NearBlocksActivity = {
+      absolute_nonstaked_amount: '500000000000000000000000', // 0.5 NEAR
+      absolute_staked_amount: '0',
+      affected_account_id: accountId,
+      block_height: '100007',
+      block_timestamp: '1640000000000000000',
+      cause: 'TRANSFER',
+      direction: 'OUTBOUND',
+      event_index: '8',
+      involved_account_id: undefined,
+      receipt_id: 'receipt890',
+      transaction_hash: undefined,
+    };
+
+    const result = mapNearBlocksActivityToAccountChange(activity, accountId);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      // Fallback: treats absolute_nonstaked_amount as delta (negated for OUTBOUND)
+      expect(result.value.postBalance).toBe('500000000000000000000000');
+      expect(result.value.preBalance).toBe('1000000000000000000000000'); // postBalance - (-absolute_nonstaked_amount)
     }
   });
 });

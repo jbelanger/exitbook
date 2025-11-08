@@ -161,8 +161,8 @@ Runtime validation for external data. Core schemas in `packages/core/src/schemas
 ### Logging (Pino)
 
 ```typescript
-import { createLogger } from '@exitbook/shared-logger';
-const logger = createLogger('component-name');
+import { getLogger } from '@exitbook/shared-logger';
+const logger = getLogger('component-name');
 logger.info('message');
 logger.error({ error }, 'error message');
 ```

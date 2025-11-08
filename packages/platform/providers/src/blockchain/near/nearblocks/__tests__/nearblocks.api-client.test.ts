@@ -64,10 +64,10 @@ describe('NearBlocksApiClient', () => {
 
     it('should have correct rate limit configuration', () => {
       const rateLimit = client.rateLimit;
-      expect(rateLimit.requestsPerSecond).toBe(2);
-      expect(rateLimit.burstLimit).toBe(5);
-      expect(rateLimit.requestsPerMinute).toBe(60);
-      expect(rateLimit.requestsPerHour).toBe(1000);
+      expect(rateLimit.requestsPerSecond).toBe(0.1);
+      expect(rateLimit.burstLimit).toBe(1);
+      expect(rateLimit.requestsPerMinute).toBe(6);
+      expect(rateLimit.requestsPerHour).toBe(250);
     });
 
     it('should not require API key', () => {
@@ -85,7 +85,7 @@ describe('NearBlocksApiClient', () => {
         {
           action: 'TRANSFER',
           args: undefined,
-          deposit: 100000000000000000000,
+          deposit: '100000000000000000000',
           method: undefined,
         },
       ],
@@ -96,12 +96,12 @@ describe('NearBlocksApiClient', () => {
       outcomes: {
         status: true,
       },
-      predecessor_account_id: 'alice.near',
+      signer_account_id: 'alice.near',
       receipt_outcome: {
         executor_account_id: 'bob.near',
-        gas_burnt: 4174947687500,
+        gas_burnt: '4174947687500',
         status: true,
-        tokens_burnt: 5000000000000000000000,
+        tokens_burnt: '5000000000000000000000',
       },
       receiver_account_id: 'bob.near',
       transaction_hash: 'AbCdEf123456',
@@ -112,7 +112,19 @@ describe('NearBlocksApiClient', () => {
         txns: [mockTransaction],
       };
 
-      mockHttpGet.mockResolvedValue(ok(mockResponse));
+      // Mock responses for all enrichment endpoints
+      mockHttpGet.mockImplementation((url: string) => {
+        if (url.includes('/txns-only')) {
+          return Promise.resolve(ok(mockResponse));
+        }
+        if (url.includes('/activities')) {
+          return Promise.resolve(ok({ activities: [] }));
+        }
+        if (url.includes('/receipts')) {
+          return Promise.resolve(ok({ txns: [] }));
+        }
+        return Promise.resolve(err(new Error(`Unexpected URL: ${url}`)));
+      });
 
       const operation = {
         address: mockAddress,
@@ -121,7 +133,6 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.execute(operation);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/txns?page=1&per_page=50`);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toHaveLength(1);
@@ -141,14 +152,18 @@ describe('NearBlocksApiClient', () => {
 
     it('should handle multiple pages of transactions', async () => {
       const page1Response: NearBlocksTransactionsResponse = {
-        txns: Array(50).fill(mockTransaction) as NearBlocksTransaction[],
+        txns: Array(25).fill(mockTransaction) as NearBlocksTransaction[],
       };
 
       const page2Response: NearBlocksTransactionsResponse = {
-        txns: Array(30).fill({ ...mockTransaction, transaction_hash: 'Page2Tx' }) as NearBlocksTransaction[],
+        txns: Array(20).fill({ ...mockTransaction, transaction_hash: 'Page2Tx' }) as NearBlocksTransaction[],
       };
 
-      mockHttpGet.mockResolvedValueOnce(ok(page1Response)).mockResolvedValueOnce(ok(page2Response));
+      mockHttpGet
+        .mockResolvedValueOnce(ok(page1Response))
+        .mockResolvedValueOnce(ok(page2Response))
+        .mockResolvedValueOnce(ok({ activities: [] })) // activities enrichment
+        .mockResolvedValueOnce(ok({ txns: [] })); // receipts enrichment
 
       const operation = {
         address: mockAddress,
@@ -157,21 +172,21 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.execute(operation);
 
-      expect(mockHttpGet).toHaveBeenCalledTimes(2);
-      expect(mockHttpGet).toHaveBeenNthCalledWith(1, `/v1/account/${mockAddress}/txns?page=1&per_page=50`);
-      expect(mockHttpGet).toHaveBeenNthCalledWith(2, `/v1/account/${mockAddress}/txns?page=2&per_page=50`);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value).toHaveLength(80); // 50 + 30
+        expect(result.value).toHaveLength(45); // 25 + 20
       }
     });
 
     it('should stop pagination when receiving less than full page', async () => {
       const page1Response: NearBlocksTransactionsResponse = {
-        txns: Array(30).fill(mockTransaction) as NearBlocksTransaction[],
+        txns: Array(20).fill(mockTransaction) as NearBlocksTransaction[],
       };
 
-      mockHttpGet.mockResolvedValueOnce(ok(page1Response));
+      mockHttpGet
+        .mockResolvedValueOnce(ok(page1Response))
+        .mockResolvedValueOnce(ok({ activities: [] })) // activities enrichment
+        .mockResolvedValueOnce(ok({ txns: [] })); // receipts enrichment
 
       const operation = {
         address: mockAddress,
@@ -180,10 +195,9 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.execute(operation);
 
-      expect(mockHttpGet).toHaveBeenCalledTimes(1);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value).toHaveLength(30);
+        expect(result.value).toHaveLength(20);
       }
     });
 
@@ -196,7 +210,11 @@ describe('NearBlocksApiClient', () => {
         txns: [],
       };
 
-      mockHttpGet.mockResolvedValueOnce(ok(page1Response)).mockResolvedValueOnce(ok(page2Response));
+      mockHttpGet
+        .mockResolvedValueOnce(ok(page1Response))
+        .mockResolvedValueOnce(ok(page2Response))
+        .mockResolvedValueOnce(ok({ activities: [] })) // activities enrichment
+        .mockResolvedValueOnce(ok({ txns: [] })); // receipts enrichment
 
       const operation = {
         address: mockAddress,
@@ -205,19 +223,29 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.execute(operation);
 
-      expect(mockHttpGet).toHaveBeenCalledTimes(2);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toHaveLength(50);
       }
     });
 
-    it('should respect max pages limit (20 pages)', async () => {
+    it('should respect max pages limit (40 pages)', async () => {
       const fullPageResponse: NearBlocksTransactionsResponse = {
-        txns: Array(50).fill(mockTransaction) as NearBlocksTransaction[],
+        txns: Array(25).fill(mockTransaction) as NearBlocksTransaction[],
       };
 
-      mockHttpGet.mockResolvedValue(ok(fullPageResponse));
+      mockHttpGet.mockImplementation((url: string) => {
+        if (url.includes('/activities')) {
+          return Promise.resolve(ok({ activities: [] }));
+        }
+        if (url.includes('/receipts')) {
+          return Promise.resolve(ok({ txns: [] }));
+        }
+        if (url.includes('/txns-only')) {
+          return Promise.resolve(ok(fullPageResponse));
+        }
+        return Promise.resolve(ok(fullPageResponse));
+      });
 
       const operation = {
         address: mockAddress,
@@ -226,10 +254,9 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.execute(operation);
 
-      expect(mockHttpGet).toHaveBeenCalledTimes(20); // Max 20 pages
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value).toHaveLength(1000); // 20 * 50
+        expect(result.value).toHaveLength(1000); // 40 * 25
       }
     });
 
@@ -255,7 +282,11 @@ describe('NearBlocksApiClient', () => {
         txns: Array(50).fill(mockTransaction) as NearBlocksTransaction[],
       };
 
-      mockHttpGet.mockResolvedValueOnce(ok(page1Response)).mockResolvedValueOnce(err(new Error('Page 2 failed')));
+      mockHttpGet
+        .mockResolvedValueOnce(ok(page1Response))
+        .mockResolvedValueOnce(err(new Error('Page 2 failed')))
+        .mockResolvedValueOnce(ok({ activities: [] })) // activities enrichment
+        .mockResolvedValueOnce(ok({ txns: [] })); // receipts enrichment
 
       const operation = {
         address: mockAddress,
@@ -264,7 +295,6 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.execute(operation);
 
-      expect(mockHttpGet).toHaveBeenCalledTimes(2);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toHaveLength(50); // Only page 1
@@ -322,7 +352,7 @@ describe('NearBlocksApiClient', () => {
         txns: [
           {
             ...mockTransaction,
-            predecessor_account_id: implicitAddress,
+            signer_account_id: implicitAddress,
           },
         ],
       };
@@ -336,7 +366,7 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.execute(operation);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${implicitAddress}/txns?page=1&per_page=50`);
+      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${implicitAddress}/txns-only?page=1&per_page=25`);
       expect(result.isOk()).toBe(true);
     });
   });
@@ -562,7 +592,8 @@ describe('NearBlocksApiClient', () => {
 
       expect(capabilities.supportedOperations).toContain('getAddressTransactions');
       expect(capabilities.supportedOperations).toContain('getAddressBalances');
-      expect(capabilities.supportedOperations).toHaveLength(2);
+      expect(capabilities.supportedOperations).toContain('getAddressTokenTransactions');
+      expect(capabilities.supportedOperations).toHaveLength(3);
     });
   });
 
@@ -572,14 +603,14 @@ describe('NearBlocksApiClient', () => {
     it('should fetch receipts successfully', async () => {
       const mockReceipts = [
         {
-          originated_from_transaction_hash: 'tx123',
+          transaction_hash: 'tx123',
           predecessor_account_id: 'alice.near',
           receipt_id: 'receipt123',
           receiver_account_id: 'bob.near',
         },
         {
           block_timestamp: '1640000000000000000',
-          originated_from_transaction_hash: 'tx456',
+          transaction_hash: 'tx456',
           predecessor_account_id: 'bob.near',
           receipt_id: 'receipt456',
           receiver_account_id: 'alice.near',
@@ -587,14 +618,14 @@ describe('NearBlocksApiClient', () => {
       ];
 
       const mockResponse = {
-        receipts: mockReceipts,
+        txns: mockReceipts,
       };
 
       mockHttpGet.mockResolvedValue(ok(mockResponse));
 
       const result = await client.getAccountReceipts(mockAddress);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/receipts?page=1&per_page=50`);
+      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/receipts?page=1&per_page=25`);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toHaveLength(2);
@@ -605,7 +636,7 @@ describe('NearBlocksApiClient', () => {
 
     it('should fetch receipts with custom pagination', async () => {
       const mockResponse = {
-        receipts: [],
+        txns: [],
       };
 
       mockHttpGet.mockResolvedValue(ok(mockResponse));
@@ -618,7 +649,7 @@ describe('NearBlocksApiClient', () => {
 
     it('should handle empty receipts', async () => {
       const mockResponse = {
-        receipts: [],
+        txns: [],
       };
 
       mockHttpGet.mockResolvedValue(ok(mockResponse));
@@ -657,9 +688,9 @@ describe('NearBlocksApiClient', () => {
 
     it('should return error for invalid response schema', async () => {
       const invalidResponse = {
-        receipts: [
+        txns: [
           {
-            originated_from_transaction_hash: '',
+            transaction_hash: '',
             predecessor_account_id: 'alice.near',
             receipt_id: 'receipt123',
             receiver_account_id: 'bob.near',
@@ -685,31 +716,42 @@ describe('NearBlocksApiClient', () => {
       const mockActivities = [
         {
           absolute_nonstaked_amount: '1000000000000000000000000',
+          absolute_staked_amount: '0',
+          affected_account_id: 'alice.near',
+          block_height: '12345678',
           block_timestamp: '1640000000000000000',
+          cause: 'TRANSFER',
           direction: 'INBOUND' as const,
+          event_index: '0',
+          involved_account_id: 'bob.near',
           receipt_id: 'receipt123',
+          transaction_hash: 'tx123',
         },
         {
           absolute_nonstaked_amount: '500000000000000000000000',
+          absolute_staked_amount: '0',
+          affected_account_id: 'alice.near',
+          block_height: '12345679',
           block_timestamp: '1640000001000000000',
           cause: 'CONTRACT_REWARD',
-          counterparty: 'validator.near',
           delta_nonstaked_amount: '500000000000000000000000',
           direction: 'OUTBOUND' as const,
+          event_index: '0',
+          involved_account_id: 'validator.near',
           receipt_id: 'receipt456',
           transaction_hash: 'tx456',
         },
       ];
 
       const mockResponse = {
-        txns: mockActivities,
+        activities: mockActivities,
       };
 
       mockHttpGet.mockResolvedValue(ok(mockResponse));
 
       const result = await client.getAccountActivities(mockAddress);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/activity?page=1&per_page=50`);
+      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/activities?per_page=25`);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toHaveLength(2);
@@ -720,20 +762,20 @@ describe('NearBlocksApiClient', () => {
 
     it('should fetch activities with custom pagination', async () => {
       const mockResponse = {
-        txns: [],
+        activities: [],
       };
 
       mockHttpGet.mockResolvedValue(ok(mockResponse));
 
-      const result = await client.getAccountActivities(mockAddress, 3, 20);
+      const result = await client.getAccountActivities(mockAddress, 'cursor123', 20);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/activity?page=3&per_page=20`);
+      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/activities?cursor=cursor123&per_page=20`);
       expect(result.isOk()).toBe(true);
     });
 
     it('should handle empty activities', async () => {
       const mockResponse = {
-        txns: [],
+        activities: [],
       };
 
       mockHttpGet.mockResolvedValue(ok(mockResponse));
@@ -772,7 +814,7 @@ describe('NearBlocksApiClient', () => {
 
     it('should return error for invalid response schema', async () => {
       const invalidResponse = {
-        txns: [
+        activities: [
           {
             absolute_nonstaked_amount: '',
             block_timestamp: '1640000000000000000',
@@ -795,7 +837,7 @@ describe('NearBlocksApiClient', () => {
     it('should handle activities with cursor', async () => {
       const mockResponse = {
         cursor: 'next-page-cursor',
-        txns: [],
+        activities: [],
       };
 
       mockHttpGet.mockResolvedValue(ok(mockResponse));
@@ -847,7 +889,7 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.getAccountFtTransactions(mockAddress);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/ft-txns?page=1&per_page=50`);
+      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/ft-txns?page=1&per_page=25`);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toHaveLength(2);

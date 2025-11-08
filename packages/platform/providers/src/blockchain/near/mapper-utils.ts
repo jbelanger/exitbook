@@ -65,8 +65,8 @@ export function mapNearBlocksActions(
   actions?: {
     action: string;
     args?: Record<string, unknown> | string | null | undefined;
-    deposit?: number | undefined;
-    fee?: number | undefined;
+    deposit?: string | undefined;
+    fee?: string | undefined;
     method?: string | null | undefined;
   }[]
 ): NearAction[] {
@@ -77,7 +77,7 @@ export function mapNearBlocksActions(
   return actions.map((action) => ({
     actionType: action.action,
     args: typeof action.args === 'object' && action.args !== null ? action.args : undefined,
-    deposit: action.deposit?.toString(),
+    deposit: action.deposit,
     methodName: action.method ?? undefined,
     receiverId: undefined,
   }));
@@ -86,15 +86,15 @@ export function mapNearBlocksActions(
 /**
  * Calculate total deposit amount from actions
  */
-export function calculateTotalDeposit(actions?: { deposit?: number | undefined }[]): string {
+export function calculateTotalDeposit(actions?: { deposit?: string | undefined }[]): string {
   if (!actions || actions.length === 0) {
     return '0';
   }
 
   let total = parseDecimal('0');
   for (const action of actions) {
-    if (action.deposit) {
-      total = total.add(parseDecimal(action.deposit.toString()));
+    if (action.deposit !== undefined) {
+      total = total.add(parseDecimal(action.deposit));
     }
   }
 
@@ -106,20 +106,20 @@ export function calculateTotalDeposit(actions?: { deposit?: number | undefined }
  */
 export function calculateTotalGasBurnt(receiptOutcome?: {
   executor_account_id: string;
-  gas_burnt: number;
+  gas_burnt: string;
   status: boolean;
-  tokens_burnt: number;
+  tokens_burnt: string;
 }): string | undefined {
   if (!receiptOutcome) {
     return undefined;
   }
 
-  return parseDecimal(receiptOutcome.tokens_burnt.toString()).toFixed();
+  return parseDecimal(receiptOutcome.tokens_burnt).toFixed();
 }
 
 /**
  * Convert NearBlocks activity to NearAccountChange
- * Handles yocto to NEAR conversion and computes signed deltas
+ * Stores amounts in yoctoNEAR (smallest units) for precise arithmetic
  */
 export function mapNearBlocksActivityToAccountChange(
   activity: NearBlocksActivity,
@@ -140,24 +140,35 @@ export function mapNearBlocksActivityToAccountChange(
 
   const validatedActivity = inputValidationResult.data;
 
-  // Convert yoctoNEAR to NEAR
-  const absoluteAmount = yoctoNearToNearString(validatedActivity.absolute_nonstaked_amount);
+  // NearBlocks provides two pieces of data:
+  // 1. absolute_nonstaked_amount: The total balance after the event
+  // 2. delta_nonstaked_amount: The signed change for that event (optional)
+  // We need to use delta_nonstaked_amount (when available) to compute the correct pre/post balances
+  const postBalanceYocto = validatedActivity.absolute_nonstaked_amount;
 
-  // Compute signed delta based on direction
-  // INBOUND means the account received NEAR (positive delta)
-  // OUTBOUND means the account sent NEAR (negative delta)
-  const delta = parseDecimal(absoluteAmount);
-  const signedDelta = validatedActivity.direction === 'INBOUND' ? delta : delta.negated();
+  let signedDeltaYocto: string;
+  if (validatedActivity.delta_nonstaked_amount !== undefined) {
+    // Use the delta provided by the API (already signed)
+    signedDeltaYocto = validatedActivity.delta_nonstaked_amount;
+  } else {
+    // Fallback: derive delta from absolute amount and direction
+    // INBOUND means the account received NEAR (positive delta)
+    // OUTBOUND means the account sent NEAR (negative delta)
+    const delta = parseDecimal(postBalanceYocto);
+    signedDeltaYocto = (validatedActivity.direction === 'INBOUND' ? delta : delta.negated()).toFixed(0);
+  }
 
-  // For account changes, we need preBalance and postBalance
-  // Since the API only provides absolute amounts and direction, we synthesize these
-  // preBalance = 0 (we don't have historical balance)
-  // postBalance = signed delta (representing the change)
-  // Note: The importer layer should aggregate these to compute actual pre/post balances
+  // Calculate preBalance = postBalance - signedDelta
+  const preBalanceYocto = parseDecimal(postBalanceYocto).sub(parseDecimal(signedDeltaYocto)).toFixed(0);
+
+  // For account changes, we store amounts in yoctoNEAR (smallest units)
+  // preBalance: balance before the transaction
+  // postBalance: balance after the transaction (from absolute_nonstaked_amount)
+  // The processor layer calculates delta = postBalance - preBalance for precise BigInt arithmetic
   const accountChange: NearAccountChange = {
     account: accountId,
-    postBalance: signedDelta.toFixed(),
-    preBalance: '0',
+    postBalance: postBalanceYocto,
+    preBalance: preBalanceYocto,
   };
 
   // Validate output data
@@ -272,24 +283,42 @@ export function mapNearBlocksTransaction(
   const totalDeposit = calculateTotalDeposit(validatedRawData.actions);
   const totalGasBurnt = calculateTotalGasBurnt(validatedRawData.receipt_outcome);
 
+  // Fallback: use aggregated transaction fee when receipt outcome is missing
+  let feeYocto = totalGasBurnt;
+  if ((!feeYocto || feeYocto === '0') && validatedRawData.outcomes_agg?.transaction_fee) {
+    feeYocto = validatedRawData.outcomes_agg.transaction_fee.toString();
+  }
+
+  // Determine transaction type based on actions
+  const hasTransferAction = actions.some((a) => a.actionType === 'TRANSFER' || a.actionType === 'Transfer');
+  const hasFunctionCall = actions.some((a) => a.actionType === 'FUNCTION_CALL' || a.actionType === 'FunctionCall');
+
+  let type: 'transfer' | 'token_transfer' | 'contract_call' = 'contract_call';
+  if (hasTransferAction && !hasFunctionCall) {
+    type = 'transfer';
+  } else if (hasFunctionCall) {
+    type = 'contract_call';
+  }
+
   const normalized: NearTransaction = {
     actions,
     amount: totalDeposit,
     currency: 'NEAR',
-    from: validatedRawData.predecessor_account_id,
+    from: validatedRawData.signer_account_id,
     id: validatedRawData.transaction_hash,
     providerName: (sourceContext.providerName as string | undefined) || 'nearblocks',
     status,
     timestamp,
     to: validatedRawData.receiver_account_id,
+    type,
   };
 
   if (validatedRawData.block?.block_height) {
     normalized.blockHeight = validatedRawData.block.block_height;
   }
 
-  if (totalGasBurnt && totalGasBurnt !== '0') {
-    normalized.feeAmount = yoctoNearToNearString(totalGasBurnt);
+  if (feeYocto && feeYocto !== '0') {
+    normalized.feeAmount = yoctoNearToNearString(feeYocto);
     normalized.feeCurrency = 'NEAR';
   }
 
