@@ -56,7 +56,7 @@ export interface NearAccountBalances {
 /**
  * Map FastNear fungible tokens to normalized format
  */
-export function mapFungibleTokens(tokens: FastNearFungibleToken[] | null): {
+export function mapFungibleTokens(tokens: FastNearFungibleToken[] | null | undefined): {
   balance: string;
   contractId: string;
   lastUpdateBlockHeight: number;
@@ -75,7 +75,7 @@ export function mapFungibleTokens(tokens: FastNearFungibleToken[] | null): {
 /**
  * Map FastNear NFT contracts to normalized format
  */
-export function mapNftContracts(nfts: FastNearNft[] | null): {
+export function mapNftContracts(nfts: FastNearNft[] | null | undefined): {
   contractId: string;
   lastUpdateBlockHeight: number;
 }[] {
@@ -92,7 +92,7 @@ export function mapNftContracts(nfts: FastNearNft[] | null): {
 /**
  * Map FastNear staking pools to normalized format
  */
-export function mapStakingPools(pools: FastNearStakingPool[] | null): {
+export function mapStakingPools(pools: FastNearStakingPool[] | null | undefined): {
   lastUpdateBlockHeight: number;
   poolId: string;
 }[] {
@@ -109,7 +109,7 @@ export function mapStakingPools(pools: FastNearStakingPool[] | null): {
 /**
  * Extract native NEAR balance from account state
  */
-export function extractNativeBalance(accountState: { amount?: string | undefined } | null):
+export function extractNativeBalance(accountState: { amount?: string | undefined } | null | undefined):
   | {
       decimalAmount: string;
       rawAmount: string;

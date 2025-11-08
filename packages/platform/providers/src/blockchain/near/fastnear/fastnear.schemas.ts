@@ -48,13 +48,13 @@ export const FastNearAccountStateSchema = z.object({
 /**
  * Schema for FastNear account full response
  * From GET /v1/account/{account_id}/full endpoint
- * Note: All arrays (ft, nft, staking) may be null if data is unchanged since around block 115,000,000
+ * Note: All arrays (ft, nft, staking) may be null or undefined if data is unchanged since around block 115,000,000
  */
 export const FastNearAccountFullResponseSchema = z.object({
-  account: FastNearAccountStateSchema.nullable(),
-  ft: z.array(FastNearFungibleTokenSchema).nullable(),
-  nft: z.array(FastNearNftSchema).nullable(),
-  staking: z.array(FastNearStakingPoolSchema).nullable(),
+  account: FastNearAccountStateSchema.nullish(),
+  ft: z.array(FastNearFungibleTokenSchema).nullish(),
+  nft: z.array(FastNearNftSchema).nullish(),
+  staking: z.array(FastNearStakingPoolSchema).nullish(),
 });
 
 // Type exports

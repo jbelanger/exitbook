@@ -2,10 +2,9 @@
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProviderOperation } from '../../../../shared/blockchain/index.js';
+import type { ProviderOperation, RawBalanceData } from '../../../../shared/blockchain/index.js';
 import { ProviderRegistry } from '../../../../shared/blockchain/index.js';
 import { FastNearApiClient } from '../fastnear.api-client.js';
-import type { NearAccountBalances } from '../fastnear.mapper.js';
 import type { FastNearAccountFullResponse } from '../fastnear.schemas.js';
 
 const mockHttpClient = {
@@ -80,7 +79,7 @@ describe('FastNearApiClient', () => {
   describe('getAddressBalances', () => {
     const mockAddress = 'alice.near';
 
-    it('should fetch balances successfully with all data types', async () => {
+    it('should fetch native NEAR balance successfully', async () => {
       const mockResponse: FastNearAccountFullResponse = {
         account: {
           account_id: 'alice.near',
@@ -121,31 +120,12 @@ describe('FastNearApiClient', () => {
       expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/full`);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const balances = result.value as NearAccountBalances;
-        expect(balances).toMatchObject({
-          fungibleTokens: [
-            {
-              balance: '1000000',
-              contractId: 'usdt.tether-token.near',
-              lastUpdateBlockHeight: 123456789,
-            },
-          ],
-          nativeBalance: {
-            decimalAmount: '5',
-            rawAmount: '5000000000000000000000000',
-          },
-          nftContracts: [
-            {
-              contractId: 'paras-token-v2.near',
-              lastUpdateBlockHeight: 123456789,
-            },
-          ],
-          stakingPools: [
-            {
-              lastUpdateBlockHeight: 123456789,
-              poolId: 'astro-stakers.poolv1.near',
-            },
-          ],
+        const balance = result.value as RawBalanceData;
+        expect(balance).toMatchObject({
+          decimalAmount: '5',
+          decimals: 24,
+          rawAmount: '5000000000000000000000000',
+          symbol: 'NEAR',
         });
       }
     });
@@ -172,18 +152,17 @@ describe('FastNearApiClient', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const balances = result.value as NearAccountBalances;
-        expect(balances.nativeBalance).toEqual({
+        const balance = result.value as RawBalanceData;
+        expect(balance).toEqual({
           decimalAmount: '2.5',
+          decimals: 24,
           rawAmount: '2500000000000000000000000',
+          symbol: 'NEAR',
         });
-        expect(balances.fungibleTokens).toEqual([]);
-        expect(balances.nftContracts).toEqual([]);
-        expect(balances.stakingPools).toEqual([]);
       }
     });
 
-    it('should handle account with only fungible tokens', async () => {
+    it('should handle account with no native balance (returns zero)', async () => {
       const mockResponse: FastNearAccountFullResponse = {
         account: null,
         ft: [
@@ -208,44 +187,17 @@ describe('FastNearApiClient', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const balances = result.value as NearAccountBalances;
-        expect(balances.nativeBalance).toBeUndefined();
-        expect(balances.fungibleTokens).toHaveLength(1);
+        const balance = result.value as RawBalanceData;
+        expect(balance).toEqual({
+          decimalAmount: '0',
+          decimals: 24,
+          rawAmount: '0',
+          symbol: 'NEAR',
+        });
       }
     });
 
-    it('should handle account with only NFTs', async () => {
-      const mockResponse: FastNearAccountFullResponse = {
-        account: null,
-        ft: null,
-        nft: [
-          {
-            contract_id: 'nft.nearapac.near',
-            last_update_block_height: 123456789,
-          },
-        ],
-        staking: null,
-      };
-
-      mockHttpGet.mockResolvedValue(ok(mockResponse));
-
-      const operation = {
-        address: mockAddress,
-        type: 'getAddressBalances' as const,
-      };
-
-      const result = await client.execute(operation);
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const balances = result.value as NearAccountBalances;
-        expect(balances.nativeBalance).toBeUndefined();
-        expect(balances.fungibleTokens).toEqual([]);
-        expect(balances.nftContracts).toHaveLength(1);
-      }
-    });
-
-    it('should handle empty account (all null)', async () => {
+    it('should handle empty account (all null, returns zero balance)', async () => {
       const mockResponse: FastNearAccountFullResponse = {
         account: null,
         ft: null,
@@ -264,51 +216,13 @@ describe('FastNearApiClient', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const balances = result.value as NearAccountBalances;
-        expect(balances.nativeBalance).toBeUndefined();
-        expect(balances.fungibleTokens).toEqual([]);
-        expect(balances.nftContracts).toEqual([]);
-        expect(balances.stakingPools).toEqual([]);
-      }
-    });
-
-    it('should handle multiple fungible tokens', async () => {
-      const mockResponse: FastNearAccountFullResponse = {
-        account: null,
-        ft: [
-          {
-            balance: '1000000',
-            contract_id: 'usdt.tether-token.near',
-            last_update_block_height: 123456789,
-          },
-          {
-            balance: '5000000',
-            contract_id: 'usdc.near',
-            last_update_block_height: 123456790,
-          },
-          {
-            balance: '250000000000000000000',
-            contract_id: 'wrap.near',
-            last_update_block_height: 123456791,
-          },
-        ],
-        nft: null,
-        staking: null,
-      };
-
-      mockHttpGet.mockResolvedValue(ok(mockResponse));
-
-      const operation = {
-        address: mockAddress,
-        type: 'getAddressBalances' as const,
-      };
-
-      const result = await client.execute(operation);
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const balances = result.value as NearAccountBalances;
-        expect(balances.fungibleTokens).toHaveLength(3);
+        const balance = result.value as RawBalanceData;
+        expect(balance).toEqual({
+          decimalAmount: '0',
+          decimals: 24,
+          rawAmount: '0',
+          symbol: 'NEAR',
+        });
       }
     });
 
@@ -415,10 +329,12 @@ describe('FastNearApiClient', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const balances = result.value as NearAccountBalances;
-        expect(balances.nativeBalance).toEqual({
+        const balance = result.value as RawBalanceData;
+        expect(balance).toEqual({
           decimalAmount: '0',
+          decimals: 24,
           rawAmount: '0',
+          symbol: 'NEAR',
         });
       }
     });
@@ -445,80 +361,12 @@ describe('FastNearApiClient', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const balances = result.value as NearAccountBalances;
-        expect(balances.nativeBalance?.rawAmount).toBe('999999999999999999999999999');
+        const balance = result.value as RawBalanceData;
+        expect(balance.rawAmount).toBe('999999999999999999999999999');
         // 999999999999999999999999999 yoctoNEAR / 10^24 = 999.999999999999999999999999 NEAR
-        expect(balances.nativeBalance?.decimalAmount).toBe('999.999999999999999999999999');
-      }
-    });
-
-    it('should handle account with multiple NFT contracts', async () => {
-      const mockResponse: FastNearAccountFullResponse = {
-        account: null,
-        ft: null,
-        nft: [
-          {
-            contract_id: 'paras-token-v2.near',
-            last_update_block_height: 123456789,
-          },
-          {
-            contract_id: 'nft.nearapac.near',
-            last_update_block_height: 123456790,
-          },
-          {
-            contract_id: 'asac.near',
-            last_update_block_height: 123456791,
-          },
-        ],
-        staking: null,
-      };
-
-      mockHttpGet.mockResolvedValue(ok(mockResponse));
-
-      const operation = {
-        address: mockAddress,
-        type: 'getAddressBalances' as const,
-      };
-
-      const result = await client.execute(operation);
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const balances = result.value as NearAccountBalances;
-        expect(balances.nftContracts).toHaveLength(3);
-      }
-    });
-
-    it('should handle account with multiple staking pools', async () => {
-      const mockResponse: FastNearAccountFullResponse = {
-        account: null,
-        ft: null,
-        nft: null,
-        staking: [
-          {
-            last_update_block_height: 123456789,
-            pool_id: 'astro-stakers.poolv1.near',
-          },
-          {
-            last_update_block_height: 123456790,
-            pool_id: 'figment.poolv1.near',
-          },
-        ],
-      };
-
-      mockHttpGet.mockResolvedValue(ok(mockResponse));
-
-      const operation = {
-        address: mockAddress,
-        type: 'getAddressBalances' as const,
-      };
-
-      const result = await client.execute(operation);
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const balances = result.value as NearAccountBalances;
-        expect(balances.stakingPools).toHaveLength(2);
+        expect(balance.decimalAmount).toBe('999.999999999999999999999999');
+        expect(balance.symbol).toBe('NEAR');
+        expect(balance.decimals).toBe(24);
       }
     });
   });

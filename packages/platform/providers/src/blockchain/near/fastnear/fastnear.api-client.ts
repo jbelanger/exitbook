@@ -2,12 +2,13 @@ import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../shared/blockchain/base/api-client.js';
-import type { ProviderConfig, ProviderOperation } from '../../../shared/blockchain/index.js';
+import type { ProviderConfig, ProviderOperation, RawBalanceData } from '../../../shared/blockchain/index.js';
 import { RegisterApiClient } from '../../../shared/blockchain/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
+import { transformNearBalance } from '../balance-utils.js';
 import { isValidNearAccountId } from '../utils.js';
 
-import { mapFastNearAccountData, type NearAccountBalances } from './fastnear.mapper.js';
+import { mapFastNearAccountData } from './fastnear.mapper.js';
 import { FastNearAccountFullResponseSchema, type FastNearAccountFullResponse } from './fastnear.schemas.js';
 
 @RegisterApiClient({
@@ -60,7 +61,7 @@ export class FastNearApiClient extends BaseApiClient {
     };
   }
 
-  async getAddressBalances(address: string): Promise<Result<NearAccountBalances, Error>> {
+  async getAddressBalances(address: string): Promise<Result<RawBalanceData, Error>> {
     if (!isValidNearAccountId(address)) {
       return err(new Error(`Invalid NEAR account ID: ${address}`));
     }
@@ -94,7 +95,7 @@ export class FastNearApiClient extends BaseApiClient {
 
     const accountData = parseResult.data;
 
-    // Map to normalized structure
+    // Map to normalized structure to extract native balance
     const mapResult = mapFastNearAccountData(accountData);
 
     if (mapResult.isErr()) {
@@ -105,10 +106,16 @@ export class FastNearApiClient extends BaseApiClient {
 
     const balances = mapResult.value;
 
+    // Transform native balance to RawBalanceData format
+    // If no native balance exists, return zero balance
+    const nativeBalance = balances.nativeBalance
+      ? transformNearBalance(balances.nativeBalance.rawAmount)
+      : transformNearBalance('0');
+
     this.logger.debug(
-      `Successfully retrieved account balances - Address: ${maskAddress(address)}, Native: ${balances.nativeBalance?.decimalAmount ?? '0'} NEAR, FTs: ${balances.fungibleTokens.length}, NFTs: ${balances.nftContracts.length}, Staking: ${balances.stakingPools.length}`
+      `Successfully retrieved account balances - Address: ${maskAddress(address)}, Native: ${nativeBalance.decimalAmount} NEAR`
     );
 
-    return ok(balances);
+    return ok(nativeBalance);
   }
 }
