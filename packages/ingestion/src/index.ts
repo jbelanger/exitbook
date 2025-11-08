@@ -13,7 +13,7 @@ export { calculateBalances } from './services/balance/balance-calculator.js';
 export {
   fetchExchangeBalance,
   fetchBlockchainBalance,
-  fetchBitcoinXpubBalance,
+  fetchDerivedAddressesBalance,
   convertBalancesToDecimals,
   type UnifiedBalanceSnapshot,
 } from './services/balance/balance-utils.js';

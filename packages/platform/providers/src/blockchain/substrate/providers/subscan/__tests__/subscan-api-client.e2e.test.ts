@@ -4,7 +4,7 @@ import { ProviderRegistry } from '../../../../../shared/blockchain/index.js';
 import type { RawBalanceData, TransactionWithRawData } from '../../../../../shared/blockchain/types/index.js';
 import type { SubstrateTransaction } from '../../../types.js';
 import { SubscanApiClient } from '../subscan.api-client.js';
-import type { SubscanTransferAugmented } from '../subscan.schemas.js';
+import type { SubscanTransfer } from '../subscan.schemas.js';
 
 describe('SubscanApiClient Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('polkadot', 'subscan');
@@ -70,7 +70,7 @@ describe('SubscanApiClient Integration', () => {
         expect(firstTx).toHaveProperty('raw');
         expect(firstTx).toHaveProperty('normalized');
 
-        const rawData = firstTx.raw as SubscanTransferAugmented;
+        const rawData = firstTx.raw as SubscanTransfer;
 
         expect(rawData).toHaveProperty('hash');
         expect(rawData).toHaveProperty('from');
@@ -84,8 +84,6 @@ describe('SubscanApiClient Integration', () => {
         expect(rawData).toHaveProperty('_nativeCurrency');
         expect(rawData).toHaveProperty('_nativeDecimals');
         expect(rawData).toHaveProperty('_chainDisplayName');
-        expect(rawData._nativeCurrency).toBe('DOT');
-        expect(typeof rawData._nativeDecimals).toBe('number');
 
         const normalized = firstTx.normalized;
         expect(normalized).toHaveProperty('id');

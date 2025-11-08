@@ -145,64 +145,66 @@ export async function fetchBlockchainBalance(
 }
 
 /**
- * Fetch balance from multiple Bitcoin addresses (for xpub derived addresses).
+ * Fetch balance from multiple derived addresses (for xpub/extended public keys).
  * Fetches balance for each address and sums them up.
+ * Works for any blockchain that supports address derivation (Bitcoin, Cardano, etc.).
  */
-export async function fetchBitcoinXpubBalance(
+export async function fetchDerivedAddressesBalance(
   providerManager: BlockchainProviderManager,
   tokenMetadataRepository: TokenMetadataRepository,
+  blockchain: string,
   xpubAddress: string,
   derivedAddresses: string[],
   providerName?: string
 ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
   try {
-    // Auto-register providers for bitcoin with optional provider preference
-    const existingProviders = providerManager.getProviders('bitcoin');
-    if (!existingProviders || existingProviders.length === 0) {
-      providerManager.autoRegisterFromConfig('bitcoin', providerName);
+    if (derivedAddresses.length === 0) {
+      return err(new Error('No derived addresses provided for balance aggregation'));
     }
 
-    // Fetch balance for each derived address
-    const balanceResults = await Promise.all(
-      derivedAddresses.map((address) =>
-        providerManager.executeWithFailover<RawBalanceData>('bitcoin', {
-          type: 'getAddressBalances',
-          address,
-        })
-      )
+    const existingProviders = providerManager.getProviders(blockchain);
+    if (!existingProviders || existingProviders.length === 0) {
+      providerManager.autoRegisterFromConfig(blockchain, providerName);
+    }
+
+    const aggregatedBalances: Record<string, ReturnType<typeof parseDecimal>> = {};
+
+    for (const address of derivedAddresses) {
+      const balanceResult = await fetchBlockchainBalance(
+        providerManager,
+        tokenMetadataRepository,
+        blockchain,
+        address,
+        providerName
+      );
+
+      if (balanceResult.isErr()) {
+        // Skip addresses we fail to fetch but continue aggregating others
+        continue;
+      }
+
+      for (const [currency, amount] of Object.entries(balanceResult.value.balances)) {
+        const current = aggregatedBalances[currency] || parseDecimal('0');
+        aggregatedBalances[currency] = current.plus(parseDecimal(amount));
+      }
+    }
+
+    if (Object.keys(aggregatedBalances).length === 0) {
+      return err(new Error(`Failed to fetch balances for any derived addresses of ${xpubAddress}`));
+    }
+
+    const balances = Object.fromEntries(
+      Object.entries(aggregatedBalances).map(([currency, value]) => [currency, value.toFixed()])
     );
 
-    // Sum up all balances
-    let totalBalance = parseDecimal('0');
-    let currency = 'BTC'; // Default to BTC
-
-    for (const result of balanceResults) {
-      if (result.isErr()) {
-        // Log error but continue with other addresses
-        continue;
-      }
-
-      const { data } = result.value;
-      const enrichedResult = await enrichBalanceData(data, 'bitcoin', tokenMetadataRepository, providerManager);
-      if (enrichedResult.isErr()) {
-        // Log error but continue with other addresses
-        continue;
-      }
-      const { amount, currency: assetCurrency } = convertRawBalance(enrichedResult.value);
-      currency = assetCurrency; // Use the currency from provider response
-      totalBalance = totalBalance.plus(parseDecimal(amount));
-    }
-
     return ok({
-      balances: {
-        [currency]: totalBalance.toFixed(),
-      },
+      balances,
       timestamp: Date.now(),
       sourceType: 'blockchain',
-      sourceId: `bitcoin:${xpubAddress}`,
+      sourceId: `${blockchain}:${xpubAddress}`,
     });
   } catch (error) {
-    return wrapError(error, `Failed to fetch Bitcoin xpub balance for ${xpubAddress}`);
+    return wrapError(error, `Failed to fetch ${blockchain} xpub balance for ${xpubAddress}`);
   }
 }
 

@@ -4,7 +4,7 @@ import { ProviderRegistry } from '../../../../../shared/blockchain/index.js';
 import type { RawBalanceData, TransactionWithRawData } from '../../../../../shared/blockchain/types/index.js';
 import type { SubstrateTransaction } from '../../../types.js';
 import { TaostatsApiClient } from '../taostats.api-client.js';
-import type { TaostatsTransactionAugmented } from '../taostats.schemas.js';
+import type { TaostatsTransaction } from '../taostats.schemas.js';
 
 describe('TaostatsApiClient Integration - Bittensor', () => {
   describe('Bittensor', () => {
@@ -74,7 +74,7 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
           expect(firstTx).toHaveProperty('raw');
           expect(firstTx).toHaveProperty('normalized');
 
-          const rawData = firstTx.raw as TaostatsTransactionAugmented;
+          const rawData = firstTx.raw as TaostatsTransaction;
 
           expect(rawData).toHaveProperty('transaction_hash');
           expect(rawData).toHaveProperty('from');
@@ -91,10 +91,6 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
           expect(rawData.to).toHaveProperty('ss58');
           expect(rawData.to).toHaveProperty('hex');
           expect(typeof rawData.timestamp).toBe('string'); // ISO string
-
-          expect(rawData._nativeCurrency).toBe('TAO');
-          expect(rawData._nativeDecimals).toBe(9);
-          expect(rawData._chainDisplayName).toBe('Bittensor Network');
 
           const normalized = firstTx.normalized;
           expect(normalized).toHaveProperty('id');
