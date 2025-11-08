@@ -8,6 +8,15 @@ const mockHashFunction = vi.fn();
 const mockToBech32Function = vi.fn();
 const mockToAddressFunction = vi.fn();
 
+const createDerivedKeyMock = () => ({
+  derive: vi.fn((_innerIndices: number[]) => createDerivedKeyMock()),
+  toRawKey: vi.fn(() => ({
+    hash: vi.fn(() => ({
+      hex: mockHashFunction,
+    })),
+  })),
+});
+
 vi.mock('@cardano-sdk/crypto', () => ({
   Bip32PublicKey: {
     fromHex: vi.fn(() => ({
@@ -232,11 +241,7 @@ describe('CardanoUtils', () => {
       const gap = 5;
 
       // Setup mock chain
-      mockDeriveFunction.mockImplementation((_indices: number[]) => ({
-        derive: vi.fn((_innerIndices: number[]) => ({
-          hash: mockHashFunction,
-        })),
-      }));
+      mockDeriveFunction.mockImplementation(() => createDerivedKeyMock());
 
       mockHashFunction.mockReturnValue('mock-hash');
       mockToAddressFunction.mockReturnValue({
@@ -256,11 +261,7 @@ describe('CardanoUtils', () => {
       const validXpub =
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
-      mockDeriveFunction.mockImplementation((_indices: number[]) => ({
-        derive: vi.fn((_innerIndices: number[]) => ({
-          hash: mockHashFunction,
-        })),
-      }));
+      mockDeriveFunction.mockImplementation(() => createDerivedKeyMock());
 
       mockHashFunction.mockReturnValue('mock-hash');
       mockToAddressFunction.mockReturnValue({
@@ -285,11 +286,7 @@ describe('CardanoUtils', () => {
       const validXpub =
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
-      mockDeriveFunction.mockImplementation((_indices: number[]) => ({
-        derive: vi.fn((_innerIndices: number[]) => ({
-          hash: mockHashFunction,
-        })),
-      }));
+      mockDeriveFunction.mockImplementation(() => createDerivedKeyMock());
 
       mockHashFunction.mockReturnValue('mock-hash');
       mockToAddressFunction.mockReturnValue({
@@ -318,11 +315,7 @@ describe('CardanoUtils', () => {
       const validXpub =
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
-      mockDeriveFunction.mockImplementation((_indices: number[]) => ({
-        derive: vi.fn((_innerIndices: number[]) => ({
-          hash: mockHashFunction,
-        })),
-      }));
+      mockDeriveFunction.mockImplementation(() => createDerivedKeyMock());
 
       mockHashFunction.mockReturnValue('mock-hash');
       mockToAddressFunction.mockReturnValue({
@@ -399,11 +392,7 @@ describe('CardanoUtils', () => {
       const validXpub =
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
-      mockDeriveFunction.mockImplementation((_indices: number[]) => ({
-        derive: vi.fn((_innerIndices: number[]) => ({
-          hash: mockHashFunction,
-        })),
-      }));
+      mockDeriveFunction.mockImplementation(() => createDerivedKeyMock());
 
       mockHashFunction.mockReturnValue('mock-hash');
       mockToAddressFunction.mockReturnValue({
@@ -430,11 +419,7 @@ describe('CardanoUtils', () => {
       const validXpub =
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
-      mockDeriveFunction.mockImplementation((_indices: number[]) => ({
-        derive: vi.fn((_innerIndices: number[]) => ({
-          hash: mockHashFunction,
-        })),
-      }));
+      mockDeriveFunction.mockImplementation(() => createDerivedKeyMock());
 
       mockHashFunction.mockReturnValue('mock-hash');
       mockToAddressFunction.mockReturnValue({
@@ -454,11 +439,7 @@ describe('CardanoUtils', () => {
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
       const largeGap = 100;
 
-      mockDeriveFunction.mockImplementation((_indices: number[]) => ({
-        derive: vi.fn((_innerIndices: number[]) => ({
-          hash: mockHashFunction,
-        })),
-      }));
+      mockDeriveFunction.mockImplementation(() => createDerivedKeyMock());
 
       mockHashFunction.mockReturnValue('mock-hash');
       mockToAddressFunction.mockReturnValue({

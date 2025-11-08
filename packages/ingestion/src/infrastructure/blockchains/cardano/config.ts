@@ -11,14 +11,20 @@ registerBlockchain({
   blockchain: 'cardano',
 
   normalizeAddress: (address: string) => {
+    // Check if it's an extended public key (128 hex characters)
+    // Format: public_key (32 bytes) + chain_code (32 bytes) = 64 bytes = 128 hex chars
+    if (/^[0-9a-fA-F]{128}$/.test(address)) {
+      return ok(address);
+    }
+
     // Cardano addresses are case-sensitive (Bech32 encoding)
     // Mainnet: addr1... (payment), stake1... (stake/reward)
     // Testnet: addr_test1..., stake_test1...
-    const normalized = address;
-    if (!/^(addr1|addr_test1|stake1|stake_test1)[a-z0-9]+$/.test(normalized)) {
+    // Byron-era: Ae2..., DdzFF...
+    if (!/^(addr1|addr_test1|stake1|stake_test1|Ae2|DdzFF)[A-Za-z0-9]+$/.test(address)) {
       return err(new Error(`Invalid Cardano address format: ${address}`));
     }
-    return ok(normalized);
+    return ok(address);
   },
 
   createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>

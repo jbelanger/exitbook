@@ -8,6 +8,7 @@ import {
   convertBalancesToDecimals,
   createVerificationResult,
   fetchBitcoinXpubBalance,
+  fetchCardanoXpubBalance,
   fetchBlockchainBalance,
   fetchExchangeBalance,
   DataSourceRepository,
@@ -17,6 +18,7 @@ import {
 } from '@exitbook/ingestion';
 import {
   BitcoinUtils,
+  CardanoUtils,
   BlockchainProviderManager,
   loadExplorerConfig,
   type BlockchainExplorersConfig,
@@ -170,7 +172,7 @@ export class BalanceHandler {
 
       const sessions = sessionsResult.value;
       if (sessions.length === 0) {
-        return err(new Error(`No data source  found for ${params.sourceName}`));
+        return err(new Error(`No data source found for ${params.sourceName}`));
       }
 
       // Find session matching this specific address
@@ -181,7 +183,7 @@ export class BalanceHandler {
       });
 
       if (!matchingSession) {
-        return err(new Error(`No data source  found for address ${params.address}`));
+        return err(new Error(`No data source found for address ${params.address}`));
       }
 
       // Extract derived addresses from importResultMetadata (not importParams)
@@ -364,6 +366,27 @@ export class BalanceHandler {
 
       // Fetch and sum balances from all derived addresses
       return fetchBitcoinXpubBalance(
+        this.providerManager,
+        this.tokenMetadataRepository,
+        params.address,
+        derivedAddresses,
+        params.providerName
+      );
+    }
+
+    // Special handling for Cardano xpub addresses
+    if (params.sourceName === 'cardano' && CardanoUtils.isExtendedPublicKey(params.address)) {
+      logger.info('Detected Cardano xpub address, fetching derived addresses from session');
+
+      const derivedAddressesResult = await this.getDerivedAddressesFromSession(params);
+      if (derivedAddressesResult.isErr()) {
+        return err(derivedAddressesResult.error);
+      }
+
+      const derivedAddresses = derivedAddressesResult.value;
+      logger.info(`Fetching balances for ${derivedAddresses.length} Cardano derived addresses`);
+
+      return fetchCardanoXpubBalance(
         this.providerManager,
         this.tokenMetadataRepository,
         params.address,

@@ -14,6 +14,7 @@ export {
   fetchExchangeBalance,
   fetchBlockchainBalance,
   fetchBitcoinXpubBalance,
+  fetchCardanoXpubBalance,
   convertBalancesToDecimals,
   type UnifiedBalanceSnapshot,
 } from './services/balance/balance-utils.js';

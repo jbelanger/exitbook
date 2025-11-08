@@ -117,6 +117,11 @@ export class CardanoUtils {
 
       const derivedAddresses: DerivedCardanoAddress[] = [];
 
+      // Derive the stake key at CIP-1852 path: account'/2/0
+      // This single stake key is used for all addresses in the account
+      const stakeKey = accountPublicKey.derive([2, 0]);
+      const stakeCredential = stakeKey.toRawKey().hash().hex() as string;
+
       // Derive addresses for both external (role=0) and internal/change (role=1)
       for (const roleIndex of [0, 1]) {
         const role: 'external' | 'internal' = roleIndex === 0 ? 'external' : 'internal';
@@ -129,21 +134,15 @@ export class CardanoUtils {
           // Derive the address-level key (soft derivation)
           const addressKey = roleKey.derive([addressIndex]);
 
-          // Generate Shelley-era mainnet payment address
-          // Using a placeholder stake credential - in practice, users would provide their own stake key
-          // For balance checking and transaction history, we only need the payment part
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Cardano SDK hash() method has loose typing
-          const paymentCredential = addressKey.hash();
+          // Generate Shelley-era mainnet payment address following CIP-1852
+          const paymentCredential = addressKey.toRawKey().hash().hex() as string;
 
-          // Create a base address with payment credential only (enterprise-style)
-          // Note: This creates addresses without staking delegation
-          // In production, proper staking keys should be used for full functionality
+          // Create a base address with proper payment and stake credentials
+          // Payment key is unique per address, stake key is shared across all addresses in account
           const baseAddress = Cardano.BaseAddress.fromCredentials(
             Cardano.NetworkId.Mainnet,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Cardano SDK Credential type has loose hash typing
-            { hash: paymentCredential, type: Cardano.CredentialType.KeyHash }, // Payment credential
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Cardano SDK Credential type has loose hash typing
-            { hash: paymentCredential, type: Cardano.CredentialType.KeyHash } // Using same hash for stake (placeholder)
+            { hash: paymentCredential, type: Cardano.CredentialType.KeyHash }, // Payment credential (unique)
+            { hash: stakeCredential, type: Cardano.CredentialType.KeyHash } // Stake credential (shared at 2/0)
           );
 
           const bech32Address = baseAddress.toAddress().toBech32() as string;
