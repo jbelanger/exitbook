@@ -8,7 +8,6 @@ import type {
 } from '@exitbook/providers';
 import { BitcoinUtils, generateUniqueTransactionId } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
-import * as bitcoin from 'bitcoinjs-lib';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ImportParams, IImporter, ImportRunResult } from '../../../types/importers.js';
@@ -169,11 +168,6 @@ export class BitcoinTransactionImporter implements IImporter {
    * Initialize an xpub wallet using BitcoinUtils.
    */
   private async initializeXpubWallet(walletAddress: BitcoinWalletAddress): Promise<Result<void, Error>> {
-    return BitcoinUtils.initializeXpubWallet(
-      walletAddress,
-      bitcoin.networks.bitcoin, // Always use mainnet
-      this.providerManager,
-      this.addressGap
-    );
+    return BitcoinUtils.initializeXpubWallet(walletAddress, 'bitcoin', this.providerManager, this.addressGap);
   }
 }

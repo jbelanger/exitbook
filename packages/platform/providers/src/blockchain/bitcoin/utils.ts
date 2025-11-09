@@ -6,6 +6,7 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { BlockchainProviderManager } from '../../shared/blockchain/provider-manager.js';
 
+import { getNetworkForChain } from './network-registry.js';
 import type { AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from './types.js';
 
 const logger = getLogger('BitcoinUtils');
@@ -126,7 +127,7 @@ export class BitcoinUtils {
    */
   static async initializeXpubWallet(
     walletAddress: BitcoinWalletAddress,
-    network: bitcoin.Network,
+    blockchain: string,
     providerManager: BlockchainProviderManager,
     addressGap = 20
   ): Promise<Result<void, Error>> {
@@ -134,7 +135,7 @@ export class BitcoinUtils {
       // Smart detection to determine the correct account type
       const { addressFunction, addressType, bipStandard, hdNode } = await this.smartDetectAccountType(
         walletAddress.address,
-        network,
+        blockchain,
         providerManager
       );
 
@@ -172,7 +173,7 @@ export class BitcoinUtils {
       );
 
       // Perform BIP44-compliant intelligent gap scanning
-      const scanResult = await this.performAddressGapScanning(walletAddress, providerManager);
+      const scanResult = await this.performAddressGapScanning(walletAddress, blockchain, providerManager);
       if (scanResult.isErr()) {
         return err(scanResult.error);
       }
@@ -206,6 +207,7 @@ export class BitcoinUtils {
    */
   static async performAddressGapScanning(
     walletAddress: BitcoinWalletAddress,
+    blockchain: string,
     providerManager: BlockchainProviderManager
   ): Promise<Result<void, Error>> {
     const allDerived = walletAddress.derivedAddresses || [];
@@ -224,7 +226,7 @@ export class BitcoinUtils {
       if (!address) continue; // Skip invalid addresses
 
       // Check if address has transactions using provider manager
-      const result = await providerManager.executeWithFailover('bitcoin', {
+      const result = await providerManager.executeWithFailover(blockchain, {
         address,
         getCacheKey: (params) => `bitcoin:has-txs:${(params as { address: string }).address}`,
         type: 'hasAddressTransactions',
@@ -294,9 +296,10 @@ export class BitcoinUtils {
    */
   static async smartDetectAccountType(
     xpub: string,
-    network: bitcoin.Network,
+    blockchain: string,
     providerManager: BlockchainProviderManager
   ): Promise<SmartDetectionResult> {
+    const network = getNetworkForChain(blockchain);
     logger.info('Intelligently detecting account type from xpub...');
 
     // Handle unambiguous cases
@@ -334,7 +337,7 @@ export class BitcoinUtils {
 
         logger.debug(`Checking Legacy address for activity: ${firstLegacyAddress}`);
 
-        const legacyResult = await providerManager.executeWithFailover('bitcoin', {
+        const legacyResult = await providerManager.executeWithFailover(blockchain, {
           address: firstLegacyAddress,
           type: 'hasAddressTransactions',
         });
@@ -370,7 +373,7 @@ export class BitcoinUtils {
 
         logger.debug(`Checking Native SegWit address for activity: ${firstSegwitAddress}`);
 
-        const segwitResult = await providerManager.executeWithFailover('bitcoin', {
+        const segwitResult = await providerManager.executeWithFailover(blockchain, {
           address: firstSegwitAddress,
           type: 'hasAddressTransactions',
         });
