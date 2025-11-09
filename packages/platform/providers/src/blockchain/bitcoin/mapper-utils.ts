@@ -7,6 +7,7 @@ import type { NormalizationError } from '../../shared/blockchain/index.ts';
 import type { BlockchainComTransaction } from './blockchain-com/blockchain-com.schemas.js';
 import type { BlockCypherTransaction } from './blockcypher/blockcypher.schemas.js';
 import type { BlockstreamTransaction } from './blockstream/blockstream.schemas.js';
+import type { BitcoinChainConfig } from './chain-config.interface.js';
 import type { MempoolTransaction } from './mempool-space/mempool-space.schemas.js';
 import type { BitcoinTransaction, BitcoinTransactionInput, BitcoinTransactionOutput } from './schemas.js';
 import type { TatumBitcoinTransaction } from './tatum/tatum.schemas.js';
@@ -28,7 +29,8 @@ export function satoshisToBtcString(satoshis: number): string {
  */
 export function mapBlockstreamTransaction(
   rawData: BlockstreamTransaction,
-  _sourceContext: SourceMetadata
+  _sourceContext: SourceMetadata,
+  chainConfig: BitcoinChainConfig
 ): Result<BitcoinTransaction, NormalizationError> {
   const timestamp =
     rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time.getTime() : Date.now();
@@ -47,7 +49,7 @@ export function mapBlockstreamTransaction(
   }));
 
   const normalized: BitcoinTransaction = {
-    currency: 'BTC',
+    currency: chainConfig.nativeCurrency,
     id: rawData.txid,
     inputs,
     outputs,
@@ -64,7 +66,7 @@ export function mapBlockstreamTransaction(
   }
   if (rawData.fee > 0) {
     normalized.feeAmount = satoshisToBtcString(rawData.fee);
-    normalized.feeCurrency = 'BTC';
+    normalized.feeCurrency = chainConfig.nativeCurrency;
   }
 
   return ok(normalized);
@@ -75,7 +77,8 @@ export function mapBlockstreamTransaction(
  */
 export function mapMempoolSpaceTransaction(
   rawData: MempoolTransaction,
-  _sourceContext: SourceMetadata
+  _sourceContext: SourceMetadata,
+  chainConfig: BitcoinChainConfig
 ): Result<BitcoinTransaction, NormalizationError> {
   const timestamp =
     rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time.getTime() : Date.now();
@@ -94,7 +97,7 @@ export function mapMempoolSpaceTransaction(
   }));
 
   const normalized: BitcoinTransaction = {
-    currency: 'BTC',
+    currency: chainConfig.nativeCurrency,
     id: rawData.txid,
     inputs,
     outputs,
@@ -111,7 +114,7 @@ export function mapMempoolSpaceTransaction(
   }
   if (rawData.fee > 0) {
     normalized.feeAmount = satoshisToBtcString(rawData.fee);
-    normalized.feeCurrency = 'BTC';
+    normalized.feeCurrency = chainConfig.nativeCurrency;
   }
 
   return ok(normalized);
@@ -122,7 +125,8 @@ export function mapMempoolSpaceTransaction(
  */
 export function mapTatumTransaction(
   rawData: TatumBitcoinTransaction,
-  _sourceContext: SourceMetadata
+  _sourceContext: SourceMetadata,
+  chainConfig: BitcoinChainConfig
 ): Result<BitcoinTransaction, NormalizationError> {
   const timestamp = rawData.time * 1000;
 
@@ -140,7 +144,7 @@ export function mapTatumTransaction(
   }));
 
   const normalized: BitcoinTransaction = {
-    currency: 'BTC',
+    currency: chainConfig.nativeCurrency,
     id: rawData.hash,
     inputs,
     outputs,
@@ -158,7 +162,7 @@ export function mapTatumTransaction(
   if (rawData.fee > 0) {
     const btcFee = parseDecimal(rawData.fee.toFixed()).div(100000000).toFixed();
     normalized.feeAmount = btcFee;
-    normalized.feeCurrency = 'BTC';
+    normalized.feeCurrency = chainConfig.nativeCurrency;
   }
 
   return ok(normalized);
@@ -169,7 +173,8 @@ export function mapTatumTransaction(
  */
 export function mapBlockchainComTransaction(
   rawData: BlockchainComTransaction,
-  _sourceContext: SourceMetadata
+  _sourceContext: SourceMetadata,
+  chainConfig: BitcoinChainConfig
 ): Result<BitcoinTransaction, NormalizationError> {
   const timestamp = rawData.time * 1000;
 
@@ -187,7 +192,7 @@ export function mapBlockchainComTransaction(
   }));
 
   const normalized: BitcoinTransaction = {
-    currency: 'BTC',
+    currency: chainConfig.nativeCurrency,
     id: rawData.hash,
     inputs,
     outputs,
@@ -201,7 +206,7 @@ export function mapBlockchainComTransaction(
   }
   if (rawData.fee > 0) {
     normalized.feeAmount = satoshisToBtcString(rawData.fee);
-    normalized.feeCurrency = 'BTC';
+    normalized.feeCurrency = chainConfig.nativeCurrency;
   }
 
   return ok(normalized);
@@ -212,7 +217,8 @@ export function mapBlockchainComTransaction(
  */
 export function mapBlockCypherTransaction(
   rawData: BlockCypherTransaction,
-  _sourceContext: SourceMetadata
+  _sourceContext: SourceMetadata,
+  chainConfig: BitcoinChainConfig
 ): Result<BitcoinTransaction, NormalizationError> {
   const timestamp = rawData.confirmed ? new Date(rawData.confirmed).getTime() : Date.now();
 
@@ -230,7 +236,7 @@ export function mapBlockCypherTransaction(
   }));
 
   const normalized: BitcoinTransaction = {
-    currency: 'BTC',
+    currency: chainConfig.nativeCurrency,
     id: rawData.hash,
     inputs,
     outputs,
@@ -247,7 +253,7 @@ export function mapBlockCypherTransaction(
   }
   if (rawData.fees > 0) {
     normalized.feeAmount = satoshisToBtcString(rawData.fees);
-    normalized.feeCurrency = 'BTC';
+    normalized.feeCurrency = chainConfig.nativeCurrency;
   }
 
   return ok(normalized);
