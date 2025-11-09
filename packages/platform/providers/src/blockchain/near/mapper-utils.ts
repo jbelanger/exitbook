@@ -219,14 +219,29 @@ export function mapNearBlocksFtTransactionToTokenTransfer(
   // Normalize amount by decimals
   const rawAmount = validatedFtTx.delta_amount || '0';
   const decimals = validatedFtTx.ft.decimals;
-  const normalizedAmount = parseDecimal(rawAmount).div(parseDecimal('10').pow(decimals));
+  const deltaAmount = parseDecimal(rawAmount);
+  const normalizedAmount = deltaAmount.div(parseDecimal('10').pow(decimals));
 
-  // Determine from/to based on affected_account_id and involved_account_id
-  // If affected_account_id matches the queried account, they are the receiver (INBOUND)
-  // If involved_account_id matches the queried account, they are the sender (OUTBOUND)
-  const isInbound = validatedFtTx.affected_account_id === accountId;
-  const from = isInbound ? validatedFtTx.involved_account_id || validatedFtTx.ft.contract : accountId;
-  const to = isInbound ? accountId : validatedFtTx.involved_account_id || validatedFtTx.ft.contract;
+  // Determine direction using the delta sign; NearBlocks always returns the queried
+  // account as affected_account_id and uses a negative delta for outbound transfers.
+  const hasPositiveDelta = deltaAmount.greaterThan(0);
+  const hasNegativeDelta = deltaAmount.lessThan(0);
+
+  let from: string | undefined;
+  let to: string | undefined;
+
+  if (hasPositiveDelta) {
+    from = validatedFtTx.involved_account_id || validatedFtTx.ft.contract;
+    to = accountId;
+  } else if (hasNegativeDelta) {
+    from = accountId;
+    to = validatedFtTx.involved_account_id || validatedFtTx.ft.contract;
+  } else {
+    // Fallback to previous heuristic when NearBlocks does not provide a direction signal.
+    const affectedAccountMatchesQuery = validatedFtTx.affected_account_id === accountId;
+    from = affectedAccountMatchesQuery ? validatedFtTx.involved_account_id || validatedFtTx.ft.contract : accountId;
+    to = affectedAccountMatchesQuery ? accountId : validatedFtTx.involved_account_id || validatedFtTx.ft.contract;
+  }
 
   const tokenTransfer: NearTokenTransfer = {
     amount: normalizedAmount.abs().toFixed(),
