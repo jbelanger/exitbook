@@ -93,7 +93,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
-          source: this.sourceId,
+          source: this.chainConfig.chainName,
           status: normalizedTx.status,
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,
@@ -142,7 +142,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
           },
 
           blockchain: {
-            name: this.sourceId,
+            name: this.chainConfig.chainName,
             block_height: normalizedTx.blockHeight,
             transaction_hash: normalizedTx.id,
             is_confirmed: normalizedTx.status === 'success',
