@@ -1,5 +1,6 @@
 import type { ExternalTransaction } from '@exitbook/core';
 import type {
+  BitcoinChainConfig,
   BitcoinTransaction,
   BitcoinWalletAddress,
   BlockchainProviderManager,
@@ -18,6 +19,7 @@ import type { ImportParams, IImporter, ImportRunResult } from '../../../types/im
  * Uses provider manager for failover between multiple blockchain API providers.
  */
 export class BitcoinTransactionImporter implements IImporter {
+  private readonly chainConfig: BitcoinChainConfig;
   private readonly logger: Logger;
   private addressGap: number;
   private addressInfoCache = new Map<string, { balance: string; txCount: number }>();
@@ -25,10 +27,12 @@ export class BitcoinTransactionImporter implements IImporter {
   private walletAddresses: BitcoinWalletAddress[] = [];
 
   constructor(
+    chainConfig: BitcoinChainConfig,
     blockchainProviderManager: BlockchainProviderManager,
     options?: { addressGap?: number; preferredProvider?: string | undefined }
   ) {
-    this.logger = getLogger('bitcoinImporter');
+    this.chainConfig = chainConfig;
+    this.logger = getLogger(`${this.chainConfig.chainName}Importer`);
 
     if (!blockchainProviderManager) {
       throw new Error('Provider manager required for Bitcoin importer');
@@ -37,10 +41,10 @@ export class BitcoinTransactionImporter implements IImporter {
     this.providerManager = blockchainProviderManager;
     this.addressGap = options?.addressGap || 20;
 
-    this.providerManager.autoRegisterFromConfig('bitcoin', options?.preferredProvider);
+    this.providerManager.autoRegisterFromConfig(this.chainConfig.chainName, options?.preferredProvider);
 
     this.logger.info(
-      `Initialized Bitcoin transaction importer - AddressGap: ${this.addressGap}, ProvidersCount: ${this.providerManager.getProviders('bitcoin').length}`
+      `Initialized Bitcoin transaction importer - AddressGap: ${this.addressGap}, ProvidersCount: ${this.providerManager.getProviders(this.chainConfig.chainName).length}`
     );
   }
 
@@ -100,10 +104,10 @@ export class BitcoinTransactionImporter implements IImporter {
    * Fetch raw transactions for a single address with provider provenance.
    */
   private async fetchRawTransactionsForAddress(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
-    const result = await this.providerManager.executeWithFailover('bitcoin', {
+    const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
       address: address,
       getCacheKey: (params) =>
-        `bitcoin:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? 'all' : 'unknown'}`,
+        `${this.chainConfig.chainName}:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? 'all' : 'unknown'}`,
       type: 'getAddressTransactions',
     });
 
@@ -168,6 +172,11 @@ export class BitcoinTransactionImporter implements IImporter {
    * Initialize an xpub wallet using BitcoinUtils.
    */
   private async initializeXpubWallet(walletAddress: BitcoinWalletAddress): Promise<Result<void, Error>> {
-    return BitcoinUtils.initializeXpubWallet(walletAddress, 'bitcoin', this.providerManager, this.addressGap);
+    return BitcoinUtils.initializeXpubWallet(
+      walletAddress,
+      this.chainConfig.chainName,
+      this.providerManager,
+      this.addressGap
+    );
   }
 }

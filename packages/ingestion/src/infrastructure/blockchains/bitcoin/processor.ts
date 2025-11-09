@@ -1,6 +1,6 @@
 import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
-import type { BitcoinTransaction } from '@exitbook/providers';
+import type { BitcoinChainConfig, BitcoinTransaction } from '@exitbook/providers';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
@@ -13,8 +13,11 @@ import { analyzeBitcoinFundFlow, determineBitcoinTransactionType } from './proce
  * processors based on data provenance. Optimized for multi-address processing using session context.
  */
 export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
-  constructor() {
-    super('bitcoin');
+  private readonly chainConfig: BitcoinChainConfig;
+
+  constructor(chainConfig: BitcoinChainConfig) {
+    super(chainConfig.chainName);
+    this.chainConfig = chainConfig;
   }
 
   /**
@@ -90,7 +93,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
-          source: 'bitcoin',
+          source: this.sourceId,
           status: normalizedTx.status,
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,
@@ -104,7 +107,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             outflows: hasOutflow
               ? [
                   {
-                    asset: 'BTC',
+                    asset: this.chainConfig.nativeCurrency,
                     grossAmount: grossOutflowAmount,
                     netAmount: netOutflowAmount,
                   },
@@ -113,7 +116,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             inflows: includeWalletOutputAsInflow
               ? [
                   {
-                    asset: 'BTC',
+                    asset: this.chainConfig.nativeCurrency,
                     grossAmount: walletOutputAmount,
                     netAmount: walletOutputAmount,
                   },
@@ -125,7 +128,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             userPaidFee && !feeAmount.isZero()
               ? [
                   {
-                    asset: normalizedTx.feeCurrency || 'BTC',
+                    asset: normalizedTx.feeCurrency || this.chainConfig.nativeCurrency,
                     amount: feeAmount,
                     scope: 'network',
                     settlement: 'on-chain',
@@ -139,7 +142,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
           },
 
           blockchain: {
-            name: 'bitcoin',
+            name: this.sourceId,
             block_height: normalizedTx.blockHeight,
             transaction_hash: normalizedTx.id,
             is_confirmed: normalizedTx.status === 'success',
