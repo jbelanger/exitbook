@@ -2,7 +2,7 @@ import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
 import { Currency } from '../types/currency.js';
-import { parseDecimal } from '../utils/decimal-utils.js';
+import { parseDecimal, tryParseDecimal } from '../utils/decimal-utils.js';
 
 // Decimal schema - accepts string, number, or Decimal instance, transforms to Decimal
 // Used for parsing from DB (strings), API responses (numbers with scientific notation), or validating in-memory objects (Decimal instances)
@@ -19,7 +19,7 @@ export const DecimalStringSchema = z
     (val) => {
       if (val instanceof Decimal) return true;
       if (val === '') return false;
-      return parseDecimal(val) !== undefined;
+      return tryParseDecimal(val);
     },
     {
       message: 'Must be a valid numeric string or number',
