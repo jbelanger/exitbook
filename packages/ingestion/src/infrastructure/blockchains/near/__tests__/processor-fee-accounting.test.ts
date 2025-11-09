@@ -19,12 +19,27 @@ function createProcessor() {
   return new NearTransactionProcessor(mockTokenMetadataService);
 }
 
+function buildNearTx(overrides: Partial<NearTransaction> = {}): NearTransaction {
+  return {
+    amount: '0',
+    currency: 'NEAR',
+    from: USER_ADDRESS,
+    id: 'test-tx',
+    providerName: 'nearblocks',
+    status: 'success',
+    timestamp: Date.now(),
+    to: EXTERNAL_ADDRESS,
+    type: 'transfer',
+    ...overrides,
+  };
+}
+
 describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
   test('deducts fee when user sends NEAR (outgoing transfer)', async () => {
     const processor = createProcessor();
 
     const normalizedData: NearTransaction[] = [
-      {
+      buildNearTx({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -33,16 +48,10 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         amount: '2000000000000000000000000',
-        currency: 'NEAR',
         feeAmount: '0.0001', // 100,000,000,000,000,000,000 yoctoNEAR
         feeCurrency: 'NEAR',
-        from: USER_ADDRESS,
         id: 'tx1abc',
-        providerName: 'nearblocks',
-        status: 'success',
-        timestamp: Date.now(),
-        to: EXTERNAL_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, { address: USER_ADDRESS });
@@ -83,6 +92,7 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
         from: EXTERNAL_ADDRESS,
         id: 'tx2def',
         providerName: 'nearblocks',
+        type: 'transfer',
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
@@ -133,6 +143,7 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
         from: USER_ADDRESS,
         id: 'tx3ghi',
         providerName: 'nearblocks',
+        type: 'transfer',
         status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
@@ -182,6 +193,7 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
         from: USER_ADDRESS,
         id: 'tx4jkl',
         providerName: 'nearblocks',
+        type: 'transfer',
         status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
@@ -235,6 +247,7 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
         from: USER_ADDRESS,
         id: 'tx5mno',
         providerName: 'nearblocks',
+        type: 'transfer',
         status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
@@ -277,6 +290,7 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
         from: EXTERNAL_ADDRESS,
         id: 'tx6pqr',
         providerName: 'nearblocks',
+        type: 'transfer',
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,

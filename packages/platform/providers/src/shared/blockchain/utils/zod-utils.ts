@@ -97,3 +97,10 @@ export const timestampToDate = z.union([z.number().nonnegative(), z.string(), z.
   }
   return date;
 });
+
+/**
+ * Numeric string validator for amounts/values
+ */
+export const numericString = z
+  .string()
+  .refine((val) => !isNaN(parseFloat(val)) && isFinite(parseFloat(val)), { message: 'Must be a valid numeric string' });

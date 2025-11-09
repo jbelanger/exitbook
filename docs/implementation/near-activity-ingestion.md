@@ -2,99 +2,240 @@
 
 ## Overview
 
-- **Goal:** make NEAR balance verification and cost-basis accurate by enriching normalized transactions with native balance deltas (`accountChanges`) and NEP-141 token transfers (`tokenTransfers`).
-- **Why now:** NearBlocks deprecated the `/txns` endpoint and recommends `/txns-only`, `/receipts`, `/activity`, and `/ft-txns`. Our current mapper only consumes `/txns`, so every processed transaction lacks balance movements, leading to balance mismatches (live: 231.371389 NEAR vs. calculated: –0.000021 NEAR).
-- **Desired outcome:** a reworked provider/importer pipeline that stitches the four endpoints per address, producing complete `NearTransaction` objects so `analyzeNearFundFlow` can compute inflows/outflows with no fallback heuristics.
+**Goal:** Make NEAR balance verification and cost-basis accurate by enriching transactions with native balance deltas (`accountChanges`) and NEP-141 token transfers.
 
-## Current Limitations
+**Problem:** NearBlocks deprecated `/txns` endpoint. Our current implementation only fetches basic transaction metadata, missing balance movements. This leads to mismatches (live: 231.371389 NEAR vs. calculated: –0.000021 NEAR).
 
-1. `mapNearBlocksTransaction` only copies top-level action/fee info; `accountChanges` and `tokenTransfers` remain undefined.
-2. Processor relies exclusively on `accountChanges` to determine NEAR inflows/outflows. With an empty array it records zero movements and only captures network fees.
-3. Cost-basis and balance reconciliation therefore collapse to fees-only, and sessions persist mismatches even though the raw chain data contains the correct balances.
+**Solution:** Update NearBlocks provider to use the new multi-endpoint architecture, with all enrichment happening internally in the provider layer.
 
-## Target Data Sources
+## Architecture
 
-| Endpoint                          | Purpose                         | Notes                                                                                                                                               |
-| --------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/v1/account/{account}/txns-only` | Base transaction metadata       | Replace existing `/txns` pagination. Includes actions, fee aggregates, signer/receiver.                                                             |
-| `/v1/account/{account}/receipts`  | Receipt-level execution context | Use to map receipt IDs → transaction hash, executor, gas burned. Needed to correlate activities.                                                    |
-| `/v1/account/{account}/activity`  | Native NEAR balance deltas      | Provides `direction`, `absolute_nonstaked_amount`, and counterparty for every receipt affecting the account. Converts directly to `accountChanges`. |
-| `/v1/account/{account}/ft-txns`   | NEP-141 transfers               | Provides contract address, sender, receiver, raw amount, decimals. Maps to `tokenTransfers` entries used by processor-utils.                        |
+### Standard Operation Model
 
-## Implementation Plan
+The system supports three standard blockchain operations:
 
-### 1. Provider Layer (`packages/platform/providers/src/blockchain/near`)
+1. **`getAddressTransactions`** - Native blockchain transactions (NEAR transfers, function calls)
+2. **`getAddressTokenTransactions`** - Token transfers (NEP-141 fungible tokens)
+3. **`getAddressInternalTransactions`** - Internal transactions (not applicable to NEAR)
 
-1. **Schemas:**
-   - Add Zod schemas for the new endpoints (activity + ft transactions + receipts-without-tx hash if not already defined) in `nearblocks/nearblocks.schemas.ts`.
-   - Include direction enums (`INBOUND`/`OUTBOUND`) and numeric strings for yocto amounts.
-2. **Mapper Utilities:**
-   - Add helpers to convert activity rows → `NearAccountChange` with signed yocto deltas → NEAR decimals.
-   - Add helpers to convert ft transactions → `NearTokenTransfer` (normalize amounts by decimals, handle missing symbols using contract addresses).
-3. **API Client:**
-   - Extend `NearBlocksApiClient` with operations `getAccountReceipts`, `getAccountActivities`, `getAccountFtTransactions`.
-   - Update `execute` to allow a combined multi-fetch (or expose dedicated methods the importer can call directly).
-   - Ensure pagination (all endpoints appear to mirror `/txns` pagination). Respect existing rate-limit config.
-4. **Return Type:**
-   - Introduce a new provider-level DTO (e.g., `NearBlocksAccountDataPackage`) bundling transactions, receipts, activities, and ft transfers keyed by transaction hash. This keeps importer logic straightforward while preserving API boundaries.
+### Endpoint Mapping
 
-### 2. Ingestion Layer (Importer) (`packages/ingestion/src/infrastructure/blockchains/near/importer.ts`)
+| NearBlocks Endpoint               | Operation                       | Purpose                                                    |
+| --------------------------------- | ------------------------------- | ---------------------------------------------------------- |
+| `/v1/account/{account}/txns-only` | `getAddressTransactions`        | Base transaction metadata (actions, fees, signer/receiver) |
+| `/v1/account/{account}/activity`  | `getAddressTransactions` (data) | NEAR balance deltas to populate `accountChanges`           |
+| `/v1/account/{account}/receipts`  | `getAddressTransactions` (data) | Receipt-level context to correlate activities to txns      |
+| `/v1/account/{account}/ft-txns`   | `getAddressTokenTransactions`   | NEP-141 token transfers                                    |
 
-1. After `getAddressTransactions`, invoke new provider methods to fetch receipts, activities, and ft transfers for the same address and time window.
-2. Build an in-memory index:
-   - `txHash → receipts[]`
-   - `receiptId → activities[]`
-   - `txHash → ftTransfers[]`
-3. For each base transaction:
-   - Attach `accountChanges` derived by aggregating activities whose `receipt_id` links to the transaction. Convert yocto strings to NEAR decimals and compute signed deltas: inbound → positive, outbound → negative.
-   - Attach `tokenTransfers` derived from `ft-txns` entries where `transaction_hash` matches.
-4. Preserve provider provenance (include `providerName` in new metadata) before handing the enriched `NearTransaction` to the processor.
+### Key Principle: Provider Layer Owns Enrichment
 
-### 3. Processor Layer (`packages/ingestion/src/infrastructure/blockchains/near/processor-utils.ts`)
+**All provider-specific logic stays in the provider layer.** The provider internally:
 
-1. Confirm `analyzeNearBalanceChanges` can consume the new `accountChanges` shape (if we change schema). Update types if necessary.
-2. Ensure token transfers populated from `/ft-txns` propagate through `extractNearTokenTransfers`.
-3. Add regression tests covering:
-   - Simple inbound transfer (activity direction INBOUND, no tokens).
-   - Outbound transfer with fee (activity OUTBOUND + fee deduction).
-   - Token swap (token transfer inflow/outflow + NEAR fee-only activity) to validate multi-asset fund flow.
+- Fetches data from multiple endpoints
+- Correlates activities/receipts to transactions via receipt IDs
+- Maps raw API responses to normalized `NearTransaction` objects
+- Returns complete transactions with `accountChanges` and `tokenTransfers` populated
 
-### 4. Data Schema & Types (`packages/platform/providers/src/blockchain/near/schemas.ts`)
+**The importer never sees provider-specific types** like `NearBlocksActivity`, `NearBlocksReceipt`, etc. It only works with normalized blockchain types.
 
-1. Extend `NearAccountChange` to allow optional `direction` / `delta` fields if we cannot compute `preBalance`/`postBalance`. Processor currently expects pre/post strings; if the API does not supply them, store `preBalance`/`postBalance` as synthesized cumulative values (e.g., treat `preBalance = delta < 0 ? |delta| : '0'` etc.) and document the convention.
-2. Update `NearTransactionSchema` to require `accountChanges` when the user is involved to catch regressions.
+## Implementation
 
-### 5. Tests
+### 1. Provider Layer (`packages/platform/providers/src/blockchain/near/nearblocks/`)
 
-1. **Provider tests:**
-   - Unit tests for new schema parsers and mapper functions (activity → account change, ft tx → token transfer).
-   - Update `nearblocks.api-client.test.ts` to cover the additional HTTP calls and pagination logic.
-2. **Ingestion tests:**
-   - Extend `packages/ingestion/.../__tests__/importer.test.ts` with fixture data representing the four endpoints to ensure the importer emits enriched transactions.
-   - Add processor integration tests verifying calculated balances for the sample address now match the sum of activity deltas.
+**Status: Partially complete**
 
-### 6. Rollout & Verification
+#### Schemas (`nearblocks.schemas.ts`)
 
-1. Re-run `pnpm run dev import --blockchain near --address <address> --process` and verify the session summary now shows matching calculated/live balances.
-2. Add a regression CLI test (or documented manual step) using the provided address `3c49...f5fcc` to demonstrate parity with live balance 231.3713894597364556 NEAR.
-3. Monitor logs for rate-limit warnings; NearBlocks endpoints may require increasing burst limits once we hit four endpoints per address.
+- ✅ `NearBlocksActivitySchema` - Activity rows with INBOUND/OUTBOUND direction
+- ✅ `NearBlocksFtTransactionSchema` - Token transfer data with decimals
+- ✅ `NearBlocksReceiptSchema` - Receipt correlation data
+- ✅ Updated `NearBlocksTransactionSchema` to use `/txns-only` endpoint
 
-## Validation Checklist
+#### Mapper Utilities (`mapper-utils.ts`)
 
-- [ ] `npm run lint` passes (schema updates).
-- [ ] `pnpm test` passes (new provider + importer tests).
-- [ ] Manual CLI balance check matches live value for at least one historical address.
-- [ ] Database `transactions.movements_*` columns show inflow/outflow JSON entries instead of null.
+- ✅ `mapNearBlocksActivityToAccountChange()` - Converts activity → `NearAccountChange` with signed deltas
+- ✅ `mapNearBlocksFtTransactionToTokenTransfer()` - Converts FT tx → `NearTokenTransfer`
+- ✅ `mapNearBlocksTransaction()` - Base transaction mapping
 
-## Open Questions / Risks
+#### API Client (`nearblocks.api-client.ts`)
 
-1. **Pagination volume:** Need to confirm `activity` and `ft-txns` endpoints expose enough history (≥ 1000 rows) or provide cursors. If not, importer must page until empty response, similar to `txns`.
-2. **Pre/post balances:** Activity payloads only provide absolute deltas, not `preBalance`. If that becomes an issue, revisit processor to accept signed deltas directly instead of pre/post values.
-3. **Token metadata:** `/ft-txns` does not supply symbol/decimals consistently. Continue using contract metadata service if symbol missing; store contract address in `tokenTransfers.contractAddress` for lookup.
-4. **Performance:** Fetching four endpoints sequentially may increase import time. Consider concurrency inside provider manager, but keep requests serialized per provider until rate-limit behavior is confirmed.
+**Current state:**
 
-## Next Steps
+- ✅ Uses `/txns-only` endpoint instead of deprecated `/txns`
+- ✅ Has `getAccountReceipts()`, `getAccountActivities()`, `getAccountFtTransactions()` methods
+- ❌ `getAddressTransactions()` does not fetch or merge enrichment data
+- ❌ No `getAddressTokenTransactions()` operation registered
 
-1. Approve this plan.
-2. Implement provider-layer changes, then importer, then processor tests.
-3. Re-run NEAR balance verification to confirm parity.
+**Required changes:**
+
+1. **Update `getAddressTransactions()` to enrich internally:**
+
+   ```typescript
+   private async getAddressTransactions(params: { address: string }) {
+     // 1. Fetch base transactions from /txns-only (paginated)
+     // 2. Fetch activities from /activity (paginated)
+     // 3. Fetch receipts from /receipts (paginated)
+     // 4. Build correlation maps:
+     //    - receiptId → transaction_hash (from receipts)
+     //    - receiptId → activities[] (from activities)
+     // 5. For each transaction:
+     //    - Find receipts with matching transaction_hash
+     //    - Find activities with matching receipt_id
+     //    - Aggregate activities to create accountChanges[]
+     //    - Use mapNearBlocksActivityToAccountChange()
+     // 6. Return TransactionWithRawData<NearTransaction>[]
+   }
+   ```
+
+2. **Add `getAddressTokenTransactions()` operation:**
+
+   ```typescript
+   private async getAddressTokenTransactions(params: { address: string }) {
+     // 1. Fetch from /ft-txns (paginated)
+     // 2. Map each FT transaction using mapNearBlocksFtTransactionToTokenTransfer()
+     // 3. Return TransactionWithRawData<NearTokenTransfer>[] or similar
+   }
+   ```
+
+3. **Update registration decorator:**
+
+   ```typescript
+   @RegisterApiClient({
+     capabilities: {
+       supportedOperations: [
+         'getAddressTransactions',
+         'getAddressTokenTransactions',  // ADD THIS
+         'getAddressBalances'
+       ],
+     },
+     // ... rest of config
+   })
+   ```
+
+4. **Update `execute()` method:**
+   ```typescript
+   switch (operation.type) {
+     case 'getAddressTransactions':
+       return await this.getAddressTransactions({ address: operation.address });
+     case 'getAddressTokenTransactions':
+       return await this.getAddressTokenTransactions({ address: operation.address });
+     case 'getAddressBalances':
+       return await this.getAddressBalances({ address: operation.address });
+   }
+   ```
+
+### 2. Importer Layer (`packages/ingestion/src/infrastructure/blockchains/near/importer.ts`)
+
+**Required changes:**
+
+1. **Remove all provider-specific type imports:**
+   - ❌ Delete imports: `NearBlocksActivity`, `NearBlocksFtTransaction`, `NearBlocksReceipt`
+   - ❌ Delete imports: `mapNearBlocksActivityToAccountChange`, `mapNearBlocksFtTransactionToTokenTransfer`
+   - ✅ Only import normalized types: `NearTransaction`, `NearAccountChange`, `NearTokenTransfer`
+
+2. **Simplify `fetchTransactionsWithEnrichment()`:**
+
+   ```typescript
+   // OLD (wrong - importer does enrichment):
+   const txsResult = await getAddressTransactions();
+   const activitiesResult = await getAccountActivities();
+   const receiptsResult = await getAccountReceipts();
+   // ... build maps, correlate, enrich ...
+
+   // NEW (correct - provider does enrichment):
+   const txsResult = await getAddressTransactions();
+   // Transactions already have accountChanges populated
+   return txsResult;
+   ```
+
+3. **Add token transfer fetching:**
+   ```typescript
+   // In fetchTransactionsWithEnrichment or separate method:
+   const tokenTxsResult = await providerManager.execute({
+     type: 'getAddressTokenTransactions',
+     address: accountId,
+   });
+   // Token transfers come back normalized, ready to store
+   ```
+
+### 3. Schema Updates (`packages/platform/providers/src/blockchain/near/schemas.ts`)
+
+**No changes needed.** The `NearTransaction` schema already supports:
+
+- `accountChanges?: NearAccountChange[]`
+- `tokenTransfers?: NearTokenTransfer[]`
+
+These are optional because not all transaction types have balance changes (e.g., failed transactions).
+
+### 4. Tests
+
+**Provider tests (`nearblocks.api-client.test.ts`):**
+
+- ✅ Updated to use `/txns-only` endpoint with `per_page=25`
+- ✅ Tests for `getAccountReceipts()`, `getAccountActivities()`, `getAccountFtTransactions()`
+- ❌ Need tests for enriched `getAddressTransactions()` returning transactions with `accountChanges`
+- ❌ Need tests for `getAddressTokenTransactions()` operation
+
+**Importer tests (`importer-enrichment.test.ts`):**
+
+- ❌ Currently imports provider-specific types (architectural violation)
+- ❌ Need to rewrite tests to mock provider returning normalized types only
+- ✅ Keep tests for correlation logic if we move that to provider
+
+**Integration tests:**
+
+- Verify calculated balance matches live balance for test address `3c49...f5fcc`
+- Verify `accountChanges` populated correctly for inbound/outbound transfers
+- Verify token transfers captured separately via `getAddressTokenTransactions`
+
+## Migration Strategy
+
+### Phase 1: Provider Enrichment (Current)
+
+1. ✅ Update endpoint from `/txns` → `/txns-only`
+2. Implement internal enrichment in `getAddressTransactions()`
+3. Add `getAddressTokenTransactions()` operation
+4. Add provider-level tests
+
+### Phase 2: Importer Cleanup
+
+1. Remove provider-specific types from importer
+2. Simplify importer to call operations and store results
+3. Update importer tests to use normalized types only
+
+### Phase 3: Verification
+
+1. Run CLI import for test address
+2. Verify balance reconciliation
+3. Verify `transactions` table has populated `accountChanges` and `tokenTransfers`
+
+## Performance Considerations
+
+**Multi-endpoint fetching:**
+
+- Each address import now requires 3 endpoint calls (txns-only, activities, receipts)
+- Token imports add a 4th call (ft-txns)
+- NearBlocks rate limit: 6 requests/minute with `per_page=25`
+
+**Optimization strategies:**
+
+- Fetch endpoints concurrently where possible (respect rate limits)
+- Consider caching correlation maps if refetching same address
+- Monitor for rate limit warnings and adjust `burstLimit` if needed
+
+## Open Questions
+
+1. **Should token transfers be separate transactions?**
+   - Option A: Store as separate records via `getAddressTokenTransactions`
+   - Option B: Include in `tokenTransfers` field of regular transactions
+   - Current: Option A (follows EVM pattern)
+
+2. **Activities with null transaction_hash:**
+   - Some activities (staking rewards) don't have a parent transaction
+   - Should these create synthetic transactions or be ignored?
+   - Current: TBD based on testing
+
+3. **Pagination limits:**
+   - Default 1000 transactions (40 pages × 25)
+   - Is this sufficient for typical NEAR addresses?
+   - Current: Monitor and adjust `maxPages` if needed

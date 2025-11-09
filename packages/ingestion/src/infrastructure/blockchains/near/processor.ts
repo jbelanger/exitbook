@@ -50,6 +50,14 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
       const normalizedTx = item as NearTransaction;
 
       try {
+        // Phase 2 enrichment check: Warn if accountChanges are missing
+        // This indicates the importer's enrichment step failed and the processor is in degraded mode
+        if (!normalizedTx.accountChanges || normalizedTx.accountChanges.length === 0) {
+          this.logger.warn(
+            `Transaction ${normalizedTx.id} missing accountChanges - enrichment data unavailable. Balance calculations may be inaccurate.`
+          );
+        }
+
         // Perform enhanced fund flow analysis
         const fundFlowResult = analyzeNearFundFlow(normalizedTx, sessionMetadata);
 

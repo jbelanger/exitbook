@@ -2,6 +2,34 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Debug Current Test File",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+      "args": ["run", "${relativeFile}"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--import", "tsx/esm"],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"]
+    },
+    {
+      "name": "Debug Current E2E Test File",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+      "args": ["run", "--config", "vitest.e2e.config.ts", "${relativeFile}"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--import", "tsx/esm"],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"]
+    },
+    {
       "name": "Debug CLI Status",
       "type": "node",
       "request": "launch",

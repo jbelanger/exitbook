@@ -7,7 +7,7 @@ import type {
 } from '@exitbook/providers';
 import { generateUniqueTransactionId } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
-import { err, type Result } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 
 import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.js';
 
@@ -15,6 +15,10 @@ import type { IImporter, ImportParams, ImportRunResult } from '../../../types/im
  * NEAR transaction importer that fetches raw transaction data from blockchain APIs.
  * Supports NEAR account IDs using multiple providers (NearBlocks).
  * Uses provider manager for failover between multiple blockchain API providers.
+ *
+ * The provider layer handles all enrichment internally:
+ * - Account changes (native NEAR balance deltas) are populated in getAddressTransactions
+ * - Token transfers (NEP-141) are fetched via getAddressTokenTransactions
  */
 export class NearTransactionImporter implements IImporter {
   private readonly logger: Logger;
@@ -49,7 +53,7 @@ export class NearTransactionImporter implements IImporter {
 
     this.logger.info(`Starting NEAR transaction import for account: ${params.address.substring(0, 20)}...`);
 
-    const result = await this.fetchRawTransactionsForAddress(params.address);
+    const result = await this.fetchAllTransactions(params.address);
 
     return result
       .map((rawTransactions) => {
@@ -63,13 +67,44 @@ export class NearTransactionImporter implements IImporter {
   }
 
   /**
-   * Fetch raw transactions for a single address with provider provenance.
+   * Fetch all transaction types (normal, token) for an address in parallel.
+   * Provider layer handles enrichment internally, so transactions are returned
+   * with accountChanges and tokenTransfers already populated.
    */
-  private async fetchRawTransactionsForAddress(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
+  private async fetchAllTransactions(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
+    // Fetch both transaction types in parallel for optimal performance
+    const [normalResult, tokenResult] = await Promise.all([
+      this.fetchNormalTransactions(address),
+      this.fetchTokenTransactions(address),
+    ]);
+
+    if (normalResult.isErr()) {
+      return normalResult;
+    }
+
+    if (tokenResult.isErr()) {
+      return tokenResult;
+    }
+
+    // Combine all successful results
+    const allTransactions: ExternalTransaction[] = [...normalResult.value, ...tokenResult.value];
+
+    this.logger.debug(
+      `Total transactions fetched: ${allTransactions.length} (${normalResult.value.length} normal, ${tokenResult.value.length} token)`
+    );
+
+    return ok(allTransactions);
+  }
+
+  /**
+   * Fetch normal transactions for an address with provider provenance.
+   * Transactions are already enriched with accountChanges by the provider.
+   */
+  private async fetchNormalTransactions(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('near', {
       address: address,
       getCacheKey: (params) =>
-        `near:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? 'all' : 'unknown'}`,
+        `near:normal-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? 'all' : 'unknown'}`,
       type: 'getAddressTransactions',
     });
 
@@ -78,20 +113,39 @@ export class NearTransactionImporter implements IImporter {
       const providerName = response.providerName;
 
       return transactionsWithRaw.map((txWithRaw) => ({
-        externalId: generateUniqueTransactionId({
-          amount: txWithRaw.normalized.amount,
-          currency: txWithRaw.normalized.currency,
-          from: txWithRaw.normalized.from,
-          id: txWithRaw.normalized.id,
-          timestamp: txWithRaw.normalized.timestamp,
-          to: txWithRaw.normalized.to,
-          traceId: txWithRaw.normalized.id,
-          type: 'transfer',
-        }),
-        normalizedData: txWithRaw.normalized,
         providerName,
-        rawData: txWithRaw.raw,
+        externalId: generateUniqueTransactionId(txWithRaw.normalized),
+        transactionTypeHint: 'normal',
         sourceAddress: address,
+        normalizedData: txWithRaw.normalized,
+        rawData: txWithRaw.raw,
+      }));
+    });
+  }
+
+  /**
+   * Fetch token transactions (NEP-141) for an address with provider provenance.
+   * Each token transfer is returned as a separate transaction record.
+   */
+  private async fetchTokenTransactions(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
+    const result = await this.providerManager.executeWithFailover('near', {
+      address: address,
+      getCacheKey: (params) =>
+        `near:token-txs:${params.type === 'getAddressTokenTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTokenTransactions' ? 'all' : 'unknown'}`,
+      type: 'getAddressTokenTransactions',
+    });
+
+    return result.map((response) => {
+      const transactionsWithRaw = response.data as TransactionWithRawData<NearTransaction>[];
+      const providerName = response.providerName;
+
+      return transactionsWithRaw.map((txWithRaw) => ({
+        providerName,
+        externalId: generateUniqueTransactionId(txWithRaw.normalized),
+        transactionTypeHint: 'token',
+        sourceAddress: address,
+        normalizedData: txWithRaw.normalized,
+        rawData: txWithRaw.raw,
       }));
     });
   }

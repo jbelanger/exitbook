@@ -45,13 +45,35 @@ function normalizeActionType(actionType: string): string {
 
 /**
  * Detect staking-related actions in a NEAR transaction
+ * Checks for both explicit Stake/Unstake actions and FUNCTION_CALL actions with staking method names
  */
 export function detectNearStakingActions(actions?: NearTransaction['actions']): boolean {
   if (!actions) return false;
 
   return actions.some((action) => {
     const normalized = normalizeActionType(action.actionType);
-    return normalized === NearActionType.Stake.valueOf() || normalized === NearActionType.Unstake.valueOf();
+
+    // Check for explicit Stake/Unstake actions
+    if (normalized === NearActionType.Stake.valueOf() || normalized === NearActionType.Unstake.valueOf()) {
+      return true;
+    }
+
+    // Check for FUNCTION_CALL actions with staking-related method names
+    // Note: "deposit" alone is too generic, so we only check for specific staking methods
+    if (normalized === NearActionType.FunctionCall.valueOf() && action.methodName) {
+      const methodLower = action.methodName.toLowerCase();
+      return (
+        methodLower === 'deposit_and_stake' ||
+        methodLower === 'stake' ||
+        methodLower === 'stake_all' ||
+        methodLower === 'unstake' ||
+        methodLower === 'unstake_all' ||
+        methodLower === 'withdraw' ||
+        methodLower === 'withdraw_all'
+      );
+    }
+
+    return false;
   });
 }
 
@@ -190,6 +212,12 @@ export function analyzeNearBalanceChanges(
     }
   }
 
+  const userIsReceiver = tx.to ? allWalletAddresses.has(tx.to) : false;
+  const userIsSender = tx.from ? allWalletAddresses.has(tx.from) : false;
+  const signerIsUser = userIsSender;
+
+  const totalStakingDepositYocto = signerIsUser ? calculateStakingDepositAmount(tx.actions) : 0n;
+
   // Collect ALL NEAR balance changes involving the user
   if (tx.accountChanges && tx.accountChanges.length > 0) {
     for (const change of tx.accountChanges) {
@@ -211,6 +239,16 @@ export function analyzeNearBalanceChanges(
         asset: 'NEAR',
       };
 
+      const stakingDepositAdjustment = totalStakingDepositYocto > 0n && nearAmountInYocto > 0n;
+
+      if (stakingDepositAdjustment) {
+        // Ignore synthetic positive deltas that appear on staking deposit transactions.
+        // These represent intermediary accounting hops before funds are locked and do not
+        // affect the user's liquid balance. The actual decrease is handled via the
+        // staking outflow logic below.
+        continue;
+      }
+
       if (nearAmountInYocto > 0n) {
         inflows.push(movement);
         toAddress = change.account;
@@ -218,6 +256,54 @@ export function analyzeNearBalanceChanges(
         outflows.push(movement);
         fromAddress = change.account;
       }
+    }
+  }
+
+  const hasNearMovements =
+    inflows.some((movement) => movement.asset === 'NEAR') || outflows.some((movement) => movement.asset === 'NEAR');
+
+  if (!hasNearMovements && tx.currency === 'NEAR' && tx.amount && userIsReceiver !== userIsSender) {
+    const normalizedAmount = normalizeNativeAmount(tx.amount, 24);
+    if (userIsReceiver) {
+      inflows.push({
+        amount: normalizedAmount,
+        asset: 'NEAR',
+      });
+      toAddress = tx.to || toAddress;
+    } else if (userIsSender) {
+      outflows.push({
+        amount: normalizedAmount,
+        asset: 'NEAR',
+      });
+      fromAddress = tx.from || fromAddress;
+    }
+  }
+
+  // Handle staking outflows: When user stakes NEAR, it moves from liquid (absolute_nonstaked_amount)
+  // to staked (absolute_staked_amount), but this doesn't always show up in accountChanges from the API.
+  // We need to explicitly add the staking amount as an outflow, but only if accountChanges don't already
+  // reflect the full staking amount (to avoid double-counting in tests or when API behavior varies).
+  const hasStaking = detectNearStakingActions(tx.actions || []);
+
+  if (hasStaking && signerIsUser && totalStakingDepositYocto > 0n) {
+    // Only add staking outflow if it's not already reflected in the balance changes
+    // Sum all NEAR outflows from accountChanges to check if the stake amount is already counted
+    const existingNearOutflows = outflows
+      .filter((o) => o.asset === 'NEAR')
+      .reduce((sum, o) => sum + BigInt(parseDecimal(o.amount).mul(parseDecimal('10').pow(24)).toFixed(0)), 0n);
+
+    // If the existing outflows are significantly less than the staking amount, add the difference
+    // Use a threshold to account for small rewards/fees already in the accountChanges
+    const threshold = totalStakingDepositYocto / 10n; // 10% threshold
+    const missing = totalStakingDepositYocto - existingNearOutflows;
+
+    if (missing > threshold) {
+      const normalizedStakingAmount = normalizeNativeAmount(missing.toString(), 24);
+      outflows.push({
+        amount: normalizedStakingAmount,
+        asset: 'NEAR',
+      });
+      fromAddress = tx.from || fromAddress;
     }
   }
 
@@ -647,4 +733,36 @@ export function determineNearTransactionType(fundFlow: NearFundFlow): string {
   }
 
   return 'Unknown';
+}
+
+function calculateStakingDepositAmount(actions?: NearTransaction['actions']): bigint {
+  if (!actions || actions.length === 0) {
+    return 0n;
+  }
+
+  let total = 0n;
+
+  for (const action of actions) {
+    const normalized = normalizeActionType(action.actionType);
+
+    if (normalized === NearActionType.Stake.valueOf() && action.deposit) {
+      total += BigInt(action.deposit);
+      continue;
+    }
+
+    if (normalized === NearActionType.FunctionCall.valueOf() && action.methodName && action.deposit) {
+      const methodLower = action.methodName.toLowerCase();
+      const isStakingMethod =
+        methodLower === 'deposit_and_stake' ||
+        methodLower === 'stake' ||
+        methodLower === 'deposit' ||
+        methodLower === 'stake_all';
+
+      if (isStakingMethod) {
+        total += BigInt(action.deposit);
+      }
+    }
+  }
+
+  return total;
 }
