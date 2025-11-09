@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProviderOperation, RawBalanceData } from '../../../../shared/blockchain/index.js';
 import { ProviderRegistry } from '../../../../shared/blockchain/index.js';
+import type { NearTransaction } from '../../types.js';
 import { NearBlocksApiClient } from '../nearblocks.api-client.js';
 import type {
   NearBlocksAccount,
@@ -227,6 +228,103 @@ describe('NearBlocksApiClient', () => {
       if (result.isOk()) {
         expect(result.value).toHaveLength(50);
       }
+    });
+
+    it('should derive activity deltas when enrichment data lacks delta_nonstaked_amount', async () => {
+      const transactionsResponse: NearBlocksTransactionsResponse = {
+        txns: [mockTransaction],
+      };
+
+      const activitiesResponse = {
+        activities: [
+          {
+            absolute_nonstaked_amount: '1000000000000000000000000',
+            absolute_staked_amount: '0',
+            affected_account_id: mockAddress,
+            block_height: '12345678',
+            block_timestamp: '1640000000000000000',
+            cause: 'TRANSFER',
+            direction: 'INBOUND' as const,
+            event_index: '0',
+            involved_account_id: 'bob.near',
+            receipt_id: 'receipt123',
+            transaction_hash: mockTransaction.transaction_hash,
+          },
+          {
+            absolute_nonstaked_amount: '2000000000000000000000000',
+            absolute_staked_amount: '0',
+            affected_account_id: mockAddress,
+            block_height: '12345679',
+            block_timestamp: '1640000001000000000',
+            cause: 'TRANSFER',
+            direction: 'INBOUND' as const,
+            event_index: '1',
+            involved_account_id: 'bob.near',
+            receipt_id: 'receipt456',
+            transaction_hash: mockTransaction.transaction_hash,
+          },
+        ],
+      };
+
+      const receiptsResponse = {
+        txns: [
+          {
+            block_timestamp: '1640000000000000000',
+            predecessor_account_id: 'bob.near',
+            receipt_id: 'receipt123',
+            receiver_account_id: mockAddress,
+            transaction_hash: mockTransaction.transaction_hash,
+          },
+          {
+            block_timestamp: '1640000001000000000',
+            predecessor_account_id: 'bob.near',
+            receipt_id: 'receipt456',
+            receiver_account_id: mockAddress,
+            transaction_hash: mockTransaction.transaction_hash,
+          },
+        ],
+      };
+
+      mockHttpGet.mockImplementation((url: string) => {
+        if (url.includes('/txns-only')) {
+          return Promise.resolve(ok(transactionsResponse));
+        }
+        if (url.includes('/activities')) {
+          if (url.includes('cursor=')) {
+            return Promise.resolve(ok({ activities: [] }));
+          }
+          return Promise.resolve(ok(activitiesResponse));
+        }
+        if (url.includes('/receipts')) {
+          if (url.includes('page=1')) {
+            return Promise.resolve(ok(receiptsResponse));
+          }
+          return Promise.resolve(ok({ txns: [] }));
+        }
+        return Promise.resolve(err(new Error(`Unexpected URL: ${url}`)));
+      });
+
+      const operation = {
+        address: mockAddress,
+        type: 'getAddressTransactions' as const,
+      };
+
+      const result = await client.execute(operation);
+
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) {
+        return;
+      }
+
+      const txData = result.value as { normalized: NearTransaction }[];
+      const accountChanges = txData[0]?.normalized.accountChanges;
+      expect(accountChanges).toBeDefined();
+      expect(accountChanges).toHaveLength(2);
+      const [firstChange, secondChange] = accountChanges ?? [];
+      expect(firstChange?.postBalance).toBe('1000000000000000000000000');
+      expect(firstChange?.preBalance).toBe('1000000000000000000000000');
+      expect(secondChange?.postBalance).toBe('2000000000000000000000000');
+      expect(secondChange?.preBalance).toBe('1000000000000000000000000');
     });
 
     it('should respect max pages limit (40 pages)', async () => {

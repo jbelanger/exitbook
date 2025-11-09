@@ -222,9 +222,9 @@ describe('mapNearBlocksActivityToAccountChange', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      // Fallback: treats absolute_nonstaked_amount as delta
+      // Fallback now emits zero-delta change when previous balance is unknown
       expect(result.value.postBalance).toBe('1000000000000000000000000');
-      expect(result.value.preBalance).toBe('0'); // postBalance - absolute_nonstaked_amount
+      expect(result.value.preBalance).toBe('1000000000000000000000000');
     }
   });
 
@@ -247,9 +247,8 @@ describe('mapNearBlocksActivityToAccountChange', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      // Fallback: treats absolute_nonstaked_amount as delta (negated for OUTBOUND)
       expect(result.value.postBalance).toBe('500000000000000000000000');
-      expect(result.value.preBalance).toBe('1000000000000000000000000'); // postBalance - (-absolute_nonstaked_amount)
+      expect(result.value.preBalance).toBe('500000000000000000000000');
     }
   });
 });

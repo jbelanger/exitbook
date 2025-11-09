@@ -151,14 +151,12 @@ export function mapNearBlocksActivityToAccountChange(
     // Use the delta provided by the API (already signed)
     signedDeltaYocto = validatedActivity.delta_nonstaked_amount;
   } else {
-    // Fallback: derive delta from absolute amount and direction
-    // INBOUND means the account received NEAR (positive delta)
-    // OUTBOUND means the account sent NEAR (negative delta)
-    const delta = parseDecimal(postBalanceYocto);
-    signedDeltaYocto = (validatedActivity.direction === 'INBOUND' ? delta : delta.negated()).toFixed(0);
+    // Fallback: when delta data is missing we cannot safely infer the previous
+    // balance. Emit a zero delta instead of assuming the entire balance moved.
+    signedDeltaYocto = '0';
   }
 
-  // Calculate preBalance = postBalance - signedDelta
+  // Calculate preBalance = postBalance - signedDelta (no-op when signed delta is zero)
   const preBalanceYocto = parseDecimal(postBalanceYocto).sub(parseDecimal(signedDeltaYocto)).toFixed(0);
 
   // For account changes, we store amounts in yoctoNEAR (smallest units)

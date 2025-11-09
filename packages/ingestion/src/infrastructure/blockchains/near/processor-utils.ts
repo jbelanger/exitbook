@@ -212,7 +212,9 @@ export function analyzeNearBalanceChanges(
     }
   }
 
-  const signerIsUser = tx.from ? allWalletAddresses.has(tx.from) : false;
+  const userIsReceiver = tx.to ? allWalletAddresses.has(tx.to) : false;
+  const userIsSender = tx.from ? allWalletAddresses.has(tx.from) : false;
+  const signerIsUser = userIsSender;
 
   const totalStakingDepositYocto = signerIsUser ? calculateStakingDepositAmount(tx.actions) : 0n;
 
@@ -254,6 +256,26 @@ export function analyzeNearBalanceChanges(
         outflows.push(movement);
         fromAddress = change.account;
       }
+    }
+  }
+
+  const hasNearMovements =
+    inflows.some((movement) => movement.asset === 'NEAR') || outflows.some((movement) => movement.asset === 'NEAR');
+
+  if (!hasNearMovements && tx.currency === 'NEAR' && tx.amount && userIsReceiver !== userIsSender) {
+    const normalizedAmount = normalizeNativeAmount(tx.amount, 24);
+    if (userIsReceiver) {
+      inflows.push({
+        amount: normalizedAmount,
+        asset: 'NEAR',
+      });
+      toAddress = tx.to || toAddress;
+    } else if (userIsSender) {
+      outflows.push({
+        amount: normalizedAmount,
+        asset: 'NEAR',
+      });
+      fromAddress = tx.from || fromAddress;
     }
   }
 

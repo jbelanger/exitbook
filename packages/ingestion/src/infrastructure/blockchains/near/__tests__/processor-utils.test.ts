@@ -296,6 +296,58 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
     expect(fundFlow.feePaidByUser).toBe(true); // Sender pays fee
   });
 
+  test('analyzeNearFundFlow synthesizes NEAR inflow when accountChanges are missing', () => {
+    const tx: NearTransaction = {
+      amount: '63364000000000000000000000', // 63.364 NEAR in yocto
+      currency: 'NEAR',
+      feeAmount: '0',
+      from: EXTERNAL_ADDRESS,
+      id: 'txSyntheticIn',
+      providerName: 'nearblocks',
+      status: 'success',
+      timestamp: Date.now(),
+      to: USER_ADDRESS,
+      type: 'transfer',
+    };
+
+    const result = analyzeNearFundFlow(tx, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const fundFlow = result.value;
+    expect(fundFlow.inflows).toHaveLength(1);
+    expect(fundFlow.inflows[0]?.asset).toBe('NEAR');
+    expect(fundFlow.inflows[0]?.amount).toBe('63.364');
+    expect(fundFlow.outflows).toHaveLength(0);
+  });
+
+  test('analyzeNearFundFlow synthesizes NEAR outflow when accountChanges are missing', () => {
+    const tx: NearTransaction = {
+      amount: '50000000000000000000000000', // 50 NEAR
+      currency: 'NEAR',
+      feeAmount: '0',
+      from: USER_ADDRESS,
+      id: 'txSyntheticOut',
+      providerName: 'nearblocks',
+      status: 'success',
+      timestamp: Date.now(),
+      to: EXTERNAL_ADDRESS,
+      type: 'transfer',
+    };
+
+    const result = analyzeNearFundFlow(tx, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const fundFlow = result.value;
+    expect(fundFlow.outflows).toHaveLength(1);
+    expect(fundFlow.outflows[0]?.asset).toBe('NEAR');
+    expect(fundFlow.outflows[0]?.amount).toBe('50');
+    expect(fundFlow.inflows).toHaveLength(0);
+  });
+
   test('analyzeNearFundFlow handles token transfers', () => {
     const tx: NearTransaction = {
       actions: [
@@ -870,10 +922,11 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
 
     const fundFlow = result.value;
 
-    // Without accountChanges, processor cannot determine balance movements
-    // This is expected in degraded mode when enrichment fails
+    // Without accountChanges, processor now falls back to the transaction amount
+    // so we still get a single NEAR outflow matching the transfer amount.
     expect(fundFlow.inflows).toHaveLength(0);
-    expect(fundFlow.outflows).toHaveLength(0);
-    expect(fundFlow.primary.amount).toBe('0');
+    expect(fundFlow.outflows).toHaveLength(1);
+    expect(fundFlow.outflows[0]?.asset).toBe('NEAR');
+    expect(fundFlow.outflows[0]?.amount).toBe('1');
   });
 });
