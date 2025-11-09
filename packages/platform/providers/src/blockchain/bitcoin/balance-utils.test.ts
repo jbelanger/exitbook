@@ -390,7 +390,7 @@ describe('balance-utils', () => {
 
   describe('createRawBalanceData', () => {
     it('should create RawBalanceData with correct structure', () => {
-      const result = createRawBalanceData(4000000000, '40');
+      const result = createRawBalanceData(4000000000, '40', 'BTC');
 
       expect(result).toEqual({
         symbol: 'BTC',
@@ -401,7 +401,7 @@ describe('balance-utils', () => {
     });
 
     it('should handle zero balance', () => {
-      const result = createRawBalanceData(0, '0');
+      const result = createRawBalanceData(0, '0', 'BTC');
 
       expect(result).toEqual({
         symbol: 'BTC',
@@ -412,7 +412,7 @@ describe('balance-utils', () => {
     });
 
     it('should handle large balance', () => {
-      const result = createRawBalanceData(2100000000000000, '21000000');
+      const result = createRawBalanceData(2100000000000000, '21000000', 'BTC');
 
       expect(result).toEqual({
         symbol: 'BTC',
@@ -423,7 +423,7 @@ describe('balance-utils', () => {
     });
 
     it('should handle fractional BTC amounts', () => {
-      const result = createRawBalanceData(123456789, '1.23456789');
+      const result = createRawBalanceData(123456789, '1.23456789', 'BTC');
 
       expect(result).toEqual({
         symbol: 'BTC',
@@ -434,13 +434,13 @@ describe('balance-utils', () => {
     });
 
     it('should always set decimals to 8 for BTC', () => {
-      const result = createRawBalanceData(100000000, '1');
+      const result = createRawBalanceData(100000000, '1', 'BTC');
 
       expect(result.decimals).toBe(8);
     });
 
     it('should always set symbol to BTC', () => {
-      const result = createRawBalanceData(100000000, '1');
+      const result = createRawBalanceData(100000000, '1', 'BTC');
 
       expect(result.symbol).toBe('BTC');
     });

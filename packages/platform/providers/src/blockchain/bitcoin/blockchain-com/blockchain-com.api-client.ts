@@ -11,6 +11,8 @@ import type {
 import { RegisterApiClient } from '../../../shared/blockchain/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import { calculateSimpleBalance, createRawBalanceData } from '../balance-utils.js';
+import type { BitcoinChainConfig } from '../chain-config.interface.js';
+import { getBitcoinChainConfig } from '../chain-registry.js';
 import { mapBlockchainComTransaction } from '../mapper-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
@@ -39,8 +41,16 @@ import type { BlockchainComAddressResponse } from './blockchain-com.schemas.js';
   requiresApiKey: false,
 })
 export class BlockchainComApiClient extends BaseApiClient {
+  private readonly chainConfig: BitcoinChainConfig;
+
   constructor(config: ProviderConfig) {
     super(config);
+
+    const chainConfig = getBitcoinChainConfig(config.blockchain);
+    if (!chainConfig) {
+      throw new Error(`Unsupported blockchain: ${config.blockchain}`);
+    }
+    this.chainConfig = chainConfig;
 
     this.logger.debug(`Initialized BlockchainComApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
@@ -127,7 +137,7 @@ export class BlockchainComApiClient extends BaseApiClient {
 
     this.logger.debug(`Successfully retrieved raw address info - Address: ${maskAddress(address)}`);
 
-    return ok(createRawBalanceData(balanceSats, balanceBTC));
+    return ok(createRawBalanceData(balanceSats, balanceBTC, this.chainConfig.nativeCurrency));
   }
 
   /**
@@ -164,7 +174,7 @@ export class BlockchainComApiClient extends BaseApiClient {
     // Normalize transactions immediately using mapper
     const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
     for (const rawTx of filteredRawTransactions) {
-      const mapResult = mapBlockchainComTransaction(rawTx, {});
+      const mapResult = mapBlockchainComTransaction(rawTx, {}, this.chainConfig);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

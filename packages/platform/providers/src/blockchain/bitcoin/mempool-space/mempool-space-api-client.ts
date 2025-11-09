@@ -11,6 +11,8 @@ import type {
 } from '../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import { calculateMempoolSpaceBalance, createRawBalanceData } from '../balance-utils.js';
+import type { BitcoinChainConfig } from '../chain-config.interface.js';
+import { getBitcoinChainConfig } from '../chain-registry.js';
 import { mapMempoolSpaceTransaction } from '../mapper-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
@@ -38,8 +40,16 @@ import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.sch
   requiresApiKey: false,
 })
 export class MempoolSpaceApiClient extends BaseApiClient {
+  private readonly chainConfig: BitcoinChainConfig;
+
   constructor(config: ProviderConfig) {
     super(config);
+
+    const chainConfig = getBitcoinChainConfig(config.blockchain);
+    if (!chainConfig) {
+      throw new Error(`Unsupported blockchain: ${config.blockchain}`);
+    }
+    this.chainConfig = chainConfig;
 
     this.logger.debug(`Initialized MempoolSpaceApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
@@ -127,7 +137,7 @@ export class MempoolSpaceApiClient extends BaseApiClient {
       `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, BalanceBTC: ${balanceBTC}`
     );
 
-    return ok(createRawBalanceData(totalBalanceSats, balanceBTC));
+    return ok(createRawBalanceData(totalBalanceSats, balanceBTC, this.chainConfig.nativeCurrency));
   }
 
   private async getAddressTransactions(params: {
@@ -155,7 +165,7 @@ export class MempoolSpaceApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = mapMempoolSpaceTransaction(rawTx, {});
+      const mapResult = mapMempoolSpaceTransaction(rawTx, {}, this.chainConfig);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

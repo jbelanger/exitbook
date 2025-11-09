@@ -7,6 +7,8 @@ import { RegisterApiClient } from '../../../shared/blockchain/index.js';
 import type { ProviderOperation, RawBalanceData } from '../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import { calculateTatumBalance, createRawBalanceData } from '../balance-utils.js';
+import type { BitcoinChainConfig } from '../chain-config.interface.js';
+import { getBitcoinChainConfig } from '../chain-registry.js';
 import { mapTatumTransaction } from '../mapper-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
@@ -35,8 +37,16 @@ import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.schem
   requiresApiKey: true,
 })
 export class TatumBitcoinApiClient extends BaseApiClient {
+  private readonly chainConfig: BitcoinChainConfig;
+
   constructor(config: ProviderConfig) {
     super(config);
+
+    const chainConfig = getBitcoinChainConfig(config.blockchain);
+    if (!chainConfig) {
+      throw new Error(`Unsupported blockchain: ${config.blockchain}`);
+    }
+    this.chainConfig = chainConfig;
 
     // Reinitialize HTTP client with Tatum-specific headers
     this.reinitializeHttpClient({
@@ -118,7 +128,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
       `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, BalanceBTC: ${balanceBTC}`
     );
 
-    return ok(createRawBalanceData(balanceSats, balanceBTC));
+    return ok(createRawBalanceData(balanceSats, balanceBTC, this.chainConfig.nativeCurrency));
   }
 
   /**
@@ -163,7 +173,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
     // Normalize transactions immediately using mapper
     const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = mapTatumTransaction(rawTx, {});
+      const mapResult = mapTatumTransaction(rawTx, {}, this.chainConfig);
 
       if (mapResult.isErr()) {
         // Fail fast - provider returned invalid data
