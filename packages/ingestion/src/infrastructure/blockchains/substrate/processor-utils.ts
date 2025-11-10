@@ -2,13 +2,10 @@ import type { OperationClassification } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { SubstrateChainConfig, SubstrateTransaction } from '@exitbook/providers';
 import { derivePolkadotAddressVariants } from '@exitbook/providers';
-import { getLogger } from '@exitbook/shared-logger';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { SubstrateFundFlow, SubstrateMovement } from './types.ts';
-
-const logger = getLogger('substrate-processor-utils');
 
 /**
  * Enrich session context with SS58 address variants for better transaction matching.
@@ -61,7 +58,7 @@ export function analyzeFundFlowFromNormalized(
   transaction: SubstrateTransaction,
   sessionContext: Record<string, unknown>,
   chainConfig: SubstrateChainConfig
-): SubstrateFundFlow {
+): Result<SubstrateFundFlow, Error> {
   const derivedAddresses = Array.isArray(sessionContext.derivedAddresses)
     ? sessionContext.derivedAddresses
     : [sessionContext.address];
@@ -101,33 +98,27 @@ export function analyzeFundFlowFromNormalized(
 
   // Handle normalization failure
   if (normalizedAmountResult.isErr()) {
-    logger.warn(
-      {
-        error: normalizedAmountResult.error,
-        rawAmount: transaction.amount,
-        decimals: chainConfig.nativeDecimals,
-        txHash: transaction.id,
-        chainName: transaction.chainName,
-        context: 'Substrate transaction amount normalization',
-      },
-      'Failed to normalize Substrate transaction amount, treating as zero-value transaction'
+    return err(
+      new Error(
+        `Failed to normalize Substrate transaction amount for tx ${transaction.id}: ${normalizedAmountResult.error.message}. ` +
+          `Raw amount: ${transaction.amount}, decimals: ${chainConfig.nativeDecimals}, chain: ${transaction.chainName}`
+      )
     );
-    // Continue processing as a fee-only transaction (zero amount)
   }
 
-  const normalizedAmount = normalizedAmountResult.isOk() ? normalizedAmountResult.value : '0';
+  const normalizedAmount = normalizedAmountResult.value;
 
   // Collect movements based on fund flow direction
   if (isFromUser && isToUser) {
     // Self-transfer: same asset in and out (net zero for asset, only fee affects balance)
-    if (!isZeroAmount && normalizedAmountResult.isOk()) {
+    if (!isZeroAmount) {
       inflows.push({ amount: normalizedAmount, asset: currency });
       outflows.push({ amount: normalizedAmount, asset: currency });
     }
-  } else if (isToUser && !isZeroAmount && normalizedAmountResult.isOk()) {
+  } else if (isToUser && !isZeroAmount) {
     // User received funds
     inflows.push({ amount: normalizedAmount, asset: currency });
-  } else if (isFromUser && !isZeroAmount && normalizedAmountResult.isOk()) {
+  } else if (isFromUser && !isZeroAmount) {
     // User sent funds
     outflows.push({ amount: normalizedAmount, asset: currency });
   }
@@ -158,24 +149,17 @@ export function analyzeFundFlowFromNormalized(
 
   // Normalize fee amount with error handling
   const feeAmountResult = normalizeAmount(transaction.feeAmount, chainConfig.nativeDecimals);
-  let feeAmount = '0';
   if (feeAmountResult.isErr()) {
-    logger.warn(
-      {
-        error: feeAmountResult.error,
-        rawAmount: transaction.feeAmount,
-        decimals: chainConfig.nativeDecimals,
-        txHash: transaction.id,
-        chainName: transaction.chainName,
-        context: 'Substrate fee amount normalization',
-      },
-      'Failed to normalize Substrate fee amount, using 0'
+    return err(
+      new Error(
+        `Failed to normalize Substrate fee amount for tx ${transaction.id}: ${feeAmountResult.error.message}. ` +
+          `Raw amount: ${transaction.feeAmount}, decimals: ${chainConfig.nativeDecimals}, chain: ${transaction.chainName}`
+      )
     );
-  } else {
-    feeAmount = feeAmountResult.value;
   }
+  const feeAmount = feeAmountResult.value;
 
-  return {
+  return ok({
     call: transaction.call || 'unknown',
     chainName: transaction.chainName || 'unknown',
     classificationUncertainty,
@@ -197,7 +181,7 @@ export function analyzeFundFlowFromNormalized(
       asset: primaryAsset,
     },
     toAddress: transaction.to,
-  };
+  });
 }
 
 /**

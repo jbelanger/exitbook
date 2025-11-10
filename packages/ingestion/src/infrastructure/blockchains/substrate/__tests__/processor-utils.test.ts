@@ -177,7 +177,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.outflows).toHaveLength(1);
     expect(fundFlow.outflows[0]?.amount).toBe('1');
@@ -214,7 +214,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.inflows).toHaveLength(1);
     expect(fundFlow.inflows[0]?.amount).toBe('2');
@@ -250,7 +250,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.inflows).toHaveLength(1);
     expect(fundFlow.inflows[0]?.amount).toBe('0.5');
@@ -285,7 +285,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.hasStaking).toBe(true);
     expect(fundFlow.module).toBe('staking');
@@ -316,7 +316,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.hasGovernance).toBe(true);
     expect(fundFlow.module).toBe('democracy');
@@ -354,7 +354,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.hasUtilityBatch).toBe(true);
     expect(fundFlow.eventCount).toBe(6);
@@ -385,7 +385,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.hasProxy).toBe(true);
     expect(fundFlow.module).toBe('proxy');
@@ -415,7 +415,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.hasMultisig).toBe(true);
     expect(fundFlow.module).toBe('multisig');
@@ -445,7 +445,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.inflows).toHaveLength(0);
     expect(fundFlow.outflows).toHaveLength(0);
@@ -481,7 +481,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [genericAddress, polkadotAddress],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.outflows).toHaveLength(1);
     expect(fundFlow.outflows[0]?.amount).toBe('1');

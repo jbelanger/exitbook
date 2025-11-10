@@ -148,7 +148,7 @@ describe('NEAR Processor Utils - Token Transfer Extraction', () => {
       ],
     };
 
-    const movements = extractNearTokenTransfers(tx);
+    const movements = extractNearTokenTransfers(tx)._unsafeUnwrap();
 
     expect(movements).toHaveLength(1);
     expect(movements[0]?.asset).toBe('USDC');
@@ -170,7 +170,7 @@ describe('NEAR Processor Utils - Token Transfer Extraction', () => {
       to: EXTERNAL_ADDRESS,
     };
 
-    const movements = extractNearTokenTransfers(tx);
+    const movements = extractNearTokenTransfers(tx)._unsafeUnwrap();
 
     expect(movements).toHaveLength(0);
   });

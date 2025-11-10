@@ -327,19 +327,10 @@ export function analyzeEvmFundFlow(
       // All providers return amounts in smallest units; normalization ensures consistency and safety
       const amountResult = normalizeTokenAmount(rawAmount, tx.tokenDecimals);
       if (amountResult.isErr()) {
-        logger.warn(
-          {
-            error: amountResult.error,
-            rawAmount,
-            decimals: tx.tokenDecimals,
-            tokenAddress: tx.tokenAddress,
-            tokenSymbol,
-            txHash: tx.id,
-            context: 'EVM token transfer normalization',
-          },
-          'Failed to normalize EVM token amount, skipping this transfer'
+        return err(
+          `Failed to normalize EVM token amount for transaction ${tx.id}: ${amountResult.error.message}. ` +
+            `Raw amount: ${rawAmount}, decimals: ${tx.tokenDecimals}, token: ${tokenSymbol}`
         );
-        continue; // Skip this transfer if we can't normalize the amount
       }
       const amount = amountResult.value;
 
@@ -406,18 +397,10 @@ export function analyzeEvmFundFlow(
     if (isEvmNativeMovement(tx, chainConfig) && isEvmUserParticipant(tx, userAddress)) {
       const normalizedAmountResult = normalizeNativeAmount(tx.amount, chainConfig.nativeDecimals);
       if (normalizedAmountResult.isErr()) {
-        logger.warn(
-          {
-            error: normalizedAmountResult.error,
-            rawAmount: tx.amount,
-            decimals: chainConfig.nativeDecimals,
-            nativeCurrency: chainConfig.nativeCurrency,
-            txHash: tx.id,
-            context: 'EVM native currency normalization',
-          },
-          'Failed to normalize EVM native amount, skipping this movement'
+        return err(
+          `Failed to normalize EVM native amount for transaction ${tx.id}: ${normalizedAmountResult.error.message}. ` +
+            `Raw amount: ${tx.amount}, decimals: ${chainConfig.nativeDecimals}, currency: ${chainConfig.nativeCurrency}`
         );
-        continue; // Skip this movement if we can't normalize the amount
       }
       const normalizedAmount = normalizedAmountResult.value;
 

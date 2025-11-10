@@ -361,7 +361,7 @@ export function isZeroDecimal(value: string): boolean {
 export function analyzeSolanaBalanceChanges(
   tx: SolanaTransaction,
   allWalletAddresses: Set<string>
-): SolanaBalanceChangeAnalysis {
+): Result<SolanaBalanceChangeAnalysis, Error> {
   const inflows: SolanaMovement[] = [];
   const outflows: SolanaMovement[] = [];
   let fromAddress = tx.from;
@@ -385,18 +385,12 @@ export function analyzeSolanaBalanceChanges(
         change.decimals
       );
       if (normalizedAmountResult.isErr()) {
-        logger.warn(
-          {
-            error: normalizedAmountResult.error,
-            rawAmount: Math.abs(tokenAmountInSmallestUnits).toString(),
-            decimals: change.decimals,
-            mint: change.mint,
-            account: change.account,
-            context: 'Solana token balance change normalization',
-          },
-          'Failed to normalize Solana token amount, skipping this change'
+        return err(
+          new Error(
+            `Failed to normalize Solana token amount for account ${change.account}: ${normalizedAmountResult.error.message}. ` +
+              `Raw amount: ${Math.abs(tokenAmountInSmallestUnits).toString()}, decimals: ${change.decimals}, mint: ${change.mint}`
+          )
         );
-        continue; // Skip this change if we can't normalize the amount
       }
 
       const movement: SolanaMovement = {
@@ -428,17 +422,12 @@ export function analyzeSolanaBalanceChanges(
       // Normalize lamports to SOL using native amount normalization (SOL has 9 decimals)
       const normalizedSolAmountResult = normalizeNativeAmount(Math.abs(solAmountInLamports).toString(), 9);
       if (normalizedSolAmountResult.isErr()) {
-        logger.warn(
-          {
-            error: normalizedSolAmountResult.error,
-            rawAmount: Math.abs(solAmountInLamports).toString(),
-            decimals: 9,
-            account: change.account,
-            context: 'Solana SOL balance change normalization',
-          },
-          'Failed to normalize SOL balance change, skipping this change'
+        return err(
+          new Error(
+            `Failed to normalize SOL balance change for account ${change.account}: ${normalizedSolAmountResult.error.message}. ` +
+              `Raw amount: ${Math.abs(solAmountInLamports).toString()}, decimals: 9`
+          )
         );
-        continue; // Skip this change if we can't normalize the amount
       }
 
       const movement = {
@@ -562,7 +551,7 @@ export function analyzeSolanaBalanceChanges(
   // When true, prevents recording a duplicate fee entry in the transaction record
   const feeAbsorbedByMovement = hadOutflowsBeforeFeeAdjustment && consolidatedOutflows.length === 0;
 
-  return {
+  return ok({
     classificationUncertainty,
     feeAbsorbedByMovement,
     feePaidByUser,
@@ -571,7 +560,7 @@ export function analyzeSolanaBalanceChanges(
     outflows: consolidatedOutflows,
     primary,
     toAddress,
-  };
+  });
 }
 
 /**
@@ -601,7 +590,11 @@ export function analyzeSolanaFundFlow(
   const hasTokenTransfers = detectSolanaTokenTransferInstructions(tx.instructions || []);
 
   // Enhanced fund flow analysis using balance changes
-  const flowAnalysis = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+  const flowAnalysisResult = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+  if (flowAnalysisResult.isErr()) {
+    return err(flowAnalysisResult.error.message);
+  }
+  const flowAnalysis = flowAnalysisResult.value;
 
   const fundFlow: SolanaFundFlow = {
     computeUnitsUsed: tx.computeUnitsConsumed,

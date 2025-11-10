@@ -114,7 +114,7 @@ export function detectNearTokenTransfers(actions?: NearTransaction['actions']): 
  * Extract token transfers from NEAR transaction actions
  * Parses NEP-141 token transfer events from FunctionCall actions
  */
-export function extractNearTokenTransfers(tx: NearTransaction): NearMovement[] {
+export function extractNearTokenTransfers(tx: NearTransaction): Result<NearMovement[], Error> {
   const movements: NearMovement[] = [];
 
   // Use tokenTransfers if available (already parsed by mapper)
@@ -123,17 +123,12 @@ export function extractNearTokenTransfers(tx: NearTransaction): NearMovement[] {
       // Normalize token amount using decimals
       const normalizedAmountResult = normalizeTokenAmount(transfer.amount, transfer.decimals);
       if (normalizedAmountResult.isErr()) {
-        logger.warn(
-          {
-            error: normalizedAmountResult.error,
-            rawAmount: transfer.amount,
-            decimals: transfer.decimals,
-            contractAddress: transfer.contractAddress,
-            context: 'NEAR token transfer normalization',
-          },
-          'Failed to normalize NEAR token amount, using 0'
+        return err(
+          new Error(
+            `Failed to normalize NEAR token amount: ${normalizedAmountResult.error.message}. ` +
+              `Raw amount: ${transfer.amount}, decimals: ${transfer.decimals}, contract: ${transfer.contractAddress}`
+          )
         );
-        continue; // Skip this movement if we can't normalize the amount
       }
 
       movements.push({
@@ -145,7 +140,7 @@ export function extractNearTokenTransfers(tx: NearTransaction): NearMovement[] {
     }
   }
 
-  return movements;
+  return ok(movements);
 }
 
 /**
@@ -204,14 +199,18 @@ export function isZeroDecimal(value: string): boolean {
 export function analyzeNearBalanceChanges(
   tx: NearTransaction,
   allWalletAddresses: Set<string>
-): NearBalanceChangeAnalysis {
+): Result<NearBalanceChangeAnalysis, Error> {
   const inflows: NearMovement[] = [];
   const outflows: NearMovement[] = [];
   let fromAddress = tx.from;
   let toAddress = tx.to;
 
   // Collect ALL token balance changes involving the user
-  const tokenMovements = extractNearTokenTransfers(tx);
+  const tokenMovementsResult = extractNearTokenTransfers(tx);
+  if (tokenMovementsResult.isErr()) {
+    return err(tokenMovementsResult.error);
+  }
+  const tokenMovements = tokenMovementsResult.value;
   for (const movement of tokenMovements) {
     // Determine direction based on transfer details
     const transfer = tx.tokenTransfers?.find((t) => t.contractAddress === movement.tokenAddress);
@@ -252,17 +251,12 @@ export function analyzeNearBalanceChanges(
       const absAmount = nearAmountInYocto < 0n ? -nearAmountInYocto : nearAmountInYocto;
       const normalizedNearAmountResult = normalizeNativeAmount(absAmount.toString(), 24);
       if (normalizedNearAmountResult.isErr()) {
-        logger.warn(
-          {
-            error: normalizedNearAmountResult.error,
-            rawAmount: absAmount.toString(),
-            decimals: 24,
-            account: change.account,
-            context: 'NEAR balance change normalization',
-          },
-          'Failed to normalize NEAR balance change, skipping this change'
+        return err(
+          new Error(
+            `Failed to normalize NEAR balance change for account ${change.account}: ${normalizedNearAmountResult.error.message}. ` +
+              `Raw amount: ${absAmount.toString()}, decimals: 24`
+          )
         );
-        continue; // Skip this change if we can't normalize the amount
       }
 
       const movement = {
@@ -296,31 +290,26 @@ export function analyzeNearBalanceChanges(
   if (!hasNearMovements && tx.currency === 'NEAR' && tx.amount && userIsReceiver !== userIsSender) {
     const normalizedAmountResult = normalizeNativeAmount(tx.amount, 24);
     if (normalizedAmountResult.isErr()) {
-      logger.warn(
-        {
-          error: normalizedAmountResult.error,
-          rawAmount: tx.amount,
-          decimals: 24,
-          txHash: tx.id,
-          context: 'NEAR transaction amount normalization',
-        },
-        'Failed to normalize NEAR transaction amount, skipping this movement'
+      return err(
+        new Error(
+          `Failed to normalize NEAR transaction amount for tx ${tx.id}: ${normalizedAmountResult.error.message}. ` +
+            `Raw amount: ${tx.amount}, decimals: 24`
+        )
       );
-    } else {
-      const normalizedAmount = normalizedAmountResult.value;
-      if (userIsReceiver) {
-        inflows.push({
-          amount: normalizedAmount,
-          asset: 'NEAR',
-        });
-        toAddress = tx.to || toAddress;
-      } else if (userIsSender) {
-        outflows.push({
-          amount: normalizedAmount,
-          asset: 'NEAR',
-        });
-        fromAddress = tx.from || fromAddress;
-      }
+    }
+    const normalizedAmount = normalizedAmountResult.value;
+    if (userIsReceiver) {
+      inflows.push({
+        amount: normalizedAmount,
+        asset: 'NEAR',
+      });
+      toAddress = tx.to || toAddress;
+    } else if (userIsSender) {
+      outflows.push({
+        amount: normalizedAmount,
+        asset: 'NEAR',
+      });
+      fromAddress = tx.from || fromAddress;
     }
   }
 
@@ -345,23 +334,18 @@ export function analyzeNearBalanceChanges(
     if (missing > threshold) {
       const normalizedStakingAmountResult = normalizeNativeAmount(missing.toString(), 24);
       if (normalizedStakingAmountResult.isErr()) {
-        logger.warn(
-          {
-            error: normalizedStakingAmountResult.error,
-            rawAmount: missing.toString(),
-            decimals: 24,
-            txHash: tx.id,
-            context: 'NEAR staking outflow normalization',
-          },
-          'Failed to normalize NEAR staking amount, skipping staking outflow'
+        return err(
+          new Error(
+            `Failed to normalize NEAR staking amount for tx ${tx.id}: ${normalizedStakingAmountResult.error.message}. ` +
+              `Raw amount: ${missing.toString()}, decimals: 24`
+          )
         );
-      } else {
-        outflows.push({
-          amount: normalizedStakingAmountResult.value,
-          asset: 'NEAR',
-        });
-        fromAddress = tx.from || fromAddress;
       }
+      outflows.push({
+        amount: normalizedStakingAmountResult.value,
+        asset: 'NEAR',
+      });
+      fromAddress = tx.from || fromAddress;
     }
   }
 
@@ -475,7 +459,7 @@ export function analyzeNearBalanceChanges(
   // When true, prevents recording a duplicate fee entry in the transaction record
   const feeAbsorbedByMovement = hadOutflowsBeforeFeeAdjustment && consolidatedOutflows.length === 0;
 
-  return {
+  return ok({
     classificationUncertainty,
     feeAbsorbedByMovement,
     feePaidByUser,
@@ -484,7 +468,7 @@ export function analyzeNearBalanceChanges(
     outflows: consolidatedOutflows,
     primary,
     toAddress,
-  };
+  });
 }
 
 /**
@@ -741,7 +725,11 @@ export function analyzeNearFundFlow(
   const hasTokenTransfers = detectNearTokenTransfers(tx.actions || []);
 
   // Enhanced fund flow analysis using balance changes
-  const flowAnalysis = analyzeNearBalanceChanges(tx, allWalletAddresses);
+  const flowAnalysisResult = analyzeNearBalanceChanges(tx, allWalletAddresses);
+  if (flowAnalysisResult.isErr()) {
+    return err(flowAnalysisResult.error.message);
+  }
+  const flowAnalysis = flowAnalysisResult.value;
 
   const fundFlow: NearFundFlow = {
     feeAmount: tx.feeAmount || '0',
