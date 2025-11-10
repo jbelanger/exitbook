@@ -2,19 +2,18 @@ import type { TokenMetadata } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../core/base/api-client.js';
-import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../core/index.js';
-import { RegisterApiClient } from '../../../core/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../core/types/index.js';
-import { maskAddress } from '../../../core/utils/address-utils.js';
-import { transformSolBalance, transformTokenAccounts } from '../balance-utils.js';
 import type {
-  SolanaAccountBalance,
-  SolanaSignature,
-  SolanaTokenAccountsResponse,
-  SolanaTransaction,
-} from '../types.js';
-import { deduplicateTransactionsBySignature, isValidSolanaAddress } from '../utils.js';
+  ProviderConfig,
+  ProviderOperation,
+  JsonRpcResponse,
+  RawBalanceData,
+  TransactionWithRawData,
+} from '../../../../core/index.ts';
+import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
+import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.ts';
+import type { SolanaSignature, SolanaAccountBalance, SolanaTransaction } from '../../schemas.ts';
+import type { SolanaTokenAccountsResponse } from '../../types.ts';
+import { isValidSolanaAddress, deduplicateTransactionsBySignature } from '../../utils.ts';
 
 import { mapHeliusTransaction } from './helius.mapper-utils.js';
 import type { HeliusAssetResponse, HeliusTransaction } from './helius.schemas.js';

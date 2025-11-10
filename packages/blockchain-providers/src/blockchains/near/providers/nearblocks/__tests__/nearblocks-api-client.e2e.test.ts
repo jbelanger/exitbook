@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import type { RawBalanceData, TransactionWithRawData } from '../../../../core/index.js';
-import { ProviderRegistry } from '../../../../core/index.js';
-import type { NearTransaction } from '../../types.js';
+import type { TransactionWithRawData, RawBalanceData } from '../../../../../core/index.ts';
+import { ProviderRegistry } from '../../../../../core/index.ts';
+import type { NearTransaction } from '../../../schemas.ts';
 import { NearBlocksApiClient } from '../nearblocks.api-client.js';
 import type {
   NearBlocksActivity,

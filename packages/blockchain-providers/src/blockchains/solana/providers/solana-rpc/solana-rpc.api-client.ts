@@ -1,17 +1,20 @@
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../core/base/api-client.js';
-import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../core/index.js';
-import { RegisterApiClient } from '../../../core/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../core/types/index.js';
-import { maskAddress } from '../../../core/utils/address-utils.js';
-import { transformSolBalance, transformTokenAccounts } from '../balance-utils.js';
-import type { SolanaSignature, SolanaTokenAccountsResponse, SolanaTransaction } from '../types.js';
-import { isValidSolanaAddress } from '../utils.js';
+import type {
+  ProviderConfig,
+  ProviderOperation,
+  JsonRpcResponse,
+  RawBalanceData,
+  TransactionWithRawData,
+} from '../../../../core/index.ts';
+import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
+import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.ts';
+import type { SolanaTransaction, SolanaSignature } from '../../schemas.ts';
+import { isValidSolanaAddress } from '../../utils.ts';
 
 import { mapSolanaRPCTransaction } from './solana-rpc.mapper-utils.js';
-import type { SolanaRPCTransaction } from './solana-rpc.schemas.js';
+import type { SolanaRPCTransaction, SolanaTokenAccountsResponse } from './solana-rpc.schemas.js';
 
 @RegisterApiClient({
   baseUrl: 'https://api.mainnet-beta.solana.com',

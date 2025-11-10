@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../core/utils/zod-utils.js';
-import { SolanaAddressSchema, SolanaTokenAccountSchema, SolanaTokenBalanceSchema } from '../schemas.js';
+import { timestampToDate } from '../../../../core/index.ts';
+import { SolanaAddressSchema, SolanaTokenBalanceSchema, SolanaTokenAccountSchema } from '../../schemas.ts';
 
 /**
  * Schema for Solana RPC transaction header

@@ -1,14 +1,16 @@
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../core/base/api-client.js';
-import type { ProviderConfig, ProviderOperation } from '../../../core/index.js';
-import { RegisterApiClient } from '../../../core/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../core/types/index.js';
-import { maskAddress } from '../../../core/utils/address-utils.js';
-import { transformSolBalance } from '../balance-utils.js';
-import type { SolanaTransaction } from '../types.js';
-import { isValidSolanaAddress } from '../utils.js';
+import type {
+  ProviderConfig,
+  ProviderOperation,
+  RawBalanceData,
+  TransactionWithRawData,
+} from '../../../../core/index.ts';
+import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
+import { transformSolBalance } from '../../balance-utils.ts';
+import type { SolanaTransaction } from '../../schemas.ts';
+import { isValidSolanaAddress } from '../../utils.ts';
 
 import { mapSolscanTransaction } from './solscan.mapper-utils.js';
 import type { SolscanTransaction, SolscanResponse } from './solscan.schemas.js';

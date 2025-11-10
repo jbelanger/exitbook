@@ -4,8 +4,8 @@ import { describe, expect, test } from 'vitest';
 import {
   mapNearBlocksActivityToAccountChange,
   mapNearBlocksFtTransactionToTokenTransfer,
-} from '../nearblocks/mapper-utils.js';
-import type { NearBlocksActivity, NearBlocksFtTransaction } from '../nearblocks/nearblocks.schemas.js';
+} from '../providers/nearblocks/mapper-utils.ts';
+import type { NearBlocksActivity, NearBlocksFtTransaction } from '../providers/nearblocks/nearblocks.schemas.ts';
 
 describe('mapNearBlocksActivityToAccountChange', () => {
   const accountId = 'alice.near';

@@ -1,9 +1,9 @@
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProviderOperation, RawBalanceData } from '../../../../core/index.js';
-import { ProviderRegistry } from '../../../../core/index.js';
-import type { NearTransaction } from '../../types.js';
+import type { RawBalanceData, ProviderOperation } from '../../../../../core/index.ts';
+import { ProviderRegistry } from '../../../../../core/index.ts';
+import type { NearTransaction } from '../../../schemas.ts';
 import { NearBlocksApiClient } from '../nearblocks.api-client.js';
 import type {
   NearBlocksAccount,

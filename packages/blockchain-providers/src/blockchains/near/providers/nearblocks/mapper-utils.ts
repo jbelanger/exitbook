@@ -2,18 +2,11 @@ import type { SourceMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { NormalizationError } from '../../../core/index.js';
-import { withValidation } from '../../../core/index.js';
-import {
-  NearAccountChangeSchema,
-  NearTokenTransferSchema,
-  NearTransactionSchema,
-  type NearAccountChange,
-  type NearAction,
-  type NearTokenTransfer,
-  type NearTransaction,
-} from '../schemas.js';
-import { yoctoNearToNearString } from '../utils.js';
+import type { NormalizationError } from '../../../../core/index.ts';
+import { withValidation } from '../../../../core/index.ts';
+import type { NearAction, NearAccountChange, NearTokenTransfer, NearTransaction } from '../../schemas.ts';
+import { NearAccountChangeSchema, NearTokenTransferSchema, NearTransactionSchema } from '../../schemas.ts';
+import { yoctoNearToNearString } from '../../utils.ts';
 
 import {
   NearBlocksActivitySchema,

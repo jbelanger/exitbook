@@ -1,14 +1,16 @@
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../core/base/api-client.js';
-import type { ProviderConfig, ProviderOperation } from '../../../core/index.js';
-import { RegisterApiClient } from '../../../core/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../core/types/index.js';
-import { maskAddress } from '../../../core/utils/address-utils.js';
-import { transformNearBalance } from '../balance-utils.js';
-import type { NearTransaction } from '../types.js';
-import { isValidNearAccountId } from '../utils.js';
+import type {
+  ProviderConfig,
+  ProviderOperation,
+  RawBalanceData,
+  TransactionWithRawData,
+} from '../../../../core/index.ts';
+import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
+import { transformNearBalance } from '../../balance-utils.ts';
+import type { NearTransaction } from '../../schemas.ts';
+import { isValidNearAccountId } from '../../utils.ts';
 
 import {
   mapNearBlocksActivityToAccountChange,

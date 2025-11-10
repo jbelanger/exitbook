@@ -2,16 +2,16 @@ import { isErrorWithMessage } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { NormalizationError } from '../../../core/index.js';
-import { withValidation } from '../../../core/index.js';
-import { SolanaTransactionSchema } from '../schemas.js';
-import type { SolanaTokenChange, SolanaTransaction } from '../types.js';
+import type { NormalizationError } from '../../../../core/index.ts';
+import { withValidation } from '../../../../core/index.ts';
+import type { SolanaTransaction, SolanaTokenChange } from '../../schemas.ts';
+import { SolanaTransactionSchema } from '../../schemas.ts';
 import {
+  lamportsToSol,
+  extractAccountChangesFromSolscan,
   determinePrimaryTransfer,
   determineRecipient,
-  extractAccountChangesFromSolscan,
-  lamportsToSol,
-} from '../utils.js';
+} from '../../utils.ts';
 
 import { SolscanTransactionSchema, type SolscanTransaction } from './solscan.schemas.js';
 

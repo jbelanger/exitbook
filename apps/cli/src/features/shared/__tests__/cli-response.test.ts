@@ -7,6 +7,7 @@ describe('cli-response', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-01-01T00:00:00.000Z'));
+    process.env.NODE_ENV = 'test';
   });
 
   describe('createSuccessResponse', () => {
