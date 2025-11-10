@@ -1,4 +1,4 @@
-import type { ExchangeLedgerEntry } from '@exitbook/exchanges';
+import type { ExchangeLedgerEntry } from '@exitbook/exchanges-providers';
 import { describe, expect, test } from 'vitest';
 
 import { byCorrelationId, byTimestamp, noGrouping, type RawTransactionWithMetadata } from '../grouping.js';

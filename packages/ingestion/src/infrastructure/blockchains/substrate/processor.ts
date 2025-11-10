@@ -1,7 +1,7 @@
+import type { SubstrateTransaction, SubstrateChainConfig } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
-import type { SubstrateTransaction, SubstrateChainConfig } from '@exitbook/providers';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';

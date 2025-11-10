@@ -3,9 +3,13 @@
  * Tests the fetch pattern across multiple Substrate-based chains (Polkadot, Bittensor, Kusama, etc.)
  */
 
-import type { FailoverExecutionResult } from '@exitbook/providers';
-import { type SubstrateChainConfig, type BlockchainProviderManager, ProviderError } from '@exitbook/providers';
-import { assertOperationType } from '@exitbook/providers/blockchain/__tests__/test-utils.js';
+import type { FailoverExecutionResult } from '@exitbook/blockchain-providers';
+import {
+  type SubstrateChainConfig,
+  type BlockchainProviderManager,
+  ProviderError,
+} from '@exitbook/blockchain-providers';
+import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 

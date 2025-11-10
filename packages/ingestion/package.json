@@ -38,10 +38,10 @@
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
+    "@exitbook/blockchain-providers": "workspace:*",
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
-    "@exitbook/exchanges": "workspace:*",
-    "@exitbook/providers": "workspace:*",
+    "@exitbook/exchanges-providers": "workspace:*",
     "@exitbook/shared-logger": "workspace:*"
   }
 }

@@ -1,6 +1,10 @@
+import type {
+  BlockchainProviderManager,
+  FailoverExecutionResult,
+  RawBalanceData,
+} from '@exitbook/blockchain-providers';
 import type { TokenMetadataRepository } from '@exitbook/data';
-import type { BalanceSnapshot, IExchangeClient } from '@exitbook/exchanges';
-import type { BlockchainProviderManager, FailoverExecutionResult, RawBalanceData } from '@exitbook/providers';
+import type { BalanceSnapshot, IExchangeClient } from '@exitbook/exchanges-providers';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';

@@ -7,7 +7,7 @@ import type { ImportHandlerParams } from '../import-handler.js';
 import { ImportHandler } from '../import-handler.js';
 
 // Mock dependencies
-vi.mock('@exitbook/providers', () => ({
+vi.mock('@exitbook/blockchain-providers', () => ({
   BlockchainProviderManager: vi.fn().mockImplementation(() => ({
     destroy: vi.fn(),
   })),
@@ -255,7 +255,7 @@ describe('ImportHandler', () => {
 
   describe('destroy', () => {
     it('should call providerManager.destroy', async () => {
-      const { BlockchainProviderManager } = await import('@exitbook/providers');
+      const { BlockchainProviderManager } = await import('@exitbook/blockchain-providers');
       const mockDestroy = vi.fn();
       (BlockchainProviderManager as unknown as Mock).mockImplementation(() => ({
         destroy: mockDestroy,

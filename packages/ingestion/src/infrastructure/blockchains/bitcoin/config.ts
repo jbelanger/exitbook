@@ -1,4 +1,4 @@
-import { BITCOIN_CHAINS, getBitcoinChainConfig } from '@exitbook/providers';
+import { BITCOIN_CHAINS, getBitcoinChainConfig } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';

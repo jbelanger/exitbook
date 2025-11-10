@@ -1,6 +1,6 @@
+import type { CardanoTransaction } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
-import type { CardanoTransaction } from '@exitbook/providers';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';

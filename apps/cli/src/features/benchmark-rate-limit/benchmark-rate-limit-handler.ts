@@ -1,5 +1,5 @@
-import type { BlockchainProviderManager } from '@exitbook/providers';
-import { loadExplorerConfig, ProviderRegistry } from '@exitbook/providers';
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { loadExplorerConfig, ProviderRegistry } from '@exitbook/blockchain-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 

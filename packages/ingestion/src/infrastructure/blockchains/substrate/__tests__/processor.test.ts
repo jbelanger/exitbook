@@ -1,4 +1,4 @@
-import { SUBSTRATE_CHAINS, type SubstrateTransaction } from '@exitbook/providers';
+import { SUBSTRATE_CHAINS, type SubstrateTransaction } from '@exitbook/blockchain-providers';
 import { describe, expect, test } from 'vitest';
 
 import { SubstrateProcessor } from '../processor.js';

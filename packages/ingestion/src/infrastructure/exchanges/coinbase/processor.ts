@@ -1,4 +1,4 @@
-import type { CoinbaseLedgerEntry } from '@exitbook/exchanges';
+import type { CoinbaseLedgerEntry } from '@exitbook/exchanges-providers';
 
 import { CorrelatingExchangeProcessor } from '../shared/correlating-exchange-processor.js';
 import { byCorrelationId, coinbaseGrossAmounts } from '../shared/strategies/index.js';

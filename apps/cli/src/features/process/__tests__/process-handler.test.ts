@@ -1,5 +1,5 @@
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { KyselyDB } from '@exitbook/data';
-import type { BlockchainProviderManager } from '@exitbook/providers';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { ProcessHandler } from '../process-handler.js';

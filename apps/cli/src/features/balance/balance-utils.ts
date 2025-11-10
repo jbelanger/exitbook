@@ -5,7 +5,7 @@ import {
   type SourceType,
   type UniversalTransaction,
 } from '@exitbook/core';
-import type { ExchangeCredentials } from '@exitbook/exchanges';
+import type { ExchangeCredentials } from '@exitbook/exchanges-providers';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 

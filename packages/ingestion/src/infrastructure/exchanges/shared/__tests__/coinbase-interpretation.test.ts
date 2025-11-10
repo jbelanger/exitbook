@@ -1,4 +1,4 @@
-import type { CoinbaseLedgerEntry } from '@exitbook/exchanges';
+import type { CoinbaseLedgerEntry } from '@exitbook/exchanges-providers';
 import { describe, expect, test } from 'vitest';
 
 import { coinbaseGrossAmounts, type RawTransactionWithMetadata } from '../strategies/index.js';

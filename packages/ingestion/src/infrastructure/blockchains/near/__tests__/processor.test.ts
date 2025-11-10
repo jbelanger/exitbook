@@ -1,4 +1,4 @@
-import type { NearTransaction } from '@exitbook/providers';
+import type { NearTransaction } from '@exitbook/blockchain-providers';
 import { ok } from 'neverthrow';
 import { describe, expect, test, vi } from 'vitest';
 

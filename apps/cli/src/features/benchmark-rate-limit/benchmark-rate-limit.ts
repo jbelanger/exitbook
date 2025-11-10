@@ -1,4 +1,4 @@
-import { BlockchainProviderManager } from '@exitbook/providers';
+import { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 

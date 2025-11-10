@@ -1,11 +1,11 @@
-import { loadExplorerConfig, ProviderRegistry } from '@exitbook/providers';
+import { loadExplorerConfig, ProviderRegistry } from '@exitbook/blockchain-providers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BenchmarkRateLimitHandler } from '../benchmark-rate-limit-handler.js';
 
 // Mock dependencies
-vi.mock('@exitbook/providers', async () => {
-  const actual = await vi.importActual('@exitbook/providers');
+vi.mock('@exitbook/blockchain-providers', async () => {
+  const actual = await vi.importActual('@exitbook/blockchain-providers');
   return {
     ...actual,
     loadExplorerConfig: vi.fn(),

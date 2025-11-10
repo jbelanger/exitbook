@@ -75,24 +75,24 @@ importers:
       '@exitbook/accounting':
         specifier: workspace:*
         version: link:../../packages/accounting
+      '@exitbook/blockchain-providers':
+        specifier: workspace:*
+        version: link:../../packages/blockchain-providers
       '@exitbook/core':
         specifier: workspace:*
         version: link:../../packages/core
       '@exitbook/data':
         specifier: workspace:*
         version: link:../../packages/platform/data
-      '@exitbook/exchanges':
+      '@exitbook/exchanges-providers':
         specifier: workspace:*
-        version: link:../../packages/platform/exchanges
+        version: link:../../packages/exchange-providers
       '@exitbook/ingestion':
         specifier: workspace:*
         version: link:../../packages/ingestion
       '@exitbook/platform-price-providers':
         specifier: workspace:*
-        version: link:../../packages/platform/price-providers
-      '@exitbook/providers':
-        specifier: workspace:*
-        version: link:../../packages/platform/providers
+        version: link:../../packages/price-providers
       '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../../packages/platform/logger
@@ -138,7 +138,7 @@ importers:
         version: link:../platform/http
       '@exitbook/platform-price-providers':
         specifier: workspace:*
-        version: link:../platform/price-providers
+        version: link:../price-providers
       '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../platform/logger
@@ -164,6 +164,73 @@ importers:
       vitest:
         specifier: ^3.0.5
         version: 3.2.4(@types/node@24.7.2)(@vitest/ui@3.2.4)(jiti@2.6.1)(tsx@4.20.6)(yaml@2.8.1)
+
+  packages/blockchain-providers:
+    dependencies:
+      '@cardano-sdk/core':
+        specifier: ^0.46.11
+        version: 0.46.11(bufferutil@4.0.9)(rxjs@7.8.2)(utf-8-validate@5.0.10)
+      '@cardano-sdk/crypto':
+        specifier: ^0.4.4
+        version: 0.4.4
+      '@cardano-sdk/key-management':
+        specifier: ^0.29.11
+        version: 0.29.11(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      '@exitbook/core':
+        specifier: workspace:*
+        version: link:../core
+      '@exitbook/data':
+        specifier: workspace:*
+        version: link:../platform/data
+      '@exitbook/platform-http':
+        specifier: workspace:*
+        version: link:../platform/http
+      '@exitbook/shared-logger':
+        specifier: workspace:*
+        version: link:../platform/logger
+      '@polkadot/util':
+        specifier: ^13.5.7
+        version: 13.5.7
+      '@polkadot/util-crypto':
+        specifier: ^13.5.7
+        version: 13.5.7(@polkadot/util@13.5.7)
+      '@scure/bip32':
+        specifier: ^2.0.0
+        version: 2.0.1
+      bech32:
+        specifier: ^2.0.0
+        version: 2.0.0
+      bitcoinjs-lib:
+        specifier: ^7.0.0
+        version: 7.0.0(typescript@5.9.3)
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
+      jose:
+        specifier: ^6.0.13
+        version: 6.1.0
+      neverthrow:
+        specifier: ^8.2.0
+        version: 8.2.0
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+      zod:
+        specifier: ^4.1.12
+        version: 4.1.12
+    devDependencies:
+      '@types/node':
+        specifier: ^24.7.2
+        version: 24.7.2
+      tsconfig:
+        specifier: workspace:*
+        version: link:../shared/tsconfig
+      tsx:
+        specifier: ^4.20.4
+        version: 4.20.6
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   packages/core:
     dependencies:
@@ -212,20 +279,51 @@ importers:
         specifier: ^3.0.5
         version: 3.2.4(@types/node@24.7.2)(@vitest/ui@3.2.4)(jiti@2.6.1)(tsx@4.20.6)(yaml@2.8.1)
 
+  packages/exchange-providers:
+    dependencies:
+      '@exitbook/core':
+        specifier: workspace:*
+        version: link:../core
+      '@exitbook/platform-http':
+        specifier: workspace:*
+        version: link:../platform/http
+      '@exitbook/shared-logger':
+        specifier: workspace:*
+        version: link:../platform/logger
+      ccxt:
+        specifier: ^4.5.10
+        version: 4.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      neverthrow:
+        specifier: ^8.2.0
+        version: 8.2.0
+      zod:
+        specifier: ^4.1.12
+        version: 4.1.12
+    devDependencies:
+      '@types/node':
+        specifier: ^24.7.2
+        version: 24.7.2
+      tsconfig:
+        specifier: workspace:*
+        version: link:../shared/tsconfig
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/ingestion:
     dependencies:
+      '@exitbook/blockchain-providers':
+        specifier: workspace:*
+        version: link:../blockchain-providers
       '@exitbook/core':
         specifier: workspace:*
         version: link:../core
       '@exitbook/data':
         specifier: workspace:*
         version: link:../platform/data
-      '@exitbook/exchanges':
+      '@exitbook/exchanges-providers':
         specifier: workspace:*
-        version: link:../platform/exchanges
-      '@exitbook/providers':
-        specifier: workspace:*
-        version: link:../platform/providers
+        version: link:../exchange-providers
       '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../platform/logger
@@ -295,37 +393,6 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  packages/platform/exchanges:
-    dependencies:
-      '@exitbook/core':
-        specifier: workspace:*
-        version: link:../../core
-      '@exitbook/platform-http':
-        specifier: workspace:*
-        version: link:../http
-      '@exitbook/shared-logger':
-        specifier: workspace:*
-        version: link:../logger
-      ccxt:
-        specifier: ^4.5.10
-        version: 4.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10)
-      neverthrow:
-        specifier: ^8.2.0
-        version: 8.2.0
-      zod:
-        specifier: ^4.1.12
-        version: 4.1.12
-    devDependencies:
-      '@types/node':
-        specifier: ^24.7.2
-        version: 24.7.2
-      tsconfig:
-        specifier: workspace:*
-        version: link:../../shared/tsconfig
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
   packages/platform/http:
     dependencies:
       '@exitbook/shared-logger':
@@ -388,20 +455,20 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  packages/platform/price-providers:
+  packages/price-providers:
     dependencies:
       '@exitbook/core':
         specifier: workspace:*
-        version: link:../../core
+        version: link:../core
       '@exitbook/env':
         specifier: workspace:*
-        version: link:../../env
+        version: link:../env
       '@exitbook/platform-http':
         specifier: workspace:*
-        version: link:../http
+        version: link:../platform/http
       '@exitbook/shared-logger':
         specifier: workspace:*
-        version: link:../logger
+        version: link:../platform/logger
       better-sqlite3:
         specifier: ^12.4.1
         version: 12.4.1
@@ -426,74 +493,7 @@ importers:
         version: 24.7.2
       tsconfig:
         specifier: workspace:*
-        version: link:../../shared/tsconfig
-      tsx:
-        specifier: ^4.20.4
-        version: 4.20.6
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
-  packages/platform/providers:
-    dependencies:
-      '@cardano-sdk/core':
-        specifier: ^0.46.11
-        version: 0.46.11(bufferutil@4.0.9)(rxjs@7.8.2)(utf-8-validate@5.0.10)
-      '@cardano-sdk/crypto':
-        specifier: ^0.4.4
-        version: 0.4.4
-      '@cardano-sdk/key-management':
-        specifier: ^0.29.11
-        version: 0.29.11(bufferutil@4.0.9)(utf-8-validate@5.0.10)
-      '@exitbook/core':
-        specifier: workspace:*
-        version: link:../../core
-      '@exitbook/data':
-        specifier: workspace:*
-        version: link:../data
-      '@exitbook/platform-http':
-        specifier: workspace:*
-        version: link:../http
-      '@exitbook/shared-logger':
-        specifier: workspace:*
-        version: link:../logger
-      '@polkadot/util':
-        specifier: ^13.5.7
-        version: 13.5.7
-      '@polkadot/util-crypto':
-        specifier: ^13.5.7
-        version: 13.5.7(@polkadot/util@13.5.7)
-      '@scure/bip32':
-        specifier: ^2.0.0
-        version: 2.0.1
-      bech32:
-        specifier: ^2.0.0
-        version: 2.0.0
-      bitcoinjs-lib:
-        specifier: ^7.0.0
-        version: 7.0.0(typescript@5.9.3)
-      decimal.js:
-        specifier: ^10.6.0
-        version: 10.6.0
-      jose:
-        specifier: ^6.0.13
-        version: 6.1.0
-      neverthrow:
-        specifier: ^8.2.0
-        version: 8.2.0
-      reflect-metadata:
-        specifier: ^0.2.2
-        version: 0.2.2
-      zod:
-        specifier: ^4.1.12
-        version: 4.1.12
-    devDependencies:
-      '@types/node':
-        specifier: ^24.7.2
-        version: 24.7.2
-      tsconfig:
-        specifier: workspace:*
-        version: link:../../shared/tsconfig
+        version: link:../shared/tsconfig
       tsx:
         specifier: ^4.20.4
         version: 4.20.6

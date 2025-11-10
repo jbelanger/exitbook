@@ -1,8 +1,8 @@
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { ProviderError } from '@exitbook/blockchain-providers';
 import type { TokenMetadata, TokenMetadataRecord } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { TokenMetadataRepository } from '@exitbook/data';
-import type { BlockchainProviderManager } from '@exitbook/providers';
-import { ProviderError } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';

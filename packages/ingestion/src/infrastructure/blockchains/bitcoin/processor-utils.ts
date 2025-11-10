@@ -1,4 +1,4 @@
-import type { BitcoinTransaction } from '@exitbook/providers';
+import type { BitcoinTransaction } from '@exitbook/blockchain-providers';
 import { type Result, ok } from 'neverthrow';
 
 import type { BitcoinFundFlow } from './types.js';

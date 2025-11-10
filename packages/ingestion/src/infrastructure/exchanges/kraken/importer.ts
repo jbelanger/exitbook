@@ -1,4 +1,4 @@
-import { createKrakenClient } from '@exitbook/exchanges';
+import { createKrakenClient } from '@exitbook/exchanges-providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -6,7 +6,7 @@ import type { IImporter, ImportParams, ImportRunResult } from '../../../types/im
 
 /**
  * API-based importer for Kraken exchange.
- * Uses createKrakenClient from @exitbook/exchanges to fetch and validate transaction data.
+ * Uses createKrakenClient from @exitbook/exchanges-providers to fetch and validate transaction data.
  * The client handles validation, timestamp extraction, and external ID extraction.
  */
 export class KrakenApiImporter implements IImporter {

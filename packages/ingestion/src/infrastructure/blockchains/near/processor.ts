@@ -1,7 +1,7 @@
+import type { NearTransaction } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
-import type { NearTransaction } from '@exitbook/providers';
 import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';

@@ -1,4 +1,4 @@
-import type { SubstrateChainConfig, SubstrateTransaction } from '@exitbook/providers';
+import type { SubstrateChainConfig, SubstrateTransaction } from '@exitbook/blockchain-providers';
 import { describe, expect, test } from 'vitest';
 
 import {

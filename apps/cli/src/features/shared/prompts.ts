@@ -1,8 +1,8 @@
 import * as p from '@clack/prompts';
+import type { ProviderInfo } from '@exitbook/blockchain-providers';
+import { ProviderRegistry } from '@exitbook/blockchain-providers';
 import type { SourceType } from '@exitbook/core';
 import { getAllBlockchains } from '@exitbook/ingestion';
-import type { ProviderInfo } from '@exitbook/providers';
-import { ProviderRegistry } from '@exitbook/providers';
 
 /**
  * Reusable prompt helpers for the CLI.

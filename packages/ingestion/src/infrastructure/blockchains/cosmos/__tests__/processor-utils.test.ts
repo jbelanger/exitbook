@@ -1,4 +1,4 @@
-import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/providers';
+import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/blockchain-providers';
 import { describe, expect, it } from 'vitest';
 
 import {

@@ -1,7 +1,7 @@
 // Pure utility functions for list-blockchains command
 // All functions are pure - no side effects
 
-import type { ProviderInfo } from '@exitbook/providers';
+import type { ProviderInfo } from '@exitbook/blockchain-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 

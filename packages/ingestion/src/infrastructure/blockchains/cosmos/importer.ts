@@ -1,12 +1,12 @@
-import type { ExternalTransaction } from '@exitbook/core';
 import type {
   BlockchainProviderManager,
   CosmosChainConfig,
   CosmosTransaction,
   ProviderError,
   TransactionWithRawData,
-} from '@exitbook/providers';
-import { generateUniqueTransactionId } from '@exitbook/providers';
+} from '@exitbook/blockchain-providers';
+import { generateUniqueTransactionId } from '@exitbook/blockchain-providers';
+import type { ExternalTransaction } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 

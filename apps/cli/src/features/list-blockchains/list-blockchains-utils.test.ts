@@ -1,4 +1,4 @@
-import type { ProviderInfo, ProviderOperationType } from '@exitbook/providers';
+import type { ProviderInfo, ProviderOperationType } from '@exitbook/blockchain-providers';
 import { describe, expect, it } from 'vitest';
 
 import type { BlockchainInfo } from './list-blockchains-utils.js';

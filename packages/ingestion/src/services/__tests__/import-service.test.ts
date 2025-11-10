@@ -8,9 +8,9 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 /* eslint-disable @typescript-eslint/no-explicit-any -- Acceptable for test mocks */
 
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { DataSource, ExternalTransaction } from '@exitbook/core';
-import { PartialImportError } from '@exitbook/exchanges';
-import type { BlockchainProviderManager } from '@exitbook/providers';
+import { PartialImportError } from '@exitbook/exchanges-providers';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 

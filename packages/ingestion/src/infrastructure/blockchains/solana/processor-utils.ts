@@ -1,7 +1,7 @@
+import type { SolanaTransaction } from '@exitbook/blockchain-providers';
+import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
 import type { OperationClassification } from '@exitbook/core';
-import type { SolanaTransaction } from '@exitbook/providers';
-import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';

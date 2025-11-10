@@ -1,4 +1,4 @@
-import type { BitcoinTransaction } from '@exitbook/providers';
+import type { BitcoinTransaction } from '@exitbook/blockchain-providers';
 import { describe, expect, test } from 'vitest';
 
 import { analyzeBitcoinFundFlow, determineBitcoinTransactionType } from '../processor-utils.js';

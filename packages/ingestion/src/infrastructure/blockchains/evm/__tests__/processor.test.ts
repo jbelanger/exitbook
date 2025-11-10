@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
-import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
+import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
 import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 

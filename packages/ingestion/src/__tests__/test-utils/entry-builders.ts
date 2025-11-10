@@ -1,5 +1,10 @@
-import type { ExchangeLedgerEntry } from '@exitbook/exchanges';
-import type { BitcoinTransaction, CosmosTransaction, EvmTransaction, SolanaTransaction } from '@exitbook/providers';
+import type {
+  BitcoinTransaction,
+  CosmosTransaction,
+  EvmTransaction,
+  SolanaTransaction,
+} from '@exitbook/blockchain-providers';
+import type { ExchangeLedgerEntry } from '@exitbook/exchanges-providers';
 
 import type { RawTransactionWithMetadata } from '../../infrastructure/exchanges/shared/strategies/grouping.js';
 

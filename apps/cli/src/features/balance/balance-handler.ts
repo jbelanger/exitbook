@@ -1,7 +1,12 @@
+import {
+  BlockchainProviderManager,
+  loadExplorerConfig,
+  type BlockchainExplorersConfig,
+} from '@exitbook/blockchain-providers';
 import type { VerificationMetadata } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import { TokenMetadataRepository, TransactionRepository } from '@exitbook/data';
-import { createExchangeClient } from '@exitbook/exchanges';
+import { createExchangeClient } from '@exitbook/exchanges-providers';
 import {
   calculateBalances,
   compareBalances,
@@ -15,7 +20,6 @@ import {
   type BalanceVerificationResult,
   type UnifiedBalanceSnapshot,
 } from '@exitbook/ingestion';
-import { BlockchainProviderManager, loadExplorerConfig, type BlockchainExplorersConfig } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';

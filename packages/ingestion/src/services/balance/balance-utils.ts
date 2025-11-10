@@ -1,8 +1,8 @@
+import type { BlockchainProviderManager, RawBalanceData } from '@exitbook/blockchain-providers';
 import type { SourceType } from '@exitbook/core';
 import { parseDecimal, wrapError } from '@exitbook/core';
 import type { TokenMetadataRepository } from '@exitbook/data';
-import type { IExchangeClient } from '@exitbook/exchanges';
-import type { BlockchainProviderManager, RawBalanceData } from '@exitbook/providers';
+import type { IExchangeClient } from '@exitbook/exchanges-providers';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';

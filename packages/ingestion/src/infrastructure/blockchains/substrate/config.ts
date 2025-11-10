@@ -1,5 +1,5 @@
-import type { BlockchainProviderManager } from '@exitbook/providers';
-import { getSubstrateChainConfig, SUBSTRATE_CHAINS } from '@exitbook/providers';
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { getSubstrateChainConfig, SUBSTRATE_CHAINS } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';

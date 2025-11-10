@@ -1,6 +1,6 @@
+import type { BitcoinChainConfig, BitcoinTransaction } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
-import type { BitcoinChainConfig, BitcoinTransaction } from '@exitbook/providers';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';

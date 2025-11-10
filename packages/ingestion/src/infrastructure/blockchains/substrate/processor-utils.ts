@@ -1,7 +1,7 @@
+import type { SubstrateChainConfig, SubstrateTransaction } from '@exitbook/blockchain-providers';
+import { derivePolkadotAddressVariants } from '@exitbook/blockchain-providers';
 import type { OperationClassification } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import type { SubstrateChainConfig, SubstrateTransaction } from '@exitbook/providers';
-import { derivePolkadotAddressVariants } from '@exitbook/providers';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 

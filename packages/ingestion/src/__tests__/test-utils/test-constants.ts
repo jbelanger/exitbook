@@ -1,4 +1,4 @@
-import type { EvmChainConfig, CosmosChainConfig } from '@exitbook/providers';
+import type { EvmChainConfig, CosmosChainConfig } from '@exitbook/blockchain-providers';
 
 /**
  * Test addresses for Bitcoin blockchain tests

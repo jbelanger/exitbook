@@ -1,7 +1,7 @@
+import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
 import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
-import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
 import { err, okAsync, ok, type Result } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';

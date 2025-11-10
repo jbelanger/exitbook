@@ -18,7 +18,7 @@ let initialized = false;
  *
  * @example
  * ```typescript
- * import { initializeProviders } from '@exitbook/providers';
+ * import { initializeProviders } from '@exitbook/blockchain-providers';
  *
  * initializeProviders();
  * ```

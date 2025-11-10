@@ -1,7 +1,7 @@
+import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/blockchain-providers';
 import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
-import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/providers';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';

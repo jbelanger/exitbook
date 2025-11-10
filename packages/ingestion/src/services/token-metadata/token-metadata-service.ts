@@ -1,6 +1,6 @@
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { TokenMetadataRecord } from '@exitbook/core';
 import type { TokenMetadataRepository } from '@exitbook/data';
-import type { BlockchainProviderManager } from '@exitbook/providers';
 import type { Result } from 'neverthrow';
 
 import type { ITokenMetadataService } from './token-metadata-service.interface.js';

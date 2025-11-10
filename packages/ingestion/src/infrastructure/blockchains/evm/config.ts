@@ -1,5 +1,5 @@
-import type { BlockchainProviderManager } from '@exitbook/providers';
-import { EVM_CHAINS, getEvmChainConfig } from '@exitbook/providers';
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { EVM_CHAINS, getEvmChainConfig } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';

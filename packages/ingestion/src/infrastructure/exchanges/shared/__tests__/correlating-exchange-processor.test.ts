@@ -1,4 +1,4 @@
-import type { ExchangeLedgerEntry } from '@exitbook/exchanges';
+import type { ExchangeLedgerEntry } from '@exitbook/exchanges-providers';
 import { describe, expect, test } from 'vitest';
 
 import { CorrelatingExchangeProcessor } from '../correlating-exchange-processor.js';

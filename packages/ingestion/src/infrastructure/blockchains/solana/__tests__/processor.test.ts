@@ -1,4 +1,4 @@
-import type { SolanaTransaction } from '@exitbook/providers';
+import type { SolanaTransaction } from '@exitbook/blockchain-providers';
 import { ok } from 'neverthrow';
 import { describe, expect, test, vi } from 'vitest';
 

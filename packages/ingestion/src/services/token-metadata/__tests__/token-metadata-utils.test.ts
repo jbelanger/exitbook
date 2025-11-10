@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
+import type { BlockchainProviderManager, IBlockchainProvider } from '@exitbook/blockchain-providers';
+import { ProviderError } from '@exitbook/blockchain-providers';
 import type { TokenMetadataRecord } from '@exitbook/core';
 import type { TokenMetadataRepository } from '@exitbook/data';
-import type { BlockchainProviderManager, IBlockchainProvider } from '@exitbook/providers';
-import { ProviderError } from '@exitbook/providers';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 

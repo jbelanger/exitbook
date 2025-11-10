@@ -1,5 +1,5 @@
 import type { ExternalTransaction } from '@exitbook/core';
-import type { ExchangeCredentials } from '@exitbook/exchanges';
+import type { ExchangeCredentials } from '@exitbook/exchanges-providers';
 import type { Result } from 'neverthrow';
 
 export interface ImportParams {

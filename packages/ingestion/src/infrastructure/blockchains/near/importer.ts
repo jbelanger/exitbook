@@ -1,11 +1,11 @@
-import type { ExternalTransaction } from '@exitbook/core';
 import type {
   BlockchainProviderManager,
   NearTransaction,
   ProviderError,
   TransactionWithRawData,
-} from '@exitbook/providers';
-import { generateUniqueTransactionId } from '@exitbook/providers';
+} from '@exitbook/blockchain-providers';
+import { generateUniqueTransactionId } from '@exitbook/blockchain-providers';
+import type { ExternalTransaction } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 

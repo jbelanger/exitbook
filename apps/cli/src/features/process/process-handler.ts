@@ -1,3 +1,4 @@
+import { BlockchainProviderManager, loadExplorerConfig } from '@exitbook/blockchain-providers';
 import type { KyselyDB } from '@exitbook/data';
 import { TokenMetadataRepository, TransactionRepository } from '@exitbook/data';
 import {
@@ -6,7 +7,6 @@ import {
   TokenMetadataService,
   TransactionProcessService,
 } from '@exitbook/ingestion';
-import { BlockchainProviderManager, loadExplorerConfig } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { type Result } from 'neverthrow';
 

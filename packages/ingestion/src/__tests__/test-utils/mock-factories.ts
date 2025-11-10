@@ -1,5 +1,5 @@
-import type { IExchangeClient, BalanceSnapshot } from '@exitbook/exchanges';
-import type { BlockchainProviderManager } from '@exitbook/providers';
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import type { IExchangeClient, BalanceSnapshot } from '@exitbook/exchanges-providers';
 import { ok } from 'neverthrow';
 import { vi, type Mocked } from 'vitest';
 

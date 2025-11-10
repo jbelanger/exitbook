@@ -1,5 +1,5 @@
 /**
- * @exitbook/providers
+ * @exitbook/blockchain-providers
  *
  * Unified package for blockchain and exchange API providers.
  *
@@ -8,7 +8,7 @@
  *
  * @example
  * ```typescript
- * import { initializeProviders } from '@exitbook/providers';
+ * import { initializeProviders } from '@exitbook/blockchain-providers';
  *
  * // Initialize once at startup
  * initializeProviders();

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import 'reflect-metadata';
+import { initializeProviders } from '@exitbook/blockchain-providers';
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
-import { initializeProviders } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { Command } from 'commander';
 
