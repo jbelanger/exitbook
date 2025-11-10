@@ -41,7 +41,6 @@ Each stage is exposed as a CLI command via `pnpm run dev <command>`.
 - `packages/accounting/` – Linking, pricing, and cost-basis calculation modules.
 - `packages/data/` – Kysely schema, repositories, and migrations backed by SQLite.
 - `packages/core/` – Domain types, Zod schemas, and shared validation helpers.
-- `packages/shared-*` – Logging, HTTP, and platform utilities.
 
 ## Getting Started
 

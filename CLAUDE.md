@@ -4,19 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Collaboration Preferences
 
-- **Vocabulary Feedback:** When your request uses imprecise technical jargon or terminology, I'll suggest more accurate alternatives alongside my response to help improve technical communication.
-- **Fresh Documentation:** When updating documentation, write as if it's a first draft. Keep content clean and cohesive rather than showing revision history.
+- **Vocabulary Feedback:** Suggest accurate alternatives when imprecise technical terminology is used
+- **Fresh Documentation:** Write as first draft - clean and cohesive, not revision history
 
 ## Essential Commands
 
 ### Development & Testing
 
-- `pnpm install` - Install all dependencies (uses pnpm workspaces)
-- `pnpm build` - Type check all packages + bundle CLI (uses tsup for CLI, tsc --noEmit for packages)
-- `pnpm test` - Run unit tests across all packages (vitest, excludes e2e)
-- `pnpm test:e2e` - Run end-to-end tests (requires API keys in `.env`)
-- `pnpm lint` - ESLint with perfectionist plugin
-- `pnpm prettier:fix` - Auto-fix formatting issues
+- `pnpm install` - Install dependencies (pnpm workspaces)
+- `pnpm build` - Type check + bundle CLI (tsup for CLI, tsc --noEmit for packages)
+- `pnpm test` - Unit tests (vitest, excludes e2e)
+- `pnpm test:e2e` - E2E tests (requires `.env` API keys)
+- `pnpm lint` - ESLint + perfectionist
+- `pnpm prettier:fix` - Auto-fix formatting
 
 ### Run Single Test
 
@@ -28,9 +28,9 @@ pnpm vitest run <path/to/test-file.test.ts>
 pnpm vitest run --config vitest.e2e.config.ts <path/to/test.e2e.test.ts>
 ```
 
-### CLI Usage (via apps/cli)
+### CLI Usage
 
-All CLI commands use `pnpm run dev` which proxies to `tsx` with `.env` loading:
+All commands use `pnpm run dev` (tsx + `.env` loading):
 
 ```bash
 pnpm run dev import --exchange kraken --csv-dir ./exports/kraken --process
@@ -55,82 +55,85 @@ pnpm run dev list-blockchains
 
 ### Provider Management
 
-- `pnpm blockchain-providers:list` - List all registered blockchain providers with metadata
-- `pnpm blockchain-providers:validate` - Validate provider registrations match config
-- `pnpm providers:sync` - Sync blockchain-explorers.json with registered providers
+- `pnpm blockchain-providers:list` - List blockchain providers + metadata
+- `pnpm blockchain-providers:validate` - Validate provider registrations
+- `pnpm providers:sync` - Sync provider configurations
 
 ## Architecture Overview
 
 ### Monorepo Structure (pnpm workspaces)
 
-- **apps/cli/** - Commander-based CLI (`exitbook-cli`)
-- **packages/ingestion/** - Importers, processors, blockchain/exchange adapters, balance fetching
-- **packages/accounting/** - Transaction analysis: linking, price derivation, cost basis
-- **packages/data/** - Kysely/SQLite storage, repositories, migrations
-- **packages/core/** - Domain types, Zod schemas, shared utilities
-- **packages/shared-logger/** - Pino structured logging
-- **packages/shared-utils/** - HTTP client, config, retry logic
+- **apps/cli/** - Commander CLI, feature-based organization (`src/features/`)
+- **packages/blockchain-providers/** - Blockchain API clients, provider registry, failover
+- **packages/exchange-providers/** - Exchange API clients (ccxt-based)
+- **packages/price-providers/** - Price/FX provider integrations
+- **packages/ingestion/** - Import/process orchestration, CSV parsing, balance verification
+- **packages/accounting/** - Linking, price derivation, cost basis
+- **packages/data/** - Kysely/SQLite, repositories, migrations
+- **packages/core/** - Domain types, Zod schemas, utilities
+- **packages/http/** - HTTP client, retry, rate limiting
+- **packages/env/** - Environment config validation
+- **packages/logger/** - Pino logging
+- **packages/tsconfig/** - Shared TypeScript config
 
-### Import Pipeline Architecture
+### Import Pipeline
 
-The system follows a two-phase data flow with normalization integrated into import:
+Two-phase data flow:
 
 **Phase 1: Import (Fetch + Normalize)**
 
-- Importers extend `BaseImporter`, implement `IImporter` interface
-- Fetch from APIs or parse CSVs
-- **API clients normalize data using mappers during fetch** (e.g., `BlockstreamTransactionMapper.map()`)
-- Returns `TransactionWithRawData<T>[]` with both `raw` and `normalized` data
-- Zod validation during normalization (fail-fast)
-- Store both payloads in `external_transaction_data` with `processing_status = 'pending'`
+- Importers implement `IImporter`, fetch from APIs/CSVs
+- API clients normalize via mappers (e.g., `BlockstreamTransactionMapper.map()`)
+- Returns `TransactionWithRawData<T>[]` with `raw` + `normalized` payloads
+- Zod validation (fail-fast), store in `external_transaction_data` (`processing_status = 'pending'`)
 
-**Phase 2: Process (Transform to Universal Format)**
+**Phase 2: Process (Transform)**
 
-- Processors load normalized data from `external_transaction_data`
-- Transform to `UniversalTransaction` format
-- Upsert into `transactions` table (keyed by `external_id`)
+- Load normalized data, transform to `UniversalTransaction`
+- Upsert to `transactions` (keyed by `external_id`)
 
-**Balance Checking:** Separate `balance` command fetches live balances from exchanges (requires API credentials) or blockchains (requires address). Returns unified snapshot with timestamp.
+**Balance Checking:** Separate `balance` command for live exchange/blockchain balances.
 
 ### Blockchain Provider System
 
-Multi-provider architecture with intelligent failover:
+Multi-provider architecture with failover:
 
-**Provider Registry:** Auto-registers via `@BlockchainProvider` decorator. Metadata: name, blockchain, capabilities, required API keys.
+**Registry:** Auto-registers via `@RegisterApiClient` decorator (imported in `register-apis.ts`). Metadata: name, blockchain, capabilities, API keys, rate limits.
 
-**BlockchainProviderManager:** Automatic failover, circuit breakers, request caching, health checks.
+**Manager:** `packages/blockchain-providers/src/core/` - Failover, circuit breakers, caching, health checks.
 
-**Configuration:** Optional overrides in `apps/cli/config/blockchain-explorers.json` (enabled providers, priorities, rate limits, retries, timeouts). Falls back to metadata defaults.
+**Configuration:** Metadata in provider implementations. Chain configs in `<blockchain>-chains.json` (bitcoin, evm, cosmos, substrate).
 
-**Supported Blockchains:** Bitcoin (Blockstream, Mempool.space, Tatum), EVM chains (Ethereum, Polygon, Base, Arbitrum, Optimism, Avalanche, BSC, zkSync, Linea, Scroll, Mantle, Blast via Alchemy, Moralis, chain explorers), Solana (Helius, Solana RPC, Solscan), Substrate (Polkadot, Kusama, Bittensor, Moonbeam, Astar via Subscan, Taostats), Cosmos (Injective).
+**Supported:** Bitcoin (Blockstream, Mempool.space, Blockchain.com, BlockCypher, Tatum), EVM (Ethereum, Polygon, Base, Arbitrum, Optimism, Avalanche, BSC, zkSync, Linea, Scroll, Mantle, Blast, Theta via Alchemy, Moralis, Routescan, ThetaScan, Theta Explorer), Solana (Helius, RPC, Solscan), Substrate (Polkadot, Kusama, Bittensor, Moonbeam, Astar via Subscan, Taostats), Cosmos (Injective), Cardano (Blockfrost), NEAR (Nearblocks).
 
 ### Exchange Integration
 
-Generic exchange client architecture using ccxt. `IExchangeClient` interface with `fetchTransactionData()`, credentials validated via Zod, returns `RawExchangeData[]`.
+ccxt-based architecture:
 
-**Supported:** Kraken (CSV/API), KuCoin (CSV), Ledger Live (CSV), Coinbase (stubbed).
+**Supported:** Kraken (CSV/API), KuCoin (CSV/API), Coinbase (API/stubbed)
 
-**Structure:** Each exchange contains importer, processor, Zod schemas, and optionally API client/importer in `infrastructure/exchanges/<exchange>/` and `platform/exchanges/src/<exchange>/`.
+**Structure:**
 
-**Import Methods:** CSV (`--csv-dir`) or API (`--api-key`, `--api-secret`, optionally `--api-passphrase`). ImporterFactory auto-selects based on flags.
+- **API Clients:** `packages/exchange-providers/src/exchanges/<exchange>/` - ccxt, Zod schemas, credentials
+- **Importers/Processors:** `packages/ingestion/src/infrastructure/exchanges/<exchange>/` - CSV parsing, transformation
 
-### Database Layer
+**Import:** CSV (`--csv-dir`) or API (`--api-key`, `--api-secret`, `--api-passphrase`). Factory auto-selects.
 
-**Stack:** Kysely + SQLite at `apps/cli/data/transactions.db`
+### Database
 
-**Tables:** `data_sources` (import runs), `external_transaction_data` (raw payloads with `processing_status`), `transactions` (universal records)
+Kysely + SQLite (`apps/cli/data/transactions.db`). Auto-migrations via `initializeDatabase()`.
+
+**Tables:** `data_sources` (imports), `external_transaction_data` (raw + `processing_status`), `transactions` (universal)
 
 **Repositories:** `DataSourceRepository`, `RawDataRepository`, `TransactionRepository`
 
-Migrations auto-run via `initializeDatabase()`.
+### Multi-Currency & FX
 
-### Multi-Currency & FX Rate Handling
+Four-stage enrichment pipeline: **Derive** (trades) → **Normalize** (fiat→USD) → **Fetch** (crypto) → **Re-derive** (links).
 
-Prices normalized to USD during enrichment (not import). Four-stage pipeline: **Derive** (extract from trades) → **Normalize** (fiat→USD via ECB/BoC/Frankfurter) → **Fetch** (crypto prices) → **Re-derive** (propagate via links).
+**Storage** (EUR/CAD→USD, persisted) vs **Display** (USD→user currency, ephemeral).
 
-Two conversions: **Storage** (EUR/CAD→USD, persisted) vs **Display** (USD→user currency, ephemeral).
-
-FX providers in `packages/price-providers`, cached in `prices.db`. See ADR-003.
+Providers in `packages/price-providers`, cached in `prices.db`. See ADR-003.
 
 ## Critical Patterns
 
@@ -156,7 +159,7 @@ if (result.isErr()) return err(result.error);
 
 ### Zod Schemas
 
-Runtime validation for external data. Core schemas in `packages/core/src/schemas/`, feature-specific in `*.schemas.ts`. Types re-exported from `packages/core/src/types/`. Use `type Foo = z.infer<typeof FooSchema>`.
+Runtime validation. Core schemas in `packages/core/src/schemas/`, feature-specific in `*.schemas.ts`. Use `type Foo = z.infer<typeof FooSchema>`.
 
 ### Logging (Pino)
 
@@ -169,21 +172,21 @@ logger.error({ error }, 'error message');
 
 ## Code Requirements
 
-- **No Sub-Agents:** Do not use Task tool with sub-agents (Explore, Plan, etc.) unless explicitly requested by the user. Sub-agents are costly in terms of tokens. Use direct tool calls (Read, Grep, Glob, etc.) instead.
-- **No Technical Debt:** Stop and report architectural issues immediately before implementing. Fix foundational problems first rather than building on a weak base
-- **Never Silently Hide Errors:** This is a financial system where accuracy is critical. Never catch and suppress errors without logging them. Never make silent assumptions or apply default values for unexpected behavior. Always log warnings for edge cases, validation failures, or data inconsistencies. Use `logger.warn()` liberally when encountering unexpected but recoverable conditions. If you encounter an error you cannot handle, propagate it upward via Result types rather than swallowing it
+- **No Sub-Agents:** Use direct tool calls (Read, Grep, Glob) instead of Task tool with sub-agents unless explicitly requested. Sub-agents are costly.
+- **No Technical Debt:** Stop and report architectural issues immediately. Fix foundational problems first.
+- **Never Silently Hide Errors:** This is a financial system where accuracy is critical. Never catch and suppress errors without logging. Never make silent assumptions or apply defaults for unexpected behavior. Always log warnings for edge cases, validation failures, or data inconsistencies. Use `logger.warn()` liberally for unexpected but recoverable conditions. Propagate errors upward via Result types rather than swallowing them.
 - Use `exactOptionalPropertyTypes` - add `| undefined` to optional properties
-- Add new tables/fields to initial migration (`001_initial_schema.ts`) - database is dropped during development, not versioned incrementally
+- Add new tables/fields to initial migration (`001_initial_schema.ts`) - database dropped during development, not versioned incrementally
 - Remove all legacy code paths and backward compatibility when refactoring - clean breaks only
-- **Vertical Slices Over Technical Layers:** Organize code by feature/functionality (e.g., `exchanges/kraken/`) rather than by technical layer (e.g., `importers/`, `processors/`, `clients/`). Keep related code together - each feature directory should contain its importer, processor, schemas, and tests
-- **Dynamic Over Hardcoded:** Avoid hardcoding lists, enums, or configuration that can be derived dynamically. Use registries, metadata, and runtime discovery instead. The system should automatically discover available blockchains, exchanges, and providers from their registrations rather than maintaining hardcoded lists
-- **Functional Core, Imperative Shell:** Extract business logic (validation, transformations) into pure functions in `*-utils.ts` modules. Use classes for resource management (DB, API clients). Use factory functions for stateless API wrappers. See `apps/cli/src/lib/import-utils.ts` (pure functions) and `apps/cli/src/handlers/import-handler.ts` (class managing resources)
-- **Testing:** Test pure functions in `*-utils.test.ts` without mocks. Test classes/handlers with mocked dependencies.
-- **Simplicity Over DRY:** Follow DRY (Don't Repeat Yourself) principles, but not at the expense of KISS (Keep It Simple, Stupid). Prefer simple, readable code over complex abstractions that eliminate minor duplication. Some repetition is acceptable if it makes code more straightforward and maintainable.
-- **Developer Experience:** When developing packages, prioritize a simple and clean developer experience. APIs should be intuitive, error messages helpful, and setup minimal. Consider the ergonomics of how other developers will consume and work with the package.
-- **Meaningful Comments Only:** Add comments only when they provide meaningful context that cannot be expressed through code itself. Avoid stating the obvious or documenting refactoring changes (e.g., "changed X to Y"). Prefer self-documenting code through clear naming and structure. Use comments to explain why, not what.
-- **Decimal.js:** Use named import `import { Decimal } from 'decimal.js'` and always use `.toFixed()` for string conversion (NOT `.toString()` which outputs scientific notation)
-- **Context Management:** Monitor token usage throughout conversations. When context usage exceeds 125,000 tokens, warn the user and propose breaking the remaining work into sub-tasks, suggesting which sub-task to tackle first (after clearing history with `/clear`).
+- **Vertical Slices Over Technical Layers:** Organize by feature (e.g., `exchanges/kraken/`) not technical layer (e.g., `importers/`, `processors/`). Keep related code together - each feature directory contains its importer, processor, schemas, and tests.
+- **Dynamic Over Hardcoded:** Avoid hardcoding lists, enums, or config that can be derived dynamically. Use registries, metadata, and runtime discovery. System auto-discovers blockchains, exchanges, and providers from their registrations.
+- **Functional Core, Imperative Shell:** Extract business logic into pure functions in `*-utils.ts` modules. Use classes for resource management (DB, API clients). Use factory functions for stateless wrappers. Examples: `packages/ingestion/src/services/import-service-utils.ts` (pure), blockchain provider API clients (classes).
+- **Testing:** Test pure functions in `*-utils.test.ts` without mocks. Test classes with mocked dependencies.
+- **Simplicity Over DRY:** KISS > DRY. Prefer simple, readable code over complex abstractions. Some repetition acceptable for maintainability.
+- **Developer Experience:** Prioritize clean DX when developing packages. Intuitive APIs, helpful errors, minimal setup.
+- **Meaningful Comments:** Add comments only for meaningful context not expressible in code. Avoid obvious statements or refactoring notes. Explain why, not what.
+- **Decimal.js:** Use named import `import { Decimal } from 'decimal.js'` and `.toFixed()` for strings (NOT `.toString()` which outputs scientific notation)
+- **Context Management:** When context exceeds 125k tokens, warn and propose sub-tasks after `/clear`
 
 ## Environment Variables
 
@@ -204,36 +207,60 @@ KUCOIN_PASSPHRASE=...
 
 ### Issue Tracking
 
-- Track implementations and progress via GitHub issues using `gh` CLI tool
-- Use `gh issue list`, `gh issue view <number> --comments`, `gh issue create` for workflow management
-- Always load comments when viewing issues to get full context
+- Track progress via GitHub issues with `gh` CLI
+- Use `gh issue list`, `gh issue view <number> --comments`, `gh issue create`
+- Always load comments for full context
 
 ### Adding a New Blockchain Provider
 
-1. Create `packages/ingestion/src/infrastructure/blockchains/<blockchain>/`
-2. Implement importer (extends `BaseImporter`), processor (mapper to `UniversalTransaction`), API clients with Zod schemas
-3. Register via `@BlockchainProvider` decorator in `registry/register-providers.ts`
-4. Optional config in `apps/cli/config/blockchain-explorers.json`
+1. **Provider:** `packages/blockchain-providers/src/blockchains/<blockchain>/providers/<provider-name>/`
+   - API client (extends `BaseApiClient`)
+   - Mapper utilities + Zod schemas
+   - `@RegisterApiClient` decorator on client
+   - Import in blockchain's `register-apis.ts`
+
+2. **Ingestion:** `packages/ingestion/src/infrastructure/blockchains/<blockchain>/`
+   - Importer (implements `IImporter`)
+   - Processor (transforms to `UniversalTransaction`)
+   - Utilities and types
+
+3. **Configuration:** Add to `<blockchain>-chains.json` if multi-chain
 
 ### Adding a New Exchange Adapter
 
-1. Create `packages/ingestion/src/infrastructure/exchanges/<exchange>/`
-2. Implement importer (extends `BaseImporter`), processor (to `UniversalTransaction`), Zod schemas
-3. Register in exchange registry
+1. **Exchange Client (API):** `packages/exchange-providers/src/exchanges/<exchange>/`
+   - Client using ccxt + Zod schemas
+   - Credentials validation, error handling
+   - Export from `packages/exchange-providers/src/index.ts`
+
+2. **Importer/Processor:** `packages/ingestion/src/infrastructure/exchanges/<exchange>/`
+   - Importer (implements `IImporter`) for CSV/API
+   - Processor (transforms to `UniversalTransaction`)
+   - Schemas, types, utilities
+
+3. **Registration:** Add to factory in `packages/ingestion/src/infrastructure/exchanges/shared/`
 
 ### Testing Changes
 
 ```bash
-pnpm build  # Type check
-pnpm vitest run packages/ingestion/src/infrastructure/blockchains/bitcoin  # Specific tests
-pnpm test  # Full suite
-pnpm run dev import --exchange kraken --csv-dir ./test-data --process  # CLI test
+pnpm build  # Type check all packages
+
+# Run tests for specific packages
+pnpm --filter @exitbook/blockchain-providers test
+
+# Run specific test file
+pnpm vitest run packages/blockchain-providers/src/blockchains/bitcoin
+
+pnpm test  # Full test suite
+
+# CLI integration test
+pnpm run dev import --exchange kraken --csv-dir ./test-data --process
 ```
 
 ## Project Context
 
-**Purpose:** Track and analyze cryptocurrency activity across exchanges and blockchains. Import from CSVs/APIs, normalize to universal schema, verify balances.
+**Purpose:** Track cryptocurrency activity across exchanges/blockchains. Import from CSVs/APIs, normalize, verify balances.
 
-**Requirements:** Node.js ≥23, pnpm ≥10.6.2, SQLite (better-sqlite3)
+**Requirements:** Node.js ≥23, pnpm ≥10.6.2, SQLite
 
-**Data Location:** `apps/cli/data/`
+**Data:** `apps/cli/data/`
