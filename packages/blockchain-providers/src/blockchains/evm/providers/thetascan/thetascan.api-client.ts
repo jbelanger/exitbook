@@ -1,10 +1,10 @@
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.js';
-import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.js';
-import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.js';
+import type { ProviderConfig, ProviderOperation } from '../../../../core/index.js';
+import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../core/types/index.js';
+import { maskAddress } from '../../../../core/utils/address-utils.js';
 import type { EvmTransaction } from '../../types.js';
 
 import { mapThetaScanTransaction } from './thetascan.mapper-utils.js';

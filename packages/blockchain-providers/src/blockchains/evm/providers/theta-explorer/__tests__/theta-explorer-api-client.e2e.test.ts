@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../../shared/blockchain/index.js';
-import type { TransactionWithRawData } from '../../../../../shared/blockchain/types/index.js';
+import { ProviderRegistry } from '../../../../../core/index.js';
+import type { TransactionWithRawData } from '../../../../../core/types/index.js';
 import type { EvmTransaction } from '../../../types.js';
 import { ThetaExplorerApiClient } from '../theta-explorer.api-client.js';
 

@@ -2,8 +2,8 @@ import type { SourceMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { ok, type Result } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../shared/blockchain/index.js';
-import { withValidation } from '../../../../shared/blockchain/index.js';
+import type { NormalizationError } from '../../../../core/index.js';
+import { withValidation } from '../../../../core/index.js';
 import { SUBSTRATE_CHAINS } from '../../chain-registry.js';
 import { SubstrateTransactionSchema } from '../../schemas.js';
 import type { SubstrateTransaction } from '../../types.js';

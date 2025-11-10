@@ -2,8 +2,8 @@ import type { SourceMetadata } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../shared/blockchain/index.js';
-import { withValidation } from '../../../../shared/blockchain/index.js';
+import type { NormalizationError } from '../../../../core/index.js';
+import { withValidation } from '../../../../core/index.js';
 import { calculateFee } from '../../calculation-utils.js';
 import {
   parseBankSendMessage,

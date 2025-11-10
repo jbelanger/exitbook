@@ -2,8 +2,8 @@ import type { SourceMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { NormalizationError } from '../../../shared/blockchain/index.js';
-import { withValidation } from '../../../shared/blockchain/index.js';
+import type { NormalizationError } from '../../../core/index.js';
+import { withValidation } from '../../../core/index.js';
 import {
   NearAccountChangeSchema,
   NearTokenTransferSchema,

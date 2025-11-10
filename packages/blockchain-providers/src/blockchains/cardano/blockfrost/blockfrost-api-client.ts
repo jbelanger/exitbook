@@ -1,15 +1,11 @@
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseApiClient } from '../../../shared/blockchain/base/api-client.js';
-import type { ProviderConfig } from '../../../shared/blockchain/index.js';
-import { RegisterApiClient } from '../../../shared/blockchain/index.js';
-import type {
-  ProviderOperation,
-  RawBalanceData,
-  TransactionWithRawData,
-} from '../../../shared/blockchain/types/index.js';
-import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
+import { BaseApiClient } from '../../../core/base/api-client.js';
+import type { ProviderConfig } from '../../../core/index.js';
+import { RegisterApiClient } from '../../../core/index.js';
+import type { ProviderOperation, RawBalanceData, TransactionWithRawData } from '../../../core/types/index.js';
+import { maskAddress } from '../../../core/utils/address-utils.js';
 import type { CardanoTransaction } from '../schemas.js';
 import { createRawBalanceData } from '../utils.ts';
 

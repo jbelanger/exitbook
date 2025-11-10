@@ -2,8 +2,8 @@ import { isErrorWithMessage } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { NormalizationError } from '../../../shared/blockchain/index.js';
-import { withValidation } from '../../../shared/blockchain/index.js';
+import type { NormalizationError } from '../../../core/index.js';
+import { withValidation } from '../../../core/index.js';
 import { SolanaTransactionSchema } from '../schemas.js';
 import type { SolanaTransaction } from '../types.js';
 import { determinePrimaryTransfer, extractAccountChanges, extractTokenChanges, lamportsToSol } from '../utils.js';

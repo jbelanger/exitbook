@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData, TransactionWithRawData } from '../../../../../shared/blockchain/index.ts';
-import { ProviderRegistry } from '../../../../../shared/blockchain/index.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/index.ts';
+import { ProviderRegistry } from '../../../../../core/index.ts';
 import type { BitcoinTransaction } from '../../../schemas.ts';
 import { BlockstreamApiClient } from '../blockstream-api-client.js';
 

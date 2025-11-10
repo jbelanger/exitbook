@@ -5,12 +5,10 @@
 
 import { getErrorMessage } from '@exitbook/core';
 import { type RateLimitConfig } from '@exitbook/http';
-
-// Import clients to trigger registration
-import '../../../blockchains/evm/register-apis.js';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
+import { initializeProviders } from '../../initialize.ts';
 import { BlockchainProviderManager } from '../provider-manager.js';
 import { ProviderRegistry } from '../registry/provider-registry.js';
 import type { ProviderInfo } from '../types/index.js';
@@ -47,6 +45,8 @@ class MockProvider implements IBlockchainProvider {
     this.rateLimit = {
       requestsPerSecond: 1,
     };
+
+    initializeProviders();
   }
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {

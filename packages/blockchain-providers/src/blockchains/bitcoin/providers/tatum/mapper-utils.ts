@@ -2,7 +2,7 @@ import { parseDecimal } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
 import { ok, type Result } from 'neverthrow';
 
-import { withValidation, type NormalizationError } from '../../../../shared/blockchain/index.ts';
+import { withValidation, type NormalizationError } from '../../../../core/index.ts';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import {
   BitcoinTransactionSchema,

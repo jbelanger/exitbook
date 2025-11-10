@@ -2,10 +2,10 @@ import { getErrorMessage } from '@exitbook/core';
 import { HttpClient } from '@exitbook/http';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.js';
-import { BaseApiClient, RegisterApiClient } from '../../../../shared/blockchain/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.js';
-import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.js';
+import type { ProviderConfig, ProviderOperation } from '../../../../core/index.js';
+import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../core/types/index.js';
+import { maskAddress } from '../../../../core/utils/address-utils.js';
 import { convertBalance, createZeroBalance, findNativeBalance } from '../../balance-utils.js';
 import type { CosmosChainConfig } from '../../chain-config.interface.js';
 import { COSMOS_CHAINS } from '../../chain-registry.js';

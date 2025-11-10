@@ -17,7 +17,7 @@
 
 export { initializeProviders } from './initialize.js';
 
-export * from './shared/blockchain/index.js';
+export * from './core/index.js';
 
 export * from './blockchains/bitcoin/index.js';
 export * from './blockchains/cardano/index.js';

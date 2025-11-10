@@ -6,8 +6,8 @@ import { getErrorMessage } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import { ProviderRegistry } from '../core/index.js';
 import { initializeProviders } from '../initialize.js';
-import { ProviderRegistry } from '../shared/blockchain/index.js';
 
 // Initialize all providers
 initializeProviders();

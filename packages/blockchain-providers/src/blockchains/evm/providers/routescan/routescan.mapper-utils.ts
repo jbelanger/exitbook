@@ -1,8 +1,8 @@
 import type { SourceMetadata } from '@exitbook/core';
 import { ok, type Result } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../shared/blockchain/index.js';
-import { withValidation } from '../../../../shared/blockchain/index.js';
+import type { NormalizationError } from '../../../../core/index.js';
+import { withValidation } from '../../../../core/index.js';
 import { calculateGasFeeBigInt } from '../../receipt-utils.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';

@@ -1,8 +1,8 @@
 import type { TokenMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { ProviderRegistry } from '../../../../shared/blockchain/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/types/index.js';
+import { ProviderRegistry } from '../../../../core/index.js';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../core/types/index.js';
 import type { SolanaTransaction } from '../../types.js';
 import { lamportsToSol } from '../../utils.js';
 import { HeliusApiClient } from '../helius.api-client.js';

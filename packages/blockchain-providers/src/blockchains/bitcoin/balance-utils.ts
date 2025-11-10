@@ -1,4 +1,4 @@
-import type { RawBalanceData } from '../../shared/blockchain/types/index.ts';
+import type { RawBalanceData } from '../../core/types/index.ts';
 
 import type { BlockstreamAddressInfo } from './providers/blockstream/blockstream.schemas.ts';
 import type { MempoolAddressInfo } from './providers/mempool-space/mempool-space.schemas.ts';

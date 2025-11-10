@@ -6,9 +6,9 @@
 import { getErrorMessage } from '@exitbook/core';
 import type { RateLimitConfig } from '@exitbook/http';
 
+import { ProviderRegistry } from '../core/index.js';
+import type { ProviderCapabilities } from '../core/types/index.js';
 import { initializeProviders } from '../initialize.js';
-import { ProviderRegistry } from '../shared/blockchain/index.js';
-import type { ProviderCapabilities } from '../shared/blockchain/types/index.js';
 
 // Initialize all providers
 initializeProviders();

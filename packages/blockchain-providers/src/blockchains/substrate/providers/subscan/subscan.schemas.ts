@@ -3,7 +3,7 @@
  */
 import { z } from 'zod';
 
-import { hexOrNumericToNumericRequired, timestampToDate } from '../../../../shared/blockchain/utils/zod-utils.js';
+import { hexOrNumericToNumericRequired, timestampToDate } from '../../../../core/utils/zod-utils.js';
 import { SubstrateAddressSchema } from '../../schemas.js';
 
 /**

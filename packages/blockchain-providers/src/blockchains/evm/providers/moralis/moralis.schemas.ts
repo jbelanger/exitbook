@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../../shared/blockchain/index.js';
+import { timestampToDate } from '../../../../core/index.js';
 import { EvmAddressSchema } from '../../schemas.js';
 
 /**

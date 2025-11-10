@@ -7,7 +7,7 @@
  */
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../../shared/blockchain/utils/zod-utils.js';
+import { timestampToDate } from '../../../../core/utils/zod-utils.js';
 import { CosmosAddressSchema } from '../../schemas.js';
 
 /**

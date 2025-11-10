@@ -21,8 +21,8 @@ import type {
   ProviderOperation,
   RawBalanceData,
   TransactionWithRawData,
-} from '../../../../shared/blockchain/index.ts';
-import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../shared/blockchain/index.ts';
+} from '../../../../core/index.ts';
+import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
 import { calculateSimpleBalance, createRawBalanceData } from '../../balance-utils.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../../chain-registry.js';

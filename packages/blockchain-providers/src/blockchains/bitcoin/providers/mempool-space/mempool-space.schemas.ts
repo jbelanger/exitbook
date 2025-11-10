@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../../shared/blockchain/index.ts';
+import { timestampToDate } from '../../../../core/index.ts';
 import { BitcoinAddressSchema } from '../../schemas.ts';
 
 /**

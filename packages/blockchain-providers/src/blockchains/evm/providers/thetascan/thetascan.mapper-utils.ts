@@ -3,8 +3,8 @@ import type { SourceMetadata } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../shared/blockchain/index.js';
-import { withValidation } from '../../../../shared/blockchain/index.js';
+import type { NormalizationError } from '../../../../core/index.js';
+import { withValidation } from '../../../../core/index.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 import { normalizeEvmAddress } from '../../utils.js';

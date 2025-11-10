@@ -6,8 +6,8 @@ import type {
   ProviderOperation,
   RawBalanceData,
   TransactionWithRawData,
-} from '../../../../shared/blockchain/index.ts';
-import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../shared/blockchain/index.ts';
+} from '../../../../core/index.ts';
+import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
 import { calculateTatumBalance, createRawBalanceData } from '../../balance-utils.ts';
 import type { BitcoinChainConfig } from '../../chain-config.interface.ts';
 import { getBitcoinChainConfig } from '../../chain-registry.ts';

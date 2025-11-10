@@ -2,8 +2,8 @@ import { getErrorMessage } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { RawBalanceData } from '../../shared/blockchain/index.ts';
-import type { BlockchainProviderManager } from '../../shared/blockchain/provider-manager.js';
+import type { RawBalanceData } from '../../core/index.ts';
+import type { BlockchainProviderManager } from '../../core/provider-manager.js';
 
 import type { CardanoAddressEra, CardanoWalletAddress, DerivedCardanoAddress } from './types.js';
 

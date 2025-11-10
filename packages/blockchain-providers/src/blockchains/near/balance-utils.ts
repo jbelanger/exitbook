@@ -1,6 +1,6 @@
 import { parseDecimal } from '@exitbook/core';
 
-import type { RawBalanceData } from '../../shared/blockchain/types/index.js';
+import type { RawBalanceData } from '../../core/types/index.js';
 
 /**
  * Convert yoctoNEAR to NEAR decimal string

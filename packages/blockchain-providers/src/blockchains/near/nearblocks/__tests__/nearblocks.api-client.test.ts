@@ -1,8 +1,8 @@
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProviderOperation, RawBalanceData } from '../../../../shared/blockchain/index.js';
-import { ProviderRegistry } from '../../../../shared/blockchain/index.js';
+import type { ProviderOperation, RawBalanceData } from '../../../../core/index.js';
+import { ProviderRegistry } from '../../../../core/index.js';
 import type { NearTransaction } from '../../types.js';
 import { NearBlocksApiClient } from '../nearblocks.api-client.js';
 import type {

@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import type { TransactionWithRawData } from '../../../../shared/blockchain/index.js';
-import { ProviderRegistry } from '../../../../shared/blockchain/index.js';
+import type { TransactionWithRawData } from '../../../../core/index.js';
+import { ProviderRegistry } from '../../../../core/index.js';
 import type { CardanoTransaction } from '../../schemas.js';
 import { BlockfrostApiClient } from '../blockfrost-api-client.js';
 import type { BlockfrostTransactionWithMetadata } from '../blockfrost.schemas.js';

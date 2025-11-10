@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import type { RawBalanceData, TransactionWithRawData } from '../../../../shared/blockchain/index.js';
-import { ProviderRegistry } from '../../../../shared/blockchain/index.js';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../core/index.js';
+import { ProviderRegistry } from '../../../../core/index.js';
 import type { NearTransaction } from '../../types.js';
 import { NearBlocksApiClient } from '../nearblocks.api-client.js';
 import type {

@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BitcoinTransaction } from '../../../../blockchains/bitcoin/schemas.js';
-import type { CosmosTransaction } from '../../../../blockchains/cosmos/types.js';
-import type { EvmTransaction } from '../../../../blockchains/evm/types.js';
-import type { SolanaTransaction } from '../../../../blockchains/solana/types.js';
-import type { SubstrateTransaction } from '../../../../blockchains/substrate/types.js';
 import { generateUniqueTransactionId, type TransactionIdFields } from '../transaction-utils.js';
 
 describe('transaction-utils', () => {
@@ -157,7 +152,7 @@ describe('transaction-utils', () => {
 
   describe('generateEvmExternalId', () => {
     it('should generate deterministic hash for EVM transaction', () => {
-      const tx: EvmTransaction = {
+      const tx = {
         id: '0xabc123',
         from: '0x1234567890123456789012345678901234567890',
         to: '0x0987654321098765432109876543210987654321',
@@ -177,7 +172,7 @@ describe('transaction-utils', () => {
     });
 
     it('should differentiate token transfers by token address', () => {
-      const baseTx: EvmTransaction = {
+      const baseTx = {
         id: '0xabc123',
         from: '0x1234567890123456789012345678901234567890',
         to: '0x0987654321098765432109876543210987654321',
@@ -189,12 +184,12 @@ describe('transaction-utils', () => {
         providerName: 'alchemy',
       };
 
-      const tx1: EvmTransaction = {
+      const tx1 = {
         ...baseTx,
         tokenAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7', // USDT
       };
 
-      const tx2: EvmTransaction = {
+      const tx2 = {
         ...baseTx,
         tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // USDC
       };
@@ -208,7 +203,7 @@ describe('transaction-utils', () => {
 
   describe('cross-chain compatibility', () => {
     it('should work with Bitcoin transaction structure', () => {
-      const btcTx: BitcoinTransaction = {
+      const btcTx = {
         id: 'abc123def456',
         currency: 'BTC',
         timestamp: 1234567890,
@@ -243,7 +238,7 @@ describe('transaction-utils', () => {
     });
 
     it('should work with Solana transaction structure', () => {
-      const solTx: SolanaTransaction = {
+      const solTx = {
         id: '5QxYZ123...',
         from: 'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK',
         to: 'FUarP2p5EnxD66vVDL4PWRoWMzA56ZVHG24hpEDFShEz',
@@ -263,7 +258,7 @@ describe('transaction-utils', () => {
     });
 
     it('should work with Substrate transaction structure', () => {
-      const dotTx: SubstrateTransaction = {
+      const dotTx = {
         id: '0xabc123-456',
         from: '15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5',
         to: '14Gjs1TD93gnwEBfDMHoCgsuf1s2TVKUP6Z1qKmAZnZ8cW5q',
@@ -283,7 +278,7 @@ describe('transaction-utils', () => {
     });
 
     it('should work with Cosmos transaction structure', () => {
-      const injTx: CosmosTransaction = {
+      const injTx = {
         id: 'ABC123DEF456',
         from: 'inj1abc123...',
         to: 'inj1def456...',
@@ -296,7 +291,7 @@ describe('transaction-utils', () => {
 
       const externalId = generateUniqueTransactionId({
         ...injTx,
-        type: injTx.messageType || 'transfer',
+        type: 'transfer',
       });
 
       expect(externalId).toMatch(/^[a-f0-9]{64}$/);
