@@ -2,19 +2,25 @@ import { parseDecimal } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
 import { ok, type Result } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
+import { withValidation, type NormalizationError } from '../../../../shared/blockchain/index.ts';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
-import type { BitcoinTransaction, BitcoinTransactionInput, BitcoinTransactionOutput } from '../../schemas.js';
+import {
+  BitcoinTransactionSchema,
+  type BitcoinTransaction,
+  type BitcoinTransactionInput,
+  type BitcoinTransactionOutput,
+} from '../../schemas.js';
 
-import type { TatumBCashTransaction } from './tatum-bcash.schemas.js';
-import type { TatumDogecoinTransaction } from './tatum-dogecoin.schemas.js';
-import type { TatumLitecoinTransaction } from './tatum-litecoin.schemas.js';
-import type { TatumBitcoinTransaction } from './tatum.schemas.js';
+import { TatumBCashTransactionSchema, type TatumBCashTransaction } from './tatum-bcash.schemas.js';
+import { TatumDogecoinTransactionSchema, type TatumDogecoinTransaction } from './tatum-dogecoin.schemas.js';
+import { TatumLitecoinTransactionSchema, type TatumLitecoinTransaction } from './tatum-litecoin.schemas.js';
+import { TatumBitcoinTransactionSchema, type TatumBitcoinTransaction } from './tatum.schemas.js';
 
 /**
- * Map Tatum transaction to normalized BitcoinTransaction
+ * Internal pure mapper function (without validation).
+ * Maps Tatum transaction to normalized BitcoinTransaction.
  */
-export function mapTatumTransaction(
+function mapTatumTransactionInternal(
   rawData: TatumBitcoinTransaction,
   _sourceContext: SourceMetadata,
   chainConfig: BitcoinChainConfig
@@ -60,10 +66,21 @@ export function mapTatumTransaction(
 }
 
 /**
- * Map Tatum BCash transaction to normalized BitcoinTransaction
- * BCash endpoint returns a different structure (vin/vout instead of inputs/outputs)
+ * Map Tatum transaction to normalized BitcoinTransaction with validation.
+ * Validates both input (TatumBitcoinTransaction) and output (BitcoinTransaction) schemas.
  */
-export function mapTatumBCashTransaction(
+export const mapTatumTransaction = withValidation(
+  TatumBitcoinTransactionSchema,
+  BitcoinTransactionSchema,
+  'TatumBitcoinTransaction'
+)(mapTatumTransactionInternal);
+
+/**
+ * Internal pure mapper function (without validation).
+ * Maps Tatum BCash transaction to normalized BitcoinTransaction.
+ * BCash endpoint returns a different structure (vin/vout instead of inputs/outputs).
+ */
+function mapTatumBCashTransactionInternal(
   rawData: TatumBCashTransaction,
   _sourceContext: SourceMetadata,
   chainConfig: BitcoinChainConfig
@@ -110,10 +127,21 @@ export function mapTatumBCashTransaction(
 }
 
 /**
- * Map Tatum Dogecoin transaction to normalized BitcoinTransaction
- * Dogecoin endpoint returns values as strings in DOGE (not satoshis)
+ * Map Tatum BCash transaction to normalized BitcoinTransaction with validation.
+ * Validates both input (TatumBCashTransaction) and output (BitcoinTransaction) schemas.
  */
-export function mapTatumDogecoinTransaction(
+export const mapTatumBCashTransaction = withValidation(
+  TatumBCashTransactionSchema,
+  BitcoinTransactionSchema,
+  'TatumBCashTransaction'
+)(mapTatumBCashTransactionInternal);
+
+/**
+ * Internal pure mapper function (without validation).
+ * Maps Tatum Dogecoin transaction to normalized BitcoinTransaction.
+ * Dogecoin endpoint returns values as strings in DOGE (not satoshis).
+ */
+function mapTatumDogecoinTransactionInternal(
   rawData: TatumDogecoinTransaction,
   _sourceContext: SourceMetadata,
   chainConfig: BitcoinChainConfig
@@ -158,10 +186,21 @@ export function mapTatumDogecoinTransaction(
 }
 
 /**
- * Map Tatum Litecoin transaction to normalized BitcoinTransaction
- * Litecoin endpoint returns values as strings in LTC (not satoshis)
+ * Map Tatum Dogecoin transaction to normalized BitcoinTransaction with validation.
+ * Validates both input (TatumDogecoinTransaction) and output (BitcoinTransaction) schemas.
  */
-export function mapTatumLitecoinTransaction(
+export const mapTatumDogecoinTransaction = withValidation(
+  TatumDogecoinTransactionSchema,
+  BitcoinTransactionSchema,
+  'TatumDogecoinTransaction'
+)(mapTatumDogecoinTransactionInternal);
+
+/**
+ * Internal pure mapper function (without validation).
+ * Maps Tatum Litecoin transaction to normalized BitcoinTransaction.
+ * Litecoin endpoint returns values as strings in LTC (not satoshis).
+ */
+function mapTatumLitecoinTransactionInternal(
   rawData: TatumLitecoinTransaction,
   _sourceContext: SourceMetadata,
   chainConfig: BitcoinChainConfig
@@ -204,3 +243,13 @@ export function mapTatumLitecoinTransaction(
 
   return ok(normalized);
 }
+
+/**
+ * Map Tatum Litecoin transaction to normalized BitcoinTransaction with validation.
+ * Validates both input (TatumLitecoinTransaction) and output (BitcoinTransaction) schemas.
+ */
+export const mapTatumLitecoinTransaction = withValidation(
+  TatumLitecoinTransactionSchema,
+  BitcoinTransactionSchema,
+  'TatumLitecoinTransaction'
+)(mapTatumLitecoinTransactionInternal);

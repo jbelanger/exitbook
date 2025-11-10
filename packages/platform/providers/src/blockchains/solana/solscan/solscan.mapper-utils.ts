@@ -3,6 +3,8 @@ import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { NormalizationError } from '../../../shared/blockchain/index.js';
+import { withValidation } from '../../../shared/blockchain/index.js';
+import { SolanaTransactionSchema } from '../schemas.js';
 import type { SolanaTokenChange, SolanaTransaction } from '../types.js';
 import {
   determinePrimaryTransfer,
@@ -11,7 +13,7 @@ import {
   lamportsToSol,
 } from '../utils.js';
 
-import type { SolscanTransaction } from './solscan.schemas.js';
+import { SolscanTransactionSchema, type SolscanTransaction } from './solscan.schemas.js';
 
 /**
  * Pure function for Solscan transaction mapping
@@ -19,9 +21,9 @@ import type { SolscanTransaction } from './solscan.schemas.js';
  */
 
 /**
- * Map Solscan transaction to normalized SolanaTransaction
+ * Map Solscan transaction to normalized SolanaTransaction (internal, no validation)
  */
-export function mapSolscanTransaction(
+function mapSolscanTransactionInternal(
   rawData: SolscanTransaction,
   _sourceContext: SourceMetadata
 ): Result<SolanaTransaction, NormalizationError> {
@@ -70,3 +72,12 @@ export function mapSolscanTransaction(
     return err({ message: `Failed to transform transaction: ${errorMessage}`, type: 'error' });
   }
 }
+
+/**
+ * Map Solscan transaction to normalized SolanaTransaction (with validation)
+ */
+export const mapSolscanTransaction = withValidation(
+  SolscanTransactionSchema,
+  SolanaTransactionSchema,
+  'SolscanTransaction'
+)(mapSolscanTransactionInternal);

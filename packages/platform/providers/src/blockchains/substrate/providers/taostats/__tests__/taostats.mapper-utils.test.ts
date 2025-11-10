@@ -19,18 +19,20 @@ describe('taostats.mapper-utils', () => {
         id: 'txid123',
       };
 
-      const result = convertTaostatsTransaction(rawData, 'TAO');
+      const result = convertTaostatsTransaction(rawData, {}, 'TAO');
 
-      expect(result).toBeDefined();
-      expect(result.id).toBe('0xabc123');
-      expect(result.from).toBe('5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY');
-      expect(result.to).toBe('5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty');
-      expect(result.amount).toBe('1000000000');
-      expect(result.feeAmount).toBe('100000');
-      expect(result.status).toBe('success');
-      expect(result.currency).toBe('TAO');
-      expect(result.chainName).toBe('bittensor');
-      expect(result.providerName).toBe('taostats');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.id).toBe('0xabc123');
+        expect(result.value.from).toBe('5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY');
+        expect(result.value.to).toBe('5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty');
+        expect(result.value.amount).toBe('1000000000');
+        expect(result.value.feeAmount).toBe('100000');
+        expect(result.value.status).toBe('success');
+        expect(result.value.currency).toBe('TAO');
+        expect(result.value.chainName).toBe('bittensor');
+        expect(result.value.providerName).toBe('taostats');
+      }
     });
 
     it('should handle missing fee', () => {
@@ -46,10 +48,12 @@ describe('taostats.mapper-utils', () => {
         id: 'txid123',
       };
 
-      const result = convertTaostatsTransaction(rawData, 'TAO');
+      const result = convertTaostatsTransaction(rawData, {}, 'TAO');
 
-      expect(result).toBeDefined();
-      expect(result.feeAmount).toBe('0');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.feeAmount).toBe('0');
+      }
     });
   });
 

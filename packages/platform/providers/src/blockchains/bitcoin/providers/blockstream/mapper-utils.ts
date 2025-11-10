@@ -1,17 +1,23 @@
 import type { SourceMetadata } from '@exitbook/core';
 import { ok, type Result } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../shared/blockchain/index.ts';
+import { withValidation, type NormalizationError } from '../../../../shared/blockchain/index.ts';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
-import type { BitcoinTransaction, BitcoinTransactionInput, BitcoinTransactionOutput } from '../../schemas.js';
+import {
+  BitcoinTransactionSchema,
+  type BitcoinTransaction,
+  type BitcoinTransactionInput,
+  type BitcoinTransactionOutput,
+} from '../../schemas.js';
 import { satoshisToBtcString } from '../../utils.ts';
 
-import type { BlockstreamTransaction } from './blockstream.schemas.js';
+import { BlockstreamTransactionSchema, type BlockstreamTransaction } from './blockstream.schemas.js';
 
 /**
- * Map Blockstream transaction to normalized BitcoinTransaction
+ * Internal pure mapper function (without validation).
+ * Maps Blockstream transaction to normalized BitcoinTransaction.
  */
-export function mapBlockstreamTransaction(
+function mapBlockstreamTransactionInternal(
   rawData: BlockstreamTransaction,
   _sourceContext: SourceMetadata,
   chainConfig: BitcoinChainConfig
@@ -55,3 +61,13 @@ export function mapBlockstreamTransaction(
 
   return ok(normalized);
 }
+
+/**
+ * Map Blockstream transaction to normalized BitcoinTransaction with validation.
+ * Validates both input (BlockstreamTransaction) and output (BitcoinTransaction) schemas.
+ */
+export const mapBlockstreamTransaction = withValidation(
+  BlockstreamTransactionSchema,
+  BitcoinTransactionSchema,
+  'BlockstreamTransaction'
+)(mapBlockstreamTransactionInternal);

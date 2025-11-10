@@ -3,18 +3,21 @@ import { Decimal } from 'decimal.js';
 import { ok, type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../../shared/blockchain/index.js';
-import type {
-  CardanoAssetAmount,
-  CardanoTransaction,
-  CardanoTransactionInput,
-  CardanoTransactionOutput,
+import { withValidation } from '../../../shared/blockchain/index.js';
+import {
+  CardanoTransactionSchema,
+  type CardanoAssetAmount,
+  type CardanoTransaction,
+  type CardanoTransactionInput,
+  type CardanoTransactionOutput,
 } from '../schemas.js';
 
-import type {
-  BlockfrostAssetAmount,
-  BlockfrostTransactionWithMetadata,
-  BlockfrostUtxoInput,
-  BlockfrostUtxoOutput,
+import {
+  BlockfrostTransactionWithMetadataSchema,
+  type BlockfrostAssetAmount,
+  type BlockfrostTransactionWithMetadata,
+  type BlockfrostUtxoInput,
+  type BlockfrostUtxoOutput,
 } from './blockfrost.schemas.js';
 
 /**
@@ -67,7 +70,7 @@ export function mapAssetAmounts(amounts: BlockfrostAssetAmount[]): CardanoAssetA
 }
 
 /**
- * Map Blockfrost transaction to normalized CardanoTransaction.
+ * Internal pure function to map Blockfrost transaction to normalized CardanoTransaction.
  *
  * Accepts combined transaction data from:
  * - /txs/{hash}/utxos: Detailed input/output UTXO information
@@ -84,7 +87,7 @@ export function mapAssetAmounts(amounts: BlockfrostAssetAmount[]): CardanoAssetA
  * @param _sourceContext - Source metadata (not used in current implementation)
  * @returns Result containing normalized CardanoTransaction or NormalizationError
  */
-export function mapBlockfrostTransaction(
+function mapBlockfrostTransactionInternal(
   rawData: BlockfrostTransactionWithMetadata,
   _sourceContext: SourceMetadata
 ): Result<CardanoTransaction, NormalizationError> {
@@ -124,3 +127,13 @@ export function mapBlockfrostTransaction(
 
   return ok(normalized);
 }
+
+/**
+ * Validated Blockfrost transaction mapper
+ * Wraps the internal mapper with input/output validation
+ */
+export const mapBlockfrostTransaction = withValidation(
+  BlockfrostTransactionWithMetadataSchema,
+  CardanoTransactionSchema,
+  'BlockfrostTransaction'
+)(mapBlockfrostTransactionInternal);

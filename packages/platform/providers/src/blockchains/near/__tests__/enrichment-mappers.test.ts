@@ -164,7 +164,7 @@ describe('mapNearBlocksActivityToAccountChange', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       const errorMessage = result.error.type === 'error' ? result.error.message : result.error.reason;
-      expect(errorMessage).toContain('Invalid NearBlocks activity input data');
+      expect(errorMessage).toContain('Invalid NearBlocksActivity input');
     }
   });
 
@@ -467,7 +467,7 @@ describe('mapNearBlocksFtTransactionToTokenTransfer', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       const errorMessage = result.error.type === 'error' ? result.error.message : result.error.reason;
-      expect(errorMessage).toContain('Invalid NearBlocks FT transaction input data');
+      expect(errorMessage).toContain('Invalid NearBlocksFtTransaction input');
     }
   });
 

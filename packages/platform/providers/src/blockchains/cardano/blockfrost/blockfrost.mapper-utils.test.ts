@@ -829,7 +829,8 @@ describe('blockfrost.mapper-utils', () => {
           ...createBaseFixture(),
           inputs: [
             {
-              address: 'addr1',
+              address:
+                'addr1qxy483kxdaezq6qk0ptlh7gzcmqm2q6uyz4rjz5aq92whlvje44s8rhd3eyt9q3yvdvs3dw6y80ttwspnsmg5tgxa72su3mnty',
               amount: [{ unit: 'lovelace', quantity: '1000000' }],
               tx_hash: 'hash1',
               output_index: 5,
@@ -837,7 +838,8 @@ describe('blockfrost.mapper-utils', () => {
           ],
           outputs: [
             {
-              address: 'addr2',
+              address:
+                'addr1qxyz789abc123def456ghi789jkl012mno345pqr678stu901vwx234yza567bcd890efg123hij456klm789nop012qrs',
               amount: [{ unit: 'lovelace', quantity: '500000' }],
               output_index: 10,
             },

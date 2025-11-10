@@ -4,10 +4,17 @@ import type { Decimal } from 'decimal.js';
 import { type Result, ok, err } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../shared/blockchain/index.js';
+import { withValidation } from '../../../../shared/blockchain/index.js';
+import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 import { normalizeEvmAddress } from '../../utils.js';
 
-import type { ThetaTransaction, ThetaSendTransactionData, ThetaSmartContractData } from './theta-explorer.schemas.js';
+import {
+  ThetaTransactionSchema,
+  type ThetaTransaction,
+  type ThetaSendTransactionData,
+  type ThetaSmartContractData,
+} from './theta-explorer.schemas.js';
 
 /**
  * Pure functions for Theta Explorer transaction mapping
@@ -113,9 +120,9 @@ function extractSmartContractTransactionDetails(data: ThetaSmartContractData): {
 }
 
 /**
- * Maps Theta Explorer transaction to normalized EvmTransaction
+ * Maps Theta Explorer transaction to normalized EvmTransaction (internal)
  */
-export function mapThetaExplorerTransaction(
+function mapThetaExplorerTransactionInternal(
   rawData: ThetaTransaction,
   _sourceContext: SourceMetadata
 ): Result<EvmTransaction, NormalizationError> {
@@ -183,3 +190,12 @@ export function mapThetaExplorerTransaction(
 
   return ok(transaction);
 }
+
+/**
+ * Maps Theta Explorer transaction to normalized EvmTransaction with validation
+ */
+export const mapThetaExplorerTransaction = withValidation(
+  ThetaTransactionSchema,
+  EvmTransactionSchema,
+  'ThetaExplorerTransaction'
+)(mapThetaExplorerTransactionInternal);

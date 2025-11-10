@@ -3,10 +3,12 @@ import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { NormalizationError } from '../../../shared/blockchain/index.js';
+import { withValidation } from '../../../shared/blockchain/index.js';
+import { SolanaTransactionSchema } from '../schemas.js';
 import type { SolanaTransaction } from '../types.js';
 import { determinePrimaryTransfer, extractAccountChanges, extractTokenChanges, lamportsToSol } from '../utils.js';
 
-import type { SolanaRPCTransaction } from './solana-rpc.schemas.js';
+import { SolanaRPCTransactionSchema, type SolanaRPCTransaction } from './solana-rpc.schemas.js';
 
 /**
  * Pure function for Solana RPC transaction mapping
@@ -14,9 +16,9 @@ import type { SolanaRPCTransaction } from './solana-rpc.schemas.js';
  */
 
 /**
- * Map Solana RPC transaction to normalized SolanaTransaction
+ * Map Solana RPC transaction to normalized SolanaTransaction (internal, no validation)
  */
-export function mapSolanaRPCTransaction(
+function mapSolanaRPCTransactionInternal(
   rawData: SolanaRPCTransaction,
   _sourceContext: SourceMetadata
 ): Result<SolanaTransaction, NormalizationError> {
@@ -62,3 +64,12 @@ export function mapSolanaRPCTransaction(
     return err({ message: `Failed to transform transaction: ${errorMessage}`, type: 'error' });
   }
 }
+
+/**
+ * Map Solana RPC transaction to normalized SolanaTransaction (with validation)
+ */
+export const mapSolanaRPCTransaction = withValidation(
+  SolanaRPCTransactionSchema,
+  SolanaTransactionSchema,
+  'SolanaRPCTransaction'
+)(mapSolanaRPCTransactionInternal);

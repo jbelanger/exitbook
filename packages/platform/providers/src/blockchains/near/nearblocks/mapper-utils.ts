@@ -3,6 +3,7 @@ import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../../shared/blockchain/index.js';
+import { withValidation } from '../../../shared/blockchain/index.js';
 import {
   NearAccountChangeSchema,
   NearTokenTransferSchema,
@@ -126,7 +127,7 @@ export function mapNearBlocksActivityToAccountChange(
       return `${issue.message}${path}`;
     });
     return err({
-      message: `Invalid NearBlocks activity input data: ${errors.join(', ')}`,
+      message: `Invalid NearBlocksActivity input: ${errors.join(', ')}`,
       type: 'error',
     });
   }
@@ -170,7 +171,7 @@ export function mapNearBlocksActivityToAccountChange(
       return `${issue.message}${path}`;
     });
     return err({
-      message: `Invalid NearAccountChange output data: ${errors.join(', ')}`,
+      message: `Invalid NearAccountChange output: ${errors.join(', ')}`,
       type: 'error',
     });
   }
@@ -194,7 +195,7 @@ export function mapNearBlocksFtTransactionToTokenTransfer(
       return `${issue.message}${path}`;
     });
     return err({
-      message: `Invalid NearBlocks FT transaction input data: ${errors.join(', ')}`,
+      message: `Invalid NearBlocksFtTransaction input: ${errors.join(', ')}`,
       type: 'error',
     });
   }
@@ -253,7 +254,7 @@ export function mapNearBlocksFtTransactionToTokenTransfer(
       return `${issue.message}${path}`;
     });
     return err({
-      message: `Invalid NearTokenTransfer output data: ${errors.join(', ')}`,
+      message: `Invalid NearTokenTransfer output: ${errors.join(', ')}`,
       type: 'error',
     });
   }
@@ -262,26 +263,13 @@ export function mapNearBlocksFtTransactionToTokenTransfer(
 }
 
 /**
- * Map NearBlocks transaction to normalized NearTransaction
+ * Internal function to map NearBlocks transaction to normalized NearTransaction
  */
-export function mapNearBlocksTransaction(
+function mapNearBlocksTransactionInternal(
   rawData: NearBlocksTransaction,
   sourceContext: SourceMetadata
 ): Result<NearTransaction, NormalizationError> {
-  // Validate input data
-  const inputValidationResult = NearBlocksTransactionSchema.safeParse(rawData);
-  if (!inputValidationResult.success) {
-    const errors = inputValidationResult.error.issues.map((issue) => {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
-      return `${issue.message}${path}`;
-    });
-    return err({
-      message: `Invalid NearBlocks transaction input data: ${errors.join(', ')}`,
-      type: 'error',
-    });
-  }
-
-  const validatedRawData = inputValidationResult.data;
+  const validatedRawData = rawData;
 
   const timestamp = parseNearBlocksTimestamp(validatedRawData.block_timestamp);
   const status = determineTransactionStatus(validatedRawData.outcomes);
@@ -328,18 +316,15 @@ export function mapNearBlocksTransaction(
     normalized.feeCurrency = 'NEAR';
   }
 
-  // Validate output data
-  const outputValidationResult = NearTransactionSchema.safeParse(normalized);
-  if (!outputValidationResult.success) {
-    const errors = outputValidationResult.error.issues.map((issue) => {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
-      return `${issue.message}${path}`;
-    });
-    return err({
-      message: `Invalid NearBlocks transaction output data: ${errors.join(', ')}`,
-      type: 'error',
-    });
-  }
-
   return ok(normalized);
 }
+
+/**
+ * Validated NearBlocks transaction mapper
+ * Wraps the internal mapper with input/output validation
+ */
+export const mapNearBlocksTransaction = withValidation(
+  NearBlocksTransactionSchema,
+  NearTransactionSchema,
+  'NearBlocksTransaction'
+)(mapNearBlocksTransactionInternal);

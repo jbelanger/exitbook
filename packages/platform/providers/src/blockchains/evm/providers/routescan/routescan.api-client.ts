@@ -534,7 +534,7 @@ export class RoutescanApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = mapRoutescanTransaction(rawTx, this.chainConfig.nativeCurrency, {});
+      const mapResult = mapRoutescanTransaction(rawTx, {}, this.chainConfig.nativeCurrency);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

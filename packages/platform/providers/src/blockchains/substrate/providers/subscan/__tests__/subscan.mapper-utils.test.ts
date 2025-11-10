@@ -28,24 +28,27 @@ describe('subscan.mapper-utils', () => {
 
       const result = convertSubscanTransaction(
         transfer,
+        {},
         relevantAddresses,
         chainConfig,
         nativeCurrency,
         nativeDecimals
       );
 
-      expect(result).toBeDefined();
-      expect(result?.id).toBe('0xabc123');
-      expect(result?.from).toBe('addr1');
-      expect(result?.to).toBe('addr2');
-      expect(result?.amount).toBe('15000000000'); // 1.5 * 10^10
-      expect(result?.feeAmount).toBe('100000000');
-      expect(result?.status).toBe('success');
-      expect(result?.currency).toBe('DOT');
-      expect(result?.chainName).toBe('polkadot');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.id).toBe('0xabc123');
+        expect(result.value.from).toBe('addr1');
+        expect(result.value.to).toBe('addr2');
+        expect(result.value.amount).toBe('15000000000'); // 1.5 * 10^10
+        expect(result.value.feeAmount).toBe('100000000');
+        expect(result.value.status).toBe('success');
+        expect(result.value.currency).toBe('DOT');
+        expect(result.value.chainName).toBe('polkadot');
+      }
     });
 
-    it('should return undefined for irrelevant addresses', () => {
+    it('should return skip error for irrelevant addresses', () => {
       const transfer: SubscanTransfer = {
         hash: '0xabc123',
         from: 'addr1',
@@ -63,13 +66,17 @@ describe('subscan.mapper-utils', () => {
 
       const result = convertSubscanTransaction(
         transfer,
+        {},
         relevantAddresses,
         chainConfig,
         nativeCurrency,
         nativeDecimals
       );
 
-      expect(result).toBeUndefined();
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.type).toBe('skip');
+      }
     });
 
     it('should handle failed transactions', () => {
@@ -90,14 +97,17 @@ describe('subscan.mapper-utils', () => {
 
       const result = convertSubscanTransaction(
         transfer,
+        {},
         relevantAddresses,
         chainConfig,
         nativeCurrency,
         nativeDecimals
       );
 
-      expect(result).toBeDefined();
-      expect(result?.status).toBe('failed');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.status).toBe('failed');
+      }
     });
   });
 });

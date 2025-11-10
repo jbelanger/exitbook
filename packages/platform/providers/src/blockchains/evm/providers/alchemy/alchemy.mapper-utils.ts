@@ -4,11 +4,13 @@ import type { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../shared/blockchain/index.js';
+import { withValidation } from '../../../../shared/blockchain/index.js';
 import { calculateGasFee } from '../../receipt-utils.js';
+import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 import { normalizeEvmAddress } from '../../utils.js';
 
-import type { AlchemyAssetTransfer } from './alchemy.schemas.js';
+import { AlchemyAssetTransferSchema, type AlchemyAssetTransfer } from './alchemy.schemas.js';
 
 /**
  * Pure functions for Alchemy transaction mapping
@@ -192,9 +194,9 @@ function enrichWithGasFees(transaction: EvmTransaction, rawData: AlchemyAssetTra
 }
 
 /**
- * Maps Alchemy asset transfer to normalized EvmTransaction
+ * Maps Alchemy asset transfer to normalized EvmTransaction (internal)
  */
-export function mapAlchemyTransaction(
+function mapAlchemyTransactionInternal(
   rawData: AlchemyAssetTransfer,
   _sourceContext: SourceMetadata
 ): Result<EvmTransaction, NormalizationError> {
@@ -221,3 +223,12 @@ export function mapAlchemyTransaction(
 
   return ok(transaction);
 }
+
+/**
+ * Maps Alchemy asset transfer to normalized EvmTransaction with validation
+ */
+export const mapAlchemyTransaction = withValidation(
+  AlchemyAssetTransferSchema,
+  EvmTransactionSchema,
+  'AlchemyTransaction'
+)(mapAlchemyTransactionInternal);

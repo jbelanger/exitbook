@@ -2,14 +2,20 @@ import type { SourceMetadata } from '@exitbook/core';
 import { ok, type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../shared/blockchain/index.js';
+import { withValidation } from '../../../../shared/blockchain/index.js';
 import { calculateGasFeeBigInt } from '../../receipt-utils.js';
+import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 import { extractMethodId, getTransactionTypeFromFunctionName, normalizeEvmAddress } from '../../utils.js';
 
-import type {
-  RoutescanInternalTransaction,
-  RoutescanTransaction,
-  RoutescanTokenTransfer,
+import {
+  RoutescanAnyTransactionSchema,
+  RoutescanInternalTransactionSchema,
+  RoutescanTransactionSchema,
+  RoutescanTokenTransferSchema,
+  type RoutescanInternalTransaction,
+  type RoutescanTransaction,
+  type RoutescanTokenTransfer,
 } from './routescan.schemas.js';
 
 /**
@@ -18,12 +24,12 @@ import type {
  */
 
 /**
- * Transforms Routescan internal transaction to normalized EvmTransaction
+ * Transforms Routescan internal transaction to normalized EvmTransaction (internal)
  */
-export function transformInternalTransaction(
+function transformInternalTransactionInternal(
   rawData: RoutescanInternalTransaction,
-  nativeCurrency: string,
-  _sourceContext: SourceMetadata
+  _sourceContext: SourceMetadata,
+  nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   const timestamp = rawData.timeStamp.getTime();
 
@@ -43,12 +49,12 @@ export function transformInternalTransaction(
 }
 
 /**
- * Transforms Routescan normal transaction to normalized EvmTransaction
+ * Transforms Routescan normal transaction to normalized EvmTransaction (internal)
  */
-export function transformNormalTransaction(
+function transformNormalTransactionInternal(
   rawData: RoutescanTransaction,
-  nativeCurrency: string,
-  _sourceContext: SourceMetadata
+  _sourceContext: SourceMetadata,
+  nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   const timestamp = rawData.timeStamp.getTime();
 
@@ -88,12 +94,12 @@ export function transformNormalTransaction(
 }
 
 /**
- * Transforms Routescan token transfer to normalized EvmTransaction
+ * Transforms Routescan token transfer to normalized EvmTransaction (internal)
  */
-export function transformTokenTransfer(
+function transformTokenTransferInternal(
   rawData: RoutescanTokenTransfer,
-  nativeCurrency: string,
-  _sourceContext: SourceMetadata
+  _sourceContext: SourceMetadata,
+  nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   const timestamp = rawData.timeStamp.getTime();
 
@@ -127,22 +133,58 @@ export function transformTokenTransfer(
 }
 
 /**
- * Maps any type of Routescan transaction to normalized EvmTransaction
+ * Maps any type of Routescan transaction to normalized EvmTransaction (internal)
  */
-export function mapRoutescanTransaction(
+function mapRoutescanTransactionInternal(
   rawData: RoutescanTransaction | RoutescanInternalTransaction | RoutescanTokenTransfer,
-  nativeCurrency: string,
-  sourceContext: SourceMetadata
+  sourceContext: SourceMetadata,
+  nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   // Type discrimination: token transfers have tokenSymbol, internal transactions have traceId, normal transactions have nonce
 
   if ('tokenSymbol' in rawData) {
-    return transformTokenTransfer(rawData, nativeCurrency, sourceContext);
+    return transformTokenTransferInternal(rawData, sourceContext, nativeCurrency);
   }
 
   if ('traceId' in rawData) {
-    return transformInternalTransaction(rawData, nativeCurrency, sourceContext);
+    return transformInternalTransactionInternal(rawData, sourceContext, nativeCurrency);
   }
 
-  return transformNormalTransaction(rawData, nativeCurrency, sourceContext);
+  return transformNormalTransactionInternal(rawData, sourceContext, nativeCurrency);
 }
+
+/**
+ * Transforms Routescan internal transaction to normalized EvmTransaction with validation
+ */
+export const transformInternalTransaction = withValidation(
+  RoutescanInternalTransactionSchema,
+  EvmTransactionSchema,
+  'RoutescanInternalTransaction'
+)(transformInternalTransactionInternal);
+
+/**
+ * Transforms Routescan normal transaction to normalized EvmTransaction with validation
+ */
+export const transformNormalTransaction = withValidation(
+  RoutescanTransactionSchema,
+  EvmTransactionSchema,
+  'RoutescanTransaction'
+)(transformNormalTransactionInternal);
+
+/**
+ * Transforms Routescan token transfer to normalized EvmTransaction with validation
+ */
+export const transformTokenTransfer = withValidation(
+  RoutescanTokenTransferSchema,
+  EvmTransactionSchema,
+  'RoutescanTokenTransfer'
+)(transformTokenTransferInternal);
+
+/**
+ * Maps any type of Routescan transaction to normalized EvmTransaction with validation
+ */
+export const mapRoutescanTransaction = withValidation(
+  RoutescanAnyTransactionSchema,
+  EvmTransactionSchema,
+  'RoutescanTransaction'
+)(mapRoutescanTransactionInternal);

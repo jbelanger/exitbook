@@ -311,22 +311,31 @@ export class SubscanApiClient extends BaseApiClient {
     const relevantAddresses = new Set([address]);
     const transactions: TransactionWithRawData<SubstrateTransaction>[] = [];
     for (const rawTx of transfers) {
-      const normalized = convertSubscanTransaction(
+      const mapResult = convertSubscanTransaction(
         rawTx,
+        {},
         relevantAddresses,
         this.chainConfig,
         this.chainConfig.nativeCurrency,
         this.chainConfig.nativeDecimals
       );
 
-      // Skip transactions that aren't relevant to this address
-      if (!normalized) {
-        continue;
+      // Skip transactions that aren't relevant to this address or have validation errors
+      if (mapResult.isErr()) {
+        const error = mapResult.error;
+        if (error.type === 'skip') {
+          continue;
+        }
+        // error.type === 'error'
+        this.logger.error(
+          `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${error.message}`
+        );
+        return err(new Error(`Provider data validation failed: ${error.message}`));
       }
 
       transactions.push({
         raw: rawTx,
-        normalized,
+        normalized: mapResult.value,
       });
     }
 

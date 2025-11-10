@@ -3,6 +3,7 @@ import { getLogger } from '@exitbook/shared-logger';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../shared/blockchain/index.js';
+import { withValidation } from '../../../../shared/blockchain/index.js';
 import { calculateFee } from '../../calculation-utils.js';
 import {
   parseBankSendMessage,
@@ -13,16 +14,20 @@ import {
   parseWasmxExecuteMessage,
   shouldSkipMessage,
 } from '../../message-parser-utils.js';
+import { CosmosTransactionSchema } from '../../schemas.js';
 import type { CosmosTransaction } from '../../types.js';
 import { formatDenom, generatePeggyId, isTransactionRelevant } from '../../utils.js';
 
-import type { InjectiveTransaction as InjectiveApiTransaction } from './injective-explorer.schemas.js';
+import {
+  InjectiveTransactionSchema,
+  type InjectiveTransaction as InjectiveApiTransaction,
+} from './injective-explorer.schemas.js';
 
 /**
- * Pure function for Injective Explorer transaction mapping
+ * Internal pure function for Injective Explorer transaction mapping
  * Following the Functional Core / Imperative Shell pattern
  */
-export function mapInjectiveExplorerTransaction(
+function mapInjectiveExplorerTransactionInternal(
   rawData: InjectiveApiTransaction,
   sourceContext: SourceMetadata
 ): Result<CosmosTransaction, NormalizationError> {
@@ -232,3 +237,13 @@ export function mapInjectiveExplorerTransaction(
 
   return ok(transaction);
 }
+
+/**
+ * Validated Injective Explorer transaction mapper
+ * Wraps the internal mapper with input/output validation
+ */
+export const mapInjectiveExplorerTransaction = withValidation(
+  InjectiveTransactionSchema,
+  CosmosTransactionSchema,
+  'InjectiveExplorerTransaction'
+)(mapInjectiveExplorerTransactionInternal);

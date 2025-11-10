@@ -1,19 +1,24 @@
+import type { SourceMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
+import { ok, type Result } from 'neverthrow';
 
+import type { NormalizationError } from '../../../../shared/blockchain/index.js';
+import { withValidation } from '../../../../shared/blockchain/index.js';
 import { SUBSTRATE_CHAINS } from '../../chain-registry.js';
+import { SubstrateTransactionSchema } from '../../schemas.js';
 import type { SubstrateTransaction } from '../../types.js';
 
-import type { TaostatsTransaction } from './taostats.schemas.js';
+import { TaostatsTransactionSchema, type TaostatsTransaction } from './taostats.schemas.js';
 
 /**
- * Converts a Taostats transaction to a SubstrateTransaction.
+ * Converts a Taostats transaction to a SubstrateTransaction (internal, no validation).
  * Handles amount/fee parsing, timestamp conversion, and sets defaults for Bittensor.
- *
- * @param rawData - Taostats transaction object
- * @param nativeCurrency - Native currency symbol (TAO)
- * @returns SubstrateTransaction
  */
-export function convertTaostatsTransaction(rawData: TaostatsTransaction, nativeCurrency: string): SubstrateTransaction {
+function convertTaostatsTransactionInternal(
+  rawData: TaostatsTransaction,
+  _sourceContext: SourceMetadata,
+  nativeCurrency: string
+): Result<SubstrateTransaction, NormalizationError> {
   // Extract SS58 addresses from address objects
   const fromAddress = rawData.from.ss58;
   const toAddress = rawData.to.ss58;
@@ -36,7 +41,7 @@ export function convertTaostatsTransaction(rawData: TaostatsTransaction, nativeC
   // Build the normalized SubstrateTransaction
   // Note: Taostats only provides basic transfer data, no module/call/events information
   // The processor will handle classification based on available fields
-  return {
+  const transaction: SubstrateTransaction = {
     amount: amountPlanck.toFixed(),
     blockHeight: rawData.block_number,
     chainName: chainConfig.chainName,
@@ -53,7 +58,18 @@ export function convertTaostatsTransaction(rawData: TaostatsTransaction, nativeC
     timestamp,
     to: toAddress,
   };
+
+  return ok(transaction);
 }
+
+/**
+ * Converts a Taostats transaction to a SubstrateTransaction with validation
+ */
+export const convertTaostatsTransaction = withValidation(
+  TaostatsTransactionSchema,
+  SubstrateTransactionSchema,
+  'TaostatsTransaction'
+)(convertTaostatsTransactionInternal);
 
 /**
  * Checks if a transaction is relevant to the given addresses.

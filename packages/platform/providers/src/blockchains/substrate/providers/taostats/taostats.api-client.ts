@@ -196,18 +196,19 @@ export class TaostatsApiClient extends BaseApiClient {
         continue;
       }
 
-      try {
-        const normalized = convertTaostatsTransaction(rawTx, this.chainConfig.nativeCurrency);
+      const mapResult = convertTaostatsTransaction(rawTx, {}, this.chainConfig.nativeCurrency);
 
-        normalizedTransactions.push({
-          raw: rawTx,
-          normalized,
-        });
-      } catch (error) {
-        const errorMessage = getErrorMessage(error);
+      if (mapResult.isErr()) {
+        const error = mapResult.error;
+        const errorMessage = error.type === 'error' ? error.message : error.reason;
         this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
         return err(new Error(`Provider data validation failed: ${errorMessage}`));
       }
+
+      normalizedTransactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
     }
 
     this.logger.debug(

@@ -4,10 +4,12 @@ import type { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../shared/blockchain/index.js';
+import { withValidation } from '../../../../shared/blockchain/index.js';
+import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 import { normalizeEvmAddress } from '../../utils.js';
 
-import type { ThetaScanTransaction } from './thetascan.schemas.js';
+import { ThetaScanTransactionSchema, type ThetaScanTransaction } from './thetascan.schemas.js';
 
 /**
  * Pure functions for ThetaScan transaction mapping
@@ -55,9 +57,9 @@ export function isThetaTokenTransfer(currency: string): boolean {
 }
 
 /**
- * Maps ThetaScan transaction to normalized EvmTransaction
+ * Maps ThetaScan transaction to normalized EvmTransaction (internal)
  */
-export function mapThetaScanTransaction(
+function mapThetaScanTransactionInternal(
   rawData: ThetaScanTransaction,
   _sourceContext: SourceMetadata
 ): Result<EvmTransaction, NormalizationError> {
@@ -104,3 +106,12 @@ export function mapThetaScanTransaction(
 
   return ok(transaction);
 }
+
+/**
+ * Maps ThetaScan transaction to normalized EvmTransaction with validation
+ */
+export const mapThetaScanTransaction = withValidation(
+  ThetaScanTransactionSchema,
+  EvmTransactionSchema,
+  'ThetaScanTransaction'
+)(mapThetaScanTransactionInternal);

@@ -153,7 +153,7 @@ describe('injective-explorer mapper-utils', () => {
           currency: 'INJ',
           bridgeType: 'peggy',
           ethereumSender: '0xeth123',
-          ethereumReceiver: '0xethReceiver',
+          ethereumReceiver: '0xethreceiver',
           eventNonce: '12345',
           tokenAddress: '0xtoken123',
         });
@@ -234,10 +234,10 @@ describe('injective-explorer mapper-utils', () => {
         expect(normalized).toMatchObject({
           amount: '2',
           from: 'inj1user123456789',
-          to: '0xethReceiver',
+          to: '0xethreceiver',
           currency: 'INJ',
           bridgeType: 'peggy',
-          ethereumReceiver: '0xethReceiver',
+          ethereumReceiver: '0xethreceiver',
         });
       }
     });

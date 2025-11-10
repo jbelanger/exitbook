@@ -3,10 +3,12 @@ import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { NormalizationError } from '../../../shared/blockchain/index.js';
+import { withValidation } from '../../../shared/blockchain/index.js';
+import { SolanaTransactionSchema } from '../schemas.js';
 import type { SolanaTransaction } from '../types.js';
 import { determinePrimaryTransfer, extractAccountChanges, extractTokenChanges, lamportsToSol } from '../utils.js';
 
-import type { HeliusTransaction } from './helius.schemas.js';
+import { HeliusTransactionSchema, type HeliusTransaction } from './helius.schemas.js';
 
 /**
  * Pure function for Helius transaction mapping
@@ -14,9 +16,9 @@ import type { HeliusTransaction } from './helius.schemas.js';
  */
 
 /**
- * Map Helius transaction to normalized SolanaTransaction
+ * Map Helius transaction to normalized SolanaTransaction (internal, no validation)
  */
-export function mapHeliusTransaction(
+function mapHeliusTransactionInternal(
   rawData: HeliusTransaction,
   _sourceContext: SourceMetadata
 ): Result<SolanaTransaction, NormalizationError> {
@@ -66,3 +68,12 @@ export function mapHeliusTransaction(
     return err({ message: `Failed to transform transaction: ${errorMessage}`, type: 'error' });
   }
 }
+
+/**
+ * Map Helius transaction to normalized SolanaTransaction (with validation)
+ */
+export const mapHeliusTransaction = withValidation(
+  HeliusTransactionSchema,
+  SolanaTransactionSchema,
+  'HeliusTransaction'
+)(mapHeliusTransactionInternal);
