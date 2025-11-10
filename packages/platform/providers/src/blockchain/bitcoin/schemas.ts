@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { BITCOIN_CHAINS } from './chain-registry.js';
+
 /**
  * Numeric string validator for amounts/values
  * Ensures string can be parsed as a valid number
@@ -7,6 +9,18 @@ import { z } from 'zod';
 const numericString = z
   .string()
   .refine((val) => !isNaN(parseFloat(val)) && isFinite(parseFloat(val)), { message: 'Must be a valid numeric string' });
+
+/**
+ * Dynamically derived list of supported Bitcoin-like currencies
+ * Extracted from the chain registry to ensure schemas stay in sync
+ */
+const SUPPORTED_CURRENCIES = Object.values(BITCOIN_CHAINS).map((c) => c.nativeCurrency) as [string, ...string[]];
+
+/**
+ * Schema for Bitcoin-like currency symbols (BTC, DOGE, LTC, BCH, etc.)
+ * Validates against currencies registered in the Bitcoin chain registry
+ */
+const BitcoinCurrencySchema = z.enum(SUPPORTED_CURRENCIES);
 
 /**
  * Bitcoin address schema with normalization
@@ -43,9 +57,9 @@ export const BitcoinTransactionOutputSchema = z.object({
 export const BitcoinTransactionSchema = z.object({
   blockHeight: z.number().optional(),
   blockId: z.string().optional(),
-  currency: z.literal('BTC'),
+  currency: BitcoinCurrencySchema,
   feeAmount: numericString.optional(),
-  feeCurrency: z.string().optional(),
+  feeCurrency: BitcoinCurrencySchema.optional(),
   id: z.string().min(1, 'Transaction ID must not be empty'),
   inputs: z.array(BitcoinTransactionInputSchema).min(1, 'Transaction must have at least one input'),
   outputs: z.array(BitcoinTransactionOutputSchema).min(1, 'Transaction must have at least one output'),

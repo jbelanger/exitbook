@@ -26,6 +26,8 @@ import type {
 import { RegisterApiClient } from '../../../shared/blockchain/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import { calculateSimpleBalance, createRawBalanceData } from '../balance-utils.js';
+import type { BitcoinChainConfig } from '../chain-config.interface.js';
+import { getBitcoinChainConfig } from '../chain-registry.js';
 import { mapBlockCypherTransaction } from '../mapper-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
@@ -55,8 +57,16 @@ import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.s
   requiresApiKey: false,
 })
 export class BlockCypherApiClient extends BaseApiClient {
+  private readonly chainConfig: BitcoinChainConfig;
+
   constructor(config: ProviderConfig) {
     super(config);
+
+    const chainConfig = getBitcoinChainConfig(config.blockchain);
+    if (!chainConfig) {
+      throw new Error(`Unsupported blockchain: ${config.blockchain}`);
+    }
+    this.chainConfig = chainConfig;
 
     this.logger.debug(
       `Initialized BlockCypherApiClient from registry metadata - BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
@@ -226,7 +236,7 @@ export class BlockCypherApiClient extends BaseApiClient {
       `Successfully retrieved raw address info - Address: ${maskAddress(address)}, Balance: ${addressInfo.final_balance}`
     );
 
-    return ok(createRawBalanceData(balanceSats, balanceBTC));
+    return ok(createRawBalanceData(balanceSats, balanceBTC, this.chainConfig.nativeCurrency));
   }
 
   /**
@@ -279,7 +289,7 @@ export class BlockCypherApiClient extends BaseApiClient {
       const rawTx = txResult.value;
 
       // Normalize transaction immediately using mapper
-      const mapResult = mapBlockCypherTransaction(rawTx, {});
+      const mapResult = mapBlockCypherTransaction(rawTx, {}, this.chainConfig);
 
       if (mapResult.isErr()) {
         // Fail fast - provider returned invalid data

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { BlockchainComTransaction } from './blockchain-com/blockchain-com.schemas.js';
 import type { BlockCypherTransaction } from './blockcypher/blockcypher.schemas.js';
 import type { BlockstreamTransaction } from './blockstream/blockstream.schemas.js';
+import type { BitcoinChainConfig } from './chain-config.interface.js';
 import {
   mapBlockchainComTransaction,
   mapBlockCypherTransaction,
@@ -19,6 +20,13 @@ import type { TatumBitcoinTransaction } from './tatum/tatum.schemas.js';
 const mockSourceContext: SourceMetadata = {
   name: 'test-provider',
   source: 'blockchain',
+};
+
+const mockBitcoinChainConfig: BitcoinChainConfig = {
+  chainName: 'bitcoin',
+  displayName: 'Bitcoin',
+  nativeCurrency: 'BTC',
+  nativeDecimals: 8,
 };
 
 describe('mapper-utils', () => {
@@ -98,7 +106,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapBlockstreamTransaction(rawData, mockSourceContext);
+      const result = mapBlockstreamTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -169,7 +177,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapBlockstreamTransaction(rawData, mockSourceContext);
+      const result = mapBlockstreamTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -220,7 +228,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapBlockstreamTransaction(rawData, mockSourceContext);
+      const result = mapBlockstreamTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -294,7 +302,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapBlockstreamTransaction(rawData, mockSourceContext);
+      const result = mapBlockstreamTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -348,7 +356,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapMempoolSpaceTransaction(rawData, mockSourceContext);
+      const result = mapMempoolSpaceTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -406,7 +414,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapMempoolSpaceTransaction(rawData, mockSourceContext);
+      const result = mapMempoolSpaceTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -447,7 +455,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapMempoolSpaceTransaction(rawData, mockSourceContext);
+      const result = mapMempoolSpaceTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -507,7 +515,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapTatumTransaction(rawData, mockSourceContext);
+      const result = mapTatumTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -588,7 +596,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapTatumTransaction(rawData, mockSourceContext);
+      const result = mapTatumTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -647,7 +655,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapTatumTransaction(rawData, mockSourceContext);
+      const result = mapTatumTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -705,7 +713,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapTatumTransaction(rawData, mockSourceContext);
+      const result = mapTatumTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -761,7 +769,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapBlockchainComTransaction(rawData, mockSourceContext);
+      const result = mapBlockchainComTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -836,7 +844,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapBlockchainComTransaction(rawData, mockSourceContext);
+      const result = mapBlockchainComTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -880,7 +888,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapBlockchainComTransaction(rawData, mockSourceContext);
+      const result = mapBlockchainComTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -934,7 +942,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapBlockchainComTransaction(rawData, mockSourceContext);
+      const result = mapBlockchainComTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -984,7 +992,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapBlockCypherTransaction(rawData, mockSourceContext);
+      const result = mapBlockCypherTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -1051,7 +1059,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapBlockCypherTransaction(rawData, mockSourceContext);
+      const result = mapBlockCypherTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -1099,7 +1107,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapBlockCypherTransaction(rawData, mockSourceContext);
+      const result = mapBlockCypherTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -1146,7 +1154,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapBlockCypherTransaction(rawData, mockSourceContext);
+      const result = mapBlockCypherTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -1191,7 +1199,7 @@ describe('mapper-utils', () => {
         ],
       };
 
-      const result = mapBlockCypherTransaction(rawData, mockSourceContext);
+      const result = mapBlockCypherTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
       const afterTime = Date.now();
 
       expect(result.isOk()).toBe(true);

@@ -9,15 +9,15 @@ import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import { calculateTatumBalance, createRawBalanceData } from '../balance-utils.js';
 import type { BitcoinChainConfig } from '../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../chain-registry.js';
-import { mapTatumTransaction } from '../mapper-utils.js';
+import { mapTatumDogecoinTransaction } from '../mapper-utils.js';
 import type { BitcoinTransaction } from '../schemas.js';
 
-import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.schemas.js';
+import type { TatumDogecoinTransaction, TatumDogecoinBalance } from './tatum-dogecoin.schemas.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'TATUM_API_KEY',
-  baseUrl: 'https://api.tatum.io/v3/bitcoin',
-  blockchain: 'bitcoin',
+  baseUrl: 'https://api.tatum.io/v3/dogecoin',
+  blockchain: 'dogecoin',
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalances', 'hasAddressTransactions'],
   },
@@ -31,13 +31,13 @@ import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.schem
     retries: 3,
     timeout: 15000,
   },
-  description: 'Multi-blockchain API provider supporting Bitcoin via unified Tatum API',
-  displayName: 'Tatum Bitcoin API',
+  description: 'Tatum API provider for Dogecoin (values as strings in DOGE)',
+  displayName: 'Tatum Dogecoin API',
   name: 'tatum',
   requiresApiKey: true,
-  supportedChains: ['bitcoin'],
+  supportedChains: ['dogecoin'],
 })
-export class TatumBitcoinApiClient extends BaseApiClient {
+export class TatumDogecoinApiClient extends BaseApiClient {
   private readonly chainConfig: BitcoinChainConfig;
 
   constructor(config: ProviderConfig) {
@@ -51,7 +51,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
 
     // Reinitialize HTTP client with Tatum-specific headers
     this.reinitializeHttpClient({
-      baseUrl: `https://api.tatum.io/v3/${this.blockchain}`,
+      baseUrl: 'https://api.tatum.io/v3/dogecoin',
       defaultHeaders: {
         accept: 'application/json',
         'x-api-key': this.apiKey,
@@ -59,7 +59,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
     });
 
     this.logger.debug(
-      `Initialized TatumBitcoinApiClient - BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
+      `Initialized TatumDogecoinApiClient - BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
     );
   }
 
@@ -86,7 +86,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
   async hasAddressTransactions(address: string): Promise<Result<boolean, Error>> {
     this.logger.debug(`Checking if address has transactions - Address: ${maskAddress(address)}`);
 
-    const txResult = await this.makeRequest<TatumBitcoinTransaction[]>(`/transaction/address/${address}`, {
+    const txResult = await this.makeRequest<TatumDogecoinTransaction[]>(`/transaction/address/${address}`, {
       offset: 0,
       pageSize: 1,
     });
@@ -113,7 +113,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
   async getAddressBalances(address: string): Promise<Result<RawBalanceData, Error>> {
     this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
 
-    const balanceResult = await this.makeRequest<TatumBitcoinBalance>(`/address/balance/${address}`);
+    const balanceResult = await this.makeRequest<TatumDogecoinBalance>(`/address/balance/${address}`);
 
     if (balanceResult.isErr()) {
       this.logger.error(
@@ -126,7 +126,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
     const { balanceBTC, balanceSats } = calculateTatumBalance(balanceData.incoming, balanceData.outgoing);
 
     this.logger.debug(
-      `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, BalanceBTC: ${balanceBTC}`
+      `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, BalanceDOGE: ${balanceBTC}`
     );
 
     return ok(createRawBalanceData(balanceSats, balanceBTC, this.chainConfig.nativeCurrency));
@@ -155,7 +155,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
       ...(params?.txType && { txType: params.txType }),
     };
 
-    const result = await this.makeRequest<TatumBitcoinTransaction[]>(`/transaction/address/${address}`, queryParams);
+    const result = await this.makeRequest<TatumDogecoinTransaction[]>(`/transaction/address/${address}`, queryParams);
 
     if (result.isErr()) {
       this.logger.error(
@@ -174,7 +174,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
     // Normalize transactions immediately using mapper
     const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = mapTatumTransaction(rawTx, {}, this.chainConfig);
+      const mapResult = mapTatumDogecoinTransaction(rawTx, {}, this.chainConfig);
 
       if (mapResult.isErr()) {
         // Fail fast - provider returned invalid data
@@ -198,7 +198,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
 
   override getHealthCheckConfig() {
     return {
-      endpoint: '/address/balance/1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
+      endpoint: '/address/balance/DTw4VxsDbQG6Dq2AqmTQTwGQrXhGUJJqCg',
       validate: (response: unknown) => {
         return response !== null && response !== undefined;
       },

@@ -1,4 +1,5 @@
 import type { BitcoinTransaction } from '@exitbook/providers';
+import { getBitcoinChainConfig } from '@exitbook/providers';
 import { describe, expect, test } from 'vitest';
 
 import { BitcoinTransactionProcessor } from '../processor.js';
@@ -10,7 +11,11 @@ const EXTERNAL_ADDRESS = 'bc1qexternal111111111111111111111111111';
 const ANOTHER_EXTERNAL = 'bc1qanother222222222222222222222222222';
 
 function createProcessor() {
-  return new BitcoinTransactionProcessor();
+  const chainConfig = getBitcoinChainConfig('bitcoin');
+  if (!chainConfig) {
+    throw new Error('Bitcoin chain config not found');
+  }
+  return new BitcoinTransactionProcessor(chainConfig);
 }
 
 describe('BitcoinTransactionProcessor - Fee Accounting (Issue #78)', () => {
