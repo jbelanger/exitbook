@@ -26,10 +26,7 @@ const logger = getLogger('CLI');
 const program = new Command();
 
 async function main() {
-  program
-    .name('crypto-import')
-    .description('Crypto transaction import and verification tool using CCXT')
-    .version('1.0.0');
+  program.name('exitbook').description('Crypto transaction reconciliation and reports').version('1.0.0');
 
   // Import command - refactored with @clack/prompts (Phase 2)
   registerImportCommand(program);
