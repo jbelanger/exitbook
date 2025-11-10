@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-useless-undefined -- acceptable for tests */
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 import type { TokenMetadataRecord } from '@exitbook/core';
 import type { TokenMetadataRepository } from '@exitbook/data';

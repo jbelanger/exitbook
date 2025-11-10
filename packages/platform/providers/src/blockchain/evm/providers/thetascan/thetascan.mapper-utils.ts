@@ -1,9 +1,9 @@
 import { parseDecimal } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
+import type { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../shared/blockchain/index.js';
-import { isThetaTokenTransfer, parseCommaFormattedNumber, selectThetaCurrency } from '../../mapper-utils.js';
 import type { EvmTransaction } from '../../types.js';
 import { normalizeEvmAddress } from '../../utils.js';
 
@@ -13,6 +13,46 @@ import type { ThetaScanTransaction } from './thetascan.schemas.js';
  * Pure functions for ThetaScan transaction mapping
  * Following the Functional Core / Imperative Shell pattern
  */
+
+/**
+ * Parses a comma-formatted number string to Decimal.
+ * Used for ThetaScan amounts like "1,000,000.000000".
+ *
+ * @param value - Number string with commas
+ * @returns Parsed Decimal value
+ */
+export function parseCommaFormattedNumber(value: string): Decimal {
+  return parseDecimal(value.replace(/,/g, ''));
+}
+
+/**
+ * Determines which currency was transferred when multiple currencies are available.
+ * Prioritizes THETA over TFUEL for Theta blockchain transactions.
+ *
+ * @param thetaAmount - THETA amount
+ * @param tfuelAmount - TFUEL amount
+ * @returns Currency symbol and amount
+ */
+export function selectThetaCurrency(thetaAmount: Decimal, tfuelAmount: Decimal): { amount: Decimal; currency: string } {
+  if (thetaAmount.gt(0)) {
+    return { currency: 'THETA', amount: thetaAmount };
+  } else if (tfuelAmount.gt(0)) {
+    return { currency: 'TFUEL', amount: tfuelAmount };
+  } else {
+    return { currency: 'TFUEL', amount: parseDecimal('0') };
+  }
+}
+
+/**
+ * Determines if a THETA transfer should be mapped as token_transfer.
+ * THETA is mapped as token_transfer to preserve symbol, while TFUEL is native.
+ *
+ * @param currency - Currency symbol ('THETA' or 'TFUEL')
+ * @returns True if this should be a token transfer
+ */
+export function isThetaTokenTransfer(currency: string): boolean {
+  return currency === 'THETA';
+}
 
 /**
  * Maps ThetaScan transaction to normalized EvmTransaction

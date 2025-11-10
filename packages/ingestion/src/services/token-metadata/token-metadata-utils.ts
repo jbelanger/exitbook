@@ -71,7 +71,7 @@ export async function getOrFetchTokenMetadata(
 
     // Provider doesn't support metadata operation
     if (!metadata) {
-      return ok(void 0);
+      return ok(undefined);
     }
 
     // Ensure refreshedAt is populated to satisfy TokenMetadataRecord contract
@@ -117,7 +117,7 @@ async function fetchFromProvider(
     if (result.isErr()) {
       // Check if error is due to unsupported operation (not a failure)
       if (result.error instanceof ProviderError && result.error.code === 'NO_PROVIDERS') {
-        return ok(void 0);
+        return ok(undefined);
       }
       return err(result.error);
     }

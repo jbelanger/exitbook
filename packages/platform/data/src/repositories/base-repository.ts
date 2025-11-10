@@ -89,7 +89,7 @@ export abstract class BaseRepository {
    */
   protected parseWithSchema<T>(value: unknown, schema: z.ZodSchema<T>): Result<T | undefined, Error> {
     if (!value) {
-      return ok(void 0);
+      return ok(undefined);
     }
 
     try {
@@ -115,7 +115,7 @@ export abstract class BaseRepository {
    */
   protected parseJson<T = unknown>(value: unknown): Result<T | undefined, Error> {
     if (!value) {
-      return ok(void 0);
+      return ok(undefined);
     }
 
     try {

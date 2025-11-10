@@ -16,7 +16,7 @@ function createProcessor() {
   // Create minimal mock for token metadata service
   const mockTokenMetadataService = {
     enrichBatch: vi.fn().mockResolvedValue(ok()),
-    getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
+    getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
   } as unknown as ITokenMetadataService;
 
   return new NearTransactionProcessor(mockTokenMetadataService);

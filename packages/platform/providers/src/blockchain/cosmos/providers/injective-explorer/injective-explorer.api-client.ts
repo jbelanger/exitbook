@@ -11,8 +11,8 @@ import type { CosmosChainConfig } from '../../chain-config.interface.js';
 import { COSMOS_CHAINS } from '../../chain-registry.js';
 import type { CosmosTransaction } from '../../types.js';
 
-import { mapInjectiveExplorerTransaction } from './injective-explorer.mapper-utils.js';
 import type { InjectiveApiResponse, InjectiveBalanceResponse } from './injective-explorer.schemas.js';
+import { mapInjectiveExplorerTransaction } from './mapper-utils.js';
 
 @RegisterApiClient({
   baseUrl: 'https://sentry.exchange.grpc-web.injective.network',

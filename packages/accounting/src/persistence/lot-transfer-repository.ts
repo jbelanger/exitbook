@@ -50,7 +50,7 @@ export class LotTransferRepository extends BaseRepository {
         .execute();
 
       this.logger.debug({ transferId: transfer.id }, 'Created lot transfer');
-      return ok(void 0);
+      return ok(undefined);
     } catch (error) {
       this.logger.error({ error }, 'Failed to create lot transfer');
       return wrapError(error, 'Failed to create lot transfer');

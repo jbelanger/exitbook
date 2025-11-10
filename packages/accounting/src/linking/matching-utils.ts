@@ -335,7 +335,7 @@ export function validateLinkAmounts(sourceAmount: Decimal, targetAmount: Decimal
     );
   }
 
-  return ok(void 0);
+  return ok(undefined);
 }
 
 /**

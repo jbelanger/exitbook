@@ -210,7 +210,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
     });
 
     if (tokenTransfersToEnrich.length === 0) {
-      return ok(void 0);
+      return ok(undefined);
     }
 
     this.logger.debug(`Enriching token metadata for ${tokenTransfersToEnrich.length} token transfers`);
@@ -240,6 +240,6 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
     }
 
     this.logger.debug('Successfully enriched token metadata from cache/provider');
-    return ok(void 0);
+    return ok(undefined);
   }
 }

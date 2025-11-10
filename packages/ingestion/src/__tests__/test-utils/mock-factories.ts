@@ -48,7 +48,7 @@ export function createMockDataSourceRepository(): Mocked<IDataSourceRepository> 
 export function createMockTokenMetadataService(): Mocked<ITokenMetadataService> {
   return {
     enrichBatch: vi.fn().mockResolvedValue(ok()),
-    getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
+    getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
   } as unknown as Mocked<ITokenMetadataService>;
 }
 

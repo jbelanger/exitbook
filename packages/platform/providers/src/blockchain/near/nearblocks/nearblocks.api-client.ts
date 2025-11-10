@@ -7,15 +7,15 @@ import { RegisterApiClient } from '../../../shared/blockchain/index.js';
 import type { RawBalanceData, TransactionWithRawData } from '../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
 import { transformNearBalance } from '../balance-utils.js';
+import type { NearTransaction } from '../types.js';
+import { isValidNearAccountId } from '../utils.js';
+
 import {
   mapNearBlocksActivityToAccountChange,
   mapNearBlocksFtTransactionToTokenTransfer,
   mapNearBlocksTransaction,
   parseNearBlocksTimestamp,
-} from '../mapper-utils.js';
-import type { NearTransaction } from '../types.js';
-import { isValidNearAccountId } from '../utils.js';
-
+} from './mapper-utils.js';
 import {
   NearBlocksAccountSchema,
   NearBlocksActivitiesResponseSchema,

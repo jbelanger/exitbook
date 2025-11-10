@@ -4,7 +4,6 @@ import type { Decimal } from 'decimal.js';
 import { type Result, ok, err } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../shared/blockchain/index.js';
-import { formatThetaAmount, isThetaTokenTransfer, selectThetaCurrency } from '../../mapper-utils.js';
 import type { EvmTransaction } from '../../types.js';
 import { normalizeEvmAddress } from '../../utils.js';
 
@@ -14,6 +13,49 @@ import type { ThetaTransaction, ThetaSendTransactionData, ThetaSmartContractData
  * Pure functions for Theta Explorer transaction mapping
  * Following the Functional Core / Imperative Shell pattern
  */
+
+/**
+ * Determines which currency was transferred when multiple currencies are available.
+ * Prioritizes THETA over TFUEL for Theta blockchain transactions.
+ *
+ * @param thetaAmount - THETA amount
+ * @param tfuelAmount - TFUEL amount
+ * @returns Currency symbol and amount
+ */
+export function selectThetaCurrency(thetaAmount: Decimal, tfuelAmount: Decimal): { amount: Decimal; currency: string } {
+  if (thetaAmount.gt(0)) {
+    return { currency: 'THETA', amount: thetaAmount };
+  } else if (tfuelAmount.gt(0)) {
+    return { currency: 'TFUEL', amount: tfuelAmount };
+  } else {
+    return { currency: 'TFUEL', amount: parseDecimal('0') };
+  }
+}
+
+/**
+ * Determines if a THETA transfer should be mapped as token_transfer.
+ * THETA is mapped as token_transfer to preserve symbol, while TFUEL is native.
+ *
+ * @param currency - Currency symbol ('THETA' or 'TFUEL')
+ * @returns True if this should be a token transfer
+ */
+export function isThetaTokenTransfer(currency: string): boolean {
+  return currency === 'THETA';
+}
+
+/**
+ * Formats amount for Theta transactions based on whether it's THETA or TFUEL.
+ * THETA: Convert from wei to decimal
+ * TFUEL: Keep in wei
+ *
+ * @param amount - Amount in wei
+ * @param isThetaTransfer - True if this is a THETA transfer
+ * @param decimals - Number of decimals (typically 18)
+ * @returns Formatted amount string
+ */
+export function formatThetaAmount(amount: Decimal, isThetaTransfer: boolean, decimals: number): string {
+  return isThetaTransfer ? amount.dividedBy(parseDecimal('10').pow(decimals)).toFixed() : amount.toFixed(0); // Use toFixed(0) to avoid scientific notation
+}
 
 /**
  * Extracts transaction details from Type 2 (Send) transaction

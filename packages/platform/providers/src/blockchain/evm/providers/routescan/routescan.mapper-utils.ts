@@ -2,10 +2,9 @@ import type { SourceMetadata } from '@exitbook/core';
 import { ok, type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../shared/blockchain/index.js';
-import { extractMethodId, getTransactionTypeFromFunctionName } from '../../mapper-utils.js';
 import { calculateGasFeeBigInt } from '../../receipt-utils.js';
 import type { EvmTransaction } from '../../types.js';
-import { normalizeEvmAddress } from '../../utils.js';
+import { extractMethodId, getTransactionTypeFromFunctionName, normalizeEvmAddress } from '../../utils.js';
 
 import type {
   RoutescanInternalTransaction,

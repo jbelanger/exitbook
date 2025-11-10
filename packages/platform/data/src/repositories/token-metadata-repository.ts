@@ -35,7 +35,7 @@ export class TokenMetadataRepository extends BaseRepository {
 
       if (!result) {
         this.logger.debug(`Token metadata not found - Blockchain: ${blockchain}, Contract: ${contractAddress}`);
-        return ok(void 0);
+        return ok(undefined);
       }
 
       const metadata: TokenMetadataRecord = {

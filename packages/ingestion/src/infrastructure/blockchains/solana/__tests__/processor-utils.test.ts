@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-useless-undefined -- needed by testing logic */
 import type { SolanaTransaction } from '@exitbook/providers';
 import { describe, expect, it } from 'vitest';
 

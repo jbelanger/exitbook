@@ -15,7 +15,7 @@ function createProcessor() {
   const mockTokenMetadataService = {
     // Return NO_PROVIDERS ProviderError to simulate provider not supporting metadata
     enrichBatch: vi.fn().mockResolvedValue(ok()),
-    getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
+    getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
   } as unknown as ITokenMetadataService;
 
   return new SolanaTransactionProcessor(mockTokenMetadataService);
@@ -1157,7 +1157,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
             return ok();
           }
         ),
-      getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
+      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
     } as unknown as ITokenMetadataService;
 
     const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
@@ -1243,7 +1243,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
   test('does not enrich symbols that are already human-readable', async () => {
     const mockTokenMetadataService = {
       enrichBatch: vi.fn().mockResolvedValue(ok()),
-      getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
+      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
     } as unknown as ITokenMetadataService;
 
     const processor = new SolanaTransactionProcessor(mockTokenMetadataService);
@@ -1289,7 +1289,7 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
   test('handles service errors gracefully', async () => {
     const mockTokenMetadataService = {
       enrichBatch: vi.fn().mockResolvedValue(ok()),
-      getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
+      getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
     } as unknown as ITokenMetadataService;
 
     const processor = new SolanaTransactionProcessor(mockTokenMetadataService);

@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-useless-undefined -- acceptable for tests */
 /**
  * Tests for TransactionImportService (imperative shell)
  *
@@ -51,7 +50,7 @@ vi.mock('../../infrastructure/blockchains/index.js', () => ({
         }),
       };
     }
-    return undefined;
+    return;
   },
 }));
 

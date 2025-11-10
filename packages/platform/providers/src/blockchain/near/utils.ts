@@ -48,3 +48,11 @@ export function nearToYoctoNear(near: number | string): Decimal {
 export function formatNearAccountId(accountId: string): string {
   return accountId;
 }
+
+/**
+ * Convert yoctoNEAR to NEAR as a string
+ * 1 NEAR = 10^24 yoctoNEAR
+ */
+export function yoctoNearToNearString(yoctoNear: string | number): string {
+  return parseDecimal(yoctoNear.toString()).div(parseDecimal('10').pow(24)).toFixed();
+}

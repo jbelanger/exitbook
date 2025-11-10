@@ -57,7 +57,7 @@ export class PriceRepository {
         .execute();
 
       if (records.length === 0) {
-        return ok(void 0);
+        return ok(undefined);
       }
 
       // Prefer exact granularity matches

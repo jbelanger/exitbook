@@ -1,5 +1,5 @@
-import type { BitcoinChainConfig } from './chain-config.interface.js';
 import bitcoinChainsData from './bitcoin-chains.json' with { type: 'json' };
+import type { BitcoinChainConfig } from './chain-config.interface.js';
 
 /**
  * Registry of all supported Bitcoin-like UTXO chains

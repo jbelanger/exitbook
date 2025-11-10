@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { mapNearBlocksTransaction } from '../../mapper-utils.js';
 import type { NearTransaction } from '../../schemas.js';
+import { mapNearBlocksTransaction } from '../mapper-utils.js';
 import type { NearBlocksTransaction } from '../nearblocks.schemas.js';
 
 describe('NearBlocksTransactionMapper', () => {

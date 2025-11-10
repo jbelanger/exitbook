@@ -270,7 +270,7 @@ describe('CostBasisReportGenerator', () => {
 
     it('should return error if calculation not found', async () => {
       const repository = {
-        findCalculationById: vi.fn().mockResolvedValue(ok(void 0)),
+        findCalculationById: vi.fn().mockResolvedValue(ok(undefined)),
         findDisposalsByCalculationId: vi.fn(),
       } as unknown as CostBasisRepository;
 

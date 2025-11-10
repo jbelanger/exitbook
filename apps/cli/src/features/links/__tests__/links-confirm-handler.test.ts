@@ -153,7 +153,7 @@ describe('LinksConfirmHandler', () => {
         linkId: 'non-existent-link',
       };
 
-      mockLinkRepository.findById.mockResolvedValue(ok(void 0));
+      mockLinkRepository.findById.mockResolvedValue(ok(undefined));
 
       const result = await handler.execute(params);
 

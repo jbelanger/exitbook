@@ -8,8 +8,8 @@ import {
   createRawBalanceData,
   satoshisToBtc,
 } from './balance-utils.js';
-import type { BlockstreamAddressInfo } from './blockstream/blockstream.schemas.js';
-import type { MempoolAddressInfo } from './mempool-space/mempool-space.schemas.js';
+import type { BlockstreamAddressInfo } from './providers/blockstream/blockstream.schemas.ts';
+import type { MempoolAddressInfo } from './providers/mempool-space/mempool-space.schemas.ts';
 
 describe('balance-utils', () => {
   describe('satoshisToBtc', () => {

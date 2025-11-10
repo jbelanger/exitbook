@@ -89,7 +89,7 @@ export abstract class BasePriceProvider implements IPriceProvider {
       return ok(cachedResult.value);
     }
 
-    return ok(void 0);
+    return ok(undefined);
   }
 
   /**

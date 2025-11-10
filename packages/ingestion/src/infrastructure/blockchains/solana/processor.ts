@@ -203,7 +203,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     });
 
     if (tokenChangesToEnrich.length === 0) {
-      return ok(void 0);
+      return ok(undefined);
     }
 
     this.logger.debug(`Enriching token metadata for ${tokenChangesToEnrich.length} token changes`);
@@ -231,6 +231,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     }
 
     this.logger.debug('Successfully enriched token metadata from cache/provider');
-    return ok(void 0);
+    return ok(undefined);
   }
 }

@@ -340,7 +340,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         return err(new Error(`Transaction ${transaction.id} not found`));
       }
 
-      return ok(void 0);
+      return ok(undefined);
     } catch (error) {
       return wrapError(error, 'Failed to update movements with prices');
     }

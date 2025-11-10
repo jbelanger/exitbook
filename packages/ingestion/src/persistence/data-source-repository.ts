@@ -145,7 +145,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       const row = await this.db.selectFrom('data_sources').selectAll().where('id', '=', sessionId).executeTakeFirst();
 
       if (!row) {
-        return ok(void 0);
+        return ok(undefined);
       }
 
       const result = this.toDataSource(row);
@@ -262,7 +262,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
         }
       }
 
-      return ok(void 0);
+      return ok(undefined);
     } catch (error) {
       return wrapError(error, 'Failed to find completed session with matching params');
     }

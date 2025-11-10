@@ -30,10 +30,10 @@ import { maskAddress } from '../../../../shared/blockchain/utils/address-utils.j
 import { isNativeToken } from '../../balance-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
-import { extractAlchemyNetworkName } from '../../mapper-utils.js';
 import { deduplicateTransactionHashes, mergeReceiptsIntoTransfers } from '../../receipt-utils.js';
 import type { EvmTransaction } from '../../types.js';
 
+import { extractAlchemyNetworkName } from './alchemy.mapper-utils.js';
 import { mapAlchemyTransaction } from './alchemy.mapper-utils.js';
 import type {
   AlchemyAssetTransfer,

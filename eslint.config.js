@@ -76,7 +76,12 @@ export default [
 
       // --- Unicorn (Node pragmatics) ---
       'unicorn/no-null': 'error', // prefer Option/undefined in core/domain
-      'unicorn/no-useless-undefined': 'error',
+      'unicorn/no-useless-undefined': [
+        'error',
+        {
+          checkArguments: false,
+        },
+      ],
       'unicorn/prefer-node-protocol': 'error',
 
       // --- Perfectionist (deterministic ordering) ---

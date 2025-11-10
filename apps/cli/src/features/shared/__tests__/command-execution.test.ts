@@ -35,7 +35,7 @@ describe('command-execution', () => {
       expect(unwrapResult(ok(123))).toBe(123);
       expect(unwrapResult(ok({ key: 'value' }))).toEqual({ key: 'value' });
       expect(unwrapResult(ok(['array', 'items']))).toEqual(['array', 'items']);
-      expect(unwrapResult(ok(void 0))).toBe(undefined);
+      expect(unwrapResult(ok(undefined))).toBe(undefined);
     });
   });
 

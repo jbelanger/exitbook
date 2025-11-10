@@ -2,10 +2,9 @@ import type { SourceMetadata } from '@exitbook/core';
 import { type Result, ok } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../shared/blockchain/index.js';
-import { extractMethodId } from '../../mapper-utils.js';
 import { calculateGasFee } from '../../receipt-utils.js';
 import type { EvmTransaction } from '../../types.js';
-import { normalizeEvmAddress } from '../../utils.js';
+import { extractMethodId, normalizeEvmAddress } from '../../utils.js';
 
 import type { MoralisTransaction, MoralisTokenTransfer } from './moralis.schemas.js';
 

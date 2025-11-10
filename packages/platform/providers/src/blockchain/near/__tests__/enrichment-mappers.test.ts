@@ -1,7 +1,10 @@
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
-import { mapNearBlocksActivityToAccountChange, mapNearBlocksFtTransactionToTokenTransfer } from '../mapper-utils.js';
+import {
+  mapNearBlocksActivityToAccountChange,
+  mapNearBlocksFtTransactionToTokenTransfer,
+} from '../nearblocks/mapper-utils.js';
 import type { NearBlocksActivity, NearBlocksFtTransaction } from '../nearblocks/nearblocks.schemas.js';
 
 describe('mapNearBlocksActivityToAccountChange', () => {

@@ -2,11 +2,33 @@ import { getErrorMessage } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
+import type { RawBalanceData } from '../../shared/blockchain/index.ts';
 import type { BlockchainProviderManager } from '../../shared/blockchain/provider-manager.js';
 
 import type { CardanoAddressEra, CardanoWalletAddress, DerivedCardanoAddress } from './types.js';
 
 const logger = getLogger('CardanoUtils');
+
+/**
+ * Convert lovelace (smallest unit) to ADA
+ * 1 ADA = 1,000,000 lovelace
+ */
+export function lovelaceToAda(lovelace: string | number): string {
+  const lovelaceNum = typeof lovelace === 'string' ? parseFloat(lovelace) : lovelace;
+  return (lovelaceNum / 1000000).toString();
+}
+
+/**
+ * Create RawBalanceData from lovelace balance
+ */
+export function createRawBalanceData(lovelace: string, ada: string): RawBalanceData {
+  return {
+    decimals: 6,
+    decimalAmount: ada,
+    rawAmount: lovelace,
+    symbol: 'ADA',
+  };
+}
 
 /**
  * Cardano HD wallet utilities for extended public key management and address derivation

@@ -1,4 +1,4 @@
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
 import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
@@ -10,6 +10,13 @@ import { getNetworkForChain } from './network-registry.js';
 import type { AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from './types.js';
 
 const logger = getLogger('BitcoinUtils');
+
+/**
+ * Convert satoshis to BTC as a string
+ */
+export function satoshisToBtcString(satoshis: number): string {
+  return parseDecimal(satoshis.toString()).div(100000000).toFixed();
+}
 
 /**
  * Bitcoin HD wallet utilities for xpub management and address derivation

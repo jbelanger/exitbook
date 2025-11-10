@@ -3,9 +3,13 @@ import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { NormalizationError } from '../../../shared/blockchain/index.js';
-import { determinePrimaryTransfer, determineRecipient, extractAccountChangesFromSolscan } from '../mapper-utils.js';
 import type { SolanaTokenChange, SolanaTransaction } from '../types.js';
-import { lamportsToSol } from '../utils.js';
+import {
+  determinePrimaryTransfer,
+  determineRecipient,
+  extractAccountChangesFromSolscan,
+  lamportsToSol,
+} from '../utils.js';
 
 import type { SolscanTransaction } from './solscan.schemas.js';
 

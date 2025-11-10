@@ -10,7 +10,7 @@ import { convertBalancesToDecimals, fetchBlockchainBalance, fetchExchangeBalance
 // Helper to create mock TokenMetadataRepository
 function createMockTokenMetadataRepository(): TokenMetadataRepository {
   return {
-    getByContract: vi.fn().mockResolvedValue(ok(void 0)),
+    getByContract: vi.fn().mockResolvedValue(ok(undefined)),
     save: vi.fn().mockResolvedValue(ok()),
     isStale: vi.fn().mockReturnValue(false),
     refreshInBackground: vi.fn(),

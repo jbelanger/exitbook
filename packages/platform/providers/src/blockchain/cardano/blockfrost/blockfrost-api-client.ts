@@ -10,10 +10,10 @@ import type {
   TransactionWithRawData,
 } from '../../../shared/blockchain/types/index.js';
 import { maskAddress } from '../../../shared/blockchain/utils/address-utils.js';
-import { createRawBalanceData, lovelaceToAda } from '../balance-utils.js';
 import type { CardanoTransaction } from '../schemas.js';
+import { createRawBalanceData } from '../utils.ts';
 
-import { mapBlockfrostTransaction } from './blockfrost.mapper-utils.js';
+import { lovelaceToAda, mapBlockfrostTransaction } from './blockfrost.mapper-utils.js';
 import type { BlockfrostTransactionHash, BlockfrostTransactionWithMetadata } from './blockfrost.schemas.js';
 import {
   BlockfrostAddressSchema,

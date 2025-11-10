@@ -13,7 +13,7 @@ const CONTRACT_ADDRESS = 'token.near';
 function createProcessor() {
   const mockTokenMetadataService = {
     enrichBatch: vi.fn().mockResolvedValue(ok()),
-    getOrFetch: vi.fn().mockResolvedValue(ok(void 0)),
+    getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
   } as unknown as ITokenMetadataService;
 
   return new NearTransactionProcessor(mockTokenMetadataService);

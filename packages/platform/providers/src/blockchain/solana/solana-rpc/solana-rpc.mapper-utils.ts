@@ -3,9 +3,8 @@ import type { SourceMetadata } from '@exitbook/core';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { NormalizationError } from '../../../shared/blockchain/index.js';
-import { determinePrimaryTransfer, extractAccountChanges, extractTokenChanges } from '../mapper-utils.js';
 import type { SolanaTransaction } from '../types.js';
-import { lamportsToSol } from '../utils.js';
+import { determinePrimaryTransfer, extractAccountChanges, extractTokenChanges, lamportsToSol } from '../utils.js';
 
 import type { SolanaRPCTransaction } from './solana-rpc.schemas.js';
 

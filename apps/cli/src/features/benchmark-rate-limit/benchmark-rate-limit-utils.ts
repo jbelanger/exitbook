@@ -61,7 +61,7 @@ export function parseNumRequests(numRequests?: string): Result<number, Error> {
  */
 export function parseCustomRates(rates?: string): Result<number[] | undefined, Error> {
   if (!rates) {
-    return ok(void 0);
+    return ok(undefined);
   }
 
   const parsed = rates.split(',').map((r) => parseFloat(r.trim()));
