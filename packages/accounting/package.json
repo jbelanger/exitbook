@@ -30,6 +30,7 @@
     "@exitbook/data": "workspace:*",
     "@exitbook/platform-http": "workspace:*",
     "@exitbook/platform-price-providers": "workspace:*",
-    "@exitbook/shared-logger": "workspace:*"
+    "@exitbook/shared-logger": "workspace:*",
+    "tsconfig": "workspace:*"
   }
 }
