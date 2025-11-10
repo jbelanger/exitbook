@@ -50,7 +50,7 @@ Problem: Using current rates would give incorrect tax calculations
 
 ### Existing Price Provider Infrastructure
 
-The codebase already has a sophisticated price provider system (`packages/platform/price-providers`):
+The codebase already has a sophisticated price provider system (`packages/price-providers`):
 
 - Unified `IPriceProvider` interface
 - Provider manager with failover and circuit breakers
@@ -179,10 +179,10 @@ We will treat **FX rate fetching as price enrichment**, not import normalization
 
 ### Unified Price Provider Package
 
-FX providers integrated into existing `packages/platform/price-providers`:
+FX providers integrated into existing `packages/price-providers`:
 
 ```
-packages/platform/price-providers/
+packages/price-providers/
 ├─ src/
 │  ├─ coingecko/          # Crypto prices
 │  │  └─ provider.ts      # Implements IPriceProvider
@@ -263,7 +263,7 @@ interface IPriceProvider {
 ### FX Provider Implementation Example
 
 ```typescript
-// packages/platform/price-providers/src/ecb/provider.ts
+// packages/price-providers/src/ecb/provider.ts
 
 export class ECBProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata = {
@@ -685,7 +685,7 @@ This architecture has been fully implemented as of 2025-11-03. The following mod
 
 ### Unified Price Provider Infrastructure
 
-**FX Providers** (`packages/platform/price-providers/src/`):
+**FX Providers** (`packages/price-providers/src/`):
 
 - `ecb/provider.ts` - European Central Bank (EUR→USD, daily rates back to 1999)
 - `bank-of-canada/provider.ts` - Bank of Canada (CAD→USD, daily rates)

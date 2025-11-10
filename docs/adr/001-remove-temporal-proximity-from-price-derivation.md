@@ -448,7 +448,7 @@ Verify the workflow produces accurate FMV:
 - **Discussion**: Price derivation reviewer feedback
 - **Code**: `packages/accounting/src/price-enrichment/price-enrichment-service.ts:59-61`
 - **Code**: `packages/accounting/src/price-enrichment/price-calculation-utils.ts:111-143` (findClosestPrice)
-- **Provider**: `packages/platform/price-providers/src/binance/provider.ts`
+- **Provider**: `packages/price-providers/src/binance/provider.ts`
 - **Tax Context**: Canadian tax treatment requires FMV at disposal time
 
 ## Key Insight
