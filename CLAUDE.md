@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Development & Testing
 
 - `pnpm install` - Install all dependencies (uses pnpm workspaces)
-- `pnpm build` - Type check all packages (uses TypeScript project references)
+- `pnpm build` - Type check all packages + bundle CLI (uses tsup for CLI, tsc --noEmit for packages)
 - `pnpm test` - Run unit tests across all packages (vitest, excludes e2e)
 - `pnpm test:e2e` - Run end-to-end tests (requires API keys in `.env`)
 - `pnpm lint` - ESLint with perfectionist plugin

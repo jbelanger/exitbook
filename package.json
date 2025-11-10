@@ -17,8 +17,6 @@
     "build": "pnpm -r build",
     "clean": "pnpm -r run clean",
     "dev": "pnpm -F exitbook-cli dev",
-    "export": "pnpm -F exitbook-cli export",
-    "import": "pnpm -F exitbook-cli import",
     "lint": "pnpm -r run lint",
     "prepare": "husky",
     "prettier": "pnpm -r run prettier",
@@ -26,11 +24,10 @@
     "providers:list": "pnpm -F @exitbook/providers providers:list",
     "providers:sync": "pnpm -F @exitbook/providers providers:sync",
     "providers:validate": "pnpm -F @exitbook/providers providers:validate",
-    "status": "pnpm -F exitbook-cli status",
+    "start": "pnpm -F exitbook-cli start",
     "test": "pnpm -r run test",
     "test:coverage": "node tools/run-vitest-coverage.mjs",
-    "test:e2e": "node --env-file-if-exists .env node_modules/vitest/vitest.mjs run --config vitest.e2e.config.ts",
-    "verify": "pnpm -F exitbook-cli verify"
+    "test:e2e": "node --env-file-if-exists .env node_modules/vitest/vitest.mjs run --config vitest.e2e.config.ts"
   },
   "lint-staged": {
     "*.{js,ts,tsx,json,md,yaml,yml}": [
