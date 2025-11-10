@@ -1,5 +1,5 @@
 import type { BitcoinTransaction } from '@exitbook/blockchain-providers';
-import { type Result, ok } from 'neverthrow';
+import { type Result, err, ok } from 'neverthrow';
 
 import type { BitcoinFundFlow } from './types.js';
 
@@ -10,10 +10,14 @@ export function analyzeBitcoinFundFlow(
   normalizedTx: BitcoinTransaction,
   sessionMetadata: Record<string, unknown>
 ): Result<BitcoinFundFlow, string> {
+  if (!sessionMetadata.address || typeof sessionMetadata.address !== 'string') {
+    return err('Missing user address in session metadata');
+  }
+
   // Convert all wallet addresses to lowercase for case-insensitive comparison
   const allWalletAddresses = new Set(
     [
-      typeof sessionMetadata.address === 'string' ? sessionMetadata.address.toLowerCase() : undefined,
+      sessionMetadata.address.toLowerCase(),
       ...(Array.isArray(sessionMetadata.derivedAddresses)
         ? sessionMetadata.derivedAddresses.filter((addr): addr is string => typeof addr === 'string')
         : []

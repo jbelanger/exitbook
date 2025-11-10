@@ -864,7 +864,7 @@ describe('SubstrateProcessor - Edge Cases', () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error).toContain('Missing session address');
+      expect(result.error).toContain('Missing user address');
     }
   });
 

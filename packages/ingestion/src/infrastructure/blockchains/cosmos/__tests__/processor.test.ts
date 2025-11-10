@@ -650,7 +650,7 @@ describe('CosmosProcessor - Edge Cases', () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error).toContain('No address provided');
+      expect(result.error).toContain('Missing user address');
     }
   });
 

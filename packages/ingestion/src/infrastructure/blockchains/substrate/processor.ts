@@ -34,7 +34,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     sessionMetadata?: Record<string, unknown>
   ): Promise<Result<UniversalTransaction[], string>> {
     if (!sessionMetadata?.address || typeof sessionMetadata.address !== 'string') {
-      return err('Missing session address in metadata for Substrate processing');
+      return err('Missing user address in session metadata');
     }
 
     const sourceContextResult = enrichSourceContext(sessionMetadata.address);
