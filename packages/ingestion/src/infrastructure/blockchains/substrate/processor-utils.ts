@@ -2,9 +2,13 @@ import type { OperationClassification } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { SubstrateChainConfig, SubstrateTransaction } from '@exitbook/providers';
 import { derivePolkadotAddressVariants } from '@exitbook/providers';
+import { getLogger } from '@exitbook/shared-logger';
+import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { SubstrateFundFlow, SubstrateMovement } from './types.ts';
+
+const logger = getLogger('substrate-processor-utils');
 
 /**
  * Enrich session context with SS58 address variants for better transaction matching.
@@ -89,23 +93,41 @@ export function analyzeFundFlowFromNormalized(
   const outflows: SubstrateMovement[] = [];
 
   const amount = parseDecimal(transaction.amount);
-  const normalizedAmount = normalizeAmount(transaction.amount, chainConfig.nativeDecimals);
+  const normalizedAmountResult = normalizeAmount(transaction.amount, chainConfig.nativeDecimals);
   const currency = transaction.currency;
 
   // Skip zero amounts (but NOT fees)
   const isZeroAmount = amount.isZero();
 
+  // Handle normalization failure
+  if (normalizedAmountResult.isErr()) {
+    logger.warn(
+      {
+        error: normalizedAmountResult.error,
+        rawAmount: transaction.amount,
+        decimals: chainConfig.nativeDecimals,
+        txHash: transaction.id,
+        chainName: transaction.chainName,
+        context: 'Substrate transaction amount normalization',
+      },
+      'Failed to normalize Substrate transaction amount, treating as zero-value transaction'
+    );
+    // Continue processing as a fee-only transaction (zero amount)
+  }
+
+  const normalizedAmount = normalizedAmountResult.isOk() ? normalizedAmountResult.value : '0';
+
   // Collect movements based on fund flow direction
   if (isFromUser && isToUser) {
     // Self-transfer: same asset in and out (net zero for asset, only fee affects balance)
-    if (!isZeroAmount) {
+    if (!isZeroAmount && normalizedAmountResult.isOk()) {
       inflows.push({ amount: normalizedAmount, asset: currency });
       outflows.push({ amount: normalizedAmount, asset: currency });
     }
-  } else if (isToUser && !isZeroAmount) {
+  } else if (isToUser && !isZeroAmount && normalizedAmountResult.isOk()) {
     // User received funds
     inflows.push({ amount: normalizedAmount, asset: currency });
-  } else if (isFromUser && !isZeroAmount) {
+  } else if (isFromUser && !isZeroAmount && normalizedAmountResult.isOk()) {
     // User sent funds
     outflows.push({ amount: normalizedAmount, asset: currency });
   }
@@ -134,13 +156,32 @@ export function analyzeFundFlowFromNormalized(
     classificationUncertainty = `Utility batch with ${transaction.events.length} events. May contain multiple operations that need separate accounting.`;
   }
 
+  // Normalize fee amount with error handling
+  const feeAmountResult = normalizeAmount(transaction.feeAmount, chainConfig.nativeDecimals);
+  let feeAmount = '0';
+  if (feeAmountResult.isErr()) {
+    logger.warn(
+      {
+        error: feeAmountResult.error,
+        rawAmount: transaction.feeAmount,
+        decimals: chainConfig.nativeDecimals,
+        txHash: transaction.id,
+        chainName: transaction.chainName,
+        context: 'Substrate fee amount normalization',
+      },
+      'Failed to normalize Substrate fee amount, using 0'
+    );
+  } else {
+    feeAmount = feeAmountResult.value;
+  }
+
   return {
     call: transaction.call || 'unknown',
     chainName: transaction.chainName || 'unknown',
     classificationUncertainty,
     eventCount: transaction.events?.length || 0,
     extrinsicCount: hasUtilityBatch ? 1 : 1, // TODO: Parse batch details if needed
-    feeAmount: normalizeAmount(transaction.feeAmount, chainConfig.nativeDecimals),
+    feeAmount,
     feeCurrency: transaction.feeCurrency || transaction.currency,
     fromAddress: transaction.from,
     hasGovernance: hasGovernance || false,
@@ -432,17 +473,21 @@ export function determineOperationFromFundFlow(
  *
  * @param amountPlanck - Amount in planck (smallest unit) as string
  * @param nativeDecimals - Number of decimal places for the chain's native token
- * @returns Normalized amount as string, or '0' if invalid
+ * @returns Result containing normalized amount as string, or Error if conversion fails
  */
-export function normalizeAmount(amountPlanck: string | undefined, nativeDecimals: number): string {
+export function normalizeAmount(amountPlanck: string | undefined, nativeDecimals: number): Result<string, Error> {
   if (!amountPlanck || amountPlanck === '0') {
-    return '0';
+    return ok('0');
   }
 
   try {
-    return parseDecimal(amountPlanck).dividedBy(parseDecimal('10').pow(nativeDecimals)).toFixed();
-  } catch {
-    return '0';
+    return ok(new Decimal(amountPlanck).dividedBy(new Decimal('10').pow(nativeDecimals)).toFixed());
+  } catch (error) {
+    return err(
+      new Error(
+        `Failed to convert ${amountPlanck} planck to main unit with ${nativeDecimals} decimals: ${String(error)}`
+      )
+    );
   }
 }
 

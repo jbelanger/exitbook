@@ -1,7 +1,6 @@
-import { parseDecimal } from '@exitbook/core';
-import { getLogger } from '@exitbook/shared-logger';
-
-const logger = getLogger('amount-utils');
+import { wrapError } from '@exitbook/core';
+import { Decimal } from 'decimal.js';
+import { type Result, ok } from 'neverthrow';
 
 /**
  * Normalize token amount from smallest units to human-readable decimal units.
@@ -11,35 +10,34 @@ const logger = getLogger('amount-utils');
  *
  * @param amount - The token amount in smallest units
  * @param decimals - The token decimals (e.g., 6 for USDC, 18 for most ERC-20 tokens)
- * @returns Normalized amount in human-readable decimal units
+ * @returns Result containing normalized amount in human-readable decimal units, or Error if normalization fails
  *
  * @example
  * // USDC (6 decimals): 1000000000 smallest units → 1000 USDC
- * normalizeTokenAmount('1000000000', 6) // '1000'
+ * normalizeTokenAmount('1000000000', 6) // ok('1000')
  *
  * // DAI (18 decimals): 5000000000000000000000 smallest units → 5000 DAI
- * normalizeTokenAmount('5000000000000000000000', 18) // '5000'
+ * normalizeTokenAmount('5000000000000000000000', 18) // ok('5000')
  *
  * // No decimals metadata: return as-is
- * normalizeTokenAmount('123.45', undefined) // '123.45'
+ * normalizeTokenAmount('123.45', undefined) // ok('123.45')
  */
-export function normalizeTokenAmount(amount: string | undefined, decimals?: number): string {
+export function normalizeTokenAmount(amount: string | undefined, decimals?: number): Result<string, Error> {
   if (!amount || amount === '0') {
-    return '0';
+    return ok('0');
   }
 
   // If no decimals metadata, return amount as-is
   if (decimals === undefined || decimals === null) {
-    return amount;
+    return ok(amount);
   }
 
   try {
-    const result = parseDecimal(amount).dividedBy(parseDecimal('10').pow(decimals));
+    const result = new Decimal(amount).dividedBy(new Decimal('10').pow(decimals));
     // Use toFixed() to prevent scientific notation, then remove trailing zeros
-    return result.toFixed(decimals).replace(/\.?0+$/, '');
+    return ok(result.toFixed(decimals).replace(/\.?0+$/, ''));
   } catch (error) {
-    logger.warn(`Unable to normalize token amount: ${String(error)}`);
-    return '0';
+    return wrapError(error, `Unable to normalize token amount: ${amount}`);
   }
 }
 
@@ -50,26 +48,25 @@ export function normalizeTokenAmount(amount: string | undefined, decimals?: numb
  *
  * @param amount - The native currency amount in smallest units (e.g., wei for ETH, satoshi for BTC)
  * @param decimals - The native currency decimals (e.g., 18 for ETH, 8 for BTC)
- * @returns Normalized amount in human-readable decimal units
+ * @returns Result containing normalized amount in human-readable decimal units, or Error if normalization fails
  *
  * @example
  * // ETH: 1000000000000000000 wei with 18 decimals → 1 ETH
- * normalizeNativeAmount('1000000000000000000', 18) // '1'
+ * normalizeNativeAmount('1000000000000000000', 18) // ok('1')
  *
  * // BTC: 100000000 satoshi with 8 decimals → 1 BTC
- * normalizeNativeAmount('100000000', 8) // '1'
+ * normalizeNativeAmount('100000000', 8) // ok('1')
  */
-export function normalizeNativeAmount(amount: string | undefined, decimals: number): string {
+export function normalizeNativeAmount(amount: string | undefined, decimals: number): Result<string, Error> {
   if (!amount || amount === '0') {
-    return '0';
+    return ok('0');
   }
 
   try {
-    const result = parseDecimal(amount).dividedBy(parseDecimal('10').pow(decimals));
+    const result = new Decimal(amount).dividedBy(new Decimal('10').pow(decimals));
     // Use toFixed() to prevent scientific notation, then remove trailing zeros
-    return result.toFixed(decimals).replace(/\.?0+$/, '');
+    return ok(result.toFixed(decimals).replace(/\.?0+$/, ''));
   } catch (error) {
-    logger.warn(`Unable to normalize native amount: ${String(error)}`);
-    return '0';
+    return wrapError(error, `Unable to normalize native amount: ${amount}`);
   }
 }

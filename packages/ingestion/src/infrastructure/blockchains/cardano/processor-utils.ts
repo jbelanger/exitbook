@@ -1,9 +1,12 @@
 import { parseDecimal } from '@exitbook/core';
 import type { CardanoTransaction } from '@exitbook/providers';
+import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { CardanoFundFlow, CardanoMovement } from './types.js';
+
+const logger = getLogger('cardano-processor-utils');
 
 /**
  * Convert lovelace (smallest unit) to ADA
@@ -117,7 +120,8 @@ export function normalizeCardanoAmount(quantity: string, decimals: number | unde
 export function isZeroDecimal(value: string): boolean {
   try {
     return parseDecimal(value || '0').isZero();
-  } catch {
+  } catch (error) {
+    logger.warn({ error, value }, 'Failed to parse decimal value, treating as zero');
     return true;
   }
 }
@@ -250,7 +254,8 @@ export function analyzeCardanoFundFlow(
     .sort((a, b) => {
       try {
         return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
-      } catch {
+      } catch (error) {
+        logger.warn({ error, itemA: a, itemB: b }, 'Failed to parse amount during sort comparison, treating as equal');
         return 0;
       }
     })
@@ -264,7 +269,11 @@ export function analyzeCardanoFundFlow(
       .sort((a, b) => {
         try {
           return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
-        } catch {
+        } catch (error) {
+          logger.warn(
+            { error, itemA: a, itemB: b },
+            'Failed to parse amount during sort comparison, treating as equal'
+          );
           return 0;
         }
       })

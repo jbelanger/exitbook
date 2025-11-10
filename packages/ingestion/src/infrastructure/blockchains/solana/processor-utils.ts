@@ -2,10 +2,13 @@ import { parseDecimal } from '@exitbook/core';
 import type { OperationClassification } from '@exitbook/core';
 import type { SolanaTransaction } from '@exitbook/providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers';
+import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { SolanaBalanceChangeAnalysis, SolanaFundFlow, SolanaMovement } from './types.js';
+
+const logger = getLogger('solana-processor-utils');
 
 /**
  * Program IDs for staking-related operations on Solana
@@ -346,7 +349,8 @@ export function classifySolanaOperationFromFundFlow(
 export function isZeroDecimal(value: string): boolean {
   try {
     return parseDecimal(value || '0').isZero();
-  } catch {
+  } catch (error) {
+    logger.warn({ error, value }, 'Failed to parse decimal value, treating as zero');
     return true;
   }
 }
@@ -376,10 +380,27 @@ export function analyzeSolanaBalanceChanges(
 
       // Normalize token amount using decimals metadata
       // All providers return amounts in smallest units; normalization ensures consistency and safety
-      const normalizedAmount = normalizeTokenAmount(Math.abs(tokenAmountInSmallestUnits).toString(), change.decimals);
+      const normalizedAmountResult = normalizeTokenAmount(
+        Math.abs(tokenAmountInSmallestUnits).toString(),
+        change.decimals
+      );
+      if (normalizedAmountResult.isErr()) {
+        logger.warn(
+          {
+            error: normalizedAmountResult.error,
+            rawAmount: Math.abs(tokenAmountInSmallestUnits).toString(),
+            decimals: change.decimals,
+            mint: change.mint,
+            account: change.account,
+            context: 'Solana token balance change normalization',
+          },
+          'Failed to normalize Solana token amount, skipping this change'
+        );
+        continue; // Skip this change if we can't normalize the amount
+      }
 
       const movement: SolanaMovement = {
-        amount: normalizedAmount,
+        amount: normalizedAmountResult.value,
         asset: change.symbol || change.mint,
         decimals: change.decimals,
         tokenAddress: change.mint,
@@ -405,9 +426,23 @@ export function analyzeSolanaBalanceChanges(
       if (solAmountInLamports === 0) continue; // Skip zero changes
 
       // Normalize lamports to SOL using native amount normalization (SOL has 9 decimals)
-      const normalizedSolAmount = normalizeNativeAmount(Math.abs(solAmountInLamports).toString(), 9);
+      const normalizedSolAmountResult = normalizeNativeAmount(Math.abs(solAmountInLamports).toString(), 9);
+      if (normalizedSolAmountResult.isErr()) {
+        logger.warn(
+          {
+            error: normalizedSolAmountResult.error,
+            rawAmount: Math.abs(solAmountInLamports).toString(),
+            decimals: 9,
+            account: change.account,
+            context: 'Solana SOL balance change normalization',
+          },
+          'Failed to normalize SOL balance change, skipping this change'
+        );
+        continue; // Skip this change if we can't normalize the amount
+      }
+
       const movement = {
-        amount: normalizedSolAmount,
+        amount: normalizedSolAmountResult.value,
         asset: 'SOL',
       };
 
@@ -487,7 +522,8 @@ export function analyzeSolanaBalanceChanges(
     .sort((a, b) => {
       try {
         return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
-      } catch {
+      } catch (error) {
+        logger.warn({ error, itemA: a, itemB: b }, 'Failed to parse amount during sort comparison, treating as equal');
         return 0;
       }
     })
@@ -501,7 +537,11 @@ export function analyzeSolanaBalanceChanges(
       .sort((a, b) => {
         try {
           return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
-        } catch {
+        } catch (error) {
+          logger.warn(
+            { error, itemA: a, itemB: b },
+            'Failed to parse amount during sort comparison, treating as equal'
+          );
           return 0;
         }
       })

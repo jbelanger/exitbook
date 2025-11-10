@@ -1,5 +1,8 @@
 import { Currency, type UniversalTransaction } from '@exitbook/core';
+import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
+
+const logger = getLogger('cost-basis-validation-utils');
 
 /**
  * Represents a movement or fee that requires a price for cost basis calculation
@@ -163,7 +166,11 @@ export function validatePriceCompleteness(entities: PricedEntity[]): PriceValida
         if (currency.isFiat()) {
           return false;
         }
-      } catch {
+      } catch (error) {
+        logger.warn(
+          { error, asset: e.asset },
+          'Failed to create Currency, assuming crypto and checking price requirement'
+        );
         // If currency creation fails, treat as crypto (needs price)
       }
 

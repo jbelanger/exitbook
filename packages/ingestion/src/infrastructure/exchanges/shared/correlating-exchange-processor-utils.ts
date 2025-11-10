@@ -1,8 +1,11 @@
 import { parseDecimal } from '@exitbook/core';
+import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 
 import type { FeeInput, MovementInput } from './strategies/index.js';
 import type { ExchangeFundFlow } from './types.js';
+
+const logger = getLogger('correlating-exchange-processor-utils');
 
 /**
  * Result of operation classification
@@ -38,7 +41,11 @@ export function selectPrimaryMovement(
     .sort((a, b) => {
       try {
         return parseDecimal(b.grossAmount).comparedTo(parseDecimal(a.grossAmount));
-      } catch {
+      } catch (error) {
+        logger.warn(
+          { error, itemA: a, itemB: b },
+          'Failed to parse grossAmount during sort comparison, treating as equal'
+        );
         return 0;
       }
     })
@@ -54,7 +61,11 @@ export function selectPrimaryMovement(
       .sort((a, b) => {
         try {
           return parseDecimal(b.grossAmount).comparedTo(parseDecimal(a.grossAmount));
-        } catch {
+        } catch (error) {
+          logger.warn(
+            { error, itemA: a, itemB: b },
+            'Failed to parse grossAmount during sort comparison, treating as equal'
+          );
           return 0;
         }
       })
