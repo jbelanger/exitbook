@@ -57,7 +57,11 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     for (const item of normalizedData) {
       const normalizedTx = item as SubstrateTransaction;
       try {
-        const fundFlow = analyzeFundFlowFromNormalized(normalizedTx, sourceContext, this.chainConfig);
+        const fundFlowResult = analyzeFundFlowFromNormalized(normalizedTx, sourceContext, this.chainConfig);
+        if (fundFlowResult.isErr()) {
+          throw fundFlowResult.error;
+        }
+        const fundFlow = fundFlowResult.value;
         const classification = determineOperationFromFundFlow(fundFlow, normalizedTx);
 
         // Calculate direction for primary asset

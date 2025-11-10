@@ -103,51 +103,52 @@ describe('enrichSourceContext', () => {
 
 describe('normalizeAmount', () => {
   test('normalizes Polkadot amount from planck to DOT', () => {
-    const amount = normalizeAmount('10000000000', POLKADOT_CONFIG.nativeDecimals); // 1 DOT in planck
+    const result = normalizeAmount('10000000000', POLKADOT_CONFIG.nativeDecimals); // 1 DOT in planck
 
-    expect(amount).toBe('1');
+    expect(result.unwrapOr('error')).toBe('1');
   });
 
   test('normalizes Kusama amount from planck to KSM', () => {
-    const amount = normalizeAmount('1000000000000', KUSAMA_CONFIG.nativeDecimals); // 1 KSM in planck
+    const result = normalizeAmount('1000000000000', KUSAMA_CONFIG.nativeDecimals); // 1 KSM in planck
 
-    expect(amount).toBe('1');
+    expect(result.unwrapOr('error')).toBe('1');
   });
 
   test('normalizes Bittensor amount from rao to TAO', () => {
-    const amount = normalizeAmount('1000000000', BITTENSOR_CONFIG.nativeDecimals); // 1 TAO in rao
+    const result = normalizeAmount('1000000000', BITTENSOR_CONFIG.nativeDecimals); // 1 TAO in rao
 
-    expect(amount).toBe('1');
+    expect(result.unwrapOr('error')).toBe('1');
   });
 
   test('handles fractional amounts correctly', () => {
-    const amount = normalizeAmount('12345678900', POLKADOT_CONFIG.nativeDecimals); // 1.23456789 DOT
+    const result = normalizeAmount('12345678900', POLKADOT_CONFIG.nativeDecimals); // 1.23456789 DOT
 
-    expect(amount).toBe('1.23456789');
+    expect(result.unwrapOr('error')).toBe('1.23456789');
   });
 
   test('handles very small amounts', () => {
-    const amount = normalizeAmount('1', POLKADOT_CONFIG.nativeDecimals); // 0.0000000001 DOT
+    const result = normalizeAmount('1', POLKADOT_CONFIG.nativeDecimals); // 0.0000000001 DOT
 
-    expect(amount).toBe('0.0000000001');
+    expect(result.unwrapOr('error')).toBe('0.0000000001');
   });
 
   test('handles zero amount', () => {
-    const amount = normalizeAmount('0', POLKADOT_CONFIG.nativeDecimals);
+    const result = normalizeAmount('0', POLKADOT_CONFIG.nativeDecimals);
 
-    expect(amount).toBe('0');
+    expect(result.unwrapOr('error')).toBe('0');
   });
 
   test('handles undefined amount', () => {
-    const amount = normalizeAmount(undefined, POLKADOT_CONFIG.nativeDecimals);
+    const result = normalizeAmount(undefined, POLKADOT_CONFIG.nativeDecimals);
 
-    expect(amount).toBe('0');
+    expect(result.unwrapOr('error')).toBe('0');
   });
 
-  test('handles invalid amount gracefully', () => {
-    const amount = normalizeAmount('invalid', POLKADOT_CONFIG.nativeDecimals);
+  test('returns error for invalid amount', () => {
+    const result = normalizeAmount('invalid', POLKADOT_CONFIG.nativeDecimals);
 
-    expect(amount).toBe('0');
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toContain('Failed to convert');
   });
 });
 
@@ -176,7 +177,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.outflows).toHaveLength(1);
     expect(fundFlow.outflows[0]?.amount).toBe('1');
@@ -213,7 +214,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.inflows).toHaveLength(1);
     expect(fundFlow.inflows[0]?.amount).toBe('2');
@@ -249,7 +250,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.inflows).toHaveLength(1);
     expect(fundFlow.inflows[0]?.amount).toBe('0.5');
@@ -284,7 +285,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.hasStaking).toBe(true);
     expect(fundFlow.module).toBe('staking');
@@ -315,7 +316,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.hasGovernance).toBe(true);
     expect(fundFlow.module).toBe('democracy');
@@ -353,7 +354,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.hasUtilityBatch).toBe(true);
     expect(fundFlow.eventCount).toBe(6);
@@ -384,7 +385,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.hasProxy).toBe(true);
     expect(fundFlow.module).toBe('proxy');
@@ -414,7 +415,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.hasMultisig).toBe(true);
     expect(fundFlow.module).toBe('multisig');
@@ -444,7 +445,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [POLKADOT_ADDRESS],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.inflows).toHaveLength(0);
     expect(fundFlow.outflows).toHaveLength(0);
@@ -480,7 +481,7 @@ describe('analyzeFundFlowFromNormalized', () => {
       derivedAddresses: [genericAddress, polkadotAddress],
     };
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG);
+    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
 
     expect(fundFlow.outflows).toHaveLength(1);
     expect(fundFlow.outflows[0]?.amount).toBe('1');

@@ -2,6 +2,7 @@ import type { OperationClassification } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { SubstrateChainConfig, SubstrateTransaction } from '@exitbook/providers';
 import { derivePolkadotAddressVariants } from '@exitbook/providers';
+import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { SubstrateFundFlow, SubstrateMovement } from './types.ts';
@@ -57,7 +58,7 @@ export function analyzeFundFlowFromNormalized(
   transaction: SubstrateTransaction,
   sessionContext: Record<string, unknown>,
   chainConfig: SubstrateChainConfig
-): SubstrateFundFlow {
+): Result<SubstrateFundFlow, Error> {
   const derivedAddresses = Array.isArray(sessionContext.derivedAddresses)
     ? sessionContext.derivedAddresses
     : [sessionContext.address];
@@ -89,11 +90,23 @@ export function analyzeFundFlowFromNormalized(
   const outflows: SubstrateMovement[] = [];
 
   const amount = parseDecimal(transaction.amount);
-  const normalizedAmount = normalizeAmount(transaction.amount, chainConfig.nativeDecimals);
+  const normalizedAmountResult = normalizeAmount(transaction.amount, chainConfig.nativeDecimals);
   const currency = transaction.currency;
 
   // Skip zero amounts (but NOT fees)
   const isZeroAmount = amount.isZero();
+
+  // Handle normalization failure
+  if (normalizedAmountResult.isErr()) {
+    return err(
+      new Error(
+        `Failed to normalize Substrate transaction amount for tx ${transaction.id}: ${normalizedAmountResult.error.message}. ` +
+          `Raw amount: ${transaction.amount}, decimals: ${chainConfig.nativeDecimals}, chain: ${transaction.chainName}`
+      )
+    );
+  }
+
+  const normalizedAmount = normalizedAmountResult.value;
 
   // Collect movements based on fund flow direction
   if (isFromUser && isToUser) {
@@ -134,13 +147,25 @@ export function analyzeFundFlowFromNormalized(
     classificationUncertainty = `Utility batch with ${transaction.events.length} events. May contain multiple operations that need separate accounting.`;
   }
 
-  return {
+  // Normalize fee amount with error handling
+  const feeAmountResult = normalizeAmount(transaction.feeAmount, chainConfig.nativeDecimals);
+  if (feeAmountResult.isErr()) {
+    return err(
+      new Error(
+        `Failed to normalize Substrate fee amount for tx ${transaction.id}: ${feeAmountResult.error.message}. ` +
+          `Raw amount: ${transaction.feeAmount}, decimals: ${chainConfig.nativeDecimals}, chain: ${transaction.chainName}`
+      )
+    );
+  }
+  const feeAmount = feeAmountResult.value;
+
+  return ok({
     call: transaction.call || 'unknown',
     chainName: transaction.chainName || 'unknown',
     classificationUncertainty,
     eventCount: transaction.events?.length || 0,
     extrinsicCount: hasUtilityBatch ? 1 : 1, // TODO: Parse batch details if needed
-    feeAmount: normalizeAmount(transaction.feeAmount, chainConfig.nativeDecimals),
+    feeAmount,
     feeCurrency: transaction.feeCurrency || transaction.currency,
     fromAddress: transaction.from,
     hasGovernance: hasGovernance || false,
@@ -156,7 +181,7 @@ export function analyzeFundFlowFromNormalized(
       asset: primaryAsset,
     },
     toAddress: transaction.to,
-  };
+  });
 }
 
 /**
@@ -432,17 +457,21 @@ export function determineOperationFromFundFlow(
  *
  * @param amountPlanck - Amount in planck (smallest unit) as string
  * @param nativeDecimals - Number of decimal places for the chain's native token
- * @returns Normalized amount as string, or '0' if invalid
+ * @returns Result containing normalized amount as string, or Error if conversion fails
  */
-export function normalizeAmount(amountPlanck: string | undefined, nativeDecimals: number): string {
+export function normalizeAmount(amountPlanck: string | undefined, nativeDecimals: number): Result<string, Error> {
   if (!amountPlanck || amountPlanck === '0') {
-    return '0';
+    return ok('0');
   }
 
   try {
-    return parseDecimal(amountPlanck).dividedBy(parseDecimal('10').pow(nativeDecimals)).toFixed();
-  } catch {
-    return '0';
+    return ok(new Decimal(amountPlanck).dividedBy(new Decimal('10').pow(nativeDecimals)).toFixed());
+  } catch (error) {
+    return err(
+      new Error(
+        `Failed to convert ${amountPlanck} planck to main unit with ${nativeDecimals} decimals: ${String(error)}`
+      )
+    );
   }
 }
 

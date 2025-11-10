@@ -1,9 +1,12 @@
 import type { OperationClassification } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/providers';
+import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 
 import type { CosmosFundFlow } from './types.ts';
+
+const logger = getLogger('cosmos-processor-utils');
 
 /**
  * Checks if a string value represents zero.
@@ -14,7 +17,8 @@ import type { CosmosFundFlow } from './types.ts';
 export function isZero(value: string): boolean {
   try {
     return parseDecimal(value || '0').isZero();
-  } catch {
+  } catch (error) {
+    logger.warn({ error, value }, 'Failed to parse decimal value, treating as zero');
     return true;
   }
 }

@@ -2,10 +2,13 @@ import { parseDecimal } from '@exitbook/core';
 import type { OperationClassification } from '@exitbook/core';
 import type { SolanaTransaction } from '@exitbook/providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers';
+import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { SolanaBalanceChangeAnalysis, SolanaFundFlow, SolanaMovement } from './types.js';
+
+const logger = getLogger('solana-processor-utils');
 
 /**
  * Program IDs for staking-related operations on Solana
@@ -346,7 +349,8 @@ export function classifySolanaOperationFromFundFlow(
 export function isZeroDecimal(value: string): boolean {
   try {
     return parseDecimal(value || '0').isZero();
-  } catch {
+  } catch (error) {
+    logger.warn({ error, value }, 'Failed to parse decimal value, treating as zero');
     return true;
   }
 }
@@ -357,7 +361,7 @@ export function isZeroDecimal(value: string): boolean {
 export function analyzeSolanaBalanceChanges(
   tx: SolanaTransaction,
   allWalletAddresses: Set<string>
-): SolanaBalanceChangeAnalysis {
+): Result<SolanaBalanceChangeAnalysis, Error> {
   const inflows: SolanaMovement[] = [];
   const outflows: SolanaMovement[] = [];
   let fromAddress = tx.from;
@@ -376,10 +380,21 @@ export function analyzeSolanaBalanceChanges(
 
       // Normalize token amount using decimals metadata
       // All providers return amounts in smallest units; normalization ensures consistency and safety
-      const normalizedAmount = normalizeTokenAmount(Math.abs(tokenAmountInSmallestUnits).toString(), change.decimals);
+      const normalizedAmountResult = normalizeTokenAmount(
+        Math.abs(tokenAmountInSmallestUnits).toString(),
+        change.decimals
+      );
+      if (normalizedAmountResult.isErr()) {
+        return err(
+          new Error(
+            `Failed to normalize Solana token amount for account ${change.account}: ${normalizedAmountResult.error.message}. ` +
+              `Raw amount: ${Math.abs(tokenAmountInSmallestUnits).toString()}, decimals: ${change.decimals}, mint: ${change.mint}`
+          )
+        );
+      }
 
       const movement: SolanaMovement = {
-        amount: normalizedAmount,
+        amount: normalizedAmountResult.value,
         asset: change.symbol || change.mint,
         decimals: change.decimals,
         tokenAddress: change.mint,
@@ -405,9 +420,18 @@ export function analyzeSolanaBalanceChanges(
       if (solAmountInLamports === 0) continue; // Skip zero changes
 
       // Normalize lamports to SOL using native amount normalization (SOL has 9 decimals)
-      const normalizedSolAmount = normalizeNativeAmount(Math.abs(solAmountInLamports).toString(), 9);
+      const normalizedSolAmountResult = normalizeNativeAmount(Math.abs(solAmountInLamports).toString(), 9);
+      if (normalizedSolAmountResult.isErr()) {
+        return err(
+          new Error(
+            `Failed to normalize SOL balance change for account ${change.account}: ${normalizedSolAmountResult.error.message}. ` +
+              `Raw amount: ${Math.abs(solAmountInLamports).toString()}, decimals: 9`
+          )
+        );
+      }
+
       const movement = {
-        amount: normalizedSolAmount,
+        amount: normalizedSolAmountResult.value,
         asset: 'SOL',
       };
 
@@ -487,7 +511,8 @@ export function analyzeSolanaBalanceChanges(
     .sort((a, b) => {
       try {
         return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
-      } catch {
+      } catch (error) {
+        logger.warn({ error, itemA: a, itemB: b }, 'Failed to parse amount during sort comparison, treating as equal');
         return 0;
       }
     })
@@ -501,7 +526,11 @@ export function analyzeSolanaBalanceChanges(
       .sort((a, b) => {
         try {
           return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
-        } catch {
+        } catch (error) {
+          logger.warn(
+            { error, itemA: a, itemB: b },
+            'Failed to parse amount during sort comparison, treating as equal'
+          );
           return 0;
         }
       })
@@ -522,7 +551,7 @@ export function analyzeSolanaBalanceChanges(
   // When true, prevents recording a duplicate fee entry in the transaction record
   const feeAbsorbedByMovement = hadOutflowsBeforeFeeAdjustment && consolidatedOutflows.length === 0;
 
-  return {
+  return ok({
     classificationUncertainty,
     feeAbsorbedByMovement,
     feePaidByUser,
@@ -531,7 +560,7 @@ export function analyzeSolanaBalanceChanges(
     outflows: consolidatedOutflows,
     primary,
     toAddress,
-  };
+  });
 }
 
 /**
@@ -561,7 +590,11 @@ export function analyzeSolanaFundFlow(
   const hasTokenTransfers = detectSolanaTokenTransferInstructions(tx.instructions || []);
 
   // Enhanced fund flow analysis using balance changes
-  const flowAnalysis = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+  const flowAnalysisResult = analyzeSolanaBalanceChanges(tx, allWalletAddresses);
+  if (flowAnalysisResult.isErr()) {
+    return err(flowAnalysisResult.error.message);
+  }
+  const flowAnalysis = flowAnalysisResult.value;
 
   const fundFlow: SolanaFundFlow = {
     computeUnitsUsed: tx.computeUnitsConsumed,

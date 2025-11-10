@@ -2,10 +2,13 @@ import type { OperationClassification } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/providers';
+import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { EvmFundFlow, EvmMovement } from './types.js';
+
+const logger = getLogger('evm-processor-utils');
 
 export interface SelectionCriteria {
   nativeCurrency: string;
@@ -67,14 +70,16 @@ export function selectPrimaryEvmMovement(movements: EvmMovement[], criteria: Sel
     .sort((a, b) => {
       try {
         return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
-      } catch {
+      } catch (error) {
+        logger.warn({ error, itemA: a, itemB: b }, 'Failed to parse amount during sort comparison, treating as equal');
         return 0;
       }
     })
     .find((movement) => {
       try {
         return !parseDecimal(movement.amount || '0').isZero();
-      } catch {
+      } catch (error) {
+        logger.warn({ error, movement }, 'Failed to parse amount during filter, excluding movement');
         return false;
       }
     });
@@ -320,7 +325,14 @@ export function analyzeEvmFundFlow(
 
       // Normalize token amount using decimals metadata
       // All providers return amounts in smallest units; normalization ensures consistency and safety
-      const amount = normalizeTokenAmount(rawAmount, tx.tokenDecimals);
+      const amountResult = normalizeTokenAmount(rawAmount, tx.tokenDecimals);
+      if (amountResult.isErr()) {
+        return err(
+          `Failed to normalize EVM token amount for transaction ${tx.id}: ${amountResult.error.message}. ` +
+            `Raw amount: ${rawAmount}, decimals: ${tx.tokenDecimals}, token: ${tokenSymbol}`
+        );
+      }
+      const amount = amountResult.value;
 
       // Skip zero amounts
       if (isZeroDecimal(amount)) {
@@ -383,7 +395,14 @@ export function analyzeEvmFundFlow(
   // Process all native currency movements involving the user
   for (const tx of txGroup) {
     if (isEvmNativeMovement(tx, chainConfig) && isEvmUserParticipant(tx, userAddress)) {
-      const normalizedAmount = normalizeNativeAmount(tx.amount, chainConfig.nativeDecimals);
+      const normalizedAmountResult = normalizeNativeAmount(tx.amount, chainConfig.nativeDecimals);
+      if (normalizedAmountResult.isErr()) {
+        return err(
+          `Failed to normalize EVM native amount for transaction ${tx.id}: ${normalizedAmountResult.error.message}. ` +
+            `Raw amount: ${tx.amount}, decimals: ${chainConfig.nativeDecimals}, currency: ${chainConfig.nativeCurrency}`
+        );
+      }
+      const normalizedAmount = normalizedAmountResult.value;
 
       // Skip zero amounts
       if (isZeroDecimal(normalizedAmount)) {
@@ -564,7 +583,8 @@ export function isEvmNativeMovement(tx: EvmTransaction, chainConfig: EvmChainCon
 export function isZeroDecimal(value: string): boolean {
   try {
     return parseDecimal(value || '0').isZero();
-  } catch {
+  } catch (error) {
+    logger.warn({ error, value }, 'Failed to parse decimal value, treating as zero');
     return true;
   }
 }

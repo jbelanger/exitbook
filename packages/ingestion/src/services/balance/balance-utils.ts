@@ -3,11 +3,14 @@ import { parseDecimal, wrapError } from '@exitbook/core';
 import type { TokenMetadataRepository } from '@exitbook/data';
 import type { IExchangeClient } from '@exitbook/exchanges';
 import type { BlockchainProviderManager, RawBalanceData } from '@exitbook/providers';
+import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import { getOrFetchTokenMetadata } from '../token-metadata/token-metadata-utils.js';
+
+const logger = getLogger('balance-utils');
 
 /**
  * Unified balance snapshot format for both exchanges and blockchains
@@ -218,8 +221,8 @@ export function convertBalancesToDecimals(balances: Record<string, string>): Rec
   for (const [currency, amount] of Object.entries(balances)) {
     try {
       decimalBalances[currency] = parseDecimal(amount);
-    } catch {
-      // Default to zero on parse failure
+    } catch (error) {
+      logger.warn({ error, currency, amount }, 'Failed to parse balance amount, defaulting to zero');
       decimalBalances[currency] = parseDecimal('0');
     }
   }
@@ -290,7 +293,11 @@ function convertRawBalance(balance: RawBalanceData): { amount: string; currency:
   } else if (balance.rawAmount !== undefined && balance.decimals !== undefined) {
     try {
       amount = parseDecimal(balance.rawAmount).div(parseDecimal('10').pow(balance.decimals)).toFixed();
-    } catch {
+    } catch (error) {
+      logger.warn(
+        { error, rawAmount: balance.rawAmount, decimals: balance.decimals, contractAddress: balance.contractAddress },
+        'Failed to normalize balance from raw amount, using raw value'
+      );
       amount = balance.rawAmount;
     }
   } else {

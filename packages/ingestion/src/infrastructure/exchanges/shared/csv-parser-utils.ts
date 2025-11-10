@@ -1,6 +1,9 @@
 import fs from 'node:fs/promises';
 
+import { getLogger } from '@exitbook/shared-logger';
 import { parse } from 'csv-parse/sync';
+
+const logger = getLogger('csv-parser-utils');
 
 /**
  * Get the first line (header) of a CSV file for debugging
@@ -13,7 +16,8 @@ export async function getCsvHeaders(filePath: string): Promise<string> {
     const cleanContent = content.replace(/^\uFEFF/, '');
     const lines = cleanContent.split('\n');
     return lines[0]?.trim() ?? '';
-  } catch {
+  } catch (error) {
+    logger.warn({ error, filePath }, 'Failed to read CSV file for header extraction');
     return '';
   }
 }
@@ -59,7 +63,8 @@ export async function validateCsvHeaders(filePath: string, expectedHeaders: Reco
     }
 
     return 'unknown';
-  } catch {
+  } catch (error) {
+    logger.warn({ error, filePath }, 'Failed to read/parse CSV file for header validation');
     return 'unknown';
   }
 }
