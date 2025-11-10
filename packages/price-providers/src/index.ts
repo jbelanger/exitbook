@@ -13,15 +13,14 @@ export type {
   ProviderMetadata,
   ProviderCapabilities,
   ProviderRateLimit,
-} from './shared/types/index.js';
+  ProviderManagerConfig,
+} from './core/types.js';
 
 // Provider manager
-export { PriceProviderManager } from './shared/provider-manager.js';
-export type { ProviderManagerConfig } from './shared/types/index.js';
+export { PriceProviderManager } from './core/provider-manager.js';
 
 // Shared factory - recommended way to create providers
-export { createPriceProviders, getAvailableProviderNames, createPriceProviderManager } from './shared/factory.js';
-export type { ProviderFactoryConfig, ProviderName, PriceProviderManagerFactoryConfig } from './shared/factory.js';
-
+export { createPriceProviders, getAvailableProviderNames, createPriceProviderManager } from './core/factory.js';
+export type { ProviderFactoryConfig, ProviderName, PriceProviderManagerFactoryConfig } from './core/factory.js';
 // Error types
-export { CoinNotFoundError, PriceDataUnavailableError } from './shared/errors.js';
+export { CoinNotFoundError, PriceDataUnavailableError } from './core/errors.js';

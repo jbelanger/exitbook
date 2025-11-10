@@ -1,10 +1,10 @@
 import type { SourceMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { BitcoinChainConfig } from '../../../chain-config.interface.ts';
-import { satoshisToBtcString } from '../../../utils.ts';
-import type { BlockchainComTransaction } from '../blockchain-com.schemas.ts';
-import { mapBlockchainComTransaction } from '../mapper-utils.ts';
+import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
+import { satoshisToBtcString } from '../../../utils.js';
+import type { BlockchainComTransaction } from '../blockchain-com.schemas.js';
+import { mapBlockchainComTransaction } from '../mapper-utils.js';
 
 const mockSourceContext: SourceMetadata = {
   name: 'test-provider',

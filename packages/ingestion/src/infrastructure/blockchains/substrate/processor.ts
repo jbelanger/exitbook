@@ -11,7 +11,7 @@ import {
   determineOperationFromFundFlow,
   didUserPayFee,
   enrichSourceContext,
-} from './processor-utils.ts';
+} from './processor-utils.js';
 
 /**
  * Generic Substrate transaction processor that converts raw blockchain transaction data

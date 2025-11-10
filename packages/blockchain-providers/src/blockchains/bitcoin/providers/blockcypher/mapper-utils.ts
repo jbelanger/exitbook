@@ -1,7 +1,7 @@
 import type { SourceMetadata } from '@exitbook/core';
 import { ok, type Result } from 'neverthrow';
 
-import { withValidation, type NormalizationError } from '../../../../core/index.ts';
+import { withValidation, type NormalizationError } from '../../../../core/index.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import {
   BitcoinTransactionSchema,
@@ -9,7 +9,7 @@ import {
   type BitcoinTransactionInput,
   type BitcoinTransactionOutput,
 } from '../../schemas.js';
-import { satoshisToBtcString } from '../../utils.ts';
+import { satoshisToBtcString } from '../../utils.js';
 
 import { BlockCypherTransactionSchema, type BlockCypherTransaction } from './blockcypher.schemas.js';
 

@@ -10,7 +10,7 @@ import {
   analyzeFundFlowFromNormalized,
   deduplicateByTransactionId,
   determineOperationFromFundFlow,
-} from './processor-utils.ts';
+} from './processor-utils.js';
 
 /**
  * Generic Cosmos SDK transaction processor that converts raw blockchain transaction data

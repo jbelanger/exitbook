@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../../core/index.ts';
-import { BitcoinAddressSchema } from '../../schemas.ts';
+import { timestampToDate } from '../../../../core/index.js';
+import { BitcoinAddressSchema } from '../../schemas.js';
 
 /**
  * Schema for Blockstream.info transaction status

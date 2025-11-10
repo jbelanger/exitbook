@@ -7,7 +7,7 @@ import { RegisterApiClient } from '../../../core/index.js';
 import type { ProviderOperation, RawBalanceData, TransactionWithRawData } from '../../../core/types/index.js';
 import { maskAddress } from '../../../core/utils/address-utils.js';
 import type { CardanoTransaction } from '../schemas.js';
-import { createRawBalanceData } from '../utils.ts';
+import { createRawBalanceData } from '../utils.js';
 
 import { lovelaceToAda, mapBlockfrostTransaction } from './blockfrost.mapper-utils.js';
 import type { BlockfrostTransactionHash, BlockfrostTransactionWithMetadata } from './blockfrost.schemas.js';

@@ -1,10 +1,10 @@
 import type { SourceMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { BitcoinChainConfig } from '../../../chain-config.interface.ts';
-import { satoshisToBtcString } from '../../../utils.ts';
-import { mapMempoolSpaceTransaction } from '../mapper-utils.ts';
-import type { MempoolTransaction } from '../mempool-space.schemas.ts';
+import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
+import { satoshisToBtcString } from '../../../utils.js';
+import { mapMempoolSpaceTransaction } from '../mapper-utils.js';
+import type { MempoolTransaction } from '../mempool-space.schemas.js';
 
 const mockSourceContext: SourceMetadata = {
   name: 'test-provider',

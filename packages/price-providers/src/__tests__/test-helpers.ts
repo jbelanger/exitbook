@@ -6,7 +6,8 @@ import type { Currency } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { PriceData, PriceGranularity } from '../shared/types/index.js';
+import type { PriceGranularity } from '../core/types.js';
+import type { PriceData } from '../index.js';
 
 /**
  * Create a PriceData object for testing

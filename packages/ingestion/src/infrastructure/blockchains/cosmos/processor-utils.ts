@@ -4,7 +4,7 @@ import { parseDecimal } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
-import type { CosmosFundFlow } from './types.ts';
+import type { CosmosFundFlow } from './types.js';
 
 const logger = getLogger('cosmos-processor-utils');
 

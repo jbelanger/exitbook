@@ -6,14 +6,14 @@ import type {
   ProviderOperation,
   RawBalanceData,
   TransactionWithRawData,
-} from '../../../../core/index.ts';
-import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
-import { calculateTatumBalance, createRawBalanceData } from '../../balance-utils.ts';
-import type { BitcoinChainConfig } from '../../chain-config.interface.ts';
-import { getBitcoinChainConfig } from '../../chain-registry.ts';
-import type { BitcoinTransaction } from '../../schemas.ts';
+} from '../../../../core/index.js';
+import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
+import { calculateTatumBalance, createRawBalanceData } from '../../balance-utils.js';
+import type { BitcoinChainConfig } from '../../chain-config.interface.js';
+import { getBitcoinChainConfig } from '../../chain-registry.js';
+import type { BitcoinTransaction } from '../../schemas.js';
 
-import { mapTatumLitecoinTransaction } from './mapper-utils.ts';
+import { mapTatumLitecoinTransaction } from './mapper-utils.js';
 import type { TatumLitecoinTransaction, TatumLitecoinBalance } from './tatum-litecoin.schemas.js';
 
 @RegisterApiClient({

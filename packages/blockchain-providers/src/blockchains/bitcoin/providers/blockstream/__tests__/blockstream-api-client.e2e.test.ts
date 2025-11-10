@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/index.ts';
-import { ProviderRegistry } from '../../../../../core/index.ts';
-import type { BitcoinTransaction } from '../../../schemas.ts';
+import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/index.js';
+import { ProviderRegistry } from '../../../../../core/index.js';
+import type { BitcoinTransaction } from '../../../schemas.js';
 import { BlockstreamApiClient } from '../blockstream-api-client.js';
 
 describe('BlockstreamApiClient E2E', () => {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CardanoUtils, createRawBalanceData, lovelaceToAda } from '../utils.ts';
+import { CardanoUtils, createRawBalanceData, lovelaceToAda } from '../utils.js';
 
 // Mock Cardano SDK modules (must be at the top level before imports)
 const mockDeriveFunction = vi.fn();

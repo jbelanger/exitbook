@@ -2,9 +2,9 @@ import type { SourceMetadata } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import type { BitcoinChainConfig } from '../../../chain-config.interface.ts';
-import { mapTatumTransaction } from '../mapper-utils.ts';
-import type { TatumBitcoinTransaction } from '../tatum.schemas.ts';
+import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
+import { mapTatumTransaction } from '../mapper-utils.js';
+import type { TatumBitcoinTransaction } from '../tatum.schemas.js';
 
 const mockSourceContext: SourceMetadata = {
   name: 'test-provider',

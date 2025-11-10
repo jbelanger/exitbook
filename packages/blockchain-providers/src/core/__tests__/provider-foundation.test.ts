@@ -8,7 +8,7 @@ import { type RateLimitConfig } from '@exitbook/http';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { initializeProviders } from '../../initialize.ts';
+import { initializeProviders } from '../../initialize.js';
 import { BlockchainProviderManager } from '../provider-manager.js';
 import { ProviderRegistry } from '../registry/provider-registry.js';
 import type { ProviderInfo } from '../types/index.js';

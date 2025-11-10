@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { SUBSTRATE_CHAINS } from '../../../chain-registry.js';
-import { convertSubscanTransaction } from '../subscan.mapper-utils.ts';
+import { convertSubscanTransaction } from '../subscan.mapper-utils.js';
 import type { SubscanTransfer } from '../subscan.schemas.js';
 
 describe('subscan.mapper-utils', () => {

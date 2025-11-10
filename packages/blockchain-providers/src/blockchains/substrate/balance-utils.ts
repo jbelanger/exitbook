@@ -1,6 +1,6 @@
 import { parseDecimal } from '@exitbook/core';
 
-import type { RawBalanceData } from '../../core/types/index.ts';
+import type { RawBalanceData } from '../../core/types/index.js';
 
 /**
  * Converts balance from smallest unit (planck/rao) to main unit (DOT/TAO/KSM)

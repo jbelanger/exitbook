@@ -1,7 +1,7 @@
-import type { RawBalanceData } from '../../core/types/index.ts';
+import type { RawBalanceData } from '../../core/types/index.js';
 
-import type { BlockstreamAddressInfo } from './providers/blockstream/blockstream.schemas.ts';
-import type { MempoolAddressInfo } from './providers/mempool-space/mempool-space.schemas.ts';
+import type { BlockstreamAddressInfo } from './providers/blockstream/blockstream.schemas.js';
+import type { MempoolAddressInfo } from './providers/mempool-space/mempool-space.schemas.js';
 
 /**
  * Pure functions for Bitcoin balance calculations

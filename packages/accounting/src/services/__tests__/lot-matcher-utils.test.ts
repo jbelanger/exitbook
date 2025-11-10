@@ -3,8 +3,8 @@ import { Currency, type AssetMovement, type PriceAtTxTime, type UniversalTransac
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import type { LotTransfer } from '../../domain/schemas.ts';
-import type { TransactionLink } from '../../linking/types.ts';
+import type { LotTransfer } from '../../domain/schemas.js';
+import type { TransactionLink } from '../../linking/types.js';
 import {
   buildDependencyGraph,
   sortWithLogicalOrdering,
@@ -23,7 +23,7 @@ import {
   buildTransferMetadata,
   calculateInheritedCostBasis,
   calculateTargetCostBasis,
-} from '../lot-matcher-utils.ts';
+} from '../lot-matcher-utils.js';
 
 // Helper functions
 function createMockTransaction(

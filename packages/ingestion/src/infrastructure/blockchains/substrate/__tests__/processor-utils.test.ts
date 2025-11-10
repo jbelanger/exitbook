@@ -7,8 +7,8 @@ import {
   didUserPayFee,
   enrichSourceContext,
   normalizeAmount,
-} from '../processor-utils.ts';
-import type { SubstrateFundFlow } from '../types.ts';
+} from '../processor-utils.js';
+import type { SubstrateFundFlow } from '../types.js';
 
 // Test addresses for Substrate chains (SS58 format)
 const POLKADOT_ADDRESS = '15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5';

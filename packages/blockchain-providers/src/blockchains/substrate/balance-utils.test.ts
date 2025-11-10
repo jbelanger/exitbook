@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { convertToMainUnit, createRawBalanceData } from './balance-utils.ts';
+import { convertToMainUnit, createRawBalanceData } from './balance-utils.js';
 
 describe('balance-utils', () => {
   describe('convertToMainUnit', () => {

@@ -7,8 +7,8 @@ import { wrapError } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
-import { roundToDay, roundToHour, roundToMinute } from '../../shared/shared-utils.js';
-import type { PriceData } from '../../shared/types/index.js';
+import { roundToMinute, roundToHour, roundToDay } from '../../core/utils.js';
+import type { PriceData } from '../../index.js';
 import type { PricesDB } from '../database.js';
 
 export interface PriceRecord {

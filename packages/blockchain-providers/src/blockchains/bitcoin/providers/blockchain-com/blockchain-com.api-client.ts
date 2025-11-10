@@ -6,8 +6,8 @@ import type {
   ProviderOperation,
   RawBalanceData,
   TransactionWithRawData,
-} from '../../../../core/index.ts';
-import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
+} from '../../../../core/index.js';
+import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
 import { calculateSimpleBalance, createRawBalanceData } from '../../balance-utils.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../../chain-registry.js';

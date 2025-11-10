@@ -5,7 +5,7 @@
  * and exchange providers. Call this once during application startup.
  */
 
-import './register-apis.ts';
+import './register-apis.js';
 
 let initialized = false;
 

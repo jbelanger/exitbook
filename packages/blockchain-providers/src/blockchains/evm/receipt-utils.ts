@@ -1,7 +1,7 @@
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { AlchemyAssetTransfer, AlchemyTransactionReceipt } from './providers/alchemy/alchemy.schemas.ts';
+import type { AlchemyAssetTransfer, AlchemyTransactionReceipt } from './providers/alchemy/alchemy.schemas.js';
 
 /**
  * Calculates the total gas fee in wei from gas used and effective gas price.

@@ -2,7 +2,7 @@ import { Currency, type UniversalTransaction } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import type { PriceValidationResult } from '../cost-basis-validation-utils.ts';
+import type { PriceValidationResult } from '../cost-basis-validation-utils.js';
 import {
   collectPricedEntities,
   validatePriceCompleteness,
@@ -10,7 +10,7 @@ import {
   validateFxAuditTrail,
   formatValidationError,
   validateTransactionPrices,
-} from '../cost-basis-validation-utils.ts';
+} from '../cost-basis-validation-utils.js';
 
 describe('cost-basis-validation-utils', () => {
   describe('collectPricedEntities', () => {

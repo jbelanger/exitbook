@@ -1,9 +1,9 @@
 import type { Result } from 'neverthrow';
 import { err } from 'neverthrow';
 
-import { createCoinbaseClient } from '../coinbase/client.js';
-import { createKrakenClient } from '../kraken/client.js';
-import { createKuCoinClient } from '../kucoin/client.js';
+import { createCoinbaseClient } from '../exchanges/coinbase/client.js';
+import { createKrakenClient } from '../exchanges/kraken/client.js';
+import { createKuCoinClient } from '../exchanges/kucoin/client.js';
 
 import type { ExchangeCredentials, IExchangeClient } from './types.js';
 

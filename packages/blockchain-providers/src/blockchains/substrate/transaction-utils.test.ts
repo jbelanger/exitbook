@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { SubstrateChainConfig } from './chain-config.interface.ts';
-import { augmentWithChainConfig } from './transaction-utils.ts';
+import type { SubstrateChainConfig } from './chain-config.interface.js';
+import { augmentWithChainConfig } from './transaction-utils.js';
 
 describe('transaction-utils', () => {
   describe('augmentWithChainConfig', () => {

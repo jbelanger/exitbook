@@ -1,7 +1,7 @@
 import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
-import { BitcoinAddressSchema } from '../../schemas.ts';
+import { BitcoinAddressSchema } from '../../schemas.js';
 
 /**
  * Schema for Tatum Dogecoin transaction input coin

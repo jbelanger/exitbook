@@ -7,8 +7,8 @@ import {
   determineOperationFromFundFlow,
   isZero,
   toDecimal,
-} from './processor-utils.ts';
-import type { CosmosFundFlow } from './types.ts';
+} from './processor-utils.js';
+import type { CosmosFundFlow } from './types.js';
 
 const INJECTIVE_CONFIG: CosmosChainConfig = {
   bech32Prefix: 'inj',

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { convertTaostatsTransaction, isTransactionRelevant } from '../taostats.mapper-utils.ts';
+import { convertTaostatsTransaction, isTransactionRelevant } from '../taostats.mapper-utils.js';
 import type { TaostatsTransaction } from '../taostats.schemas.js';
 
 describe('taostats.mapper-utils', () => {

@@ -13,12 +13,11 @@ export type { ExchangeLedgerEntry } from './core/schemas.js';
 export type { BalanceSnapshot, ExchangeCredentials, IExchangeClient } from './core/types.js';
 
 // Coinbase
-export { createCoinbaseClient } from './coinbase/client.js';
-export { CoinbaseLedgerEntrySchema } from './coinbase/schemas.js';
-export type { CoinbaseLedgerEntry } from './coinbase/client.js';
+export { createCoinbaseClient } from './exchanges/coinbase/client.js';
+export { CoinbaseLedgerEntrySchema } from './exchanges/coinbase/schemas.js';
+export type { CoinbaseLedgerEntry } from './exchanges/coinbase/client.js';
 
 // Kraken
-export { createKrakenClient } from './kraken/client.js';
-
+export { createKrakenClient } from './exchanges/kraken/client.js';
 // KuCoin
-export { createKuCoinClient } from './kucoin/client.js';
+export { createKuCoinClient } from './exchanges/kucoin/client.js';

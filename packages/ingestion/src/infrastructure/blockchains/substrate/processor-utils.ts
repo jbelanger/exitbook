@@ -5,7 +5,7 @@ import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { SubstrateFundFlow, SubstrateMovement } from './types.ts';
+import type { SubstrateFundFlow, SubstrateMovement } from './types.js';
 
 /**
  * Enrich session context with SS58 address variants for better transaction matching.

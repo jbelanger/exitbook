@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { BitcoinAddressSchema } from '../../schemas.ts';
+import { BitcoinAddressSchema } from '../../schemas.js';
 
 /**
  * Schema for Blockchain.com transaction input prev_out

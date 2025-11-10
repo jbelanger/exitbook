@@ -1,4 +1,4 @@
-import type { SubstrateChainConfig } from './chain-config.interface.ts';
+import type { SubstrateChainConfig } from './chain-config.interface.js';
 
 /**
  * Augments transaction objects with chain configuration metadata.
