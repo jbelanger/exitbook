@@ -77,8 +77,8 @@ export class SubstrateImporter implements IImporter {
   private async fetchRawTransactionsForAddress(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
       address,
-      getCacheKey: (cacheParams) =>
-        `${this.chainConfig.chainName}${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? 'all' : 'unknown'}`,
+      getCacheKey: (params) =>
+        `${this.chainConfig.chainName}:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}_${params.type === 'getAddressTransactions' ? 'all' : 'unknown'}`,
       type: 'getAddressTransactions',
     });
 

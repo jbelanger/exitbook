@@ -1,7 +1,6 @@
 import type { NearTransaction } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
-import type { ITransactionRepository } from '@exitbook/data';
 import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
@@ -16,10 +15,7 @@ import { analyzeNearFundFlow, classifyNearOperationFromFundFlow } from './proces
  * and historical context for accurate transaction classification.
  */
 export class NearTransactionProcessor extends BaseTransactionProcessor {
-  constructor(
-    private readonly tokenMetadataService: ITokenMetadataService,
-    private readonly _transactionRepository?: ITransactionRepository
-  ) {
+  constructor(private readonly tokenMetadataService: ITokenMetadataService) {
     super('near');
   }
 

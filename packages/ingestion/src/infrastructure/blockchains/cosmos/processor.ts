@@ -1,7 +1,6 @@
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/blockchain-providers';
 import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import type { ITransactionRepository } from '@exitbook/data';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
@@ -21,7 +20,7 @@ import {
 export class CosmosProcessor extends BaseTransactionProcessor {
   private chainConfig: CosmosChainConfig;
 
-  constructor(chainConfig: CosmosChainConfig, _transactionRepository?: ITransactionRepository) {
+  constructor(chainConfig: CosmosChainConfig) {
     super(chainConfig.chainName);
     this.chainConfig = chainConfig;
   }
@@ -51,6 +50,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
     }
 
     const universalTransactions: UniversalTransaction[] = [];
+    const processingErrors: { error: string; txId: string }[] = [];
 
     for (const transaction of deduplicatedData) {
       const normalizedTx = transaction;
@@ -146,9 +146,36 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
         universalTransactions.push(universalTransaction);
       } catch (error) {
-        this.logger.warn(`Failed to process normalized transaction ${normalizedTx.id}: ${String(error)}`);
+        const errorMsg = `Error processing normalized transaction: ${String(error)}`;
+        processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+        this.logger.error(`${errorMsg} for ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
         continue;
       }
+    }
+
+    // Log processing summary
+    const totalInputTransactions = deduplicatedData.length;
+    const successfulTransactions = universalTransactions.length;
+    const failedTransactions = processingErrors.length;
+
+    this.logger.info(
+      `Processing completed for ${this.chainConfig.chainName}: ${successfulTransactions} transactions processed, ${failedTransactions} failed (${failedTransactions}/${totalInputTransactions} transactions lost)`
+    );
+
+    // STRICT MODE: Fail if ANY transactions could not be processed
+    // This is critical for portfolio accuracy - we cannot afford to silently drop transactions
+    if (processingErrors.length > 0) {
+      this.logger.error(
+        `CRITICAL PROCESSING FAILURE for ${this.chainConfig.chainName}:\n${processingErrors
+          .map((e, i) => `  ${i + 1}. [${e.txId.substring(0, 10)}...] ${e.error}`)
+          .join('\n')}`
+      );
+
+      return err(
+        `Cannot proceed: ${failedTransactions}/${totalInputTransactions} transactions failed to process. ` +
+          `Lost ${failedTransactions} transactions which would corrupt portfolio calculations. ` +
+          `Errors: ${processingErrors.map((e) => `[${e.txId.substring(0, 10)}...]: ${e.error}`).join('; ')}`
+      );
     }
 
     return okAsync(universalTransactions);

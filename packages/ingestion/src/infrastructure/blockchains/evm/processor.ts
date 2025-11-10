@@ -1,7 +1,6 @@
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
 import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import type { ITransactionRepository } from '@exitbook/data';
 import { err, okAsync, ok, type Result } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
@@ -22,8 +21,7 @@ import {
 export class EvmTransactionProcessor extends BaseTransactionProcessor {
   constructor(
     private readonly chainConfig: EvmChainConfig,
-    private readonly tokenMetadataService: ITokenMetadataService,
-    private readonly _transactionRepository?: ITransactionRepository
+    private readonly tokenMetadataService: ITokenMetadataService
   ) {
     super(chainConfig.chainName);
   }

@@ -76,24 +76,6 @@ pnpm run dev list-blockchains
 - **packages/logger/** - Pino logging
 - **packages/tsconfig/** - Shared TypeScript config
 
-### Import Pipeline
-
-Two-phase data flow:
-
-**Phase 1: Import (Fetch + Normalize)**
-
-- Importers implement `IImporter`, fetch from APIs/CSVs
-- API clients normalize via mappers (e.g., `BlockstreamTransactionMapper.map()`)
-- Returns `TransactionWithRawData<T>[]` with `raw` + `normalized` payloads
-- Zod validation (fail-fast), store in `external_transaction_data` (`processing_status = 'pending'`)
-
-**Phase 2: Process (Transform)**
-
-- Load normalized data, transform to `UniversalTransaction`
-- Upsert to `transactions` (keyed by `external_id`)
-
-**Balance Checking:** Separate `balance` command for live exchange/blockchain balances.
-
 ### Blockchain Provider System
 
 Multi-provider architecture with failover:

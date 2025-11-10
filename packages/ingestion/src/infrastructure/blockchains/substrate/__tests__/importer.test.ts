@@ -545,7 +545,7 @@ describe('SubstrateImporter', () => {
 
       const call = calls[0]![1];
       const cacheKey = call.getCacheKey!(call);
-      expect(cacheKey).toBe('polkadot1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg_all');
+      expect(cacheKey).toBe('polkadot:raw-txs:1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg_all');
     });
 
     test('should generate different cache keys for different chains', async () => {
@@ -573,8 +573,8 @@ describe('SubstrateImporter', () => {
       const polkadotCacheKey = polkadotCall.getCacheKey!(polkadotCall);
       const bittensorCacheKey = bittensorCall.getCacheKey!(bittensorCall);
 
-      expect(polkadotCacheKey).toBe('polkadot1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg_all');
-      expect(bittensorCacheKey).toBe('bittensor1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg_all');
+      expect(polkadotCacheKey).toBe('polkadot:raw-txs:1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg_all');
+      expect(bittensorCacheKey).toBe('bittensor:raw-txs:1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg_all');
       expect(polkadotCacheKey).not.toBe(bittensorCacheKey);
     });
 

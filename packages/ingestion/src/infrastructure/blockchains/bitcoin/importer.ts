@@ -35,7 +35,7 @@ export class BitcoinTransactionImporter implements IImporter {
     this.logger = getLogger(`${this.chainConfig.chainName}Importer`);
 
     if (!blockchainProviderManager) {
-      throw new Error('Provider manager required for Bitcoin importer');
+      throw new Error(`Provider manager required for ${this.chainConfig.chainName} importer`);
     }
 
     this.providerManager = blockchainProviderManager;

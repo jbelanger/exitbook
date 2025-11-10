@@ -35,6 +35,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
     this.logger.info(`Processing ${normalizedData.length} normalized Bitcoin transactions`);
 
     const transactions: UniversalTransaction[] = [];
+    const processingErrors: { error: string; txId: string }[] = [];
 
     for (const item of normalizedData) {
       const normalizedTx = item as BitcoinTransaction;
@@ -44,7 +45,9 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         const fundFlowResult = analyzeBitcoinFundFlow(normalizedTx, sessionMetadata);
 
         if (fundFlowResult.isErr()) {
-          this.logger.warn(`Fund flow analysis failed for ${normalizedTx.id}: ${fundFlowResult.error}`);
+          const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;
+          processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+          this.logger.error(`${errorMsg} for Bitcoin transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
           continue;
         }
 
@@ -156,12 +159,38 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         transactions.push(universalTransaction);
         this.logger.debug(`Successfully processed normalized transaction ${universalTransaction.externalId}`);
       } catch (error) {
-        this.logger.error(`Failed to process normalized transaction ${normalizedTx.id}: ${String(error)}`);
+        const errorMsg = `Error processing normalized transaction: ${String(error)}`;
+        processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+        this.logger.error(`${errorMsg} for ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
         continue;
       }
     }
 
-    this.logger.info(`Normalized processing completed: ${transactions.length} transactions processed successfully`);
+    // Log processing summary
+    const totalInputTransactions = normalizedData.length;
+    const successfulTransactions = transactions.length;
+    const failedTransactions = processingErrors.length;
+
+    this.logger.info(
+      `Processing completed for Bitcoin: ${successfulTransactions} transactions processed, ${failedTransactions} failed (${failedTransactions}/${totalInputTransactions} transactions lost)`
+    );
+
+    // STRICT MODE: Fail if ANY transactions could not be processed
+    // This is critical for portfolio accuracy - we cannot afford to silently drop transactions
+    if (processingErrors.length > 0) {
+      this.logger.error(
+        `CRITICAL PROCESSING FAILURE for Bitcoin:\n${processingErrors
+          .map((e, i) => `  ${i + 1}. [${e.txId.substring(0, 10)}...] ${e.error}`)
+          .join('\n')}`
+      );
+
+      return err(
+        `Cannot proceed: ${failedTransactions}/${totalInputTransactions} transactions failed to process. ` +
+          `Lost ${failedTransactions} transactions which would corrupt portfolio calculations. ` +
+          `Errors: ${processingErrors.map((e) => `[${e.txId.substring(0, 10)}...]: ${e.error}`).join('; ')}`
+      );
+    }
+
     return okAsync(transactions);
   }
 }

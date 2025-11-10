@@ -1,7 +1,6 @@
 import type { SubstrateTransaction, SubstrateChainConfig } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
-import type { ITransactionRepository } from '@exitbook/data';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
@@ -22,10 +21,7 @@ import {
 export class SubstrateProcessor extends BaseTransactionProcessor {
   private chainConfig: SubstrateChainConfig;
 
-  constructor(
-    chainConfig: SubstrateChainConfig,
-    private _transactionRepository?: ITransactionRepository
-  ) {
+  constructor(chainConfig: SubstrateChainConfig) {
     super(chainConfig.chainName);
     this.chainConfig = chainConfig;
   }
@@ -48,6 +44,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
 
     const sourceContext = sourceContextResult.value;
     const transactions: UniversalTransaction[] = [];
+    const processingErrors: { error: string; txId: string }[] = [];
 
     this.logger.info(
       `Enriched Substrate session context - Original address: ${sessionMetadata.address}, ` +
@@ -59,7 +56,12 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
       try {
         const fundFlowResult = analyzeFundFlowFromNormalized(normalizedTx, sourceContext, this.chainConfig);
         if (fundFlowResult.isErr()) {
-          throw fundFlowResult.error;
+          const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;
+          processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+          this.logger.error(
+            `${errorMsg} for ${this.chainConfig.chainName} transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`
+          );
+          continue;
         }
         const fundFlow = fundFlowResult.value;
         const classification = determineOperationFromFundFlow(fundFlow, normalizedTx);
@@ -145,9 +147,36 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
             `Chain: ${fundFlow.chainName}`
         );
       } catch (error) {
-        this.logger.warn(`Failed to process normalized transaction ${normalizedTx.id}: ${String(error)}`);
+        const errorMsg = `Error processing normalized transaction: ${String(error)}`;
+        processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
+        this.logger.error(`${errorMsg} for ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
         continue;
       }
+    }
+
+    // Log processing summary
+    const totalInputTransactions = normalizedData.length;
+    const successfulTransactions = transactions.length;
+    const failedTransactions = processingErrors.length;
+
+    this.logger.info(
+      `Processing completed for ${this.chainConfig.chainName}: ${successfulTransactions} transactions processed, ${failedTransactions} failed (${failedTransactions}/${totalInputTransactions} transactions lost)`
+    );
+
+    // STRICT MODE: Fail if ANY transactions could not be processed
+    // This is critical for portfolio accuracy - we cannot afford to silently drop transactions
+    if (processingErrors.length > 0) {
+      this.logger.error(
+        `CRITICAL PROCESSING FAILURE for ${this.chainConfig.chainName}:\n${processingErrors
+          .map((e, i) => `  ${i + 1}. [${e.txId.substring(0, 10)}...] ${e.error}`)
+          .join('\n')}`
+      );
+
+      return err(
+        `Cannot proceed: ${failedTransactions}/${totalInputTransactions} transactions failed to process. ` +
+          `Lost ${failedTransactions} transactions which would corrupt portfolio calculations. ` +
+          `Errors: ${processingErrors.map((e) => `[${e.txId.substring(0, 10)}...]: ${e.error}`).join('; ')}`
+      );
     }
 
     return okAsync(transactions);

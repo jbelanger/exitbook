@@ -1,7 +1,6 @@
 import type { SolanaTransaction } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
-import type { ITransactionRepository } from '@exitbook/data';
 import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
@@ -16,10 +15,7 @@ import { analyzeSolanaFundFlow, classifySolanaOperationFromFundFlow } from './pr
  * and historical context for accurate transaction classification.
  */
 export class SolanaTransactionProcessor extends BaseTransactionProcessor {
-  constructor(
-    private readonly tokenMetadataService: ITokenMetadataService,
-    private readonly _transactionRepository?: ITransactionRepository
-  ) {
+  constructor(private readonly tokenMetadataService: ITokenMetadataService) {
     super('solana');
   }
 
