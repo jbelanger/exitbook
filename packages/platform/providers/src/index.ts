@@ -19,10 +19,10 @@ export { initializeProviders } from './initialize.js';
 
 export * from './shared/blockchain/index.js';
 
-export * from './blockchain/bitcoin/index.js';
-export * from './blockchain/cardano/index.js';
-export * from './blockchain/cosmos/index.js';
-export * from './blockchain/evm/index.js';
-export * from './blockchain/near/index.js';
-export * from './blockchain/solana/index.js';
-export * from './blockchain/substrate/index.js';
+export * from './blockchains/bitcoin/index.js';
+export * from './blockchains/cardano/index.js';
+export * from './blockchains/cosmos/index.js';
+export * from './blockchains/evm/index.js';
+export * from './blockchains/near/index.js';
+export * from './blockchains/solana/index.js';
+export * from './blockchains/substrate/index.js';

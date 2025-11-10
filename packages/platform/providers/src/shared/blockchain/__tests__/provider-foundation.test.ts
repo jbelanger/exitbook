@@ -7,7 +7,7 @@ import { getErrorMessage } from '@exitbook/core';
 import { type RateLimitConfig } from '@exitbook/platform-http';
 
 // Import clients to trigger registration
-import '../../../blockchain/evm/register-apis.js';
+import '../../../blockchains/evm/register-apis.js';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
