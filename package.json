@@ -25,7 +25,7 @@
     "providers:sync": "pnpm -F @exitbook/blockchain-providers providers:sync",
     "providers:validate": "pnpm -F @exitbook/blockchain-providers providers:validate",
     "start": "pnpm -F exitbook-cli start",
-    "test": "pnpm -r run test",
+    "test": "node --env-file-if-exists .env node_modules/.bin/pnpm -r run test",
     "test:coverage": "node tools/run-vitest-coverage.mjs",
     "test:e2e": "node --env-file-if-exists .env node_modules/vitest/vitest.mjs run --config vitest.e2e.config.ts"
   },
