@@ -5,10 +5,7 @@
     "nativeCurrency": "BTC",
     "nativeDecimals": 8,
     "addressPrefixes": ["1", "3", "bc1"],
-    "explorerUrls": [
-      "https://blockstream.info",
-      "https://mempool.space"
-    ]
+    "explorerUrls": ["https://blockstream.info", "https://mempool.space"]
   },
   "dogecoin": {
     "chainName": "dogecoin",
@@ -16,9 +13,7 @@
     "nativeCurrency": "DOGE",
     "nativeDecimals": 8,
     "addressPrefixes": ["D"],
-    "explorerUrls": [
-      "https://dogechain.info"
-    ]
+    "explorerUrls": ["https://dogechain.info"]
   },
   "litecoin": {
     "chainName": "litecoin",
@@ -26,18 +21,14 @@
     "nativeCurrency": "LTC",
     "nativeDecimals": 8,
     "addressPrefixes": ["L", "M", "ltc1"],
-    "explorerUrls": [
-      "https://live.blockcypher.com/ltc"
-    ]
+    "explorerUrls": ["https://live.blockcypher.com/ltc"]
   },
   "bitcoin-cash": {
     "chainName": "bitcoin-cash",
     "displayName": "Bitcoin Cash",
     "nativeCurrency": "BCH",
     "nativeDecimals": 8,
-    "addressPrefixes": ["1", "3", "bitcoincash:"],
-    "explorerUrls": [
-      "https://blockchair.com/bitcoin-cash"
-    ]
+    "addressPrefixes": ["1", "3", "bitcoincash:", "q", "p"],
+    "explorerUrls": ["https://blockchair.com/bitcoin-cash"]
   }
 }

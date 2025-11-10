@@ -1,3 +1,4 @@
+import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 import { BitcoinAddressSchema } from '../schemas.js';
@@ -6,7 +7,9 @@ import { BitcoinAddressSchema } from '../schemas.js';
  * Schema for Tatum Bitcoin transaction input coin
  */
 export const TatumBitcoinCoinSchema = z.object({
-  address: BitcoinAddressSchema,
+  address: BitcoinAddressSchema.nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
   coinbase: z.boolean(),
   height: z.number(),
   reqSigs: z
@@ -36,8 +39,12 @@ export const TatumBitcoinPrevoutSchema = z.object({
  * Schema for Tatum Bitcoin transaction input
  */
 export const TatumBitcoinInputSchema = z.object({
-  coin: TatumBitcoinCoinSchema,
-  prevout: TatumBitcoinPrevoutSchema,
+  coin: TatumBitcoinCoinSchema.nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
+  prevout: TatumBitcoinPrevoutSchema.nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
   script: z.string(),
   sequence: z.number(),
 });
@@ -73,7 +80,7 @@ export const TatumBitcoinTransactionSchema = z
   .object({
     block: z.string(),
     blockNumber: z.number().nonnegative(),
-    fee: z.number().nonnegative('Fee must be non-negative'),
+    fee: DecimalStringSchema,
     hash: z.string().min(1, 'Transaction hash must not be empty'),
     hex: z.string(),
     index: z.number().nonnegative(),
