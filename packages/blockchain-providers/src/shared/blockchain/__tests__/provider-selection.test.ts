@@ -3,12 +3,7 @@
  * These tests use functional programming style with zero mocking
  */
 
-import {
-  createInitialCircuitState,
-  recordFailure,
-  shouldCircuitBlock,
-  type CircuitState,
-} from '@exitbook/platform-http';
+import { createInitialCircuitState, recordFailure, shouldCircuitBlock, type CircuitState } from '@exitbook/http';
 import { describe, expect, it } from 'vitest';
 
 import type { ProviderCapabilities, ProviderOperation } from '../types/index.js';

@@ -1,5 +1,5 @@
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
-import { ServiceError } from '@exitbook/platform-http';
+import { ServiceError } from '@exitbook/http';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../../shared/blockchain/base/api-client.js';

@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts';
-import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/shared-logger';
+import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
 import pc from 'picocolors';
 
 import type { CLIResponse } from './cli-response.js';

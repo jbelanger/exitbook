@@ -10,8 +10,8 @@ import {
   recordSuccess,
   resetCircuit,
   type CircuitState,
-} from '@exitbook/platform-http';
-import { getLogger } from '@exitbook/shared-logger';
+} from '@exitbook/http';
+import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 

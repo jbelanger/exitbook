@@ -4,8 +4,8 @@
  * No mocks needed - all functions are pure!
  */
 
-import type { CircuitState } from '@exitbook/platform-http';
-import { createInitialCircuitState } from '@exitbook/platform-http';
+import type { CircuitState } from '@exitbook/http';
+import { createInitialCircuitState } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 

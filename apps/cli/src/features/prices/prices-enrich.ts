@@ -8,7 +8,7 @@
  * 4. Derive (2nd pass) - Use newly fetched/normalized prices for ratio calculations
  */
 
-import { configureLogger, resetLoggerContext } from '@exitbook/shared-logger';
+import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 
 import { withDatabaseAndHandler } from '../shared/command-execution.js';

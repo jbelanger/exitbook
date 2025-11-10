@@ -4,8 +4,8 @@
  * Functional core - all decision logic without side effects
  */
 
-import type { CircuitState } from '@exitbook/platform-http';
-import { getCircuitStatus, isCircuitHalfOpen, isCircuitOpen } from '@exitbook/platform-http';
+import type { CircuitState } from '@exitbook/http';
+import { getCircuitStatus, isCircuitHalfOpen, isCircuitOpen } from '@exitbook/http';
 
 import type { IPriceProvider, ProviderHealth, ProviderMetadata } from './types/index.js';
 

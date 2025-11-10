@@ -8,7 +8,7 @@ import { BasePriceProvider } from '../base-provider.js';
 import type { PriceData, PriceQuery, ProviderMetadata } from '../types/index.js';
 
 // Mock logger
-vi.mock('@exitbook/shared-logger', () => ({
+vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({
     debug: vi.fn(),
     info: vi.fn(),

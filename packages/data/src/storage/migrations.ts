@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { FileMigrationProvider, Migrator } from 'kysely';
 
 import type { KyselyDB } from './database.js';

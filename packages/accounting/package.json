@@ -28,9 +28,9 @@
   "peerDependencies": {
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
-    "@exitbook/platform-http": "workspace:*",
-    "@exitbook/platform-price-providers": "workspace:*",
-    "@exitbook/shared-logger": "workspace:*",
+    "@exitbook/http": "workspace:*",
+    "@exitbook/logger": "workspace:*",
+    "@exitbook/price-providers": "workspace:*",
     "tsconfig": "workspace:*"
   }
 }

@@ -1,4 +1,4 @@
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 
 import { ExitCodes } from '../shared/exit-codes.js';

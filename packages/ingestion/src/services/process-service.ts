@@ -1,8 +1,8 @@
 import { getErrorMessage } from '@exitbook/core';
 import type { SourceMetadata, SourceType, UniversalTransaction } from '@exitbook/core';
 import type { ITransactionRepository } from '@exitbook/data';
-import type { Logger } from '@exitbook/shared-logger';
-import { getLogger } from '@exitbook/shared-logger';
+import type { Logger } from '@exitbook/logger';
+import { getLogger } from '@exitbook/logger';
 import { err, ok, Result } from 'neverthrow';
 
 import { getBlockchainConfig } from '../infrastructure/blockchains/index.js';

@@ -1,4 +1,4 @@
-import { configureLogger, resetLoggerContext } from '@exitbook/shared-logger';
+import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 
 import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.js';

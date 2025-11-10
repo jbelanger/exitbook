@@ -109,7 +109,7 @@ export function createMockExchangeClient(exchangeId: string, mockBalance?: Balan
 }
 
 /**
- * Creates a mock logger that can be used to replace @exitbook/shared-logger.
+ * Creates a mock logger that can be used to replace @exitbook/logger.
  * Useful for vi.mock() calls.
  */
 export function createMockLogger() {

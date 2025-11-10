@@ -1,5 +1,5 @@
 import { getErrorMessage } from '@exitbook/core';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { RawBalanceData } from '../../shared/blockchain/index.ts';

@@ -1,7 +1,7 @@
 import type { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import type { KyselyDB, TransactionRepository } from '@exitbook/data';
 import type { DataSourceRepository, RawDataRepository } from '@exitbook/ingestion';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ClearHandlerParams, DeletionPreview } from './clear-utils.js';

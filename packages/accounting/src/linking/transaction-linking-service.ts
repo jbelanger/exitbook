@@ -1,6 +1,6 @@
 import type { UniversalTransaction } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { getLogger } from '@exitbook/shared-logger';
+import type { getLogger } from '@exitbook/logger';
 import { ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 

@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { parse } from 'csv-parse/sync';
 
 const logger = getLogger('csv-parser-utils');

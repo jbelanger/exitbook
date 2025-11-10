@@ -130,7 +130,7 @@ Prices normalized to USD during enrichment (not import). Four-stage pipeline: **
 
 Two conversions: **Storage** (EUR/CAD→USD, persisted) vs **Display** (USD→user currency, ephemeral).
 
-FX providers in `packages/platform/price-providers`, cached in `prices.db`. See ADR-003.
+FX providers in `packages/price-providers`, cached in `prices.db`. See ADR-003.
 
 ## Critical Patterns
 
@@ -161,7 +161,7 @@ Runtime validation for external data. Core schemas in `packages/core/src/schemas
 ### Logging (Pino)
 
 ```typescript
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 const logger = getLogger('component-name');
 logger.info('message');
 logger.error({ error }, 'error message');

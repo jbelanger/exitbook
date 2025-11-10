@@ -20,7 +20,7 @@ vi.mock('@exitbook/shared-utils', () => ({
   maskAddress: (address: string) => `${address.slice(0, 4)}...${address.slice(-4)}`,
 }));
 
-vi.mock('@exitbook/shared-logger', () => ({
+vi.mock('@exitbook/logger', () => ({
   getLogger: vi.fn(() => ({
     debug: vi.fn(),
     error: vi.fn(),

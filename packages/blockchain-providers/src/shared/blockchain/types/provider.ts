@@ -1,4 +1,4 @@
-import type { RateLimitConfig } from '@exitbook/platform-http';
+import type { RateLimitConfig } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 
 import type { ProviderOperation, ProviderOperationType } from './operations.js';

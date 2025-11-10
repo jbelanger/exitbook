@@ -6,7 +6,7 @@ import type {
 } from '@exitbook/blockchain-providers';
 import { generateUniqueTransactionId } from '@exitbook/blockchain-providers';
 import type { ExternalTransaction } from '@exitbook/core';
-import { getLogger, type Logger } from '@exitbook/shared-logger';
+import { getLogger, type Logger } from '@exitbook/logger';
 import { err, type Result } from 'neverthrow';
 
 import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.js';

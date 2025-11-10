@@ -1,4 +1,4 @@
-import type { HttpClient } from '@exitbook/platform-http';
+import type { HttpClient } from '@exitbook/http';
 import { ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,7 +12,7 @@ const { mockCanUseSimplePrice, mockTransformSimplePriceResponse, mockTransformHi
   mockTransformHistoricalResponse: vi.fn(),
 }));
 
-vi.mock('@exitbook/shared-logger', () => ({
+vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({
     debug: vi.fn(),
     info: vi.fn(),

@@ -1,4 +1,4 @@
-import { type Logger, getLogger } from '@exitbook/shared-logger';
+import { type Logger, getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import type { Transaction } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';

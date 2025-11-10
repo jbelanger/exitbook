@@ -22,7 +22,7 @@ vi.mock('@clack/prompts', () => ({
 
 // Mock logger
 // cSpell:ignore exitbook
-vi.mock('@exitbook/shared-logger', () => ({
+vi.mock('@exitbook/logger', () => ({
   getLogger: vi.fn(() => ({
     info: vi.fn(),
     warn: vi.fn(),

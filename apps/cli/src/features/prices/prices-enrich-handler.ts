@@ -29,8 +29,8 @@ import {
 import type { IFxRateProvider, NormalizeResult } from '@exitbook/accounting';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
-import type { PriceProviderManager } from '@exitbook/platform-price-providers';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
+import type { PriceProviderManager } from '@exitbook/price-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 

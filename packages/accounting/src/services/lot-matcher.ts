@@ -1,6 +1,6 @@
 import { Currency, type AssetMovement, type UniversalTransaction } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 

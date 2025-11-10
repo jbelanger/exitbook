@@ -2,8 +2,8 @@
 // All functions are pure and testable
 
 import { Currency, type UniversalTransaction } from '@exitbook/core';
-import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/platform-price-providers';
-import type { PriceQuery } from '@exitbook/platform-price-providers';
+import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
+import type { PriceQuery } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
 
 /**

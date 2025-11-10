@@ -180,7 +180,7 @@ vi.mock('../../frankfurter/provider.js', () => ({
   })),
 }));
 
-vi.mock('@exitbook/shared-logger', () => ({
+vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({
     debug: vi.fn(),
     error: vi.fn(),

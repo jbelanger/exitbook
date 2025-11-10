@@ -1608,7 +1608,7 @@ Reconciliation:
 
 **CRITICAL**: This phase must be completed before any transfer-aware lot matching work. The lot matcher depends on `asset`, `source_amount`, and `target_amount` fields for reconciliation logic.
 
-1. **Update database schema** (`packages/platform/data/src/schema/database-schema.ts`):
+1. **Update database schema** (`packages/data/src/schema/database-schema.ts`):
    - Add `asset: string` column to `TransactionLinksTable`
    - Add `source_amount: DecimalString` column
    - Add `target_amount: DecimalString` column

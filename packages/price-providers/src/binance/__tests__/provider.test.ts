@@ -1,4 +1,4 @@
-import type { HttpClient } from '@exitbook/platform-http';
+import type { HttpClient } from '@exitbook/http';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -21,7 +21,7 @@ const {
   mockIsBinanceCoinNotFoundError: vi.fn<(code: number) => boolean>(),
 }));
 
-vi.mock('@exitbook/shared-logger', () => ({
+vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({
     debug: vi.fn(),
     info: vi.fn(),

@@ -173,7 +173,7 @@ When processing a fee, ask:
 
 ### 1.2 Database Schema Updates
 
-**File:** `packages/platform/data/src/schema/database-schema.ts`
+**File:** `packages/data/src/schema/database-schema.ts`
 
 Update interface to use single `fees` column:
 
@@ -199,7 +199,7 @@ export interface TransactionsTable {
 }
 ```
 
-**File:** `packages/platform/data/src/migrations/001_initial_schema.ts`
+**File:** `packages/data/src/migrations/001_initial_schema.ts`
 
 Update the CREATE TABLE statement to use single `fees` column:
 
@@ -241,7 +241,7 @@ export type FeeMovement = z.infer<typeof FeeMovementSchema>;
 
 ### 2.1 Movement/Fee Normalization Utilities
 
-**File:** `packages/platform/data/src/repositories/transaction-repository.ts`
+**File:** `packages/data/src/repositories/transaction-repository.ts`
 
 Add helper functions at module level:
 
@@ -279,7 +279,7 @@ function normalizeMovement(movement: AssetMovement): Result<AssetMovement, Error
 
 ### 2.2 Update saveTransaction()
 
-**File:** `packages/platform/data/src/repositories/transaction-repository.ts` (lines 29-135)
+**File:** `packages/data/src/repositories/transaction-repository.ts` (lines 29-135)
 
 ```typescript
 async saveTransaction(transaction: UniversalTransaction, dataSourceId: number) {
@@ -338,7 +338,7 @@ async saveTransaction(transaction: UniversalTransaction, dataSourceId: number) {
 
 ### 2.3 Update Parsing Methods
 
-**File:** `packages/platform/data/src/repositories/transaction-repository.ts`
+**File:** `packages/data/src/repositories/transaction-repository.ts`
 
 Replace existing `parseMovements()` and `parseFee()` methods:
 

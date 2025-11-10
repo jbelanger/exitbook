@@ -14,7 +14,7 @@ import {
   TransactionProcessService,
 } from '@exitbook/ingestion';
 import type { ImportParams } from '@exitbook/ingestion';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import { validateImportParams } from './import-utils.js';

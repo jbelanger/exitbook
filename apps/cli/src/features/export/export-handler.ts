@@ -1,6 +1,6 @@
 import type { KyselyDB } from '@exitbook/data';
 import { TransactionRepository } from '@exitbook/data';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ExportHandlerParams } from './export-utils.js';

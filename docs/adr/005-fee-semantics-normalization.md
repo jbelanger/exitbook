@@ -319,8 +319,8 @@ Following "clean breaks only" principle:
 ## Implementation Checklist
 
 - [ ] Update movement/fee schemas in `packages/core/src/schemas/universal-transaction.ts`
-- [ ] Adjust database schema in `packages/platform/data/src/migrations/001_initial_schema.ts`
-- [ ] Update repository layer in `packages/platform/data/src/repositories/transaction-repository.ts`
+- [ ] Adjust database schema in `packages/data/src/migrations/001_initial_schema.ts`
+- [ ] Update repository layer in `packages/data/src/repositories/transaction-repository.ts`
 - [ ] Update linking logic in `packages/accounting/src/linking/matching-utils.ts`
 - [ ] Update lot matcher in `packages/accounting/src/services/lot-matcher.ts`
 - [ ] Update interpretation strategies in `packages/ingestion/src/infrastructure/exchanges/shared/strategies/`

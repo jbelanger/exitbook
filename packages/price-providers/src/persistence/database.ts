@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 import { isErrorWithMessage, wrapError } from '@exitbook/core';
 import { getDataDirectory } from '@exitbook/env';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import Database from 'better-sqlite3';
 import { FileMigrationProvider, Kysely, Migrator, SqliteDialect } from 'kysely';
 import type { Result } from 'neverthrow';

@@ -1,5 +1,5 @@
 import { Currency } from '@exitbook/core';
-import { configureLogger } from '@exitbook/shared-logger';
+import { configureLogger } from '@exitbook/logger';
 import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';

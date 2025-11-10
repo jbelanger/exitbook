@@ -40,7 +40,7 @@ The system supports three standard blockchain operations:
 
 ## Implementation
 
-### 1. Provider Layer (`packages/platform/providers/src/blockchain/near/nearblocks/`)
+### 1. Provider Layer (`packages/blockchain-providers/src/blockchain/near/nearblocks/`)
 
 **Status: Partially complete**
 
@@ -158,7 +158,7 @@ The system supports three standard blockchain operations:
    // Token transfers come back normalized, ready to store
    ```
 
-### 3. Schema Updates (`packages/platform/providers/src/blockchain/near/schemas.ts`)
+### 3. Schema Updates (`packages/blockchain-providers/src/blockchain/near/schemas.ts`)
 
 **No changes needed.** The `NearTransaction` schema already supports:
 

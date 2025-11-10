@@ -1,8 +1,8 @@
-import type { RateLimitConfig } from '@exitbook/platform-http';
-import { HttpClient } from '@exitbook/platform-http';
-import { RateLimitError } from '@exitbook/platform-http';
-import type { Logger } from '@exitbook/shared-logger';
-import { getLogger } from '@exitbook/shared-logger';
+import type { RateLimitConfig } from '@exitbook/http';
+import { HttpClient } from '@exitbook/http';
+import { RateLimitError } from '@exitbook/http';
+import type { Logger } from '@exitbook/logger';
+import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import { ProviderRegistry } from '../registry/provider-registry.js';

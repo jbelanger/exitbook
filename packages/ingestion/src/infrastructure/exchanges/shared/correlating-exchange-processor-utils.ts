@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
 import type { FeeInput, MovementInput } from './strategies/index.js';

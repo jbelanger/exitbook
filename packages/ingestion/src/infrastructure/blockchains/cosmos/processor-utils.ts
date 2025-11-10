@@ -1,7 +1,7 @@
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/blockchain-providers';
 import type { OperationClassification } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
 import type { CosmosFundFlow } from './types.ts';

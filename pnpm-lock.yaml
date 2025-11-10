@@ -90,10 +90,10 @@ importers:
       '@exitbook/ingestion':
         specifier: workspace:*
         version: link:../../packages/ingestion
-      '@exitbook/platform-price-providers':
+      '@exitbook/price-providers':
         specifier: workspace:*
         version: link:../../packages/price-providers
-      '@exitbook/shared-logger':
+      '@exitbook/logger':
         specifier: workspace:*
         version: link:../../packages/logger
       commander:
@@ -133,13 +133,13 @@ importers:
       '@exitbook/data':
         specifier: workspace:*
         version: link:../data
-      '@exitbook/platform-http':
+      '@exitbook/http':
         specifier: workspace:*
         version: link:../http
-      '@exitbook/platform-price-providers':
+      '@exitbook/price-providers':
         specifier: workspace:*
         version: link:../price-providers
-      '@exitbook/shared-logger':
+      '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
       decimal.js:
@@ -185,10 +185,10 @@ importers:
       '@exitbook/data':
         specifier: workspace:*
         version: link:../data
-      '@exitbook/platform-http':
+      '@exitbook/http':
         specifier: workspace:*
         version: link:../http
-      '@exitbook/shared-logger':
+      '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
       '@polkadot/util':
@@ -268,7 +268,7 @@ importers:
       '@exitbook/env':
         specifier: workspace:*
         version: link:../env
-      '@exitbook/shared-logger':
+      '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
       better-sqlite3:
@@ -327,10 +327,10 @@ importers:
       '@exitbook/core':
         specifier: workspace:*
         version: link:../core
-      '@exitbook/platform-http':
+      '@exitbook/http':
         specifier: workspace:*
         version: link:../http
-      '@exitbook/shared-logger':
+      '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
       ccxt:
@@ -355,7 +355,7 @@ importers:
 
   packages/http:
     dependencies:
-      '@exitbook/shared-logger':
+      '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
     devDependencies:
@@ -383,7 +383,7 @@ importers:
       '@exitbook/exchanges-providers':
         specifier: workspace:*
         version: link:../exchange-providers
-      '@exitbook/shared-logger':
+      '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
       csv-parse:
@@ -466,10 +466,10 @@ importers:
       '@exitbook/env':
         specifier: workspace:*
         version: link:../env
-      '@exitbook/platform-http':
+      '@exitbook/http':
         specifier: workspace:*
         version: link:../http
-      '@exitbook/shared-logger':
+      '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
       better-sqlite3:

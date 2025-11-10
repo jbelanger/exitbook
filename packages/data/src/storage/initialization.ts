@@ -1,4 +1,4 @@
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 
 import { createDatabase, type KyselyDB } from './database.js';
 import { runMigrations } from './migrations.js';

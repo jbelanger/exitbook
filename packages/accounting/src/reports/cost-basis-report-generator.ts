@@ -6,7 +6,7 @@
  */
 
 import { Currency } from '@exitbook/core';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 

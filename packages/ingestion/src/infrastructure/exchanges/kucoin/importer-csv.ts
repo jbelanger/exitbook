@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { getErrorMessage, type ExternalTransaction } from '@exitbook/core';
-import { getLogger, type Logger } from '@exitbook/shared-logger';
+import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.js';

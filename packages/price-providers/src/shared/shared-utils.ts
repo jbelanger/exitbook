@@ -7,7 +7,7 @@
 
 import type { Currency } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import { HttpClient } from '@exitbook/platform-http';
+import { HttpClient } from '@exitbook/http';
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';

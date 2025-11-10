@@ -1,6 +1,6 @@
 import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
-import type { Logger } from '@exitbook/shared-logger';
+import type { Logger } from '@exitbook/logger';
 
 import type {
   CsvAccountHistoryRow,

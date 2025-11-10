@@ -1,8 +1,8 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { SourceType } from '@exitbook/core';
 import { PartialImportError } from '@exitbook/exchanges-providers';
-import type { Logger } from '@exitbook/shared-logger';
-import { getLogger } from '@exitbook/shared-logger';
+import type { Logger } from '@exitbook/logger';
+import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 

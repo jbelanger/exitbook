@@ -1,5 +1,5 @@
 import { parseDecimal, type UniversalTransaction } from '@exitbook/core';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_MATCHING_CONFIG } from '../matching-utils.js';

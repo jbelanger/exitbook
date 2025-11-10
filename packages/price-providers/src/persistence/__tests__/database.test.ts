@@ -131,7 +131,7 @@ describe('Database', () => {
       if (!db) throw new Error('DB not initialized');
 
       // Use the actual migrations path
-      const migrationsPath = path.join(process.cwd(), 'packages/platform/price-providers/src/pricing/migrations');
+      const migrationsPath = path.join(process.cwd(), 'packages/price-providers/src/pricing/migrations');
 
       const result = await initializePricesDatabase(db, migrationsPath);
 

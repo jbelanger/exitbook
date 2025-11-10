@@ -8,8 +8,8 @@ import {
   recordSuccess,
   resetCircuit,
   type CircuitState,
-} from '@exitbook/platform-http';
-import { getLogger } from '@exitbook/shared-logger';
+} from '@exitbook/http';
+import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import { ProviderRegistry } from './registry/provider-registry.js';

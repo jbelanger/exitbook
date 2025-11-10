@@ -1,6 +1,6 @@
 import type { UniversalTransaction } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';

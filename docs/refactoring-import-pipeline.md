@@ -228,7 +228,7 @@ export class BitcoinTransactionImporter implements IImporter {
 
 ### 2.3 Current API Client Example (As Implemented)
 
-**File:** `packages/platform/providers/src/blockchains/bitcoin/blockstream/blockstream-api-client.ts`
+**File:** `packages/blockchain-providers/src/blockchains/bitcoin/blockstream/blockstream-api-client.ts`
 
 ```typescript
 export class BlockstreamApiClient extends BaseApiClient {
@@ -396,7 +396,7 @@ const startFrom = lastCursor || 'genesis'; // Resume or start fresh
 
 #### Issue 2: Internal Pagination Loops
 
-**File:** `packages/platform/providers/src/blockchains/evm/providers/alchemy/alchemy.api-client.ts` (lines 142-176)
+**File:** `packages/blockchain-providers/src/blockchains/evm/providers/alchemy/alchemy.api-client.ts` (lines 142-176)
 
 ```typescript
 private async getAssetTransfersPaginated(params: AlchemyAssetTransferParams): Promise<AlchemyAssetTransfer[]> {
@@ -697,7 +697,7 @@ export interface ImportParams {
 
 #### Update: Provider Capabilities (Cross-Provider Cursor Support)
 
-**File:** `packages/platform/providers/src/core/blockchain/types/capabilities.ts`
+**File:** `packages/blockchain-providers/src/core/blockchain/types/capabilities.ts`
 
 ```typescript
 import type { CursorType } from '@exitbook/ingestion/app/ports/importers.js';
@@ -734,7 +734,7 @@ When `executeWithFailover` selects a different provider than the last successful
 
 #### Update: Provider Operations
 
-**File:** `packages/platform/providers/src/core/blockchain/types/operations.ts`
+**File:** `packages/blockchain-providers/src/core/blockchain/types/operations.ts`
 
 ```typescript
 import type { PaginationCursor } from '@exitbook/ingestion/app/ports/importers.js';
@@ -769,7 +769,7 @@ export interface PaginatedProviderResponse<T> {
 
 ### 5.3 Provider Manager Enhancement (Cross-Provider Cursor Compatibility)
 
-**File:** `packages/platform/providers/src/core/blockchain/provider-manager.ts`
+**File:** `packages/blockchain-providers/src/core/blockchain/provider-manager.ts`
 
 ```typescript
 /**
@@ -1074,7 +1074,7 @@ export class BitcoinTransactionImporter implements IImporter {
 
 #### Example 2: Updated API Client (Blockstream)
 
-**File:** `packages/platform/providers/src/blockchains/bitcoin/blockstream/blockstream-api-client.ts`
+**File:** `packages/blockchain-providers/src/blockchains/bitcoin/blockstream/blockstream-api-client.ts`
 
 ```typescript
 private async getAddressTransactions(params: {
@@ -1328,10 +1328,10 @@ async processRawDataToTransactions(
 
 **Files Modified:**
 
-- `packages/platform/data/src/schema/database-schema.ts`
+- `packages/data/src/schema/database-schema.ts`
 - `packages/import/src/app/ports/importers.ts`
-- `packages/platform/providers/src/core/blockchain/types/capabilities.ts`
-- `packages/platform/providers/src/core/blockchain/types/operations.ts`
+- `packages/blockchain-providers/src/core/blockchain/types/capabilities.ts`
+- `packages/blockchain-providers/src/core/blockchain/types/operations.ts`
 
 ### Phase 2: Update Repositories (1.5 hours)
 
@@ -1359,7 +1359,7 @@ async processRawDataToTransactions(
 
 **Files Modified:**
 
-- `packages/platform/providers/src/core/blockchain/provider-manager.ts`
+- `packages/blockchain-providers/src/core/blockchain/provider-manager.ts`
 
 ### Phase 4: Update One API Client + Provider Registration (2 hours)
 
@@ -1376,7 +1376,7 @@ async processRawDataToTransactions(
 
 **Files Modified:**
 
-- `packages/platform/providers/src/blockchains/bitcoin/mempool/mempool-api-client.ts`
+- `packages/blockchain-providers/src/blockchains/bitcoin/mempool/mempool-api-client.ts`
 - Provider registration file (where `@BlockchainProvider` decorator is used)
 
 ### Phase 5: Update One Importer (2.5 hours)
@@ -1433,11 +1433,11 @@ async processRawDataToTransactions(
 
 **Files Modified:**
 
-- `packages/platform/providers/src/blockchains/evm/providers/alchemy/alchemy.api-client.ts`
-- `packages/platform/providers/src/blockchains/evm/providers/moralis/moralis.api-client.ts`
-- `packages/platform/providers/src/blockchains/solana/helius/helius.api-client.ts`
-- `packages/platform/providers/src/blockchains/solana/solscan/solscan.api-client.ts`
-- `packages/platform/providers/src/blockchains/substrate/providers/subscan/subscan.api-client.ts`
+- `packages/blockchain-providers/src/blockchains/evm/providers/alchemy/alchemy.api-client.ts`
+- `packages/blockchain-providers/src/blockchains/evm/providers/moralis/moralis.api-client.ts`
+- `packages/blockchain-providers/src/blockchains/solana/helius/helius.api-client.ts`
+- `packages/blockchain-providers/src/blockchains/solana/solscan/solscan.api-client.ts`
+- `packages/blockchain-providers/src/blockchains/substrate/providers/subscan/subscan.api-client.ts`
 - All provider registration files to add `supportedCursorTypes`
 
 ### Phase 8: Update Remaining Importers (3 hours)
@@ -1833,14 +1833,14 @@ This refactoring addresses fundamental architectural issues in the import pipeli
 
 **Core Schemas & Interfaces (3 files):**
 
-- [ ] `packages/platform/data/src/schema/database-schema.ts`
+- [ ] `packages/data/src/schema/database-schema.ts`
 - [ ] `packages/import/src/app/ports/importers.ts`
-- [ ] `packages/platform/providers/src/core/blockchain/types/operations.ts`
+- [ ] `packages/blockchain-providers/src/core/blockchain/types/operations.ts`
 
 **Repositories (2 files):**
 
-- [ ] `packages/platform/data/src/repositories/raw-data-repository.ts`
-- [ ] `packages/platform/data/src/repositories/import-session-repository.ts`
+- [ ] `packages/data/src/repositories/raw-data-repository.ts`
+- [ ] `packages/data/src/repositories/import-session-repository.ts`
 
 **Services (1 file):**
 
@@ -1848,16 +1848,16 @@ This refactoring addresses fundamental architectural issues in the import pipeli
 
 **API Clients (10 files):**
 
-- [ ] `packages/platform/providers/src/blockchains/bitcoin/blockstream/blockstream-api-client.ts`
-- [ ] `packages/platform/providers/src/blockchains/bitcoin/mempool/mempool-api-client.ts`
-- [ ] `packages/platform/providers/src/blockchains/bitcoin/blockcypher/blockcypher.api-client.ts`
-- [ ] `packages/platform/providers/src/blockchains/evm/providers/alchemy/alchemy.api-client.ts`
-- [ ] `packages/platform/providers/src/blockchains/evm/providers/moralis/moralis.api-client.ts`
-- [ ] `packages/platform/providers/src/blockchains/solana/helius/helius.api-client.ts`
-- [ ] `packages/platform/providers/src/blockchains/solana/solscan/solscan.api-client.ts`
-- [ ] `packages/platform/providers/src/blockchains/substrate/providers/subscan/subscan.api-client.ts`
-- [ ] `packages/platform/providers/src/blockchains/substrate/providers/taostats/taostats.api-client.ts`
-- [ ] `packages/platform/providers/src/blockchains/cosmos/providers/injective-explorer/injective-explorer.api-client.ts`
+- [ ] `packages/blockchain-providers/src/blockchains/bitcoin/blockstream/blockstream-api-client.ts`
+- [ ] `packages/blockchain-providers/src/blockchains/bitcoin/mempool/mempool-api-client.ts`
+- [ ] `packages/blockchain-providers/src/blockchains/bitcoin/blockcypher/blockcypher.api-client.ts`
+- [ ] `packages/blockchain-providers/src/blockchains/evm/providers/alchemy/alchemy.api-client.ts`
+- [ ] `packages/blockchain-providers/src/blockchains/evm/providers/moralis/moralis.api-client.ts`
+- [ ] `packages/blockchain-providers/src/blockchains/solana/helius/helius.api-client.ts`
+- [ ] `packages/blockchain-providers/src/blockchains/solana/solscan/solscan.api-client.ts`
+- [ ] `packages/blockchain-providers/src/blockchains/substrate/providers/subscan/subscan.api-client.ts`
+- [ ] `packages/blockchain-providers/src/blockchains/substrate/providers/taostats/taostats.api-client.ts`
+- [ ] `packages/blockchain-providers/src/blockchains/cosmos/providers/injective-explorer/injective-explorer.api-client.ts`
 
 **Importers (9 files):**
 

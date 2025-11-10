@@ -4,7 +4,7 @@
  */
 
 import { getErrorMessage } from '@exitbook/core';
-import { type RateLimitConfig } from '@exitbook/platform-http';
+import { type RateLimitConfig } from '@exitbook/http';
 
 // Import clients to trigger registration
 import '../../../blockchains/evm/register-apis.js';

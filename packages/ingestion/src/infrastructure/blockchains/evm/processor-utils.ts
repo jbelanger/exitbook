@@ -2,7 +2,7 @@ import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-provid
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/blockchain-providers';
 import type { OperationClassification } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 

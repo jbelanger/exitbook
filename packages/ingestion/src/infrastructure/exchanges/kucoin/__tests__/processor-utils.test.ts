@@ -1,4 +1,4 @@
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { describe, expect, test } from 'vitest';
 
 import {

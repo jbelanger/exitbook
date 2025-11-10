@@ -20,7 +20,7 @@ import {
   type BalanceVerificationResult,
   type UnifiedBalanceSnapshot,
 } from '@exitbook/ingestion';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 

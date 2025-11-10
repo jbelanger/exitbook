@@ -41,7 +41,7 @@ Transaction linking solves this by automatically detecting and connecting relate
    - Finds matches using algorithm
    - Deduplicates and auto-confirms high-confidence matches
 
-4. **Repository** (`@exitbook/platform-data`)
+4. **Repository** (`@exitbook/data`)
    - `TransactionLinkRepository` - CRUD operations for links
    - Storage in `transaction_links` table
 
@@ -51,8 +51,8 @@ Transaction linking solves this by automatically detecting and connecting relate
 
 ```typescript
 import { TransactionLinkingService, DEFAULT_MATCHING_CONFIG } from '@exitbook/accounting';
-import { TransactionRepository, TransactionLinkRepository } from '@exitbook/platform-data';
-import { getLogger } from '@exitbook/shared-logger';
+import { TransactionRepository, TransactionLinkRepository } from '@exitbook/data';
+import { getLogger } from '@exitbook/logger';
 
 // Initialize services
 const logger = getLogger('transaction-linking');

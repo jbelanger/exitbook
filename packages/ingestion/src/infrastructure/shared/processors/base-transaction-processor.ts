@@ -1,6 +1,6 @@
 import { UniversalTransactionSchema, type UniversalTransaction } from '@exitbook/core';
-import type { Logger } from '@exitbook/shared-logger';
-import { getLogger } from '@exitbook/shared-logger';
+import type { Logger } from '@exitbook/logger';
+import { getLogger } from '@exitbook/logger';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ITransactionProcessor } from '../../../types/processors.js';

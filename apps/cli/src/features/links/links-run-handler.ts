@@ -2,7 +2,7 @@ import { DEFAULT_MATCHING_CONFIG, TransactionLinkingService } from '@exitbook/ac
 import { TransactionLinkRepository } from '@exitbook/accounting';
 import type { KyselyDB } from '@exitbook/data';
 import { TransactionRepository } from '@exitbook/data';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { LinksRunHandlerParams } from './links-run-utils.js';

@@ -5,7 +5,7 @@ set -euo pipefail
 INCLUDE_TESTS="${INCLUDE_TESTS:-false}"
 
 # Package roots
-ROOTS=("../apps" "../packages" "../packages/platform")
+ROOTS=("../apps" "../packages")
 
 for root in "${ROOTS[@]}"; do
   for pkg in "$root"/*; do

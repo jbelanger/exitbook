@@ -7,7 +7,7 @@
  */
 
 import { Currency, parseDecimal } from '@exitbook/core';
-import type { PriceProviderManager } from '@exitbook/platform-price-providers';
+import type { PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

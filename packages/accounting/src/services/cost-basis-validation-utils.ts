@@ -1,5 +1,5 @@
 import { Currency, type UniversalTransaction } from '@exitbook/core';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 const logger = getLogger('cost-basis-validation-utils');

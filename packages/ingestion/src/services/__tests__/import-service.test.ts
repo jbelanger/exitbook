@@ -19,7 +19,7 @@ import type { IDataSourceRepository, IRawDataRepository } from '../../types/repo
 import { TransactionImportService } from '../import-service.js';
 
 // Mock logger
-vi.mock('@exitbook/shared-logger', () => ({
+vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({
     debug: vi.fn(),
     error: vi.fn(),

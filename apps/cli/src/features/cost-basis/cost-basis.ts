@@ -1,5 +1,5 @@
 import type { CostBasisReport } from '@exitbook/accounting';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { Decimal } from 'decimal.js';
 

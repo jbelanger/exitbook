@@ -7,7 +7,7 @@
 
 import type { Currency } from '@exitbook/core';
 import { Currency as CurrencyClass } from '@exitbook/core';
-import type { PriceProviderManager } from '@exitbook/platform-price-providers';
+import type { PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';

@@ -4,12 +4,8 @@
 import { Currency } from '@exitbook/core';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
-import {
-  CoinNotFoundError,
-  PriceDataUnavailableError,
-  type PriceProviderManager,
-} from '@exitbook/platform-price-providers';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
+import { CoinNotFoundError, PriceDataUnavailableError, type PriceProviderManager } from '@exitbook/price-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -312,7 +308,7 @@ export class PricesFetchHandler {
     error: Error,
     asset: string,
     txId: number,
-    query: import('@exitbook/platform-price-providers').PriceQuery,
+    query: import('@exitbook/price-providers').PriceQuery,
     options: PricesFetchCommandOptions
   ): Promise<{
     errorMessage?: string;

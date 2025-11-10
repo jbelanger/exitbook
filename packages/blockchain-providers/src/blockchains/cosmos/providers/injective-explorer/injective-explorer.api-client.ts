@@ -1,5 +1,5 @@
 import { getErrorMessage } from '@exitbook/core';
-import { HttpClient } from '@exitbook/platform-http';
+import { HttpClient } from '@exitbook/http';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../shared/blockchain/index.js';

@@ -1,5 +1,5 @@
 import type { SourceMetadata } from '@exitbook/core';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../shared/blockchain/index.js';

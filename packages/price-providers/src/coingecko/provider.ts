@@ -3,7 +3,7 @@
  */
 
 import { Currency, wrapError } from '@exitbook/core';
-import type { HttpClient } from '@exitbook/platform-http';
+import type { HttpClient } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 

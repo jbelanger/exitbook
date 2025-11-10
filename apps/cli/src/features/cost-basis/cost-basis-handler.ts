@@ -9,8 +9,8 @@ import {
 } from '@exitbook/accounting';
 import type { KyselyDB } from '@exitbook/data';
 import { TransactionRepository } from '@exitbook/data';
-import { createPriceProviderManager } from '@exitbook/platform-price-providers';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
+import { createPriceProviderManager } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { CostBasisHandlerParams } from './cost-basis-utils.js';

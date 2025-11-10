@@ -1,5 +1,5 @@
 {
-  "name": "@exitbook/platform-http",
+  "name": "@exitbook/http",
   "version": "0.1.0",
   "private": true,
   "description": "HTTP client utilities with rate limiting, circuit breakers, and resilience patterns",
@@ -25,6 +25,6 @@
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
-    "@exitbook/shared-logger": "workspace:*"
+    "@exitbook/logger": "workspace:*"
   }
 }

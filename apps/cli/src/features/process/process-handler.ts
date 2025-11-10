@@ -7,7 +7,7 @@ import {
   TokenMetadataService,
   TransactionProcessService,
 } from '@exitbook/ingestion';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { type Result } from 'neverthrow';
 
 const logger = getLogger('ProcessHandler');

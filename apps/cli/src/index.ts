@@ -2,7 +2,7 @@
 import 'reflect-metadata';
 import { initializeProviders } from '@exitbook/blockchain-providers';
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import { Command } from 'commander';
 
 import { registerBalanceCommand } from './features/balance/balance.js';

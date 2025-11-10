@@ -16,7 +16,7 @@ import { PriceProviderManager } from '../provider-manager.js';
 import type { IPriceProvider, PriceData, PriceQuery } from '../types/index.js';
 
 // Mock logger
-vi.mock('@exitbook/shared-logger', () => ({
+vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({
     debug: vi.fn(),
     error: vi.fn(),

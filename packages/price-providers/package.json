@@ -1,5 +1,5 @@
 {
-  "name": "@exitbook/platform-price-providers",
+  "name": "@exitbook/price-providers",
   "version": "0.1.0",
   "private": true,
   "description": "Multi-provider cryptocurrency price fetching with automatic failover",
@@ -39,7 +39,7 @@
   "peerDependencies": {
     "@exitbook/core": "workspace:*",
     "@exitbook/env": "workspace:*",
-    "@exitbook/platform-http": "workspace:*",
-    "@exitbook/shared-logger": "workspace:*"
+    "@exitbook/http": "workspace:*",
+    "@exitbook/logger": "workspace:*"
   }
 }

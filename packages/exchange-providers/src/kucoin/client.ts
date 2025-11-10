@@ -1,6 +1,6 @@
 import type { TransactionStatus } from '@exitbook/core';
 import { getErrorMessage, wrapError, type ExternalTransaction } from '@exitbook/core';
-import { getLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/logger';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
