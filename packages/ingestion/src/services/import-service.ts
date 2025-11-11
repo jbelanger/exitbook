@@ -3,6 +3,7 @@ import type { SourceType } from '@exitbook/core';
 import { PartialImportError } from '@exitbook/exchanges-providers';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
+import { progress } from '@exitbook/ui';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -85,6 +86,8 @@ export class TransactionImportService {
         `Found existing completed data source ${existingDataSource!.id} with matching parameters - reusing data`
       );
 
+      progress.update('Found existing data, reusing...');
+
       const rawDataResult = await this.rawDataRepository.load({
         dataSourceId: existingDataSource!.id,
       });
@@ -94,6 +97,8 @@ export class TransactionImportService {
       }
 
       const rawDataCount = rawDataResult.value.length;
+
+      progress.update(`Loaded ${rawDataCount} cached transactions`);
 
       return ok({
         imported: rawDataCount,
@@ -119,6 +124,7 @@ export class TransactionImportService {
       this.logger.info(`Importer for ${sourceId} created successfully`);
 
       this.logger.info('Starting raw data import...');
+      progress.update('Fetching blockchain transactions...');
       const importResultOrError = await importer.import(normalizedParams);
 
       if (importResultOrError.isErr()) {
@@ -128,6 +134,7 @@ export class TransactionImportService {
       const importResult = importResultOrError.value;
       const rawData = importResult.rawTransactions;
 
+      progress.update(`Saving ${rawData.length} transactions...`);
       const savedCountResult = await this.rawDataRepository.saveBatch(dataSourceId, rawData);
 
       if (savedCountResult.isErr()) {
@@ -247,6 +254,7 @@ export class TransactionImportService {
       this.logger.info(`Importer for ${sourceId} created successfully`);
 
       this.logger.info('Starting raw data import...');
+      progress.update('Fetching exchange data...');
       const importResultOrError = await importer.import(sessionConfig.params);
 
       if (importResultOrError.isErr()) {
@@ -298,6 +306,7 @@ export class TransactionImportService {
       const importResult = importResultOrError.value;
       const rawData = importResult.rawTransactions;
 
+      progress.update(`Saving ${rawData.length} transactions...`);
       const savedCountResult = await this.rawDataRepository.saveBatch(dataSourceId, rawData);
 
       if (savedCountResult.isErr()) {

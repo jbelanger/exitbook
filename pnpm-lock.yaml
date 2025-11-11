@@ -395,6 +395,9 @@ importers:
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
+      '@exitbook/ui':
+        specifier: workspace:*
+        version: link:../ui
       csv-parse:
         specifier: ^6.1.0
         version: 6.1.0

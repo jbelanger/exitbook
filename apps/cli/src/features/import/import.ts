@@ -58,22 +58,15 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    const isInteractive = !options.exchange && !options.blockchain && !options.json;
-
     const params = await resolveCommandParams({
       buildFromFlags: () => unwrapResult(buildImportParamsFromFlags(options)),
       cancelMessage: 'Import cancelled',
       commandName: 'import',
       confirmMessage: 'Start import?',
-      isInteractive,
+      isInteractive: !options.exchange && !options.blockchain && !options.json,
       output,
       promptFn: promptForImportParams,
     });
-
-    // Show starting message in flag mode
-    if (output.isTextMode() && !isInteractive) {
-      console.error(`Importing from ${params.sourceName}...`);
-    }
 
     // Configure logger
     configureLogger({
@@ -101,7 +94,7 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
         return;
       }
 
-      handleImportSuccess(output, result.value, isInteractive);
+      handleImportSuccess(output, result.value);
     } catch (error) {
       handler.destroy();
       await closeDatabase(database);
@@ -117,7 +110,7 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
 /**
  * Handle successful import.
  */
-function handleImportSuccess(output: OutputManager, importResult: ImportResult, isInteractive: boolean): void {
+function handleImportSuccess(output: OutputManager, importResult: ImportResult): void {
   // Prepare result data
   const resultData: ImportCommandResult = {
     dataSourceId: importResult.dataSourceId,
@@ -134,13 +127,18 @@ function handleImportSuccess(output: OutputManager, importResult: ImportResult, 
 
   // Output success
   if (output.isTextMode()) {
-    // In interactive mode, show outro for visual closure
-    if (isInteractive) {
-      output.outro(`✨ Done!`);
+    // Show import summary
+    console.log();
+    console.log(`✅ Imported: ${importResult.imported} transactions`);
+    console.log(`📋 Session ID: ${importResult.dataSourceId}`);
+
+    if (importResult.processed !== undefined) {
+      console.log(`⚙️  Processed: ${importResult.processed} transactions`);
     }
 
     if (importResult.processingErrors && importResult.processingErrors.length > 0) {
-      console.error(`⚠️  ${importResult.processingErrors.length} processing errors`);
+      console.log(`\n⚠️  Processing errors: ${importResult.processingErrors.length}`);
+      output.note(importResult.processingErrors.slice(0, 5).join('\n'), 'First 5 errors');
     }
   }
 

@@ -3,6 +3,7 @@ import type { SourceMetadata, SourceType, UniversalTransaction } from '@exitbook
 import type { ITransactionRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
+import { progress } from '@exitbook/ui';
 import { err, ok, Result } from 'neverthrow';
 
 import { getBlockchainConfig } from '../infrastructure/blockchains/index.js';
@@ -206,6 +207,8 @@ export class TransactionProcessService {
 
       const allTransactions: (UniversalTransaction & { sessionId: number })[] = [];
 
+      progress.update('Transforming transactions...');
+
       for (const sessionData of sessionsToProcess) {
         const { rawDataItems: sessionRawItems, session } = sessionData;
 
@@ -289,6 +292,7 @@ export class TransactionProcessService {
 
       const transactions = allTransactions;
 
+      progress.update(`Saving ${transactions.length} processed transactions...`);
       const saveResults = await Promise.all(
         transactions.map((transaction) => this.transactionRepository.save(transaction, transaction.sessionId))
       );
