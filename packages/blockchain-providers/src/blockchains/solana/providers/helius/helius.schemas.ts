@@ -1,7 +1,13 @@
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../../core/index.ts';
-import { SolanaTokenBalanceSchema, SolanaAddressSchema } from '../../schemas.ts';
+import {
+  SolanaTokenBalanceSchema,
+  SolanaAddressSchema,
+  SolanaSignatureSchema,
+  SolanaAccountBalanceSchema,
+  SolanaTokenAccountSchema,
+} from '../../schemas.ts';
 
 /**
  * Schema for Helius transaction meta structure
@@ -96,9 +102,57 @@ export const HeliusSignatureResponseSchema = z.object({
   slot: z.number().nonnegative('Slot must be non-negative'),
 });
 
+/**
+ * JSON-RPC wrapper schemas for Helius API responses
+ */
+export const HeliusAssetJsonRpcResponseSchema = z.object({
+  jsonrpc: z.string().optional(),
+  id: z.union([z.string(), z.number()]).optional(),
+  result: HeliusAssetResponseSchema.nullable().optional(),
+  error: z.object({ code: z.number(), message: z.string() }).optional(),
+});
+
+export const HeliusSignaturesJsonRpcResponseSchema = z.object({
+  jsonrpc: z.string().optional(),
+  id: z.union([z.string(), z.number()]).optional(),
+  result: z.array(SolanaSignatureSchema).optional(),
+  error: z.object({ code: z.number(), message: z.string() }).optional(),
+});
+
+export const HeliusTransactionJsonRpcResponseSchema = z.object({
+  jsonrpc: z.string().optional(),
+  id: z.union([z.string(), z.number()]).optional(),
+  result: HeliusTransactionSchema.nullable().optional(),
+  error: z.object({ code: z.number(), message: z.string() }).optional(),
+});
+
+export const HeliusBalanceJsonRpcResponseSchema = z.object({
+  jsonrpc: z.string().optional(),
+  id: z.union([z.string(), z.number()]).optional(),
+  result: SolanaAccountBalanceSchema.optional(),
+  error: z.object({ code: z.number(), message: z.string() }).optional(),
+});
+
+export const SolanaTokenAccountsResponseSchema = z.object({
+  value: z.array(SolanaTokenAccountSchema),
+});
+
+export const HeliusTokenAccountsJsonRpcResponseSchema = z.object({
+  jsonrpc: z.string().optional(),
+  id: z.union([z.string(), z.number()]).optional(),
+  result: SolanaTokenAccountsResponseSchema.optional(),
+  error: z.object({ code: z.number(), message: z.string() }).optional(),
+});
+
 // Type exports inferred from schemas
 export type HeliusTransactionMeta = z.infer<typeof HeliusTransactionMetaSchema>;
 export type HeliusTransactionMessage = z.infer<typeof HeliusTransactionMessageSchema>;
 export type HeliusTransaction = z.infer<typeof HeliusTransactionSchema>;
 export type HeliusAssetResponse = z.infer<typeof HeliusAssetResponseSchema>;
 export type HeliusSignatureResponse = z.infer<typeof HeliusSignatureResponseSchema>;
+export type HeliusAssetJsonRpcResponse = z.infer<typeof HeliusAssetJsonRpcResponseSchema>;
+export type HeliusSignaturesJsonRpcResponse = z.infer<typeof HeliusSignaturesJsonRpcResponseSchema>;
+export type HeliusTransactionJsonRpcResponse = z.infer<typeof HeliusTransactionJsonRpcResponseSchema>;
+export type HeliusBalanceJsonRpcResponse = z.infer<typeof HeliusBalanceJsonRpcResponseSchema>;
+export type SolanaTokenAccountsResponse = z.infer<typeof SolanaTokenAccountsResponseSchema>;
+export type HeliusTokenAccountsJsonRpcResponse = z.infer<typeof HeliusTokenAccountsJsonRpcResponseSchema>;

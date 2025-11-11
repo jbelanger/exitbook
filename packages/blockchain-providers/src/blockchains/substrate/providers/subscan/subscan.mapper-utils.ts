@@ -1,20 +1,21 @@
 import type { SourceMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.js';
-import { withValidation } from '../../../../core/index.js';
+import { validateOutput } from '../../../../core/index.js';
 import type { SUBSTRATE_CHAINS } from '../../chain-registry.js';
 import { SubstrateTransactionSchema } from '../../schemas.js';
 import type { SubstrateTransaction } from '../../types.js';
 
-import { SubscanTransferBaseSchema, type SubscanTransfer } from './subscan.schemas.js';
+import type { SubscanTransfer } from './subscan.schemas.js';
 
 /**
- * Converts a Subscan transfer to a SubstrateTransaction (internal, no validation).
+ * Converts a Subscan transfer to a SubstrateTransaction
+ * Input is already validated by HTTP client, output validated here
  * Handles address relevance checking, amount/fee conversion, and status mapping.
  */
-function convertSubscanTransactionInternal(
+export function convertSubscanTransaction(
   transfer: SubscanTransfer,
   _sourceContext: SourceMetadata,
   relevantAddresses: Set<string>,
@@ -71,14 +72,5 @@ function convertSubscanTransactionInternal(
     to: transfer.to,
   };
 
-  return ok(transaction);
+  return validateOutput(transaction, SubstrateTransactionSchema, 'SubscanTransfer');
 }
-
-/**
- * Converts a Subscan transfer to a SubstrateTransaction with validation
- */
-export const convertSubscanTransaction = withValidation(
-  SubscanTransferBaseSchema,
-  SubstrateTransactionSchema,
-  'SubscanTransfer'
-)(convertSubscanTransactionInternal);

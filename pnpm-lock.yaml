@@ -90,12 +90,12 @@ importers:
       '@exitbook/ingestion':
         specifier: workspace:*
         version: link:../../packages/ingestion
-      '@exitbook/price-providers':
-        specifier: workspace:*
-        version: link:../../packages/price-providers
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@exitbook/price-providers':
+        specifier: workspace:*
+        version: link:../../packages/price-providers
       commander:
         specifier: ^14.0.0
         version: 14.0.1
@@ -136,12 +136,12 @@ importers:
       '@exitbook/http':
         specifier: workspace:*
         version: link:../http
-      '@exitbook/price-providers':
-        specifier: workspace:*
-        version: link:../price-providers
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
+      '@exitbook/price-providers':
+        specifier: workspace:*
+        version: link:../price-providers
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
@@ -358,6 +358,9 @@ importers:
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
+      zod:
+        specifier: ^4.1.12
+        version: 4.1.12
     devDependencies:
       '@types/node':
         specifier: ^24.7.2

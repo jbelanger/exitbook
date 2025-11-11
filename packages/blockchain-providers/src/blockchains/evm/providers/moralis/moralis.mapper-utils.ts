@@ -1,19 +1,14 @@
 import type { SourceMetadata } from '@exitbook/core';
-import { type Result, ok } from 'neverthrow';
+import { type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.js';
-import { withValidation } from '../../../../core/index.js';
+import { validateOutput } from '../../../../core/index.js';
 import { calculateGasFee } from '../../receipt-utils.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 import { extractMethodId, normalizeEvmAddress } from '../../utils.js';
 
-import {
-  MoralisTransactionSchema,
-  MoralisTokenTransferSchema,
-  type MoralisTransaction,
-  type MoralisTokenTransfer,
-} from './moralis.schemas.js';
+import type { MoralisTransaction, MoralisTokenTransfer } from './moralis.schemas.js';
 
 /**
  * Pure functions for Moralis transaction mapping
@@ -21,9 +16,10 @@ import {
  */
 
 /**
- * Maps Moralis native currency transaction to normalized EvmTransaction (internal)
+ * Maps Moralis native currency transaction to normalized EvmTransaction
+ * Input data is pre-validated by HTTP client schema validation
  */
-function mapMoralisTransactionInternal(
+export function mapMoralisTransaction(
   rawData: MoralisTransaction,
   _sourceContext: SourceMetadata,
   nativeCurrency?: string
@@ -59,13 +55,14 @@ function mapMoralisTransactionInternal(
     type: 'transfer',
   };
 
-  return ok(transaction);
+  return validateOutput(transaction, EvmTransactionSchema, 'MoralisTransaction');
 }
 
 /**
- * Maps Moralis token transfer event to normalized EvmTransaction (internal)
+ * Maps Moralis token transfer event to normalized EvmTransaction
+ * Input data is pre-validated by HTTP client schema validation
  */
-function mapMoralisTokenTransferInternal(
+export function mapMoralisTokenTransfer(
   rawData: MoralisTokenTransfer,
   _sourceContext: SourceMetadata
 ): Result<EvmTransaction, NormalizationError> {
@@ -112,23 +109,5 @@ function mapMoralisTokenTransferInternal(
     type: 'token_transfer',
   };
 
-  return ok(transaction);
+  return validateOutput(transaction, EvmTransactionSchema, 'MoralisTokenTransfer');
 }
-
-/**
- * Maps Moralis native currency transaction to normalized EvmTransaction with validation
- */
-export const mapMoralisTransaction = withValidation(
-  MoralisTransactionSchema,
-  EvmTransactionSchema,
-  'MoralisTransaction'
-)(mapMoralisTransactionInternal);
-
-/**
- * Maps Moralis token transfer event to normalized EvmTransaction with validation
- */
-export const mapMoralisTokenTransfer = withValidation(
-  MoralisTokenTransferSchema,
-  EvmTransactionSchema,
-  'MoralisTokenTransfer'
-)(mapMoralisTokenTransferInternal);

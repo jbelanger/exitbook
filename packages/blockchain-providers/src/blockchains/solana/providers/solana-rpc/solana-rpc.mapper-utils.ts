@@ -1,14 +1,14 @@
 import { isErrorWithMessage } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, err } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.ts';
-import { withValidation } from '../../../../core/index.ts';
+import { validateOutput } from '../../../../core/index.ts';
 import type { SolanaTransaction } from '../../schemas.ts';
 import { SolanaTransactionSchema } from '../../schemas.ts';
 import { lamportsToSol, extractAccountChanges, extractTokenChanges, determinePrimaryTransfer } from '../../utils.ts';
 
-import { SolanaRPCTransactionSchema, type SolanaRPCTransaction } from './solana-rpc.schemas.js';
+import type { SolanaRPCTransaction } from './solana-rpc.schemas.js';
 
 /**
  * Pure function for Solana RPC transaction mapping
@@ -16,9 +16,10 @@ import { SolanaRPCTransactionSchema, type SolanaRPCTransaction } from './solana-
  */
 
 /**
- * Map Solana RPC transaction to normalized SolanaTransaction (internal, no validation)
+ * Map Solana RPC transaction to normalized SolanaTransaction
+ * Input is already validated by HTTP client, output validated here
  */
-function mapSolanaRPCTransactionInternal(
+export function mapSolanaRPCTransaction(
   rawData: SolanaRPCTransaction,
   _sourceContext: SourceMetadata
 ): Result<SolanaTransaction, NormalizationError> {
@@ -58,18 +59,9 @@ function mapSolanaRPCTransactionInternal(
       tokenChanges,
     };
 
-    return ok(solanaTransaction);
+    return validateOutput(solanaTransaction, SolanaTransactionSchema, 'SolanaRPCTransaction');
   } catch (error) {
     const errorMessage = isErrorWithMessage(error) ? error.message : String(error);
     return err({ message: `Failed to transform transaction: ${errorMessage}`, type: 'error' });
   }
 }
-
-/**
- * Map Solana RPC transaction to normalized SolanaTransaction (with validation)
- */
-export const mapSolanaRPCTransaction = withValidation(
-  SolanaRPCTransactionSchema,
-  SolanaTransactionSchema,
-  'SolanaRPCTransaction'
-)(mapSolanaRPCTransactionInternal);

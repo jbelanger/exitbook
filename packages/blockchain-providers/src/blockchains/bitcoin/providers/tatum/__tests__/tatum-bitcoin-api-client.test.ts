@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 import { ok, err } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -124,7 +125,10 @@ describe('TatumBitcoinApiClient', () => {
 
       const result = await client.getAddressTransactions(mockAddress);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/transaction/address/${mockAddress}?offset=0&pageSize=50`);
+      expect(mockHttpGet).toHaveBeenCalledWith(
+        `/transaction/address/${mockAddress}?offset=0&pageSize=50`,
+        expect.objectContaining({ schema: expect.anything() })
+      );
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toHaveLength(1);
@@ -160,7 +164,8 @@ describe('TatumBitcoinApiClient', () => {
       });
 
       expect(mockHttpGet).toHaveBeenCalledWith(
-        `/transaction/address/${mockAddress}?offset=10&pageSize=25&blockFrom=100&blockTo=200&txType=incoming`
+        `/transaction/address/${mockAddress}?offset=10&pageSize=25&blockFrom=100&blockTo=200&txType=incoming`,
+        expect.objectContaining({ schema: expect.anything() })
       );
       expect(result.isOk()).toBe(true);
     });
@@ -170,7 +175,10 @@ describe('TatumBitcoinApiClient', () => {
 
       const result = await client.getAddressTransactions(mockAddress, { pageSize: 100 });
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/transaction/address/${mockAddress}?offset=0&pageSize=50`);
+      expect(mockHttpGet).toHaveBeenCalledWith(
+        `/transaction/address/${mockAddress}?offset=0&pageSize=50`,
+        expect.objectContaining({ schema: expect.anything() })
+      );
       expect(result.isOk()).toBe(true);
     });
 
@@ -210,7 +218,10 @@ describe('TatumBitcoinApiClient', () => {
 
       const result = await client.getAddressBalances(mockAddress);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/address/balance/${mockAddress}`);
+      expect(mockHttpGet).toHaveBeenCalledWith(
+        `/address/balance/${mockAddress}`,
+        expect.objectContaining({ schema: expect.anything() })
+      );
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toEqual({

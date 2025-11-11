@@ -1,31 +1,23 @@
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
+import type { ZodSchema } from 'zod';
 
 import * as HttpUtils from './core/http-utils.js';
 import * as RateLimitCore from './core/rate-limit.js';
 import type { HttpEffects, RateLimitState } from './core/types.js';
 import { createInitialRateLimitState } from './core/types.js';
-import type { HttpRequestOptions, RateLimitConfig } from './types.js';
-import { RateLimitError, ServiceError } from './types.js';
-
-export interface HttpClientV2Config {
-  baseUrl: string;
-  defaultHeaders?: Record<string, string> | undefined;
-  providerName: string;
-  rateLimit: RateLimitConfig;
-  retries?: number | undefined;
-  timeout?: number | undefined;
-}
+import type { HttpClientConfig, HttpRequestOptions } from './types.js';
+import { RateLimitError, ResponseValidationError, ServiceError } from './types.js';
 
 export class HttpClient {
-  private readonly config: HttpClientV2Config;
+  private readonly config: HttpClientConfig;
   private readonly logger: ReturnType<typeof getLogger>;
   private readonly effects: HttpEffects;
 
   // Mutable state (only place side effects live)
   private rateLimitState: RateLimitState;
 
-  constructor(config: HttpClientV2Config, effects?: Partial<HttpEffects>) {
+  constructor(config: HttpClientConfig, effects?: Partial<HttpEffects>) {
     this.config = {
       defaultHeaders: {
         Accept: 'application/json',
@@ -36,7 +28,7 @@ export class HttpClient {
       ...config,
     };
 
-    this.logger = getLogger(`HttpClientV2:${config.providerName}`);
+    this.logger = getLogger(`HttpClient:${config.providerName}`);
 
     // Initialize effects with production defaults
     this.effects = {
@@ -62,8 +54,16 @@ export class HttpClient {
   }
 
   /**
-   * Convenience method for GET requests
+   * Convenience method for GET requests with schema validation
    */
+  async get<T>(
+    endpoint: string,
+    options: Omit<HttpRequestOptions, 'method'> & { schema: ZodSchema<T> }
+  ): Promise<Result<T, Error>>;
+  /**
+   * Convenience method for GET requests without validation
+   */
+  async get<T = unknown>(endpoint: string, options?: Omit<HttpRequestOptions, 'method'>): Promise<Result<T, Error>>;
   async get<T = unknown>(
     endpoint: string,
     options: Omit<HttpRequestOptions, 'method'> = {}
@@ -80,22 +80,21 @@ export class HttpClient {
   }
 
   /**
-   * Temporarily update rate limit settings
-   * @param rateLimit New rate limit configuration
-   * @returns Function to restore original rate limits
+   * Convenience method for POST requests with schema validation
    */
-  withRateLimit(rateLimit: RateLimitConfig): () => void {
-    const originalState = this.rateLimitState;
-    this.rateLimitState = createInitialRateLimitState(rateLimit);
-
-    return () => {
-      this.rateLimitState = originalState;
-    };
-  }
-
+  async post<T>(
+    endpoint: string,
+    body: unknown,
+    options: Omit<HttpRequestOptions, 'method' | 'body'> & { schema: ZodSchema<T> }
+  ): Promise<Result<T, Error>>;
   /**
-   * Convenience method for POST requests
+   * Convenience method for POST requests without validation
    */
+  async post<T = unknown>(
+    endpoint: string,
+    body?: unknown,
+    options?: Omit<HttpRequestOptions, 'method' | 'body'>
+  ): Promise<Result<T, Error>>;
   async post<T = unknown>(
     endpoint: string,
     body?: unknown,
@@ -200,12 +199,67 @@ export class HttpClient {
           throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
 
+        // Handle 204 No Content and empty responses
+        if (response.status === 204 || response.headers.get('content-length') === '0') {
+          return ok(undefined as T);
+        }
+
         const data = (await response.json()) as T;
+
+        // Validate response with schema if provided
+        if (options.schema) {
+          const schema = options.schema as ZodSchema<T>;
+          const parseResult = schema.safeParse(data);
+          if (!parseResult.success) {
+            // Collect all validation issues
+            const allIssues = parseResult.error.issues.map((issue) => ({
+              message: issue.message,
+              path: issue.path.join('.'),
+            }));
+
+            // Format first 5 for error message
+            const firstFiveErrors = allIssues
+              .slice(0, 5)
+              .map((issue) => `${issue.path}: ${issue.message}`)
+              .join('; ');
+
+            const errorCount = allIssues.length;
+            const truncatedPayload = JSON.stringify(data).slice(0, 500);
+
+            this.effects.log(
+              'error',
+              `Response validation failed (showing first 5 of ${errorCount} errors): ${firstFiveErrors}`,
+              {
+                method,
+                providerName: this.config.providerName,
+                status: response.status,
+                truncatedPayload,
+                url: HttpUtils.sanitizeUrl(url),
+              }
+            );
+
+            return err(
+              new ResponseValidationError(
+                `Response validation failed: ${firstFiveErrors}`,
+                this.config.providerName,
+                endpoint,
+                allIssues,
+                truncatedPayload
+              )
+            );
+          }
+          return ok(parseResult.data);
+        }
+
         return ok(data);
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
-        if (error instanceof RateLimitError || error instanceof ServiceError) {
+        if (
+          error instanceof RateLimitError ||
+          error instanceof ServiceError ||
+          error instanceof ResponseValidationError
+        ) {
           return err(lastError);
         }
 
@@ -219,7 +273,11 @@ export class HttpClient {
 
         this.effects.log(
           'warn',
-          `Request failed - URL: ${HttpUtils.sanitizeUrl(url)}, Attempt: ${attempt}/${this.config.retries}, Error: ${lastError.message}`
+          `Request failed - URL: ${HttpUtils.sanitizeUrl(url)}, Attempt: ${attempt}/${this.config.retries}, Error: ${lastError.message}`,
+          {
+            method,
+            providerName: this.config.providerName,
+          }
         );
 
         if (attempt < this.config.retries!) {

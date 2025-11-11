@@ -80,12 +80,34 @@ export const RoutescanTokenTransferSchema = z.object({
 });
 
 /**
- * Schema for Routescan API response wrapper
+ * Schema for Routescan API response wrapper (generic)
  */
 export const RoutescanApiResponseSchema = z.object({
   message: z.string().min(1, 'Message must not be empty'),
   result: z.array(z.any()), // Can be various transaction types
   status: z.string().min(1, 'Status must not be empty'),
+});
+
+/**
+ * Specific response schemas for each endpoint
+ * Note: result can be a string when status !== '1' (error cases like "Max rate limit reached")
+ */
+export const RoutescanTransactionsResponseSchema = z.object({
+  message: z.string(),
+  result: z.union([z.array(RoutescanTransactionSchema), z.string()]),
+  status: z.string(),
+});
+
+export const RoutescanInternalTransactionsResponseSchema = z.object({
+  message: z.string(),
+  result: z.union([z.array(RoutescanInternalTransactionSchema), z.string()]),
+  status: z.string(),
+});
+
+export const RoutescanTokenTransfersResponseSchema = z.object({
+  message: z.string(),
+  result: z.union([z.array(RoutescanTokenTransferSchema), z.string()]),
+  status: z.string(),
 });
 
 /**

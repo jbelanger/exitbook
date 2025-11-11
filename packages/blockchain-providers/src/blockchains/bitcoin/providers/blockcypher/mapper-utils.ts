@@ -1,7 +1,7 @@
 import type { SourceMetadata } from '@exitbook/core';
-import { ok, type Result } from 'neverthrow';
+import type { Result } from 'neverthrow';
 
-import { withValidation, type NormalizationError } from '../../../../core/index.js';
+import { validateOutput, type NormalizationError } from '../../../../core/index.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import {
   BitcoinTransactionSchema,
@@ -11,13 +11,14 @@ import {
 } from '../../schemas.js';
 import { satoshisToBtcString } from '../../utils.js';
 
-import { BlockCypherTransactionSchema, type BlockCypherTransaction } from './blockcypher.schemas.js';
+import type { BlockCypherTransaction } from './blockcypher.schemas.js';
 
 /**
- * Internal pure mapper function (without validation).
- * Maps BlockCypher transaction to normalized BitcoinTransaction.
+ * Map BlockCypher transaction to normalized BitcoinTransaction.
+ * Input data is validated by HTTP client schema validation.
+ * Output data is validated before returning.
  */
-function mapBlockCypherTransactionInternal(
+export function mapBlockCypherTransaction(
   rawData: BlockCypherTransaction,
   _sourceContext: SourceMetadata,
   chainConfig: BitcoinChainConfig
@@ -58,15 +59,5 @@ function mapBlockCypherTransactionInternal(
     normalized.feeCurrency = chainConfig.nativeCurrency;
   }
 
-  return ok(normalized);
+  return validateOutput(normalized, BitcoinTransactionSchema, 'BlockCypherTransaction');
 }
-
-/**
- * Map BlockCypher transaction to normalized BitcoinTransaction with validation.
- * Validates both input (BlockCypherTransaction) and output (BitcoinTransaction) schemas.
- */
-export const mapBlockCypherTransaction = withValidation(
-  BlockCypherTransactionSchema,
-  BitcoinTransactionSchema,
-  'BlockCypherTransaction'
-)(mapBlockCypherTransactionInternal);

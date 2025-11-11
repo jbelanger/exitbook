@@ -63,8 +63,16 @@ export const TaostatsBalanceResponseSchema = z.object({
   data: z.array(TaostatsAccountDataSchema).optional(),
 });
 
+/**
+ * Schema for Taostats transactions response
+ */
+export const TaostatsTransactionsResponseSchema = z.object({
+  data: z.array(TaostatsTransactionSchema).optional(),
+});
+
 // Type exports inferred from schemas
 export type TaostatsAddress = z.infer<typeof TaostatsAddressSchema>;
 export type TaostatsTransaction = z.infer<typeof TaostatsTransactionSchema>;
 export type TaostatsAccountData = z.infer<typeof TaostatsAccountDataSchema>;
 export type TaostatsBalanceResponse = z.infer<typeof TaostatsBalanceResponseSchema>;
+export type TaostatsTransactionsResponse = z.infer<typeof TaostatsTransactionsResponseSchema>;

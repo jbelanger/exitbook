@@ -181,6 +181,26 @@ export const AlchemyTransactionReceiptSchema = z.object({
     .optional(),
 });
 
+/**
+ * JSON-RPC wrapper schema for eth_getTransactionReceipt
+ */
+export const AlchemyTransactionReceiptResponseSchema = z.object({
+  jsonrpc: z.string().optional(),
+  id: z.union([z.string(), z.number()]).optional(),
+  result: AlchemyTransactionReceiptSchema.nullable(),
+  error: z.object({ code: z.number(), message: z.string() }).optional(),
+});
+
+/**
+ * JSON-RPC wrapper schema for alchemy_getAssetTransfers
+ */
+export const AlchemyAssetTransfersJsonRpcResponseSchema = z.object({
+  jsonrpc: z.string().optional(),
+  id: z.union([z.string(), z.number()]).optional(),
+  result: AlchemyAssetTransfersResponseSchema.optional(),
+  error: z.object({ code: z.number(), message: z.string() }).optional(),
+});
+
 // Type exports inferred from schemas
 export type AlchemyRawContract = z.infer<typeof AlchemyRawContractSchema>;
 export type AlchemyMetadata = z.infer<typeof AlchemyMetadataSchema>;
@@ -195,3 +215,5 @@ export type AlchemyPortfolioBalanceResponse = z.infer<typeof AlchemyPortfolioBal
 export type AlchemyPortfolioAddress = z.infer<typeof AlchemyPortfolioAddressSchema>;
 export type AlchemyPortfolioBalanceRequest = z.infer<typeof AlchemyPortfolioBalanceRequestSchema>;
 export type AlchemyTransactionReceipt = z.infer<typeof AlchemyTransactionReceiptSchema>;
+export type AlchemyTransactionReceiptResponse = z.infer<typeof AlchemyTransactionReceiptResponseSchema>;
+export type AlchemyAssetTransfersJsonRpcResponse = z.infer<typeof AlchemyAssetTransfersJsonRpcResponseSchema>;

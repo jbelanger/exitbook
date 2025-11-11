@@ -12,6 +12,7 @@ import { COSMOS_CHAINS } from '../../chain-registry.js';
 import type { CosmosTransaction } from '../../types.js';
 
 import type { InjectiveApiResponse, InjectiveBalanceResponse } from './injective-explorer.schemas.js';
+import { InjectiveApiResponseSchema, InjectiveBalanceResponseSchema } from './injective-explorer.schemas.js';
 import { mapInjectiveExplorerTransaction } from './mapper-utils.js';
 
 @RegisterApiClient({
@@ -101,7 +102,9 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
     const endpoint = `/api/explorer/v1/accountTxs/${address}`;
-    const result = await this.httpClient.get<InjectiveApiResponse>(endpoint);
+    const result = await this.httpClient.get<InjectiveApiResponse>(endpoint, {
+      schema: InjectiveApiResponseSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(
@@ -166,7 +169,9 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
     const endpoint = `/cosmos/bank/v1beta1/balances/${address}`;
-    const result = await this.restClient.get<InjectiveBalanceResponse>(endpoint);
+    const result = await this.restClient.get<InjectiveBalanceResponse>(endpoint, {
+      schema: InjectiveBalanceResponseSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(

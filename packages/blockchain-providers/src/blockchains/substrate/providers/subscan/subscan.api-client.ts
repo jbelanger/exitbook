@@ -13,6 +13,7 @@ import { isValidSS58Address } from '../../utils.js';
 
 import { convertSubscanTransaction } from './subscan.mapper-utils.js';
 import type { SubscanAccountResponse, SubscanTransfer, SubscanTransfersResponse } from './subscan.schemas.js';
+import { SubscanAccountResponseSchema, SubscanTransfersResponseSchema } from './subscan.schemas.js';
 
 /**
  * Maps blockchain names to Subscan-specific subdomain identifiers
@@ -202,9 +203,13 @@ export class SubscanApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.post<SubscanAccountResponse>('/api/scan/account', {
-      key: address,
-    });
+    const result = await this.httpClient.post<SubscanAccountResponse>(
+      '/api/scan/account',
+      {
+        key: address,
+      },
+      { schema: SubscanAccountResponseSchema }
+    );
 
     if (result.isErr()) {
       this.logger.error(
@@ -267,7 +272,9 @@ export class SubscanApiClient extends BaseApiClient {
         row: rowsPerPage,
       };
 
-      const result = await this.httpClient.post<SubscanTransfersResponse>('/api/v2/scan/transfers', body);
+      const result = await this.httpClient.post<SubscanTransfersResponse>('/api/v2/scan/transfers', body, {
+        schema: SubscanTransfersResponseSchema,
+      });
 
       if (result.isErr()) {
         this.logger.error(

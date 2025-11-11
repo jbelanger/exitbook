@@ -1,5 +1,6 @@
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
+import { z, type ZodSchema } from 'zod';
 
 import type {
   ProviderConfig,
@@ -14,7 +15,12 @@ import { getBitcoinChainConfig } from '../../chain-registry.js';
 import type { BitcoinTransaction } from '../../schemas.js';
 
 import { mapTatumTransaction } from './mapper-utils.js';
-import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.schemas.js';
+import {
+  TatumBitcoinBalanceSchema,
+  TatumBitcoinTransactionSchema,
+  type TatumBitcoinTransaction,
+  type TatumBitcoinBalance,
+} from './tatum.schemas.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'TATUM_API_KEY',
@@ -88,10 +94,14 @@ export class TatumBitcoinApiClient extends BaseApiClient {
   async hasAddressTransactions(address: string): Promise<Result<boolean, Error>> {
     this.logger.debug(`Checking if address has transactions - Address: ${maskAddress(address)}`);
 
-    const txResult = await this.makeRequest<TatumBitcoinTransaction[]>(`/transaction/address/${address}`, {
-      offset: 0,
-      pageSize: 1,
-    });
+    const txResult = await this.makeRequest<TatumBitcoinTransaction[]>(
+      `/transaction/address/${address}`,
+      {
+        offset: 0,
+        pageSize: 1,
+      },
+      z.array(TatumBitcoinTransactionSchema)
+    );
 
     if (txResult.isErr()) {
       this.logger.error(
@@ -115,7 +125,11 @@ export class TatumBitcoinApiClient extends BaseApiClient {
   async getAddressBalances(address: string): Promise<Result<RawBalanceData, Error>> {
     this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
 
-    const balanceResult = await this.makeRequest<TatumBitcoinBalance>(`/address/balance/${address}`);
+    const balanceResult = await this.makeRequest<TatumBitcoinBalance>(
+      `/address/balance/${address}`,
+      undefined,
+      TatumBitcoinBalanceSchema
+    );
 
     if (balanceResult.isErr()) {
       this.logger.error(
@@ -157,7 +171,11 @@ export class TatumBitcoinApiClient extends BaseApiClient {
       ...(params?.txType && { txType: params.txType }),
     };
 
-    const result = await this.makeRequest<TatumBitcoinTransaction[]>(`/transaction/address/${address}`, queryParams);
+    const result = await this.makeRequest<TatumBitcoinTransaction[]>(
+      `/transaction/address/${address}`,
+      queryParams,
+      z.array(TatumBitcoinTransactionSchema)
+    );
 
     if (result.isErr()) {
       this.logger.error(
@@ -210,7 +228,11 @@ export class TatumBitcoinApiClient extends BaseApiClient {
   /**
    * Make a request to the Tatum API with common error handling
    */
-  private async makeRequest<T>(endpoint: string, params?: Record<string, unknown>): Promise<Result<T, Error>> {
+  private async makeRequest<T>(
+    endpoint: string,
+    params?: Record<string, unknown>,
+    schema?: ZodSchema<T>
+  ): Promise<Result<T, Error>> {
     this.validateApiKey();
 
     // Build URL with query parameters
@@ -224,7 +246,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
       url = `${endpoint}?${queryString}`;
     }
 
-    const result = await this.httpClient.get<T>(url);
+    const result = schema ? await this.httpClient.get<T>(url, { schema }) : await this.httpClient.get<T>(url);
 
     if (result.isErr()) {
       this.logger.error(

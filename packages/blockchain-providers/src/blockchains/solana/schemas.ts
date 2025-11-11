@@ -52,7 +52,11 @@ export const SolanaTokenBalanceSchema = z.object({
  * Schema for Solana signature structure
  */
 export const SolanaSignatureSchema = z.object({
-  blockTime: z.number().optional(),
+  blockTime: z
+    .number()
+    .nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
   err: z
     .unknown()
     .nullable()

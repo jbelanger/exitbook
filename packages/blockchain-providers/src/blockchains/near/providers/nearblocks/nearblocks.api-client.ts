@@ -24,15 +24,10 @@ import {
   NearBlocksFtTransactionsResponseSchema,
   NearBlocksReceiptsResponseSchema,
   NearBlocksTransactionsResponseSchema,
-  type NearBlocksAccount,
-  type NearBlocksActivitiesResponse,
   type NearBlocksActivity,
   type NearBlocksFtTransaction,
-  type NearBlocksFtTransactionsResponse,
   type NearBlocksReceipt,
-  type NearBlocksReceiptsResponse,
   type NearBlocksTransaction,
-  type NearBlocksTransactionsResponse,
 } from './nearblocks.schemas.js';
 
 @RegisterApiClient({
@@ -122,9 +117,9 @@ export class NearBlocksApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching account receipts - Address: ${maskAddress(address)}, Page: ${page}`);
 
-    const result = await this.httpClient.get<NearBlocksReceiptsResponse>(
-      `/v1/account/${address}/receipts?page=${page}&per_page=${perPage}`
-    );
+    const result = await this.httpClient.get(`/v1/account/${address}/receipts?page=${page}&per_page=${perPage}`, {
+      schema: NearBlocksReceiptsResponseSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(
@@ -133,23 +128,7 @@ export class NearBlocksApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    const response = result.value;
-
-    // Validate response with schema
-    const parseResult = NearBlocksReceiptsResponseSchema.safeParse(response);
-    if (!parseResult.success) {
-      const validationErrors = parseResult.error.issues
-        .slice(0, 5)
-        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-        .join('; ');
-      const errorCount = parseResult.error.issues.length;
-      this.logger.error(
-        `Provider data validation failed - Address: ${maskAddress(address)}, Page: ${page}, Errors (showing first 5 of ${errorCount}): ${validationErrors}`
-      );
-      return err(new Error(`Provider data validation failed: ${validationErrors}`));
-    }
-
-    const receiptsData = parseResult.data;
+    const receiptsData = result.value;
 
     this.logger.debug(
       `Fetched receipts - Address: ${maskAddress(address)}, Page: ${page}, Count: ${receiptsData.txns.length}`
@@ -180,7 +159,7 @@ export class NearBlocksApiClient extends BaseApiClient {
       ? `/v1/account/${address}/activities?cursor=${cursor}&per_page=${perPage}`
       : `/v1/account/${address}/activities?per_page=${perPage}`;
 
-    const result = await this.httpClient.get<NearBlocksActivitiesResponse>(url);
+    const result = await this.httpClient.get(url, { schema: NearBlocksActivitiesResponseSchema });
 
     if (result.isErr()) {
       this.logger.error(
@@ -189,33 +168,7 @@ export class NearBlocksApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    const response = result.value;
-
-    // Debug: Log raw response structure
-    this.logger.debug(
-      `Raw activities response - Address: ${maskAddress(address)}, ResponseKeys: ${JSON.stringify(Object.keys(response || {}))}, ResponseType: ${typeof response}, IsArray: ${Array.isArray(response)}`
-    );
-    if (response && typeof response === 'object') {
-      this.logger.debug(
-        `Raw activities response sample - Address: ${maskAddress(address)}, Response: ${JSON.stringify(response).slice(0, 500)}`
-      );
-    }
-
-    // Validate response with schema
-    const parseResult = NearBlocksActivitiesResponseSchema.safeParse(response);
-    if (!parseResult.success) {
-      const validationErrors = parseResult.error.issues
-        .slice(0, 5)
-        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-        .join('; ');
-      const errorCount = parseResult.error.issues.length;
-      this.logger.error(
-        `Provider data validation failed - Address: ${maskAddress(address)}, Cursor: ${cursor || 'initial'}, Errors (showing first 5 of ${errorCount}): ${validationErrors}, RawResponse: ${JSON.stringify(response)}`
-      );
-      return err(new Error(`Provider data validation failed: ${validationErrors}`));
-    }
-
-    const activitiesData = parseResult.data;
+    const activitiesData = result.value;
 
     this.logger.debug(
       `Fetched activities - Address: ${maskAddress(address)}, Cursor: ${cursor || 'initial'}, Count: ${activitiesData.activities.length}`
@@ -243,9 +196,9 @@ export class NearBlocksApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching account FT transactions - Address: ${maskAddress(address)}, Page: ${page}`);
 
-    const result = await this.httpClient.get<NearBlocksFtTransactionsResponse>(
-      `/v1/account/${address}/ft-txns?page=${page}&per_page=${perPage}`
-    );
+    const result = await this.httpClient.get(`/v1/account/${address}/ft-txns?page=${page}&per_page=${perPage}`, {
+      schema: NearBlocksFtTransactionsResponseSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(
@@ -254,23 +207,7 @@ export class NearBlocksApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    const response = result.value;
-
-    // Validate response with schema
-    const parseResult = NearBlocksFtTransactionsResponseSchema.safeParse(response);
-    if (!parseResult.success) {
-      const validationErrors = parseResult.error.issues
-        .slice(0, 5)
-        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-        .join('; ');
-      const errorCount = parseResult.error.issues.length;
-      this.logger.error(
-        `Provider data validation failed - Address: ${maskAddress(address)}, Page: ${page}, Errors (showing first 5 of ${errorCount}): ${validationErrors}`
-      );
-      return err(new Error(`Provider data validation failed: ${validationErrors}`));
-    }
-
-    const ftTransactionsData = parseResult.data;
+    const ftTransactionsData = result.value;
 
     this.logger.debug(
       `Fetched FT transactions - Address: ${maskAddress(address)}, Page: ${page}, Count: ${ftTransactionsData.txns.length}`
@@ -288,7 +225,7 @@ export class NearBlocksApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<NearBlocksAccount>(`/v1/account/${address}`);
+    const result = await this.httpClient.get(`/v1/account/${address}`, { schema: NearBlocksAccountSchema });
 
     if (result.isErr()) {
       this.logger.error(
@@ -297,16 +234,10 @@ export class NearBlocksApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    const response = result.value;
-
-    // Validate response with schema
-    const parseResult = NearBlocksAccountSchema.safeParse(response);
-    if (!parseResult.success) {
-      return err(new Error('Invalid account data from NearBlocks'));
-    }
+    const accountResponse = result.value;
 
     // Extract first account from the array
-    const accounts = parseResult.data.account;
+    const accounts = accountResponse.account;
     if (accounts.length === 0) {
       return err(new Error('No account data returned from NearBlocks'));
     }
@@ -346,9 +277,9 @@ export class NearBlocksApiClient extends BaseApiClient {
     const maxPages = 40; // Limit to 1000 transactions (40 * 25)
 
     while (page <= maxPages) {
-      const result = await this.httpClient.get<NearBlocksTransactionsResponse>(
-        `/v1/account/${address}/txns-only?page=${page}&per_page=${perPage}`
-      );
+      const result = await this.httpClient.get(`/v1/account/${address}/txns-only?page=${page}&per_page=${perPage}`, {
+        schema: NearBlocksTransactionsResponseSchema,
+      });
 
       if (result.isErr()) {
         // If first page fails, return error
@@ -365,38 +296,7 @@ export class NearBlocksApiClient extends BaseApiClient {
         break;
       }
 
-      const response = result.value;
-
-      // Debug: Log raw response structure (only on first page to avoid spam)
-      if (page === 1) {
-        this.logger.debug(
-          `Raw transactions response - Address: ${maskAddress(address)}, Page: ${page}, ResponseKeys: ${JSON.stringify(Object.keys(response || {}))}, ResponseType: ${typeof response}, IsArray: ${Array.isArray(response)}`
-        );
-        if (response && typeof response === 'object') {
-          this.logger.debug(
-            `Raw transactions response sample - Address: ${maskAddress(address)}, Response: ${JSON.stringify(response).slice(0, 500)}`
-          );
-        }
-      }
-
-      // Validate response with schema
-      const parseResult = NearBlocksTransactionsResponseSchema.safeParse(response);
-      if (!parseResult.success) {
-        const validationErrors = parseResult.error.issues
-          .slice(0, 5)
-          .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-          .join('; ');
-        const errorCount = parseResult.error.issues.length;
-        this.logger.error(
-          `Provider data validation failed on page ${page} - Address: ${maskAddress(address)}, Errors (showing first 5 of ${errorCount}): ${validationErrors}, RawResponse: ${JSON.stringify(response)}`
-        );
-        if (page === 1) {
-          return err(new Error(`Provider data validation failed: ${validationErrors}`));
-        }
-        break;
-      }
-
-      const transactionsData = parseResult.data;
+      const transactionsData = result.value;
 
       if (!transactionsData.txns || transactionsData.txns.length === 0) {
         // No more transactions

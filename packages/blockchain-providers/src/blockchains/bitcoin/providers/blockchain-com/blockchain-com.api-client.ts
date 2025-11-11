@@ -13,7 +13,7 @@ import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../../chain-registry.js';
 import type { BitcoinTransaction } from '../../schemas.js';
 
-import type { BlockchainComAddressResponse } from './blockchain-com.schemas.js';
+import { BlockchainComAddressResponseSchema, type BlockchainComAddressResponse } from './blockchain-com.schemas.js';
 import { mapBlockchainComTransaction } from './mapper-utils.js';
 
 @RegisterApiClient({
@@ -94,7 +94,9 @@ export class BlockchainComApiClient extends BaseApiClient {
 
     this.logger.debug(`Checking if address has transactions - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<BlockchainComAddressResponse>(`/rawaddr/${address}?limit=0`);
+    const result = await this.httpClient.get<BlockchainComAddressResponse>(`/rawaddr/${address}?limit=0`, {
+      schema: BlockchainComAddressResponseSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(
@@ -121,7 +123,9 @@ export class BlockchainComApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address info - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<BlockchainComAddressResponse>(`/rawaddr/${address}?limit=0`);
+    const result = await this.httpClient.get<BlockchainComAddressResponse>(`/rawaddr/${address}?limit=0`, {
+      schema: BlockchainComAddressResponseSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(
@@ -148,7 +152,9 @@ export class BlockchainComApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<BlockchainComAddressResponse>(`/rawaddr/${address}?limit=50`);
+    const result = await this.httpClient.get<BlockchainComAddressResponse>(`/rawaddr/${address}?limit=50`, {
+      schema: BlockchainComAddressResponseSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(

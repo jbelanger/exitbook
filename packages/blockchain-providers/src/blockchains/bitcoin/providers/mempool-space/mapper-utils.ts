@@ -1,7 +1,7 @@
 import type { SourceMetadata } from '@exitbook/core';
-import { ok, type Result } from 'neverthrow';
+import type { Result } from 'neverthrow';
 
-import { withValidation, type NormalizationError } from '../../../../core/index.js';
+import { validateOutput, type NormalizationError } from '../../../../core/index.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import {
   BitcoinTransactionSchema,
@@ -11,13 +11,14 @@ import {
 } from '../../schemas.js';
 import { satoshisToBtcString } from '../../utils.js';
 
-import { MempoolTransactionSchema, type MempoolTransaction } from './mempool-space.schemas.js';
+import type { MempoolTransaction } from './mempool-space.schemas.js';
 
 /**
- * Internal pure mapper function (without validation).
- * Maps Mempool.space transaction to normalized BitcoinTransaction.
+ * Map Mempool.space transaction to normalized BitcoinTransaction.
+ * Input data is validated by HTTP client schema validation.
+ * Output data is validated before returning.
  */
-function mapMempoolSpaceTransactionInternal(
+export function mapMempoolSpaceTransaction(
   rawData: MempoolTransaction,
   _sourceContext: SourceMetadata,
   chainConfig: BitcoinChainConfig
@@ -59,15 +60,5 @@ function mapMempoolSpaceTransactionInternal(
     normalized.feeCurrency = chainConfig.nativeCurrency;
   }
 
-  return ok(normalized);
+  return validateOutput(normalized, BitcoinTransactionSchema, 'MempoolTransaction');
 }
-
-/**
- * Map Mempool.space transaction to normalized BitcoinTransaction with validation.
- * Validates both input (MempoolTransaction) and output (BitcoinTransaction) schemas.
- */
-export const mapMempoolSpaceTransaction = withValidation(
-  MempoolTransactionSchema,
-  BitcoinTransactionSchema,
-  'MempoolTransaction'
-)(mapMempoolSpaceTransactionInternal);

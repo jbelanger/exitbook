@@ -15,6 +15,12 @@ import { isValidSolanaAddress } from '../../utils.ts';
 
 import { mapSolanaRPCTransaction } from './solana-rpc.mapper-utils.js';
 import type { SolanaRPCTransaction, SolanaTokenAccountsResponse } from './solana-rpc.schemas.js';
+import {
+  SolanaRPCBalanceJsonRpcResponseSchema,
+  SolanaRPCSignaturesJsonRpcResponseSchema,
+  SolanaRPCTransactionJsonRpcResponseSchema,
+  SolanaRPCTokenAccountsJsonRpcResponseSchema,
+} from './solana-rpc.schemas.js';
 
 @RegisterApiClient({
   baseUrl: 'https://api.mainnet-beta.solana.com',
@@ -90,12 +96,16 @@ export class SolanaRPCApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.post<JsonRpcResponse<{ value: number }>>('/', {
-      id: 1,
-      jsonrpc: '2.0',
-      method: 'getBalance',
-      params: [address],
-    });
+    const result = await this.httpClient.post<JsonRpcResponse<{ value: number }>>(
+      '/',
+      {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getBalance',
+        params: [address],
+      },
+      { schema: SolanaRPCBalanceJsonRpcResponseSchema }
+    );
 
     if (result.isErr()) {
       this.logger.error(
@@ -130,17 +140,21 @@ export class SolanaRPCApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>('/', {
-      id: 1,
-      jsonrpc: '2.0',
-      method: 'getSignaturesForAddress',
-      params: [
-        address,
-        {
-          limit: 50,
-        },
-      ],
-    });
+    const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>(
+      '/',
+      {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getSignaturesForAddress',
+        params: [
+          address,
+          {
+            limit: 50,
+          },
+        ],
+      },
+      { schema: SolanaRPCSignaturesJsonRpcResponseSchema }
+    );
 
     if (signaturesResult.isErr()) {
       this.logger.error(
@@ -162,18 +176,22 @@ export class SolanaRPCApiClient extends BaseApiClient {
     this.logger.debug(`Retrieved signatures - Address: ${maskAddress(address)}, Count: ${signatures.length}`);
 
     for (const sig of signatures) {
-      const txResult = await this.httpClient.post<JsonRpcResponse<SolanaRPCTransaction>>('/', {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'getTransaction',
-        params: [
-          sig.signature,
-          {
-            encoding: 'json',
-            maxSupportedTransactionVersion: 0,
-          },
-        ],
-      });
+      const txResult = await this.httpClient.post<JsonRpcResponse<SolanaRPCTransaction>>(
+        '/',
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'getTransaction',
+          params: [
+            sig.signature,
+            {
+              encoding: 'json',
+              maxSupportedTransactionVersion: 0,
+            },
+          ],
+        },
+        { schema: SolanaRPCTransactionJsonRpcResponseSchema }
+      );
 
       if (txResult.isErr()) {
         this.logger.debug(
@@ -226,20 +244,24 @@ export class SolanaRPCApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>('/', {
-      id: 1,
-      jsonrpc: '2.0',
-      method: 'getTokenAccountsByOwner',
-      params: [
-        address,
-        {
-          programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-        },
-        {
-          encoding: 'jsonParsed',
-        },
-      ],
-    });
+    const result = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>(
+      '/',
+      {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getTokenAccountsByOwner',
+        params: [
+          address,
+          {
+            programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+          },
+          {
+            encoding: 'jsonParsed',
+          },
+        ],
+      },
+      { schema: SolanaRPCTokenAccountsJsonRpcResponseSchema }
+    );
 
     if (result.isErr()) {
       this.logger.error(

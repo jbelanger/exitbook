@@ -13,9 +13,10 @@ import type { EvmTransaction } from '../../types.js';
 
 import { mapRoutescanTransaction } from './routescan.mapper-utils.js';
 import {
-  RoutescanInternalTransactionSchema,
-  RoutescanTokenTransferSchema,
-  RoutescanTransactionSchema,
+  RoutescanBalanceResponseSchema,
+  RoutescanInternalTransactionsResponseSchema,
+  RoutescanTokenTransfersResponseSchema,
+  RoutescanTransactionsResponseSchema,
   type RoutescanApiResponse,
   type RoutescanInternalTransaction,
   type RoutescanTransaction,
@@ -204,7 +205,9 @@ export class RoutescanApiClient extends BaseApiClient {
         params.append('apikey', this.apiKey);
       }
 
-      const result = await this.httpClient.get(`?${params.toString()}`);
+      const result = await this.httpClient.get(`?${params.toString()}`, {
+        schema: RoutescanInternalTransactionsResponseSchema,
+      });
 
       if (result.isErr()) {
         this.logger.error(
@@ -213,7 +216,7 @@ export class RoutescanApiClient extends BaseApiClient {
         return err(result.error);
       }
 
-      const res = result.value as RoutescanApiResponse<unknown>;
+      const res = result.value;
       if (res.status !== '1') {
         // If no results found, break the loop
         if (res.message === 'No transactions found') {
@@ -224,19 +227,14 @@ export class RoutescanApiClient extends BaseApiClient {
         );
       }
 
-      // Parse and validate each transaction through Zod schema
-      const rawTransactions = res.result || [];
-      const transactions: RoutescanInternalTransaction[] = [];
-      for (const rawTx of rawTransactions) {
-        const parseResult = RoutescanInternalTransactionSchema.safeParse(rawTx);
-        if (!parseResult.success) {
-          this.logger.warn(
-            `Failed to parse internal transaction - Error: ${parseResult.error.message}, RawData: ${JSON.stringify(rawTx)}`
-          );
-          continue;
-        }
-        transactions.push(parseResult.data);
+      // Handle case where result is a string (error message) instead of array
+      if (typeof res.result === 'string') {
+        return err(
+          new ServiceError(`Routescan API error: ${res.result}`, this.name, 'fetchAddressInternalTransactions')
+        );
       }
+
+      const transactions = res.result || [];
       allTransactions.push(...transactions);
 
       // If we got less than the max offset, we've reached the end
@@ -274,14 +272,16 @@ export class RoutescanApiClient extends BaseApiClient {
         params.append('apikey', this.apiKey);
       }
 
-      const result = await this.httpClient.get(`?${params.toString()}`);
+      const result = await this.httpClient.get(`?${params.toString()}`, {
+        schema: RoutescanTransactionsResponseSchema,
+      });
 
       if (result.isErr()) {
         this.logger.error(`Failed to fetch normal transactions page ${page} - Error: ${getErrorMessage(result.error)}`);
         return err(result.error);
       }
 
-      const res = result.value as RoutescanApiResponse<unknown>;
+      const res = result.value;
 
       if (res.status !== '1') {
         if (res.message === 'NOTOK' && res.message.includes('Invalid API Key')) {
@@ -294,19 +294,12 @@ export class RoutescanApiClient extends BaseApiClient {
         return err(new ServiceError(`Routescan API error: ${res.message}`, this.name, 'getNormalTransactions'));
       }
 
-      // Parse and validate each transaction through Zod schema
-      const rawTransactions = res.result || [];
-      const transactions: RoutescanTransaction[] = [];
-      for (const rawTx of rawTransactions) {
-        const parseResult = RoutescanTransactionSchema.safeParse(rawTx);
-        if (!parseResult.success) {
-          this.logger.warn(
-            `Failed to parse transaction - Error: ${parseResult.error.message}, RawData: ${JSON.stringify(rawTx)}`
-          );
-          continue;
-        }
-        transactions.push(parseResult.data);
+      // Handle case where result is a string (error message) instead of array
+      if (typeof res.result === 'string') {
+        return err(new ServiceError(`Routescan API error: ${res.result}`, this.name, 'getNormalTransactions'));
       }
+
+      const transactions = res.result || [];
       allTransactions.push(...transactions);
 
       // If we got less than the max offset, we've reached the end
@@ -340,7 +333,9 @@ export class RoutescanApiClient extends BaseApiClient {
       urlParams.append('apikey', this.apiKey);
     }
 
-    const result = await this.httpClient.get(`?${urlParams.toString()}`);
+    const result = await this.httpClient.get(`?${urlParams.toString()}`, {
+      schema: RoutescanBalanceResponseSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(
@@ -349,7 +344,7 @@ export class RoutescanApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    const res = result.value as RoutescanApiResponse<unknown>;
+    const res = result.value;
 
     if (res.status !== '1') {
       return err(
@@ -473,14 +468,16 @@ export class RoutescanApiClient extends BaseApiClient {
         params.append('apikey', this.apiKey);
       }
 
-      const result = await this.httpClient.get(`?${params.toString()}`);
+      const result = await this.httpClient.get(`?${params.toString()}`, {
+        schema: RoutescanTokenTransfersResponseSchema,
+      });
 
       if (result.isErr()) {
         this.logger.error(`Failed to fetch token transfers page ${page} - Error: ${getErrorMessage(result.error)}`);
         return err(result.error);
       }
 
-      const res = result.value as RoutescanApiResponse<unknown>;
+      const res = result.value;
 
       if (res.status !== '1') {
         // If no results found, break the loop
@@ -490,19 +487,12 @@ export class RoutescanApiClient extends BaseApiClient {
         return err(new ServiceError(`Routescan API error: ${res.message}`, this.name, 'getTokenTransfers'));
       }
 
-      // Parse and validate each transaction through Zod schema
-      const rawTransactions = res.result || [];
-      const transactions: RoutescanTokenTransfer[] = [];
-      for (const rawTx of rawTransactions) {
-        const parseResult = RoutescanTokenTransferSchema.safeParse(rawTx);
-        if (!parseResult.success) {
-          this.logger.warn(
-            `Failed to parse token transfer - Error: ${parseResult.error.message}, RawData: ${JSON.stringify(rawTx)}`
-          );
-          continue;
-        }
-        transactions.push(parseResult.data);
+      // Handle case where result is a string (error message) instead of array
+      if (typeof res.result === 'string') {
+        return err(new ServiceError(`Routescan API error: ${res.result}`, this.name, 'getTokenTransfers'));
       }
+
+      const transactions = res.result || [];
       allTransactions.push(...transactions);
 
       // If we got less than the max offset, we've reached the end

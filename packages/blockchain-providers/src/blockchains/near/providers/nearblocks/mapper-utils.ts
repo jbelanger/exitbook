@@ -3,7 +3,7 @@ import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.ts';
-import { withValidation } from '../../../../core/index.ts';
+import { validateOutput } from '../../../../core/index.ts';
 import type { NearAction, NearAccountChange, NearTokenTransfer, NearTransaction } from '../../schemas.ts';
 import { NearAccountChangeSchema, NearTokenTransferSchema, NearTransactionSchema } from '../../schemas.ts';
 import { yoctoNearToNearString } from '../../utils.ts';
@@ -11,7 +11,6 @@ import { yoctoNearToNearString } from '../../utils.ts';
 import {
   NearBlocksActivitySchema,
   NearBlocksFtTransactionSchema,
-  NearBlocksTransactionSchema,
   type NearBlocksActivity,
   type NearBlocksFtTransaction,
   type NearBlocksTransaction,
@@ -256,9 +255,10 @@ export function mapNearBlocksFtTransactionToTokenTransfer(
 }
 
 /**
- * Internal function to map NearBlocks transaction to normalized NearTransaction
+ * Map NearBlocks transaction to normalized NearTransaction
+ * Input data is pre-validated by HTTP client schema validation
  */
-function mapNearBlocksTransactionInternal(
+export function mapNearBlocksTransaction(
   rawData: NearBlocksTransaction,
   sourceContext: SourceMetadata
 ): Result<NearTransaction, NormalizationError> {
@@ -309,15 +309,5 @@ function mapNearBlocksTransactionInternal(
     normalized.feeCurrency = 'NEAR';
   }
 
-  return ok(normalized);
+  return validateOutput(normalized, NearTransactionSchema, 'NearBlocksTransaction');
 }
-
-/**
- * Validated NearBlocks transaction mapper
- * Wraps the internal mapper with input/output validation
- */
-export const mapNearBlocksTransaction = withValidation(
-  NearBlocksTransactionSchema,
-  NearTransactionSchema,
-  'NearBlocksTransaction'
-)(mapNearBlocksTransactionInternal);

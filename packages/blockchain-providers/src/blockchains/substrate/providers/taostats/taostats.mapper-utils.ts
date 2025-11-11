@@ -1,20 +1,21 @@
 import type { SourceMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import { ok, type Result } from 'neverthrow';
+import { type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.js';
-import { withValidation } from '../../../../core/index.js';
+import { validateOutput } from '../../../../core/index.js';
 import { SUBSTRATE_CHAINS } from '../../chain-registry.js';
 import { SubstrateTransactionSchema } from '../../schemas.js';
 import type { SubstrateTransaction } from '../../types.js';
 
-import { TaostatsTransactionSchema, type TaostatsTransaction } from './taostats.schemas.js';
+import type { TaostatsTransaction } from './taostats.schemas.js';
 
 /**
- * Converts a Taostats transaction to a SubstrateTransaction (internal, no validation).
+ * Converts a Taostats transaction to a SubstrateTransaction
+ * Input is already validated by HTTP client, output validated here
  * Handles amount/fee parsing, timestamp conversion, and sets defaults for Bittensor.
  */
-function convertTaostatsTransactionInternal(
+export function convertTaostatsTransaction(
   rawData: TaostatsTransaction,
   _sourceContext: SourceMetadata,
   nativeCurrency: string
@@ -59,17 +60,8 @@ function convertTaostatsTransactionInternal(
     to: toAddress,
   };
 
-  return ok(transaction);
+  return validateOutput(transaction, SubstrateTransactionSchema, 'TaostatsTransaction');
 }
-
-/**
- * Converts a Taostats transaction to a SubstrateTransaction with validation
- */
-export const convertTaostatsTransaction = withValidation(
-  TaostatsTransactionSchema,
-  SubstrateTransactionSchema,
-  'TaostatsTransaction'
-)(convertTaostatsTransactionInternal);
 
 /**
  * Checks if a transaction is relevant to the given addresses.
