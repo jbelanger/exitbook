@@ -1,14 +1,7 @@
+import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 import { BITCOIN_CHAINS } from './chain-registry.js';
-
-/**
- * Numeric string validator for amounts/values
- * Ensures string can be parsed as a valid number
- */
-const numericString = z
-  .string()
-  .refine((val) => !isNaN(parseFloat(val)) && isFinite(parseFloat(val)), { message: 'Must be a valid numeric string' });
 
 /**
  * Dynamically derived list of supported Bitcoin-like currencies
@@ -38,7 +31,7 @@ export const BitcoinAddressSchema = z
 export const BitcoinTransactionInputSchema = z.object({
   address: BitcoinAddressSchema.optional(),
   txid: z.string().optional(),
-  value: numericString,
+  value: DecimalStringSchema,
   vout: z.number().optional(),
 });
 
@@ -48,7 +41,7 @@ export const BitcoinTransactionInputSchema = z.object({
 export const BitcoinTransactionOutputSchema = z.object({
   address: BitcoinAddressSchema.optional(),
   index: z.number(),
-  value: numericString,
+  value: DecimalStringSchema,
 });
 
 /**
@@ -58,7 +51,7 @@ export const BitcoinTransactionSchema = z.object({
   blockHeight: z.number().optional(),
   blockId: z.string().optional(),
   currency: BitcoinCurrencySchema,
-  feeAmount: numericString.optional(),
+  feeAmount: DecimalStringSchema.optional(),
   feeCurrency: BitcoinCurrencySchema.optional(),
   id: z.string().min(1, 'Transaction ID must not be empty'),
   inputs: z.array(BitcoinTransactionInputSchema).min(1, 'Transaction must have at least one input'),

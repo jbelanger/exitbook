@@ -4,6 +4,7 @@
  * These schemas validate the structure and content of transaction data
  * from different Cardano API providers before processing.
  */
+import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -40,19 +41,11 @@ export const CardanoAddressSchema = z
   );
 
 /**
- * Numeric string validator for amounts/values
- * Ensures string can be parsed as a valid number
- */
-const numericString = z
-  .string()
-  .refine((val) => !isNaN(parseFloat(val)) && isFinite(parseFloat(val)), { message: 'Must be a valid numeric string' });
-
-/**
  * Schema for Cardano asset amount (ADA or native token)
  */
 export const CardanoAssetAmountSchema = z.object({
   decimals: z.number().nonnegative('Decimals must be non-negative').optional(),
-  quantity: numericString,
+  quantity: DecimalStringSchema,
   symbol: z.string().optional(),
   unit: z.string().min(1, 'Asset unit must not be empty'),
 });
@@ -83,7 +76,7 @@ export const CardanoTransactionSchema = z.object({
   blockHeight: z.number().optional(),
   blockId: z.string().optional(),
   currency: z.literal('ADA'),
-  feeAmount: numericString.optional(),
+  feeAmount: DecimalStringSchema.optional(),
   feeCurrency: z.string().optional(),
   id: z.string().min(1, 'Transaction ID must not be empty'),
   inputs: z.array(CardanoTransactionInputSchema).min(1, 'Transaction must have at least one input'),

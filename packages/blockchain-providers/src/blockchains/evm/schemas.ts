@@ -1,19 +1,5 @@
-import { tryParseDecimal } from '@exitbook/core';
+import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
-
-/**
- * Numeric string validator for amounts/values
- * Uses Decimal.js for precision-safe validation
- */
-const numericString = z.string().refine(
-  (val) => {
-    if (val === '') return false;
-    return tryParseDecimal(val);
-  },
-  {
-    message: 'Must be a valid numeric string',
-  }
-);
 
 /**
  * EVM address schema with automatic case normalization.
@@ -49,7 +35,7 @@ export const EvmTransactionSchema = z.object({
   // Transaction flow (addresses normalized via EvmAddressSchema)
   from: EvmAddressSchema,
   to: EvmAddressSchema.optional(),
-  amount: numericString,
+  amount: DecimalStringSchema,
   currency: z.string().min(1, 'Currency must not be empty'),
 
   // Block context
@@ -57,9 +43,9 @@ export const EvmTransactionSchema = z.object({
   blockId: z.string().optional(),
 
   // Gas and fee information
-  gasPrice: numericString.optional(),
-  gasUsed: numericString.optional(),
-  feeAmount: numericString.optional(),
+  gasPrice: DecimalStringSchema.optional(),
+  gasUsed: DecimalStringSchema.optional(),
+  feeAmount: DecimalStringSchema.optional(),
   feeCurrency: z.string().optional(),
 
   // Contract interaction metadata
