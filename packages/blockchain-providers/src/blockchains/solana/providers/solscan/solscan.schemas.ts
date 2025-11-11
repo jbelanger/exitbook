@@ -59,12 +59,45 @@ export const SolscanBalanceSchema = z.object({
 export const SolscanRawTransactionDataSchema = SolscanTransactionSchema;
 
 /**
- * Schema for Solscan API response wrapper
+ * Schema for Solscan API response wrapper (generic)
  */
 export const SolscanResponseSchema = z.object({
   data: z.unknown().optional(),
   message: z.string().optional(),
   success: z.boolean(),
+});
+
+/**
+ * Specific response schemas for Solscan API endpoints
+ */
+export const SolscanAccountBalanceDataSchema = z.object({
+  lamports: z.string(),
+});
+
+export const SolscanAccountBalanceResponseSchema = z.object({
+  success: z.boolean(),
+  message: z.string().optional(),
+  data: SolscanAccountBalanceDataSchema.optional(),
+});
+
+export const SolscanAccountTransactionsDataSchema = z.union([
+  z.array(SolscanTransactionSchema),
+  z.object({
+    data: z.array(SolscanTransactionSchema).optional(),
+    items: z.array(SolscanTransactionSchema).optional(),
+  }),
+]);
+
+export const SolscanAccountTransactionsResponseSchema = z.object({
+  success: z.boolean(),
+  message: z.string().optional(),
+  data: SolscanAccountTransactionsDataSchema.optional(),
+});
+
+export const SolscanLegacyTransactionsResponseSchema = z.object({
+  success: z.boolean(),
+  message: z.string().optional(),
+  data: z.array(SolscanTransactionSchema).optional(),
 });
 
 // Type exports inferred from schemas
@@ -75,3 +108,8 @@ export type SolscanBalance = z.infer<typeof SolscanBalanceSchema>;
 export type SolscanResponse<T = unknown> = Omit<z.infer<typeof SolscanResponseSchema>, 'data'> & {
   data?: T | undefined;
 };
+export type SolscanAccountBalanceData = z.infer<typeof SolscanAccountBalanceDataSchema>;
+export type SolscanAccountBalanceResponse = z.infer<typeof SolscanAccountBalanceResponseSchema>;
+export type SolscanAccountTransactionsData = z.infer<typeof SolscanAccountTransactionsDataSchema>;
+export type SolscanAccountTransactionsResponse = z.infer<typeof SolscanAccountTransactionsResponseSchema>;
+export type SolscanLegacyTransactionsResponse = z.infer<typeof SolscanLegacyTransactionsResponseSchema>;

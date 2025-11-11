@@ -109,8 +109,9 @@ export class BlockfrostApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<unknown>(`/addresses/${address}`, {
+    const result = await this.httpClient.get(`/addresses/${address}`, {
       headers: { project_id: this.apiKey },
+      schema: BlockfrostAddressSchema,
     });
 
     if (result.isErr()) {
@@ -130,15 +131,7 @@ export class BlockfrostApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    // Validate the address response
-    const parseResult = BlockfrostAddressSchema.safeParse(result.value);
-    if (!parseResult.success) {
-      const errorMsg = `Invalid address balance response: ${parseResult.error.message}`;
-      this.logger.error(`${errorMsg} - Address: ${maskAddress(address)}`);
-      return err(new Error(errorMsg));
-    }
-
-    const addressInfo = parseResult.data;
+    const addressInfo = result.value;
 
     // Find the lovelace amount (ADA native currency)
     // Empty amount array indicates zero balance
@@ -248,8 +241,9 @@ export class BlockfrostApiClient extends BaseApiClient {
       const txHash = txHashEntry.tx_hash;
 
       // Fetch complete transaction details (including fees, block hash, status)
-      const detailsResult = await this.httpClient.get<unknown>(`/txs/${txHash}`, {
+      const detailsResult = await this.httpClient.get(`/txs/${txHash}`, {
         headers: { project_id: this.apiKey },
+        schema: BlockfrostTransactionDetailsSchema,
       });
 
       if (detailsResult.isErr()) {
@@ -259,19 +253,12 @@ export class BlockfrostApiClient extends BaseApiClient {
         return err(detailsResult.error);
       }
 
-      // Validate the transaction details response
-      const parseResult = BlockfrostTransactionDetailsSchema.safeParse(detailsResult.value);
-      if (!parseResult.success) {
-        const errorMsg = `Invalid transaction details response: ${parseResult.error.message}`;
-        this.logger.error(`${errorMsg} - TxHash: ${txHash}`);
-        return err(new Error(errorMsg));
-      }
-
-      const txDetails = parseResult.data;
+      const txDetails = detailsResult.value;
 
       // Fetch UTXO details for this transaction
-      const utxoResult = await this.httpClient.get<unknown>(`/txs/${txHash}/utxos`, {
+      const utxoResult = await this.httpClient.get(`/txs/${txHash}/utxos`, {
         headers: { project_id: this.apiKey },
+        schema: BlockfrostTransactionUtxosSchema,
       });
 
       if (utxoResult.isErr()) {
@@ -281,15 +268,7 @@ export class BlockfrostApiClient extends BaseApiClient {
         return err(utxoResult.error);
       }
 
-      // Validate the UTXO response
-      const utxoParseResult = BlockfrostTransactionUtxosSchema.safeParse(utxoResult.value);
-      if (!utxoParseResult.success) {
-        const errorMsg = `Invalid UTXO response: ${utxoParseResult.error.message}`;
-        this.logger.error(`${errorMsg} - TxHash: ${txHash}`);
-        return err(new Error(errorMsg));
-      }
-
-      const rawUtxo = utxoParseResult.data;
+      const rawUtxo = utxoResult.value;
 
       // Combine UTXO data with transaction metadata
       const combinedData: BlockfrostTransactionWithMetadata = {

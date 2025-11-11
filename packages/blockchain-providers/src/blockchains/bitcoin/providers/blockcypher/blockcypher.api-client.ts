@@ -15,6 +15,7 @@
 
 import { getErrorMessage, hasStringProperty } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
+import { z } from 'zod';
 
 import type {
   ProviderConfig,
@@ -28,7 +29,14 @@ import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../../chain-registry.js';
 import type { BitcoinTransaction } from '../../schemas.js';
 
-import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.schemas.js';
+import {
+  BlockCypherAddressSchema,
+  BlockCypherOutputSchema,
+  BlockCypherInputSchema,
+  BlockCypherTransactionSchema,
+  type BlockCypherTransaction,
+  type BlockCypherAddress,
+} from './blockcypher.schemas.js';
 import { mapBlockCypherTransaction } from './mapper-utils.js';
 
 @RegisterApiClient({
@@ -117,7 +125,8 @@ export class BlockCypherApiClient extends BaseApiClient {
    */
   private async fetchCompleteTransaction(txHash: string): Promise<Result<BlockCypherTransaction, Error>> {
     const initialResult = await this.httpClient.get<BlockCypherTransaction>(
-      this.buildEndpoint(`/txs/${txHash}?limit=100`)
+      this.buildEndpoint(`/txs/${txHash}?limit=100`),
+      { schema: BlockCypherTransactionSchema }
     );
 
     if (initialResult.isErr()) {
@@ -131,7 +140,12 @@ export class BlockCypherApiClient extends BaseApiClient {
       const nextOutputsResult = await this.httpClient.get<{
         next_outputs?: string | undefined;
         outputs: BlockCypherTransaction['outputs'];
-      }>(transaction.next_outputs.replace('https://api.blockcypher.com/v1/btc/main', ''));
+      }>(transaction.next_outputs.replace('https://api.blockcypher.com/v1/btc/main', ''), {
+        schema: z.object({
+          next_outputs: z.string().optional(),
+          outputs: z.array(BlockCypherOutputSchema),
+        }),
+      });
 
       if (nextOutputsResult.isErr()) {
         this.logger.warn(
@@ -157,7 +171,12 @@ export class BlockCypherApiClient extends BaseApiClient {
       const nextInputsResult = await this.httpClient.get<{
         inputs: BlockCypherTransaction['inputs'];
         next_inputs?: string | undefined;
-      }>(transaction.next_inputs.replace('https://api.blockcypher.com/v1/btc/main', ''));
+      }>(transaction.next_inputs.replace('https://api.blockcypher.com/v1/btc/main', ''), {
+        schema: z.object({
+          inputs: z.array(BlockCypherInputSchema),
+          next_inputs: z.string().optional(),
+        }),
+      });
 
       if (nextInputsResult.isErr()) {
         this.logger.warn(
@@ -191,7 +210,9 @@ export class BlockCypherApiClient extends BaseApiClient {
 
     this.logger.debug(`Checking if address has transactions - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}/balance`));
+    const result = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}/balance`), {
+      schema: BlockCypherAddressSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(
@@ -218,7 +239,9 @@ export class BlockCypherApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address info - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}/balance`));
+    const result = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}/balance`), {
+      schema: BlockCypherAddressSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(
@@ -247,7 +270,9 @@ export class BlockCypherApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}?limit=50`));
+    const result = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}?limit=50`), {
+      schema: BlockCypherAddressSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(

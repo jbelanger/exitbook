@@ -13,6 +13,7 @@ import { isValidSS58Address } from '../../utils.js';
 
 import { convertTaostatsTransaction, isTransactionRelevant } from './taostats.mapper-utils.js';
 import type { TaostatsBalanceResponse, TaostatsTransaction } from './taostats.schemas.js';
+import { TaostatsBalanceResponseSchema, TaostatsTransactionsResponseSchema } from './taostats.schemas.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'TAOSTATS_API_KEY',
@@ -105,7 +106,8 @@ export class TaostatsApiClient extends BaseApiClient {
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
     const result = await this.httpClient.get<TaostatsBalanceResponse>(
-      `/account/latest/v1?network=finney&address=${address}`
+      `/account/latest/v1?network=finney&address=${address}`,
+      { schema: TaostatsBalanceResponseSchema }
     );
 
     if (result.isErr()) {
@@ -158,7 +160,9 @@ export class TaostatsApiClient extends BaseApiClient {
       });
 
       const endpoint = `/transfer/v1?${params.toString()}`;
-      const result = await this.httpClient.get<{ data?: TaostatsTransaction[] }>(endpoint);
+      const result = await this.httpClient.get<{ data?: TaostatsTransaction[] }>(endpoint, {
+        schema: TaostatsTransactionsResponseSchema,
+      });
 
       if (result.isErr()) {
         this.logger.error(

@@ -1,3 +1,5 @@
+import type { ZodSchema } from 'zod';
+
 export interface HttpClientConfig {
   baseUrl: string;
   defaultHeaders?: Record<string, string> | undefined;
@@ -11,6 +13,7 @@ export interface HttpRequestOptions {
   body?: string | Buffer | Uint8Array | object | undefined;
   headers?: Record<string, string> | undefined;
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | undefined;
+  schema?: ZodSchema<unknown> | undefined;
   timeout?: number | undefined;
 }
 
@@ -36,6 +39,19 @@ export class RateLimitError extends ServiceError {
   ) {
     super(message, service, operation);
     this.name = 'RateLimitError';
+  }
+}
+
+export class ResponseValidationError extends Error {
+  constructor(
+    message: string,
+    public providerName: string,
+    public endpoint: string,
+    public validationIssues: { message: string; path: string }[],
+    public truncatedPayload: string
+  ) {
+    super(message);
+    this.name = 'ResponseValidationError';
   }
 }
 

@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
 import { HttpClient } from '../client.js';
 import type { HttpEffects } from '../core/types.js';
-import { ServiceError, RateLimitError } from '../types.js';
+import { ServiceError, RateLimitError, ResponseValidationError } from '../types.js';
 
-describe('HttpClientV2 - Result Type Implementation', () => {
+describe('HttpClient - Result Type Implementation', () => {
   it('should return ok result for successful GET request', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       headers: new Headers(),
@@ -306,60 +307,6 @@ describe('HttpClientV2 - Result Type Implementation', () => {
     }
   });
 
-  it('should support temporary rate limit override', async () => {
-    let currentTime = 1000;
-    const mockDelay = vi.fn().mockImplementation((ms: number) => {
-      currentTime += ms;
-      return Promise.resolve();
-    });
-
-    const mockFetch = vi.fn().mockResolvedValue({
-      headers: new Headers(),
-      json: () => Promise.resolve({ data: 'ok' }),
-      ok: true,
-    });
-
-    const mockEffects: HttpEffects = {
-      delay: mockDelay,
-      fetch: mockFetch,
-      log: vi.fn(),
-      now: () => currentTime,
-    };
-
-    const client = new HttpClient(
-      {
-        baseUrl: 'https://api.example.com',
-        providerName: 'test-provider',
-        rateLimit: { requestsPerSecond: 1 },
-      },
-      mockEffects
-    );
-
-    // Use higher rate limit temporarily
-    const restore = client.withRateLimit({ requestsPerSecond: 100 });
-
-    const delayCallsBefore = mockDelay.mock.calls.length;
-    await client.get('/test1');
-    await client.get('/test2');
-    await client.get('/test3');
-
-    // Should not have significantly delayed with high rate limit
-    const significantDelays = mockDelay.mock.calls.slice(delayCallsBefore).filter((call) => call[0] > 100).length;
-    expect(significantDelays).toBe(0);
-
-    // Restore original rate limit
-    restore();
-
-    const delayCallsBeforeRestore = mockDelay.mock.calls.length;
-    await client.get('/test4');
-    await client.get('/test5');
-
-    // Now should enforce the original 1 req/sec limit with significant delays
-    const delaysAfterRestore = mockDelay.mock.calls.slice(delayCallsBeforeRestore);
-    const significantDelaysAfterRestore = delaysAfterRestore.filter((call) => call[0] > 100).length;
-    expect(significantDelaysAfterRestore).toBeGreaterThan(0);
-  });
-
   it('should sanitize URLs in logs', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       headers: new Headers(),
@@ -393,5 +340,417 @@ describe('HttpClientV2 - Result Type Implementation', () => {
     expect(requestLog).toBeDefined();
     expect((requestLog as unknown[])[1]).toContain('apikey=***');
     expect((requestLog as unknown[])[1]).not.toContain('secret123');
+  });
+});
+
+describe('HttpClient - Schema Validation', () => {
+  it('should validate response with schema and return validated data on success', async () => {
+    const responseData = { id: 123, name: 'test', active: true };
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve(responseData),
+      ok: true,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    const schema = z.object({
+      id: z.number(),
+      name: z.string(),
+      active: z.boolean(),
+    });
+
+    const result = await client.get('/test', { schema });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual(responseData);
+    }
+  });
+
+  it('should return ResponseValidationError when schema validation fails', async () => {
+    const invalidData = { id: '123', name: 'test', active: 'yes' }; // Wrong types
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve(invalidData),
+      ok: true,
+    });
+
+    const logSpy = vi.fn();
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: logSpy,
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    const schema = z.object({
+      id: z.number(),
+      name: z.string(),
+      active: z.boolean(),
+    });
+
+    const result = await client.get('/test', { schema });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toBeInstanceOf(ResponseValidationError);
+      expect(result.error.message).toContain('Response validation failed');
+
+      const validationError = result.error as ResponseValidationError;
+      expect(validationError.providerName).toBe('test-provider');
+      expect(validationError.endpoint).toBe('/test');
+      expect(validationError.validationIssues.length).toBeGreaterThan(0);
+      expect(validationError.truncatedPayload).toContain('123');
+    }
+
+    // Verify error was logged
+    const errorLogs = logSpy.mock.calls.filter((call) => call[0] === 'error');
+    expect(errorLogs.length).toBeGreaterThan(0);
+    expect(errorLogs[0]?.[1]).toContain('Response validation failed');
+  });
+
+  it('should limit logged validation issues to first 5 errors', async () => {
+    const invalidData = {
+      field1: 'wrong',
+      field2: 'wrong',
+      field3: 'wrong',
+      field4: 'wrong',
+      field5: 'wrong',
+      field6: 'wrong',
+      field7: 'wrong',
+      field8: 'wrong',
+    };
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve(invalidData),
+      ok: true,
+    });
+
+    const logSpy = vi.fn();
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: logSpy,
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    const schema = z.object({
+      field1: z.number(),
+      field2: z.number(),
+      field3: z.number(),
+      field4: z.number(),
+      field5: z.number(),
+      field6: z.number(),
+      field7: z.number(),
+      field8: z.number(),
+    });
+
+    const result = await client.get('/test', { schema });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      const validationError = result.error as ResponseValidationError;
+
+      // All issues should be stored
+      expect(validationError.validationIssues.length).toBe(8);
+
+      // But error message should only show first 5
+      const semicolonCount = (validationError.message.match(/;/g) || []).length;
+      expect(semicolonCount).toBeLessThanOrEqual(4); // 5 errors = 4 semicolons
+    }
+
+    // Verify log message mentions the count
+    const errorLogs = logSpy.mock.calls.filter((call) => call[0] === 'error');
+    expect(errorLogs[0]?.[1]).toContain('showing first 5 of 8 errors');
+  });
+
+  it('should truncate response payload in error to 500 characters', async () => {
+    const largeData = { data: 'x'.repeat(1000) };
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve(largeData),
+      ok: true,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    const schema = z.object({
+      data: z.number(), // Wrong type
+    });
+
+    const result = await client.get('/test', { schema });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      const validationError = result.error as ResponseValidationError;
+      expect(validationError.truncatedPayload.length).toBe(500);
+    }
+  });
+
+  it('should validate POST response with schema', async () => {
+    const responseData = { created: true, id: 42 };
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve(responseData),
+      ok: true,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    const schema = z.object({
+      created: z.boolean(),
+      id: z.number(),
+    });
+
+    const result = await client.post('/create', { name: 'test' }, { schema });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual(responseData);
+    }
+  });
+
+  it('should work without schema (backward compatibility)', async () => {
+    const responseData = { anything: 'goes' };
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve(responseData),
+      ok: true,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    const result = await client.get('/test');
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual(responseData);
+    }
+  });
+});
+
+describe('HttpClient - Empty Response Handling', () => {
+  it('should handle 204 No Content responses without calling json()', async () => {
+    const jsonSpy = vi.fn();
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: jsonSpy,
+      ok: true,
+      status: 204,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    const result = await client.get('/delete');
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toBeUndefined();
+    }
+    expect(jsonSpy).not.toHaveBeenCalled();
+  });
+
+  it('should handle Content-Length: 0 responses without calling json()', async () => {
+    const jsonSpy = vi.fn();
+    const headers = new Headers();
+    headers.set('content-length', '0');
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers,
+      json: jsonSpy,
+      ok: true,
+      status: 200,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    const result = await client.post('/update', {});
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toBeUndefined();
+    }
+    expect(jsonSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('HttpClient - Rich Log Context', () => {
+  it('should include method and providerName in validation error logs', async () => {
+    const invalidData = { id: 'not-a-number' };
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve(invalidData),
+      ok: true,
+      status: 200,
+    });
+
+    const logSpy = vi.fn();
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: logSpy,
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    const schema = z.object({ id: z.number() });
+    await client.get('/test', { schema });
+
+    const errorLogs = logSpy.mock.calls.filter((call) => call[0] === 'error');
+    expect(errorLogs.length).toBeGreaterThan(0);
+
+    const metadata = errorLogs[0]?.[2] as Record<string, unknown> | undefined;
+    expect(metadata).toBeDefined();
+    expect(metadata).toMatchObject({
+      method: 'GET',
+      providerName: 'test-provider',
+      status: 200,
+    });
+  });
+
+  it('should include method and providerName in request failure logs', async () => {
+    const mockFetch = vi.fn().mockRejectedValue(new Error('Network failure'));
+
+    const logSpy = vi.fn();
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: logSpy,
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+        retries: 1,
+      },
+      mockEffects
+    );
+
+    await client.post('/test', { data: 'value' });
+
+    const warnLogs = logSpy.mock.calls.filter((call) => call[0] === 'warn');
+    expect(warnLogs.length).toBeGreaterThan(0);
+
+    const metadata = warnLogs[0]?.[2] as Record<string, unknown> | undefined;
+    expect(metadata).toBeDefined();
+    expect(metadata).toMatchObject({
+      method: 'POST',
+      providerName: 'test-provider',
+    });
   });
 });

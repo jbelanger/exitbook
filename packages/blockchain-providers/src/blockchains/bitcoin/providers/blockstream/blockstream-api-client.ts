@@ -1,5 +1,6 @@
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
+import { z } from 'zod';
 
 import type {
   ProviderConfig,
@@ -13,7 +14,12 @@ import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../../chain-registry.js';
 import type { BitcoinTransaction } from '../../schemas.js';
 
-import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstream.schemas.js';
+import {
+  BlockstreamAddressInfoSchema,
+  BlockstreamTransactionSchema,
+  type BlockstreamAddressInfo,
+  type BlockstreamTransaction,
+} from './blockstream.schemas.js';
 import { mapBlockstreamTransaction } from './mapper-utils.js';
 
 @RegisterApiClient({
@@ -94,7 +100,9 @@ export class BlockstreamApiClient extends BaseApiClient {
 
     this.logger.debug(`Checking if address has transactions - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
+    const result = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`, {
+      schema: BlockstreamAddressInfoSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(
@@ -121,7 +129,9 @@ export class BlockstreamApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
+    const result = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`, {
+      schema: BlockstreamAddressInfoSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(
@@ -150,7 +160,9 @@ export class BlockstreamApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    const addressInfoResult = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
+    const addressInfoResult = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`, {
+      schema: BlockstreamAddressInfoSchema,
+    });
 
     if (addressInfoResult.isErr()) {
       this.logger.error(
@@ -175,7 +187,9 @@ export class BlockstreamApiClient extends BaseApiClient {
     while (hasMore && batchCount < maxBatches) {
       const endpoint = lastSeenTxid ? `/address/${address}/txs/chain/${lastSeenTxid}` : `/address/${address}/txs`;
 
-      const txResult = await this.httpClient.get<BlockstreamTransaction[]>(endpoint);
+      const txResult = await this.httpClient.get<BlockstreamTransaction[]>(endpoint, {
+        schema: z.array(BlockstreamTransactionSchema),
+      });
 
       if (txResult.isErr()) {
         this.logger.error(

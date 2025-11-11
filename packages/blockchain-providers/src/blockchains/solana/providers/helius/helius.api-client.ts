@@ -17,6 +17,13 @@ import { isValidSolanaAddress, deduplicateTransactionsBySignature } from '../../
 
 import { mapHeliusTransaction } from './helius.mapper-utils.js';
 import type { HeliusAssetResponse, HeliusTransaction } from './helius.schemas.js';
+import {
+  HeliusAssetJsonRpcResponseSchema,
+  HeliusSignaturesJsonRpcResponseSchema,
+  HeliusTransactionJsonRpcResponseSchema,
+  HeliusBalanceJsonRpcResponseSchema,
+  HeliusTokenAccountsJsonRpcResponseSchema,
+} from './helius.schemas.js';
 
 export interface SolanaRawBalanceData {
   lamports: number;
@@ -111,17 +118,21 @@ export class HeliusApiClient extends BaseApiClient {
   }
 
   async getTokenMetadata(mintAddress: string): Promise<Result<TokenMetadata, Error>> {
-    const result = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>('/', {
-      id: 1,
-      jsonrpc: '2.0',
-      method: 'getAsset',
-      params: {
-        displayOptions: {
-          showFungible: true,
+    const result = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>(
+      '/',
+      {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getAsset',
+        params: {
+          displayOptions: {
+            showFungible: true,
+          },
+          id: mintAddress,
         },
-        id: mintAddress,
       },
-    });
+      { schema: HeliusAssetJsonRpcResponseSchema }
+    );
 
     if (result.isErr()) {
       return err(result.error);
@@ -151,17 +162,21 @@ export class HeliusApiClient extends BaseApiClient {
   }
 
   private async getDirectAddressTransactions(address: string): Promise<Result<HeliusTransaction[], Error>> {
-    const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>('/', {
-      id: 1,
-      jsonrpc: '2.0',
-      method: 'getSignaturesForAddress',
-      params: [
-        address,
-        {
-          limit: 1000, // Get full transaction history
-        },
-      ],
-    });
+    const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>(
+      '/',
+      {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getSignaturesForAddress',
+        params: [
+          address,
+          {
+            limit: 1000, // Get full transaction history
+          },
+        ],
+      },
+      { schema: HeliusSignaturesJsonRpcResponseSchema }
+    );
 
     if (signaturesResult.isErr()) {
       this.logger.error(
@@ -183,18 +198,22 @@ export class HeliusApiClient extends BaseApiClient {
     this.logger.debug(`Retrieved direct signatures - Address: ${maskAddress(address)}, Count: ${signatures.length}`);
 
     for (const sig of signatures) {
-      const txResult = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>('/', {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'getTransaction',
-        params: [
-          sig.signature,
-          {
-            encoding: 'json',
-            maxSupportedTransactionVersion: 0,
-          },
-        ],
-      });
+      const txResult = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>(
+        '/',
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'getTransaction',
+          params: [
+            sig.signature,
+            {
+              encoding: 'json',
+              maxSupportedTransactionVersion: 0,
+            },
+          ],
+        },
+        { schema: HeliusTransactionJsonRpcResponseSchema }
+      );
 
       if (txResult.isErr()) {
         this.logger.debug(
@@ -222,12 +241,16 @@ export class HeliusApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.post<JsonRpcResponse<SolanaAccountBalance>>('/', {
-      id: 1,
-      jsonrpc: '2.0',
-      method: 'getBalance',
-      params: [address],
-    });
+    const result = await this.httpClient.post<JsonRpcResponse<SolanaAccountBalance>>(
+      '/',
+      {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getBalance',
+        params: [address],
+      },
+      { schema: HeliusBalanceJsonRpcResponseSchema }
+    );
 
     if (result.isErr()) {
       this.logger.error(
@@ -325,20 +348,24 @@ export class HeliusApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>('/', {
-      id: 1,
-      jsonrpc: '2.0',
-      method: 'getTokenAccountsByOwner',
-      params: [
-        address,
-        {
-          programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-        },
-        {
-          encoding: 'jsonParsed',
-        },
-      ],
-    });
+    const result = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>(
+      '/',
+      {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getTokenAccountsByOwner',
+        params: [
+          address,
+          {
+            programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+          },
+          {
+            encoding: 'jsonParsed',
+          },
+        ],
+      },
+      { schema: HeliusTokenAccountsJsonRpcResponseSchema }
+    );
 
     if (result.isErr()) {
       this.logger.error(
@@ -364,20 +391,24 @@ export class HeliusApiClient extends BaseApiClient {
   }
 
   private async getTokenAccountsOwnedByAddress(address: string): Promise<Result<string[], Error>> {
-    const result = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>('/', {
-      id: 1,
-      jsonrpc: '2.0',
-      method: 'getTokenAccountsByOwner',
-      params: [
-        address,
-        {
-          programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-        },
-        {
-          encoding: 'jsonParsed',
-        },
-      ],
-    });
+    const result = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>(
+      '/',
+      {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getTokenAccountsByOwner',
+        params: [
+          address,
+          {
+            programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+          },
+          {
+            encoding: 'jsonParsed',
+          },
+        ],
+      },
+      { schema: HeliusTokenAccountsJsonRpcResponseSchema }
+    );
 
     if (result.isErr()) {
       this.logger.warn(
@@ -424,17 +455,21 @@ export class HeliusApiClient extends BaseApiClient {
     this.logger.debug(`Processing ${accountsToProcess.length} token accounts for address ${maskAddress(address)}`);
 
     for (const account of accountsToProcess) {
-      const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>('/', {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'getSignaturesForAddress',
-        params: [
-          account,
-          {
-            limit: 50,
-          },
-        ],
-      });
+      const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>(
+        '/',
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'getSignaturesForAddress',
+          params: [
+            account,
+            {
+              limit: 50,
+            },
+          ],
+        },
+        { schema: HeliusSignaturesJsonRpcResponseSchema }
+      );
 
       if (signaturesResult.isErr()) {
         this.logger.debug(
@@ -449,18 +484,22 @@ export class HeliusApiClient extends BaseApiClient {
         const signatures = signaturesResponse.result.slice(0, 20);
 
         for (const sig of signatures) {
-          const txResult = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>('/', {
-            id: 1,
-            jsonrpc: '2.0',
-            method: 'getTransaction',
-            params: [
-              sig.signature,
-              {
-                encoding: 'json',
-                maxSupportedTransactionVersion: 0,
-              },
-            ],
-          });
+          const txResult = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>(
+            '/',
+            {
+              id: 1,
+              jsonrpc: '2.0',
+              method: 'getTransaction',
+              params: [
+                sig.signature,
+                {
+                  encoding: 'json',
+                  maxSupportedTransactionVersion: 0,
+                },
+              ],
+            },
+            { schema: HeliusTransactionJsonRpcResponseSchema }
+          );
 
           if (txResult.isErr()) {
             this.logger.debug(

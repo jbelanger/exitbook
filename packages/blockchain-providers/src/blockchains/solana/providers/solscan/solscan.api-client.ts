@@ -14,6 +14,11 @@ import { isValidSolanaAddress } from '../../utils.ts';
 
 import { mapSolscanTransaction } from './solscan.mapper-utils.js';
 import type { SolscanTransaction, SolscanResponse } from './solscan.schemas.js';
+import {
+  SolscanAccountBalanceResponseSchema,
+  SolscanAccountTransactionsResponseSchema,
+  SolscanLegacyTransactionsResponseSchema,
+} from './solscan.schemas.js';
 
 export interface SolscanRawBalanceData {
   lamports: string;
@@ -105,7 +110,9 @@ export class SolscanApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<SolscanResponse<{ lamports: string }>>(`/account/${address}`);
+    const result = await this.httpClient.get<SolscanResponse<{ lamports: string }>>(`/account/${address}`, {
+      schema: SolscanAccountBalanceResponseSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(
@@ -155,7 +162,7 @@ export class SolscanApiClient extends BaseApiClient {
             items?: SolscanTransaction[];
           }
       >
-    >(`/account/transactions?${queryParams.toString()}`);
+    >(`/account/transactions?${queryParams.toString()}`, { schema: SolscanAccountTransactionsResponseSchema });
 
     if (result.isErr()) {
       this.logger.error(
@@ -197,7 +204,8 @@ export class SolscanApiClient extends BaseApiClient {
       );
 
       const legacyResult = await this.httpClient.get<SolscanResponse<SolscanTransaction[]>>(
-        `/account/transaction?address=${address}&limit=100&offset=0`
+        `/account/transaction?address=${address}&limit=100&offset=0`,
+        { schema: SolscanLegacyTransactionsResponseSchema }
       );
 
       if (legacyResult.isErr()) {

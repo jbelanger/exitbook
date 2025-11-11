@@ -1,7 +1,7 @@
 import type { SourceMetadata } from '@exitbook/core';
-import { ok, type Result } from 'neverthrow';
+import type { Result } from 'neverthrow';
 
-import { withValidation, type NormalizationError } from '../../../../core/index.js';
+import { validateOutput, type NormalizationError } from '../../../../core/index.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import {
   BitcoinTransactionSchema,
@@ -11,13 +11,14 @@ import {
 } from '../../schemas.js';
 import { satoshisToBtcString } from '../../utils.js';
 
-import { BlockchainComTransactionSchema, type BlockchainComTransaction } from './blockchain-com.schemas.js';
+import type { BlockchainComTransaction } from './blockchain-com.schemas.js';
 
 /**
- * Internal pure mapper function (without validation).
- * Maps Blockchain.com transaction to normalized BitcoinTransaction.
+ * Map Blockchain.com transaction to normalized BitcoinTransaction.
+ * Input data is validated by HTTP client schema validation.
+ * Output data is validated before returning.
  */
-function mapBlockchainComTransactionInternal(
+export function mapBlockchainComTransaction(
   rawData: BlockchainComTransaction,
   _sourceContext: SourceMetadata,
   chainConfig: BitcoinChainConfig
@@ -55,15 +56,5 @@ function mapBlockchainComTransactionInternal(
     normalized.feeCurrency = chainConfig.nativeCurrency;
   }
 
-  return ok(normalized);
+  return validateOutput(normalized, BitcoinTransactionSchema, 'BlockchainComTransaction');
 }
-
-/**
- * Map Blockchain.com transaction to normalized BitcoinTransaction with validation.
- * Validates both input (BlockchainComTransaction) and output (BitcoinTransaction) schemas.
- */
-export const mapBlockchainComTransaction = withValidation(
-  BlockchainComTransactionSchema,
-  BitcoinTransactionSchema,
-  'BlockchainComTransaction'
-)(mapBlockchainComTransactionInternal);

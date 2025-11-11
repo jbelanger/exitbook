@@ -1,5 +1,6 @@
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
+import { z } from 'zod';
 
 import type {
   ProviderConfig,
@@ -14,7 +15,12 @@ import { getBitcoinChainConfig } from '../../chain-registry.js';
 import type { BitcoinTransaction } from '../../schemas.js';
 
 import { mapMempoolSpaceTransaction } from './mapper-utils.js';
-import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.schemas.js';
+import {
+  MempoolAddressInfoSchema,
+  MempoolTransactionSchema,
+  type MempoolAddressInfo,
+  type MempoolTransaction,
+} from './mempool-space.schemas.js';
 
 @RegisterApiClient({
   baseUrl: 'https://mempool.space/api',
@@ -92,7 +98,9 @@ export class MempoolSpaceApiClient extends BaseApiClient {
 
     this.logger.debug(`Checking if address has transactions - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<MempoolAddressInfo>(`/address/${address}`);
+    const result = await this.httpClient.get<MempoolAddressInfo>(`/address/${address}`, {
+      schema: MempoolAddressInfoSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(
@@ -119,7 +127,9 @@ export class MempoolSpaceApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<MempoolAddressInfo>(`/address/${address}`);
+    const result = await this.httpClient.get<MempoolAddressInfo>(`/address/${address}`, {
+      schema: MempoolAddressInfoSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(
@@ -145,7 +155,9 @@ export class MempoolSpaceApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<MempoolTransaction[]>(`/address/${address}/txs`);
+    const result = await this.httpClient.get<MempoolTransaction[]>(`/address/${address}/txs`, {
+      schema: z.array(MempoolTransactionSchema),
+    });
 
     if (result.isErr()) {
       this.logger.error(

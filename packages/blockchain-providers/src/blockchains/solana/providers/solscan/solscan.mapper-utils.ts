@@ -1,9 +1,9 @@
 import { isErrorWithMessage } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, err } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.ts';
-import { withValidation } from '../../../../core/index.ts';
+import { validateOutput } from '../../../../core/index.ts';
 import type { SolanaTransaction, SolanaTokenChange } from '../../schemas.ts';
 import { SolanaTransactionSchema } from '../../schemas.ts';
 import {
@@ -13,7 +13,7 @@ import {
   determineRecipient,
 } from '../../utils.ts';
 
-import { SolscanTransactionSchema, type SolscanTransaction } from './solscan.schemas.js';
+import type { SolscanTransaction } from './solscan.schemas.js';
 
 /**
  * Pure function for Solscan transaction mapping
@@ -21,9 +21,10 @@ import { SolscanTransactionSchema, type SolscanTransaction } from './solscan.sch
  */
 
 /**
- * Map Solscan transaction to normalized SolanaTransaction (internal, no validation)
+ * Map Solscan transaction to normalized SolanaTransaction
+ * Input is already validated by HTTP client, output validated here
  */
-function mapSolscanTransactionInternal(
+export function mapSolscanTransaction(
   rawData: SolscanTransaction,
   _sourceContext: SourceMetadata
 ): Result<SolanaTransaction, NormalizationError> {
@@ -66,18 +67,9 @@ function mapSolscanTransactionInternal(
       tokenChanges,
     };
 
-    return ok(solanaTransaction);
+    return validateOutput(solanaTransaction, SolanaTransactionSchema, 'SolscanTransaction');
   } catch (error) {
     const errorMessage = isErrorWithMessage(error) ? error.message : String(error);
     return err({ message: `Failed to transform transaction: ${errorMessage}`, type: 'error' });
   }
 }
-
-/**
- * Map Solscan transaction to normalized SolanaTransaction (with validation)
- */
-export const mapSolscanTransaction = withValidation(
-  SolscanTransactionSchema,
-  SolanaTransactionSchema,
-  'SolscanTransaction'
-)(mapSolscanTransactionInternal);

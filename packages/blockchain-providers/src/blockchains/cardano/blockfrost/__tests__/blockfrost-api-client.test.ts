@@ -98,9 +98,12 @@ describe('BlockfrostApiClient', () => {
 
       const result = await client.execute<RawBalanceData>(operation);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/addresses/${mockAddress}`, {
-        headers: { project_id: 'test-api-key-123' },
-      });
+      expect(mockHttpGet).toHaveBeenCalledWith(
+        `/addresses/${mockAddress}`,
+        expect.objectContaining({
+          headers: { project_id: 'test-api-key-123' },
+        })
+      );
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toEqual({
@@ -305,14 +308,8 @@ describe('BlockfrostApiClient', () => {
     });
 
     it('should handle invalid response schema', async () => {
-      const invalidResponse = {
-        address: '', // Invalid: empty
-        amount: [{ quantity: '1000000', unit: 'lovelace' }],
-        script: false,
-        type: 'shelley',
-      };
-
-      mockHttpGet.mockResolvedValue(ok(invalidResponse));
+      // With HTTP client schema validation, invalid data is rejected by the HTTP client
+      mockHttpGet.mockResolvedValue(err(new Error('Schema validation failed')));
 
       const operation: ProviderOperation = {
         address: mockAddress,
@@ -323,7 +320,7 @@ describe('BlockfrostApiClient', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('Invalid address balance response');
+        expect(result.error.message).toContain('Schema validation failed');
       }
     });
 
@@ -354,14 +351,8 @@ describe('BlockfrostApiClient', () => {
     });
 
     it('should handle invalid quantity format', async () => {
-      const invalidQuantity = {
-        address: mockAddress,
-        amount: [{ quantity: 'not-a-number', unit: 'lovelace' }],
-        script: false,
-        type: 'shelley',
-      };
-
-      mockHttpGet.mockResolvedValue(ok(invalidQuantity));
+      // With HTTP client schema validation, invalid quantity format is rejected by the HTTP client
+      mockHttpGet.mockResolvedValue(err(new Error('Schema validation failed: quantity must be numeric')));
 
       const operation: ProviderOperation = {
         address: mockAddress,
@@ -372,7 +363,7 @@ describe('BlockfrostApiClient', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('Invalid address balance response');
+        expect(result.error.message).toContain('Schema validation failed');
       }
     });
 

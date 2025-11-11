@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -416,33 +417,6 @@ describe('NearBlocksApiClient', () => {
       expect(mockHttpGet).not.toHaveBeenCalled();
     });
 
-    it('should return error for invalid response schema', async () => {
-      const invalidResponse = {
-        txns: [
-          {
-            transaction_hash: '', // Invalid: empty
-            block_timestamp: '1640000000000000000',
-            signer_id: 'alice.near',
-            receiver_id: 'bob.near',
-          },
-        ],
-      };
-
-      mockHttpGet.mockResolvedValue(ok(invalidResponse));
-
-      const operation = {
-        address: mockAddress,
-        type: 'getAddressTransactions' as const,
-      };
-
-      const result = await client.execute(operation);
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Provider data validation failed');
-      }
-    });
-
     it('should handle implicit account addresses', async () => {
       const implicitAddress = '98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de';
 
@@ -455,7 +429,19 @@ describe('NearBlocksApiClient', () => {
         ],
       };
 
-      mockHttpGet.mockResolvedValue(ok(mockResponse));
+      // Mock responses for all endpoints (transactions + enrichment)
+      mockHttpGet.mockImplementation((url: string) => {
+        if (url.includes('/txns-only')) {
+          return Promise.resolve(ok(mockResponse));
+        }
+        if (url.includes('/activities')) {
+          return Promise.resolve(ok({ activities: [] }));
+        }
+        if (url.includes('/receipts')) {
+          return Promise.resolve(ok({ txns: [] }));
+        }
+        return Promise.resolve(err(new Error(`Unexpected URL: ${url}`)));
+      });
 
       const operation = {
         address: implicitAddress,
@@ -464,7 +450,10 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.execute(operation);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${implicitAddress}/txns-only?page=1&per_page=25`);
+      expect(mockHttpGet).toHaveBeenCalledWith(
+        `/v1/account/${implicitAddress}/txns-only?page=1&per_page=25`,
+        expect.objectContaining({ schema: expect.anything() })
+      );
       expect(result.isOk()).toBe(true);
     });
   });
@@ -492,7 +481,10 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.execute(operation);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}`);
+      expect(mockHttpGet).toHaveBeenCalledWith(
+        `/v1/account/${mockAddress}`,
+        expect.objectContaining({ schema: expect.anything() })
+      );
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toEqual({
@@ -568,31 +560,6 @@ describe('NearBlocksApiClient', () => {
       }
     });
 
-    it('should return error for invalid response schema', async () => {
-      const invalidResponse = {
-        account: [
-          {
-            account_id: '',
-            amount: '1000000000000000000000000',
-          },
-        ],
-      };
-
-      mockHttpGet.mockResolvedValue(ok(invalidResponse));
-
-      const operation = {
-        address: mockAddress,
-        type: 'getAddressBalances' as const,
-      };
-
-      const result = await client.execute(operation);
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Invalid account data from NearBlocks');
-      }
-    });
-
     it('should handle implicit account addresses', async () => {
       const implicitAddress = '98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de';
 
@@ -614,7 +581,10 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.execute(operation);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${implicitAddress}`);
+      expect(mockHttpGet).toHaveBeenCalledWith(
+        `/v1/account/${implicitAddress}`,
+        expect.objectContaining({ schema: expect.anything() })
+      );
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toEqual({
@@ -723,7 +693,10 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.getAccountReceipts(mockAddress);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/receipts?page=1&per_page=25`);
+      expect(mockHttpGet).toHaveBeenCalledWith(
+        `/v1/account/${mockAddress}/receipts?page=1&per_page=25`,
+        expect.objectContaining({ schema: expect.anything() })
+      );
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toHaveLength(2);
@@ -741,7 +714,10 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.getAccountReceipts(mockAddress, 2, 25);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/receipts?page=2&per_page=25`);
+      expect(mockHttpGet).toHaveBeenCalledWith(
+        `/v1/account/${mockAddress}/receipts?page=2&per_page=25`,
+        expect.objectContaining({ schema: expect.anything() })
+      );
       expect(result.isOk()).toBe(true);
     });
 
@@ -781,28 +757,6 @@ describe('NearBlocksApiClient', () => {
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toBe('API Error');
-      }
-    });
-
-    it('should return error for invalid response schema', async () => {
-      const invalidResponse = {
-        txns: [
-          {
-            transaction_hash: '',
-            predecessor_account_id: 'alice.near',
-            receipt_id: 'receipt123',
-            receiver_account_id: 'bob.near',
-          },
-        ],
-      };
-
-      mockHttpGet.mockResolvedValue(ok(invalidResponse));
-
-      const result = await client.getAccountReceipts(mockAddress);
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Provider data validation failed');
       }
     });
   });
@@ -849,7 +803,10 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.getAccountActivities(mockAddress);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/activities?per_page=25`);
+      expect(mockHttpGet).toHaveBeenCalledWith(
+        `/v1/account/${mockAddress}/activities?per_page=25`,
+        expect.objectContaining({ schema: expect.anything() })
+      );
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toHaveLength(2);
@@ -867,7 +824,10 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.getAccountActivities(mockAddress, 'cursor123', 20);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/activities?cursor=cursor123&per_page=20`);
+      expect(mockHttpGet).toHaveBeenCalledWith(
+        `/v1/account/${mockAddress}/activities?cursor=cursor123&per_page=20`,
+        expect.objectContaining({ schema: expect.anything() })
+      );
       expect(result.isOk()).toBe(true);
     });
 
@@ -907,28 +867,6 @@ describe('NearBlocksApiClient', () => {
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toBe('API Error');
-      }
-    });
-
-    it('should return error for invalid response schema', async () => {
-      const invalidResponse = {
-        activities: [
-          {
-            absolute_nonstaked_amount: '',
-            block_timestamp: '1640000000000000000',
-            direction: 'INBOUND',
-            receipt_id: 'receipt123',
-          },
-        ],
-      };
-
-      mockHttpGet.mockResolvedValue(ok(invalidResponse));
-
-      const result = await client.getAccountActivities(mockAddress);
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Provider data validation failed');
       }
     });
 
@@ -987,7 +925,10 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.getAccountFtTransactions(mockAddress);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/ft-txns?page=1&per_page=25`);
+      expect(mockHttpGet).toHaveBeenCalledWith(
+        `/v1/account/${mockAddress}/ft-txns?page=1&per_page=25`,
+        expect.objectContaining({ schema: expect.anything() })
+      );
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toHaveLength(2);
@@ -1005,7 +946,10 @@ describe('NearBlocksApiClient', () => {
 
       const result = await client.getAccountFtTransactions(mockAddress, 4, 10);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/v1/account/${mockAddress}/ft-txns?page=4&per_page=10`);
+      expect(mockHttpGet).toHaveBeenCalledWith(
+        `/v1/account/${mockAddress}/ft-txns?page=4&per_page=10`,
+        expect.objectContaining({ schema: expect.anything() })
+      );
       expect(result.isOk()).toBe(true);
     });
 
@@ -1045,27 +989,6 @@ describe('NearBlocksApiClient', () => {
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toBe('API Error');
-      }
-    });
-
-    it('should return error for invalid response schema', async () => {
-      const invalidResponse = {
-        txns: [
-          {
-            affected_account_id: '',
-            block_timestamp: '1640000000000000000',
-            receipt_id: 'receipt123',
-          },
-        ],
-      };
-
-      mockHttpGet.mockResolvedValue(ok(invalidResponse));
-
-      const result = await client.getAccountFtTransactions(mockAddress);
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Provider data validation failed');
       }
     });
 

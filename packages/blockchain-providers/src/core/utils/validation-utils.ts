@@ -78,3 +78,42 @@ export function withValidation<TInput, TOutput>(
     };
   };
 }
+
+/**
+ * Validates only the output of a mapper function (for use when input is pre-validated by HTTP client).
+ * Input data has already been validated by HTTP client schema validation.
+ *
+ * @param outputSchema - Zod schema for validating normalized output data
+ * @param mapperName - Name of the mapper for error messages
+ * @returns The validated output data
+ *
+ * @example
+ * ```typescript
+ * export function mapAlchemyTransaction(
+ *   rawData: AlchemyAssetTransfer, // Already validated by HTTP client
+ *   sourceContext: SourceMetadata
+ * ): Result<EvmTransaction, NormalizationError> {
+ *   const transaction: EvmTransaction = { ... };
+ *   return validateOutput(transaction, EvmTransactionSchema, 'AlchemyTransaction');
+ * }
+ * ```
+ */
+export function validateOutput<TOutput>(
+  output: TOutput,
+  outputSchema: ZodSchema<TOutput>,
+  mapperName: string
+): Result<TOutput, NormalizationError> {
+  const outputResult = outputSchema.safeParse(output);
+  if (!outputResult.success) {
+    const errors = outputResult.error.issues.map((issue) => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
+    return err({
+      message: `Invalid ${mapperName} output: ${errors.join(', ')}`,
+      type: 'error',
+    });
+  }
+
+  return ok(outputResult.data);
+}

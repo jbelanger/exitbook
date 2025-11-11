@@ -1,9 +1,9 @@
 import type { SourceMetadata } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, err } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.js';
-import { withValidation } from '../../../../core/index.js';
+import { validateOutput } from '../../../../core/index.js';
 import { calculateFee } from '../../calculation-utils.js';
 import {
   parseBankSendMessage,
@@ -18,16 +18,14 @@ import { CosmosTransactionSchema } from '../../schemas.js';
 import type { CosmosTransaction } from '../../types.js';
 import { formatDenom, generatePeggyId, isTransactionRelevant } from '../../utils.js';
 
-import {
-  InjectiveTransactionSchema,
-  type InjectiveTransaction as InjectiveApiTransaction,
-} from './injective-explorer.schemas.js';
+import type { InjectiveTransaction as InjectiveApiTransaction } from './injective-explorer.schemas.js';
 
 /**
- * Internal pure function for Injective Explorer transaction mapping
+ * Pure function for Injective Explorer transaction mapping
+ * Input is already validated by HTTP client, output validated here
  * Following the Functional Core / Imperative Shell pattern
  */
-function mapInjectiveExplorerTransactionInternal(
+export function mapInjectiveExplorerTransaction(
   rawData: InjectiveApiTransaction,
   sourceContext: SourceMetadata
 ): Result<CosmosTransaction, NormalizationError> {
@@ -235,15 +233,5 @@ function mapInjectiveExplorerTransactionInternal(
     txType: rawData.tx_type,
   };
 
-  return ok(transaction);
+  return validateOutput(transaction, CosmosTransactionSchema, 'InjectiveExplorerTransaction');
 }
-
-/**
- * Validated Injective Explorer transaction mapper
- * Wraps the internal mapper with input/output validation
- */
-export const mapInjectiveExplorerTransaction = withValidation(
-  InjectiveTransactionSchema,
-  CosmosTransactionSchema,
-  'InjectiveExplorerTransaction'
-)(mapInjectiveExplorerTransactionInternal);

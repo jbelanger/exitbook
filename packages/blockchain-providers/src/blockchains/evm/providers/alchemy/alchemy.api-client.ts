@@ -35,13 +35,12 @@ import type { EvmTransaction } from '../../types.js';
 
 import { extractAlchemyNetworkName } from './alchemy.mapper-utils.js';
 import { mapAlchemyTransaction } from './alchemy.mapper-utils.js';
-import type {
-  AlchemyAssetTransfer,
-  AlchemyAssetTransferParams,
-  AlchemyAssetTransfersResponse,
-  AlchemyTransactionReceipt,
+import type { AlchemyAssetTransfer, AlchemyAssetTransferParams, AlchemyTransactionReceipt } from './alchemy.schemas.js';
+import {
+  AlchemyAssetTransfersJsonRpcResponseSchema,
+  AlchemyPortfolioBalanceResponseSchema,
+  AlchemyTransactionReceiptResponseSchema,
 } from './alchemy.schemas.js';
-import { AlchemyPortfolioBalanceResponseSchema, AlchemyTransactionReceiptSchema } from './alchemy.schemas.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'ALCHEMY_API_KEY',
@@ -266,12 +265,16 @@ export class AlchemyApiClient extends BaseApiClient {
         requestParams.pageKey = pageKey;
       }
 
-      const result = await this.httpClient.post<JsonRpcResponse<AlchemyAssetTransfersResponse>>(`/${this.apiKey}`, {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'alchemy_getAssetTransfers',
-        params: [requestParams],
-      });
+      const result = await this.httpClient.post(
+        `/${this.apiKey}`,
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'alchemy_getAssetTransfers',
+          params: [requestParams],
+        },
+        { schema: AlchemyAssetTransfersJsonRpcResponseSchema }
+      );
 
       if (result.isErr()) {
         this.logger.error(`Failed to fetch asset transfers - Error: ${getErrorMessage(result.error)}`);
@@ -317,12 +320,16 @@ export class AlchemyApiClient extends BaseApiClient {
 
     // Fetch all receipts in parallel
     const receiptPromises = uniqueHashes.map(async (hash) => {
-      const result = await this.httpClient.post<JsonRpcResponse<AlchemyTransactionReceipt | null>>(`/${this.apiKey}`, {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'eth_getTransactionReceipt',
-        params: [hash],
-      });
+      const result = await this.httpClient.post(
+        `/${this.apiKey}`,
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'eth_getTransactionReceipt',
+          params: [hash],
+        },
+        { schema: AlchemyTransactionReceiptResponseSchema }
+      );
 
       if (result.isErr()) {
         return { hash, error: result.error };
@@ -333,13 +340,7 @@ export class AlchemyApiClient extends BaseApiClient {
         return { hash, error: new Error(`No receipt found for transaction ${hash}`) };
       }
 
-      // Validate receipt with Zod schema
-      const parseResult = AlchemyTransactionReceiptSchema.safeParse(receipt);
-      if (!parseResult.success) {
-        return { hash, error: new Error(`Invalid receipt for ${hash}: ${parseResult.error.message}`) };
-      }
-
-      return { hash, receipt: parseResult.data, error: undefined };
+      return { hash, receipt, error: undefined };
     });
 
     const results = await Promise.all(receiptPromises);
@@ -485,21 +486,16 @@ export class AlchemyApiClient extends BaseApiClient {
       withMetadata: true,
     };
 
-    const result = await this.portfolioClient.post<unknown>('/assets/tokens/balances/by-address', requestBody);
+    const result = await this.portfolioClient.post('/assets/tokens/balances/by-address', requestBody, {
+      schema: AlchemyPortfolioBalanceResponseSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(`Failed to fetch native balance for ${address} - Error: ${getErrorMessage(result.error)}`);
       return err(result.error);
     }
 
-    // Validate response with Zod schema
-    const parseResult = AlchemyPortfolioBalanceResponseSchema.safeParse(result.value);
-    if (!parseResult.success) {
-      this.logger.error(`Invalid Portfolio API response: ${parseResult.error.message}`);
-      return err(new Error(`Invalid Portfolio API response: ${parseResult.error.message}`));
-    }
-
-    const tokenBalances = parseResult.data.data.tokens;
+    const tokenBalances = result.value.data.tokens;
 
     // Find the native token (tokenAddress is null for native token)
     const nativeBalance = tokenBalances.find((balance) => isNativeToken(balance.tokenAddress));
@@ -548,21 +544,16 @@ export class AlchemyApiClient extends BaseApiClient {
       withMetadata: true,
     };
 
-    const result = await this.portfolioClient.post<unknown>('/assets/tokens/balances/by-address', requestBody);
+    const result = await this.portfolioClient.post('/assets/tokens/balances/by-address', requestBody, {
+      schema: AlchemyPortfolioBalanceResponseSchema,
+    });
 
     if (result.isErr()) {
       this.logger.error(`Failed to fetch token balances for ${address} - Error: ${getErrorMessage(result.error)}`);
       return err(result.error);
     }
 
-    // Validate response with Zod schema
-    const parseResult = AlchemyPortfolioBalanceResponseSchema.safeParse(result.value);
-    if (!parseResult.success) {
-      this.logger.error(`Invalid Portfolio API response: ${parseResult.error.message}`);
-      return err(new Error(`Invalid Portfolio API response: ${parseResult.error.message}`));
-    }
-
-    const tokenBalances = parseResult.data.data.tokens;
+    const tokenBalances = result.value.data.tokens;
 
     // Filter by contract addresses if provided
     const filteredBalances = contractAddresses

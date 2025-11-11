@@ -1,16 +1,16 @@
 import { parseDecimal } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-import { type Result, ok } from 'neverthrow';
+import { type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.js';
-import { withValidation } from '../../../../core/index.js';
+import { validateOutput } from '../../../../core/index.js';
 import { calculateGasFee } from '../../receipt-utils.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 import { normalizeEvmAddress } from '../../utils.js';
 
-import { AlchemyAssetTransferSchema, type AlchemyAssetTransfer } from './alchemy.schemas.js';
+import type { AlchemyAssetTransfer } from './alchemy.schemas.js';
 
 /**
  * Pure functions for Alchemy transaction mapping
@@ -194,9 +194,10 @@ function enrichWithGasFees(transaction: EvmTransaction, rawData: AlchemyAssetTra
 }
 
 /**
- * Maps Alchemy asset transfer to normalized EvmTransaction (internal)
+ * Maps Alchemy asset transfer to normalized EvmTransaction
+ * Input data is pre-validated by HTTP client schema validation
  */
-function mapAlchemyTransactionInternal(
+export function mapAlchemyTransaction(
   rawData: AlchemyAssetTransfer,
   _sourceContext: SourceMetadata
 ): Result<EvmTransaction, NormalizationError> {
@@ -221,14 +222,5 @@ function mapAlchemyTransactionInternal(
   enrichWithTokenFields(transaction, rawData, currency);
   enrichWithGasFees(transaction, rawData);
 
-  return ok(transaction);
+  return validateOutput(transaction, EvmTransactionSchema, 'AlchemyTransaction');
 }
-
-/**
- * Maps Alchemy asset transfer to normalized EvmTransaction with validation
- */
-export const mapAlchemyTransaction = withValidation(
-  AlchemyAssetTransferSchema,
-  EvmTransactionSchema,
-  'AlchemyTransaction'
-)(mapAlchemyTransactionInternal);

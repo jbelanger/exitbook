@@ -1,14 +1,14 @@
 import { isErrorWithMessage } from '@exitbook/core';
 import type { SourceMetadata } from '@exitbook/core';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, err } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.ts';
-import { withValidation } from '../../../../core/index.ts';
+import { validateOutput } from '../../../../core/index.ts';
 import type { SolanaTransaction } from '../../schemas.ts';
 import { SolanaTransactionSchema } from '../../schemas.ts';
 import { lamportsToSol, extractAccountChanges, extractTokenChanges, determinePrimaryTransfer } from '../../utils.ts';
 
-import { HeliusTransactionSchema, type HeliusTransaction } from './helius.schemas.js';
+import type { HeliusTransaction } from './helius.schemas.js';
 
 /**
  * Pure function for Helius transaction mapping
@@ -16,9 +16,10 @@ import { HeliusTransactionSchema, type HeliusTransaction } from './helius.schema
  */
 
 /**
- * Map Helius transaction to normalized SolanaTransaction (internal, no validation)
+ * Map Helius transaction to normalized SolanaTransaction
+ * Input is already validated by HTTP client, output validated here
  */
-function mapHeliusTransactionInternal(
+export function mapHeliusTransaction(
   rawData: HeliusTransaction,
   _sourceContext: SourceMetadata
 ): Result<SolanaTransaction, NormalizationError> {
@@ -62,18 +63,9 @@ function mapHeliusTransactionInternal(
       tokenChanges,
     };
 
-    return ok(solanaTransaction);
+    return validateOutput(solanaTransaction, SolanaTransactionSchema, 'HeliusTransaction');
   } catch (error) {
     const errorMessage = isErrorWithMessage(error) ? error.message : String(error);
     return err({ message: `Failed to transform transaction: ${errorMessage}`, type: 'error' });
   }
 }
-
-/**
- * Map Helius transaction to normalized SolanaTransaction (with validation)
- */
-export const mapHeliusTransaction = withValidation(
-  HeliusTransactionSchema,
-  SolanaTransactionSchema,
-  'HeliusTransaction'
-)(mapHeliusTransactionInternal);

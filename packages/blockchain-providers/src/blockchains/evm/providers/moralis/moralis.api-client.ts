@@ -1,6 +1,7 @@
 import type { TokenMetadata } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, okAsync, type Result } from 'neverthrow';
+import { z } from 'zod';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/index.js';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
@@ -13,13 +14,13 @@ import type { EvmTransaction } from '../../types.js';
 
 import { mapMoralisTransaction, mapMoralisTokenTransfer } from './moralis.mapper-utils.js';
 import {
+  MoralisNativeBalanceSchema,
+  MoralisTokenBalanceSchema,
   MoralisTokenMetadataSchema,
-  type MoralisNativeBalance,
-  type MoralisTokenBalance,
+  MoralisTokenTransferResponseSchema,
+  MoralisTransactionResponseSchema,
   type MoralisTokenTransfer,
-  type MoralisTokenTransferResponse,
   type MoralisTransaction,
-  type MoralisTransactionResponse,
 } from './moralis.schemas.js';
 
 /**
@@ -152,7 +153,7 @@ export class MoralisApiClient extends BaseApiClient {
     params.append('addresses[0]', contractAddress);
 
     const endpoint = `/erc20/metadata?${params.toString()}`;
-    const result = await this.httpClient.get<unknown[]>(endpoint);
+    const result = await this.httpClient.get(endpoint, { schema: z.array(MoralisTokenMetadataSchema) });
 
     if (result.isErr()) {
       this.logger.warn(`Failed to fetch token metadata for ${contractAddress}: ${getErrorMessage(result.error)}`);
@@ -164,13 +165,7 @@ export class MoralisApiClient extends BaseApiClient {
       return err(new Error(`No metadata returned for token ${contractAddress}`));
     }
 
-    // Parse and transform the response using Zod schema
-    const parseResult = MoralisTokenMetadataSchema.safeParse(rawMetadata);
-    if (!parseResult.success) {
-      return err(new Error(`Failed to parse token metadata: ${parseResult.error.message}`));
-    }
-
-    const metadata = parseResult.data;
+    const metadata = rawMetadata;
 
     return ok({
       contractAddress: contractAddress,
@@ -189,7 +184,7 @@ export class MoralisApiClient extends BaseApiClient {
     });
 
     const endpoint = `/${address}/balance?${params.toString()}`;
-    const result = await this.httpClient.get<MoralisNativeBalance>(endpoint);
+    const result = await this.httpClient.get(endpoint, { schema: MoralisNativeBalanceSchema });
 
     if (result.isErr()) {
       this.logger.error(`Failed to fetch raw address balance for ${address} - Error: ${getErrorMessage(result.error)}`);
@@ -232,7 +227,7 @@ export class MoralisApiClient extends BaseApiClient {
       params.append('include', 'internal_transactions');
 
       const endpoint = `/${address}?${params.toString()}`;
-      const result = await this.httpClient.get<MoralisTransactionResponse>(endpoint);
+      const result = await this.httpClient.get(endpoint, { schema: MoralisTransactionResponseSchema });
 
       if (result.isErr()) {
         this.logger.error(
@@ -311,7 +306,7 @@ export class MoralisApiClient extends BaseApiClient {
     }
 
     const endpoint = `/${address}/erc20?${params.toString()}`;
-    const result = await this.httpClient.get<MoralisTokenBalance[]>(endpoint);
+    const result = await this.httpClient.get(endpoint, { schema: z.array(MoralisTokenBalanceSchema) });
 
     if (result.isErr()) {
       this.logger.error(`Failed to fetch raw token balances for ${address} - Error: ${getErrorMessage(result.error)}`);
@@ -363,7 +358,7 @@ export class MoralisApiClient extends BaseApiClient {
       }
 
       const endpoint = `/${address}/erc20/transfers?${params.toString()}`;
-      const result = await this.httpClient.get<MoralisTokenTransferResponse>(endpoint);
+      const result = await this.httpClient.get(endpoint, { schema: MoralisTokenTransferResponseSchema });
 
       if (result.isErr()) {
         this.logger.error(
