@@ -96,6 +96,9 @@ importers:
       '@exitbook/price-providers':
         specifier: workspace:*
         version: link:../../packages/price-providers
+      '@exitbook/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       commander:
         specifier: ^14.0.0
         version: 14.0.1
@@ -191,6 +194,9 @@ importers:
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
+      '@exitbook/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@polkadot/util':
         specifier: ^13.5.7
         version: 13.5.7
@@ -509,6 +515,25 @@ importers:
 
   packages/tsconfig: {}
 
+  packages/ui:
+    dependencies:
+      '@clack/prompts':
+        specifier: ^0.8.2
+        version: 0.8.2
+    devDependencies:
+      '@types/node':
+        specifier: ^24.7.2
+        version: 24.7.2
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+      tsx:
+        specifier: ^4.20.4
+        version: 4.20.6
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
 packages:
 
   '@ampproject/remapping@2.3.0':
@@ -741,11 +766,17 @@ packages:
   '@chainsafe/netmask@2.0.0':
     resolution: {integrity: sha512-I3Z+6SWUoaljh3TBzCnCxjlUyN8tA+NAk5L6m9IxvCf1BENQTePzPMis97CoN/iMW1St3WN+AWCCRp+TTBRiDg==}
 
+  '@clack/core@0.3.5':
+    resolution: {integrity: sha512-5cfhQNH+1VQ2xLQlmzXMqUoiaH0lRBq9/CLW9lTyMbuKLC3+xEK01tHVvyut++mLOn5urSHmkm6I0Lg9MaJSTQ==}
+
   '@clack/core@0.5.0':
     resolution: {integrity: sha512-p3y0FIOwaYRUPRcMO7+dlmLh8PSRcrjuTndsiA0WAFbWES0mLZlrjVoBRZ9DzkPFJZG6KGkJmoEAY0ZcVWTkow==}
 
   '@clack/prompts@0.11.0':
     resolution: {integrity: sha512-pMN5FcrEw9hUkZA4f+zLlzivQSeQf5dRGJjSUbvVYDLvpKCdQx5OaknvKzgbtXOizhP+SJJJjqEbOe55uKKfAw==}
+
+  '@clack/prompts@0.8.2':
+    resolution: {integrity: sha512-6b9Ab2UiZwJYA9iMyboYyW9yJvAO9V753ZhS+DHKEjZRKAxPPOb7MXXu84lsPFG+vZt6FRFniZ8rXi+zCIw4yQ==}
 
   '@dprint/formatter@0.4.1':
     resolution: {integrity: sha512-IB/GXdlMOvi0UhQQ9mcY15Fxcrc2JPadmo6tqefCNV0bptFq7YBpggzpqYXldBXDa04CbKJ+rDwO2eNRPE2+/g==}
@@ -4964,6 +4995,11 @@ snapshots:
     dependencies:
       '@chainsafe/is-ip': 2.1.0
 
+  '@clack/core@0.3.5':
+    dependencies:
+      picocolors: 1.1.1
+      sisteransi: 1.0.5
+
   '@clack/core@0.5.0':
     dependencies:
       picocolors: 1.1.1
@@ -4972,6 +5008,12 @@ snapshots:
   '@clack/prompts@0.11.0':
     dependencies:
       '@clack/core': 0.5.0
+      picocolors: 1.1.1
+      sisteransi: 1.0.5
+
+  '@clack/prompts@0.8.2':
+    dependencies:
+      '@clack/core': 0.3.5
       picocolors: 1.1.1
       sisteransi: 1.0.5
 

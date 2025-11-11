@@ -1,7 +1,9 @@
+import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
+import { createClackEmitter, runWithProgress } from '@exitbook/ui';
 import type { Command } from 'commander';
 
-import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.js';
+import { resolveCommandParams, unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 
@@ -73,30 +75,41 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
       console.error(`Importing from ${params.sourceName}...`);
     }
 
-    const spinner = output.spinner();
-    spinner?.start('Importing data...');
-
-    // Configure logger to route logs to spinner
+    // Configure logger
     configureLogger({
       mode: options.json ? 'json' : 'text',
-      spinner: spinner || undefined,
       verbose: false, // TODO: Add --verbose flag support
     });
 
-    const result = await withDatabaseAndHandler(ImportHandler, params);
+    // Create UI emitter and run with progress context
+    const emitter = createClackEmitter();
+    const database = await initializeDatabase();
+    const handler = new ImportHandler(database);
 
-    // Reset logger context after command completes
-    resetLoggerContext();
+    try {
+      const result = await runWithProgress(emitter, async () => {
+        return await handler.execute(params);
+      });
 
-    if (result.isErr()) {
-      spinner?.stop('Import failed');
-      output.error('import', result.error, ExitCodes.GENERAL_ERROR);
-      return; // TypeScript needs this even though output.error never returns
+      // Cleanup
+      handler.destroy();
+      await closeDatabase(database);
+      resetLoggerContext();
+
+      if (result.isErr()) {
+        output.error('import', result.error, ExitCodes.GENERAL_ERROR);
+        return;
+      }
+
+      handleImportSuccess(output, result.value, isInteractive);
+    } catch (error) {
+      handler.destroy();
+      await closeDatabase(database);
+      resetLoggerContext();
+      output.error('import', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
     }
-
-    handleImportSuccess(output, result.value, isInteractive, spinner);
   } catch (error) {
-    resetLoggerContext(); // Clean up logger context on error
+    resetLoggerContext();
     output.error('import', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }
@@ -104,12 +117,7 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
 /**
  * Handle successful import.
  */
-function handleImportSuccess(
-  output: OutputManager,
-  importResult: ImportResult,
-  isInteractive: boolean,
-  spinner: ReturnType<OutputManager['spinner']>
-): void {
+function handleImportSuccess(output: OutputManager, importResult: ImportResult, isInteractive: boolean): void {
   // Prepare result data
   const resultData: ImportCommandResult = {
     dataSourceId: importResult.dataSourceId,
@@ -123,17 +131,6 @@ function handleImportSuccess(
   if (importResult.processingErrors && importResult.processingErrors.length > 0) {
     resultData.processingErrors = importResult.processingErrors.slice(0, 5); // First 5 errors
   }
-
-  // Build completion message
-  const parts: string[] = [`${importResult.imported} items`];
-  if (importResult.processed !== undefined) {
-    parts.push(`${importResult.processed} processed`);
-  }
-  parts.push(`session: ${importResult.dataSourceId}`);
-  const completionMessage = `Import complete - ${parts.join(', ')}`;
-
-  // Stop spinner with completion message
-  spinner?.stop(completionMessage);
 
   // Output success
   if (output.isTextMode()) {
