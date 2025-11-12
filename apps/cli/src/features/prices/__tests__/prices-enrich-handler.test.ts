@@ -226,14 +226,6 @@ describe('PricesEnrichHandler', () => {
       expect(options.asset).toEqual(['BTC', 'ETH']);
     });
 
-    it('should accept onMissing option with skip value', () => {
-      const options: PricesEnrichOptions = {
-        onMissing: 'skip',
-      };
-
-      expect(options.onMissing).toBe('skip');
-    });
-
     it('should accept onMissing option with prompt value', () => {
       const options: PricesEnrichOptions = {
         onMissing: 'prompt',
@@ -248,14 +240,6 @@ describe('PricesEnrichHandler', () => {
       };
 
       expect(options.onMissing).toBe('fail');
-    });
-
-    it('should accept onMissing option with report value', () => {
-      const options: PricesEnrichOptions = {
-        onMissing: 'report',
-      };
-
-      expect(options.onMissing).toBe('report');
     });
 
     it('should accept combinations of options', () => {

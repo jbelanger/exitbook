@@ -13,7 +13,7 @@ export interface PricesFetchCommandOptions {
   /** Optional asset filter (e.g., 'BTC', 'ETH') */
   asset?: string | string[] | undefined;
   /** How to handle missing prices/FX rates */
-  onMissing?: 'skip' | 'prompt' | 'fail' | 'report' | undefined;
+  onMissing?: 'prompt' | 'fail' | undefined;
 }
 
 /**

@@ -45,7 +45,7 @@ export class ManualPriceService {
   private repository: PriceRepository | undefined;
   private initialized = false;
 
-  constructor(private readonly databasePath = './data/prices.db') {}
+  constructor(private readonly databasePath?: string) {}
 
   /**
    * Save a manual price entry to the cache

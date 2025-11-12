@@ -23,7 +23,7 @@ import type { PricesEnrichOptions, PricesEnrichResult } from './prices-enrich-ha
  */
 export interface ExtendedPricesEnrichCommandOptions extends PricesEnrichOptions {
   json?: boolean | undefined;
-  onMissing?: string | undefined;
+  onMissing?: 'prompt' | 'fail' | undefined;
 }
 
 /**
@@ -78,8 +78,8 @@ export function registerPricesEnrichCommand(pricesCommand: Command): void {
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH). Can be specified multiple times.', collect, [])
     .option(
       '--on-missing <behavior>',
-      'How to handle missing prices/FX rates: skip (default), prompt (interactive), fail (strict), report',
-      'skip'
+      'How to handle missing prices: prompt (interactive manual entry), fail (abort with report and suggested commands)',
+      'fail'
     )
     .option('--normalize-only', 'Only run normalization stage (FX conversion)')
     .option('--derive-only', 'Only run derivation stage (extract from USD trades)')
@@ -105,9 +105,9 @@ async function executePricesEnrichCommand(options: ExtendedPricesEnrichCommandOp
 
   try {
     // Validate onMissing option
-    const validBehaviors = ['skip', 'prompt', 'fail', 'report'] as const;
-    const onMissing = options.onMissing || 'skip';
-    if (!validBehaviors.includes(onMissing as (typeof validBehaviors)[number])) {
+    const validBehaviors = ['prompt', 'fail'] as const;
+    const onMissing: 'prompt' | 'fail' = options.onMissing || 'fail';
+    if (!validBehaviors.includes(onMissing)) {
       output.error(
         'prices-enrich',
         new Error(`Invalid --on-missing value: ${onMissing}. Must be one of: ${validBehaviors.join(', ')}`),
@@ -119,7 +119,7 @@ async function executePricesEnrichCommand(options: ExtendedPricesEnrichCommandOp
     // Build params from options
     const params: PricesEnrichOptions = {
       asset: options.asset,
-      onMissing: onMissing as 'skip' | 'prompt' | 'fail' | 'report',
+      onMissing,
       normalizeOnly: options.normalizeOnly,
       deriveOnly: options.deriveOnly,
       fetchOnly: options.fetchOnly,
