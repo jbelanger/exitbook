@@ -1,3 +1,4 @@
+import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -20,13 +21,6 @@ import { z } from 'zod';
 export const SubstrateAddressSchema = z.string().min(1, 'Address must not be empty');
 
 /**
- * Numeric string validator for amounts/values
- */
-const numericString = z
-  .string()
-  .refine((val) => !isNaN(parseFloat(val)) && isFinite(parseFloat(val)), { message: 'Must be a valid numeric string' });
-
-/**
  * Schema for Substrate event data
  */
 export const SubstrateEventDataSchema = z.object({
@@ -39,7 +33,7 @@ export const SubstrateEventDataSchema = z.object({
  * Schema for normalized Substrate transaction
  */
 export const SubstrateTransactionSchema = z.object({
-  amount: numericString,
+  amount: DecimalStringSchema,
   args: z.unknown().optional(),
   blockHeight: z.number().optional(),
   blockId: z.string().optional(),
@@ -48,7 +42,7 @@ export const SubstrateTransactionSchema = z.object({
   currency: z.string().min(1, 'Currency must not be empty'),
   events: z.array(SubstrateEventDataSchema).optional(),
   extrinsicIndex: z.string().optional(),
-  feeAmount: numericString.optional(),
+  feeAmount: DecimalStringSchema.optional(),
   feeCurrency: z.string().optional(),
   from: SubstrateAddressSchema,
   genesisHash: z.string().optional(),
@@ -60,7 +54,7 @@ export const SubstrateTransactionSchema = z.object({
   ss58Format: z.number().nonnegative().optional(),
   status: z.enum(['success', 'failed', 'pending']),
   timestamp: z.number().positive('Timestamp must be positive'),
-  tip: numericString.optional(),
+  tip: DecimalStringSchema.optional(),
   to: SubstrateAddressSchema,
 });
 

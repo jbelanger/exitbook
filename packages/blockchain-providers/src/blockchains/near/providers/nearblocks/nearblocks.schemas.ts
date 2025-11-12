@@ -7,7 +7,8 @@ import { z } from 'zod';
 
 /**
  * Schema for NearBlocks action
- * NOTE: deposit and fee come as strings from lossless-json (preserves precision for large numbers)
+ * NOTE: deposit and fee are returned as unquoted numbers (including scientific notation like 1e+23)
+ * and are converted to fixed-point decimal strings via DecimalStringSchema for precision-safe storage
  */
 export const NearBlocksActionSchema = z.object({
   action: z.string().min(1, 'Action must not be empty'),
@@ -35,7 +36,8 @@ export const NearBlocksReceiptBlockSchema = z.object({
 
 /**
  * Schema for NearBlocks receipt outcome
- * NOTE: gas_burnt and tokens_burnt come as strings from lossless-json (preserves precision)
+ * NOTE: gas_burnt and tokens_burnt are returned as unquoted numbers (including scientific notation)
+ * and are converted to fixed-point decimal strings via DecimalStringSchema for precision-safe storage
  */
 export const NearBlocksReceiptOutcomeSchema = z.object({
   executor_account_id: z.string(),

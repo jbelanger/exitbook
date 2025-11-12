@@ -5,6 +5,7 @@
  * from different Solana API providers (Helius, SolanaRPC, Solscan)
  * before processing.
  */
+import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -110,20 +111,13 @@ export const SolanaTokenAccountSchema = z.object({
 });
 
 /**
- * Numeric string validator for amounts/values
- */
-const numericString = z
-  .string()
-  .refine((val) => !isNaN(parseFloat(val)) && isFinite(parseFloat(val)), { message: 'Must be a valid numeric string' });
-
-/**
  * Schema for Solana account change
  */
 export const SolanaAccountChangeSchema = z.object({
   account: SolanaAddressSchema, // Account address
   owner: SolanaAddressSchema.optional(), // Account owner
-  postBalance: numericString,
-  preBalance: numericString,
+  postBalance: DecimalStringSchema,
+  preBalance: DecimalStringSchema,
 });
 
 /**
@@ -134,8 +128,8 @@ export const SolanaTokenChangeSchema = z.object({
   decimals: z.number().nonnegative(),
   mint: SolanaAddressSchema, // Token mint address
   owner: SolanaAddressSchema.optional(), // Token account owner
-  postAmount: numericString,
-  preAmount: numericString,
+  postAmount: DecimalStringSchema,
+  preAmount: DecimalStringSchema,
   symbol: z.string().optional(),
 });
 
@@ -155,12 +149,12 @@ export const SolanaInstructionSchema = z.object({
  */
 export const SolanaTransactionSchema = z.object({
   accountChanges: z.array(SolanaAccountChangeSchema).optional(),
-  amount: numericString,
+  amount: DecimalStringSchema,
   blockHeight: z.number().optional(),
   blockId: z.string().optional(),
   computeUnitsConsumed: z.number().nonnegative().optional(),
   currency: z.string().min(1, 'Currency must not be empty'),
-  feeAmount: numericString.optional(),
+  feeAmount: DecimalStringSchema.optional(),
   feeCurrency: z.string().optional(),
   from: SolanaAddressSchema, // From address - case-sensitive
   id: z.string().min(1, 'Transaction ID must not be empty'),

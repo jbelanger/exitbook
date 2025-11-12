@@ -1,19 +1,5 @@
-import { tryParseDecimal } from '@exitbook/core';
+import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
-
-/**
- * Numeric string validator for amounts/values
- * Uses Decimal.js for precision-safe validation
- */
-const numericString = z.string().refine(
-  (val) => {
-    if (val === '') return false;
-    return tryParseDecimal(val);
-  },
-  {
-    message: 'Must be a valid numeric string',
-  }
-);
 
 /**
  * Cosmos address schema with automatic lowercase normalization
@@ -57,7 +43,7 @@ export const CosmosTransactionSchema = z.object({
   to: CosmosAddressSchema,
 
   // Value information
-  amount: numericString,
+  amount: DecimalStringSchema,
   currency: z.string().min(1, 'Currency must not be empty'),
 
   // Block context
@@ -75,10 +61,10 @@ export const CosmosTransactionSchema = z.object({
   // Gas information
   gasUsed: z.number().nonnegative().optional(),
   gasWanted: z.number().nonnegative().optional(),
-  gasPrice: numericString.optional(),
+  gasPrice: DecimalStringSchema.optional(),
 
   // Fee information
-  feeAmount: numericString.optional(),
+  feeAmount: DecimalStringSchema.optional(),
   feeCurrency: z.string().optional(),
 
   // Token-specific information

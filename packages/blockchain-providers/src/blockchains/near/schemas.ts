@@ -4,6 +4,7 @@
  * These schemas validate the structure and content of transaction data
  * from different NEAR API providers before processing.
  */
+import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -35,20 +36,13 @@ export const NearAccountIdSchema = z
   );
 
 /**
- * Numeric string validator for amounts/values
- */
-const numericString = z
-  .string()
-  .refine((val) => !isNaN(parseFloat(val)) && isFinite(parseFloat(val)), { message: 'Must be a valid numeric string' });
-
-/**
  * Schema for NEAR action (part of a transaction)
  */
 export const NearActionSchema = z.object({
   actionType: z.string().min(1, 'Action type must not be empty'),
   args: z.record(z.string(), z.unknown()).optional(),
-  deposit: numericString.optional(),
-  gas: numericString.optional(),
+  deposit: DecimalStringSchema.optional(),
+  gas: DecimalStringSchema.optional(),
   methodName: z.string().optional(),
   publicKey: z.string().optional(),
   receiverId: NearAccountIdSchema.optional(),
@@ -59,15 +53,15 @@ export const NearActionSchema = z.object({
  */
 export const NearAccountChangeSchema = z.object({
   account: NearAccountIdSchema,
-  postBalance: numericString,
-  preBalance: numericString,
+  postBalance: DecimalStringSchema,
+  preBalance: DecimalStringSchema,
 });
 
 /**
  * Schema for NEAR token transfer
  */
 export const NearTokenTransferSchema = z.object({
-  amount: numericString,
+  amount: DecimalStringSchema,
   contractAddress: NearAccountIdSchema,
   decimals: z.number().nonnegative(),
   from: NearAccountIdSchema,
@@ -81,11 +75,11 @@ export const NearTokenTransferSchema = z.object({
 export const NearTransactionSchema = z.object({
   accountChanges: z.array(NearAccountChangeSchema).optional(),
   actions: z.array(NearActionSchema).optional(),
-  amount: numericString,
+  amount: DecimalStringSchema,
   blockHeight: z.number().optional(),
   blockId: z.string().optional(),
   currency: z.string().min(1, 'Currency must not be empty'),
-  feeAmount: numericString.optional(),
+  feeAmount: DecimalStringSchema.optional(),
   feeCurrency: z.string().optional(),
   from: NearAccountIdSchema,
   id: z.string().min(1, 'Transaction ID must not be empty'),
