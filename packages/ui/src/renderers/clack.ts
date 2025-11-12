@@ -1,38 +1,41 @@
-import { intro, log, outro } from '@clack/prompts';
+import { taskLog } from '@clack/prompts';
 
 import type { ProgressEmitter } from '../types.ts';
 
 export function createClackEmitter(): ProgressEmitter {
+  let taskLogger: ReturnType<typeof taskLog> | undefined;
+
   return {
     emit: (event) => {
       const fullEvent = { ...event, timestamp: Date.now() };
 
       switch (fullEvent.type) {
         case 'started':
-          intro(fullEvent.message);
+          taskLogger = taskLog({
+            title: fullEvent.message,
+          });
           break;
         case 'log': {
           const src = fullEvent.source ? ` [${fullEvent.source}]` : '';
-          log.message(`${fullEvent.message}${src}`);
+          taskLogger?.message(`${fullEvent.message}${src}`);
           break;
         }
         case 'progress':
           if (fullEvent.data?.current && fullEvent.data?.total) {
             const pct = Math.round((fullEvent.data.current / fullEvent.data.total) * 100);
-            log.message(`${fullEvent.message} (${pct}%)`);
+            taskLogger?.message(`${fullEvent.message} (${pct}%)`);
           } else {
-            log.message(fullEvent.message);
+            taskLogger?.message(fullEvent.message);
           }
           break;
         case 'warning':
-          log.warn(fullEvent.message);
+          taskLogger?.message(`⚠️  ${fullEvent.message}`);
           break;
         case 'completed':
-          outro(fullEvent.message);
+          taskLogger?.success(fullEvent.message, { showLog: true });
           break;
         case 'error':
-          log.error(fullEvent.message);
-          outro('Failed');
+          taskLogger?.error(fullEvent.message, { showLog: true });
           break;
       }
     },
