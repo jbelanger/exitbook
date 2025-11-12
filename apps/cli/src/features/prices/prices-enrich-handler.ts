@@ -48,8 +48,8 @@ export interface PricesEnrichOptions {
   /** Filter by specific assets (e.g., ['BTC', 'ETH']) */
   asset?: string[] | undefined;
 
-  /** Enable interactive mode for manual price/FX entry */
-  interactive?: boolean | undefined;
+  /** How to handle missing prices/FX rates */
+  onMissing?: 'skip' | 'prompt' | 'fail' | 'report' | undefined;
 
   /** Only run normalization stage (FX conversion) */
   normalizeOnly?: boolean | undefined;
@@ -155,9 +155,8 @@ export class PricesEnrichHandler {
 
         // Create FX rate provider with appropriate behavior
         const standardProvider = new StandardFxRateProvider(this.priceManager);
-        const fxRateProvider: IFxRateProvider = options.interactive
-          ? new InteractiveFxRateProvider(standardProvider, true)
-          : standardProvider;
+        const fxRateProvider: IFxRateProvider =
+          options.onMissing === 'prompt' ? new InteractiveFxRateProvider(standardProvider, true) : standardProvider;
 
         const normalizeService = new PriceNormalizationService(this.transactionRepo, fxRateProvider);
         const normalizeResult = await normalizeService.normalize();
@@ -186,7 +185,7 @@ export class PricesEnrichHandler {
         const fetchHandler = new PricesFetchHandler(this.db);
         const fetchResult = await fetchHandler.execute({
           asset: options.asset,
-          interactive: options.interactive,
+          onMissing: options.onMissing,
         });
 
         if (fetchResult.isErr()) {

@@ -24,3 +24,7 @@ export { createPriceProviders, getAvailableProviderNames, createPriceProviderMan
 export type { ProviderFactoryConfig, ProviderName, PriceProviderManagerFactoryConfig } from './core/factory.js';
 // Error types
 export { CoinNotFoundError, PriceDataUnavailableError } from './core/errors.js';
+
+// Manual price entry service
+export { ManualPriceService, saveManualPrice, saveManualFxRate } from './services/manual-price-service.js';
+export type { ManualPriceEntry, ManualFxRateEntry } from './services/manual-price-service.js';

@@ -327,16 +327,16 @@ export class PricesFetchHandler {
         errorType: error.constructor.name,
         isCoinNotFoundError: error instanceof CoinNotFoundError,
         isPriceDataUnavailableError: error instanceof PriceDataUnavailableError,
-        interactiveMode: options.interactive,
+        onMissing: options.onMissing,
         errorMessage: error.message,
       },
       'Price fetch error details'
     );
 
-    // Check if this is a recoverable error and interactive mode is enabled
+    // Check if this is a recoverable error and prompt mode is enabled
     const isRecoverableError = error instanceof CoinNotFoundError || error instanceof PriceDataUnavailableError;
 
-    if (isRecoverableError && options.interactive) {
+    if (isRecoverableError && options.onMissing === 'prompt') {
       const errorReason = error instanceof CoinNotFoundError ? 'Coin not found' : 'Price data unavailable';
       logger.info(`${errorReason}: ${asset}. Prompting for manual price entry...`);
 
