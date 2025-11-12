@@ -1,5 +1,7 @@
 import type { Decimal } from 'decimal.js';
 
+import type { JurisdictionConfig } from '../domain/types.js';
+
 import type { IJurisdictionRules } from './base-rules.js';
 
 /**
@@ -10,8 +12,17 @@ import type { IJurisdictionRules } from './base-rules.js';
  * - Long-term gains (≥1 year): Preferential tax rates (0%, 15%, 20%)
  * - 100% of gains are taxable (no inclusion rate like Canada)
  * - Wash sale rules: Loss disallowed if same asset repurchased within 30 days after
+ * - Transfer fees are treated as disposals, triggering capital gains/losses
  */
 export class USRules implements IJurisdictionRules {
+  /**
+   * Jurisdiction configuration
+   */
+  private readonly config: JurisdictionConfig = {
+    code: 'US',
+    sameAssetTransferFeePolicy: 'disposal',
+  };
+
   /**
    * Long-term holding period threshold: 365 days (1 year)
    */
@@ -22,8 +33,12 @@ export class USRules implements IJurisdictionRules {
    */
   private readonly washSaleWindowDays = 30;
 
+  getConfig(): JurisdictionConfig {
+    return this.config;
+  }
+
   getJurisdiction(): string {
-    return 'US';
+    return this.config.code;
   }
 
   classifyGain(holdingPeriodDays: number): string {

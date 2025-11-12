@@ -1,5 +1,7 @@
 import type { Decimal } from 'decimal.js';
 
+import type { JurisdictionConfig } from '../domain/types.js';
+
 import type { IJurisdictionRules } from './base-rules.js';
 
 /**
@@ -9,8 +11,17 @@ import type { IJurisdictionRules } from './base-rules.js';
  * - 50% capital gains inclusion rate (only 50% of gains are taxable)
  * - No distinction between short-term and long-term gains
  * - Superficial loss rules: Loss disallowed if same asset repurchased within 30 days before OR after
+ * - Transfer fees can be added to adjusted cost base (ACB), deferring taxation
  */
 export class CanadaRules implements IJurisdictionRules {
+  /**
+   * Jurisdiction configuration
+   */
+  private readonly config: JurisdictionConfig = {
+    code: 'CA',
+    sameAssetTransferFeePolicy: 'add-to-basis',
+  };
+
   /**
    * Capital gains inclusion rate (50% as of 2024)
    */
@@ -21,8 +32,12 @@ export class CanadaRules implements IJurisdictionRules {
    */
   private readonly superficialLossWindowDays = 30;
 
+  getConfig(): JurisdictionConfig {
+    return this.config;
+  }
+
   getJurisdiction(): string {
-    return 'CA';
+    return this.config.code;
   }
 
   classifyGain(_holdingPeriodDays: number): undefined {

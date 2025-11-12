@@ -1,5 +1,7 @@
 import type { Decimal } from 'decimal.js';
 
+import type { JurisdictionConfig } from '../domain/types.js';
+
 /**
  * Jurisdiction-specific tax rules interface
  *
@@ -8,8 +10,14 @@ import type { Decimal } from 'decimal.js';
  * - Taxable gain calculation (e.g., 50% inclusion rate in Canada, 100% in US)
  * - Loss disallowance rules (e.g., superficial loss in Canada, wash sale in US)
  * - Holding period thresholds
+ * - Transfer fee policy (e.g., disposal vs add-to-basis)
  */
 export interface IJurisdictionRules {
+  /**
+   * Get the full jurisdiction configuration including code and policies
+   */
+  getConfig(): JurisdictionConfig;
+
   /**
    * Get the jurisdiction code
    */
