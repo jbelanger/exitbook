@@ -14,15 +14,13 @@ import {
   TransactionProcessService,
 } from '@exitbook/ingestion';
 import type { ImportParams } from '@exitbook/ingestion';
-import { getLogger } from '@exitbook/logger';
+import { progress } from '@exitbook/ui';
 import { err, ok, type Result } from 'neverthrow';
 
 import { validateImportParams } from './import-utils.js';
 
 // Initialize all providers at startup
 initializeProviders();
-
-const logger = getLogger('ImportHandler');
 
 /**
  * Parameters for the import handler.
@@ -120,8 +118,6 @@ export class ImportHandler {
         return err(validation.error);
       }
 
-      logger.info(`Starting data import from ${params.sourceName} (${params.sourceType})`);
-
       // Build import params
       const importParams: ImportParams = {};
       if (params.sourceType === 'exchange') {
@@ -142,6 +138,8 @@ export class ImportHandler {
         importParams.providerName = params.providerName;
       }
 
+      progress.start(`Importing from ${params.sourceName}`);
+
       // Import raw data
       const importResult = await this.importService.importFromSource(
         params.sourceName,
@@ -154,8 +152,6 @@ export class ImportHandler {
       }
 
       const importData = importResult.value;
-      logger.info(`Import completed: ${importData.imported} items imported`);
-      logger.info(`Session ID: ${importData.dataSourceId}`);
 
       const result: ImportResult = {
         dataSourceId: importData.dataSourceId,
@@ -164,8 +160,7 @@ export class ImportHandler {
 
       // Process data if requested
       if (params.shouldProcess) {
-        logger.info('Processing imported data to universal format');
-
+        progress.update(`Processing ${importData.imported} transactions...`);
         const processResult = await this.processService.processRawDataToTransactions(
           params.sourceName,
           params.sourceType,
@@ -180,13 +175,9 @@ export class ImportHandler {
 
         result.processed = processResult.value.processed;
         result.processingErrors = processResult.value.errors;
-
-        if (processResult.value.errors.length > 0) {
-          logger.warn(`Processing completed with ${processResult.value.errors.length} errors`);
-        } else {
-          logger.info(`Processing completed: ${processResult.value.processed} transactions processed`);
-        }
       }
+
+      progress.complete('Complete');
 
       return ok(result);
     } catch (error) {
