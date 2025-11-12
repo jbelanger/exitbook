@@ -226,23 +226,31 @@ describe('PricesEnrichHandler', () => {
       expect(options.asset).toEqual(['BTC', 'ETH']);
     });
 
-    it('should accept interactive mode option', () => {
+    it('should accept onMissing option with prompt value', () => {
       const options: PricesEnrichOptions = {
-        interactive: true,
+        onMissing: 'prompt',
       };
 
-      expect(options.interactive).toBe(true);
+      expect(options.onMissing).toBe('prompt');
+    });
+
+    it('should accept onMissing option with fail value', () => {
+      const options: PricesEnrichOptions = {
+        onMissing: 'fail',
+      };
+
+      expect(options.onMissing).toBe('fail');
     });
 
     it('should accept combinations of options', () => {
       const options: PricesEnrichOptions = {
         asset: ['BTC'],
-        interactive: true,
+        onMissing: 'prompt',
         normalizeOnly: true,
       };
 
       expect(options.asset).toEqual(['BTC']);
-      expect(options.interactive).toBe(true);
+      expect(options.onMissing).toBe('prompt');
       expect(options.normalizeOnly).toBe(true);
     });
   });

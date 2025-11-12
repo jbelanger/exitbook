@@ -1,6 +1,7 @@
 // Imperative shell for prices command
 // Manages resources (database, price providers) and orchestrates business logic
 
+import type { UniversalTransaction } from '@exitbook/core';
 import { Currency } from '@exitbook/core';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
@@ -10,7 +11,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import { promptManualPrice } from './prices-prompts.js';
-import type { PricesFetchCommandOptions, PricesFetchResult } from './prices-utils.js';
+import type { PriceFetchStats, PricesFetchCommandOptions, PricesFetchResult } from './prices-utils.js';
 import {
   createDefaultPriceProviderManager,
   createPriceQuery,
@@ -169,6 +170,11 @@ export class PricesFetchHandler {
             }
             consecutiveFailures++;
             txHadFailure = true;
+
+            // In fail mode, abort immediately with helpful report
+            if (options.onMissing === 'fail') {
+              return this.buildAbortReport(asset, tx, stats);
+            }
           }
 
           continue;
@@ -297,6 +303,46 @@ export class PricesFetchHandler {
   }
 
   /**
+   * Build abort report when missing price is encountered in fail mode
+   */
+  private buildAbortReport(
+    asset: string,
+    tx: UniversalTransaction,
+    stats: PriceFetchStats
+  ): Result<PricesFetchResult, Error> {
+    const errorMessage = [
+      `Price enrichment aborted: missing price for ${asset}`,
+      '',
+      'Missing Price Details:',
+      `  Asset: ${asset}`,
+      `  Transaction ID: ${tx.id}`,
+      `  Transaction Date: ${tx.datetime}`,
+      `  Source: ${tx.source}`,
+      '',
+      'Suggested Actions:',
+      `  1. Manually set price for this asset:`,
+      `     pnpm run dev prices set --asset ${asset} --date "${tx.datetime}" --price <amount> --currency USD`,
+      '',
+      `  2. Use interactive mode to enter prices as you go:`,
+      `     pnpm run dev prices enrich --on-missing prompt --asset ${asset}`,
+      '',
+      `  3. View all transactions needing prices for this asset:`,
+      `     pnpm run dev prices view --asset ${asset} --missing-only`,
+      '',
+      `  4. View this specific transaction:`,
+      `     pnpm run dev transactions view --id ${tx.id}`,
+      '',
+      'Progress Before Abort:',
+      `  Transactions processed: ${stats.movementsUpdated}/${stats.transactionsFound}`,
+      `  Prices fetched: ${stats.pricesFetched}`,
+      `  Manual entries: ${stats.manualEntries}`,
+      `  Failures: ${stats.failures}`,
+    ].join('\n');
+
+    return err(new Error(errorMessage));
+  }
+
+  /**
    * Handle price fetch error with optional interactive prompt
    *
    * Pure-ish function - performs logging and I/O but doesn't mutate instance state.
@@ -327,16 +373,16 @@ export class PricesFetchHandler {
         errorType: error.constructor.name,
         isCoinNotFoundError: error instanceof CoinNotFoundError,
         isPriceDataUnavailableError: error instanceof PriceDataUnavailableError,
-        interactiveMode: options.interactive,
+        onMissing: options.onMissing,
         errorMessage: error.message,
       },
       'Price fetch error details'
     );
 
-    // Check if this is a recoverable error and interactive mode is enabled
+    // Check if this is a recoverable error and prompt mode is enabled
     const isRecoverableError = error instanceof CoinNotFoundError || error instanceof PriceDataUnavailableError;
 
-    if (isRecoverableError && options.interactive) {
+    if (isRecoverableError && options.onMissing === 'prompt') {
       const errorReason = error instanceof CoinNotFoundError ? 'Coin not found' : 'Price data unavailable';
       logger.info(`${errorReason}: ${asset}. Prompting for manual price entry...`);
 

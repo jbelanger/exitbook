@@ -12,8 +12,8 @@ import { err, ok, type Result } from 'neverthrow';
 export interface PricesFetchCommandOptions {
   /** Optional asset filter (e.g., 'BTC', 'ETH') */
   asset?: string | string[] | undefined;
-  /** Enable interactive mode for manual price entry */
-  interactive?: boolean | undefined;
+  /** How to handle missing prices/FX rates */
+  onMissing?: 'prompt' | 'fail' | undefined;
 }
 
 /**

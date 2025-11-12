@@ -23,6 +23,7 @@ import type { PricesEnrichOptions, PricesEnrichResult } from './prices-enrich-ha
  */
 export interface ExtendedPricesEnrichCommandOptions extends PricesEnrichOptions {
   json?: boolean | undefined;
+  onMissing?: 'prompt' | 'fail' | undefined;
 }
 
 /**
@@ -75,7 +76,11 @@ export function registerPricesEnrichCommand(pricesCommand: Command): void {
     .command('enrich')
     .description('Enrich prices via derive → fetch → normalize pipeline')
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH). Can be specified multiple times.', collect, [])
-    .option('--interactive', 'Enable interactive mode for manual entry when prices/FX rates unavailable')
+    .option(
+      '--on-missing <behavior>',
+      'How to handle missing prices: prompt (interactive manual entry), fail (abort with report and suggested commands)',
+      'fail'
+    )
     .option('--normalize-only', 'Only run normalization stage (FX conversion)')
     .option('--derive-only', 'Only run derivation stage (extract from USD trades)')
     .option('--fetch-only', 'Only run fetch stage (external providers)')
@@ -99,17 +104,29 @@ async function executePricesEnrichCommand(options: ExtendedPricesEnrichCommandOp
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
+    // Validate onMissing option
+    const validBehaviors = ['prompt', 'fail'] as const;
+    const onMissing: 'prompt' | 'fail' = options.onMissing || 'fail';
+    if (!validBehaviors.includes(onMissing)) {
+      output.error(
+        'prices-enrich',
+        new Error(`Invalid --on-missing value: ${onMissing}. Must be one of: ${validBehaviors.join(', ')}`),
+        ExitCodes.GENERAL_ERROR
+      );
+      return;
+    }
+
     // Build params from options
     const params: PricesEnrichOptions = {
       asset: options.asset,
-      interactive: options.interactive,
+      onMissing,
       normalizeOnly: options.normalizeOnly,
       deriveOnly: options.deriveOnly,
       fetchOnly: options.fetchOnly,
     };
 
-    // Don't use spinner in interactive mode (conflicts with prompts)
-    const spinner = options.interactive ? undefined : output.spinner();
+    // Don't use spinner in prompt mode (conflicts with prompts)
+    const spinner = onMissing === 'prompt' ? undefined : output.spinner();
     spinner?.start('Running price enrichment pipeline...');
 
     // Configure logger to route logs to spinner

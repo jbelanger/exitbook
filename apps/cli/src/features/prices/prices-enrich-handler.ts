@@ -48,8 +48,8 @@ export interface PricesEnrichOptions {
   /** Filter by specific assets (e.g., ['BTC', 'ETH']) */
   asset?: string[] | undefined;
 
-  /** Enable interactive mode for manual price/FX entry */
-  interactive?: boolean | undefined;
+  /** How to handle missing prices/FX rates */
+  onMissing?: 'prompt' | 'fail' | undefined;
 
   /** Only run normalization stage (FX conversion) */
   normalizeOnly?: boolean | undefined;
@@ -155,9 +155,8 @@ export class PricesEnrichHandler {
 
         // Create FX rate provider with appropriate behavior
         const standardProvider = new StandardFxRateProvider(this.priceManager);
-        const fxRateProvider: IFxRateProvider = options.interactive
-          ? new InteractiveFxRateProvider(standardProvider, true)
-          : standardProvider;
+        const fxRateProvider: IFxRateProvider =
+          options.onMissing === 'prompt' ? new InteractiveFxRateProvider(standardProvider, true) : standardProvider;
 
         const normalizeService = new PriceNormalizationService(this.transactionRepo, fxRateProvider);
         const normalizeResult = await normalizeService.normalize();
@@ -177,6 +176,34 @@ export class PricesEnrichHandler {
           },
           'Stage 2 (normalize) completed'
         );
+
+        // In fail mode, abort if there were any FX rate failures
+        if (options.onMissing === 'fail' && result.normalize.failures > 0) {
+          const errorMessage = [
+            `Price enrichment aborted: ${result.normalize.failures} FX rate conversion failure(s) in normalization stage`,
+            '',
+            'Failed Conversions:',
+            ...result.normalize.errors.slice(0, 5).map((err) => `  - ${err}`),
+            ...(result.normalize.errors.length > 5 ? [`  ... and ${result.normalize.errors.length - 5} more`] : []),
+            '',
+            'Suggested Actions:',
+            '  1. Manually set missing FX rates:',
+            '     pnpm run dev prices set-fx --from <currency> --to USD --date <datetime> --rate <value>',
+            '',
+            '  2. Use interactive mode to enter FX rates as you go:',
+            '     pnpm run dev prices enrich --on-missing prompt',
+            '',
+            '  3. View transactions with missing prices:',
+            '     pnpm run dev prices view --missing-only',
+            '',
+            'Progress Before Abort:',
+            `  Movements normalized: ${result.normalize.movementsNormalized}`,
+            `  Movements skipped: ${result.normalize.movementsSkipped}`,
+            `  Failures: ${result.normalize.failures}`,
+          ].join('\n');
+
+          return err(new Error(errorMessage));
+        }
       }
 
       // Stage 3: Fetch (external providers for remaining crypto prices)
@@ -186,7 +213,7 @@ export class PricesEnrichHandler {
         const fetchHandler = new PricesFetchHandler(this.db);
         const fetchResult = await fetchHandler.execute({
           asset: options.asset,
-          interactive: options.interactive,
+          onMissing: options.onMissing,
         });
 
         if (fetchResult.isErr()) {
