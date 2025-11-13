@@ -31,7 +31,7 @@ function createLot(
   return {
     id,
     calculationId: 'calc-1',
-    asset,
+    asset: Currency.create(asset),
     acquisitionDate,
     quantity: new Decimal(quantity),
     costBasisPerUnit: new Decimal(costBasisPerUnit),
@@ -258,7 +258,7 @@ describe('aggregateAssetGainLoss', () => {
   it('aggregates single disposal correctly', () => {
     const disposal = {
       disposalId: 'd1',
-      asset: Currency.create('BTC'),
+      asset: 'BTC',
       disposalDate: new Date('2023-06-15'),
       acquisitionDate: new Date('2023-03-07'),
       holdingPeriodDays: 100,
@@ -293,7 +293,7 @@ describe('aggregateAssetGainLoss', () => {
   it('aggregates multiple disposals correctly', () => {
     const disposal1 = {
       disposalId: 'd1',
-      asset: Currency.create('BTC'),
+      asset: 'BTC',
       disposalDate: new Date('2023-06-15'),
       acquisitionDate: new Date('2023-03-07'),
       holdingPeriodDays: 100,
@@ -308,7 +308,7 @@ describe('aggregateAssetGainLoss', () => {
 
     const disposal2 = {
       disposalId: 'd2',
-      asset: Currency.create('BTC'),
+      asset: 'BTC',
       disposalDate: new Date('2024-01-15'),
       acquisitionDate: new Date('2023-03-07'),
       holdingPeriodDays: 365,
@@ -365,7 +365,7 @@ describe('aggregateAssetGainLoss', () => {
   it('aggregates disposals with same category correctly', () => {
     const disposal1 = {
       disposalId: 'd1',
-      asset: Currency.create('ETH'),
+      asset: 'ETH',
       disposalDate: new Date('2023-06-15'),
       acquisitionDate: new Date('2023-05-01'),
       holdingPeriodDays: 45,
@@ -380,7 +380,7 @@ describe('aggregateAssetGainLoss', () => {
 
     const disposal2 = {
       disposalId: 'd2',
-      asset: Currency.create('ETH'),
+      asset: 'ETH',
       disposalDate: new Date('2023-07-01'),
       acquisitionDate: new Date('2023-05-15'),
       holdingPeriodDays: 47,
@@ -409,7 +409,7 @@ describe('aggregateAssetGainLoss', () => {
   it('handles undefined tax treatment category', () => {
     const disposal = {
       disposalId: 'd1',
-      asset: Currency.create('BTC'),
+      asset: 'BTC',
       disposalDate: new Date('2023-06-15'),
       acquisitionDate: new Date('2023-03-07'),
       holdingPeriodDays: 100,
@@ -439,7 +439,7 @@ describe('aggregateAssetGainLoss', () => {
 describe('aggregateOverallGainLoss', () => {
   it('aggregates single asset correctly', () => {
     const btcSummary = {
-      asset: Currency.create('BTC'),
+      asset: 'BTC',
       totalProceeds: new Decimal('100000'),
       totalCostBasis: new Decimal('80000'),
       totalCapitalGainLoss: new Decimal('20000'),
@@ -468,7 +468,7 @@ describe('aggregateOverallGainLoss', () => {
 
   it('aggregates multiple assets correctly', () => {
     const btcSummary = {
-      asset: Currency.create('BTC'),
+      asset: 'BTC',
       totalProceeds: new Decimal('100000'),
       totalCostBasis: new Decimal('80000'),
       totalCapitalGainLoss: new Decimal('20000'),
@@ -479,7 +479,7 @@ describe('aggregateOverallGainLoss', () => {
     };
 
     const ethSummary = {
-      asset: Currency.create('ETH'),
+      asset: 'ETH',
       totalProceeds: new Decimal('50000'),
       totalCostBasis: new Decimal('45000'),
       totalCapitalGainLoss: new Decimal('5000'),
@@ -526,7 +526,7 @@ describe('aggregateOverallGainLoss', () => {
 
   it('includes disallowed loss count', () => {
     const btcSummary = {
-      asset: Currency.create('BTC'),
+      asset: 'BTC',
       totalProceeds: new Decimal('100000'),
       totalCostBasis: new Decimal('120000'),
       totalCapitalGainLoss: new Decimal('-20000'),
@@ -556,7 +556,7 @@ describe('calculateGainLoss', () => {
     const disposal = createDisposal('d1', 'lot1', 'BTC', new Date('2023-06-15'), '1.0', '50000', '40000', 100);
 
     const assetResult: AssetLotMatchResult = {
-      asset: Currency.create('BTC'),
+      asset: 'BTC',
       lots: [lot],
       disposals: [disposal],
       lotTransfers: [],
@@ -577,7 +577,7 @@ describe('calculateGainLoss', () => {
 
   it('skips assets with no lots and no disposals', () => {
     const assetResult: AssetLotMatchResult = {
-      asset: Currency.create('USD'),
+      asset: 'USD',
       lots: [],
       disposals: [],
       lotTransfers: [],
@@ -606,7 +606,7 @@ describe('calculateGainLoss', () => {
     );
 
     const assetResult: AssetLotMatchResult = {
-      asset: Currency.create('BTC'),
+      asset: 'BTC',
       lots: [],
       disposals: [disposal],
       lotTransfers: [],
@@ -629,7 +629,7 @@ describe('calculateGainLoss', () => {
     const disposal = createDisposal('d1', 'lot1', 'BTC', new Date('2023-06-15'), '1.0', '50000', '40000', 100);
 
     const assetResult: AssetLotMatchResult = {
-      asset: Currency.create('BTC'),
+      asset: 'BTC',
       lots: [lot],
       disposals: [disposal],
       lotTransfers: [],
@@ -665,7 +665,7 @@ describe('calculateGainLoss', () => {
     const lot2 = createLot('lot2', 'BTC', new Date('2023-06-20'), '1.0', '35000');
 
     const assetResult: AssetLotMatchResult = {
-      asset: Currency.create('BTC'),
+      asset: 'BTC',
       lots: [lot1, lot2],
       disposals: [disposal],
       lotTransfers: [],
@@ -692,8 +692,8 @@ describe('calculateGainLoss', () => {
     const ethDisposal = createDisposal('d2', 'lot2', 'ETH', new Date('2023-07-01'), '5.0', '2500', '2000', 91);
 
     const assetResults: AssetLotMatchResult[] = [
-      { asset: Currency.create('BTC'), lots: [btcLot], disposals: [btcDisposal], lotTransfers: [] },
-      { asset: Currency.create('ETH'), lots: [ethLot], disposals: [ethDisposal], lotTransfers: [] },
+      { asset: 'BTC', lots: [btcLot], disposals: [btcDisposal], lotTransfers: [] },
+      { asset: 'ETH', lots: [ethLot], disposals: [ethDisposal], lotTransfers: [] },
     ];
 
     const result = calculateGainLoss(assetResults, rules);
@@ -710,7 +710,7 @@ describe('calculateGainLoss', () => {
 
   it('handles fiat-only transactions (no crypto assets)', () => {
     const assetResult: AssetLotMatchResult = {
-      asset: Currency.create('USD'),
+      asset: 'USD',
       lots: [],
       disposals: [],
       lotTransfers: [],

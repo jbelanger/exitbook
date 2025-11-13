@@ -12,7 +12,7 @@ describe('calculateGainLoss', () => {
     it('should calculate basic capital gains', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
-          asset: Currency.create('BTC'),
+          asset: 'BTC',
           lots: [
             {
               id: 'lot-1',
@@ -69,7 +69,7 @@ describe('calculateGainLoss', () => {
     it('should apply Canada 50% inclusion rate', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
-          asset: Currency.create('ETH'),
+          asset: 'ETH',
           lots: [
             {
               id: 'lot-1',
@@ -120,7 +120,7 @@ describe('calculateGainLoss', () => {
     it('should classify short-term vs long-term gains for US', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
-          asset: Currency.create('BTC'),
+          asset: 'BTC',
           lots: [
             {
               id: 'lot-1',
@@ -210,7 +210,7 @@ describe('calculateGainLoss', () => {
     it('should handle capital losses', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
-          asset: Currency.create('BTC'),
+          asset: 'BTC',
           lots: [
             {
               id: 'lot-1',
@@ -265,7 +265,7 @@ describe('calculateGainLoss', () => {
 
       const assetResults: AssetLotMatchResult[] = [
         {
-          asset: Currency.create('BTC'),
+          asset: 'BTC',
           lots: [
             {
               id: 'lot-1',
@@ -335,7 +335,7 @@ describe('calculateGainLoss', () => {
     it('should handle multiple assets', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
-          asset: Currency.create('BTC'),
+          asset: 'BTC',
           lots: [
             {
               id: 'lot-1',
@@ -372,7 +372,7 @@ describe('calculateGainLoss', () => {
           ],
         },
         {
-          asset: Currency.create('ETH'),
+          asset: 'ETH',
           lots: [
             {
               id: 'lot-2',
@@ -430,7 +430,7 @@ describe('calculateGainLoss', () => {
     it('should handle assets with only acquisitions (no disposals)', () => {
       const assetResults: AssetLotMatchResult[] = [
         {
-          asset: Currency.create('BTC'),
+          asset: 'BTC',
           lots: [
             {
               id: 'lot-1',
@@ -496,7 +496,7 @@ describe('calculateGainLoss', () => {
 
       const assetResults: AssetLotMatchResult[] = [
         {
-          asset: Currency.create('BTC'),
+          asset: 'BTC',
           lots: [
             {
               id: 'lot-1',
@@ -560,7 +560,7 @@ describe('calculateGainLoss', () => {
 
       const assetResults: AssetLotMatchResult[] = [
         {
-          asset: Currency.create('BTC'),
+          asset: 'BTC',
           lots: [
             {
               id: 'lot-old',
@@ -634,7 +634,7 @@ describe('calculateGainLoss', () => {
 
       const assetResults: AssetLotMatchResult[] = [
         {
-          asset: Currency.create('BTC'),
+          asset: 'BTC',
           lots: [
             {
               id: 'lot-1',
@@ -712,7 +712,7 @@ describe('calculateGainLoss', () => {
 
       const assetResults: AssetLotMatchResult[] = [
         {
-          asset: Currency.create('BTC'),
+          asset: 'BTC',
           lots: [
             {
               id: 'lot-1',
@@ -790,7 +790,7 @@ describe('calculateGainLoss', () => {
 
       const assetResults: AssetLotMatchResult[] = [
         {
-          asset: Currency.create('BTC'),
+          asset: 'BTC',
           lots: [
             {
               id: 'lot-1',

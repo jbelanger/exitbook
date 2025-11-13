@@ -74,7 +74,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     const movement: FeeMovement = {
       scope,
       settlement,
-      asset,
+      asset: Currency.create(asset),
       amount: new Decimal(amount),
     };
 

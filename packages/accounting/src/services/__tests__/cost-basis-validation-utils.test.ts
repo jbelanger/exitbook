@@ -72,21 +72,21 @@ describe('cost-basis-validation-utils', () => {
       expect(entities).toHaveLength(3);
       expect(entities[0]).toMatchObject({
         transactionId: '1',
-        asset: Currency.create('BTC'),
+        asset: 'BTC',
         kind: 'inflow',
         hasPrice: true,
         currency: 'USD',
       });
       expect(entities[1]).toMatchObject({
         transactionId: '1',
-        asset: Currency.create('USD'),
+        asset: 'USD',
         kind: 'outflow',
         hasPrice: true,
         currency: 'USD',
       });
       expect(entities[2]).toMatchObject({
         transactionId: '1',
-        asset: Currency.create('USD'),
+        asset: 'USD',
         kind: 'fee',
         hasPrice: true,
         currency: 'USD',
@@ -210,7 +210,7 @@ describe('cost-basis-validation-utils', () => {
       expect(issues).toHaveLength(1);
       expect(issues[0]).toMatchObject({
         issueType: 'missing_price',
-        entity: { asset: Currency.create('BTC'), kind: 'inflow' },
+        entity: { asset: 'BTC', kind: 'inflow' },
       });
     });
 
@@ -288,7 +288,7 @@ describe('cost-basis-validation-utils', () => {
       expect(issues).toHaveLength(1);
       expect(issues[0]).toMatchObject({
         issueType: 'non_usd_currency',
-        entity: { asset: Currency.create('BTC'), currency: 'EUR', kind: 'inflow' },
+        entity: { asset: 'BTC', currency: 'EUR', kind: 'inflow' },
       });
     });
 
@@ -405,7 +405,7 @@ describe('cost-basis-validation-utils', () => {
       expect(issues).toHaveLength(1);
       expect(issues[0]).toMatchObject({
         issueType: 'missing_fx_trail',
-        entity: { asset: Currency.create('BTC'), kind: 'inflow' },
+        entity: { asset: 'BTC', kind: 'inflow' },
       });
     });
 
@@ -495,7 +495,7 @@ describe('cost-basis-validation-utils', () => {
             entity: {
               transactionId: '1',
               datetime: '2024-01-15T10:00:00Z',
-              asset: Currency.create('BTC'),
+              asset: 'BTC',
               currency: undefined,
               kind: 'inflow',
               hasPrice: false,
@@ -508,7 +508,7 @@ describe('cost-basis-validation-utils', () => {
             entity: {
               transactionId: '2',
               datetime: '2024-01-16T10:00:00Z',
-              asset: Currency.create('ETH'),
+              asset: 'ETH',
               currency: 'EUR',
               kind: 'outflow',
               hasPrice: true,
@@ -553,7 +553,7 @@ describe('cost-basis-validation-utils', () => {
             entity: {
               transactionId: '1',
               datetime: '2024-01-15T10:00:00Z',
-              asset: Currency.create('BTC'),
+              asset: 'BTC',
               currency: 'USD',
               kind: 'inflow',
               hasPrice: true,

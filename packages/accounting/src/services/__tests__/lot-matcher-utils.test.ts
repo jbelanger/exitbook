@@ -50,7 +50,7 @@ function createMockTransaction(
 
 function createMovement(asset: string, amount: string, priceAmount?: string, priceCurrency = 'USD'): AssetMovement {
   const movement: AssetMovement = {
-    asset,
+    asset: Currency.create(asset),
     grossAmount: new Decimal(amount),
   };
 
@@ -79,7 +79,7 @@ function createFeeMovement(
   const movement: FeeMovement = {
     scope,
     settlement,
-    asset,
+    asset: Currency.create(asset),
     amount: new Decimal(amount),
   };
 
@@ -674,7 +674,7 @@ describe('lot-matcher-utils', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const lot = result.value;
-        expect(lot.asset).toBe('BTC');
+        expect(lot.asset.toString()).toBe('BTC');
         expect(lot.quantity.toFixed()).toBe('1');
         // Cost basis = (1 * 50000 + 100) / 1 = 50100
         expect(lot.costBasisPerUnit.toFixed()).toBe('50100');

@@ -26,7 +26,7 @@ function createFeeMovement(
   const movement: FeeMovement = {
     scope,
     settlement,
-    asset,
+    asset: Currency.create(asset),
     amount: new Decimal(amount),
   };
 

@@ -895,12 +895,12 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'TOKEN_A',
+                asset: Currency.create('TOKEN_A'),
                 grossAmount: parseDecimal('100'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value
               },
               {
-                asset: 'TOKEN_B',
+                asset: Currency.create('TOKEN_B'),
                 grossAmount: parseDecimal('50'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value
               },
