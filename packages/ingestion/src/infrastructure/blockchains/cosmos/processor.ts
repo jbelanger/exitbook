@@ -1,6 +1,6 @@
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/blockchain-providers';
 import type { UniversalTransaction } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
@@ -86,7 +86,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
             inflows: fundFlow.inflows.map((inflow) => {
               const amount = parseDecimal(inflow.amount);
               return {
-                asset: inflow.asset,
+                asset: Currency.create(inflow.asset),
                 grossAmount: amount,
                 netAmount: amount,
               };
@@ -94,7 +94,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
             outflows: fundFlow.outflows.map((outflow) => {
               const amount = parseDecimal(outflow.amount);
               return {
-                asset: outflow.asset,
+                asset: Currency.create(outflow.asset),
                 grossAmount: amount,
                 netAmount: amount,
               };
@@ -106,7 +106,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
             userPaidFee && !parseDecimal(fundFlow.feeAmount).isZero()
               ? [
                   {
-                    asset: fundFlow.feeCurrency,
+                    asset: Currency.create(fundFlow.feeCurrency),
                     amount: parseDecimal(fundFlow.feeAmount),
                     scope: 'network',
                     settlement: 'balance',

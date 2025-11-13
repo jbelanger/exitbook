@@ -34,7 +34,7 @@ describe('calculateBalances', () => {
       movements: {
         inflows: [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('1.5'),
             netAmount: parseDecimal('1.5'),
           },
@@ -57,7 +57,7 @@ describe('calculateBalances', () => {
         inflows: [],
         outflows: [
           {
-            asset: 'ETH',
+            asset: Currency.create('ETH'),
             grossAmount: parseDecimal('2.0'),
             netAmount: parseDecimal('2.0'),
           },
@@ -82,13 +82,15 @@ describe('calculateBalances', () => {
       movements: {
         outflows: [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('0.5001'), // Includes the 0.0001 fee
             netAmount: parseDecimal('0.5'), // What actually transferred
           },
         ],
       },
-      fees: [{ asset: 'BTC', amount: parseDecimal('0.0001'), scope: 'network', settlement: 'on-chain' }],
+      fees: [
+        { asset: Currency.create('BTC'), amount: parseDecimal('0.0001'), scope: 'network', settlement: 'on-chain' },
+      ],
     });
 
     const result = calculateBalances([transaction]);
@@ -104,20 +106,22 @@ describe('calculateBalances', () => {
       movements: {
         inflows: [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
           },
         ],
         outflows: [
           {
-            asset: 'USDT',
+            asset: Currency.create('USDT'),
             grossAmount: parseDecimal('50000'),
             netAmount: parseDecimal('50000'),
           },
         ],
       },
-      fees: [{ asset: 'BTC', amount: parseDecimal('0.001'), scope: 'platform', settlement: 'balance' }],
+      fees: [
+        { asset: Currency.create('BTC'), amount: parseDecimal('0.001'), scope: 'platform', settlement: 'balance' },
+      ],
     });
 
     const result = calculateBalances([transaction]);
@@ -139,15 +143,15 @@ describe('calculateBalances', () => {
       movements: {
         outflows: [
           {
-            asset: 'ETH',
+            asset: Currency.create('ETH'),
             grossAmount: parseDecimal('5.0'), // Recipient receives full amount
             netAmount: parseDecimal('5.0'), // Same as gross for account-based chains
           },
         ],
       },
       fees: [
-        { asset: 'ETH', amount: parseDecimal('0.005'), scope: 'network', settlement: 'balance' },
-        { asset: 'ETH', amount: parseDecimal('0.001'), scope: 'platform', settlement: 'balance' },
+        { asset: Currency.create('ETH'), amount: parseDecimal('0.005'), scope: 'network', settlement: 'balance' },
+        { asset: Currency.create('ETH'), amount: parseDecimal('0.001'), scope: 'platform', settlement: 'balance' },
       ],
     });
 
@@ -166,7 +170,7 @@ describe('calculateBalances', () => {
         movements: {
           inflows: [
             {
-              asset: 'BTC',
+              asset: Currency.create('BTC'),
               grossAmount: parseDecimal('1.0'),
               netAmount: parseDecimal('1.0'),
             },
@@ -180,7 +184,7 @@ describe('calculateBalances', () => {
         movements: {
           inflows: [
             {
-              asset: 'BTC',
+              asset: Currency.create('BTC'),
               grossAmount: parseDecimal('0.5'),
               netAmount: parseDecimal('0.5'),
             },
@@ -194,13 +198,15 @@ describe('calculateBalances', () => {
         movements: {
           outflows: [
             {
-              asset: 'BTC',
+              asset: Currency.create('BTC'),
               grossAmount: parseDecimal('0.3'),
               netAmount: parseDecimal('0.3'),
             },
           ],
         },
-        fees: [{ asset: 'BTC', amount: parseDecimal('0.001'), scope: 'platform', settlement: 'balance' }],
+        fees: [
+          { asset: Currency.create('BTC'), amount: parseDecimal('0.001'), scope: 'platform', settlement: 'balance' },
+        ],
       }),
     ];
 
@@ -217,20 +223,20 @@ describe('calculateBalances', () => {
       movements: {
         inflows: [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('0.5'),
             netAmount: parseDecimal('0.5'),
           },
         ],
         outflows: [
           {
-            asset: 'USDT',
+            asset: Currency.create('USDT'),
             grossAmount: parseDecimal('25000'),
             netAmount: parseDecimal('25000'),
           },
         ],
       },
-      fees: [{ asset: 'USDT', amount: parseDecimal('10'), scope: 'platform', settlement: 'balance' }],
+      fees: [{ asset: Currency.create('USDT'), amount: parseDecimal('10'), scope: 'platform', settlement: 'balance' }],
     });
 
     const result = calculateBalances([transaction]);
@@ -261,7 +267,7 @@ describe('calculateBalances', () => {
       movements: {
         inflows: [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('0.00000001'),
             netAmount: parseDecimal('0.00000001'),
           },
@@ -282,7 +288,7 @@ describe('calculateBalances', () => {
       movements: {
         inflows: [
           {
-            asset: 'SHIB',
+            asset: Currency.create('SHIB'),
             grossAmount: parseDecimal('1000000000000'),
             netAmount: parseDecimal('1000000000000'),
           },
@@ -303,12 +309,12 @@ describe('calculateBalances', () => {
       movements: {
         inflows: [
           {
-            asset: 'ETH',
+            asset: Currency.create('ETH'),
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
           },
           {
-            asset: 'ETH',
+            asset: Currency.create('ETH'),
             grossAmount: parseDecimal('2.5'),
             netAmount: parseDecimal('2.5'),
           },
@@ -331,7 +337,7 @@ describe('calculateBalances', () => {
         movements: {
           inflows: [
             {
-              asset: 'BTC',
+              asset: Currency.create('BTC'),
               grossAmount: parseDecimal('1.0'),
               netAmount: parseDecimal('1.0'),
             },

@@ -1,5 +1,5 @@
 import type { BitcoinChainConfig, BitcoinTransaction } from '@exitbook/blockchain-providers';
-import { parseDecimal } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
@@ -110,7 +110,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             outflows: hasOutflow
               ? [
                   {
-                    asset: this.chainConfig.nativeCurrency,
+                    asset: Currency.create(this.chainConfig.nativeCurrency),
                     grossAmount: grossOutflowAmount,
                     netAmount: netOutflowAmount,
                   },
@@ -119,7 +119,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             inflows: includeWalletOutputAsInflow
               ? [
                   {
-                    asset: this.chainConfig.nativeCurrency,
+                    asset: Currency.create(this.chainConfig.nativeCurrency),
                     grossAmount: walletOutputAmount,
                     netAmount: walletOutputAmount,
                   },
@@ -131,7 +131,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             userPaidFee && !feeAmount.isZero()
               ? [
                   {
-                    asset: normalizedTx.feeCurrency || this.chainConfig.nativeCurrency,
+                    asset: Currency.create(normalizedTx.feeCurrency || this.chainConfig.nativeCurrency),
                     amount: feeAmount,
                     scope: 'network',
                     settlement: 'on-chain',

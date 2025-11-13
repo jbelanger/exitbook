@@ -59,7 +59,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.asset).toBe('SOL');
+    expect(transaction.movements.inflows![0]?.asset.toString()).toBe('SOL');
     expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('1');
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.operation.category).toBe('transfer');
@@ -104,7 +104,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
     // Check structured fields
     expect(transaction.movements.inflows).toHaveLength(0);
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('SOL');
+    expect(transaction.movements.outflows![0]?.asset.toString()).toBe('SOL');
     expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('2');
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
@@ -421,11 +421,11 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
 
     // Verify both assets tracked - amounts are decimal-adjusted to UI amounts
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.asset).toBe('USDC');
+    expect(transaction.movements.inflows![0]?.asset.toString()).toBe('USDC');
     expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('1000');
 
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('SOL');
+    expect(transaction.movements.outflows![0]?.asset.toString()).toBe('SOL');
     expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('0.5');
   });
 
@@ -485,10 +485,10 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
 
     // Verify both assets tracked
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.asset).toBe('SOL');
+    expect(transaction.movements.inflows![0]?.asset.toString()).toBe('SOL');
 
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('USDC');
+    expect(transaction.movements.outflows![0]?.asset.toString()).toBe('USDC');
   });
 });
 
@@ -688,11 +688,11 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
 
     // Should track all 3 assets (SOL out, USDC in, USDT in)
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('SOL');
+    expect(transaction.movements.outflows![0]?.asset.toString()).toBe('SOL');
 
     expect(transaction.movements.inflows).toHaveLength(2);
-    const usdcInflow = transaction.movements.inflows?.find((i) => i.asset === 'USDC');
-    const usdtInflow = transaction.movements.inflows?.find((i) => i.asset === 'USDT');
+    const usdcInflow = transaction.movements.inflows?.find((i) => i.asset.toString() === 'USDC');
+    const usdtInflow = transaction.movements.inflows?.find((i) => i.asset.toString() === 'USDT');
 
     expect(usdcInflow).toBeDefined();
     expect(usdcInflow?.netAmount?.toFixed()).toBe('1000');
@@ -761,8 +761,8 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
 
     // Should consolidate USDC movements (1 + 1 = 2 USDC UI amount)
     expect(transaction.movements.inflows).toHaveLength(2); // SOL and USDC
-    const usdcInflow = transaction.movements.inflows?.find((i) => i.asset === 'USDC');
-    const solInflow = transaction.movements.inflows?.find((i) => i.asset === 'SOL');
+    const usdcInflow = transaction.movements.inflows?.find((i) => i.asset.toString() === 'USDC');
+    const solInflow = transaction.movements.inflows?.find((i) => i.asset.toString() === 'SOL');
 
     expect(usdcInflow).toBeDefined();
     expect(usdcInflow?.netAmount?.toFixed()).toBe('2');

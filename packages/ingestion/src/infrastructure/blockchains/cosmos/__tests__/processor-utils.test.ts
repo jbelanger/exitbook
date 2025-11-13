@@ -182,10 +182,10 @@ describe('Cosmos Processor Utils', () => {
       expect(fundFlow.toAddress).toBe(USER_ADDRESS);
       expect(fundFlow.inflows).toHaveLength(1);
       expect(fundFlow.inflows[0]?.amount).toBe('1500000000000000000');
-      expect(fundFlow.inflows[0]?.asset).toBe('INJ');
+      expect(fundFlow.inflows[0]?.asset.toString()).toBe('INJ');
       expect(fundFlow.outflows).toHaveLength(0);
       expect(fundFlow.primary.amount).toBe('1500000000000000000');
-      expect(fundFlow.primary.asset).toBe('INJ');
+      expect(fundFlow.primary.asset.toString()).toBe('INJ');
       expect(fundFlow.feeAmount).toBe('500000000000000');
       expect(fundFlow.feeCurrency).toBe('INJ');
       expect(fundFlow.hasBridgeTransfer).toBe(false);
@@ -217,7 +217,7 @@ describe('Cosmos Processor Utils', () => {
       expect(fundFlow.inflows).toHaveLength(0);
       expect(fundFlow.outflows).toHaveLength(1);
       expect(fundFlow.outflows[0]?.amount).toBe('2000000000000000000');
-      expect(fundFlow.outflows[0]?.asset).toBe('INJ');
+      expect(fundFlow.outflows[0]?.asset.toString()).toBe('INJ');
     });
 
     it('should analyze self-transfer with both inflows and outflows', () => {
@@ -270,7 +270,7 @@ describe('Cosmos Processor Utils', () => {
       const fundFlow = analyzeFundFlowFromNormalized(transaction, USER_ADDRESS, INJECTIVE_CONFIG);
 
       expect(fundFlow.inflows).toHaveLength(1);
-      expect(fundFlow.inflows[0]?.asset).toBe('USDT');
+      expect(fundFlow.inflows[0]?.asset.toString()).toBe('USDT');
       expect(fundFlow.inflows[0]?.tokenAddress).toBe('inj1usdt000000000000000000000000000000000');
       expect(fundFlow.inflows[0]?.tokenDecimals).toBe(6);
       expect(fundFlow.hasContractInteraction).toBe(true);
@@ -380,7 +380,7 @@ describe('Cosmos Processor Utils', () => {
         OSMOSIS_CONFIG
       );
 
-      expect(fundFlow.primary.asset).toBe('OSMO');
+      expect(fundFlow.primary.asset.toString()).toBe('OSMO');
       expect(fundFlow.feeCurrency).toBe('OSMO');
     });
 

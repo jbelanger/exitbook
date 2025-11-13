@@ -60,7 +60,7 @@ describe('BitcoinTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
+    expect(transaction.movements.inflows![0]?.asset.toString()).toBe('BTC');
     expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('2');
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.operation.category).toBe('transfer');
@@ -113,7 +113,7 @@ describe('BitcoinTransactionProcessor - Fund Flow Direction', () => {
     // Check structured fields
     expect(transaction.movements.inflows).toHaveLength(0);
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('BTC');
+    expect(transaction.movements.outflows![0]?.asset.toString()).toBe('BTC');
     expect(transaction.movements.outflows![0]?.grossAmount.toFixed()).toBe('1.0001');
     expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('1');
     expect(transaction.operation.category).toBe('transfer');

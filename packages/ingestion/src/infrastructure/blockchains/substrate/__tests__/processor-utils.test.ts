@@ -181,10 +181,10 @@ describe('analyzeFundFlowFromNormalized', () => {
 
     expect(fundFlow.outflows).toHaveLength(1);
     expect(fundFlow.outflows[0]?.amount).toBe('1');
-    expect(fundFlow.outflows[0]?.asset).toBe('DOT');
+    expect(fundFlow.outflows[0]?.asset.toString()).toBe('DOT');
     expect(fundFlow.inflows).toHaveLength(0);
     expect(fundFlow.primary.amount).toBe('1');
-    expect(fundFlow.primary.asset).toBe('DOT');
+    expect(fundFlow.primary.asset.toString()).toBe('DOT');
     expect(fundFlow.feeAmount).toBe('0.015625');
     expect(fundFlow.fromAddress).toBe(POLKADOT_ADDRESS);
     expect(fundFlow.toAddress).toBe(EXTERNAL_ADDRESS);
@@ -218,10 +218,10 @@ describe('analyzeFundFlowFromNormalized', () => {
 
     expect(fundFlow.inflows).toHaveLength(1);
     expect(fundFlow.inflows[0]?.amount).toBe('2');
-    expect(fundFlow.inflows[0]?.asset).toBe('DOT');
+    expect(fundFlow.inflows[0]?.asset.toString()).toBe('DOT');
     expect(fundFlow.outflows).toHaveLength(0);
     expect(fundFlow.primary.amount).toBe('2');
-    expect(fundFlow.primary.asset).toBe('DOT');
+    expect(fundFlow.primary.asset.toString()).toBe('DOT');
     expect(fundFlow.fromAddress).toBe(EXTERNAL_ADDRESS);
     expect(fundFlow.toAddress).toBe(POLKADOT_ADDRESS);
   });
@@ -450,7 +450,7 @@ describe('analyzeFundFlowFromNormalized', () => {
     expect(fundFlow.inflows).toHaveLength(0);
     expect(fundFlow.outflows).toHaveLength(0);
     expect(fundFlow.primary.amount).toBe('0');
-    expect(fundFlow.primary.asset).toBe('DOT');
+    expect(fundFlow.primary.asset.toString()).toBe('DOT');
     expect(fundFlow.feeAmount).toBe('0.015625');
   });
 

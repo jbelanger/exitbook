@@ -589,16 +589,16 @@ describe('CardanoTransactionProcessor - Fee Accounting', () => {
 
     // Fee is paid in ADA and deducted from ADA outflow only
     expect(transaction.fees.find((f) => f.scope === 'network')?.amount.toFixed()).toBe('0.17');
-    expect(transaction.fees.find((f) => f.scope === 'network')?.asset).toBe('ADA');
+    expect(transaction.fees.find((f) => f.scope === 'network')?.asset.toString()).toBe('ADA');
 
     // Check ADA outflow (with fee deduction)
-    const adaOutflow = transaction.movements.outflows?.find((o) => o.asset === 'ADA');
+    const adaOutflow = transaction.movements.outflows?.find((o) => o.asset.toString() === 'ADA');
     expect(adaOutflow).toBeDefined();
     expect(adaOutflow?.grossAmount.toFixed()).toBe('2.17');
     expect(adaOutflow?.netAmount?.toFixed()).toBe('2');
 
     // Check MILK outflow (no fee deduction)
-    const milkOutflow = transaction.movements.outflows?.find((o) => o.asset === 'MILK');
+    const milkOutflow = transaction.movements.outflows?.find((o) => o.asset.toString() === 'MILK');
     expect(milkOutflow).toBeDefined();
     expect(milkOutflow?.grossAmount.toFixed()).toBe('100');
     expect(milkOutflow?.netAmount?.toFixed()).toBe('100');

@@ -64,11 +64,11 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
       const allAssets = new Set<string>();
 
       for (const inflow of transaction.movements?.inflows ?? []) {
-        allAssets.add(inflow.asset);
+        allAssets.add(inflow.asset.toString());
       }
 
       for (const outflow of transaction.movements?.outflows ?? []) {
-        allAssets.add(outflow.asset);
+        allAssets.add(outflow.asset.toString());
       }
 
       // Check each unique asset for scam patterns

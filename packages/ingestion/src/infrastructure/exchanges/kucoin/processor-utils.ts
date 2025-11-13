@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 
@@ -34,7 +34,7 @@ export function convertKucoinAccountHistoryConvertToTransaction(
   const withdrawalFee = withdrawal.Fee ? parseDecimal(withdrawal.Fee) : parseDecimal('0');
   const depositFee = deposit.Fee ? parseDecimal(deposit.Fee) : parseDecimal('0');
   const totalFee = withdrawalFee.plus(depositFee);
-  const platformFee = { amount: totalFee, asset: sellCurrency };
+  const platformFee = { amount: totalFee, asset: Currency.create(sellCurrency) };
 
   return {
     id: 0, // Will be assigned by database
@@ -48,14 +48,14 @@ export function convertKucoinAccountHistoryConvertToTransaction(
     movements: {
       outflows: [
         {
-          asset: sellCurrency,
+          asset: Currency.create(sellCurrency),
           grossAmount: sellAmount,
           netAmount: sellAmount,
         },
       ],
       inflows: [
         {
-          asset: buyCurrency,
+          asset: Currency.create(buyCurrency),
           grossAmount: buyAmount,
           netAmount: buyAmount,
         },
@@ -94,7 +94,7 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
   // (needs to match the on-chain amount from the source withdrawal)
   // Fee is charged separately from user's credited balance
   const netAmount = grossAmount;
-  const platformFee = { amount: fee, asset: row.Coin };
+  const platformFee = { amount: fee, asset: Currency.create(row.Coin) };
 
   return {
     id: 0, // Will be assigned by database
@@ -108,7 +108,7 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
     movements: {
       inflows: [
         {
-          asset: row.Coin,
+          asset: Currency.create(row.Coin),
           grossAmount: grossAmount,
           netAmount: netAmount,
         },
@@ -146,7 +146,7 @@ export function convertKucoinOrderSplittingToTransaction(row: CsvOrderSplittingR
   const filledAmount = row['Filled Amount'];
   const filledVolume = row['Filled Volume'];
   const fee = parseDecimal(row.Fee).toNumber();
-  const platformFee = { amount: parseDecimal(fee.toString()), asset: row['Fee Currency'] };
+  const platformFee = { amount: parseDecimal(fee.toString()), asset: Currency.create(row['Fee Currency']) };
   const side = row.Side.toLowerCase() as 'buy' | 'sell';
 
   // For order-splitting (individual fills):
@@ -169,14 +169,14 @@ export function convertKucoinOrderSplittingToTransaction(row: CsvOrderSplittingR
     movements: {
       outflows: [
         {
-          asset: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
+          asset: Currency.create(isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown'),
           grossAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
           netAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
         },
       ],
       inflows: [
         {
-          asset: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
+          asset: Currency.create(isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown'),
           grossAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
           netAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
         },
@@ -213,7 +213,7 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Uni
   const filledAmount = row['Filled Amount'];
   const filledVolume = row['Filled Volume'];
   const fee = parseDecimal(row.Fee).toNumber();
-  const platformFee = { amount: parseDecimal(fee.toString()), asset: row['Fee Currency'] };
+  const platformFee = { amount: parseDecimal(fee.toString()), asset: Currency.create(row['Fee Currency']) };
   const side = row.Side.toLowerCase() as 'buy' | 'sell';
 
   // For trading bot fills (similar to order-splitting):
@@ -236,14 +236,14 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Uni
     movements: {
       outflows: [
         {
-          asset: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
+          asset: Currency.create(isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown'),
           grossAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
           netAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
         },
       ],
       inflows: [
         {
-          asset: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
+          asset: Currency.create(isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown'),
           grossAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
           netAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
         },
@@ -279,7 +279,7 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Unive
   const filledAmount = row['Filled Amount'];
   const filledVolume = row['Filled Volume'];
   const fee = parseDecimal(row.Fee).toNumber();
-  const platformFee = { amount: parseDecimal(fee.toString()), asset: row['Fee Currency'] };
+  const platformFee = { amount: parseDecimal(fee.toString()), asset: Currency.create(row['Fee Currency']) };
   const side = row.Side.toLowerCase() as 'buy' | 'sell';
 
   // For spot orders:
@@ -299,14 +299,14 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Unive
     movements: {
       outflows: [
         {
-          asset: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
+          asset: Currency.create(isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown'),
           grossAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
           netAmount: parseDecimal(isBuy ? filledVolume : filledAmount),
         },
       ],
       inflows: [
         {
-          asset: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
+          asset: Currency.create(isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown'),
           grossAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
           netAmount: parseDecimal(isBuy ? filledAmount : filledVolume),
         },
@@ -341,7 +341,7 @@ export function convertKucoinWithdrawalToTransaction(row: CsvDepositWithdrawalRo
   const timestamp = new Date(row['Time(UTC)']).getTime();
   const absAmount = Math.abs(parseDecimal(row.Amount).toNumber());
   const fee = parseDecimal(row.Fee ?? '0');
-  const platformFee = { amount: fee, asset: row.Coin };
+  const platformFee = { amount: fee, asset: Currency.create(row.Coin) };
 
   return {
     id: 0, // Will be assigned by database
@@ -356,7 +356,7 @@ export function convertKucoinWithdrawalToTransaction(row: CsvDepositWithdrawalRo
       inflows: [],
       outflows: [
         {
-          asset: row.Coin,
+          asset: Currency.create(row.Coin),
           grossAmount: parseDecimal(absAmount.toFixed()),
           netAmount: parseDecimal(absAmount.toFixed()),
         },

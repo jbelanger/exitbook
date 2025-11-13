@@ -66,8 +66,8 @@ describe('GroupingStrategy - byCorrelationId', () => {
     expect(groups.size).toBe(1);
     const group = groups.get('SWAP001');
     expect(group).toHaveLength(2);
-    expect(group?.[0]?.normalized.asset).toBe('USD');
-    expect(group?.[1]?.normalized.asset).toBe('BTC');
+    expect(group?.[0]?.normalized.asset.toString()).toBe('USD');
+    expect(group?.[1]?.normalized.asset.toString()).toBe('BTC');
   });
 
   test('skips entries without valid id', () => {

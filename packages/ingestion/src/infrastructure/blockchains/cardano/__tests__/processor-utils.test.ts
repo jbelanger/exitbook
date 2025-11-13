@@ -85,7 +85,7 @@ describe('consolidateCardanoMovements', () => {
     const result = consolidateCardanoMovements(movements);
     expect(result).toHaveLength(1);
     expect(result[0]?.amount).toBe('3.5');
-    expect(result[0]?.asset).toBe('ADA');
+    expect(result[0]?.asset.toString()).toBe('ADA');
   });
 
   test('consolidates duplicate token movements', () => {
@@ -99,7 +99,7 @@ describe('consolidateCardanoMovements', () => {
     const result = consolidateCardanoMovements(movements);
     expect(result).toHaveLength(1);
     expect(result[0]?.amount).toBe('150');
-    expect(result[0]?.asset).toBe('MILK');
+    expect(result[0]?.asset.toString()).toBe('MILK');
   });
 
   test('keeps different assets separate', () => {
@@ -161,7 +161,7 @@ describe('analyzeCardanoFundFlow', () => {
     expect(fundFlow.isOutgoing).toBe(true);
     expect(fundFlow.outflows).toHaveLength(1);
     expect(fundFlow.outflows[0]?.amount).toBe('2.17');
-    expect(fundFlow.outflows[0]?.asset).toBe('ADA');
+    expect(fundFlow.outflows[0]?.asset.toString()).toBe('ADA');
     expect(fundFlow.inflows).toHaveLength(0);
     expect(fundFlow.fromAddress).toBe(USER_ADDRESS);
     expect(fundFlow.toAddress).toBe(EXTERNAL_ADDRESS);
@@ -215,7 +215,7 @@ describe('analyzeCardanoFundFlow', () => {
     expect(fundFlow.isOutgoing).toBe(false);
     expect(fundFlow.inflows).toHaveLength(1);
     expect(fundFlow.inflows[0]?.amount).toBe('2');
-    expect(fundFlow.inflows[0]?.asset).toBe('ADA');
+    expect(fundFlow.inflows[0]?.asset.toString()).toBe('ADA');
     expect(fundFlow.outflows).toHaveLength(0);
     expect(fundFlow.fromAddress).toBe(EXTERNAL_ADDRESS);
     expect(fundFlow.toAddress).toBe(USER_ADDRESS);

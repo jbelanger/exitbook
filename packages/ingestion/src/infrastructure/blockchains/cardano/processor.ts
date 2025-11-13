@@ -1,5 +1,5 @@
 import type { CardanoTransaction } from '@exitbook/blockchain-providers';
-import { parseDecimal } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
@@ -84,7 +84,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
             inflows: fundFlow.inflows.map((inflow) => {
               const amount = parseDecimal(inflow.amount);
               return {
-                asset: inflow.asset,
+                asset: Currency.create(inflow.asset),
                 grossAmount: amount,
                 netAmount: amount, // Inflows: no fee adjustment needed
               };
@@ -96,7 +96,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
               const netAmount = outflow.asset === 'ADA' && userPaidFee ? grossAmount.minus(feeAmount) : grossAmount;
 
               return {
-                asset: outflow.asset,
+                asset: Currency.create(outflow.asset),
                 grossAmount, // Includes fee (total that left wallet)
                 netAmount, // Actual transfer amount (excludes fee)
               };
@@ -106,7 +106,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
           fees: userPaidFee
             ? [
                 {
-                  asset: fundFlow.feeCurrency,
+                  asset: Currency.create(fundFlow.feeCurrency),
                   amount: feeAmount,
                   scope: 'network',
                   settlement: 'on-chain',

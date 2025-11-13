@@ -151,7 +151,7 @@ describe('NEAR Processor Utils - Token Transfer Extraction', () => {
     const movements = extractNearTokenTransfers(tx)._unsafeUnwrap();
 
     expect(movements).toHaveLength(1);
-    expect(movements[0]?.asset).toBe('USDC');
+    expect(movements[0]?.asset.toString()).toBe('USDC');
     expect(movements[0]?.amount).toBe('1');
     expect(movements[0]?.decimals).toBe(6);
     expect(movements[0]?.tokenAddress).toBe(CONTRACT_ADDRESS);
@@ -256,7 +256,7 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
 
     const fundFlow = result.value;
     expect(fundFlow.inflows).toHaveLength(1);
-    expect(fundFlow.inflows[0]?.asset).toBe('NEAR');
+    expect(fundFlow.inflows[0]?.asset.toString()).toBe('NEAR');
     expect(fundFlow.inflows[0]?.amount).toBe('1');
     expect(fundFlow.outflows).toHaveLength(0);
     expect(fundFlow.feePaidByUser).toBe(false); // Receiver doesn't pay fee
@@ -291,7 +291,7 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
     const fundFlow = result.value;
     expect(fundFlow.inflows).toHaveLength(0);
     expect(fundFlow.outflows).toHaveLength(1);
-    expect(fundFlow.outflows[0]?.asset).toBe('NEAR');
+    expect(fundFlow.outflows[0]?.asset.toString()).toBe('NEAR');
     expect(fundFlow.outflows[0]?.amount).toBe('5'); // Fee deducted from outflow
     expect(fundFlow.feePaidByUser).toBe(true); // Sender pays fee
   });
@@ -317,7 +317,7 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
 
     const fundFlow = result.value;
     expect(fundFlow.inflows).toHaveLength(1);
-    expect(fundFlow.inflows[0]?.asset).toBe('NEAR');
+    expect(fundFlow.inflows[0]?.asset.toString()).toBe('NEAR');
     expect(fundFlow.inflows[0]?.amount).toBe('63.364');
     expect(fundFlow.outflows).toHaveLength(0);
   });
@@ -343,7 +343,7 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
 
     const fundFlow = result.value;
     expect(fundFlow.outflows).toHaveLength(1);
-    expect(fundFlow.outflows[0]?.asset).toBe('NEAR');
+    expect(fundFlow.outflows[0]?.asset.toString()).toBe('NEAR');
     expect(fundFlow.outflows[0]?.amount).toBe('50');
     expect(fundFlow.inflows).toHaveLength(0);
   });
@@ -386,7 +386,7 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
 
     const fundFlow = result.value;
     expect(fundFlow.outflows).toHaveLength(1);
-    expect(fundFlow.outflows[0]?.asset).toBe('USDC');
+    expect(fundFlow.outflows[0]?.asset.toString()).toBe('USDC');
     expect(fundFlow.outflows[0]?.amount).toBe('1');
     expect(fundFlow.hasTokenTransfers).toBe(true);
   });
@@ -663,7 +663,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
 
     // Verify inflow calculated from accountChanges (postBalance - preBalance)
     expect(fundFlow.inflows).toHaveLength(1);
-    expect(fundFlow.inflows[0]?.asset).toBe('NEAR');
+    expect(fundFlow.inflows[0]?.asset.toString()).toBe('NEAR');
     expect(fundFlow.inflows[0]?.amount).toBe('5'); // 10 - 5 = 5 NEAR
     expect(fundFlow.outflows).toHaveLength(0);
     expect(fundFlow.feePaidByUser).toBe(false);
@@ -713,7 +713,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
     // Verify outflow calculated from accountChanges (negative delta)
     expect(fundFlow.inflows).toHaveLength(0);
     expect(fundFlow.outflows).toHaveLength(1);
-    expect(fundFlow.outflows[0]?.asset).toBe('NEAR');
+    expect(fundFlow.outflows[0]?.asset.toString()).toBe('NEAR');
     // accountChanges: 0 - 3.1 = -3.1 NEAR gross, minus 0.1 fee = 3 NEAR net outflow
     expect(fundFlow.outflows[0]?.amount).toBe('3');
     expect(fundFlow.outflows[0]?.grossAmount).toBe('3.1'); // Gross amount before fee
@@ -782,14 +782,14 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
 
     // Verify token inflow (USDT)
     expect(fundFlow.inflows).toHaveLength(1);
-    expect(fundFlow.inflows[0]?.asset).toBe('USDT');
+    expect(fundFlow.inflows[0]?.asset.toString()).toBe('USDT');
     expect(fundFlow.inflows[0]?.amount).toBe('2'); // 2 USDT
     expect(fundFlow.inflows[0]?.decimals).toBe(18);
     expect(fundFlow.inflows[0]?.tokenAddress).toBe('usdt.token.near');
 
     // Verify token outflow (USDC) - fee deduction does not apply to non-NEAR assets
     expect(fundFlow.outflows).toHaveLength(1);
-    expect(fundFlow.outflows[0]?.asset).toBe('USDC');
+    expect(fundFlow.outflows[0]?.asset.toString()).toBe('USDC');
     expect(fundFlow.outflows[0]?.amount).toBe('5'); // 5 USDC
     expect(fundFlow.outflows[0]?.decimals).toBe(6);
     expect(fundFlow.outflows[0]?.tokenAddress).toBe('usdc.token.near');
@@ -889,7 +889,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
 
     // Should consolidate both changes: +3 NEAR + +1 NEAR = +4 NEAR total inflow
     expect(fundFlow.inflows).toHaveLength(1);
-    expect(fundFlow.inflows[0]?.asset).toBe('NEAR');
+    expect(fundFlow.inflows[0]?.asset.toString()).toBe('NEAR');
     expect(fundFlow.inflows[0]?.amount).toBe('4');
     expect(fundFlow.outflows).toHaveLength(0);
   });
@@ -926,7 +926,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
     // so we still get a single NEAR outflow matching the transfer amount.
     expect(fundFlow.inflows).toHaveLength(0);
     expect(fundFlow.outflows).toHaveLength(1);
-    expect(fundFlow.outflows[0]?.asset).toBe('NEAR');
+    expect(fundFlow.outflows[0]?.asset.toString()).toBe('NEAR');
     expect(fundFlow.outflows[0]?.amount).toBe('1');
   });
 });

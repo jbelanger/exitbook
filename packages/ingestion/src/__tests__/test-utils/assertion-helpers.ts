@@ -68,7 +68,7 @@ class InflowAssertion {
   ) {}
 
   hasAsset(asset: string): this {
-    expect(this.movement.asset).toBe(asset);
+    expect(this.movement.asset.toString()).toBe(asset);
     return this;
   }
 
@@ -94,7 +94,7 @@ class OutflowAssertion {
   ) {}
 
   hasAsset(asset: string): this {
-    expect(this.movement.asset).toBe(asset);
+    expect(this.movement.asset.toString()).toBe(asset);
     return this;
   }
 
@@ -137,7 +137,7 @@ export class FeeAssertion {
   }
 
   toHaveAsset(asset: string): this {
-    expect(this.fee?.asset).toBe(asset);
+    expect(this.fee?.asset.toString()).toBe(asset);
     return this;
   }
 

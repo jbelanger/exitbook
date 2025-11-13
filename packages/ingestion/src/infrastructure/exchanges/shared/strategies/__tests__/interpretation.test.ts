@@ -137,7 +137,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
 
     expect(result.outflows[0]?.grossAmount).toBe('100');
     expect(result.fees[0]?.amount).toBe('1.5');
-    expect(result.fees[0]?.asset).toBe('USD');
+    expect(result.fees[0]?.asset.toString()).toBe('USD');
   });
 
   test('ignores group parameter for standard interpretation', () => {
@@ -157,8 +157,8 @@ describe('InterpretationStrategy - standardAmounts', () => {
     const eurResult = standardAmounts.interpret(eurEntry, [eurEntry]);
     const btcResult = standardAmounts.interpret(btcEntry, [btcEntry]);
 
-    expect(eurResult.inflows[0]?.asset).toBe('EUR');
-    expect(btcResult.inflows[0]?.asset).toBe('BTC');
+    expect(eurResult.inflows[0]?.asset.toString()).toBe('EUR');
+    expect(btcResult.inflows[0]?.asset.toString()).toBe('BTC');
   });
 
   test('handles fee in different currency than amount', () => {
@@ -166,7 +166,7 @@ describe('InterpretationStrategy - standardAmounts', () => {
 
     const result = standardAmounts.interpret(entry, [entry]);
 
-    expect(result.inflows[0]?.asset).toBe('BTC');
-    expect(result.fees[0]?.asset).toBe('USD');
+    expect(result.inflows[0]?.asset.toString()).toBe('BTC');
+    expect(result.fees[0]?.asset.toString()).toBe('USD');
   });
 });

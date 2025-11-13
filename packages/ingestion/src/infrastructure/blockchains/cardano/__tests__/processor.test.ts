@@ -65,7 +65,7 @@ describe('CardanoTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.asset).toBe('ADA');
+    expect(transaction.movements.inflows![0]?.asset.toString()).toBe('ADA');
     expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('2');
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.operation.category).toBe('transfer');
@@ -128,7 +128,7 @@ describe('CardanoTransactionProcessor - Fund Flow Direction', () => {
     // Check structured fields
     expect(transaction.movements.inflows).toHaveLength(0);
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('ADA');
+    expect(transaction.movements.outflows![0]?.asset.toString()).toBe('ADA');
     expect(transaction.movements.outflows![0]?.grossAmount.toFixed()).toBe('2.17');
     expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('2');
     expect(transaction.operation.category).toBe('transfer');
@@ -297,19 +297,19 @@ describe('CardanoTransactionProcessor - Multi-Asset', () => {
     expect(transaction.movements.inflows).toHaveLength(1); // MILK change
 
     // Check ADA outflow (with fee deduction)
-    const adaOutflow = transaction.movements.outflows?.find((o) => o.asset === 'ADA');
+    const adaOutflow = transaction.movements.outflows?.find((o) => o.asset.toString() === 'ADA');
     expect(adaOutflow).toBeDefined();
     expect(adaOutflow?.grossAmount.toFixed()).toBe('2.17');
     expect(adaOutflow?.netAmount?.toFixed()).toBe('2');
 
     // Check MILK outflow
-    const milkOutflow = transaction.movements.outflows?.find((o) => o.asset === 'MILK');
+    const milkOutflow = transaction.movements.outflows?.find((o) => o.asset.toString() === 'MILK');
     expect(milkOutflow).toBeDefined();
     expect(milkOutflow?.grossAmount.toFixed()).toBe('100');
     expect(milkOutflow?.netAmount?.toFixed()).toBe('100');
 
     // Check MILK inflow (change)
-    const milkInflow = transaction.movements.inflows?.find((i) => i.asset === 'MILK');
+    const milkInflow = transaction.movements.inflows?.find((i) => i.asset.toString() === 'MILK');
     expect(milkInflow).toBeDefined();
     expect(milkInflow?.netAmount?.toFixed()).toBe('50');
 
@@ -381,7 +381,7 @@ describe('CardanoTransactionProcessor - Multi-Asset', () => {
 
     // Should consolidate ADA inflows
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.asset).toBe('ADA');
+    expect(transaction.movements.inflows![0]?.asset.toString()).toBe('ADA');
     expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('2');
   });
 });

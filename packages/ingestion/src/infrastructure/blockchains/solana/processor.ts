@@ -1,5 +1,5 @@
 import type { SolanaTransaction } from '@exitbook/blockchain-providers';
-import { parseDecimal } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, err, ok, okAsync } from 'neverthrow';
 
@@ -86,7 +86,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
             inflows: fundFlow.inflows.map((inflow) => {
               const amount = parseDecimal(inflow.amount);
               return {
-                asset: inflow.asset,
+                asset: Currency.create(inflow.asset),
                 grossAmount: amount,
                 netAmount: amount,
               };
@@ -94,7 +94,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
             outflows: fundFlow.outflows.map((outflow) => {
               const amount = parseDecimal(outflow.amount);
               return {
-                asset: outflow.asset,
+                asset: Currency.create(outflow.asset),
                 grossAmount: amount,
                 netAmount: amount,
               };
@@ -105,7 +105,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
             userPaidFee && !parseDecimal(normalizedTx.feeAmount || '0').isZero()
               ? [
                   {
-                    asset: normalizedTx.feeCurrency || 'SOL',
+                    asset: Currency.create(normalizedTx.feeCurrency || 'SOL'),
                     amount: parseDecimal(normalizedTx.feeAmount || '0'),
                     scope: 'network',
                     settlement: 'balance',

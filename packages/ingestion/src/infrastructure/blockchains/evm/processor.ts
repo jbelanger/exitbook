@@ -1,6 +1,6 @@
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
 import type { UniversalTransaction } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { err, okAsync, ok, type Result } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
@@ -112,7 +112,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
           inflows: fundFlow.inflows.map((inflow) => {
             const amount = parseDecimal(inflow.amount);
             return {
-              asset: inflow.asset,
+              asset: Currency.create(inflow.asset),
               grossAmount: amount,
               netAmount: amount,
             };
@@ -120,7 +120,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
           outflows: fundFlow.outflows.map((outflow) => {
             const amount = parseDecimal(outflow.amount);
             return {
-              asset: outflow.asset,
+              asset: Currency.create(outflow.asset),
               grossAmount: amount,
               netAmount: amount,
             };
@@ -131,7 +131,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
           userPaidFee && !parseDecimal(fundFlow.feeAmount).isZero()
             ? [
                 {
-                  asset: fundFlow.feeCurrency,
+                  asset: Currency.create(fundFlow.feeCurrency),
                   amount: parseDecimal(fundFlow.feeAmount),
                   scope: 'network',
                   settlement: 'balance',

@@ -60,7 +60,7 @@ describe('NearTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.asset).toBe('NEAR');
+    expect(transaction.movements.inflows![0]?.asset.toString()).toBe('NEAR');
     expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('1');
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.operation.category).toBe('transfer');
@@ -107,7 +107,7 @@ describe('NearTransactionProcessor - Fund Flow Direction', () => {
     // Check structured fields
     expect(transaction.movements.inflows).toHaveLength(0);
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('NEAR');
+    expect(transaction.movements.outflows![0]?.asset.toString()).toBe('NEAR');
     // Round to 6 decimals to avoid floating-point precision issues with 24-decimal yoctoNEAR
     expect(parseFloat(transaction.movements.outflows![0]?.netAmount?.toFixed() || '0').toFixed(6)).toBe('5.000000');
     expect(transaction.operation.category).toBe('transfer');
@@ -214,7 +214,7 @@ describe('NearTransactionProcessor - Staking Operations', () => {
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('stake');
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('NEAR');
+    expect(transaction.movements.outflows![0]?.asset.toString()).toBe('NEAR');
     // Round to 6 decimals to avoid floating-point precision issues
     expect(parseFloat(transaction.movements.outflows![0]?.netAmount?.toFixed() || '0').toFixed(6)).toBe('10.000000');
   });
@@ -261,7 +261,7 @@ describe('NearTransactionProcessor - Staking Operations', () => {
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('unstake');
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.asset).toBe('NEAR');
+    expect(transaction.movements.inflows![0]?.asset.toString()).toBe('NEAR');
     // Round to 6 decimals to avoid floating-point precision issues
     expect(parseFloat(transaction.movements.inflows![0]?.netAmount?.toFixed() || '0').toFixed(6)).toBe('10.000000');
   });
@@ -323,7 +323,7 @@ describe('NearTransactionProcessor - Token Transfers', () => {
     if (!transaction) return;
 
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('USDC');
+    expect(transaction.movements.outflows![0]?.asset.toString()).toBe('USDC');
     expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('1');
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
@@ -393,9 +393,9 @@ describe('NearTransactionProcessor - Token Transfers', () => {
     expect(transaction.operation.category).toBe('trade');
     expect(transaction.operation.type).toBe('swap');
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('wNEAR');
+    expect(transaction.movements.outflows![0]?.asset.toString()).toBe('WNEAR');
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.asset).toBe('USDC');
+    expect(transaction.movements.inflows![0]?.asset.toString()).toBe('USDC');
   });
 });
 
@@ -497,7 +497,7 @@ describe('NearTransactionProcessor - Multiple Actions', () => {
     if (!transaction) return;
 
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('NEAR');
+    expect(transaction.movements.outflows![0]?.asset.toString()).toBe('NEAR');
     expect(transaction.metadata?.actionCount).toBe(2);
   });
 });

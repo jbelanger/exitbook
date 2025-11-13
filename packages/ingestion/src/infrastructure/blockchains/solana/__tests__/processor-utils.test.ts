@@ -247,7 +247,7 @@ describe('Solana Processor Utils', () => {
       ];
       const result = consolidateSolanaMovements(movements);
       expect(result).toHaveLength(1);
-      expect(result[0]?.asset).toBe('SOL');
+      expect(result[0]?.asset.toString()).toBe('SOL');
       expect(result[0]?.amount).toBe('150');
     });
 
@@ -268,7 +268,7 @@ describe('Solana Processor Utils', () => {
       ];
       const result = consolidateSolanaMovements(movements);
       expect(result).toHaveLength(1);
-      expect(result[0]?.asset).toBe('USDC');
+      expect(result[0]?.asset.toString()).toBe('USDC');
       expect(result[0]?.amount).toBe('150');
       expect(result[0]?.decimals).toBe(6);
       expect(result[0]?.tokenAddress).toBe('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
@@ -316,7 +316,7 @@ describe('Solana Processor Utils', () => {
       ];
       const result = consolidateSolanaMovements(movements);
       expect(result).toHaveLength(1);
-      expect(result[0]?.asset).toBe('SOL');
+      expect(result[0]?.asset.toString()).toBe('SOL');
       expect(result[0]?.amount).toBe('0.6');
     });
   });
@@ -733,7 +733,7 @@ describe('Solana Processor Utils', () => {
       const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
 
       expect(result.outflows).toHaveLength(1);
-      expect(result.outflows[0]?.asset).toBe('SOL');
+      expect(result.outflows[0]?.asset.toString()).toBe('SOL');
       expect(result.outflows[0]?.amount).toBe('0.499995'); // 0.5 - 0.000005 fee
       expect(result.inflows).toHaveLength(0);
     });
@@ -756,7 +756,7 @@ describe('Solana Processor Utils', () => {
       const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
 
       expect(result.inflows).toHaveLength(1);
-      expect(result.inflows[0]?.asset).toBe('SOL');
+      expect(result.inflows[0]?.asset.toString()).toBe('SOL');
       expect(result.inflows[0]?.amount).toBe('0.5');
       expect(result.outflows).toHaveLength(0);
     });
@@ -781,7 +781,7 @@ describe('Solana Processor Utils', () => {
       const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
 
       expect(result.outflows).toHaveLength(1);
-      expect(result.outflows[0]?.asset).toBe('USDC');
+      expect(result.outflows[0]?.asset.toString()).toBe('USDC');
       expect(result.outflows[0]?.amount).toBe('0.5');
       expect(result.outflows[0]?.decimals).toBe(6);
       expect(result.outflows[0]?.tokenAddress).toBe('USDCMint');
@@ -810,7 +810,7 @@ describe('Solana Processor Utils', () => {
       const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
 
       expect(result.inflows).toHaveLength(1);
-      expect(result.inflows[0]?.asset).toBe('USDC');
+      expect(result.inflows[0]?.asset.toString()).toBe('USDC');
       expect(result.inflows[0]?.amount).toBe('0.5');
       expect(result.outflows).toHaveLength(0);
     });
@@ -886,7 +886,7 @@ describe('Solana Processor Utils', () => {
 
         // The raw outflow is 0.000005005, fee is 0.000005, so result should be 0.000000005
         expect(result.outflows).toHaveLength(1);
-        expect(result.outflows[0]?.asset).toBe('SOL');
+        expect(result.outflows[0]?.asset.toString()).toBe('SOL');
         expect(parseFloat(result.outflows[0]?.amount || '0')).toBeCloseTo(0.000000005, 9);
       });
 
@@ -1119,7 +1119,7 @@ describe('Solana Processor Utils', () => {
 
       const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
 
-      expect(result.primary.asset).toBe('USDC');
+      expect(result.primary.asset.toString()).toBe('USDC');
       expect(result.primary.amount).toBe('1.5');
     });
 
@@ -1150,7 +1150,7 @@ describe('Solana Processor Utils', () => {
       const result = analyzeSolanaBalanceChanges(tx, allWalletAddresses)._unsafeUnwrap();
 
       // SOL outflow (0.999995) is larger than USDC (0.5)
-      expect(result.primary.asset).toBe('SOL');
+      expect(result.primary.asset.toString()).toBe('SOL');
     });
   });
 

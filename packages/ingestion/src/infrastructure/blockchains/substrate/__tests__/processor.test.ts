@@ -642,7 +642,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.movements.inflows![0]?.asset).toBe('DOT');
+    expect(transaction.movements.inflows![0]?.asset.toString()).toBe('DOT');
     // User received, sender paid fee - no fee entry created when user didn't pay
     expect(transaction.fees.find((f) => f.scope === 'network')).toBeUndefined();
     expect(transaction.blockchain?.name).toBe('polkadot');
@@ -679,7 +679,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.movements.inflows![0]?.asset).toBe('TAO');
+    expect(transaction.movements.inflows![0]?.asset.toString()).toBe('TAO');
     // User received, sender paid fee - no fee entry created when user didn't pay
     expect(transaction.fees.find((f) => f.scope === 'network')).toBeUndefined();
     expect(transaction.blockchain?.name).toBe('bittensor');

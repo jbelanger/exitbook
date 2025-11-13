@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
@@ -95,7 +95,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
             const net = parseDecimal(inflow.netAmount ?? inflow.grossAmount);
 
             return {
-              asset: inflow.asset,
+              asset: Currency.create(inflow.asset),
               grossAmount: gross,
               netAmount: net,
             };
@@ -106,7 +106,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
             const net = parseDecimal(outflow.netAmount ?? outflow.grossAmount);
 
             return {
-              asset: outflow.asset,
+              asset: Currency.create(outflow.asset),
               grossAmount: gross,
               netAmount: net,
             };
@@ -114,7 +114,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         },
 
         fees: fundFlow.fees.map((fee) => ({
-          asset: fee.asset,
+          asset: Currency.create(fee.asset),
           amount: parseDecimal(fee.amount),
           scope: fee.scope,
           settlement: fee.settlement,
