@@ -43,7 +43,7 @@ export function computePrimaryMovement(
   // Case 1: Single inflow, no outflows
   if (hasInflows && !hasOutflows && inflows.length === 1) {
     return {
-      asset: inflows[0]!.asset,
+      asset: inflows[0]!.asset.toString(),
       amount: inflows[0]!.grossAmount,
       direction: 'in',
     };
@@ -52,7 +52,7 @@ export function computePrimaryMovement(
   // Case 2: Single outflow, no inflows
   if (hasOutflows && !hasInflows && outflows.length === 1) {
     return {
-      asset: outflows[0]!.asset,
+      asset: outflows[0]!.asset.toString(),
       amount: outflows[0]!.grossAmount,
       direction: 'out',
     };
@@ -62,7 +62,7 @@ export function computePrimaryMovement(
   if (hasInflows && !hasOutflows) {
     const largestInflow = findLargestMovement(inflows);
     return {
-      asset: largestInflow.asset,
+      asset: largestInflow.asset.toString(),
       amount: largestInflow.grossAmount,
       direction: 'in',
     };
@@ -72,7 +72,7 @@ export function computePrimaryMovement(
   if (hasOutflows && !hasInflows) {
     const largestOutflow = findLargestMovement(outflows);
     return {
-      asset: largestOutflow.asset,
+      asset: largestOutflow.asset.toString(),
       amount: largestOutflow.grossAmount,
       direction: 'out',
     };
@@ -88,13 +88,13 @@ export function computePrimaryMovement(
   // Compare by absolute value to determine which is primary
   if (inflowValue.greaterThanOrEqualTo(outflowValue)) {
     return {
-      asset: largestInflow.asset,
+      asset: largestInflow.asset.toString(),
       amount: inflowValue,
       direction: 'in',
     };
   } else {
     return {
-      asset: largestOutflow.asset,
+      asset: largestOutflow.asset.toString(),
       amount: outflowValue,
       direction: 'out',
     };

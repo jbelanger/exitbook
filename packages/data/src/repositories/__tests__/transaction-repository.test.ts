@@ -367,7 +367,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       movements: {
         inflows: [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
             priceAtTxTime: {
@@ -382,7 +382,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       },
       fees: [
         {
-          asset: 'BTC',
+          asset: Currency.create('BTC'),
           amount: parseDecimal('0.0001'),
           scope: 'network',
           settlement: 'on-chain',
@@ -450,7 +450,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       movements: {
         inflows: [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
             priceAtTxTime: {

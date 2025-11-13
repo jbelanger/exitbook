@@ -32,7 +32,7 @@ function normalizeMovement(movement: AssetMovement): Result<AssetMovement, Error
       new Error(
         `Movement missing required field 'grossAmount'. ` +
           `Processors must be updated to emit new fee semantics. ` +
-          `Asset: ${movement.asset}`
+          `Asset: ${movement.asset.toString()}`
       )
     );
   }
@@ -287,7 +287,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         return allMovements.some((movement) => {
           // If asset filter is provided, only check movements matching the filter
           if (assetFilter && assetFilter.length > 0) {
-            if (!assetFilter.includes(movement.asset)) {
+            if (!assetFilter.includes(movement.asset.toString())) {
               return false;
             }
           }

@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { calculateBalances } from '../balance-calculator.js';
@@ -345,13 +345,15 @@ describe('calculateBalances', () => {
         movements: {
           outflows: [
             {
-              asset: 'BTC',
+              asset: Currency.create('BTC'),
               grossAmount: parseDecimal('0.999'),
               netAmount: parseDecimal('0.999'),
             },
           ],
         },
-        fees: [{ asset: 'BTC', amount: parseDecimal('0.001'), scope: 'platform', settlement: 'balance' }],
+        fees: [
+          { asset: Currency.create('BTC'), amount: parseDecimal('0.001'), scope: 'platform', settlement: 'balance' },
+        ],
       }),
     ];
 

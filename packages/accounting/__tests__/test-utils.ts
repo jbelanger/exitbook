@@ -36,7 +36,7 @@ export function createPriceAtTxTime(
  */
 export function createMovement(asset: string, amount: string, priceAmount: string, currency = 'USD'): AssetMovement {
   return {
-    asset,
+    asset: Currency.create(asset),
     grossAmount: parseDecimal(amount),
     priceAtTxTime: createPriceAtTxTime(priceAmount, currency),
   };
@@ -56,7 +56,7 @@ export function createFee(
   }
 ): FeeMovement {
   return {
-    asset,
+    asset: Currency.create(asset),
     amount: parseDecimal(amount),
     scope: options?.scope ?? 'platform',
     settlement: options?.settlement ?? 'balance',

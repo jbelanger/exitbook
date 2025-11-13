@@ -33,11 +33,12 @@ function processTransactionForBalance(transaction: UniversalTransaction, balance
   const inflows = transaction.movements.inflows;
   if (inflows && Array.isArray(inflows) && inflows.length > 0) {
     for (const inflow of inflows) {
-      ensureBalance(inflow.asset);
+      const assetKey = inflow.asset.toString();
+      ensureBalance(assetKey);
       // Use grossAmount - it represents what the user's balance increased by
       // (netAmount is for transfer matching, not balance calculation)
       const amount = inflow.grossAmount;
-      balances[inflow.asset] = balances[inflow.asset]!.plus(amount);
+      balances[assetKey] = balances[assetKey]!.plus(amount);
     }
   }
 
@@ -46,12 +47,13 @@ function processTransactionForBalance(transaction: UniversalTransaction, balance
   const outflows = transaction.movements.outflows;
   if (outflows && Array.isArray(outflows) && outflows.length > 0) {
     for (const outflow of outflows) {
-      ensureBalance(outflow.asset);
+      const assetKey = outflow.asset.toString();
+      ensureBalance(assetKey);
       // Use grossAmount - it represents what the user's balance decreased by
       // For UTXO chains (Bitcoin): grossAmount includes the fee (inputs - change)
       // For account-based chains (Ethereum, Solana, etc.): grossAmount = netAmount, fee deducted separately below
       const amount = outflow.grossAmount;
-      balances[outflow.asset] = balances[outflow.asset]!.minus(amount);
+      balances[assetKey] = balances[assetKey]!.minus(amount);
     }
   }
 
@@ -68,8 +70,9 @@ function processTransactionForBalance(transaction: UniversalTransaction, balance
       }
 
       // Subtract balance-settled and external fees separately
-      ensureBalance(fee.asset);
-      balances[fee.asset] = balances[fee.asset]!.minus(fee.amount);
+      const assetKey = fee.asset.toString();
+      ensureBalance(assetKey);
+      balances[assetKey] = balances[assetKey]!.minus(fee.amount);
     }
   }
 }

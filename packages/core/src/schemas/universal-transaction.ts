@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { parseDecimal } from '../utils/decimal-utils.js';
 
-import { DateSchema, DecimalSchema, MoneySchema } from './money.js';
+import { CurrencySchema, DateSchema, DecimalSchema, MoneySchema } from './money.js';
 
 // Transaction type schema
 export const TransactionTypeSchema = z.enum([
@@ -67,7 +67,7 @@ export const PriceAtTxTimeSchema = z.object({
 // Asset movement schema
 export const AssetMovementSchema = z
   .object({
-    asset: z.string().min(1, 'Asset must not be empty'),
+    asset: CurrencySchema,
 
     // Amount fields
     grossAmount: DecimalSchema, // Amount venue debited/credited (REQUIRED)
@@ -144,7 +144,7 @@ export const AssetMovementSchema = z
  * - This ensures accurate balance tracking across different blockchain architectures
  */
 export const FeeMovementSchema = z.object({
-  asset: z.string().min(1, 'Asset must not be empty'),
+  asset: CurrencySchema,
   amount: DecimalSchema,
 
   // Fee semantics (required)
@@ -218,7 +218,7 @@ export const UniversalTransactionSchema = z.object({
 export const UniversalBalanceSchema = z
   .object({
     contractAddress: z.string().optional(),
-    currency: z.string().min(1, 'Currency must not be empty'),
+    currency: CurrencySchema,
     free: z.number().min(0, 'Free balance must be non-negative'),
     total: z.number().min(0, 'Total balance must be non-negative'),
     used: z.number().min(0, 'Used balance must be non-negative'),
