@@ -18,7 +18,7 @@ export type NormalizationError =
 export class ProviderError extends Error {
   constructor(
     message: string,
-    public readonly code: 'NO_PROVIDERS' | 'ALL_PROVIDERS_FAILED' | 'PROVIDER_NOT_FOUND',
+    public readonly code: 'NO_PROVIDERS' | 'ALL_PROVIDERS_FAILED' | 'PROVIDER_NOT_FOUND' | 'NO_COMPATIBLE_PROVIDERS',
     public readonly details?: { blockchain?: string; lastError?: string; operation?: string }
   ) {
     super(message);
