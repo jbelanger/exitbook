@@ -1,5 +1,5 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { SourceType } from '@exitbook/core';
+import type { CursorState, SourceType } from '@exitbook/core';
 import { PartialImportError } from '@exitbook/exchanges-providers';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -209,17 +209,14 @@ export class TransactionImportService {
     }
     const existingDataSource = existingDataSourceResult.value[0];
 
-    // Get latest cursor if resuming
-    let latestCursor: Record<string, number> | undefined = undefined;
-    if (existingDataSource) {
-      const latestCursorResult = await this.rawDataRepository.getLatestCursor(existingDataSource.id);
-      if (latestCursorResult.isOk() && latestCursorResult.value) {
-        latestCursor = latestCursorResult.value;
-      }
+    // Get latest cursors if resuming
+    let latestCursors: Record<string, CursorState> | undefined = undefined;
+    if (existingDataSource?.lastCursor) {
+      latestCursors = existingDataSource.lastCursor;
     }
 
     // Use pure function to prepare import session config
-    const sessionConfig = prepareImportSession(sourceId, params, existingDataSource || undefined, latestCursor);
+    const sessionConfig = prepareImportSession(sourceId, params, existingDataSource || undefined, latestCursors);
 
     const startTime = Date.now();
     let dataSourceCreated = false;
@@ -228,8 +225,8 @@ export class TransactionImportService {
     if (sessionConfig.shouldResume && sessionConfig.existingDataSourceId) {
       dataSourceId = sessionConfig.existingDataSourceId;
       this.logger.info(`Resuming existing data source: ${dataSourceId}`);
-      if (latestCursor) {
-        this.logger.info(`Resuming from cursor: ${JSON.stringify(latestCursor)}`);
+      if (latestCursors) {
+        this.logger.info(`Resuming from cursors: ${JSON.stringify(latestCursors)}`);
       }
     } else {
       const dataSourceCreateResult = await this.dataSourceRepository.create(sourceId, sourceType, sessionConfig.params);
@@ -277,6 +274,25 @@ export class TransactionImportService {
             }
           }
 
+          // Persist cursor updates from partial import error
+          if (error.lastSuccessfulCursorUpdates) {
+            for (const [operationType, cursorState] of Object.entries(error.lastSuccessfulCursorUpdates)) {
+              const cursorUpdateResult = await this.dataSourceRepository.updateCursor(
+                dataSourceId,
+                operationType,
+                cursorState
+              );
+
+              if (cursorUpdateResult.isErr()) {
+                this.logger.warn(
+                  `Failed to persist cursor for ${operationType} after partial error: ${cursorUpdateResult.error.message}`
+                );
+              } else {
+                this.logger.info(`Persisted cursor for ${operationType} after partial error`);
+              }
+            }
+          }
+
           const finalizeResult = await this.dataSourceRepository.finalize(
             dataSourceId,
             'failed',
@@ -284,7 +300,7 @@ export class TransactionImportService {
             error.message,
             {
               failedItem: error.failedItem,
-              lastSuccessfulCursor: error.lastSuccessfulCursor,
+              lastSuccessfulCursorUpdates: error.lastSuccessfulCursorUpdates,
             }
           );
 
@@ -313,6 +329,24 @@ export class TransactionImportService {
         return err(savedCountResult.error);
       }
       const savedCount = savedCountResult.value;
+
+      // Update cursors after successful batch save
+      if (importResult.cursorUpdates) {
+        for (const [operationType, cursorState] of Object.entries(importResult.cursorUpdates)) {
+          const cursorUpdateResult = await this.dataSourceRepository.updateCursor(
+            dataSourceId,
+            operationType,
+            cursorState
+          );
+
+          if (cursorUpdateResult.isErr()) {
+            this.logger.warn(`Failed to update cursor for ${operationType}: ${cursorUpdateResult.error.message}`);
+            // Don't fail the import, just log warning
+          } else {
+            this.logger.debug(`Updated cursor for operation type: ${operationType}`);
+          }
+        }
+      }
 
       const finalizeResult = await this.dataSourceRepository.finalize(
         dataSourceId,

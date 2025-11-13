@@ -3,15 +3,16 @@
  * Tests core interfaces, circuit breaker, and provider manager functionality
  */
 
+import { type CursorState, type PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { type RateLimitConfig } from '@exitbook/http';
-import { err, ok, okAsync, type Result } from 'neverthrow';
+import { err, errAsync, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { initializeProviders } from '../../initialize.js';
 import { BlockchainProviderManager } from '../provider-manager.js';
 import { ProviderRegistry } from '../registry/provider-registry.js';
-import type { ProviderInfo } from '../types/index.js';
+import type { ProviderInfo, StreamingBatchResult } from '../types/index.js';
 import {
   ProviderError,
   type IBlockchainProvider,
@@ -87,6 +88,21 @@ class MockProvider implements IBlockchainProvider {
       recommended: { requestsPerSecond: 1 },
       testResults: [{ rate: 1, success: true }],
     });
+  }
+
+  async *executeStreaming<T>(
+    _operation: ProviderOperation,
+    _cursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
+    yield errAsync(new Error('Streaming not implemented in mock'));
+  }
+
+  extractCursors(_transaction: unknown): PaginationCursor[] {
+    return [];
+  }
+
+  applyReplayWindow(cursor: PaginationCursor): PaginationCursor {
+    return cursor;
   }
 
   setFailureMode(shouldFail: boolean): void {

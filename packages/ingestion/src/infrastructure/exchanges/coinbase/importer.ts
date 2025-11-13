@@ -32,7 +32,7 @@ export class CoinbaseApiImporter implements IImporter {
 
     const client = clientResult.value;
 
-    // Client returns RawTransactionWithMetadata[] with all fields populated
+    // Client returns transactions and cursor updates
     // The client handles translating cursor to API-specific parameters (since/until/limit)
     const fetchResult = await client.fetchTransactionData({
       cursor: params.cursor,
@@ -44,12 +44,14 @@ export class CoinbaseApiImporter implements IImporter {
       return err(fetchResult.error);
     }
 
-    const exchangeData = fetchResult.value;
+    const { transactions, cursorUpdates } = fetchResult.value;
 
-    this.logger.info(`Completed Coinbase API import: ${exchangeData.length} transactions validated`);
+    this.logger.info(`Completed Coinbase API import: ${transactions.length} transactions validated`);
+    this.logger.info(`Cursor updates for ${Object.keys(cursorUpdates).length} accounts`);
 
     return ok({
-      rawTransactions: fetchResult.value,
+      rawTransactions: transactions,
+      cursorUpdates, // Return ALL account cursors, not just the first one
     });
   }
 }

@@ -1,4 +1,4 @@
-import type { ExternalTransaction } from '@exitbook/core';
+import type { CursorState, ExternalTransaction } from '@exitbook/core';
 import type { ExchangeCredentials } from '@exitbook/exchanges-providers';
 import type { Result } from 'neverthrow';
 
@@ -6,7 +6,7 @@ export interface ImportParams {
   address?: string | undefined;
   credentials?: ExchangeCredentials | undefined;
   csvDirectories?: string[] | undefined;
-  cursor?: Record<string, number> | undefined;
+  cursor?: Record<string, CursorState> | undefined;
   providerName?: string | undefined;
 }
 
@@ -19,6 +19,11 @@ export interface ImportResult {
 export interface ImportRunResult {
   // Successfully fetched and validated transactions
   rawTransactions: ExternalTransaction[];
+  // Map of cursor states per operation type for resumption
+  // e.g., { "ledger": {...}, "trade": {...} } for exchanges
+  // e.g., { "normal": {...}, "internal": {...}, "token": {...} } for blockchains
+  // e.g., { "account-123": {...}, "account-456": {...} } for Coinbase
+  cursorUpdates?: Record<string, CursorState> | undefined;
   // Metadata about the import run (e.g., total fetched, date ranges)
   metadata?: Record<string, unknown> | undefined;
 }

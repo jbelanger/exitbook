@@ -9,7 +9,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Acceptable for test mocks */
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { DataSource, ExternalTransaction } from '@exitbook/core';
+import type { CursorState, DataSource, ExternalTransaction } from '@exitbook/core';
 import { PartialImportError } from '@exitbook/exchanges-providers';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -61,6 +61,13 @@ const mockExchangeImportFn = vi.fn().mockResolvedValue(
       { refid: 'kraken-1', type: 'trade' },
       { refid: 'kraken-2', type: 'deposit' },
     ],
+    cursorUpdates: {
+      ledger: {
+        primary: { type: 'timestamp', value: 1 },
+        lastTransactionId: 'kraken-2',
+        totalFetched: 2,
+      },
+    },
     metadata: { apiVersion: 'v1' },
   })
 );
@@ -101,6 +108,13 @@ describe('TransactionImportService', () => {
           { refid: 'kraken-1', type: 'trade' },
           { refid: 'kraken-2', type: 'deposit' },
         ],
+        cursorUpdates: {
+          ledger: {
+            primary: { type: 'timestamp', value: 1 },
+            lastTransactionId: 'kraken-2',
+            totalFetched: 2,
+          },
+        },
         metadata: { apiVersion: 'v1' },
       })
     );
@@ -108,7 +122,6 @@ describe('TransactionImportService', () => {
     mockRawDataRepo = {
       saveBatch: vi.fn(),
       load: vi.fn(),
-      getLatestCursor: vi.fn(),
     } as unknown as IRawDataRepository;
 
     mockDataSourceRepo = {
@@ -116,6 +129,7 @@ describe('TransactionImportService', () => {
       finalize: vi.fn(),
       findBySource: vi.fn(),
       findCompletedWithMatchingParams: vi.fn(),
+      updateCursor: vi.fn().mockResolvedValue(ok()),
     } as unknown as IDataSourceRepository;
 
     mockProviderManager = {} as BlockchainProviderManager;
@@ -379,10 +393,22 @@ describe('TransactionImportService', () => {
         importResultMetadata: {},
       };
 
-      const cursor: Record<string, number> = { trade: 1, deposit: 2 };
+      // Phase 1.5: Cursor now stored in data source
+      const cursorMap: Record<string, CursorState> = {
+        trade: {
+          primary: { type: 'timestamp', value: 1 },
+          lastTransactionId: 'trade-1',
+          totalFetched: 100,
+        },
+        deposit: {
+          primary: { type: 'timestamp', value: 2 },
+          lastTransactionId: 'deposit-1',
+          totalFetched: 50,
+        },
+      };
+      existingDataSource.lastCursor = cursorMap;
 
       vi.mocked(mockDataSourceRepo.findBySource).mockResolvedValue(ok([existingDataSource]));
-      vi.mocked(mockRawDataRepo.getLatestCursor).mockResolvedValue(ok(cursor));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
       vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
 
@@ -392,8 +418,6 @@ describe('TransactionImportService', () => {
 
       // Should NOT create new data source
       expect(mockDataSourceRepo.create).not.toHaveBeenCalled();
-      // Cursor should have been loaded
-      expect(mockRawDataRepo.getLatestCursor).toHaveBeenCalledWith(10);
     });
 
     it('should return error for unknown exchange', async () => {
@@ -448,7 +472,7 @@ describe('TransactionImportService', () => {
         'Validation failed on item 3',
         successfulItems as unknown as ExternalTransaction[],
         { refid: 'kraken-3', type: 'invalid' },
-        { trade: 2 }
+        { trade: { primary: { type: 'timestamp', value: 2 }, lastTransactionId: 'trade-2', totalFetched: 2 } }
       );
 
       vi.mocked(mockDataSourceRepo.findBySource).mockResolvedValue(ok([]));
@@ -478,7 +502,13 @@ describe('TransactionImportService', () => {
         'Validation failed on item 3',
         expect.objectContaining({
           failedItem: { refid: 'kraken-3', type: 'invalid' },
-          lastSuccessfulCursor: { trade: 2 },
+          lastSuccessfulCursorUpdates: {
+            trade: {
+              primary: { type: 'timestamp', value: 2 },
+              lastTransactionId: 'trade-2',
+              totalFetched: 2,
+            },
+          },
         })
       );
     });

@@ -1,4 +1,4 @@
-import type { DataSource } from '@exitbook/core';
+import type { CursorState, DataSource } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -75,14 +75,14 @@ export function normalizeBlockchainImportParams(
  * @param sourceId - Source identifier (blockchain or exchange name)
  * @param params - Import parameters
  * @param existingSource - Previously created data source, or null
- * @param latestCursor - Latest cursor from existing source, or null
+ * @param latestCursor - Latest cursor map from existing source, or null
  * @returns Configuration for the import session
  */
 export function prepareImportSession(
   sourceId: string,
   params: ImportParams,
   existingSource: DataSource | undefined,
-  latestCursor: Record<string, number> | undefined
+  latestCursor: Record<string, CursorState> | undefined
 ): ImportSessionConfig {
   // If we have an existing source, resume it
   if (existingSource) {

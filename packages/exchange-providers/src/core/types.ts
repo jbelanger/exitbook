@@ -1,11 +1,11 @@
-import type { ExternalTransaction } from '@exitbook/core';
+import type { CursorState, ExternalTransaction } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 /**
  * Parameters for fetching exchange data
  */
 export interface FetchParams {
-  cursor?: Record<string, number> | undefined;
+  cursor?: Record<string, CursorState> | undefined;
 }
 
 /**
@@ -30,6 +30,14 @@ export interface BalanceSnapshot {
 }
 
 /**
+ * Result of fetching transaction data from exchange
+ */
+export interface FetchTransactionDataResult {
+  transactions: ExternalTransaction[];
+  cursorUpdates: Record<string, CursorState>;
+}
+
+/**
  * Base interface for exchange clients
  */
 export interface IExchangeClient {
@@ -37,10 +45,10 @@ export interface IExchangeClient {
 
   /**
    * Fetch all transaction data (trades, deposits, withdrawals, orders, etc.)
-   * Validates data and returns transactions ready for storage.
+   * Validates data and returns transactions ready for storage along with cursor updates.
    * May return partial results via PartialImportError if validation fails partway through.
    */
-  fetchTransactionData(params?: FetchParams): Promise<Result<ExternalTransaction[], Error>>;
+  fetchTransactionData(params?: FetchParams): Promise<Result<FetchTransactionDataResult, Error>>;
 
   /**
    * Fetch current total balance for all currencies

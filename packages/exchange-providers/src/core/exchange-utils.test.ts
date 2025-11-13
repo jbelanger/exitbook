@@ -226,15 +226,15 @@ describe('processItems', () => {
     return ok(result.data);
   };
 
-  const metadataMapper = (
-    parsed: TestValidatedItem,
-    _item: TestRawItem
-  ): {
-    cursor: Record<string, number>;
-    externalId: string;
-    normalizedData: ExchangeLedgerEntry;
-  } => ({
-    cursor: { lastTime: parsed.time },
+  const metadataMapper = (parsed: TestValidatedItem, _item: TestRawItem) => ({
+    cursorUpdates: {
+      ledger: {
+        primary: { type: 'timestamp' as const, value: parsed.time },
+        lastTransactionId: parsed.id,
+        totalFetched: 1,
+        metadata: { providerName: 'kraken', updatedAt: Date.now() },
+      },
+    },
     externalId: parsed.id,
     normalizedData: {
       id: parsed.id,
@@ -243,30 +243,31 @@ describe('processItems', () => {
       type: 'trade',
       asset: 'BTC',
       amount: parsed.amount,
-      status: 'success',
+      status: 'success' as const,
     },
   });
 
   it('should process empty array', () => {
-    const result = processItems<TestRawItem, TestValidatedItem>([], extractor, validator, metadataMapper, 'kraken', {});
+    const result = processItems<TestRawItem, TestValidatedItem>([], extractor, validator, metadataMapper, 'kraken');
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value).toEqual([]);
+      expect(result.value.transactions).toEqual([]);
+      expect(result.value.cursorUpdates).toEqual({});
     }
   });
 
   it('should process single valid item', () => {
     const items: TestRawItem[] = [{ id: 'tx-1', time: 1704067200000, amount: '100' }];
 
-    const result = processItems(items, extractor, validator, metadataMapper, 'kraken', {});
+    const result = processItems(items, extractor, validator, metadataMapper, 'kraken');
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value).toHaveLength(1);
-      expect(result.value[0]!.externalId).toBe('tx-1');
-      expect(result.value[0]!.providerName).toBe('kraken');
-      expect(result.value[0]!.cursor).toEqual({ lastTime: 1704067200000 });
+      expect(result.value.transactions).toHaveLength(1);
+      expect(result.value.transactions[0]!.externalId).toBe('tx-1');
+      expect(result.value.transactions[0]!.providerName).toBe('kraken');
+      expect(result.value.cursorUpdates.ledger?.primary.value).toBe(1704067200000);
     }
   });
 
@@ -277,14 +278,15 @@ describe('processItems', () => {
       { id: 'tx-3', time: 1704240000000, amount: '300' },
     ];
 
-    const result = processItems(items, extractor, validator, metadataMapper, 'kraken', {});
+    const result = processItems(items, extractor, validator, metadataMapper, 'kraken');
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value).toHaveLength(3);
-      expect(result.value[0]!.externalId).toBe('tx-1');
-      expect(result.value[1]!.externalId).toBe('tx-2');
-      expect(result.value[2]!.externalId).toBe('tx-3');
+      expect(result.value.transactions).toHaveLength(3);
+      expect(result.value.transactions[0]!.externalId).toBe('tx-1');
+      expect(result.value.transactions[1]!.externalId).toBe('tx-2');
+      expect(result.value.transactions[2]!.externalId).toBe('tx-3');
+      expect(result.value.cursorUpdates.ledger?.primary.value).toBe(1704240000000);
     }
   });
 
@@ -294,7 +296,7 @@ describe('processItems', () => {
       { id: 'tx-2', time: 0, amount: '200' } as TestRawItem,
     ];
 
-    const result = processItems(items, extractor, validator, metadataMapper, 'kraken', {});
+    const result = processItems(items, extractor, validator, metadataMapper, 'kraken');
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -311,7 +313,7 @@ describe('processItems', () => {
       { id: 'tx-2', time: 1704067200000, amount: '200' },
     ];
 
-    const result = processItems(items, extractor, validator, metadataMapper, 'kraken', {});
+    const result = processItems(items, extractor, validator, metadataMapper, 'kraken');
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -319,18 +321,20 @@ describe('processItems', () => {
     }
   });
 
-  it('should update cursor after each successful item', () => {
+  it('should process multiple items successfully', () => {
     const items: TestRawItem[] = [
       { id: 'tx-1', time: 1704067200000, amount: '100' },
       { id: 'tx-2', time: 1704153600000, amount: '200' },
     ];
 
-    const result = processItems(items, extractor, validator, metadataMapper, 'kraken', {});
+    const result = processItems(items, extractor, validator, metadataMapper, 'kraken');
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value[0]!.cursor).toEqual({ lastTime: 1704067200000 });
-      expect(result.value[1]!.cursor).toEqual({ lastTime: 1704153600000 });
+      expect(result.value.transactions).toHaveLength(2);
+      expect(result.value.transactions[0]!.externalId).toBe('tx-1');
+      expect(result.value.transactions[1]!.externalId).toBe('tx-2');
+      expect(result.value.cursorUpdates.ledger?.primary.value).toEqual(1704153600000);
     }
   });
 
@@ -339,26 +343,25 @@ describe('processItems', () => {
       { id: 'tx-1', time: 1704067200000, amount: '100' },
       { id: 'tx-2', time: 0, amount: '200' } as TestRawItem,
     ];
-    const currentCursor = { lastTime: 1000000000000 };
 
-    const result = processItems(items, extractor, validator, metadataMapper, 'kraken', currentCursor);
+    const result = processItems(items, extractor, validator, metadataMapper, 'kraken');
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error.lastSuccessfulCursor).toEqual({ lastTime: 1704067200000 });
+      expect(result.error.lastSuccessfulCursorUpdates?.ledger?.primary.value).toEqual(1704067200000);
     }
   });
 
   it('should validate normalized data against schema', () => {
-    const invalidMetadataMapper = (
-      _parsed: TestValidatedItem,
-      _item: TestRawItem
-    ): {
-      cursor: Record<string, number>;
-      externalId: string;
-      normalizedData: ExchangeLedgerEntry;
-    } => ({
-      cursor: { lastTime: 1000 },
+    const invalidMetadataMapper = (_parsed: TestValidatedItem, _item: TestRawItem) => ({
+      cursorUpdates: {
+        ledger: {
+          primary: { type: 'timestamp' as const, value: 1000 },
+          lastTransactionId: 'tx-1',
+          totalFetched: 1,
+          metadata: { providerName: 'kraken', updatedAt: Date.now() },
+        },
+      },
       externalId: 'tx-1',
       normalizedData: {
         id: 'tx-1',
@@ -368,7 +371,7 @@ describe('processItems', () => {
 
     const items: TestRawItem[] = [{ id: 'tx-1', time: 1704067200000, amount: '100' }];
 
-    const result = processItems(items, extractor, validator, invalidMetadataMapper, 'kraken', {});
+    const result = processItems(items, extractor, validator, invalidMetadataMapper, 'kraken');
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -379,22 +382,22 @@ describe('processItems', () => {
   it('should include rawData in transaction', () => {
     const items: TestRawItem[] = [{ id: 'tx-1', time: 1704067200000, amount: '100' }];
 
-    const result = processItems(items, extractor, validator, metadataMapper, 'kraken', {});
+    const result = processItems(items, extractor, validator, metadataMapper, 'kraken');
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value[0]!.rawData).toEqual({ id: 'tx-1', time: 1704067200000, amount: '100' });
+      expect(result.value.transactions[0]!.rawData).toEqual({ id: 'tx-1', time: 1704067200000, amount: '100' });
     }
   });
 
   it('should include normalizedData in transaction', () => {
     const items: TestRawItem[] = [{ id: 'tx-1', time: 1704067200000, amount: '100' }];
 
-    const result = processItems(items, extractor, validator, metadataMapper, 'kraken', {});
+    const result = processItems(items, extractor, validator, metadataMapper, 'kraken');
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      const normalized = result.value[0]!.normalizedData as ExchangeLedgerEntry;
+      const normalized = result.value.transactions[0]!.normalizedData as ExchangeLedgerEntry;
       expect(normalized.id).toBe('tx-1');
       expect(normalized.asset).toBe('BTC');
       expect(normalized.amount).toBe('100');
@@ -404,11 +407,11 @@ describe('processItems', () => {
   it('should set correct providerName', () => {
     const items: TestRawItem[] = [{ id: 'tx-1', time: 1704067200000, amount: '100' }];
 
-    const result = processItems(items, extractor, validator, metadataMapper, 'binance', {});
+    const result = processItems(items, extractor, validator, metadataMapper, 'binance');
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value[0]!.providerName).toBe('binance');
+      expect(result.value.transactions[0]!.providerName).toBe('binance');
     }
   });
 });
