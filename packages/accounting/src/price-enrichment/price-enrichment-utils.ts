@@ -147,7 +147,7 @@ function deriveInflowPricesFromOutflows(
 
     const ratioPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [
       {
-        asset: trade.inflow.asset,
+        asset: trade.inflow.asset.toString(),
         priceAtTxTime: {
           price: {
             amount: derivedPrice,
@@ -209,8 +209,8 @@ function recalculateCryptoSwapRatios(
     }
 
     // Check if this is a crypto-crypto swap (neither side is fiat/stable)
-    const inflowCurrency = Currency.create(trade.inflow.asset);
-    const outflowCurrency = Currency.create(trade.outflow.asset);
+    const inflowCurrency = Currency.create(trade.inflow.asset.toString());
+    const outflowCurrency = Currency.create(trade.outflow.asset.toString());
 
     if (inflowCurrency.isFiatOrStablecoin() || outflowCurrency.isFiatOrStablecoin()) {
       continue; // Keep fiat-based prices (they're already execution prices)
@@ -226,7 +226,7 @@ function recalculateCryptoSwapRatios(
 
     const ratioPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [
       {
-        asset: trade.inflow.asset,
+        asset: trade.inflow.asset.toString(),
         priceAtTxTime: {
           price: {
             amount: derivedPrice,
@@ -364,7 +364,7 @@ export function propagatePricesAcrossLinks(
             };
 
             targetMovementPrices.push({
-              asset: targetMovement.asset,
+              asset: targetMovement.asset.toString(),
               priceAtTxTime: propagatedPrice,
             });
 
@@ -433,8 +433,8 @@ export function enrichFeePricesFromMovements(transactions: UniversalTransaction[
     // Build price lookup map by asset from movements
     const pricesByAsset = new Map<string, PriceAtTxTime>();
     for (const movement of allMovements) {
-      if (movement.priceAtTxTime && !pricesByAsset.has(movement.asset)) {
-        pricesByAsset.set(movement.asset, movement.priceAtTxTime);
+      if (movement.priceAtTxTime && !pricesByAsset.has(movement.asset.toString())) {
+        pricesByAsset.set(movement.asset.toString(), movement.priceAtTxTime);
       }
     }
 
@@ -452,7 +452,7 @@ export function enrichFeePricesFromMovements(transactions: UniversalTransaction[
       }
 
       // Try to copy price from movement with same asset
-      const price = pricesByAsset.get(fee.asset);
+      const price = pricesByAsset.get(fee.asset.toString());
       if (price) {
         feesModified = true;
         return { ...fee, priceAtTxTime: price };
@@ -470,7 +470,7 @@ export function enrichFeePricesFromMovements(transactions: UniversalTransaction[
 
       // Check if this is a fiat currency
       try {
-        const currency = Currency.create(fee.asset);
+        const currency = Currency.create(fee.asset.toString());
         if (!currency.isFiat()) {
           return fee;
         }

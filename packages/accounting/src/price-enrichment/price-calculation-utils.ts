@@ -63,8 +63,8 @@ export function extractTradeMovements(
 export function calculatePriceFromTrade(movements: TradeMovements): { asset: string; priceAtTxTime: PriceAtTxTime }[] {
   const { inflow, outflow, timestamp } = movements;
 
-  const inflowCurrency = Currency.create(inflow.asset);
-  const outflowCurrency = Currency.create(outflow.asset);
+  const inflowCurrency = Currency.create(inflow.asset.toString());
+  const outflowCurrency = Currency.create(outflow.asset.toString());
 
   const inflowIsUSD = inflowCurrency.toString() === 'USD';
   const outflowIsUSD = outflowCurrency.toString() === 'USD';
@@ -81,7 +81,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
       results.push(
         {
-          asset: inflow.asset,
+          asset: inflow.asset.toString(),
           priceAtTxTime: {
             price: { amount: price, currency: outflowCurrency },
             source: 'exchange-execution',
@@ -90,7 +90,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
           },
         },
         {
-          asset: outflow.asset, // USD
+          asset: outflow.asset.toString(), // USD
           priceAtTxTime: {
             price: { amount: parseDecimal('1'), currency: outflowCurrency },
             source: 'exchange-execution',
@@ -107,7 +107,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
       results.push(
         {
-          asset: outflow.asset,
+          asset: outflow.asset.toString(),
           priceAtTxTime: {
             price: { amount: price, currency: inflowCurrency },
             source: 'exchange-execution',
@@ -116,7 +116,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
           },
         },
         {
-          asset: inflow.asset, // USD
+          asset: inflow.asset.toString(), // USD
           priceAtTxTime: {
             price: { amount: parseDecimal('1'), currency: inflowCurrency },
             source: 'exchange-execution',
@@ -144,7 +144,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
     results.push(
       {
-        asset: inflow.asset,
+        asset: inflow.asset.toString(),
         priceAtTxTime: {
           price: { amount: fiatPrice, currency: inflowCurrency },
           source: 'fiat-execution-tentative',
@@ -153,7 +153,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
         },
       },
       {
-        asset: outflow.asset,
+        asset: outflow.asset.toString(),
         priceAtTxTime: {
           price: { amount: cryptoPrice, currency: inflowCurrency },
           source: 'fiat-execution-tentative',
@@ -176,7 +176,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
     results.push(
       {
-        asset: outflow.asset,
+        asset: outflow.asset.toString(),
         priceAtTxTime: {
           price: { amount: fiatPrice, currency: outflowCurrency },
           source: 'fiat-execution-tentative',
@@ -185,7 +185,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
         },
       },
       {
-        asset: inflow.asset,
+        asset: inflow.asset.toString(),
         priceAtTxTime: {
           price: { amount: cryptoPrice, currency: outflowCurrency },
           source: 'fiat-execution-tentative',
@@ -226,7 +226,7 @@ export function stampFiatIdentityPrices(
       continue;
     }
 
-    const currency = Currency.create(movement.asset);
+    const currency = Currency.create(movement.asset.toString());
 
     // Only stamp prices on fiat currencies
     if (!currency.isFiat()) {
@@ -236,7 +236,7 @@ export function stampFiatIdentityPrices(
     const isUSD = currency.toString() === 'USD';
 
     results.push({
-      asset: movement.asset,
+      asset: movement.asset.toString(),
       priceAtTxTime: {
         price: { amount: parseDecimal('1'), currency },
         // USD gets 'exchange-execution' (final), non-USD gets 'fiat-execution-tentative' (will be normalized)
