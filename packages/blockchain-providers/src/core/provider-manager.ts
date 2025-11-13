@@ -169,18 +169,41 @@ export class BlockchainProviderManager {
 
       const isFailover = currentCursor && currentCursor.metadata?.providerName !== provider.name;
 
+      // Apply cursor translation and replay window for failover
+      let adjustedCursor = currentCursor;
+      if (isFailover && currentCursor) {
+        // Find best cursor type this provider can use
+        const bestCursor = this.findBestCursor(provider, currentCursor);
+        if (bestCursor) {
+          // Apply replay window to prevent gaps at failover boundary
+          const cursorWithReplay = provider.applyReplayWindow(bestCursor);
+
+          // Update cursor state with adjusted primary cursor
+          adjustedCursor = {
+            ...currentCursor,
+            primary: cursorWithReplay,
+          };
+
+          logger.info(
+            `Applying cursor translation for failover: ${bestCursor.type}=${bestCursor.value} -> ` +
+              `${cursorWithReplay.type}=${cursorWithReplay.value} (replay window applied)`
+          );
+        }
+      }
+
       logger.info(
         `Using provider ${provider.name} for ${operation.type}` +
           (isFailover
-            ? ` (failover from ${currentCursor!.metadata?.providerName}, replay window will be applied)`
+            ? ` (failover from ${currentCursor!.metadata?.providerName}, replay window applied)`
             : currentCursor
               ? ` (resuming same provider)`
               : '')
       );
 
       try {
-        const iterator = provider.executeStreaming(operation, currentCursor);
+        const iterator = provider.executeStreaming(operation, adjustedCursor);
 
+        let providerFailed = false;
         for await (const batchResult of iterator) {
           // ✅ Check Result wrapper from provider
           if (batchResult.isErr()) {
@@ -192,6 +215,7 @@ export class BlockchainProviderManager {
             this.updateHealthMetrics(provider.name, false, 0, getErrorMessage(batchResult.error));
 
             providerIndex++;
+            providerFailed = true;
             break; // Break inner loop, continue outer loop to try next provider
           }
 
@@ -232,6 +256,11 @@ export class BlockchainProviderManager {
           // Record success for circuit breaker
           const circuitState = this.getOrCreateCircuitState(provider.name);
           this.circuitStates.set(provider.name, recordSuccess(circuitState, Date.now()));
+        }
+
+        // If provider failed during streaming, continue to next provider
+        if (providerFailed) {
+          continue;
         }
 
         logger.info(`Provider ${provider.name} completed successfully`);
