@@ -71,7 +71,7 @@ export function collectPricedEntities(transactions: UniversalTransaction[]): Pri
       entities.push({
         transactionId: txId,
         datetime,
-        asset: movement.asset,
+        asset: movement.asset.toString(),
         currency: priceData?.price?.currency?.toString(),
         kind: 'inflow',
         hasPrice,
@@ -98,7 +98,7 @@ export function collectPricedEntities(transactions: UniversalTransaction[]): Pri
       entities.push({
         transactionId: txId,
         datetime,
-        asset: movement.asset,
+        asset: movement.asset.toString(),
         currency: priceData?.price?.currency?.toString(),
         kind: 'outflow',
         hasPrice,
@@ -125,7 +125,7 @@ export function collectPricedEntities(transactions: UniversalTransaction[]): Pri
       entities.push({
         transactionId: txId,
         datetime,
-        asset: fee.asset,
+        asset: fee.asset.toString(),
         currency: priceData?.price?.currency?.toString(),
         kind: 'fee',
         hasPrice,
@@ -162,8 +162,7 @@ export function validatePriceCompleteness(entities: PricedEntity[]): PriceValida
 
       // Skip fiat currencies - they don't need prices for cost basis calculation
       try {
-        const currency = Currency.create(e.asset);
-        if (currency.isFiat()) {
+        if (Currency.create(e.asset).isFiat()) {
           return false;
         }
       } catch (error) {

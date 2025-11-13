@@ -1,3 +1,4 @@
+import { Currency } from '@exitbook/core';
 import { parseDecimal, type UniversalTransaction } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
@@ -23,10 +24,10 @@ function createTransaction(params: {
     status: 'success',
     movements: {
       inflows: params.inflows
-        ? params.inflows.map((m) => ({ asset: m.asset, grossAmount: parseDecimal(m.amount) }))
+        ? params.inflows.map((m) => ({ asset: Currency.create(m.asset), grossAmount: parseDecimal(m.amount) }))
         : [],
       outflows: params.outflows
-        ? params.outflows.map((m) => ({ asset: m.asset, grossAmount: parseDecimal(m.amount) }))
+        ? params.outflows.map((m) => ({ asset: Currency.create(m.asset), grossAmount: parseDecimal(m.amount) }))
         : [],
     },
     fees: [],
@@ -95,19 +96,19 @@ describe('LinkGraphBuilder', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         createTransaction({
           id: 3,
           source: 'ethereum',
           datetime: '2024-01-01T14:00:00.000Z',
-          inflows: [{ asset: 'ETH', amount: '10.0' }],
+          inflows: [{ asset: Currency.create('ETH'), amount: '10.0' }],
         }),
       ];
 
@@ -131,22 +132,22 @@ describe('LinkGraphBuilder', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
-          outflows: [{ asset: 'USD', amount: '50000' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
+          outflows: [{ asset: Currency.create('USD'), amount: '50000' }],
         }),
         // Kraken withdrawal (no link to blockchain yet)
         createTransaction({
           id: 2,
           source: 'kraken',
           datetime: '2024-01-01T13:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Another Kraken transaction (internal transfer)
         createTransaction({
           id: 3,
           source: 'kraken',
           datetime: '2024-01-01T14:00:00.000Z',
-          inflows: [{ asset: 'ETH', amount: '10.0' }],
+          inflows: [{ asset: Currency.create('ETH'), amount: '10.0' }],
         }),
       ];
 
@@ -170,26 +171,26 @@ describe('LinkGraphBuilder', () => {
           id: 1,
           source: 'bitcoin',
           datetime: '2024-01-01T12:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '0.5' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '0.5' }],
         }),
         // Bitcoin wallet B (completely separate, unrelated user/wallet)
         createTransaction({
           id: 3,
           source: 'bitcoin',
           datetime: '2024-01-01T14:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '2.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '2.0' }],
         }),
         createTransaction({
           id: 4,
           source: 'bitcoin',
           datetime: '2024-01-01T15:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
       ];
 
@@ -213,27 +214,27 @@ describe('LinkGraphBuilder', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Bitcoin wallet A - receives Kraken withdrawal (linked)
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Bitcoin wallet B - completely UNRELATED wallet (must NOT get Kraken's price)
         createTransaction({
           id: 3,
           source: 'bitcoin',
           datetime: '2024-01-01T14:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '5.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '5.0' }],
         }),
         createTransaction({
           id: 4,
           source: 'bitcoin',
           datetime: '2024-01-01T15:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '2.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '2.0' }],
         }),
       ];
 
@@ -277,29 +278,29 @@ describe('LinkGraphBuilder', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
-          outflows: [{ asset: 'USD', amount: '50000' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
+          outflows: [{ asset: Currency.create('USD'), amount: '50000' }],
         }),
         // Kraken withdrawal (linked to blockchain)
         createTransaction({
           id: 2,
           source: 'kraken',
           datetime: '2024-01-01T13:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Bitcoin deposit (receives withdrawal)
         createTransaction({
           id: 3,
           source: 'bitcoin',
           datetime: '2024-01-01T14:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Bitcoin send (no link yet)
         createTransaction({
           id: 4,
           source: 'bitcoin',
           datetime: '2024-01-01T15:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '0.5' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '0.5' }],
         }),
       ];
 
@@ -346,13 +347,13 @@ describe('LinkGraphBuilder', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
       ];
 
@@ -384,13 +385,13 @@ describe('LinkGraphBuilder', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
       ];
 
@@ -421,13 +422,13 @@ describe('LinkGraphBuilder', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
       ];
 
@@ -459,28 +460,28 @@ describe('LinkGraphBuilder', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Bitcoin deposit
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Bitcoin send
         createTransaction({
           id: 3,
           source: 'bitcoin',
           datetime: '2024-01-01T14:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '0.5' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '0.5' }],
         }),
         // Ethereum receive (cross-chain via bridge)
         createTransaction({
           id: 4,
           source: 'ethereum',
           datetime: '2024-01-01T15:00:00.000Z',
-          inflows: [{ asset: 'WBTC', amount: '0.5' }],
+          inflows: [{ asset: Currency.create('WBTC'), amount: '0.5' }],
         }),
       ];
 
@@ -528,19 +529,19 @@ describe('LinkGraphBuilder', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         createTransaction({
           id: 3,
           source: 'bitcoin',
           datetime: '2024-01-01T14:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '0.5' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '0.5' }],
         }),
       ];
 
@@ -586,33 +587,33 @@ describe('LinkGraphBuilder', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Group 2: Coinbase → Ethereum
         createTransaction({
           id: 3,
           source: 'coinbase',
           datetime: '2024-01-01T14:00:00.000Z',
-          outflows: [{ asset: 'ETH', amount: '10.0' }],
+          outflows: [{ asset: Currency.create('ETH'), amount: '10.0' }],
         }),
         createTransaction({
           id: 4,
           source: 'ethereum',
           datetime: '2024-01-01T15:00:00.000Z',
-          inflows: [{ asset: 'ETH', amount: '10.0' }],
+          inflows: [{ asset: Currency.create('ETH'), amount: '10.0' }],
         }),
         // Unlinked transaction (different source to stay isolated)
         createTransaction({
           id: 5,
           source: 'solana',
           datetime: '2024-01-01T16:00:00.000Z',
-          outflows: [{ asset: 'SOL', amount: '100' }],
+          outflows: [{ asset: Currency.create('SOL'), amount: '100' }],
         }),
       ];
 
@@ -658,13 +659,13 @@ describe('LinkGraphBuilder', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
       ];
 
@@ -705,21 +706,21 @@ describe('LinkGraphBuilder', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Blockchain
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Exchange 2
         createTransaction({
           id: 3,
           source: 'coinbase',
           datetime: '2024-01-01T14:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '0.5' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '0.5' }],
         }),
       ];
 

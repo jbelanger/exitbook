@@ -10,7 +10,7 @@
  */
 
 import type { AssetMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
-import { Currency, parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 
 import { enrichMovementsWithPrices } from './movement-enrichment-utils.js';
 import { calculatePriceFromTrade, extractTradeMovements, stampFiatIdentityPrices } from './price-calculation-utils.js';
@@ -147,7 +147,7 @@ function deriveInflowPricesFromOutflows(
 
     const ratioPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [
       {
-        asset: trade.inflow.asset,
+        asset: trade.inflow.asset.toString(),
         priceAtTxTime: {
           price: {
             amount: derivedPrice,
@@ -209,8 +209,8 @@ function recalculateCryptoSwapRatios(
     }
 
     // Check if this is a crypto-crypto swap (neither side is fiat/stable)
-    const inflowCurrency = Currency.create(trade.inflow.asset);
-    const outflowCurrency = Currency.create(trade.outflow.asset);
+    const inflowCurrency = trade.inflow.asset;
+    const outflowCurrency = trade.outflow.asset;
 
     if (inflowCurrency.isFiatOrStablecoin() || outflowCurrency.isFiatOrStablecoin()) {
       continue; // Keep fiat-based prices (they're already execution prices)
@@ -226,7 +226,7 @@ function recalculateCryptoSwapRatios(
 
     const ratioPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [
       {
-        asset: trade.inflow.asset,
+        asset: trade.inflow.asset.toString(),
         priceAtTxTime: {
           price: {
             amount: derivedPrice,
@@ -349,7 +349,7 @@ export function propagatePricesAcrossLinks(
 
       // Find matching target movement by asset
       for (const targetMovement of targetInflows) {
-        if (targetMovement.asset === sourceMovement.asset) {
+        if (targetMovement.asset.toString() === sourceMovement.asset.toString()) {
           // Check if amounts are reasonably close (allow up to 10% difference for fees)
           const sourceAmount = sourceMovement.grossAmount.toNumber();
           const targetAmount = targetMovement.grossAmount.toNumber();
@@ -364,7 +364,7 @@ export function propagatePricesAcrossLinks(
             };
 
             targetMovementPrices.push({
-              asset: targetMovement.asset,
+              asset: targetMovement.asset.toString(),
               priceAtTxTime: propagatedPrice,
             });
 
@@ -433,8 +433,8 @@ export function enrichFeePricesFromMovements(transactions: UniversalTransaction[
     // Build price lookup map by asset from movements
     const pricesByAsset = new Map<string, PriceAtTxTime>();
     for (const movement of allMovements) {
-      if (movement.priceAtTxTime && !pricesByAsset.has(movement.asset)) {
-        pricesByAsset.set(movement.asset, movement.priceAtTxTime);
+      if (movement.priceAtTxTime && !pricesByAsset.has(movement.asset.toString())) {
+        pricesByAsset.set(movement.asset.toString(), movement.priceAtTxTime);
       }
     }
 
@@ -452,7 +452,7 @@ export function enrichFeePricesFromMovements(transactions: UniversalTransaction[
       }
 
       // Try to copy price from movement with same asset
-      const price = pricesByAsset.get(fee.asset);
+      const price = pricesByAsset.get(fee.asset.toString());
       if (price) {
         feesModified = true;
         return { ...fee, priceAtTxTime: price };
@@ -470,18 +470,17 @@ export function enrichFeePricesFromMovements(transactions: UniversalTransaction[
 
       // Check if this is a fiat currency
       try {
-        const currency = Currency.create(fee.asset);
-        if (!currency.isFiat()) {
+        if (!fee.asset.isFiat()) {
           return fee;
         }
 
-        const isUSD = currency.toString() === 'USD';
+        const isUSD = fee.asset.toString() === 'USD';
         feesModified = true;
 
         return {
           ...fee,
           priceAtTxTime: {
-            price: { amount: parseDecimal('1'), currency },
+            price: { amount: parseDecimal('1'), currency: fee.asset },
             // USD gets 'exchange-execution' (final), non-USD gets 'fiat-execution-tentative' (will be normalized)
             source: isUSD ? 'exchange-execution' : 'fiat-execution-tentative',
             fetchedAt: new Date(timestamp),

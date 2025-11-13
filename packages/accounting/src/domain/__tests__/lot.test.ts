@@ -1,3 +1,4 @@
+import { Currency } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 
@@ -8,7 +9,7 @@ describe('createAcquisitionLot', () => {
   test('should create a new acquisition lot with correct properties', () => {
     const params = {
       acquisitionTransactionId: 1,
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       calculationId: 'calc-123',
       costBasisPerUnit: parseDecimal('50000'),
       id: 'lot-123',
@@ -35,7 +36,7 @@ describe('createAcquisitionLot', () => {
   test('should calculate total cost basis correctly', () => {
     const lot = createAcquisitionLot({
       acquisitionTransactionId: 1,
-      asset: 'ETH',
+      asset: Currency.create('ETH'),
       calculationId: 'calc-123',
       costBasisPerUnit: parseDecimal('3000.50'),
       id: 'lot-123',

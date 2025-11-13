@@ -1,3 +1,4 @@
+import { Currency } from '@exitbook/core';
 import type { AssetMovement } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
@@ -8,14 +9,14 @@ describe('extractTradeMovements', () => {
   it('should extract simple trade pattern (1 inflow + 1 outflow)', () => {
     const inflows: AssetMovement[] = [
       {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: parseDecimal('1'),
       },
     ];
 
     const outflows: AssetMovement[] = [
       {
-        asset: 'USDT',
+        asset: Currency.create('USDT'),
         grossAmount: parseDecimal('50000'),
       },
     ];
@@ -33,18 +34,18 @@ describe('extractTradeMovements', () => {
   it('should return undefined for complex patterns', () => {
     const inflows: AssetMovement[] = [
       {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: parseDecimal('1'),
       },
       {
-        asset: 'ETH',
+        asset: Currency.create('ETH'),
         grossAmount: parseDecimal('10'),
       },
     ];
 
     const outflows: AssetMovement[] = [
       {
-        asset: 'USDT',
+        asset: Currency.create('USDT'),
         grossAmount: parseDecimal('50000'),
       },
     ];
@@ -63,11 +64,11 @@ describe('calculatePriceFromTrade', () => {
     // Stablecoins are fetched in Stage 3 to capture de-peg events
     const trade = {
       inflow: {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: parseDecimal('1'),
       },
       outflow: {
-        asset: 'USDT',
+        asset: Currency.create('USDT'),
         grossAmount: parseDecimal('50000'),
       },
       timestamp: 1234567890000,
@@ -83,11 +84,11 @@ describe('calculatePriceFromTrade', () => {
     // Sell 2 ETH for 6,000 USD
     const trade = {
       inflow: {
-        asset: 'USD',
+        asset: Currency.create('USD'),
         grossAmount: parseDecimal('6000'),
       },
       outflow: {
-        asset: 'ETH',
+        asset: Currency.create('ETH'),
         grossAmount: parseDecimal('2'),
       },
       timestamp: 1234567890000,
@@ -112,11 +113,11 @@ describe('calculatePriceFromTrade', () => {
     // from Stage 3 to capture de-peg events
     const trade = {
       inflow: {
-        asset: 'USDC',
+        asset: Currency.create('USDC'),
         grossAmount: parseDecimal('999.5'),
       },
       outflow: {
-        asset: 'USDT',
+        asset: Currency.create('USDT'),
         grossAmount: parseDecimal('1000'),
       },
       timestamp: 1234567890000,
@@ -132,11 +133,11 @@ describe('calculatePriceFromTrade', () => {
     // Swap 1 BTC for 20 ETH (no fiat/stablecoin)
     const trade = {
       inflow: {
-        asset: 'ETH',
+        asset: Currency.create('ETH'),
         grossAmount: parseDecimal('20'),
       },
       outflow: {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: parseDecimal('1'),
       },
       timestamp: 1234567890000,
@@ -151,11 +152,11 @@ describe('calculatePriceFromTrade', () => {
     // Buy 0.5 BTC with 25,000 USD (actual USD, not stablecoin)
     const trade = {
       inflow: {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: parseDecimal('0.5'),
       },
       outflow: {
-        asset: 'USD',
+        asset: Currency.create('USD'),
         grossAmount: parseDecimal('25000'),
       },
       timestamp: 1234567890000,
@@ -180,11 +181,11 @@ describe('calculatePriceFromTrade', () => {
     // If Stage 1 fails, Stage 3 providers (priority 1) can overwrite
     const trade = {
       inflow: {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: parseDecimal('1'),
       },
       outflow: {
-        asset: 'EUR',
+        asset: Currency.create('EUR'),
         grossAmount: parseDecimal('40000'),
       },
       timestamp: 1234567890000,
@@ -217,11 +218,11 @@ describe('calculatePriceFromTrade', () => {
     // If Stage 1 fails, Stage 3 providers (priority 1) can overwrite
     const trade = {
       inflow: {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: parseDecimal('1'),
       },
       outflow: {
-        asset: 'CAD',
+        asset: Currency.create('CAD'),
         grossAmount: parseDecimal('65000'),
       },
       timestamp: 1234567890000,
@@ -251,11 +252,11 @@ describe('calculatePriceFromTrade', () => {
     // Buy 1 BTC with 50,000 USD (actual USD)
     const trade = {
       inflow: {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: parseDecimal('1'),
       },
       outflow: {
-        asset: 'USD',
+        asset: Currency.create('USD'),
         grossAmount: parseDecimal('50000'),
       },
       timestamp: 1234567890000,

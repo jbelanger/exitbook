@@ -1,3 +1,4 @@
+import { Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -61,7 +62,7 @@ describe('sortLotsFifo', () => {
     id,
     calculationId: 'calc1',
     acquisitionTransactionId: 1,
-    asset: 'BTC',
+    asset: Currency.create('BTC'),
     quantity: new Decimal('1'),
     costBasisPerUnit: new Decimal('30000'),
     totalCostBasis: new Decimal('30000'),
@@ -134,7 +135,7 @@ describe('sortLotsLifo', () => {
     id,
     calculationId: 'calc1',
     acquisitionTransactionId: 1,
-    asset: 'BTC',
+    asset: Currency.create('BTC'),
     quantity: new Decimal('1'),
     costBasisPerUnit: new Decimal('30000'),
     totalCostBasis: new Decimal('30000'),
@@ -207,7 +208,7 @@ describe('matchDisposalToSortedLots', () => {
     id,
     calculationId: 'calc1',
     acquisitionTransactionId: 1,
-    asset: 'BTC',
+    asset: Currency.create('BTC'),
     quantity: new Decimal(quantity),
     costBasisPerUnit: new Decimal('30000'),
     totalCostBasis: new Decimal('30000'),
@@ -221,7 +222,7 @@ describe('matchDisposalToSortedLots', () => {
 
   const createDisposal = (quantity: string, date = '2024-02-01'): DisposalRequest => ({
     transactionId: 100,
-    asset: 'BTC',
+    asset: Currency.create('BTC'),
     quantity: new Decimal(quantity),
     date: new Date(date),
     proceedsPerUnit: new Decimal('50000'),
@@ -418,7 +419,7 @@ describe('matchDisposalToSortedLots', () => {
   it('should calculate negative gain/loss when disposal at a loss', () => {
     const disposal: DisposalRequest = {
       transactionId: 100,
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       quantity: new Decimal('1'),
       date: new Date('2024-02-01'),
       proceedsPerUnit: new Decimal('20000'), // Less than cost basis
@@ -433,7 +434,7 @@ describe('matchDisposalToSortedLots', () => {
   it('should handle zero proceeds', () => {
     const disposal: DisposalRequest = {
       transactionId: 100,
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       quantity: new Decimal('1'),
       date: new Date('2024-02-01'),
       proceedsPerUnit: new Decimal('0'),

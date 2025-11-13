@@ -1,3 +1,4 @@
+import { Currency } from '@exitbook/core';
 import { parseDecimal, type UniversalTransaction } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
@@ -32,10 +33,10 @@ function createTransaction(params: {
     to: params.to,
     movements: {
       inflows: params.inflows
-        ? params.inflows.map((m) => ({ asset: m.asset, grossAmount: parseDecimal(m.amount) }))
+        ? params.inflows.map((m) => ({ asset: Currency.create(m.asset), grossAmount: parseDecimal(m.amount) }))
         : [],
       outflows: params.outflows
-        ? params.outflows.map((m) => ({ asset: m.asset, grossAmount: parseDecimal(m.amount) }))
+        ? params.outflows.map((m) => ({ asset: Currency.create(m.asset), grossAmount: parseDecimal(m.amount) }))
         : [],
     },
     fees: [],
@@ -58,7 +59,7 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
           to: 'bc1qtest123',
         }),
         // Blockchain deposit
@@ -66,7 +67,7 @@ describe('TransactionLinkingService', () => {
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
           to: 'bc1qtest123',
           blockchain: { name: 'bitcoin', transaction_hash: 'txabc123', is_confirmed: true },
         }),
@@ -102,14 +103,14 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Blockchain deposit - 24 hours later, 4% fee
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-02T12:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '0.96' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '0.96' }],
           blockchain: { name: 'bitcoin', transaction_hash: 'txabc123', is_confirmed: true },
         }),
       ];
@@ -142,21 +143,21 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Source 2 - farther in time (60 min before target)
         createTransaction({
           id: 2,
           source: 'kraken',
           datetime: '2024-01-01T12:30:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Target (should only match to best source - id 1)
         createTransaction({
           id: 3,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
           blockchain: { name: 'bitcoin', transaction_hash: 'txabc123', is_confirmed: true },
         }),
       ];
@@ -223,7 +224,7 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'bitcoin',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '0.5' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '0.5' }],
           from: 'bc1qsource',
           to: 'bc1qtarget',
           blockchain: { name: 'bitcoin', transaction_hash: 'txsend', is_confirmed: true },
@@ -233,7 +234,7 @@ describe('TransactionLinkingService', () => {
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T12:15:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '0.4999' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '0.4999' }],
           from: 'bc1qtarget',
           to: 'bc1qreceiver',
           blockchain: { name: 'bitcoin', transaction_hash: 'txrecv', is_confirmed: true },
@@ -283,21 +284,21 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Unmatched source (ETH withdrawal)
         createTransaction({
           id: 2,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'ETH', amount: '10.0' }],
+          outflows: [{ asset: Currency.create('ETH'), amount: '10.0' }],
         }),
         // Matched target (BTC deposit)
         createTransaction({
           id: 3,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
           blockchain: { name: 'bitcoin', transaction_hash: 'txabc', is_confirmed: true },
         }),
         // Unmatched target (USDT deposit)
@@ -305,7 +306,7 @@ describe('TransactionLinkingService', () => {
           id: 4,
           source: 'ethereum',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'USDT', amount: '1000.0' }],
+          inflows: [{ asset: Currency.create('USDT'), amount: '1000.0' }],
           blockchain: { name: 'ethereum', transaction_hash: 'txdef', is_confirmed: true },
         }),
       ];
@@ -340,21 +341,21 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Source 2 - will match but target exceeds source (airdrop scenario)
         createTransaction({
           id: 2,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'ETH', amount: '10.0' }],
+          outflows: [{ asset: Currency.create('ETH'), amount: '10.0' }],
         }),
         // Target 1 - valid match to source 1
         createTransaction({
           id: 3,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '0.995' }], // 0.5% fee (valid)
+          inflows: [{ asset: Currency.create('BTC'), amount: '0.995' }], // 0.5% fee (valid)
           blockchain: { name: 'bitcoin', transaction_hash: 'txabc', is_confirmed: true },
         }),
         // Target 2 - exceeds source 2 (will be filtered out)
@@ -362,7 +363,7 @@ describe('TransactionLinkingService', () => {
           id: 4,
           source: 'ethereum',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'ETH', amount: '10.5' }], // Received MORE than sent (airdrop)
+          inflows: [{ asset: Currency.create('ETH'), amount: '10.5' }], // Received MORE than sent (airdrop)
           blockchain: { name: 'ethereum', transaction_hash: 'txdef', is_confirmed: true },
         }),
       ];
@@ -404,21 +405,21 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Source 2 - will match but variance > 10%
         createTransaction({
           id: 2,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'ETH', amount: '10.0' }],
+          outflows: [{ asset: Currency.create('ETH'), amount: '10.0' }],
         }),
         // Target 1 - valid match to source 1
         createTransaction({
           id: 3,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '0.995' }], // 0.5% fee (valid)
+          inflows: [{ asset: Currency.create('BTC'), amount: '0.995' }], // 0.5% fee (valid)
           blockchain: { name: 'bitcoin', transaction_hash: 'txabc', is_confirmed: true },
         }),
         // Target 2 - excessive variance from source 2 (>10%)
@@ -426,7 +427,7 @@ describe('TransactionLinkingService', () => {
           id: 4,
           source: 'ethereum',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'ETH', amount: '8.5' }], // 15% fee (excessive)
+          inflows: [{ asset: Currency.create('ETH'), amount: '8.5' }], // 15% fee (excessive)
           blockchain: { name: 'ethereum', transaction_hash: 'txdef', is_confirmed: true },
         }),
       ];
@@ -469,7 +470,7 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
           to: 'bc1qtest',
         }),
       ];
@@ -493,7 +494,7 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'bitcoin',
           datetime: '2024-01-01T12:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
           blockchain: { name: 'bitcoin', transaction_hash: 'D123', is_confirmed: true },
         }),
       ];
@@ -517,8 +518,8 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          inflows: [{ asset: 'ETH', amount: '10.0' }],
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('ETH'), amount: '10.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
       ];
 
@@ -545,14 +546,14 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
         // Target 1 - closer in time (1 hour later)
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
           blockchain: { name: 'bitcoin', transaction_hash: 'txabc123', is_confirmed: true },
         }),
         // Target 2 - farther in time (6 hours later)
@@ -560,7 +561,7 @@ describe('TransactionLinkingService', () => {
           id: 3,
           source: 'bitcoin',
           datetime: '2024-01-01T18:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
           blockchain: { name: 'bitcoin', transaction_hash: 'txdef456', is_confirmed: true },
         }),
       ];
@@ -598,7 +599,7 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
           to: 'bc1qtarget',
         }),
         // Source 2 - farther in time from target (3 hours before)
@@ -606,7 +607,7 @@ describe('TransactionLinkingService', () => {
           id: 2,
           source: 'kraken',
           datetime: '2024-01-01T10:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
           to: 'bc1qtarget',
         }),
         // Target - should match to source 1 (closer)
@@ -614,7 +615,7 @@ describe('TransactionLinkingService', () => {
           id: 3,
           source: 'bitcoin',
           datetime: '2024-01-01T13:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
           from: 'bc1qtarget',
           to: 'bc1qfinal',
           blockchain: { name: 'bitcoin', transaction_hash: 'txabc', is_confirmed: true },
@@ -655,8 +656,8 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'bitcoin',
           datetime: '2024-01-01T12:00:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '0.5' }], // Change output
-          outflows: [{ asset: 'BTC', amount: '0.49' }], // Sent amount (minus fee)
+          inflows: [{ asset: Currency.create('BTC'), amount: '0.5' }], // Change output
+          outflows: [{ asset: Currency.create('BTC'), amount: '0.49' }], // Sent amount (minus fee)
           blockchain: { name: 'bitcoin', transaction_hash: 'txself', is_confirmed: true },
         }),
       ];
@@ -684,10 +685,10 @@ describe('TransactionLinkingService', () => {
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
           inflows: [
-            { asset: 'ETH', amount: '10.0' },
-            { asset: 'BTC', amount: '0.001' },
+            { asset: Currency.create('ETH'), amount: '10.0' },
+            { asset: Currency.create('BTC'), amount: '0.001' },
           ], // Rebate
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
         }),
       ];
 
@@ -717,14 +718,14 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
           to: 'bc1qtest',
         }),
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-01T12:30:00.000Z',
-          inflows: [{ asset: 'BTC', amount: '1.0' }],
+          inflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
           from: 'bc1qtest',
           to: 'bc1qfinal',
           blockchain: { name: 'bitcoin', transaction_hash: 'txabc', is_confirmed: true },
@@ -759,14 +760,14 @@ describe('TransactionLinkingService', () => {
           id: 1,
           source: 'kraken',
           datetime: '2024-01-01T12:00:00.000Z',
-          outflows: [{ asset: 'BTC', amount: '1.0' }],
+          outflows: [{ asset: Currency.create('BTC'), amount: '1.0' }],
           // No address
         }),
         createTransaction({
           id: 2,
           source: 'bitcoin',
           datetime: '2024-01-02T00:00:00.000Z', // 12 hours later
-          inflows: [{ asset: 'BTC', amount: '0.98' }], // 2% fee
+          inflows: [{ asset: Currency.create('BTC'), amount: '0.98' }], // 2% fee
           blockchain: { name: 'bitcoin', transaction_hash: 'txabc', is_confirmed: true },
           // No address
         }),

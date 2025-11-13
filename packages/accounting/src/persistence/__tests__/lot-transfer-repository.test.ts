@@ -1,3 +1,4 @@
+import { Currency } from '@exitbook/core';
 import { closeDatabase, createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -66,7 +67,7 @@ describe('LotTransferRepository', () => {
         id: 'link-1',
         source_transaction_id: 1,
         target_transaction_id: 2,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         source_amount: '1.0',
         target_amount: '0.9995',
         link_type: 'exchange_to_blockchain',
@@ -123,7 +124,7 @@ describe('LotTransferRepository', () => {
           id: 'lot-1',
           calculation_id: 'calc-1',
           acquisition_transaction_id: 1,
-          asset: 'BTC',
+          asset: Currency.create('BTC'),
           quantity: '1.0',
           cost_basis_per_unit: '50000.00',
           total_cost_basis: '50000.00',
@@ -138,7 +139,7 @@ describe('LotTransferRepository', () => {
           id: 'lot-2',
           calculation_id: 'calc-1',
           acquisition_transaction_id: 3,
-          asset: 'ETH',
+          asset: Currency.create('ETH'),
           quantity: '10.0',
           cost_basis_per_unit: '2000.00',
           total_cost_basis: '20000.00',
@@ -503,7 +504,7 @@ describe('LotTransferRepository', () => {
           id: 'link-2',
           source_transaction_id: 3,
           target_transaction_id: 4,
-          asset: 'ETH',
+          asset: Currency.create('ETH'),
           source_amount: '10.0',
           target_amount: '9.99',
           link_type: 'exchange_to_blockchain',

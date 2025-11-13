@@ -1,3 +1,4 @@
+import { Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -14,7 +15,7 @@ describe('LifoStrategy', () => {
   it('should match disposal to newest lot (single lot, full disposal)', () => {
     const disposal = {
       transactionId: 100,
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       quantity: new Decimal('1'),
       date: new Date('2024-02-01'),
       proceedsPerUnit: new Decimal('50000'),
@@ -25,7 +26,7 @@ describe('LifoStrategy', () => {
         id: 'lot1',
         calculationId: 'calc1',
         acquisitionTransactionId: 1,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         quantity: new Decimal('1'),
         costBasisPerUnit: new Decimal('30000'),
         totalCostBasis: new Decimal('30000'),
@@ -49,7 +50,7 @@ describe('LifoStrategy', () => {
   it('should match disposal to newest lot first (multiple lots)', () => {
     const disposal = {
       transactionId: 100,
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       quantity: new Decimal('0.5'),
       date: new Date('2024-03-01'),
       proceedsPerUnit: new Decimal('60000'),
@@ -60,7 +61,7 @@ describe('LifoStrategy', () => {
         id: 'lot1',
         calculationId: 'calc1',
         acquisitionTransactionId: 1,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         quantity: new Decimal('1'),
         costBasisPerUnit: new Decimal('30000'),
         totalCostBasis: new Decimal('30000'),
@@ -75,7 +76,7 @@ describe('LifoStrategy', () => {
         id: 'lot2',
         calculationId: 'calc1',
         acquisitionTransactionId: 2,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         quantity: new Decimal('1'),
         costBasisPerUnit: new Decimal('35000'),
         totalCostBasis: new Decimal('35000'),
@@ -101,7 +102,7 @@ describe('LifoStrategy', () => {
   it('should match disposal across multiple lots (LIFO order)', () => {
     const disposal = {
       transactionId: 100,
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       quantity: new Decimal('1.5'),
       date: new Date('2024-03-01'),
       proceedsPerUnit: new Decimal('60000'),
@@ -112,7 +113,7 @@ describe('LifoStrategy', () => {
         id: 'lot1',
         calculationId: 'calc1',
         acquisitionTransactionId: 1,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         quantity: new Decimal('1'),
         costBasisPerUnit: new Decimal('30000'),
         totalCostBasis: new Decimal('30000'),
@@ -127,7 +128,7 @@ describe('LifoStrategy', () => {
         id: 'lot2',
         calculationId: 'calc1',
         acquisitionTransactionId: 2,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         quantity: new Decimal('1'),
         costBasisPerUnit: new Decimal('35000'),
         totalCostBasis: new Decimal('35000'),
@@ -142,7 +143,7 @@ describe('LifoStrategy', () => {
         id: 'lot3',
         calculationId: 'calc1',
         acquisitionTransactionId: 3,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         quantity: new Decimal('1'),
         costBasisPerUnit: new Decimal('40000'),
         totalCostBasis: new Decimal('40000'),
@@ -177,7 +178,7 @@ describe('LifoStrategy', () => {
   it('should demonstrate LIFO vs FIFO difference (higher cost basis with LIFO in rising market)', () => {
     const disposal = {
       transactionId: 100,
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       quantity: new Decimal('1'),
       date: new Date('2024-03-01'),
       proceedsPerUnit: new Decimal('60000'),
@@ -188,7 +189,7 @@ describe('LifoStrategy', () => {
         id: 'lot1',
         calculationId: 'calc1',
         acquisitionTransactionId: 1,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         quantity: new Decimal('1'),
         costBasisPerUnit: new Decimal('30000'),
         totalCostBasis: new Decimal('30000'),
@@ -203,7 +204,7 @@ describe('LifoStrategy', () => {
         id: 'lot2',
         calculationId: 'calc1',
         acquisitionTransactionId: 2,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         quantity: new Decimal('1'),
         costBasisPerUnit: new Decimal('50000'),
         totalCostBasis: new Decimal('50000'),
@@ -227,7 +228,7 @@ describe('LifoStrategy', () => {
   it('should sort lots by acquisition date even if provided out of order', () => {
     const disposal = {
       transactionId: 100,
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       quantity: new Decimal('1.5'),
       date: new Date('2024-03-01'),
       proceedsPerUnit: new Decimal('60000'),
@@ -239,7 +240,7 @@ describe('LifoStrategy', () => {
         id: 'lot1',
         calculationId: 'calc1',
         acquisitionTransactionId: 1,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         quantity: new Decimal('1'),
         costBasisPerUnit: new Decimal('30000'),
         totalCostBasis: new Decimal('30000'),
@@ -254,7 +255,7 @@ describe('LifoStrategy', () => {
         id: 'lot2',
         calculationId: 'calc1',
         acquisitionTransactionId: 2,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         quantity: new Decimal('1'),
         costBasisPerUnit: new Decimal('35000'),
         totalCostBasis: new Decimal('35000'),
@@ -269,7 +270,7 @@ describe('LifoStrategy', () => {
         id: 'lot3',
         calculationId: 'calc1',
         acquisitionTransactionId: 3,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         quantity: new Decimal('1'),
         costBasisPerUnit: new Decimal('40000'),
         totalCostBasis: new Decimal('40000'),
@@ -292,7 +293,7 @@ describe('LifoStrategy', () => {
   it('should skip fully disposed lots', () => {
     const disposal = {
       transactionId: 100,
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       quantity: new Decimal('0.5'),
       date: new Date('2024-03-01'),
       proceedsPerUnit: new Decimal('60000'),
@@ -303,7 +304,7 @@ describe('LifoStrategy', () => {
         id: 'lot1',
         calculationId: 'calc1',
         acquisitionTransactionId: 1,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         quantity: new Decimal('1'),
         costBasisPerUnit: new Decimal('30000'),
         totalCostBasis: new Decimal('30000'),
@@ -318,7 +319,7 @@ describe('LifoStrategy', () => {
         id: 'lot2',
         calculationId: 'calc1',
         acquisitionTransactionId: 2,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         quantity: new Decimal('1'),
         costBasisPerUnit: new Decimal('35000'),
         totalCostBasis: new Decimal('35000'),
@@ -340,7 +341,7 @@ describe('LifoStrategy', () => {
   it('should throw error if insufficient lots', () => {
     const disposal = {
       transactionId: 100,
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       quantity: new Decimal('2'),
       date: new Date('2024-03-01'),
       proceedsPerUnit: new Decimal('60000'),
@@ -351,7 +352,7 @@ describe('LifoStrategy', () => {
         id: 'lot1',
         calculationId: 'calc1',
         acquisitionTransactionId: 1,
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         quantity: new Decimal('1'),
         costBasisPerUnit: new Decimal('30000'),
         totalCostBasis: new Decimal('30000'),

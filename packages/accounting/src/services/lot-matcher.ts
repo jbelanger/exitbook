@@ -186,10 +186,14 @@ export class LotMatcher {
         // Check outflows (disposals or transfer sources)
         const outflows = tx.movements.outflows || [];
         for (const outflow of outflows) {
-          if (outflow.asset === asset) {
+          if (outflow.asset.toString() === asset) {
             // Check if this outflow is part of a confirmed transfer
             // Use netAmount for link matching (link index stores net values from convertToCandidates)
-            const link = linkIndex.findBySource(tx.id, outflow.asset, outflow.netAmount ?? outflow.grossAmount);
+            const link = linkIndex.findBySource(
+              tx.id,
+              outflow.asset.toString(),
+              outflow.netAmount ?? outflow.grossAmount
+            );
 
             if (link) {
               // Handle transfer source
@@ -217,7 +221,7 @@ export class LotMatcher {
 
         // Check inflows (acquisitions or transfer targets)
         const inflows = tx.movements.inflows || [];
-        const assetInflows = inflows.filter((inflow) => inflow.asset === asset);
+        const assetInflows = inflows.filter((inflow) => inflow.asset.toString() === asset);
 
         if (assetInflows.length > 0) {
           // Check if this transaction is a transfer target

@@ -834,7 +834,7 @@ describe('lot-matcher-utils', () => {
   describe('validateOutflowFees', () => {
     it('should pass when netAmount matches grossAmount minus on-chain fees', () => {
       const outflow: AssetMovement = {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: new Decimal('1.0'),
         netAmount: new Decimal('0.9995'),
       };
@@ -849,7 +849,7 @@ describe('lot-matcher-utils', () => {
 
     it('should pass when no netAmount is provided (legacy data)', () => {
       const outflow: AssetMovement = {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: new Decimal('1.0'),
       };
       const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {});
@@ -861,7 +861,7 @@ describe('lot-matcher-utils', () => {
 
     it('should ignore balance-settled fees when validating netAmount', () => {
       const outflow: AssetMovement = {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: new Decimal('1.0'),
         netAmount: new Decimal('1.0'),
       };
@@ -876,7 +876,7 @@ describe('lot-matcher-utils', () => {
 
     it('should error when hidden fees exceed error threshold', () => {
       const outflow: AssetMovement = {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: new Decimal('1.0'),
         netAmount: new Decimal('0.94'),
       };
@@ -896,7 +896,7 @@ describe('lot-matcher-utils', () => {
 
     it('should pass when hidden fees are within error threshold', () => {
       const outflow: AssetMovement = {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: new Decimal('1.0'),
         netAmount: new Decimal('0.98'),
       };
@@ -909,7 +909,7 @@ describe('lot-matcher-utils', () => {
 
     it('should sum multiple on-chain fees when validating', () => {
       const outflow: AssetMovement = {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: new Decimal('1.0'),
         netAmount: new Decimal('0.9988'),
       };
@@ -925,7 +925,7 @@ describe('lot-matcher-utils', () => {
 
     it('should use custom tolerance when provided', () => {
       const outflow: AssetMovement = {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         grossAmount: new Decimal('1.0'),
         netAmount: new Decimal('0.92'),
       };

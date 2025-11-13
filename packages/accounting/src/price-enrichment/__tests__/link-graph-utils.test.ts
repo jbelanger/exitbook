@@ -1,10 +1,10 @@
+import { Currency } from '@exitbook/core';
 /**
  * Tests for link graph utility functions
  *
  * These tests verify the pure business logic for building transaction groups
  * using the Union-Find algorithm according to the "Functional Core, Imperative Shell" pattern
  */
-
 import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
@@ -26,7 +26,7 @@ function createTx(
     timestamp: Date.parse(options.datetime ?? '2023-01-01T00:00:00Z'),
     status: 'success',
     movements: {
-      inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.0') }],
+      inflows: [{ asset: Currency.create('BTC'), grossAmount: parseDecimal('1.0') }],
     },
     fees: [],
     operation: { category: 'transfer', type: 'deposit' },
@@ -56,7 +56,7 @@ function createLink(
     id: `link-${sourceId}-${targetId}`,
     sourceTransactionId: sourceId,
     targetTransactionId: targetId,
-    asset: 'BTC',
+    asset: Currency.create('BTC'),
     sourceAmount: parseDecimal('1.0'),
     targetAmount: parseDecimal('1.0'),
     linkType: 'exchange_to_blockchain',

@@ -30,7 +30,7 @@ describe('extractMovementsNeedingNormalization', () => {
       movements: {
         inflows: [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('1.0'),
             priceAtTxTime: {
               price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
@@ -42,7 +42,7 @@ describe('extractMovementsNeedingNormalization', () => {
         ],
         outflows: [
           {
-            asset: 'EUR',
+            asset: Currency.create('EUR'),
             grossAmount: parseDecimal('40000'),
           },
         ],
@@ -70,7 +70,7 @@ describe('extractMovementsNeedingNormalization', () => {
       movements: {
         inflows: [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('1.0'),
             priceAtTxTime: {
               price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
@@ -82,7 +82,7 @@ describe('extractMovementsNeedingNormalization', () => {
         ],
         outflows: [
           {
-            asset: 'USD',
+            asset: Currency.create('USD'),
             grossAmount: parseDecimal('50000'),
           },
         ],
@@ -110,7 +110,7 @@ describe('extractMovementsNeedingNormalization', () => {
       movements: {
         inflows: [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('1.0'),
             priceAtTxTime: {
               price: { amount: parseDecimal('50'), currency: Currency.create('ETH') },
@@ -122,7 +122,7 @@ describe('extractMovementsNeedingNormalization', () => {
         ],
         outflows: [
           {
-            asset: 'ETH',
+            asset: Currency.create('ETH'),
             grossAmount: parseDecimal('50'),
           },
         ],
@@ -150,7 +150,7 @@ describe('extractMovementsNeedingNormalization', () => {
       movements: {
         inflows: [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('1.0'),
             priceAtTxTime: {
               price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
@@ -160,7 +160,7 @@ describe('extractMovementsNeedingNormalization', () => {
             },
           },
           {
-            asset: 'ETH',
+            asset: Currency.create('ETH'),
             grossAmount: parseDecimal('10.0'),
             priceAtTxTime: {
               price: { amount: parseDecimal('2000'), currency: Currency.create('CAD') },
@@ -193,7 +193,7 @@ describe('extractMovementsNeedingNormalization', () => {
       movements: {
         inflows: [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('1.0'),
             // No priceAtTxTime
           },
@@ -365,7 +365,7 @@ describe('createNormalizedPrice', () => {
 describe('movementNeedsNormalization', () => {
   it('returns true for EUR prices', () => {
     const movement: AssetMovement = {
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       grossAmount: parseDecimal('1.0'),
       priceAtTxTime: {
         price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
@@ -380,7 +380,7 @@ describe('movementNeedsNormalization', () => {
 
   it('returns false for USD prices', () => {
     const movement: AssetMovement = {
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       grossAmount: parseDecimal('1.0'),
       priceAtTxTime: {
         price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
@@ -395,7 +395,7 @@ describe('movementNeedsNormalization', () => {
 
   it('returns false for movements without prices', () => {
     const movement: AssetMovement = {
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       grossAmount: parseDecimal('1.0'),
     };
 
@@ -404,7 +404,7 @@ describe('movementNeedsNormalization', () => {
 
   it('returns false for crypto prices (ETH)', () => {
     const movement: AssetMovement = {
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       grossAmount: parseDecimal('1.0'),
       priceAtTxTime: {
         price: { amount: parseDecimal('50'), currency: Currency.create('ETH') },
@@ -421,7 +421,7 @@ describe('movementNeedsNormalization', () => {
 describe('classifyMovementPrice', () => {
   it('classifies no-price movements', () => {
     const movement: AssetMovement = {
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       grossAmount: parseDecimal('1.0'),
     };
 
@@ -430,7 +430,7 @@ describe('classifyMovementPrice', () => {
 
   it('classifies already-USD movements', () => {
     const movement: AssetMovement = {
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       grossAmount: parseDecimal('1.0'),
       priceAtTxTime: {
         price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
@@ -445,7 +445,7 @@ describe('classifyMovementPrice', () => {
 
   it('classifies needs-normalization movements (EUR)', () => {
     const movement: AssetMovement = {
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       grossAmount: parseDecimal('1.0'),
       priceAtTxTime: {
         price: { amount: parseDecimal('40000'), currency: Currency.create('EUR') },
@@ -460,7 +460,7 @@ describe('classifyMovementPrice', () => {
 
   it('classifies crypto price movements', () => {
     const movement: AssetMovement = {
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       grossAmount: parseDecimal('1.0'),
       priceAtTxTime: {
         price: { amount: parseDecimal('50'), currency: Currency.create('ETH') },
@@ -475,7 +475,7 @@ describe('classifyMovementPrice', () => {
 
   it('classifies CAD as needs-normalization', () => {
     const movement: AssetMovement = {
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       grossAmount: parseDecimal('1.0'),
       priceAtTxTime: {
         price: { amount: parseDecimal('60000'), currency: Currency.create('CAD') },
@@ -490,7 +490,7 @@ describe('classifyMovementPrice', () => {
 
   it('classifies GBP as needs-normalization', () => {
     const movement: AssetMovement = {
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       grossAmount: parseDecimal('1.0'),
       priceAtTxTime: {
         price: { amount: parseDecimal('35000'), currency: Currency.create('GBP') },

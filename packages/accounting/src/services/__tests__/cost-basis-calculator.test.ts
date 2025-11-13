@@ -34,9 +34,14 @@ describe('CostBasisCalculator', () => {
     it('should successfully calculate cost basis with FIFO method', async () => {
       const transactions: UniversalTransaction[] = [
         // Buy 1 BTC at $30,000
-        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
+        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: Currency.create('BTC'), amount: '1', price: '30000' }]),
         // Sell 0.5 BTC at $40,000
-        createTransaction(2, '2023-06-01T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '40000' }]),
+        createTransaction(
+          2,
+          '2023-06-01T00:00:00Z',
+          [],
+          [{ asset: Currency.create('BTC'), amount: '0.5', price: '40000' }]
+        ),
       ];
 
       const config: CostBasisConfig = {
@@ -62,8 +67,13 @@ describe('CostBasisCalculator', () => {
 
     it('should apply Canadian 50% inclusion rate', async () => {
       const transactions: UniversalTransaction[] = [
-        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'ETH', amount: '10', price: '2000' }]),
-        createTransaction(2, '2023-06-01T00:00:00Z', [], [{ asset: 'ETH', amount: '10', price: '2500' }]),
+        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: Currency.create('ETH'), amount: '10', price: '2000' }]),
+        createTransaction(
+          2,
+          '2023-06-01T00:00:00Z',
+          [],
+          [{ asset: Currency.create('ETH'), amount: '10', price: '2500' }]
+        ),
       ];
 
       const config: CostBasisConfig = {
@@ -85,9 +95,14 @@ describe('CostBasisCalculator', () => {
 
     it('should work with LIFO method', async () => {
       const transactions: UniversalTransaction[] = [
-        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
-        createTransaction(2, '2023-03-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '35000' }]),
-        createTransaction(3, '2023-06-01T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '40000' }]),
+        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: Currency.create('BTC'), amount: '1', price: '30000' }]),
+        createTransaction(2, '2023-03-01T00:00:00Z', [{ asset: Currency.create('BTC'), amount: '1', price: '35000' }]),
+        createTransaction(
+          3,
+          '2023-06-01T00:00:00Z',
+          [],
+          [{ asset: Currency.create('BTC'), amount: '0.5', price: '40000' }]
+        ),
       ];
 
       const config: CostBasisConfig = {
@@ -112,10 +127,20 @@ describe('CostBasisCalculator', () => {
 
     it('should handle multiple assets', async () => {
       const transactions: UniversalTransaction[] = [
-        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
-        createTransaction(2, '2023-01-01T00:00:00Z', [{ asset: 'ETH', amount: '10', price: '2000' }]),
-        createTransaction(3, '2023-06-01T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '40000' }]),
-        createTransaction(4, '2023-06-01T00:00:00Z', [], [{ asset: 'ETH', amount: '5', price: '2500' }]),
+        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: Currency.create('BTC'), amount: '1', price: '30000' }]),
+        createTransaction(2, '2023-01-01T00:00:00Z', [{ asset: Currency.create('ETH'), amount: '10', price: '2000' }]),
+        createTransaction(
+          3,
+          '2023-06-01T00:00:00Z',
+          [],
+          [{ asset: Currency.create('BTC'), amount: '0.5', price: '40000' }]
+        ),
+        createTransaction(
+          4,
+          '2023-06-01T00:00:00Z',
+          [],
+          [{ asset: Currency.create('ETH'), amount: '5', price: '2500' }]
+        ),
       ];
 
       const config: CostBasisConfig = {
@@ -151,7 +176,7 @@ describe('CostBasisCalculator', () => {
         movements: {
           inflows: [
             {
-              asset: 'BTC',
+              asset: Currency.create('BTC'),
               grossAmount: new Decimal('1'),
               // Missing priceAtTxTime
             },
@@ -192,7 +217,7 @@ describe('CostBasisCalculator', () => {
         movements: {
           inflows: [
             {
-              asset: 'BTC',
+              asset: Currency.create('BTC'),
               grossAmount: new Decimal('1'),
               priceAtTxTime: {
                 price: { amount: new Decimal('30000'), currency: Currency.create('USD') },
@@ -204,7 +229,7 @@ describe('CostBasisCalculator', () => {
           ],
           outflows: [
             {
-              asset: 'USD',
+              asset: Currency.create('USD'),
               grossAmount: new Decimal('30000'),
               // Missing priceAtTxTime - but should be OK since USD is fiat
             },
@@ -235,7 +260,7 @@ describe('CostBasisCalculator', () => {
 
     it('should throw error for unimplemented methods', async () => {
       const transactions: UniversalTransaction[] = [
-        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
+        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: Currency.create('BTC'), amount: '1', price: '30000' }]),
       ];
 
       const config: CostBasisConfig = {
@@ -255,8 +280,13 @@ describe('CostBasisCalculator', () => {
 
     it('should call repository methods in correct order', async () => {
       const transactions: UniversalTransaction[] = [
-        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
-        createTransaction(2, '2023-06-01T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '40000' }]),
+        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: Currency.create('BTC'), amount: '1', price: '30000' }]),
+        createTransaction(
+          2,
+          '2023-06-01T00:00:00Z',
+          [],
+          [{ asset: Currency.create('BTC'), amount: '0.5', price: '40000' }]
+        ),
       ];
 
       const config: CostBasisConfig = {
@@ -287,7 +317,7 @@ describe('CostBasisCalculator', () => {
       const failingCalculator = new CostBasisCalculator(failingRepository, mockLotTransferRepository);
 
       const transactions: UniversalTransaction[] = [
-        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
+        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: Currency.create('BTC'), amount: '1', price: '30000' }]),
       ];
 
       const config: CostBasisConfig = {
@@ -323,8 +353,13 @@ describe('CostBasisCalculator', () => {
       const trackingCalculator = new CostBasisCalculator(trackingRepository, mockLotTransferRepository);
 
       const transactions: UniversalTransaction[] = [
-        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
-        createTransaction(2, '2023-06-01T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '40000' }]),
+        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: Currency.create('BTC'), amount: '1', price: '30000' }]),
+        createTransaction(
+          2,
+          '2023-06-01T00:00:00Z',
+          [],
+          [{ asset: Currency.create('BTC'), amount: '0.5', price: '40000' }]
+        ),
       ];
 
       const config: CostBasisConfig = {
@@ -356,10 +391,20 @@ describe('CostBasisCalculator', () => {
 
     it('should persist assetsProcessed to database (Issue #2 fix)', async () => {
       const transactions: UniversalTransaction[] = [
-        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
-        createTransaction(2, '2023-01-01T00:00:00Z', [{ asset: 'ETH', amount: '10', price: '2000' }]),
-        createTransaction(3, '2023-06-01T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '40000' }]),
-        createTransaction(4, '2023-06-01T00:00:00Z', [], [{ asset: 'ETH', amount: '5', price: '2500' }]),
+        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: Currency.create('BTC'), amount: '1', price: '30000' }]),
+        createTransaction(2, '2023-01-01T00:00:00Z', [{ asset: Currency.create('ETH'), amount: '10', price: '2000' }]),
+        createTransaction(
+          3,
+          '2023-06-01T00:00:00Z',
+          [],
+          [{ asset: Currency.create('BTC'), amount: '0.5', price: '40000' }]
+        ),
+        createTransaction(
+          4,
+          '2023-06-01T00:00:00Z',
+          [],
+          [{ asset: Currency.create('ETH'), amount: '5', price: '2500' }]
+        ),
       ];
 
       const trackingRepository = {
@@ -400,11 +445,21 @@ describe('CostBasisCalculator', () => {
     it('should save tax classifications to lot_disposals (Issue #3 fix)', async () => {
       const transactions: UniversalTransaction[] = [
         // Buy 1 BTC
-        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
+        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: Currency.create('BTC'), amount: '1', price: '30000' }]),
         // Sell 0.5 BTC after 180 days (short-term for US)
-        createTransaction(2, '2023-06-30T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '40000' }]),
+        createTransaction(
+          2,
+          '2023-06-30T00:00:00Z',
+          [],
+          [{ asset: Currency.create('BTC'), amount: '0.5', price: '40000' }]
+        ),
         // Sell 0.5 BTC after 400 days (long-term for US)
-        createTransaction(3, '2024-02-05T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '45000' }]),
+        createTransaction(
+          3,
+          '2024-02-05T00:00:00Z',
+          [],
+          [{ asset: Currency.create('BTC'), amount: '0.5', price: '45000' }]
+        ),
       ];
 
       const disposalsSaved: LotDisposal[] = [];
@@ -446,19 +501,36 @@ describe('CostBasisCalculator', () => {
     it('should disallow wash sale loss with fee allocation (US)', async () => {
       const transactions: UniversalTransaction[] = [
         // Buy 1 BTC @ $50k (Jan 1)
-        createTransactionWithFee(1, '2024-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '50000' }], []),
+        createTransactionWithFee(
+          1,
+          '2024-01-01T00:00:00Z',
+          [{ asset: Currency.create('BTC'), amount: '1', price: '50000' }],
+          []
+        ),
         // Sell 1 BTC @ $30k with $100 fee (Feb 1) - creates loss
-        createTransactionWithFee(2, '2024-02-01T00:00:00Z', [], [{ asset: 'BTC', amount: '1', price: '30000' }], {
-          asset: 'USD',
-          amount: '100',
-          price: '1',
-        }),
+        createTransactionWithFee(
+          2,
+          '2024-02-01T00:00:00Z',
+          [],
+          [{ asset: Currency.create('BTC'), amount: '1', price: '30000' }],
+          {
+            asset: Currency.create('USD'),
+            amount: '100',
+            price: '1',
+          }
+        ),
         // Buy 0.5 BTC @ $32k with $50 fee (Feb 15) - triggers wash sale
-        createTransactionWithFee(3, '2024-02-15T00:00:00Z', [{ asset: 'BTC', amount: '0.5', price: '32000' }], [], {
-          asset: 'USD',
-          amount: '50',
-          price: '1',
-        }),
+        createTransactionWithFee(
+          3,
+          '2024-02-15T00:00:00Z',
+          [{ asset: Currency.create('BTC'), amount: '0.5', price: '32000' }],
+          [],
+          {
+            asset: Currency.create('USD'),
+            amount: '50',
+            price: '1',
+          }
+        ),
       ];
 
       const disposalsSaved: LotDisposal[] = [];
@@ -511,18 +583,33 @@ describe('CostBasisCalculator', () => {
           1,
           '2024-01-01T00:00:00Z',
           [
-            { asset: 'BTC', amount: '1', price: '40000' },
-            { asset: 'ETH', amount: '10', price: '2000' },
+            { asset: Currency.create('BTC'), amount: '1', price: '40000' },
+            { asset: Currency.create('ETH'), amount: '10', price: '2000' },
           ],
           [],
-          { asset: 'USD', amount: '60', price: '1' }
+          { asset: Currency.create('USD'), amount: '60', price: '1' }
         ),
         // Sell BTC at loss (Feb 1)
-        createTransaction(2, '2024-02-01T00:00:00Z', [], [{ asset: 'BTC', amount: '1', price: '30000' }]),
+        createTransaction(
+          2,
+          '2024-02-01T00:00:00Z',
+          [],
+          [{ asset: Currency.create('BTC'), amount: '1', price: '30000' }]
+        ),
         // Reacquire BTC (Feb 15) - triggers superficial loss
-        createTransaction(3, '2024-02-15T00:00:00Z', [{ asset: 'BTC', amount: '0.5', price: '32000' }], []),
+        createTransaction(
+          3,
+          '2024-02-15T00:00:00Z',
+          [{ asset: Currency.create('BTC'), amount: '0.5', price: '32000' }],
+          []
+        ),
         // Sell ETH at gain (no superficial loss)
-        createTransaction(4, '2024-03-01T00:00:00Z', [], [{ asset: 'ETH', amount: '10', price: '2500' }]),
+        createTransaction(
+          4,
+          '2024-03-01T00:00:00Z',
+          [],
+          [{ asset: Currency.create('ETH'), amount: '10', price: '2500' }]
+        ),
       ];
 
       const config: CostBasisConfig = {
@@ -554,7 +641,7 @@ describe('CostBasisCalculator', () => {
 
     it('should reject transactions with non-USD prices (EUR)', async () => {
       const transactionsWithEUR: UniversalTransaction[] = [
-        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
+        createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: Currency.create('BTC'), amount: '1', price: '30000' }]),
         // This transaction has EUR price instead of USD
         {
           id: 2,
@@ -567,7 +654,7 @@ describe('CostBasisCalculator', () => {
             inflows: [],
             outflows: [
               {
-                asset: 'BTC',
+                asset: Currency.create('BTC'),
                 grossAmount: new Decimal('0.5'),
                 priceAtTxTime: {
                   price: { amount: new Decimal('35000'), currency: Currency.create('EUR') },
@@ -615,7 +702,7 @@ describe('CostBasisCalculator', () => {
         movements: {
           inflows: [
             {
-              asset: 'BTC',
+              asset: Currency.create('BTC'),
               grossAmount: new Decimal('1'),
               priceAtTxTime: {
                 price: { amount: new Decimal('30000'), currency: Currency.create('USD') },
@@ -632,7 +719,7 @@ describe('CostBasisCalculator', () => {
           {
             scope: 'platform',
             settlement: 'balance',
-            asset: 'EUR',
+            asset: Currency.create('EUR'),
             amount: new Decimal('10'),
             priceAtTxTime: {
               price: { amount: new Decimal('10'), currency: Currency.create('EUR') },
@@ -674,7 +761,7 @@ describe('CostBasisCalculator', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                asset: Currency.create('BTC'),
                 grossAmount: new Decimal('1'),
                 priceAtTxTime: {
                   price: { amount: new Decimal('30000'), currency: Currency.create('USD') },
@@ -701,7 +788,7 @@ describe('CostBasisCalculator', () => {
             inflows: [],
             outflows: [
               {
-                asset: 'BTC',
+                asset: Currency.create('BTC'),
                 grossAmount: new Decimal('0.5'),
                 priceAtTxTime: {
                   price: { amount: new Decimal('40000'), currency: Currency.create('USD') },
@@ -748,7 +835,7 @@ describe('CostBasisCalculator', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                asset: Currency.create('BTC'),
                 grossAmount: new Decimal('1'),
                 priceAtTxTime: {
                   price: { amount: new Decimal('30000'), currency: Currency.create('EUR') },
@@ -790,17 +877,29 @@ describe('CostBasisCalculator', () => {
     it('should correctly classify long-term gains with complex fee scenarios', async () => {
       const transactions: UniversalTransaction[] = [
         // Buy 1 BTC @ $30k with $100 fee (Jan 1, 2023)
-        createTransactionWithFee(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }], [], {
-          asset: 'USD',
-          amount: '100',
-          price: '1',
-        }),
+        createTransactionWithFee(
+          1,
+          '2023-01-01T00:00:00Z',
+          [{ asset: Currency.create('BTC'), amount: '1', price: '30000' }],
+          [],
+          {
+            asset: Currency.create('USD'),
+            amount: '100',
+            price: '1',
+          }
+        ),
         // Sell 0.5 BTC @ $50k with $200 fee (Jan 2, 2024) - 366 days = long-term
-        createTransactionWithFee(2, '2024-01-02T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '50000' }], {
-          asset: 'USD',
-          amount: '200',
-          price: '1',
-        }),
+        createTransactionWithFee(
+          2,
+          '2024-01-02T00:00:00Z',
+          [],
+          [{ asset: Currency.create('BTC'), amount: '0.5', price: '50000' }],
+          {
+            asset: Currency.create('USD'),
+            amount: '200',
+            price: '1',
+          }
+        ),
       ];
 
       const disposalsSaved: LotDisposal[] = [];

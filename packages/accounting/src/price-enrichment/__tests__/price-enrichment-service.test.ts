@@ -78,13 +78,13 @@ describe('PriceEnrichmentService', () => {
         '2024-01-01T10:00:00Z',
         [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('1'),
           },
         ],
         [
           {
-            asset: 'USD',
+            asset: Currency.create('USD'),
             grossAmount: parseDecimal('50000'),
           },
         ]
@@ -98,13 +98,13 @@ describe('PriceEnrichmentService', () => {
         '2024-01-01T11:00:00Z',
         [
           {
-            asset: 'SOL',
+            asset: Currency.create('SOL'),
             grossAmount: parseDecimal('100'),
           },
         ],
         [
           {
-            asset: 'ADA',
+            asset: Currency.create('ADA'),
             grossAmount: parseDecimal('1000'),
           },
         ]
@@ -206,13 +206,13 @@ describe('PriceEnrichmentService', () => {
         '2024-01-01T10:00:00Z',
         [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('1'),
           },
         ],
         [
           {
-            asset: 'USD',
+            asset: Currency.create('USD'),
             grossAmount: parseDecimal('50000'),
           },
         ]
@@ -226,13 +226,13 @@ describe('PriceEnrichmentService', () => {
         '2024-01-01T10:00:00Z',
         [
           {
-            asset: 'ETH',
+            asset: Currency.create('ETH'),
             grossAmount: parseDecimal('20'),
           },
         ],
         [
           {
-            asset: 'USD',
+            asset: Currency.create('USD'),
             grossAmount: parseDecimal('60000'),
           },
         ]
@@ -272,8 +272,8 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         baseTime.toISOString(),
-        [{ asset: 'BTC', grossAmount: parseDecimal('1') }],
-        [{ asset: 'USDT', grossAmount: parseDecimal('50000') }]
+        [{ asset: Currency.create('BTC'), grossAmount: parseDecimal('1') }],
+        [{ asset: Currency.create('USDT'), grossAmount: parseDecimal('50000') }]
       );
 
       // Step 2: Withdraw BTC from Kraken (has price from trade)
@@ -285,7 +285,7 @@ describe('PriceEnrichmentService', () => {
         [],
         [
           {
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             grossAmount: parseDecimal('1'),
             priceAtTxTime: {
               price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
@@ -303,7 +303,7 @@ describe('PriceEnrichmentService', () => {
         'blockchain',
         'bitcoin',
         new Date(baseTime.getTime() + 120000).toISOString(), // 2 minutes later
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.999') }], // Slightly less due to network fee
+        [{ asset: Currency.create('BTC'), grossAmount: parseDecimal('0.999') }], // Slightly less due to network fee
         []
       );
 
@@ -348,7 +348,7 @@ describe('PriceEnrichmentService', () => {
       expect(depositCalls[0]![0].movements.inflows).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            asset: 'BTC',
+            asset: Currency.create('BTC'),
             priceAtTxTime: expect.objectContaining({
               source: 'link-propagated',
             }) as Partial<AssetMovement['priceAtTxTime']>,
@@ -370,8 +370,8 @@ describe('PriceEnrichmentService', () => {
         'exchange',
         'kraken',
         baseTime.toISOString(),
-        [{ asset: 'BTC', grossAmount: parseDecimal('1') }],
-        [{ asset: 'USDT', grossAmount: parseDecimal('50000') }]
+        [{ asset: Currency.create('BTC'), grossAmount: parseDecimal('1') }],
+        [{ asset: Currency.create('USDT'), grossAmount: parseDecimal('50000') }]
       );
 
       const tx2 = createMockTransaction(
@@ -379,7 +379,7 @@ describe('PriceEnrichmentService', () => {
         'blockchain',
         'bitcoin',
         new Date(baseTime.getTime() + 60000).toISOString(),
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.999') }],
+        [{ asset: Currency.create('BTC'), grossAmount: parseDecimal('0.999') }],
         []
       );
 

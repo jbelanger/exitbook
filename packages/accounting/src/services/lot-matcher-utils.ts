@@ -1,10 +1,4 @@
-import {
-  Currency,
-  type AssetMovement,
-  type FeeMovement,
-  type PriceAtTxTime,
-  type UniversalTransaction,
-} from '@exitbook/core';
+import { type AssetMovement, type FeeMovement, type PriceAtTxTime, type UniversalTransaction } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
@@ -96,7 +90,7 @@ export function extractCryptoFee(
 
     // Find crypto fees in the fees array
     for (const fee of tx.fees) {
-      if (fee.asset === asset) {
+      if (fee.asset.toString() === asset) {
         totalAmount = totalAmount.plus(fee.amount);
         if (fee.scope === 'network') {
           hasNetwork = true;
@@ -142,7 +136,7 @@ export function extractOnChainFees(tx: UniversalTransaction, asset: string): Dec
   let totalOnChainFees = new Decimal(0);
 
   for (const fee of tx.fees) {
-    if (fee.asset === asset && fee.settlement === 'on-chain') {
+    if (fee.asset.toString() === asset && fee.settlement === 'on-chain') {
       totalOnChainFees = totalOnChainFees.plus(fee.amount);
     }
   }
@@ -178,7 +172,7 @@ export function validateOutflowFees(
 
   const grossAmount = outflow.grossAmount;
   const netAmount = outflow.netAmount;
-  const onChainFees = extractOnChainFees(tx, outflow.asset);
+  const onChainFees = extractOnChainFees(tx, outflow.asset.toString());
 
   // Calculate expected netAmount based on declared on-chain fees
   const expectedNet = grossAmount.minus(onChainFees);
@@ -195,11 +189,11 @@ export function validateOutflowFees(
       new Error(
         `Outflow fee validation failed at tx ${txId}: ` +
           `Detected hidden fee. ` +
-          `grossAmount=${grossAmount.toFixed()} ${outflow.asset}, ` +
-          `declared on-chain fees=${onChainFees.toFixed()} ${outflow.asset}, ` +
-          `expected netAmount=${expectedNet.toFixed()} ${outflow.asset}, ` +
-          `actual netAmount=${netAmount.toFixed()} ${outflow.asset}, ` +
-          `hidden fee=${variance.toFixed()} ${outflow.asset} (${variancePct.toFixed(2)}%). ` +
+          `grossAmount=${grossAmount.toFixed()} ${outflow.asset.toString()}, ` +
+          `declared on-chain fees=${onChainFees.toFixed()} ${outflow.asset.toString()}, ` +
+          `expected netAmount=${expectedNet.toFixed()} ${outflow.asset.toString()}, ` +
+          `actual netAmount=${netAmount.toFixed()} ${outflow.asset.toString()}, ` +
+          `hidden fee=${variance.toFixed()} ${outflow.asset.toString()} (${variancePct.toFixed(2)}%). ` +
           `Exceeds error threshold (${tolerance.error.toFixed()}%). ` +
           `Review exchange fee policies and ensure all fees are declared.`
       )
@@ -237,10 +231,9 @@ export function collectFiatFees(
 
   for (const tx of [sourceTx, targetTx]) {
     for (const fee of tx.fees) {
-      const currency = Currency.create(fee.asset);
-      if (currency.isFiat()) {
+      if (fee.asset.isFiat()) {
         fiatFees.push({
-          asset: fee.asset,
+          asset: fee.asset.toString(),
           amount: fee.amount,
           priceAtTxTime: fee.priceAtTxTime,
           txId: tx.id,
@@ -266,7 +259,7 @@ export function filterTransactionsWithoutPrices(transactions: UniversalTransacti
     // Filter out fiat currencies - we only care about crypto asset prices
     const nonFiatInflows = inflows.filter((m) => {
       try {
-        return !Currency.create(m.asset).isFiat();
+        return !m.asset.isFiat();
       } catch {
         // If we can't create a Currency, assume it's crypto
         return true;
@@ -275,7 +268,7 @@ export function filterTransactionsWithoutPrices(transactions: UniversalTransacti
 
     const nonFiatOutflows = outflows.filter((m) => {
       try {
-        return !Currency.create(m.asset).isFiat();
+        return !m.asset.isFiat();
       } catch {
         // If we can't create a Currency, assume it's crypto
         return true;
@@ -308,17 +301,16 @@ function calculateTotalFeeValueInFiat(
       totalFeeValue = totalFeeValue.plus(feeValue);
     } else {
       // Fee has no price - try fallback conversion
-      const feeCurrency = Currency.create(fee.asset);
-      if (feeCurrency.isFiat() && targetMovement.priceAtTxTime) {
+      if (fee.asset.isFiat() && targetMovement.priceAtTxTime) {
         const targetPriceCurrency = targetMovement.priceAtTxTime.price.currency;
-        if (feeCurrency.equals(targetPriceCurrency)) {
+        if (fee.asset.equals(targetPriceCurrency)) {
           // Same fiat currency - use 1:1 conversion
           totalFeeValue = totalFeeValue.plus(fee.amount);
         } else {
           // Different fiat currencies - need FX rate
           return err(
             new Error(
-              `Fee in ${fee.asset} cannot be converted to ${targetPriceCurrency.toString()} without exchange rate. ` +
+              `Fee in ${fee.asset.toString()} cannot be converted to ${targetPriceCurrency.toString()} without exchange rate. ` +
                 `Transaction: ${transactionId}, Fee amount: ${fee.amount.toFixed()}`
             )
           );
@@ -327,7 +319,7 @@ function calculateTotalFeeValueInFiat(
         // Non-fiat fee without price - data integrity error
         return err(
           new Error(
-            `Fee in ${fee.asset} missing priceAtTxTime. Cost basis calculation requires all crypto fees to be priced. ` +
+            `Fee in ${fee.asset.toString()} missing priceAtTxTime. Cost basis calculation requires all crypto fees to be priced. ` +
               `Transaction: ${transactionId}, Fee amount: ${fee.amount.toFixed()}`
           )
         );
@@ -361,7 +353,7 @@ function calculateMovementValues(
   // Filter to non-fiat movements only (we track cost basis for crypto, not fiat)
   const nonFiatMovements = allMovements.filter((m) => {
     try {
-      return !Currency.create(m.asset).isFiat();
+      return !m.asset.isFiat();
     } catch {
       return true; // If we can't determine, assume crypto
     }
@@ -435,7 +427,10 @@ function allocateFeesProportionally(
   // (prevents allocating fees to fiat movements)
   const isTargetInNonFiat = values.nonFiatMovements.some((m) => {
     const mAmount = inflows.includes(m) ? m.grossAmount : (m.netAmount ?? m.grossAmount);
-    return m.asset === targetMovement.asset && new Decimal(mAmount).equals(new Decimal(values.targetAmount));
+    return (
+      m.asset.toString() === targetMovement.asset.toString() &&
+      new Decimal(mAmount).equals(new Decimal(values.targetAmount))
+    );
   });
 
   if (!isTargetInNonFiat) {
@@ -479,7 +474,7 @@ export function calculateFeesInFiat(
 
   // If target movement IS one of the fees, don't allocate fees to it
   const isFeeMovement = relevantFees.some(
-    (fee) => fee.asset === targetMovement.asset && fee.amount.equals(targetMovement.grossAmount)
+    (fee) => fee.asset.toString() === targetMovement.asset.toString() && fee.amount.equals(targetMovement.grossAmount)
   );
   if (isFeeMovement) {
     return ok(new Decimal(0));
@@ -512,18 +507,20 @@ export function groupTransactionsByAsset(transactions: UniversalTransaction[]): 
   for (const tx of transactions) {
     const inflows = tx.movements.inflows || [];
     for (const inflow of inflows) {
-      if (!assetMap.has(inflow.asset)) {
-        assetMap.set(inflow.asset, new Set());
+      const assetStr = inflow.asset.toString();
+      if (!assetMap.has(assetStr)) {
+        assetMap.set(assetStr, new Set());
       }
-      assetMap.get(inflow.asset)!.add(tx.id);
+      assetMap.get(assetStr)!.add(tx.id);
     }
 
     const outflows = tx.movements.outflows || [];
     for (const outflow of outflows) {
-      if (!assetMap.has(outflow.asset)) {
-        assetMap.set(outflow.asset, new Set());
+      const assetStr = outflow.asset.toString();
+      if (!assetMap.has(assetStr)) {
+        assetMap.set(assetStr, new Set());
       }
-      assetMap.get(outflow.asset)!.add(tx.id);
+      assetMap.get(assetStr)!.add(tx.id);
     }
   }
 
@@ -547,7 +544,9 @@ export function buildAcquisitionLotFromInflow(
   strategyName: 'fifo' | 'lifo' | 'specific-id' | 'average-cost'
 ): Result<AcquisitionLot, Error> {
   if (!inflow.priceAtTxTime) {
-    return err(new Error(`Inflow missing priceAtTxTime: transaction ${transaction.id}, asset ${inflow.asset}`));
+    return err(
+      new Error(`Inflow missing priceAtTxTime: transaction ${transaction.id}, asset ${inflow.asset.toString()}`)
+    );
   }
 
   const quantity = inflow.grossAmount;
@@ -571,7 +570,7 @@ export function buildAcquisitionLotFromInflow(
       id: uuidv4(),
       calculationId,
       acquisitionTransactionId: transaction.id,
-      asset: inflow.asset,
+      asset: inflow.asset.toString(),
       quantity,
       costBasisPerUnit,
       method: strategyName,
@@ -590,7 +589,9 @@ export function calculateNetProceeds(
   outflow: AssetMovement
 ): Result<{ proceedsPerUnit: Decimal; totalFeeAmount: Decimal }, Error> {
   if (!outflow.priceAtTxTime) {
-    return err(new Error(`Outflow missing priceAtTxTime: transaction ${transaction.id}, asset ${outflow.asset}`));
+    return err(
+      new Error(`Outflow missing priceAtTxTime: transaction ${transaction.id}, asset ${outflow.asset.toString()}`)
+    );
   }
 
   // Calculate fees attributable to this specific movement
@@ -752,7 +753,7 @@ export function matchOutflowDisposal(
   try {
     // Find open lots for this asset
     const openLots = allLots.filter(
-      (lot) => lot.asset === outflow.asset && (lot.status === 'open' || lot.status === 'partially_disposed')
+      (lot) => lot.asset === outflow.asset.toString() && (lot.status === 'open' || lot.status === 'partially_disposed')
     );
 
     // Calculate net proceeds after fees
@@ -765,7 +766,7 @@ export function matchOutflowDisposal(
     // Create disposal request
     const disposal = {
       transactionId: transaction.id,
-      asset: outflow.asset,
+      asset: outflow.asset.toString(),
       quantity: outflow.grossAmount,
       date: new Date(transaction.datetime),
       proceedsPerUnit,
@@ -856,7 +857,7 @@ export function processTransferSource(
     type: 'variance' | 'missing-price';
   }[] = [];
 
-  const cryptoFeeResult = extractCryptoFee(tx, outflow.asset);
+  const cryptoFeeResult = extractCryptoFee(tx, outflow.asset.toString());
   if (cryptoFeeResult.isErr()) {
     return err(cryptoFeeResult.error);
   }
@@ -878,7 +879,7 @@ export function processTransferSource(
     link.targetAmount,
     tx.source,
     tx.id,
-    outflow.asset,
+    outflow.asset.toString(),
     varianceTolerance
   );
   if (varianceResult.isErr()) {
@@ -891,7 +892,7 @@ export function processTransferSource(
     warnings.push({
       type: 'variance',
       data: {
-        asset: outflow.asset,
+        asset: outflow.asset.toString(),
         variancePct,
         netTransferAmount,
         linkTargetAmount: link.targetAmount,
@@ -899,14 +900,14 @@ export function processTransferSource(
     });
   }
 
-  const openLots = lots.filter((lot) => lot.asset === outflow.asset && lot.remainingQuantity.gt(0));
+  const openLots = lots.filter((lot) => lot.asset === outflow.asset.toString() && lot.remainingQuantity.gt(0));
 
   const feePolicy = jurisdiction.sameAssetTransferFeePolicy;
   const { amountToMatch } = calculateTransferDisposalAmount(outflow, cryptoFee, feePolicy);
 
   const disposal = {
     transactionId: tx.id,
-    asset: outflow.asset,
+    asset: outflow.asset.toString(),
     quantity: amountToMatch,
     date: new Date(tx.datetime),
     proceedsPerUnit: new Decimal(0),
@@ -920,7 +921,7 @@ export function processTransferSource(
       warnings.push({
         type: 'missing-price',
         data: {
-          asset: outflow.asset,
+          asset: outflow.asset.toString(),
           feeAmount: cryptoFee.amount,
           linkId: link.id,
         },
@@ -978,7 +979,7 @@ export function processTransferSource(
   if (cryptoFee.amount.gt(0) && feePolicy === 'disposal') {
     const feeDisposal = {
       transactionId: tx.id,
-      asset: outflow.asset,
+      asset: outflow.asset.toString(),
       quantity: cryptoFee.amount,
       date: new Date(tx.datetime),
       proceedsPerUnit: cryptoFee.priceAtTxTime?.price.amount ?? new Decimal(0),
@@ -1111,7 +1112,7 @@ export function processTransferTarget(
     receivedQuantity,
     tx.source,
     tx.id,
-    inflow.asset,
+    inflow.asset.toString(),
     varianceTolerance
   );
   if (varianceResult.isErr()) {
@@ -1163,7 +1164,7 @@ export function processTransferTarget(
     id: uuidv4(),
     calculationId,
     acquisitionTransactionId: tx.id,
-    asset: inflow.asset,
+    asset: inflow.asset.toString(),
     quantity: receivedQuantity,
     costBasisPerUnit,
     method: strategyName,
