@@ -1,4 +1,4 @@
-import { DateSchema, DecimalSchema } from '@exitbook/core';
+import { CurrencySchema, DateSchema, DecimalSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -42,7 +42,7 @@ export const AcquisitionLotSchema = z.object({
   id: z.string().uuid(),
   calculationId: z.string().uuid(),
   acquisitionTransactionId: z.number().int().positive(),
-  asset: z.string().min(1),
+  asset: CurrencySchema,
   quantity: DecimalSchema,
   costBasisPerUnit: DecimalSchema,
   totalCostBasis: DecimalSchema,
@@ -99,7 +99,7 @@ export const CostBasisCalculationSchema = z.object({
   totalCostBasis: DecimalSchema,
   totalGainLoss: DecimalSchema,
   totalTaxableGainLoss: DecimalSchema,
-  assetsProcessed: z.array(z.string()),
+  assetsProcessed: z.array(CurrencySchema),
   transactionsProcessed: z.number().int().nonnegative(),
   lotsCreated: z.number().int().nonnegative(),
   disposalsProcessed: z.number().int().nonnegative(),

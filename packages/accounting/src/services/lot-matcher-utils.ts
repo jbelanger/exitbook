@@ -570,7 +570,7 @@ export function buildAcquisitionLotFromInflow(
       id: uuidv4(),
       calculationId,
       acquisitionTransactionId: transaction.id,
-      asset: inflow.asset.toString(),
+      asset: inflow.asset,
       quantity,
       costBasisPerUnit,
       method: strategyName,
@@ -753,7 +753,9 @@ export function matchOutflowDisposal(
   try {
     // Find open lots for this asset
     const openLots = allLots.filter(
-      (lot) => lot.asset === outflow.asset.toString() && (lot.status === 'open' || lot.status === 'partially_disposed')
+      (lot) =>
+        lot.asset.toString() === outflow.asset.toString() &&
+        (lot.status === 'open' || lot.status === 'partially_disposed')
     );
 
     // Calculate net proceeds after fees
@@ -900,7 +902,9 @@ export function processTransferSource(
     });
   }
 
-  const openLots = lots.filter((lot) => lot.asset === outflow.asset.toString() && lot.remainingQuantity.gt(0));
+  const openLots = lots.filter(
+    (lot) => lot.asset.toString() === outflow.asset.toString() && lot.remainingQuantity.gt(0)
+  );
 
   const feePolicy = jurisdiction.sameAssetTransferFeePolicy;
   const { amountToMatch } = calculateTransferDisposalAmount(outflow, cryptoFee, feePolicy);
@@ -1164,7 +1168,7 @@ export function processTransferTarget(
     id: uuidv4(),
     calculationId,
     acquisitionTransactionId: tx.id,
-    asset: inflow.asset.toString(),
+    asset: inflow.asset,
     quantity: receivedQuantity,
     costBasisPerUnit,
     method: strategyName,

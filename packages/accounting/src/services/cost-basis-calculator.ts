@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import { Currency, type UniversalTransaction } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
@@ -171,7 +171,7 @@ export class CostBasisCalculator {
         totalCostBasis: gainLoss.totalCostBasis,
         totalGainLoss: gainLoss.totalCapitalGainLoss,
         totalTaxableGainLoss: gainLoss.totalTaxableGainLoss,
-        assetsProcessed: Array.from(gainLoss.byAsset.keys()),
+        assetsProcessed: Array.from(gainLoss.byAsset.keys()).map((asset) => Currency.create(asset)),
         lotsCreated: lotMatchResult.totalLotsCreated,
         disposalsProcessed: lotMatchResult.totalDisposalsProcessed,
         status: 'completed',

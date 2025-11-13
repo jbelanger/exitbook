@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- null needed by Kysely */
-import { DecimalSchema, wrapError } from '@exitbook/core';
+import { Currency, DecimalSchema, wrapError } from '@exitbook/core';
 import { BaseRepository, type KyselyDB } from '@exitbook/data';
 import type { Selectable } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
@@ -91,7 +91,7 @@ export class CostBasisRepository extends BaseRepository {
           id: lot.id,
           calculation_id: lot.calculationId,
           acquisition_transaction_id: lot.acquisitionTransactionId,
-          asset: lot.asset,
+          asset: lot.asset.toString(),
           quantity: lot.quantity.toString(),
           cost_basis_per_unit: lot.costBasisPerUnit.toString(),
           total_cost_basis: lot.totalCostBasis.toString(),
@@ -126,7 +126,7 @@ export class CostBasisRepository extends BaseRepository {
         id: lot.id,
         calculation_id: lot.calculationId,
         acquisition_transaction_id: lot.acquisitionTransactionId,
-        asset: lot.asset,
+        asset: lot.asset.toString(),
         quantity: lot.quantity.toString(),
         cost_basis_per_unit: lot.costBasisPerUnit.toString(),
         total_cost_basis: lot.totalCostBasis.toString(),
@@ -465,7 +465,7 @@ export class CostBasisRepository extends BaseRepository {
           total_cost_basis: calculation.totalCostBasis.toString(),
           total_gain_loss: calculation.totalGainLoss.toString(),
           total_taxable_gain_loss: calculation.totalTaxableGainLoss.toString(),
-          assets_processed: this.serializeToJson(calculation.assetsProcessed) ?? '[]',
+          assets_processed: this.serializeToJson(calculation.assetsProcessed.map((a) => a.toString())) ?? '[]',
           transactions_processed: calculation.transactionsProcessed,
           lots_created: calculation.lotsCreated,
           disposals_processed: calculation.disposalsProcessed,
@@ -577,7 +577,7 @@ export class CostBasisRepository extends BaseRepository {
         updateValues.disposals_processed = updates.disposalsProcessed;
       }
       if (updates.assetsProcessed !== undefined) {
-        updateValues.assets_processed = this.serializeToJson(updates.assetsProcessed) ?? '[]';
+        updateValues.assets_processed = this.serializeToJson(updates.assetsProcessed.map((a) => a.toString())) ?? '[]';
       }
 
       const result = await this.db
@@ -714,7 +714,7 @@ export class CostBasisRepository extends BaseRepository {
         id: row.id,
         calculationId: row.calculation_id,
         acquisitionTransactionId: row.acquisition_transaction_id,
-        asset: row.asset,
+        asset: Currency.create(row.asset),
         quantity: DecimalSchema.parse(row.quantity),
         costBasisPerUnit: DecimalSchema.parse(row.cost_basis_per_unit),
         totalCostBasis: DecimalSchema.parse(row.total_cost_basis),
