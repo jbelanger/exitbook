@@ -1,3 +1,5 @@
+import type { CursorState } from '@exitbook/core';
+
 export type ProviderOperationParams =
   | {
       address: string;
@@ -39,4 +41,14 @@ export type ProviderOperationType =
 export interface FailoverExecutionResult<T> {
   data: T;
   providerName: string;
+}
+
+/**
+ * Result from streaming failover execution with cursor state
+ * Used by executeWithFailoverStreaming to yield batches with provenance and cursor
+ */
+export interface FailoverStreamingExecutionResult<T> {
+  data: T[];
+  providerName: string;
+  cursor: CursorState;
 }
