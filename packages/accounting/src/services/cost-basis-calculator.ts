@@ -8,7 +8,6 @@ import { v4 as uuidv4 } from 'uuid';
 import type { CostBasisConfig } from '../config/cost-basis-config.js';
 import type { CostBasisCalculation } from '../domain/schemas.js';
 import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
-import { getJurisdictionConfig } from '../jurisdictions/jurisdiction-configs.js';
 import type { CostBasisRepository } from '../persistence/cost-basis-repository.js';
 import type { LotTransferRepository } from '../persistence/lot-transfer-repository.js';
 import type { TransactionLinkRepository } from '../persistence/transaction-link-repository.js';
@@ -111,16 +110,13 @@ export class CostBasisCalculator {
       const strategy = getStrategyForMethod(config.method);
 
       // Get jurisdiction config for transfer fee policy
-      const jurisdictionCode = rules.getJurisdiction();
-      const jurisdictionConfig = getJurisdictionConfig(jurisdictionCode);
+      const jurisdictionConfig = rules.getConfig();
 
       // Match transactions to lots using chosen strategy
       const matchResult = await this.lotMatcher.match(transactions, {
         calculationId,
         strategy,
-        jurisdiction: jurisdictionConfig
-          ? { sameAssetTransferFeePolicy: jurisdictionConfig.sameAssetTransferFeePolicy }
-          : undefined,
+        jurisdiction: { sameAssetTransferFeePolicy: jurisdictionConfig.sameAssetTransferFeePolicy },
       });
 
       if (matchResult.isErr()) {
