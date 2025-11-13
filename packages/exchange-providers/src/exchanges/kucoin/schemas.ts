@@ -1,3 +1,4 @@
+import { CurrencySchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -22,7 +23,7 @@ export const KuCoinLedgerEntrySchema = z.object({
   referenceAccount: z.string().optional(), // Related account
   referenceId: z.string().optional(), // Reference to related transaction
   type: z.string(), // trade, transaction, fee, rebate, etc.
-  currency: z.string(), // Asset currency code
+  currency: CurrencySchema, // Asset currency code
   amount: z.number(), // Amount (positive or negative)
   timestamp: z.number(), // Unix timestamp in milliseconds
   datetime: z.string(), // ISO8601 datetime string
@@ -31,7 +32,7 @@ export const KuCoinLedgerEntrySchema = z.object({
   status: z.string().optional(), // pending, ok, canceled
   fee: z
     .object({
-      currency: z.string(),
+      currency: CurrencySchema,
       cost: z.number(),
     })
     .optional(),

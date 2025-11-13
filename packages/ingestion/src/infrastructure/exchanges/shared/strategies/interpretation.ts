@@ -58,13 +58,13 @@ export const standardAmounts: InterpretationStrategy = {
   interpret(entry: RawTransactionWithMetadata, _group: RawTransactionWithMetadata[]): LedgerEntryInterpretation {
     const amount = parseDecimal(entry.normalized.amount);
     const absAmount = amount.abs();
-    const asset = entry.normalized.asset;
+    const asset = entry.normalized.asset.toString();
 
     const feeCost =
       entry.normalized.fee && !parseDecimal(entry.normalized.fee).isZero()
         ? parseDecimal(entry.normalized.fee)
         : undefined;
-    const feeCurrency = entry.normalized.feeCurrency || asset;
+    const feeCurrency = (entry.normalized.feeCurrency || entry.normalized.asset).toString();
 
     return {
       inflows: amount.isPositive()
@@ -120,12 +120,14 @@ function shouldIncludeFeeForCoinbaseEntry(
   if (!entryFeeCost) return false;
 
   // Find all entries in group with identical fee (using normalized data)
-  const entriesWithSameFee = group.filter(
-    (e) =>
-      e.normalized.fee === entryFeeCost &&
-      e.normalized.feeCurrency === entryFeeCurrency &&
-      e.normalized.fee !== undefined
-  );
+  const entriesWithSameFee = group.filter((e) => {
+    const sameFeeCost = e.normalized.fee === entryFeeCost;
+    const sameFeeCurrency =
+      entryFeeCurrency === undefined
+        ? e.normalized.feeCurrency === undefined
+        : e.normalized.feeCurrency !== undefined && e.normalized.feeCurrency.equals(entryFeeCurrency);
+    return sameFeeCost && sameFeeCurrency && e.normalized.fee !== undefined;
+  });
 
   // Only include fee on first occurrence
   return entriesWithSameFee.length === 0 || entriesWithSameFee[0]?.normalized.id === entry.normalized.id;
@@ -148,9 +150,9 @@ export const coinbaseGrossAmounts: InterpretationStrategy<CoinbaseLedgerEntry> =
   ): LedgerEntryInterpretation {
     const amount = parseDecimal(entry.normalized.amount);
     const absAmount = amount.abs();
-    const asset = entry.normalized.asset;
+    const asset = entry.normalized.asset.toString();
     const feeCost = entry.normalized.fee ? parseDecimal(entry.normalized.fee) : parseDecimal('0');
-    const feeCurrency = entry.normalized.feeCurrency || asset;
+    const feeCurrency = (entry.normalized.feeCurrency || entry.normalized.asset).toString();
 
     // Deduplicate fees across group using RAW fee data (more accurate than parsed strings)
     const shouldIncludeFee = shouldIncludeFeeForCoinbaseEntry(entry, group);

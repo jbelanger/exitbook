@@ -1,3 +1,5 @@
+import type { Currency } from '@exitbook/core';
+
 /**
  * Type definitions for Coinbase Consumer API v2
  *
@@ -32,21 +34,21 @@ export interface RawCoinbaseTransactionDetails {
   fee?:
     | {
         amount: string;
-        currency: string;
+        currency: Currency;
       }
     | undefined;
   /** Subtotal for buy/sell transactions */
   subtotal?:
     | {
         amount: string;
-        currency: string;
+        currency: Currency;
       }
     | undefined;
   /** Total for buy/sell transactions */
   total?:
     | {
         amount: string;
-        currency: string;
+        currency: Currency;
       }
     | undefined;
   /** Transfer ID for internal transfers */
@@ -93,13 +95,13 @@ export interface RawCoinbaseLedgerEntry {
   /** Amount of the balance change */
   amount: {
     amount: string; // Note: v2 API uses "amount" not "value"
-    currency: string;
+    currency: Currency;
   };
   /** Native amount (usually USD equivalent) */
   native_amount?:
     | {
         amount: string;
-        currency: string;
+        currency: Currency;
       }
     | undefined;
 

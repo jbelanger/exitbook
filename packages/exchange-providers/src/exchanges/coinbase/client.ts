@@ -1,5 +1,5 @@
 import type { TransactionStatus } from '@exitbook/core';
-import { getErrorMessage, wrapError, type ExternalTransaction } from '@exitbook/core';
+import { Currency, getErrorMessage, wrapError, type ExternalTransaction } from '@exitbook/core';
 import * as ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
@@ -231,20 +231,22 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                     // For advanced_trade_fill: CCXT doesn't map commission to fee, so extract it manually
                     // For other types: use CCXT's normalized fee field
                     let feeAmount: string | undefined;
-                    let feeCurrency: string | undefined;
+                    let feeCurrency: Currency | undefined;
 
                     if (validatedData.type === 'advanced_trade_fill' && rawInfo.advanced_trade_fill?.commission) {
                       // Commission is paid in the quote currency (second part of product_id)
                       // e.g., "BTC-USDC" -> commission paid in USDC
                       if (rawInfo.advanced_trade_fill.product_id) {
                         const parts = rawInfo.advanced_trade_fill.product_id.split('-');
-                        feeCurrency = parts[1]; // Quote currency
+                        if (parts[1]) {
+                          feeCurrency = Currency.create(parts[1]); // Quote currency
 
-                        // Only include fee on the entry that matches the fee currency
-                        // This avoids duplicates - each fill creates 2 entries (base + quote)
-                        // but we only want to record the fee once (on the quote currency side)
-                        if (validatedData.currency === feeCurrency) {
-                          feeAmount = rawInfo.advanced_trade_fill.commission;
+                          // Only include fee on the entry that matches the fee currency
+                          // This avoids duplicates - each fill creates 2 entries (base + quote)
+                          // but we only want to record the fee once (on the quote currency side)
+                          if (validatedData.currency.equals(feeCurrency)) {
+                            feeAmount = rawInfo.advanced_trade_fill.commission;
+                          }
                         }
                       }
                     } else {

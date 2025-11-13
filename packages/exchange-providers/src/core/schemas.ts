@@ -1,4 +1,4 @@
-import { TransactionStatusSchema } from '@exitbook/core';
+import { CurrencySchema, TransactionStatusSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -27,7 +27,7 @@ export const ExchangeLedgerEntrySchema = z
     type: z.string().min(1, 'Entry type must not be empty'),
 
     /** Asset symbol (BTC, USD, ETH, etc.) */
-    asset: z.string().min(1, 'Asset must not be empty'),
+    asset: CurrencySchema,
 
     /** Amount as string (can be positive or negative) */
     amount: z.string(),
@@ -36,7 +36,7 @@ export const ExchangeLedgerEntrySchema = z
     fee: z.string().optional(),
 
     /** Fee currency (optional, defaults to asset if not specified) */
-    feeCurrency: z.string().optional(),
+    feeCurrency: CurrencySchema.optional(),
 
     /** Entry status */
     status: TransactionStatusSchema,

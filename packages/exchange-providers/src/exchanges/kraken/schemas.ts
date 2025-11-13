@@ -1,3 +1,4 @@
+import { CurrencySchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -21,7 +22,7 @@ export const KrakenLedgerEntrySchema = z.object({
   type: z.string(), // trade, deposit, withdrawal, spend, receive, etc.
   subtype: z.string().optional(), // e.g., "tradespot" for conversions
   aclass: z.string(), // Asset class (usually "currency")
-  asset: z.string(), // Asset symbol
+  asset: CurrencySchema, // Asset symbol
   amount: z.string(), // Amount as string (can be negative)
   fee: z.string(), // Fee as string
   balance: z.string(), // Running balance after this entry

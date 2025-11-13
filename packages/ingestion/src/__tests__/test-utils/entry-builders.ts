@@ -4,6 +4,7 @@ import type {
   EvmTransaction,
   SolanaTransaction,
 } from '@exitbook/blockchain-providers';
+import { Currency } from '@exitbook/core';
 import type { ExchangeLedgerEntry } from '@exitbook/exchanges-providers';
 
 import type { RawTransactionWithMetadata } from '../../infrastructure/exchanges/shared/strategies/grouping.js';
@@ -28,7 +29,7 @@ export class ExchangeEntryBuilder {
     correlationId: 'REF001',
     timestamp: TEST_TIMESTAMPS.jan2024,
     type: 'test',
-    asset: 'USD',
+    asset: Currency.create('USD'),
     amount: '0',
     status: 'success',
   };
@@ -54,7 +55,7 @@ export class ExchangeEntryBuilder {
   }
 
   withAsset(asset: string): this {
-    this.entry.asset = asset;
+    this.entry.asset = Currency.create(asset);
     return this;
   }
 
@@ -69,7 +70,7 @@ export class ExchangeEntryBuilder {
   }
 
   withFeeCurrency(feeCurrency: string): this {
-    this.entry.feeCurrency = feeCurrency;
+    this.entry.feeCurrency = Currency.create(feeCurrency);
     return this;
   }
 

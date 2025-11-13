@@ -1,3 +1,4 @@
+import { Currency } from '@exitbook/core';
 import type { CoinbaseLedgerEntry } from '@exitbook/exchanges-providers';
 import { describe, expect, test } from 'vitest';
 
@@ -19,7 +20,7 @@ function buildEntry(
       correlationId: 'corr-1',
       timestamp,
       type: 'advanced_trade_fill',
-      asset: 'USDC',
+      asset: Currency.create('USDC'),
       amount: '61.902',
       status: 'success',
     },
@@ -28,7 +29,7 @@ function buildEntry(
       direction: 'in',
       account: 'account-1',
       type: 'advanced_trade_fill',
-      currency: 'USDC',
+      currency: Currency.create('USDC'),
       amount: 61.902,
       timestamp,
       datetime: new Date(timestamp).toISOString(),
@@ -59,7 +60,7 @@ describe('coinbaseGrossAmounts', () => {
     const entry = buildEntry({
       normalized: {
         fee: '0.371412',
-        feeCurrency: 'USDC',
+        feeCurrency: Currency.create('USDC'),
       },
     });
 
@@ -76,10 +77,10 @@ describe('coinbaseGrossAmounts', () => {
     const entry = buildEntry({
       normalized: {
         fee: '0.5',
-        feeCurrency: 'USDT',
+        feeCurrency: Currency.create('USDT'),
       },
       raw: {
-        currency: 'USDC',
+        currency: Currency.create('USDC'),
       },
     });
 

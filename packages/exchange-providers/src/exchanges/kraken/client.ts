@@ -1,4 +1,4 @@
-import { getErrorMessage, wrapError, type ExternalTransaction } from '@exitbook/core';
+import { Currency, getErrorMessage, wrapError, type ExternalTransaction } from '@exitbook/core';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -104,7 +104,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
               // Metadata mapper: Extract cursor, externalId, and normalizedData
               (validatedData: KrakenLedgerEntry, _item) => {
                 const timestamp = new Date(validatedData.time * 1000);
-                const normalizedAsset = normalizeKrakenAsset(validatedData.asset);
+                const normalizedAsset = normalizeKrakenAsset(validatedData.asset.toString());
 
                 // Map KrakenLedgerEntry to ExchangeLedgerEntry with Kraken-specific normalization
                 // Additional Kraken-specific fields (subtype, aclass, balance) remain in rawData only
@@ -113,10 +113,10 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
                   correlationId: validatedData.refid,
                   timestamp: Math.floor(validatedData.time * 1000), // Convert to milliseconds and ensure integer
                   type: validatedData.type,
-                  asset: normalizedAsset,
+                  asset: Currency.create(normalizedAsset),
                   amount: validatedData.amount,
                   fee: validatedData.fee,
-                  feeCurrency: normalizedAsset, // Kraken fees are in the same currency as the asset
+                  feeCurrency: Currency.create(normalizedAsset), // Kraken fees are in the same currency as the asset
                   status: 'success', // Kraken ledger entries don't have explicit status - they're all completed
                 };
 

@@ -1,3 +1,4 @@
+import { Currency } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
@@ -241,7 +242,7 @@ describe('processItems', () => {
       correlationId: parsed.id,
       timestamp: parsed.time,
       type: 'trade',
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       amount: parsed.amount,
       status: 'success',
     },
@@ -396,7 +397,7 @@ describe('processItems', () => {
     if (result.isOk()) {
       const normalized = result.value[0]!.normalizedData as ExchangeLedgerEntry;
       expect(normalized.id).toBe('tx-1');
-      expect(normalized.asset).toBe('BTC');
+      expect(normalized.asset.toString()).toBe('BTC');
       expect(normalized.amount).toBe('100');
     }
   });

@@ -1,3 +1,4 @@
+import { CurrencySchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -21,7 +22,7 @@ export const CoinbaseLedgerEntrySchema = z.object({
   referenceAccount: z.string().optional(), // Related account
   referenceId: z.string().optional(), // Reference to related transaction
   type: z.string(), // trade, transaction, fee, rebate, etc.
-  currency: z.string(), // Asset currency code
+  currency: CurrencySchema, // Asset currency code
   amount: z.number(), // Amount (positive or negative)
   timestamp: z.number(), // Unix timestamp in milliseconds
   datetime: z.string(), // ISO8601 datetime string
@@ -30,7 +31,7 @@ export const CoinbaseLedgerEntrySchema = z.object({
   status: z.string().optional(), // pending, ok, canceled
   fee: z
     .object({
-      currency: z.string(),
+      currency: CurrencySchema,
       cost: z.number(),
     })
     .optional(),
@@ -59,19 +60,19 @@ export const RawCoinbaseTransactionDetailsSchema = z
     fee: z
       .object({
         amount: z.string(),
-        currency: z.string(),
+        currency: CurrencySchema,
       })
       .optional(),
     subtotal: z
       .object({
         amount: z.string(),
-        currency: z.string(),
+        currency: CurrencySchema,
       })
       .optional(),
     total: z
       .object({
         amount: z.string(),
-        currency: z.string(),
+        currency: CurrencySchema,
       })
       .optional(),
 
@@ -109,12 +110,12 @@ export const RawCoinbaseLedgerEntrySchema = z
     status: z.string(),
     amount: z.object({
       amount: z.string(), // Note: v2 API uses "amount" not "value"
-      currency: z.string(),
+      currency: CurrencySchema,
     }),
     native_amount: z
       .object({
         amount: z.string(),
-        currency: z.string(),
+        currency: CurrencySchema,
       })
       .optional(),
 
