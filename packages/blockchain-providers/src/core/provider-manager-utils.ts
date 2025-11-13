@@ -1,7 +1,8 @@
 /**
- * Pure utility functions for blockchain provider management
+ * Utility functions for blockchain provider management
  *
- * Functional core - all decision logic without side effects
+ * Most functions are pure (no side effects), but deduplication helpers
+ * mutate state in place for performance in hot paths.
  */
 
 import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
@@ -334,27 +335,17 @@ export function createDeduplicationWindow(initialIds: string[] = []): Deduplicat
 
 /**
  * Add ID to deduplication window, evicting oldest if necessary
- * Pure function - returns new window state
+ * Mutates the window in place for performance (avoids O(n) array/set copies)
  */
-export function addToDeduplicationWindow(
-  window: DeduplicationWindow,
-  id: string,
-  maxSize: number
-): DeduplicationWindow {
-  const newQueue = [...window.queue, id];
-  const newSet = new Set(window.set);
-  newSet.add(id);
+export function addToDeduplicationWindow(window: DeduplicationWindow, id: string, maxSize: number): void {
+  window.queue.push(id);
+  window.set.add(id);
 
   // Evict oldest if over limit
-  if (newQueue.length > maxSize) {
-    const oldest = newQueue.shift()!;
-    newSet.delete(oldest);
+  if (window.queue.length > maxSize) {
+    const oldest = window.queue.shift()!;
+    window.set.delete(oldest);
   }
-
-  return {
-    queue: newQueue,
-    set: newSet,
-  };
 }
 
 /**
@@ -365,37 +356,30 @@ export function isInDeduplicationWindow(window: DeduplicationWindow, id: string)
 }
 
 /**
- * Filter transactions by deduplication, returning filtered data and updated window
- * Pure function - returns new state
+ * Filter transactions by deduplication
+ * Mutates the window in place for performance
  */
 export function deduplicateTransactions<T extends { normalized: { id: string } }>(
   transactions: T[],
   window: DeduplicationWindow,
   maxWindowSize: number
-): {
-  deduplicated: T[];
-  updatedWindow: DeduplicationWindow;
-} {
-  let currentWindow = window;
+): T[] {
   const deduplicated: T[] = [];
 
   for (const tx of transactions) {
     const id = tx.normalized.id;
 
-    if (isInDeduplicationWindow(currentWindow, id)) {
+    if (isInDeduplicationWindow(window, id)) {
       // Skip duplicate
       continue;
     }
 
     // Add to results and update window
     deduplicated.push(tx);
-    currentWindow = addToDeduplicationWindow(currentWindow, id, maxWindowSize);
+    addToDeduplicationWindow(window, id, maxWindowSize);
   }
 
-  return {
-    deduplicated,
-    updatedWindow: currentWindow,
-  };
+  return deduplicated;
 }
 
 /**

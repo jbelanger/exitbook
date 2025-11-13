@@ -154,7 +154,7 @@ export class BlockchainProviderManager {
     // during replay window (5 blocks/minutes can be dozens of transactions)
     const initialIds = resumeCursor ? [resumeCursor.lastTransactionId] : [];
     // TODO Phase 2.3: Use loadRecentTransactionIds() from utils to seed dedup set from storage
-    let deduplicationWindow = createDeduplicationWindow(initialIds);
+    const deduplicationWindow = createDeduplicationWindow(initialIds);
 
     while (providerIndex < providers.length) {
       const provider = providers[providerIndex];
@@ -229,12 +229,12 @@ export class BlockchainProviderManager {
           const batch = batchResult.value;
 
           // Deduplicate (especially important after failover with replay window)
-          const { deduplicated, updatedWindow } = deduplicateTransactions(
+          // Note: deduplicateTransactions mutates deduplicationWindow in place for performance
+          const deduplicated = deduplicateTransactions(
             batch.data as { normalized: { id: string } }[],
             deduplicationWindow,
             DEDUP_WINDOW_SIZE
           );
-          deduplicationWindow = updatedWindow;
 
           if (deduplicated.length > 0) {
             // ✅ Yield Result-wrapped batch
