@@ -56,7 +56,7 @@ function createLink(
     id: `link-${sourceId}-${targetId}`,
     sourceTransactionId: sourceId,
     targetTransactionId: targetId,
-    asset: Currency.create('BTC'),
+    asset: 'BTC',
     sourceAmount: parseDecimal('1.0'),
     targetAmount: parseDecimal('1.0'),
     linkType: 'exchange_to_blockchain',

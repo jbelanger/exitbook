@@ -861,7 +861,7 @@ function createLink(params: {
     id: params.id,
     sourceTransactionId: params.sourceTransactionId,
     targetTransactionId: params.targetTransactionId,
-    asset: params.asset,
+    asset: params.asset.toString(),
     sourceAmount: params.sourceAmount,
     targetAmount: params.targetAmount,
     linkType: 'exchange_to_blockchain',

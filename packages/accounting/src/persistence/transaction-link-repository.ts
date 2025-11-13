@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- null needed by Kysely */
-import { Currency, DecimalSchema, wrapError } from '@exitbook/core';
+import { DecimalSchema, wrapError } from '@exitbook/core';
 import type { KyselyDB, TransactionLinksTable } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { Selectable } from 'kysely';
@@ -393,7 +393,7 @@ export class TransactionLinkRepository extends BaseRepository {
       id: row.id,
       sourceTransactionId: row.source_transaction_id,
       targetTransactionId: row.target_transaction_id,
-      asset: Currency.create(row.asset),
+      asset: row.asset,
       sourceAmount: DecimalSchema.parse(row.source_amount),
       targetAmount: DecimalSchema.parse(row.target_amount),
       linkType: row.link_type,
