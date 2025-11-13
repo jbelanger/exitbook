@@ -56,8 +56,6 @@ pnpm run dev prices enrich
 
 - Add provider API keys in `.env` as needed; see `CLAUDE.md` for available integrations.
 
-SQLite databases live under `apps/cli/data/` and are safe to drop during development.
-
 ## Contributing
 
 - Discuss design changes in issues or the ADRs under `docs/` before large refactors.
