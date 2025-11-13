@@ -1,4 +1,4 @@
-import type { TransactionStatus } from '@exitbook/core';
+import type { CursorState, TransactionStatus } from '@exitbook/core';
 import { getErrorMessage, wrapError, type ExternalTransaction } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import * as ccxt from 'ccxt';
@@ -9,7 +9,13 @@ import type z from 'zod';
 import { PartialImportError } from '../../core/errors.js';
 import * as ExchangeUtils from '../../core/exchange-utils.js';
 import type { ExchangeLedgerEntry } from '../../core/schemas.js';
-import type { BalanceSnapshot, ExchangeCredentials, FetchParams, IExchangeClient } from '../../core/types.js';
+import type {
+  BalanceSnapshot,
+  ExchangeCredentials,
+  FetchParams,
+  FetchTransactionDataResult,
+  IExchangeClient,
+} from '../../core/types.js';
 
 import { KuCoinCredentialsSchema, KuCoinLedgerEntrySchema } from './schemas.js';
 
@@ -64,9 +70,12 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
       return {
         exchangeId: 'kucoin',
 
-        async fetchTransactionData(params?: FetchParams): Promise<Result<ExternalTransaction[], Error>> {
+        async fetchTransactionData(params?: FetchParams): Promise<Result<FetchTransactionDataResult, Error>> {
           const allTransactions: ExternalTransaction[] = [];
-          const currentCursor = { ...(params?.cursor || {}) };
+          let lastSuccessfulCursorUpdates: Record<string, CursorState> = {};
+
+          // Extract cursor state
+          const ledgerCursor = params?.cursor?.['ledger'];
 
           // Fetch ledger entries - this includes ALL balance changes:
           // deposits, withdrawals, trades, fees, rebates, etc.
@@ -81,7 +90,10 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
 
           // Start from cursor (if resuming) or 1 year ago (KuCoin's max lookback)
           const ONE_YEAR_AGO = now - ONE_YEAR;
-          const currentStartTime = currentCursor.startTime || ONE_YEAR_AGO;
+          const currentStartTime = (ledgerCursor?.metadata?.startTime as number) || ONE_YEAR_AGO;
+
+          // Track cumulative count starting from previous cursor's totalFetched
+          let cumulativeFetched = (ledgerCursor?.totalFetched as number) || 0;
 
           try {
             // First, check if we can access the account at all
@@ -181,13 +193,24 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
                     };
 
                     return {
-                      cursor: { ledger: timestamp },
+                      cursorUpdates: {
+                        ledger: {
+                          primary: { type: 'timestamp', value: timestamp },
+                          lastTransactionId: validatedData.id,
+                          totalFetched: 1,
+                          metadata: {
+                            providerName: 'kucoin',
+                            updatedAt: Date.now(),
+                            startTime: currentStartTime,
+                            endTime: currentEnd,
+                          },
+                        },
+                      },
                       externalId: validatedData.id,
                       normalizedData,
                     };
                   },
-                  'kucoin',
-                  currentCursor
+                  'kucoin'
                 );
 
                 if (processResult.isErr()) {
@@ -201,21 +224,23 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
                       partialError.message,
                       allTransactions,
                       partialError.failedItem,
-                      partialError.lastSuccessfulCursor
+                      partialError.lastSuccessfulCursorUpdates
                     )
                   );
                 }
 
                 // Accumulate successful results
-                allTransactions.push(...processResult.value);
+                const { transactions, cursorUpdates } = processResult.value;
+                allTransactions.push(...transactions);
 
-                // Update cursor
-                if (processResult.value.length > 0) {
-                  const oldestItem = processResult.value[0]; // First item is oldest
-                  if (oldestItem?.cursor?.ledger && typeof oldestItem.cursor.ledger === 'number') {
-                    currentCursor.endTime = oldestItem.cursor.ledger - 1;
-                  }
+                // Update cumulative count
+                cumulativeFetched += transactions.length;
+
+                // Update cursor with cumulative totalFetched
+                if (cursorUpdates['ledger']) {
+                  cursorUpdates['ledger'].totalFetched = cumulativeFetched;
                 }
+                lastSuccessfulCursorUpdates = cursorUpdates;
 
                 // If we got less than the limit, we've fetched all data for this period
                 if (ledgerEntries.length < limit) {
@@ -229,7 +254,6 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
 
               // Move to previous day (24 hours earlier)
               currentEnd = currentEnd - ONE_DAY;
-              currentCursor.endTime = currentEnd;
 
               // Log progress every 30 days
               const daysFetched = Math.floor((now - currentEnd) / ONE_DAY);
@@ -239,7 +263,7 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
             }
 
             logger.info(`KuCoin fetch completed successfully: ${allTransactions.length} total transactions`);
-            return ok(allTransactions);
+            return ok({ transactions: allTransactions, cursorUpdates: lastSuccessfulCursorUpdates });
           } catch (error) {
             // Log detailed error information
             logger.error({ error }, 'KuCoin API error occurred');
@@ -266,7 +290,7 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
                   `Fetch failed after processing ${allTransactions.length} transactions: ${getErrorMessage(error)}`,
                   allTransactions,
                   { startTime: currentStartTime, limit },
-                  currentCursor
+                  lastSuccessfulCursorUpdates
                 )
               );
             }

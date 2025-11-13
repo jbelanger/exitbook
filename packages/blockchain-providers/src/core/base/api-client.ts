@@ -1,9 +1,10 @@
+import type { CursorState, PaginationCursor } from '@exitbook/core';
 import type { RateLimitConfig } from '@exitbook/http';
 import { HttpClient } from '@exitbook/http';
 import { RateLimitError } from '@exitbook/http';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, type Result } from 'neverthrow';
+import { err, errAsync, ok, type Result } from 'neverthrow';
 
 import { ProviderRegistry } from '../registry/provider-registry.js';
 import type {
@@ -12,6 +13,7 @@ import type {
   ProviderConfig,
   ProviderMetadata,
   ProviderOperation,
+  StreamingBatchResult,
 } from '../types/index.js';
 
 /**
@@ -90,6 +92,35 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     method?: 'GET' | 'POST';
     validate: (response: unknown) => boolean;
   };
+
+  /**
+   * Execute operation with streaming pagination
+   * Default implementation throws error - providers should implement when ready for Phase 1+
+   */
+  async *executeStreaming<T>(
+    _operation: ProviderOperation,
+    _cursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
+    yield errAsync(
+      new Error(`Streaming pagination not yet implemented for ${this.name}. Use execute() method instead.`)
+    );
+  }
+
+  /**
+   * Extract all available cursor types from a transaction
+   * Default implementation returns empty array - providers should implement when ready for Phase 1+
+   */
+  extractCursors(_transaction: unknown): PaginationCursor[] {
+    return [];
+  }
+
+  /**
+   * Apply replay window to a cursor for safe failover
+   * Default implementation returns cursor unchanged - providers should implement when ready for Phase 1+
+   */
+  applyReplayWindow(cursor: PaginationCursor): PaginationCursor {
+    return cursor;
+  }
 
   /**
    * Check if the provider's API is healthy and responding correctly

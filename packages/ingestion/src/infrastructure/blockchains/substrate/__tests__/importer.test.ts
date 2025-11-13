@@ -10,7 +10,8 @@ import {
   ProviderError,
 } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
-import { err, ok } from 'neverthrow';
+import type { PaginationCursor } from '@exitbook/core';
+import { err, errAsync, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
 import { SubstrateImporter } from '../importer.js';
@@ -106,6 +107,11 @@ describe('SubstrateImporter', () => {
         isHealthy: vi.fn().mockResolvedValue(true),
         name: 'subscan',
         rateLimit: { requestsPerSecond: 1 },
+        executeStreaming: vi.fn(async function* () {
+          yield errAsync(new Error('Streaming not implemented in mock'));
+        }),
+        extractCursors: vi.fn((_transaction: unknown): PaginationCursor[] => []),
+        applyReplayWindow: vi.fn((cursor: PaginationCursor): PaginationCursor => cursor),
       },
     ]);
   });

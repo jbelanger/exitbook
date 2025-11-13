@@ -38,6 +38,22 @@ export interface DataSourcesTable {
   started_at: DateTime;
   updated_at: DateTime | null;
 
+  /**
+   * Map of cursor states per operation type for resumable imports
+   * Stores Record<operationType, CursorState> as JSON
+   *
+   * Operation types:
+   * - Blockchains: 'normal', 'internal', 'token'
+   * - Exchanges: 'trade', 'deposit', 'withdrawal', etc.
+   *
+   * This is the AUTHORITATIVE cursor for resume operations:
+   * - Read on import start: `SELECT last_cursor FROM data_sources WHERE id = ?`
+   * - Write after EACH batch: `UPDATE data_sources SET last_cursor = ? WHERE id = ?`
+   *
+   * Schema validation: z.record(z.string(), CursorStateSchema) from @exitbook/core/schemas
+   */
+  last_cursor: JSONString | null;
+
   // Balance verification
   last_balance_check_at: DateTime | null;
   verification_metadata: JSONString | null;
@@ -55,9 +71,8 @@ export interface ExternalTransactionDataTable {
 
   provider_name: string;
 
-  // Transaction identification and cursor (for auto-incremental imports)
+  // Transaction identification
   external_id: string; // Unique transaction ID from exchange/blockchain
-  cursor: JSONString | null; // Cursor for resuming imports (ExchangeCursor with per-operation timestamps)
 
   // Source metadata
   source_address: string | null; // For blockchain transactions (wallet address)

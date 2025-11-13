@@ -1,5 +1,13 @@
-import type { DataImportParams, DataSource, DataSourceStatus, SourceType, VerificationMetadata } from '@exitbook/core';
+import type {
+  CursorState,
+  DataImportParams,
+  DataSource,
+  DataSourceStatus,
+  SourceType,
+  VerificationMetadata,
+} from '@exitbook/core';
 import {
+  CursorStateSchema,
   DataImportParamsSchema,
   ImportResultMetadataSchema,
   VerificationMetadataSchema,
@@ -10,6 +18,7 @@ import type { StoredDataSource, ImportSessionQuery, DataSourceUpdate } from '@ex
 import { BaseRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
+import { z } from 'zod';
 
 import type { ImportParams } from '../types/importers.js';
 import type { IDataSourceRepository } from '../types/repositories.js';
@@ -212,6 +221,16 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
         }
       }
 
+      if (updates.last_cursor !== undefined) {
+        if (typeof updates.last_cursor === 'string') {
+          updateData.last_cursor = updates.last_cursor;
+        } else if (updates.last_cursor === null) {
+          updateData.last_cursor = undefined;
+        } else {
+          updateData.last_cursor = this.serializeCursor(updates.last_cursor as Record<string, CursorState> | undefined);
+        }
+      }
+
       // Only update if there are actual changes besides updated_at
       const hasChanges = Object.keys(updateData).length > 1;
       if (!hasChanges) {
@@ -297,6 +316,51 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
     }
   }
 
+  /**
+   * Update cursor for a specific operation type
+   * Merges with existing cursors to support multi-operation imports
+   */
+  async updateCursor(dataSourceId: number, operationType: string, cursor: CursorState): Promise<Result<void, Error>> {
+    try {
+      // Load current cursors
+      const dataSourceResult = await this.findById(dataSourceId);
+      if (dataSourceResult.isErr()) {
+        return err(dataSourceResult.error);
+      }
+
+      const dataSource = dataSourceResult.value;
+      if (!dataSource) {
+        return err(new Error(`Data source ${dataSourceId} not found`));
+      }
+
+      // Merge with existing cursors
+      const updatedCursors = {
+        ...(dataSource.lastCursor ?? {}),
+        [operationType]: cursor,
+      };
+
+      // Validate merged structure
+      const validationResult = z.record(z.string(), CursorStateSchema).safeParse(updatedCursors);
+      if (!validationResult.success) {
+        return err(new Error(`Invalid cursor map: ${validationResult.error.message}`));
+      }
+
+      // Persist
+      await this.db
+        .updateTable('data_sources')
+        .set({
+          last_cursor: JSON.stringify(validationResult.data),
+          updated_at: this.getCurrentDateTimeForDB(),
+        })
+        .where('id', '=', dataSourceId)
+        .execute();
+
+      return ok();
+    } catch (error) {
+      return wrapError(error, 'Failed to update cursor');
+    }
+  }
+
   async deleteBySource(sourceId: string): Promise<Result<void, Error>> {
     try {
       await this.db.deleteFrom('data_sources').where('source_id', '=', sourceId).execute();
@@ -313,6 +377,33 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
     } catch (error) {
       return wrapError(error, 'Failed to delete all data sources');
     }
+  }
+
+  /**
+   * Serialize cursor map for database storage
+   */
+  private serializeCursor(cursor: Record<string, CursorState> | undefined): string | undefined {
+    return cursor ? this.serializeToJson(cursor) : undefined;
+  }
+
+  /**
+   * Deserialize and validate cursor map from database
+   */
+  private deserializeCursor(cursorJson: unknown): Result<Record<string, CursorState> | undefined, Error> {
+    if (!cursorJson) {
+      return ok(undefined);
+    }
+
+    if (typeof cursorJson !== 'string') {
+      return err(new Error('Cursor must be a JSON string'));
+    }
+
+    const parsedResult = this.parseWithSchema(cursorJson, z.record(z.string(), CursorStateSchema));
+    if (parsedResult.isErr()) {
+      return err(new Error(`Invalid cursor map in database: ${parsedResult.error.message}`));
+    }
+
+    return ok(parsedResult.value);
   }
 
   /**
@@ -344,6 +435,11 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       return err(verificationMetadataResult.error);
     }
 
+    const lastCursorResult = this.deserializeCursor(row.last_cursor);
+    if (lastCursorResult.isErr()) {
+      return err(lastCursorResult.error);
+    }
+
     return ok({
       id: row.id,
       sourceId: row.source_id,
@@ -360,6 +456,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       importResultMetadata: importResultMetadataResult.value ?? {},
       lastBalanceCheckAt: row.last_balance_check_at ? new Date(row.last_balance_check_at) : undefined,
       verificationMetadata: verificationMetadataResult.value,
+      lastCursor: lastCursorResult.value,
     });
   }
 }

@@ -1,4 +1,4 @@
-import type { ExternalTransaction } from '@exitbook/core';
+import type { CursorState, ExternalTransaction } from '@exitbook/core';
 
 /**
  * Error thrown when validation fails partway through fetching data.
@@ -9,7 +9,7 @@ export class PartialImportError extends Error {
     message: string,
     public readonly successfulItems: ExternalTransaction[],
     public readonly failedItem: unknown,
-    public readonly lastSuccessfulCursor?: Record<string, number>
+    public readonly lastSuccessfulCursorUpdates?: Record<string, CursorState>
   ) {
     super(message);
     this.name = 'PartialImportError';

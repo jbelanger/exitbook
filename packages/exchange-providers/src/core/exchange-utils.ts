@@ -1,7 +1,7 @@
 // Pure exchange utility functions
 // All functions are pure - no side effects
 
-import { wrapError, type ExternalTransaction } from '@exitbook/core';
+import { wrapError, type CursorState, type ExternalTransaction } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { type ZodSchema } from 'zod';
@@ -45,8 +45,7 @@ export function validateRawData<T>(schema: ZodSchema<T>, rawData: unknown, excha
  * @param validator - Function to validate extracted data
  * @param metadataMapper - Function to extract cursor, externalId, and rawData from validated item and original item
  * @param exchangeId - Exchange identifier for metadata
- * @param currentCursor - Current cursor state for resumption
- * @returns Result with array of processed transactions or PartialImportError
+ * @returns Result with processed transactions and updated cursor, or PartialImportError
  */
 export function processItems<TRaw, TValidated>(
   items: TRaw[],
@@ -56,15 +55,14 @@ export function processItems<TRaw, TValidated>(
     parsed: TValidated,
     item: TRaw
   ) => {
-    cursor: Record<string, number>;
+    cursorUpdates: Record<string, CursorState>;
     externalId: string;
     normalizedData: ExchangeLedgerEntry;
   },
-  exchangeId: string,
-  currentCursor: Record<string, number>
-): Result<ExternalTransaction[], PartialImportError> {
+  exchangeId: string
+): Result<{ cursorUpdates: Record<string, CursorState>; transactions: ExternalTransaction[] }, PartialImportError> {
   const transactions: ExternalTransaction[] = [];
-  const lastSuccessfulCursor = { ...currentCursor };
+  const lastSuccessfulCursorUpdates: Record<string, CursorState> = {};
 
   for (const item of items) {
     const rawItem = extractor(item);
@@ -76,13 +74,13 @@ export function processItems<TRaw, TValidated>(
           `Validation failed for item: ${validationResult.error.message}`,
           transactions,
           rawItem,
-          lastSuccessfulCursor
+          lastSuccessfulCursorUpdates
         )
       );
     }
 
     const validatedData = validationResult.value;
-    const { cursor, externalId, normalizedData } = metadataMapper(validatedData, item);
+    const { cursorUpdates, externalId, normalizedData } = metadataMapper(validatedData, item);
 
     // Validate normalized data conforms to ExchangeLedgerEntry schema
     const normalizedValidation = ExchangeLedgerEntrySchema.safeParse(normalizedData);
@@ -92,24 +90,23 @@ export function processItems<TRaw, TValidated>(
           `Normalized data validation failed: ${normalizedValidation.error.message}`,
           transactions,
           normalizedData,
-          lastSuccessfulCursor
+          lastSuccessfulCursorUpdates
         )
       );
     }
 
     transactions.push({
-      cursor,
       externalId,
       providerName: exchangeId,
       rawData: validatedData as unknown,
       normalizedData: normalizedValidation.data as unknown,
     });
 
-    // Update last successful cursor
-    Object.assign(lastSuccessfulCursor, cursor);
+    // Merge cursor updates
+    Object.assign(lastSuccessfulCursorUpdates, cursorUpdates);
   }
 
-  return ok(transactions);
+  return ok({ transactions, cursorUpdates: lastSuccessfulCursorUpdates });
 }
 
 /**

@@ -49,7 +49,6 @@ describe('RawDataRepository', () => {
           data_source_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
           provider_name: i <= 3 ? 'kraken' : 'ethereum',
           external_id: `ext-${i}`,
-          cursor: undefined,
           raw_data: JSON.stringify({ id: `ext-${i}`, amount: '100.00' }),
           normalized_data: '{}',
           processing_status: i % 2 === 0 ? 'processed' : 'pending',

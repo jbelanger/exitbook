@@ -1,4 +1,4 @@
-import type { DataSource } from '@exitbook/core';
+import type { CursorState, DataSource } from '@exitbook/core';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
@@ -182,7 +182,18 @@ describe('import-service-utils', () => {
         importParams: { csvDirectories: ['./data/kraken'] },
         importResultMetadata: {},
       };
-      const latestCursor = { ledger: 12345, trade: 67890 };
+      const latestCursor: Record<string, CursorState> = {
+        ledger: {
+          primary: { type: 'timestamp', value: 12345 },
+          lastTransactionId: 'ledger-123',
+          totalFetched: 100,
+        },
+        trade: {
+          primary: { type: 'timestamp', value: 67890 },
+          lastTransactionId: 'trade-456',
+          totalFetched: 200,
+        },
+      };
 
       const result = prepareImportSession(sourceId, params, existingSource, latestCursor);
 
@@ -204,7 +215,18 @@ describe('import-service-utils', () => {
         importParams: { csvDirectories: ['./data/kraken'] },
         importResultMetadata: {},
       };
-      const latestCursor = { ledger: 12345, trade: 67890 };
+      const latestCursor: Record<string, CursorState> = {
+        ledger: {
+          primary: { type: 'timestamp', value: 12345 },
+          lastTransactionId: 'ledger-123',
+          totalFetched: 100,
+        },
+        trade: {
+          primary: { type: 'timestamp', value: 67890 },
+          lastTransactionId: 'trade-456',
+          totalFetched: 200,
+        },
+      };
 
       const result = prepareImportSession(sourceId, params, existingSource, latestCursor);
 

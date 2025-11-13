@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { CurrencySchema } from './money.js';
+import { CursorStateSchema } from './cursor.js';
 
 /**
  * Source type schema - blockchain or exchange
@@ -116,6 +117,9 @@ export const DataSourceSchema = z.object({
   importResultMetadata: ImportResultMetadataSchema,
   lastBalanceCheckAt: z.date().optional(),
   verificationMetadata: VerificationMetadataSchema.optional(),
+  // Map of cursors per operation type (e.g., 'normal', 'internal', 'token' for blockchains
+  // or 'trade', 'deposit', 'withdrawal' for exchanges)
+  lastCursor: z.record(z.string(), CursorStateSchema).optional(),
 });
 
 /**

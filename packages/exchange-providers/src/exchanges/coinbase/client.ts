@@ -1,5 +1,5 @@
 import type { TransactionStatus } from '@exitbook/core';
-import { Currency, getErrorMessage, wrapError, type ExternalTransaction } from '@exitbook/core';
+import { Currency, getErrorMessage, wrapError, type CursorState, type ExternalTransaction } from '@exitbook/core';
 import * as ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
@@ -9,7 +9,13 @@ import type z from 'zod';
 import { PartialImportError } from '../../core/errors.js';
 import * as ExchangeUtils from '../../core/exchange-utils.js';
 import type { ExchangeLedgerEntry } from '../../core/schemas.js';
-import type { BalanceSnapshot, ExchangeCredentials, FetchParams, IExchangeClient } from '../../core/types.js';
+import type {
+  BalanceSnapshot,
+  ExchangeCredentials,
+  FetchParams,
+  FetchTransactionDataResult,
+  IExchangeClient,
+} from '../../core/types.js';
 
 import { CoinbaseCredentialsSchema, CoinbaseLedgerEntrySchema, RawCoinbaseLedgerEntrySchema } from './schemas.js';
 import type { RawCoinbaseLedgerEntry } from './types.js';
@@ -117,9 +123,9 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
       return ok({
         exchangeId: 'coinbase',
 
-        async fetchTransactionData(params?: FetchParams): Promise<Result<ExternalTransaction[], Error>> {
+        async fetchTransactionData(params?: FetchParams): Promise<Result<FetchTransactionDataResult, Error>> {
           const allTransactions: ExternalTransaction[] = [];
-          const currentCursor = { ...(params?.cursor || {}) };
+          let lastSuccessfulCursorUpdates: Record<string, CursorState> = {};
 
           // Fetch ledger entries - this includes ALL balance changes:
           // deposits, withdrawals, trades, fees, rebates, etc.
@@ -131,7 +137,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
             // Step 1: Fetch all accounts
             const accounts = await exchange.fetchAccounts();
             if (accounts.length === 0) {
-              return ok([]); // No accounts, no transactions
+              return ok({ transactions: [], cursorUpdates: {} }); // No accounts, no transactions
             }
 
             // Step 2: Fetch ledger entries for each account
@@ -139,7 +145,12 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
               const accountId = account.id;
               if (!accountId) continue;
 
-              let accountCursor = currentCursor[accountId];
+              // Extract cursor for this account
+              const accountCursorState = params?.cursor?.[accountId];
+              let accountCursor = accountCursorState?.primary.value as number | undefined;
+
+              // Track cumulative count per account starting from previous cursor's totalFetched
+              let cumulativeFetched = (accountCursorState?.totalFetched as number) || 0;
 
               while (true) {
                 // Side effect: Fetch from API (uses exchange from closure)
@@ -271,13 +282,23 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                     };
 
                     return {
-                      cursor: { [accountId]: timestamp },
+                      cursorUpdates: {
+                        [accountId]: {
+                          primary: { type: 'timestamp', value: timestamp },
+                          lastTransactionId: validatedData.id,
+                          totalFetched: 1,
+                          metadata: {
+                            providerName: 'coinbase',
+                            updatedAt: Date.now(),
+                            accountId,
+                          },
+                        },
+                      },
                       externalId: validatedData.id,
                       normalizedData,
                     };
                   },
-                  'coinbase',
-                  currentCursor
+                  'coinbase'
                 );
 
                 if (processResult.isErr()) {
@@ -291,24 +312,30 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                       partialError.message,
                       allTransactions,
                       partialError.failedItem,
-                      partialError.lastSuccessfulCursor
+                      partialError.lastSuccessfulCursorUpdates
                     )
                   );
                 }
 
-                // Accumulate successful results
-                allTransactions.push(...processResult.value);
+                // Accumulate successful results and extract cursor updates
+                const { transactions, cursorUpdates } = processResult.value;
+                allTransactions.push(...transactions);
 
-                // Update cursor with latest timestamp from this batch for this account
-                if (processResult.value.length > 0) {
-                  const lastItem = processResult.value[processResult.value.length - 1];
-                  if (lastItem?.cursor && lastItem.cursor[accountId]) {
-                    const cursorValue = lastItem.cursor[accountId];
-                    if (typeof cursorValue === 'number') {
-                      currentCursor[accountId] = cursorValue;
-                      accountCursor = cursorValue;
-                    }
-                  }
+                // Update cumulative count for this account
+                cumulativeFetched += transactions.length;
+
+                // Update cursor with cumulative totalFetched for this account
+                if (cursorUpdates[accountId]) {
+                  cursorUpdates[accountId].totalFetched = cumulativeFetched;
+                }
+
+                // Track cursor updates across all accounts
+                lastSuccessfulCursorUpdates = { ...lastSuccessfulCursorUpdates, ...cursorUpdates };
+
+                // Update account cursor if present in result
+                const updatedCursorState = cursorUpdates[accountId];
+                if (updatedCursorState) {
+                  accountCursor = updatedCursorState.primary.value as number;
                 }
 
                 // If we got less than the limit, we've reached the end for this account
@@ -317,12 +344,11 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                 // Update since timestamp for next page (add 1ms to avoid duplicate)
                 if (accountCursor) {
                   accountCursor = accountCursor + 1;
-                  currentCursor[accountId] = accountCursor;
                 }
               }
             }
 
-            return ok(allTransactions);
+            return ok({ transactions: allTransactions, cursorUpdates: lastSuccessfulCursorUpdates });
           } catch (error) {
             // Network/API error during fetch - return partial results if we have any
             if (allTransactions.length > 0) {
@@ -331,7 +357,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   `Fetch failed after processing ${allTransactions.length} transactions: ${getErrorMessage(error)}`,
                   allTransactions,
                   undefined,
-                  currentCursor
+                  lastSuccessfulCursorUpdates
                 )
               );
             }

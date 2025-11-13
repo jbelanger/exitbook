@@ -146,7 +146,7 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    const transactions = result.value;
+    const { transactions } = result.value;
     expect(transactions).toHaveLength(2);
     expect(transactions[0]?.externalId).toBe('LEDGER1');
     expect(transactions[1]?.externalId).toBe('LEDGER2');
@@ -215,7 +215,8 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    const [inflow, outflow] = result.value;
+    const { transactions } = result.value;
+    const [inflow, outflow] = transactions;
 
     expect((inflow?.normalizedData as { amount?: string }).amount).toBe('18.1129667');
     const outflowData = outflow?.normalizedData as { amount?: string; fee?: string };
@@ -292,7 +293,7 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    const transactions = result.value;
+    const { transactions } = result.value;
     expect(transactions).toHaveLength(2);
 
     // Both should have the same correlationId extracted from raw info
@@ -372,7 +373,7 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    const transactions = result.value;
+    const { transactions } = result.value;
     expect(transactions).toHaveLength(125);
 
     // Verify fetchLedger was called twice with account_id
@@ -394,7 +395,7 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    expect(result.value).toHaveLength(0);
+    expect(result.value.transactions).toHaveLength(0);
     expect(mockFetchLedger).toHaveBeenCalledTimes(1);
   });
 
@@ -402,7 +403,14 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     // Mock accounts - Coinbase fetches accounts first
     mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);
 
-    const cursor = { account1: 1704067200000 };
+    const cursor = {
+      account1: {
+        primary: { type: 'timestamp' as const, value: 1704067200000 },
+        lastTransactionId: 'tx-1',
+        totalFetched: 1,
+        metadata: { providerName: 'coinbase', updatedAt: Date.now(), accountId: 'account1' },
+      },
+    };
     const params = { cursor };
 
     mockFetchLedger.mockResolvedValueOnce([]);
@@ -470,7 +478,7 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       expect(partialError.successfulItems[0]?.externalId).toBe('LEDGER1');
       expect(partialError.successfulItems[99]?.externalId).toBe('LEDGER100');
       // Verify cursor for resumption (per account)
-      expect(partialError.lastSuccessfulCursor?.account1).toBe(1704067200000 + 99 * 1000 + 1);
+      expect(partialError.lastSuccessfulCursorUpdates?.account1?.primary.value).toBe(1704067200000 + 99 * 1000);
     }
   });
 
@@ -630,7 +638,7 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       expect(partialError.successfulItems[0]?.externalId).toBe('LEDGER1');
       expect(partialError.successfulItems[100]?.externalId).toBe('LEDGER101');
       // Verify cursor is set for resumption (per account)
-      expect(partialError.lastSuccessfulCursor?.account1).toBe(1704067300000);
+      expect(partialError.lastSuccessfulCursorUpdates?.account1?.primary.value).toBe(1704067300000);
     }
   });
 
@@ -690,9 +698,10 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    const transactions = result.value;
-    // Latest cursor should be from LEDGER2 (per account)
-    expect(transactions[1]?.cursor?.account1).toBe(1704067300000);
+    const { transactions } = result.value;
+    expect(transactions).toHaveLength(2);
+    expect(transactions[0]?.externalId).toBe('LEDGER1');
+    expect(transactions[1]?.externalId).toBe('LEDGER2');
   });
 
   test('handles three-page pagination correctly', async () => {
@@ -787,7 +796,7 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    expect(result.value).toHaveLength(210);
+    expect(result.value.transactions).toHaveLength(210);
     expect(mockFetchLedger).toHaveBeenCalledTimes(3);
     expect(mockFetchLedger).toHaveBeenNthCalledWith(1, undefined, undefined, 100, { account_id: 'account1' });
     expect(mockFetchLedger).toHaveBeenNthCalledWith(2, undefined, 1704067200000 + 99 * 1000 + 1, 100, {

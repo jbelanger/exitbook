@@ -1,4 +1,5 @@
 import type {
+  CursorState,
   DataImportParams,
   DataSource,
   DataSourceStatus,
@@ -50,12 +51,6 @@ export interface IRawDataRepository {
    * Save multiple external data items to storage in a single transaction.
    */
   saveBatch(dataSourceId: number, items: ExternalTransaction[]): Promise<Result<number, Error>>;
-
-  /**
-   * Get the latest cursor for resuming imports.
-   * Returns a cursor object with per-operation timestamps for exchanges.
-   */
-  getLatestCursor(dataSourceId: number): Promise<Result<Record<string, number> | null, Error>>;
 
   /**
    * Get records with valid normalized data (where normalized_data is not null).
@@ -121,6 +116,12 @@ export interface IDataSourceRepository {
     sessionId: number,
     verificationMetadata: VerificationMetadata
   ): Promise<Result<void, Error>>;
+
+  /**
+   * Update cursor for a specific operation type.
+   * Merges with existing cursors to support multi-operation imports.
+   */
+  updateCursor(dataSourceId: number, operationType: string, cursor: CursorState): Promise<Result<void, Error>>;
 
   /**
    * Delete all data sources for a given source ID.

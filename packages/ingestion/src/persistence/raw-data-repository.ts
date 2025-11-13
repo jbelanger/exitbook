@@ -112,7 +112,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
           .insertInto('external_transaction_data')
           .values({
             created_at: this.getCurrentDateTimeForDB(),
-            cursor: item.cursor ? JSON.stringify(item.cursor) : null,
             external_id: item.externalId,
             data_source_id: dataSourceId,
             normalized_data: JSON.stringify(item.normalizedData),
@@ -161,7 +160,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             .insertInto('external_transaction_data')
             .values({
               created_at: createdAt,
-              cursor: item.cursor ? JSON.stringify(item.cursor) : null,
               external_id: item.externalId ?? null,
               data_source_id: dataSourceId,
               normalized_data: JSON.stringify(item.normalizedData),
@@ -184,46 +182,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       return ok(result);
     } catch (error) {
       return wrapError(error, 'Failed to save raw data batch');
-    }
-  }
-
-  async getLatestCursor(dataSourceId: number): Promise<Result<Record<string, number> | null, Error>> {
-    try {
-      const rows = await this.db
-        .selectFrom('external_transaction_data')
-        .select('cursor')
-        .where('data_source_id', '=', dataSourceId)
-        .where('cursor', 'is not', null)
-        .execute();
-
-      if (rows.length === 0) {
-        return ok(null);
-      }
-
-      // Merge all cursors by taking the maximum timestamp for each operation type
-      const mergedCursor: Record<string, number> = {};
-
-      for (const row of rows) {
-        if (!row.cursor) continue;
-
-        const cursorResult = this.parseJson<Record<string, unknown>>(row.cursor);
-        if (cursorResult.isErr()) {
-          return err(cursorResult.error);
-        }
-
-        const cursor = cursorResult.value;
-        if (cursor && typeof cursor === 'object') {
-          for (const [operationType, timestamp] of Object.entries(cursor)) {
-            if (typeof timestamp === 'number') {
-              mergedCursor[operationType] = Math.max(mergedCursor[operationType] || 0, timestamp);
-            }
-          }
-        }
-      }
-
-      return ok(Object.keys(mergedCursor).length > 0 ? mergedCursor : null);
-    } catch (error) {
-      return wrapError(error, 'Failed to get latest cursor');
     }
   }
 
@@ -322,14 +280,10 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
    * Handles JSON parsing and camelCase conversion
    */
   private toExternalTransactionData(row: StoredRawData): Result<ExternalTransactionData, Error> {
-    const cursorResult = this.parseJson<Record<string, unknown>>(row.cursor);
     const rawDataResult = this.parseJson<unknown>(row.raw_data);
     const normalizedDataResult = this.parseJson<unknown>(row.normalized_data);
 
     // Fail fast on any parse errors
-    if (cursorResult.isErr()) {
-      return err(cursorResult.error);
-    }
     if (rawDataResult.isErr()) {
       return err(rawDataResult.error);
     }
@@ -349,7 +303,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       sourceAddress: row.source_address ?? undefined,
       transactionTypeHint: row.transaction_type_hint ?? undefined,
       externalId: row.external_id,
-      cursor: cursorResult.value,
       rawData: rawDataResult.value,
       normalizedData: normalizedDataResult.value,
       processingStatus: row.processing_status,
