@@ -264,58 +264,6 @@ export function canProviderResume(provider: IBlockchainProvider, cursor: CursorS
 }
 
 /**
- * Select best cursor type for provider from available options
- * Priority order: blockNumber > timestamp > txHash > pageToken (for cross-provider)
- */
-export function selectBestCursorType(provider: IBlockchainProvider, cursor?: CursorState): CursorType {
-  if (!cursor) return provider.capabilities.preferredCursorType || 'blockNumber';
-
-  const supportedTypes = provider.capabilities.supportedCursorTypes;
-  if (!supportedTypes) return provider.capabilities.preferredCursorType || 'blockNumber';
-
-  const allCursors = [cursor.primary, ...(cursor.alternatives || [])];
-
-  // Priority order for cross-provider failover
-  const priorityOrder: CursorType[] = ['blockNumber', 'timestamp', 'txHash', 'pageToken'];
-
-  for (const type of priorityOrder) {
-    if (supportedTypes.includes(type) && allCursors.some((c) => c.type === type)) {
-      return type;
-    }
-  }
-
-  return provider.capabilities.preferredCursorType || 'blockNumber';
-}
-
-/**
- * Find best cursor to use for provider
- */
-export function findBestCursor(provider: IBlockchainProvider, cursor: CursorState): PaginationCursor | undefined {
-  const supportedTypes = provider.capabilities.supportedCursorTypes;
-  if (!supportedTypes) return undefined;
-
-  // Try primary first
-  if (supportedTypes.includes(cursor.primary.type)) {
-    if (cursor.primary.type !== 'pageToken' || cursor.primary.providerName === provider.name) {
-      return cursor.primary;
-    }
-  }
-
-  // Try alternatives
-  if (cursor.alternatives) {
-    for (const alt of cursor.alternatives) {
-      if (supportedTypes.includes(alt.type)) {
-        if (alt.type !== 'pageToken' || alt.providerName === provider.name) {
-          return alt;
-        }
-      }
-    }
-  }
-
-  return undefined;
-}
-
-/**
  * Deduplication window management
  */
 export interface DeduplicationWindow {
@@ -408,6 +356,180 @@ export function loadRecentTransactionIds(dataSourceId: number, _windowSize = 100
 
   // For now, return empty array (Phase 1-2 proof of concept only)
   return Promise.resolve([]);
+}
+
+/**
+ * Configuration for cursor resolution
+ */
+export interface CursorResolutionConfig {
+  /**
+   * Provider name (for matching pageToken cursors)
+   */
+  providerName: string;
+
+  /**
+   * Cursor types this provider supports for resumption
+   */
+  supportedCursorTypes: CursorType[];
+
+  /**
+   * Function to apply replay window to cross-provider cursors
+   */
+  applyReplayWindow: (cursor: PaginationCursor) => PaginationCursor;
+}
+
+/**
+ * Result of cursor resolution
+ */
+export interface ResolvedCursor {
+  /**
+   * Page token for provider-specific pagination (most efficient)
+   */
+  pageToken?: string | undefined;
+
+  /**
+   * Block number for cross-provider resumption
+   */
+  fromBlock?: number | undefined;
+
+  /**
+   * Timestamp for cross-provider resumption
+   */
+  fromTimestamp?: number | undefined;
+}
+
+/**
+ * Resolve cursor for resumption with cross-provider failover support
+ *
+ * Priority order:
+ * 1. Use pageToken from same provider (most efficient)
+ * 2. Use blockNumber/timestamp cursor from alternatives (cross-provider failover)
+ * 3. Start from beginning if no compatible cursor found
+ *
+ * Applies replay window when using cursors from different providers to prevent gaps.
+ *
+ * @param resumeCursor - Cursor state to resume from (undefined = start from beginning)
+ * @param config - Provider configuration for cursor resolution
+ * @param logger - Logger for diagnostic messages
+ * @returns Resolved cursor parameters for API call
+ */
+export function resolveCursorForResumption(
+  resumeCursor: CursorState | undefined,
+  config: CursorResolutionConfig,
+  logger: { info: (msg: string) => void; warn: (msg: string) => void }
+): ResolvedCursor {
+  const resolved: ResolvedCursor = {};
+
+  if (!resumeCursor) {
+    return resolved;
+  }
+
+  // Priority 1: Use pageToken from same provider (most efficient)
+  if (resumeCursor.primary.type === 'pageToken' && resumeCursor.primary.providerName === config.providerName) {
+    resolved.pageToken = resumeCursor.primary.value;
+    logger.info(`Resuming from ${config.providerName} pageToken: ${resolved.pageToken}`);
+    return resolved;
+  }
+
+  // Priority 2: Use blockNumber/timestamp cursor (cross-provider failover)
+  const blockCursor =
+    resumeCursor.primary.type === 'blockNumber'
+      ? resumeCursor.primary
+      : resumeCursor.alternatives?.find((c) => c.type === 'blockNumber');
+
+  if (blockCursor && blockCursor.type === 'blockNumber' && config.supportedCursorTypes.includes('blockNumber')) {
+    const adjusted = config.applyReplayWindow(blockCursor);
+    resolved.fromBlock = typeof adjusted.value === 'number' ? adjusted.value : Number(adjusted.value);
+    logger.info(`Resuming from block ${adjusted.value} (with replay window)`);
+    return resolved;
+  }
+
+  const timestampCursor =
+    resumeCursor.primary.type === 'timestamp'
+      ? resumeCursor.primary
+      : resumeCursor.alternatives?.find((c) => c.type === 'timestamp');
+
+  if (timestampCursor && timestampCursor.type === 'timestamp' && config.supportedCursorTypes.includes('timestamp')) {
+    const adjusted = config.applyReplayWindow(timestampCursor);
+    resolved.fromTimestamp = typeof adjusted.value === 'number' ? adjusted.value : Number(adjusted.value);
+    logger.info(`Resuming from timestamp ${adjusted.value} (with replay window)`);
+    return resolved;
+  }
+
+  // No compatible cursor found
+  logger.warn('No compatible cursor found, starting from beginning');
+  return resolved;
+}
+
+/**
+ * Configuration for cursor state building
+ */
+export interface CursorStateConfig<T> {
+  /**
+   * Transactions in the current batch (after deduplication)
+   */
+  transactions: { normalized: T; raw: unknown }[];
+
+  /**
+   * Function to extract cursors from a normalized transaction
+   */
+  extractCursors: (tx: T) => PaginationCursor[];
+
+  /**
+   * Total number of transactions fetched so far (cumulative)
+   */
+  totalFetched: number;
+
+  /**
+   * Provider name for metadata
+   */
+  providerName: string;
+
+  /**
+   * Page token from API response (if available)
+   */
+  pageToken?: string | undefined;
+
+  /**
+   * Whether this is the last batch (no more data available)
+   */
+  isComplete: boolean;
+}
+
+/**
+ * Build cursor state from batch result
+ *
+ * Constructs a complete cursor state including:
+ * - Primary cursor (pageToken or blockNumber fallback)
+ * - Alternative cursors for cross-provider failover
+ * - Last transaction ID for deduplication
+ * - Metadata for tracking progress
+ *
+ * @param config - Configuration for cursor state building
+ * @returns Complete cursor state for this batch
+ */
+export function buildCursorState<T>(config: CursorStateConfig<T>): CursorState {
+  const { transactions, extractCursors, totalFetched, providerName, pageToken, isComplete } = config;
+
+  // Extract cursors from last transaction
+  const lastTx = transactions[transactions.length - 1]!; // Safe: caller ensures transactions.length > 0
+  const cursors = extractCursors(lastTx.normalized);
+  const lastTransactionId = (lastTx.normalized as { id: string }).id;
+
+  // Build cursor state
+  return {
+    primary: pageToken
+      ? { type: 'pageToken', value: pageToken, providerName }
+      : cursors.find((c) => c.type === 'blockNumber') || { type: 'blockNumber', value: 0 },
+    alternatives: cursors,
+    lastTransactionId,
+    totalFetched,
+    metadata: {
+      providerName,
+      updatedAt: Date.now(),
+      isComplete,
+    },
+  };
 }
 
 /**

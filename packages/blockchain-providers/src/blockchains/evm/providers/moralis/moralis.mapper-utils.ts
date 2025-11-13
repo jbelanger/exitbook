@@ -91,13 +91,17 @@ export function mapMoralisTokenTransfer(
   const currency = rawData.token_symbol || rawData.address;
   const tokenSymbol = rawData.token_symbol || undefined;
 
+  // Parse log_index for unique ID generation
+  const logIndex = parseInt(rawData.log_index);
+
   const transaction: EvmTransaction = {
     amount: valueRaw,
     blockHeight: parseInt(rawData.block_number),
     blockId: rawData.block_hash,
     currency,
     from: normalizeEvmAddress(rawData.from_address) ?? '',
-    id: rawData.transaction_hash,
+    id: `${rawData.transaction_hash}-${rawData.log_index}`,
+    logIndex,
     providerName: 'moralis',
     status: 'success', // Token transfers are always successful if they appear in the results
     timestamp,
