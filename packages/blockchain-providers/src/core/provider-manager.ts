@@ -1,7 +1,6 @@
-import { getErrorMessage, type CursorState, type CursorType, type PaginationCursor } from '@exitbook/core';
+import { getErrorMessage, type CursorState } from '@exitbook/core';
 import {
   createInitialCircuitState,
-  getCircuitStatus,
   isCircuitHalfOpen,
   isCircuitOpen,
   recordFailure,
@@ -12,17 +11,30 @@ import {
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
+import {
+  buildProviderNotFoundError,
+  buildProviderSelectionDebugInfo,
+  canProviderResume,
+  createDeduplicationWindow,
+  createInitialHealth,
+  deduplicateTransactions,
+  findBestCursor,
+  getProviderHealthWithCircuit,
+  hasAvailableProviders,
+  selectBestCursorType,
+  selectProvidersForOperation,
+  updateHealthMetrics,
+  validateProviderApiKey,
+} from './provider-manager-utils.js';
 import { ProviderRegistry } from './registry/provider-registry.js';
 import { ProviderError } from './types/errors.js';
 import type {
   FailoverExecutionResult,
   FailoverStreamingExecutionResult,
   IBlockchainProvider,
-  ProviderCapabilities,
   ProviderConfig,
   ProviderHealth,
   ProviderOperation,
-  ProviderOperationType,
 } from './types/index.js';
 import type { BlockchainExplorersConfig, ProviderOverride } from './utils/config-utils.js';
 
@@ -137,17 +149,12 @@ export class BlockchainProviderManager {
     // Bounded deduplication window prevents unbounded memory growth during long streams
     // Window size (1000) covers typical replay overlap: 5 blocks × ~200 txs/block
     const DEDUP_WINDOW_SIZE = 1000;
-    const deduplicationSet = new Set<string>(); // Fast O(1) lookup
-    const deduplicationQueue: string[] = []; // Tracks insertion order for eviction
 
     // ✅ CRITICAL: Populate dedup set from recent database transactions to prevent duplicates
     // during replay window (5 blocks/minutes can be dozens of transactions)
-    if (resumeCursor) {
-      // TODO Phase 2.3: Load recent transaction IDs from storage to seed dedup set
-      // For now, only track the last transaction ID (insufficient for production)
-      deduplicationSet.add(resumeCursor.lastTransactionId);
-      deduplicationQueue.push(resumeCursor.lastTransactionId);
-    }
+    const initialIds = resumeCursor ? [resumeCursor.lastTransactionId] : [];
+    // TODO Phase 2.3: Use loadRecentTransactionIds() from utils to seed dedup set from storage
+    const deduplicationWindow = createDeduplicationWindow(initialIds);
 
     while (providerIndex < providers.length) {
       const provider = providers[providerIndex];
@@ -157,7 +164,7 @@ export class BlockchainProviderManager {
       }
 
       // Check cursor compatibility
-      if (currentCursor && !this.canProviderResume(provider, currentCursor)) {
+      if (currentCursor && !canProviderResume(provider, currentCursor)) {
         const supportedTypes = provider.capabilities.supportedCursorTypes?.join(', ') || 'none';
         logger.warn(
           `Provider ${provider.name} cannot resume from cursor type ${currentCursor.primary.type}. ` +
@@ -173,7 +180,7 @@ export class BlockchainProviderManager {
       let adjustedCursor = currentCursor;
       if (isFailover && currentCursor) {
         // Find best cursor type this provider can use
-        const bestCursor = this.findBestCursor(provider, currentCursor);
+        const bestCursor = findBestCursor(provider, currentCursor);
         if (bestCursor) {
           // Apply replay window to prevent gaps at failover boundary
           const cursorWithReplay = provider.applyReplayWindow(bestCursor);
@@ -212,7 +219,7 @@ export class BlockchainProviderManager {
             // Record failure and try next provider
             const circuitState = this.getOrCreateCircuitState(provider.name);
             this.circuitStates.set(provider.name, recordFailure(circuitState, Date.now()));
-            this.updateHealthMetrics(provider.name, false, 0, getErrorMessage(batchResult.error));
+            this.updateProviderHealth(provider.name, false, 0, getErrorMessage(batchResult.error));
 
             providerIndex++;
             providerFailed = true;
@@ -222,25 +229,12 @@ export class BlockchainProviderManager {
           const batch = batchResult.value;
 
           // Deduplicate (especially important after failover with replay window)
-          const deduplicated = batch.data.filter((tx) => {
-            // Access normalized.id safely - it's typed as unknown but should have id
-            const normalized = tx.normalized as { id: string };
-            const id = normalized.id;
-            if (deduplicationSet.has(id)) {
-              logger.debug(`Skipping duplicate transaction: ${id}`);
-              return false;
-            }
-
-            // Add to bounded window (evict oldest if necessary)
-            deduplicationSet.add(id);
-            deduplicationQueue.push(id);
-            if (deduplicationQueue.length > DEDUP_WINDOW_SIZE) {
-              const oldest = deduplicationQueue.shift()!;
-              deduplicationSet.delete(oldest);
-            }
-
-            return true;
-          });
+          // Note: deduplicateTransactions mutates deduplicationWindow in place for performance
+          const deduplicated = deduplicateTransactions(
+            batch.data as { normalized: { id: string } }[],
+            deduplicationWindow,
+            DEDUP_WINDOW_SIZE
+          );
 
           if (deduplicated.length > 0) {
             // ✅ Yield Result-wrapped batch
@@ -273,7 +267,7 @@ export class BlockchainProviderManager {
         // Record failure
         const circuitState = this.getOrCreateCircuitState(provider.name);
         this.circuitStates.set(provider.name, recordFailure(circuitState, Date.now()));
-        this.updateHealthMetrics(provider.name, false, 0, errorMessage);
+        this.updateProviderHealth(provider.name, false, 0, errorMessage);
 
         // Try next provider
         providerIndex++;
@@ -281,7 +275,7 @@ export class BlockchainProviderManager {
         if (providerIndex < providers.length) {
           const nextProvider = providers[providerIndex];
           if (nextProvider) {
-            const bestCursorType = this.selectBestCursorType(nextProvider, currentCursor);
+            const bestCursorType = selectBestCursorType(nextProvider, currentCursor);
             logger.info(`Failing over to ${nextProvider.name}. ` + `Will use ${bestCursorType} cursor for resumption.`);
           }
         } else {
@@ -383,10 +377,7 @@ export class BlockchainProviderManager {
       const circuitState = this.circuitStates.get(provider.name);
 
       if (health && circuitState) {
-        result.set(provider.name, {
-          ...health,
-          circuitState: getCircuitStatus(circuitState, now),
-        });
+        result.set(provider.name, getProviderHealthWithCircuit(health, circuitState, now));
       }
     }
 
@@ -408,14 +399,7 @@ export class BlockchainProviderManager {
 
     // Initialize health status and circuit breaker state for each provider
     for (const provider of providers) {
-      this.healthStatus.set(provider.name, {
-        averageResponseTime: 0,
-        consecutiveFailures: 0,
-        errorRate: 0,
-        isHealthy: true,
-        lastChecked: 0,
-      });
-
+      this.healthStatus.set(provider.name, createInitialHealth());
       this.circuitStates.set(provider.name, createInitialCircuitState());
     }
   }
@@ -444,17 +428,8 @@ export class BlockchainProviderManager {
           registeredProviders = [matchingProvider];
           logger.info(`Filtering to preferred provider: ${preferredProvider} for ${blockchain}`);
         } else {
-          const availableProviders = registeredProviders.map((p) => p.name).join(', ');
-          const suggestions = [
-            `💡 Available providers for ${blockchain}: ${availableProviders}`,
-            `💡 Run 'pnpm run providers:list --blockchain ${blockchain}' to see all options`,
-            `💡 Check for typos in provider name: '${preferredProvider}'`,
-            `💡 Use 'pnpm run providers:sync --fix' to sync configuration`,
-          ];
-
-          throw new Error(
-            `Preferred provider '${preferredProvider}' not found for ${blockchain}.\n${suggestions.join('\n')}`
-          );
+          const availableProviders = registeredProviders.map((p) => p.name);
+          throw new Error(buildProviderNotFoundError(blockchain, preferredProvider, availableProviders));
         }
       }
 
@@ -472,12 +447,10 @@ export class BlockchainProviderManager {
 
           // Check if provider requires API key and if it's available
           if (metadata.requiresApiKey) {
-            const envVar = metadata.apiKeyEnvVar || `${metadata.name.toUpperCase()}_API_KEY`;
-            const apiKey = process.env[envVar];
-
-            if (!apiKey || apiKey === 'YourApiKeyToken') {
+            const validation = validateProviderApiKey(metadata);
+            if (!validation.available) {
               logger.warn(
-                `No API key found for ${metadata.displayName}. Set environment variable: ${envVar}. Skipping provider.`
+                `No API key found for ${metadata.displayName}. Set environment variable: ${validation.envVar}. Skipping provider.`
               );
               continue;
             }
@@ -590,7 +563,7 @@ export class BlockchainProviderManager {
       const circuitIsHalfOpen = isCircuitHalfOpen(circuitState, now);
 
       // Skip providers with open circuit breakers (unless all are open)
-      if (circuitIsOpen && this.hasAvailableProviders(providers)) {
+      if (circuitIsOpen && hasAvailableProviders(providers, this.circuitStates, now)) {
         logger.debug(`Skipping provider ${provider.name} - circuit breaker is open`);
         continue;
       }
@@ -617,7 +590,7 @@ export class BlockchainProviderManager {
         // Record success - update circuit state
         const newCircuitState = recordSuccess(circuitState, Date.now());
         this.circuitStates.set(provider.name, newCircuitState);
-        this.updateHealthMetrics(provider.name, true, responseTime);
+        this.updateProviderHealth(provider.name, true, responseTime);
 
         return ok({
           data: result.value,
@@ -652,7 +625,7 @@ export class BlockchainProviderManager {
         // Record failure - update circuit state
         const newCircuitState = recordFailure(circuitState, Date.now());
         this.circuitStates.set(provider.name, newCircuitState);
-        this.updateHealthMetrics(provider.name, false, responseTime, lastError.message);
+        this.updateProviderHealth(provider.name, false, responseTime, lastError.message);
 
         // Continue to next provider
         continue;
@@ -686,35 +659,40 @@ export class BlockchainProviderManager {
   }
 
   /**
+   * Update health metrics for a provider (DRY helper)
+   */
+  private updateProviderHealth(
+    providerName: string,
+    success: boolean,
+    responseTime: number,
+    errorMessage?: string
+  ): void {
+    const currentHealth = this.healthStatus.get(providerName);
+    if (currentHealth) {
+      const updatedHealth = updateHealthMetrics(currentHealth, success, responseTime, Date.now(), errorMessage);
+      this.healthStatus.set(providerName, updatedHealth);
+    }
+  }
+
+  /**
    * Get providers ordered by preference for the given operation
    */
   private getProvidersInOrder(blockchain: string, operation: ProviderOperation): IBlockchainProvider[] {
     const candidates = this.providers.get(blockchain) || [];
+    const now = Date.now();
 
-    // Filter by capability and health, then sort by score
-    const scoredProviders = candidates
-      .filter((p) => this.supportsOperation(p.capabilities, operation.type))
-      .map((p) => ({
-        health: this.healthStatus.get(p.name)!,
-        provider: p,
-        score: this.scoreProvider(p),
-      }))
-      .sort((a, b) => b.score - a.score); // Higher score = better
+    const scoredProviders = selectProvidersForOperation(
+      candidates,
+      this.healthStatus,
+      this.circuitStates,
+      operation.type,
+      now
+    );
 
     // Log provider selection details
     if (scoredProviders.length > 1) {
       logger.debug(
-        `Provider selection for ${operation.type} - Providers: ${JSON.stringify(
-          scoredProviders.map((item) => ({
-            avgResponseTime: Math.round(item.health.averageResponseTime),
-            consecutiveFailures: item.health.consecutiveFailures,
-            errorRate: Math.round(item.health.errorRate * 100),
-            isHealthy: item.health.isHealthy,
-            name: item.provider.name,
-            rateLimitPerSec: item.provider.rateLimit.requestsPerSecond,
-            score: item.score,
-          }))
-        )}`
+        `Provider selection for ${operation.type} - Providers: ${buildProviderSelectionDebugInfo(scoredProviders)}`
       );
     }
 
@@ -761,17 +739,8 @@ export class BlockchainProviderManager {
           });
         }
       } else {
-        const registeredProviders = allRegisteredProviders.map((p) => p.name).join(', ');
-        const suggestions = [
-          `💡 Available providers for ${blockchain}: ${registeredProviders}`,
-          `💡 Run 'pnpm run providers:list --blockchain ${blockchain}' to see all options`,
-          `💡 Check for typos in provider name: '${preferredProvider}'`,
-          `💡 Use 'pnpm run providers:sync --fix' to sync configuration`,
-        ];
-
-        throw new Error(
-          `Preferred provider '${preferredProvider}' not found for ${blockchain}.\n${suggestions.join('\n')}`
-        );
+        const availableProviders = allRegisteredProviders.map((p) => p.name);
+        throw new Error(buildProviderNotFoundError(blockchain, preferredProvider, availableProviders));
       }
     } else {
       // Use defaultEnabled list, filtered by overrides
@@ -813,12 +782,10 @@ export class BlockchainProviderManager {
 
         // Check API key requirements
         if (metadata.requiresApiKey) {
-          const envVar = metadata.apiKeyEnvVar || `${metadata.name.toUpperCase()}_API_KEY`;
-          const apiKey = process.env[envVar];
-
-          if (!apiKey || apiKey === 'YourApiKeyToken') {
+          const validation = validateProviderApiKey(metadata);
+          if (!validation.available) {
             logger.warn(
-              `No API key found for ${metadata.displayName}. Set environment variable: ${envVar}. Skipping provider.`
+              `No API key found for ${metadata.displayName}. Set environment variable: ${validation.envVar}. Skipping provider.`
             );
             continue;
           }
@@ -886,17 +853,6 @@ export class BlockchainProviderManager {
   }
 
   /**
-   * Check if there are available providers (circuit not open)
-   */
-  private hasAvailableProviders(providers: IBlockchainProvider[]): boolean {
-    const now = Date.now();
-    return providers.some((p) => {
-      const circuitState = this.circuitStates.get(p.name);
-      return !circuitState || !isCircuitOpen(circuitState, now);
-    });
-  }
-
-  /**
    * Perform periodic health checks on all providers
    */
   private async performHealthChecks(): Promise<void> {
@@ -908,199 +864,14 @@ export class BlockchainProviderManager {
           const responseTime = Date.now() - startTime;
 
           if (result.isErr()) {
-            this.updateHealthMetrics(provider.name, false, responseTime, result.error.message);
+            this.updateProviderHealth(provider.name, false, responseTime, result.error.message);
           } else {
-            this.updateHealthMetrics(provider.name, result.value, responseTime);
+            this.updateProviderHealth(provider.name, result.value, responseTime);
           }
         } catch (error) {
-          this.updateHealthMetrics(provider.name, false, 0, getErrorMessage(error, 'Health check failed'));
+          this.updateProviderHealth(provider.name, false, 0, getErrorMessage(error, 'Health check failed'));
         }
       }
     }
-  }
-
-  /**
-   * Score a provider based on health, performance, and availability
-   */
-  private scoreProvider(provider: IBlockchainProvider): number {
-    const health = this.healthStatus.get(provider.name);
-    const circuitState = this.circuitStates.get(provider.name);
-
-    if (!health || !circuitState) {
-      return 0;
-    }
-
-    const now = Date.now();
-    let score = 100; // Base score
-
-    // Health penalties
-    if (!health.isHealthy) score -= 50;
-    if (isCircuitOpen(circuitState, now)) score -= 100; // Severe penalty for open circuit
-    if (isCircuitHalfOpen(circuitState, now)) score -= 25; // Moderate penalty for half-open
-
-    // Rate limit penalties - both configured limits and actual rate limiting events
-    const rateLimit = provider.rateLimit.requestsPerSecond;
-    if (rateLimit <= 0.5)
-      score -= 40; // Very restrictive (like mempool.space 0.25/sec)
-    else if (rateLimit <= 1.0)
-      score -= 20; // Moderately restrictive
-    else if (rateLimit >= 3.0) score += 10; // Generous rate limits get bonus
-
-    // Performance bonuses/penalties
-    if (health.averageResponseTime < 1000) score += 20; // Fast response bonus
-    if (health.averageResponseTime > 5000) score -= 30; // Slow response penalty
-
-    // Error rate penalties
-    score -= health.errorRate * 50; // Up to 50 point penalty for 100% error rate
-
-    // Consecutive failure penalties
-    score -= health.consecutiveFailures * 10;
-
-    return Math.max(0, score); // Never go below 0
-  }
-
-  /**
-   * Check if provider supports the requested operation
-   */
-  private supportsOperation(capabilities: ProviderCapabilities, operationType: string): boolean {
-    return capabilities.supportedOperations.includes(operationType as ProviderOperationType);
-  }
-
-  /**
-   * Update health metrics for a provider
-   */
-  private updateHealthMetrics(
-    providerName: string,
-    success: boolean,
-    responseTime: number,
-    errorMessage?: string
-  ): void {
-    const health = this.healthStatus.get(providerName);
-    if (!health) return;
-
-    const now = Date.now();
-
-    // Update basic metrics
-    health.lastChecked = now;
-    health.isHealthy = success;
-
-    // Update response time (exponential moving average)
-    if (success) {
-      health.averageResponseTime =
-        health.averageResponseTime === 0 ? responseTime : health.averageResponseTime * 0.8 + responseTime * 0.2;
-    }
-
-    // Update failure tracking
-    if (success) {
-      health.consecutiveFailures = 0;
-    } else {
-      health.consecutiveFailures++;
-      health.lastError = errorMessage;
-    }
-
-    // Update error rate (simplified - could use sliding window)
-    const errorWeight = success ? 0 : 1;
-    health.errorRate = health.errorRate * 0.9 + errorWeight * 0.1;
-  }
-
-  /**
-   * Check if provider can resume from cursor
-   */
-  private canProviderResume(provider: IBlockchainProvider, cursor: CursorState): boolean {
-    const supportedTypes = provider.capabilities.supportedCursorTypes;
-
-    // If provider doesn't declare cursor support, assume it can't resume
-    if (!supportedTypes || supportedTypes.length === 0) {
-      return false;
-    }
-
-    // Check primary cursor
-    if (supportedTypes.includes(cursor.primary.type)) {
-      // If it's a pageToken, must match provider name
-      if (cursor.primary.type === 'pageToken') {
-        return cursor.primary.providerName === provider.name;
-      }
-      return true;
-    }
-
-    // Check alternatives
-    return (
-      cursor.alternatives?.some(
-        (alt) => supportedTypes.includes(alt.type) && (alt.type !== 'pageToken' || alt.providerName === provider.name)
-      ) || false
-    );
-  }
-
-  /**
-   * Select best cursor type for provider from available options
-   * Priority order: blockNumber > timestamp > txHash > pageToken (for cross-provider)
-   */
-  private selectBestCursorType(provider: IBlockchainProvider, cursor?: CursorState): CursorType {
-    if (!cursor) return provider.capabilities.preferredCursorType || 'blockNumber';
-
-    const supportedTypes = provider.capabilities.supportedCursorTypes;
-    if (!supportedTypes) return provider.capabilities.preferredCursorType || 'blockNumber';
-
-    const allCursors = [cursor.primary, ...(cursor.alternatives || [])];
-
-    // Priority order for cross-provider failover
-    const priorityOrder: CursorType[] = ['blockNumber', 'timestamp', 'txHash', 'pageToken'];
-
-    for (const type of priorityOrder) {
-      if (supportedTypes.includes(type) && allCursors.some((c) => c.type === type)) {
-        return type;
-      }
-    }
-
-    return provider.capabilities.preferredCursorType || 'blockNumber';
-  }
-
-  /**
-   * Find best cursor to use for provider
-   */
-  private findBestCursor(provider: IBlockchainProvider, cursor: CursorState): PaginationCursor | undefined {
-    const supportedTypes = provider.capabilities.supportedCursorTypes;
-    if (!supportedTypes) return undefined;
-
-    // Try primary first
-    if (supportedTypes.includes(cursor.primary.type)) {
-      if (cursor.primary.type !== 'pageToken' || cursor.primary.providerName === provider.name) {
-        return cursor.primary;
-      }
-    }
-
-    // Try alternatives
-    if (cursor.alternatives) {
-      for (const alt of cursor.alternatives) {
-        if (supportedTypes.includes(alt.type)) {
-          if (alt.type !== 'pageToken' || alt.providerName === provider.name) {
-            return alt;
-          }
-        }
-      }
-    }
-
-    return undefined;
-  }
-
-  /**
-   * Load recent transaction IDs from storage to seed deduplication set
-   *
-   * When resuming with a replay window, we need to filter out transactions
-   * that were already processed. Loading recent IDs prevents duplicates.
-   *
-   * @param dataSourceId - Data source to load transactions from
-   * @param windowSize - Number of recent transactions to load (default: 1000)
-   * @returns Set of transaction IDs from the last N transactions
-   */
-  private loadRecentTransactionIds(dataSourceId: number, _windowSize = 1000): Promise<Set<string>> {
-    // TODO: Implement in Phase 2.3
-    // Query: SELECT external_id FROM external_transaction_data
-    //        WHERE data_source_id = ?
-    //        ORDER BY id DESC
-    //        LIMIT ?
-
-    // For now, return empty set (Phase 1-2 proof of concept only)
-    return Promise.resolve(new Set<string>());
   }
 }
