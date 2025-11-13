@@ -149,7 +149,7 @@ export function createLot(
     id,
     calculationId: options?.calculationId ?? 'calc1',
     acquisitionTransactionId: options?.acquisitionTransactionId ?? 1,
-    asset,
+    asset: Currency.create(asset),
     quantity: qty,
     costBasisPerUnit: costBasis,
     totalCostBasis: qty.mul(costBasis),

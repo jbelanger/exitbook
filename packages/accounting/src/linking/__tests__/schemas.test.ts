@@ -1,4 +1,3 @@
-import { Currency } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
@@ -113,7 +112,7 @@ describe('schemas', () => {
         id: 'link-123',
         sourceTransactionId: 1,
         targetTransactionId: 2,
-        asset: Currency.create('BTC'),
+        asset: 'BTC',
         sourceAmount: parseDecimal('1.0'),
         targetAmount: parseDecimal('0.9995'),
         linkType: 'exchange_to_blockchain',
@@ -155,7 +154,7 @@ describe('schemas', () => {
         id: 'link-456',
         sourceTransactionId: 3,
         targetTransactionId: 4,
-        asset: Currency.create('ETH'),
+        asset: 'ETH',
         sourceAmount: '10.0',
         targetAmount: '9.98',
         linkType: 'blockchain_to_blockchain',
@@ -208,7 +207,7 @@ describe('schemas', () => {
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
-        asset: Currency.create('BTC'),
+        asset: 'BTC',
         amount: parseDecimal('1.5'),
         direction: 'out',
         fromAddress: 'addr123',
@@ -233,7 +232,7 @@ describe('schemas', () => {
         sourceId: 'bitcoin',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T13:00:00Z'),
-        asset: Currency.create('BTC'),
+        asset: 'BTC',
         amount: '1.5',
         direction: 'in',
         toAddress: 'bc1q...',
@@ -251,7 +250,7 @@ describe('schemas', () => {
         sourceId: 'test',
         sourceType: 'exchange',
         timestamp: new Date(),
-        asset: Currency.create('ETH'),
+        asset: 'ETH',
         amount: parseDecimal('0.5'),
         direction: 'neutral',
       };
@@ -267,7 +266,7 @@ describe('schemas', () => {
           sourceId: 'test',
           sourceType: 'exchange',
           timestamp: new Date(),
-          asset: Currency.create('BTC'),
+          asset: 'BTC',
           amount: parseDecimal('1.0'),
           direction: 'invalid',
         })
@@ -281,7 +280,7 @@ describe('schemas', () => {
           sourceId: 'test',
           sourceType: 'wallet',
           timestamp: new Date(),
-          asset: Currency.create('BTC'),
+          asset: 'BTC',
           amount: parseDecimal('1.0'),
           direction: 'in',
         })
@@ -295,7 +294,7 @@ describe('schemas', () => {
       sourceId: 'test',
       sourceType: 'exchange' as const,
       timestamp: new Date(),
-      asset: Currency.create('BTC'),
+      asset: 'BTC',
       amount: parseDecimal('1.0'),
       direction: 'out' as const,
       ...overrides,
@@ -414,7 +413,7 @@ describe('schemas', () => {
       sourceId: 'test',
       sourceType: 'exchange' as const,
       timestamp: new Date(),
-      asset: Currency.create('BTC'),
+      asset: 'BTC',
       amount: parseDecimal('1.0'),
       direction: 'out' as const,
     });
@@ -436,7 +435,7 @@ describe('schemas', () => {
       id,
       sourceTransactionId: sourceId,
       targetTransactionId: targetId,
-      asset: Currency.create('BTC'),
+      asset: 'BTC',
       sourceAmount: parseDecimal('1.0'),
       targetAmount: parseDecimal('1.0'),
       linkType: 'exchange_to_blockchain' as const,
@@ -567,7 +566,7 @@ describe('schemas', () => {
         sourceId: 'test',
         sourceType: 'exchange' as const,
         timestamp: new Date(),
-        asset: Currency.create('SHIB'),
+        asset: 'SHIB',
         amount: '1000000000000',
         direction: 'in' as const,
       };

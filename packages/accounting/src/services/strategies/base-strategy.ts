@@ -1,3 +1,4 @@
+import type { Currency } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import type { AcquisitionLot, LotDisposal } from '../../domain/schemas.js';
@@ -8,8 +9,8 @@ import type { AcquisitionLot, LotDisposal } from '../../domain/schemas.js';
 export interface DisposalRequest {
   /** Transaction ID of the disposal */
   transactionId: number;
-  /** Asset being disposed (e.g., 'BTC', 'ETH') */
-  asset: string;
+  /** Asset being disposed */
+  asset: Currency;
   /** Quantity being disposed */
   quantity: Decimal;
   /** Date of disposal */

@@ -54,7 +54,7 @@ describe('extractMovementsNeedingNormalization', () => {
     const result = extractMovementsNeedingNormalization(tx);
 
     expect(result.needsNormalization).toHaveLength(1);
-    expect(result.needsNormalization[0]?.asset).toBe('BTC');
+    expect(result.needsNormalization[0]?.asset.toString()).toBe('BTC');
     expect(result.skipped).toHaveLength(0);
     expect(result.cryptoPrices).toHaveLength(0);
   });
@@ -95,7 +95,7 @@ describe('extractMovementsNeedingNormalization', () => {
 
     expect(result.needsNormalization).toHaveLength(0);
     expect(result.skipped).toHaveLength(1);
-    expect(result.skipped[0]?.asset).toBe('BTC');
+    expect(result.skipped[0]?.asset.toString()).toBe('BTC');
     expect(result.cryptoPrices).toHaveLength(0);
   });
 
@@ -136,7 +136,7 @@ describe('extractMovementsNeedingNormalization', () => {
     expect(result.needsNormalization).toHaveLength(0);
     expect(result.skipped).toHaveLength(0);
     expect(result.cryptoPrices).toHaveLength(1);
-    expect(result.cryptoPrices[0]?.asset).toBe('BTC');
+    expect(result.cryptoPrices[0]?.asset.toString()).toBe('BTC');
   });
 
   it('identifies multiple currencies needing normalization', () => {

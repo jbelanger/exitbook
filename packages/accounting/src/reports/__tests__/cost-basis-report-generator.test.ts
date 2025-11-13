@@ -31,7 +31,7 @@ describe('CostBasisReportGenerator', () => {
     totalCostBasis: new Decimal(80000),
     totalGainLoss: new Decimal(20000),
     totalTaxableGainLoss: new Decimal(10000),
-    assetsProcessed: ['BTC', 'ETH'],
+    assetsProcessed: [Currency.create('BTC'), Currency.create('ETH')],
     transactionsProcessed: 10,
     lotsCreated: 5,
     disposalsProcessed: 3,

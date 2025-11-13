@@ -1290,7 +1290,7 @@ describe('matching-utils', () => {
         expect(link.id).toBe(id);
         expect(link.sourceTransactionId).toBe(1);
         expect(link.targetTransactionId).toBe(2);
-        expect(link.asset).toBe('BTC');
+        expect(link.asset.toString()).toBe('BTC');
         expect(link.sourceAmount.toFixed()).toBe('1');
         expect(link.targetAmount.toFixed()).toBe('0.9995');
         expect(link.status).toBe('confirmed');

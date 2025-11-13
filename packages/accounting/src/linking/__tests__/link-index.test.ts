@@ -90,7 +90,7 @@ describe('LinkIndex', () => {
       expect(found).toBeDefined();
       expect(found?.id).toBe('link-1');
       expect(found?.sourceTransactionId).toBe(1);
-      expect(found?.asset).toBe('BTC');
+      expect(found?.asset.toString()).toBe('BTC');
       expect(found?.sourceAmount.toFixed()).toBe('1');
     });
 
@@ -213,7 +213,7 @@ describe('LinkIndex', () => {
       expect(found).toBeDefined();
       expect(found?.id).toBe('link-1');
       expect(found?.targetTransactionId).toBe(2);
-      expect(found?.asset).toBe('BTC');
+      expect(found?.asset.toString()).toBe('BTC');
     });
 
     it('should return undefined when no matching link exists', () => {
@@ -850,7 +850,7 @@ describe('LinkIndex', () => {
  * Helper function to create a TransactionLink for testing
  */
 function createLink(params: {
-  asset: string;
+  asset: Currency;
   id: string;
   sourceAmount: Decimal;
   sourceTransactionId: number;

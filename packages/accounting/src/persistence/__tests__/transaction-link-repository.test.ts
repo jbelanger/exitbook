@@ -97,7 +97,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
       const fetchResult = await repo.findById(link.id);
       expect(fetchResult.isOk()).toBe(true);
       if (fetchResult.isOk() && fetchResult.value) {
-        expect(fetchResult.value.asset).toBe('BTC');
+        expect(fetchResult.value.asset.toString()).toBe('BTC');
         expect(fetchResult.value?.sourceAmount?.toFixed()).toBe('1');
         expect(fetchResult.value?.targetAmount?.toFixed()).toBe('0.9995');
       }
@@ -356,7 +356,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         expect(result.value.length).toBeGreaterThan(0);
         const foundLink = result.value.find((l) => l.id === link.id);
         expect(foundLink).toBeDefined();
-        expect(foundLink?.asset).toBe('BTC');
+        expect(foundLink?.asset.toString()).toBe('BTC');
         expect(foundLink?.sourceAmount.toFixed()).toBe('1');
         expect(foundLink?.targetAmount.toFixed()).toBe('0.9995');
       }

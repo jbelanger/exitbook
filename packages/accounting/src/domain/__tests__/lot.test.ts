@@ -23,7 +23,7 @@ describe('createAcquisitionLot', () => {
     expect(lot.id).toBe('lot-123');
     expect(lot.calculationId).toBe('calc-123');
     expect(lot.acquisitionTransactionId).toBe(1);
-    expect(lot.asset).toBe('BTC');
+    expect(lot.asset.toString()).toBe('BTC');
     expect(lot.quantity.toString()).toBe('2');
     expect(lot.costBasisPerUnit.toString()).toBe('50000');
     expect(lot.totalCostBasis.toString()).toBe('100000');

@@ -429,17 +429,17 @@ describe('CostBasisCalculator', () => {
       expect(trackingRepository.updateCalculation).toHaveBeenCalledWith(
         expect.any(String) as string,
         expect.objectContaining({
-          assetsProcessed: expect.arrayContaining(['BTC', 'ETH']) as string[],
+          assetsProcessed: expect.arrayContaining([Currency.create('BTC'), Currency.create('ETH')]) as Currency[],
         })
       );
 
       // Verify the call includes the array
       const updateCall = (trackingRepository.updateCalculation as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(updateCall).toBeDefined();
-      const updates = updateCall?.[1] as { assetsProcessed?: string[] };
+      const updates = updateCall?.[1] as { assetsProcessed?: Currency[] };
       expect(updates.assetsProcessed).toHaveLength(2);
-      expect(updates.assetsProcessed).toContain('BTC');
-      expect(updates.assetsProcessed).toContain('ETH');
+      expect(updates.assetsProcessed?.map((c) => c.toString())).toContain('BTC');
+      expect(updates.assetsProcessed?.map((c) => c.toString())).toContain('ETH');
     });
 
     it('should save tax classifications to lot_disposals (Issue #3 fix)', async () => {

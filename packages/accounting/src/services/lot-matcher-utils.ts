@@ -768,7 +768,7 @@ export function matchOutflowDisposal(
     // Create disposal request
     const disposal = {
       transactionId: transaction.id,
-      asset: outflow.asset.toString(),
+      asset: outflow.asset,
       quantity: outflow.grossAmount,
       date: new Date(transaction.datetime),
       proceedsPerUnit,
@@ -911,7 +911,7 @@ export function processTransferSource(
 
   const disposal = {
     transactionId: tx.id,
-    asset: outflow.asset.toString(),
+    asset: outflow.asset,
     quantity: amountToMatch,
     date: new Date(tx.datetime),
     proceedsPerUnit: new Decimal(0),
@@ -983,7 +983,7 @@ export function processTransferSource(
   if (cryptoFee.amount.gt(0) && feePolicy === 'disposal') {
     const feeDisposal = {
       transactionId: tx.id,
-      asset: outflow.asset.toString(),
+      asset: outflow.asset,
       quantity: cryptoFee.amount,
       date: new Date(tx.datetime),
       proceedsPerUnit: cryptoFee.priceAtTxTime?.price.amount ?? new Decimal(0),

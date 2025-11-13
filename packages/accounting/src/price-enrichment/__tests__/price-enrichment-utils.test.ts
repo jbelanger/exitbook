@@ -100,7 +100,7 @@ describe('inferMultiPass', () => {
     it('should derive inflow price when only outflow has price', () => {
       const tx = createTransaction(
         1,
-        [{ asset: 'RARE_TOKEN', grossAmount: parseDecimal('1000') }],
+        [{ asset: Currency.create('RARE_TOKEN'), grossAmount: parseDecimal('1000') }],
         [
           {
             asset: Currency.create('ETH'),
@@ -149,8 +149,8 @@ describe('inferMultiPass', () => {
     it('should NOT derive when neither has prices', () => {
       const tx = createTransaction(
         1,
-        [{ asset: 'TOKEN_A', grossAmount: parseDecimal('100') }],
-        [{ asset: 'TOKEN_B', grossAmount: parseDecimal('50') }]
+        [{ asset: Currency.create('TOKEN_A'), grossAmount: parseDecimal('100') }],
+        [{ asset: Currency.create('TOKEN_B'), grossAmount: parseDecimal('50') }]
       );
 
       const result = inferMultiPass([tx]);
