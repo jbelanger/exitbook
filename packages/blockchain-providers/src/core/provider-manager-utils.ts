@@ -373,6 +373,12 @@ export interface CursorResolutionConfig {
   supportedCursorTypes: CursorType[];
 
   /**
+   * Whether this is a cross-provider failover (vs same-provider resume)
+   * Replay window is only applied during failover to prevent gaps
+   */
+  isFailover: boolean;
+
+  /**
    * Function to apply replay window to cross-provider cursors
    */
   applyReplayWindow: (cursor: PaginationCursor) => PaginationCursor;
@@ -431,16 +437,20 @@ export function resolveCursorForResumption(
     return resolved;
   }
 
-  // Priority 2: Use blockNumber/timestamp cursor (cross-provider failover)
+  // Priority 2: Use blockNumber/timestamp cursor (cross-provider failover or same-provider resume)
   const blockCursor =
     resumeCursor.primary.type === 'blockNumber'
       ? resumeCursor.primary
       : resumeCursor.alternatives?.find((c) => c.type === 'blockNumber');
 
   if (blockCursor && blockCursor.type === 'blockNumber' && config.supportedCursorTypes.includes('blockNumber')) {
-    const adjusted = config.applyReplayWindow(blockCursor);
+    // Only apply replay window during cross-provider failover to prevent gaps
+    // Same-provider resumes use exact cursor value to avoid redundant fetches
+    const adjusted = config.isFailover ? config.applyReplayWindow(blockCursor) : blockCursor;
     resolved.fromBlock = typeof adjusted.value === 'number' ? adjusted.value : Number(adjusted.value);
-    logger.info(`Resuming from block ${adjusted.value} (with replay window)`);
+    logger.info(
+      `Resuming from block ${adjusted.value}${config.isFailover ? ' (with replay window)' : ' (exact cursor)'}`
+    );
     return resolved;
   }
 
@@ -450,9 +460,13 @@ export function resolveCursorForResumption(
       : resumeCursor.alternatives?.find((c) => c.type === 'timestamp');
 
   if (timestampCursor && timestampCursor.type === 'timestamp' && config.supportedCursorTypes.includes('timestamp')) {
-    const adjusted = config.applyReplayWindow(timestampCursor);
+    // Only apply replay window during cross-provider failover to prevent gaps
+    // Same-provider resumes use exact cursor value to avoid redundant fetches
+    const adjusted = config.isFailover ? config.applyReplayWindow(timestampCursor) : timestampCursor;
     resolved.fromTimestamp = typeof adjusted.value === 'number' ? adjusted.value : Number(adjusted.value);
-    logger.info(`Resuming from timestamp ${adjusted.value} (with replay window)`);
+    logger.info(
+      `Resuming from timestamp ${adjusted.value}${config.isFailover ? ' (with replay window)' : ' (exact cursor)'}`
+    );
     return resolved;
   }
 

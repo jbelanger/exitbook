@@ -173,7 +173,7 @@ export class BlockchainProviderManager {
         continue;
       }
 
-      const isFailover = currentCursor && currentCursor.metadata?.providerName !== provider.name;
+      const isFailover = currentCursor ? currentCursor.metadata?.providerName !== provider.name : false;
 
       // Use manager's cursor resolution for ALL cursor handling
       // This handles: same-provider resumption, cross-provider failover, replay windows
@@ -184,6 +184,7 @@ export class BlockchainProviderManager {
               {
                 providerName: provider.name,
                 supportedCursorTypes: provider.capabilities.supportedCursorTypes || [],
+                isFailover, // Only apply replay window during cross-provider failover
                 applyReplayWindow: (c) => provider.applyReplayWindow(c),
               },
               logger

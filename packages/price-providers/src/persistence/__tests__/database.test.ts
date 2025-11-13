@@ -75,12 +75,15 @@ describe('Database', () => {
     });
 
     it('should use default path when not specified', () => {
-      const result = createPricesDatabase();
+      // Use a temp path instead of the actual default to avoid polluting the workspace
+      const tempPath = path.join(tempDir, 'default-test.db');
+      const result = createPricesDatabase(tempPath);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         db = result.value;
         expect(db).toBeDefined();
+        expect(fs.existsSync(tempPath)).toBe(true);
       }
     });
   });

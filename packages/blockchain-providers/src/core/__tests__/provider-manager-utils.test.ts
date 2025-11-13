@@ -740,6 +740,7 @@ describe('provider-manager-utils', () => {
       const config: CursorResolutionConfig = {
         providerName: 'moralis',
         supportedCursorTypes: ['pageToken', 'blockNumber'],
+        isFailover: false,
         applyReplayWindow: mockApplyReplayWindow,
       };
 
@@ -759,6 +760,7 @@ describe('provider-manager-utils', () => {
       const config: CursorResolutionConfig = {
         providerName: 'moralis',
         supportedCursorTypes: ['pageToken', 'blockNumber'],
+        isFailover: false, // Same provider resume
         applyReplayWindow: mockApplyReplayWindow,
       };
 
@@ -780,6 +782,7 @@ describe('provider-manager-utils', () => {
       const config: CursorResolutionConfig = {
         providerName: 'moralis',
         supportedCursorTypes: ['pageToken', 'blockNumber'],
+        isFailover: true, // Cross-provider failover
         applyReplayWindow: mockApplyReplayWindow,
       };
 
@@ -791,7 +794,7 @@ describe('provider-manager-utils', () => {
       });
     });
 
-    it('should use blockNumber from primary cursor (Priority 2)', () => {
+    it('should use blockNumber from primary cursor with replay window on failover', () => {
       const resumeCursor: CursorState = {
         primary: { type: 'blockNumber', value: 15000000 },
         alternatives: [{ type: 'timestamp', value: 1640000000000 }],
@@ -802,6 +805,7 @@ describe('provider-manager-utils', () => {
       const config: CursorResolutionConfig = {
         providerName: 'moralis',
         supportedCursorTypes: ['pageToken', 'blockNumber'],
+        isFailover: true, // Cross-provider failover
         applyReplayWindow: mockApplyReplayWindow,
       };
 
@@ -826,6 +830,7 @@ describe('provider-manager-utils', () => {
       const config: CursorResolutionConfig = {
         providerName: 'moralis',
         supportedCursorTypes: ['blockNumber'],
+        isFailover: true, // Cross-provider failover
         applyReplayWindow: mockApplyReplayWindow,
       };
 
@@ -847,6 +852,7 @@ describe('provider-manager-utils', () => {
       const config: CursorResolutionConfig = {
         providerName: 'moralis',
         supportedCursorTypes: ['timestamp'],
+        isFailover: true, // Cross-provider failover
         applyReplayWindow: mockApplyReplayWindow,
       };
 
@@ -868,6 +874,7 @@ describe('provider-manager-utils', () => {
       const config: CursorResolutionConfig = {
         providerName: 'moralis',
         supportedCursorTypes: ['pageToken'], // Only supports pageToken
+        isFailover: false,
         applyReplayWindow: mockApplyReplayWindow,
       };
 
@@ -889,12 +896,68 @@ describe('provider-manager-utils', () => {
       const config: CursorResolutionConfig = {
         providerName: 'moralis',
         supportedCursorTypes: ['blockNumber'],
+        isFailover: true, // Cross-provider failover
         applyReplayWindow: applyReplayWindowSpy,
       };
 
       resolveCursorForResumption(resumeCursor, config, logger);
 
       expect(applyReplayWindowSpy).toHaveBeenCalledWith({ type: 'blockNumber', value: 15000000 });
+    });
+
+    // NEW: Test for regression fix - replay window should NOT apply on same-provider resume
+    it('should NOT apply replay window for same-provider blockNumber resume', () => {
+      const applyReplayWindowSpy = vi.fn(mockApplyReplayWindow);
+
+      const resumeCursor: CursorState = {
+        primary: { type: 'blockNumber', value: 15000000 },
+        alternatives: [],
+        lastTransactionId: 'tx-123',
+        totalFetched: 100,
+      };
+
+      const config: CursorResolutionConfig = {
+        providerName: 'moralis',
+        supportedCursorTypes: ['blockNumber'],
+        isFailover: false, // Same provider resume - NO replay window
+        applyReplayWindow: applyReplayWindowSpy,
+      };
+
+      const resolved = resolveCursorForResumption(resumeCursor, config, logger);
+
+      // Should use exact cursor value without replay window
+      expect(resolved).toEqual({
+        fromBlock: 15000000, // Exact value, NOT 14999995
+      });
+      // Replay window function should NOT be called
+      expect(applyReplayWindowSpy).not.toHaveBeenCalled();
+    });
+
+    it('should NOT apply replay window for same-provider timestamp resume', () => {
+      const applyReplayWindowSpy = vi.fn(mockApplyReplayWindow);
+
+      const resumeCursor: CursorState = {
+        primary: { type: 'timestamp', value: 1640000000000 },
+        alternatives: [],
+        lastTransactionId: 'tx-123',
+        totalFetched: 100,
+      };
+
+      const config: CursorResolutionConfig = {
+        providerName: 'moralis',
+        supportedCursorTypes: ['timestamp'],
+        isFailover: false, // Same provider resume - NO replay window
+        applyReplayWindow: applyReplayWindowSpy,
+      };
+
+      const resolved = resolveCursorForResumption(resumeCursor, config, logger);
+
+      // Should use exact cursor value without replay window
+      expect(resolved).toEqual({
+        fromTimestamp: 1640000000000, // Exact value, NOT 1639999700000
+      });
+      // Replay window function should NOT be called
+      expect(applyReplayWindowSpy).not.toHaveBeenCalled();
     });
   });
 
