@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { CurrencySchema } from './money.js';
+
 /**
  * Source type schema - blockchain or exchange
  */
@@ -57,7 +59,7 @@ export const SourceParamsSchema = z.union([
  * Schema for balance discrepancy details
  */
 export const BalanceDiscrepancySchema = z.object({
-  asset: z.string(),
+  asset: CurrencySchema,
   calculated: z.string(),
   difference: z.string(),
   live: z.string(),
