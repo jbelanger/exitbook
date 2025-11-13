@@ -14,6 +14,7 @@ import {
 vi.mock('@clack/prompts', () => ({
   isCancel: vi.fn(),
   cancel: vi.fn(),
+  unicodeOr: vi.fn((_primary: string, fallback: string) => fallback),
 }));
 
 describe('prompts utilities', () => {

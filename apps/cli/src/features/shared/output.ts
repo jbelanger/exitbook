@@ -115,8 +115,7 @@ export class OutputManager {
    */
   outro(message: string): void {
     if (this.format === 'text') {
-      // Custom outro that continues the tree structure
-      console.log(`└  ${pc.green(message)}`);
+      p.outro(`${pc.green(message)}`);
     }
   }
 

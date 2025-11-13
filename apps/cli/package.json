@@ -23,7 +23,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@clack/prompts": "^0.11.0",
+    "@clack/prompts": "1.0.0-alpha.6",
     "@exitbook/accounting": "workspace:*",
     "@exitbook/blockchain-providers": "workspace:*",
     "@exitbook/core": "workspace:*",

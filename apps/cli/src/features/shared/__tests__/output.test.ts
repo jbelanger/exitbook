@@ -13,6 +13,7 @@ vi.mock('@clack/prompts', () => ({
   intro: vi.fn(),
   outro: vi.fn(),
   note: vi.fn(),
+  unicodeOr: vi.fn((_primary: string, fallback: string) => fallback),
   log: {
     message: vi.fn(),
     warn: vi.fn(),

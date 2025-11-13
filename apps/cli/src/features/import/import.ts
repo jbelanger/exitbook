@@ -1,6 +1,6 @@
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
-import { createClackEmitter, runWithProgress } from '@exitbook/ui';
+import { createClackEmitter, runWithProgress, type ProgressEmitter } from '@exitbook/ui';
 import type { Command } from 'commander';
 
 import { resolveCommandParams, unwrapResult } from '../shared/command-execution.js';
@@ -28,6 +28,12 @@ interface ImportCommandResult {
   processed?: number | undefined;
   processingErrors?: string[] | undefined;
 }
+
+const silentProgressEmitter: ProgressEmitter = {
+  emit: () => {
+    // Intentionally noop for JSON output mode
+  },
+};
 
 /**
  * Register the import command.
@@ -75,7 +81,7 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
     });
 
     // Create UI emitter and run with progress context
-    const emitter = createClackEmitter();
+    const emitter = options.json ? silentProgressEmitter : createClackEmitter();
     const database = await initializeDatabase();
     const handler = new ImportHandler(database);
 
@@ -94,7 +100,10 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
         return;
       }
 
-      handleImportSuccess(output, result.value);
+      const summary = handleImportSuccess(output, result.value);
+      if (output.isTextMode() && summary) {
+        output.outro(summary);
+      }
     } catch (error) {
       handler.destroy();
       await closeDatabase(database);
@@ -110,7 +119,7 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
 /**
  * Handle successful import.
  */
-function handleImportSuccess(output: OutputManager, importResult: ImportResult): void {
+function handleImportSuccess(output: OutputManager, importResult: ImportResult): string | undefined {
   // Prepare result data
   const resultData: ImportCommandResult = {
     dataSourceId: importResult.dataSourceId,
@@ -125,19 +134,18 @@ function handleImportSuccess(output: OutputManager, importResult: ImportResult):
     resultData.processingErrors = importResult.processingErrors.slice(0, 5); // First 5 errors
   }
 
-  // Output success
+  let summary: string | undefined;
+
   if (output.isTextMode()) {
-    // Show import summary
-    console.log();
-    console.log(`✅ Imported: ${importResult.imported} transactions`);
-    console.log(`📋 Session ID: ${importResult.dataSourceId}`);
+    const summaryParts = [`Loaded ${importResult.imported} transactions`, `Session ${importResult.dataSourceId}`];
 
     if (importResult.processed !== undefined) {
-      console.log(`⚙️  Processed: ${importResult.processed} transactions`);
+      summaryParts.push(`Processed ${importResult.processed}`);
     }
 
+    summary = summaryParts.join(' · ');
+
     if (importResult.processingErrors && importResult.processingErrors.length > 0) {
-      console.log(`\n⚠️  Processing errors: ${importResult.processingErrors.length}`);
       output.note(importResult.processingErrors.slice(0, 5).join('\n'), 'First 5 errors');
     }
   }
@@ -146,4 +154,5 @@ function handleImportSuccess(output: OutputManager, importResult: ImportResult):
 
   // Don't call process.exit(0) - it triggers clack's cancellation handler
   // The process will exit naturally
+  return summary;
 }

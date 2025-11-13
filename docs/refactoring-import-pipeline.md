@@ -73,35 +73,6 @@ This document outlines a comprehensive refactoring of the import pipeline to add
 
 ## 1. Problem Statement
 
-### 1.1 Normalization Issues
-
-The current pipeline separates data fetching and normalization into distinct phases:
-
-```
-Import → Store Raw Data → (Later) Normalize → Process → Store Transactions
-```
-
-**Problems:**
-
-1. **Deferred validation** - Invalid API data is stored and only discovered during processing
-2. **Missing metadata** - Cannot extract pagination cursors (tx hash, block number) during import
-3. **Redundant work** - Must parse/validate raw data twice (once for pagination, again for normalization)
-4. **Late failures** - Processing fails on bad data that should have been rejected during import
-
-**Example Issue:**
-
-```typescript
-// During import - blindly store raw data
-await rawDataRepository.save(sessionId, rawApiResponse); // No validation!
-
-// Later during processing - normalization fails
-const normalizeResult = normalizer.normalize(rawData);
-if (normalizeResult.isErr()) {
-  // Too late! Bad data already stored, session marked complete
-  return err(normalizeResult.error);
-}
-```
-
 ### 1.2 Pagination Issues
 
 API clients currently implement internal pagination loops:
@@ -149,250 +120,18 @@ const fromParams: AlchemyAssetTransferParams = {
 
 ---
 
-## 2. Current Architecture (As Implemented)
-
-### 2.1 Data Flow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Phase 1: Import (Fetch + Normalize)                             │
-│                                                                  │
-│  Importer → API Client (internal pagination loop)               │
-│              ↓                                                   │
-│          For each transaction:                                   │
-│            - Fetch raw data                                      │
-│            - Mapper.map() → Zod validation → Normalize          │
-│            - Return TransactionWithRawData { raw, normalized }  │
-│              ↓                                                   │
-│  Store: external_transaction_data { raw_data, normalized_data } │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│ Phase 2: Process (Convert to Universal Format)                  │
-│                                                                  │
-│  Load normalized_data → Processor → UniversalTransaction        │
-│                                                                  │
-│  Output: transactions table                                     │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Key Implementation Details:**
-
-- ✅ **Normalization happens during import**: API clients call `mapper.map()` for each transaction
-- ✅ **Fail-fast validation**: Zod validation in mapper catches invalid data immediately
-- ✅ **Dual storage**: Both `raw_data` and `normalized_data` stored for audit trail
-- ⚠️ **Internal pagination still exists**: API clients still have `while` loops fetching all pages
-- ⚠️ **No cursor persistence**: Imports can't be resumed mid-pagination
-
-### 2.2 Current Importer Example (As Implemented)
-
-**File:** `packages/import/src/infrastructure/blockchains/bitcoin/importer.ts`
-
-```typescript
-export class BitcoinTransactionImporter implements IImporter {
-  private async fetchRawTransactionsForAddress(
-    address: string,
-    since?: number
-  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
-    // Fetch from provider (with internal pagination in API client)
-    const result = await this.providerManager.executeWithFailover('bitcoin', {
-      type: 'getAddressTransactions',
-      address: address,
-      since: since,
-    });
-
-    return result.map((response) => {
-      // ✅ NEW: API client returns TransactionWithRawData { raw, normalized }
-      const transactionsWithRaw = response.data as TransactionWithRawData<BitcoinTransaction>[];
-      const providerName = response.providerName;
-
-      // ✅ NEW: Both raw and normalized data are already available
-      return transactionsWithRaw.map((txWithRaw) => ({
-        rawData: txWithRaw.raw, // Original provider response
-        normalizedData: txWithRaw.normalized, // Already validated + normalized
-        metadata: {
-          providerName,
-          sourceAddress: address,
-        },
-      }));
-    });
-  }
-}
-```
-
-**Key Changes:**
-
-- ✅ API client now returns `TransactionWithRawData<T>[]` with both `raw` and `normalized`
-- ✅ No separate normalization step needed
-- ✅ Data is validated during fetch (fail-fast)
-
-### 2.3 Current API Client Example (As Implemented)
-
-**File:** `packages/blockchain-providers/src/blockchains/bitcoin/blockstream/blockstream-api-client.ts`
-
-```typescript
-export class BlockstreamApiClient extends BaseApiClient {
-  private mapper: BlockstreamTransactionMapper; // ✅ NEW: Mapper instance
-
-  constructor(config: ProviderConfig) {
-    super(config);
-    this.mapper = new BlockstreamTransactionMapper(); // ✅ NEW: Instantiate mapper
-  }
-
-  private async getAddressTransactions(params: {
-    address: string;
-    since?: number;
-  }): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
-    const allTransactions: TransactionWithRawData<BitcoinTransaction>[] = [];
-    let lastSeenTxid: string | undefined;
-    let hasMore = true;
-    let batchCount = 0;
-    const maxBatches = 50;
-
-    // ⚠️ STILL HAS: Internal pagination loop (not yet externalized)
-    while (hasMore && batchCount < maxBatches) {
-      const endpoint = lastSeenTxid ? `/address/${address}/txs/chain/${lastSeenTxid}` : `/address/${address}/txs`;
-
-      const txResult = await this.httpClient.get<BlockstreamTransaction[]>(endpoint);
-      if (txResult.isErr()) return err(txResult.error);
-
-      const rawTransactions = txResult.value;
-
-      // ✅ NEW: Normalize each transaction during fetch
-      for (const rawTx of rawTransactions) {
-        const mapResult = this.mapper.map(
-          rawTx,
-          {
-            providerName: 'blockstream.info',
-            sourceAddress: address,
-          },
-          {}
-        );
-
-        if (mapResult.isErr()) {
-          // ✅ NEW: Fail-fast on validation error
-          return err(new Error(`Validation failed: ${mapResult.error.message}`));
-        }
-
-        // ✅ NEW: Store both raw and normalized
-        allTransactions.push({
-          raw: rawTx,
-          normalized: mapResult.value,
-        });
-      }
-
-      lastSeenTxid = rawTransactions[rawTransactions.length - 1]?.txid;
-      hasMore = rawTransactions.length === 25;
-      batchCount++;
-    }
-
-    // Returns ALL transactions with both raw and normalized data
-    return ok(allTransactions);
-  }
-}
-```
-
-**Key Changes:**
-
-- ✅ API client instantiates mapper in constructor
-- ✅ Calls `mapper.map()` for each transaction during fetch
-- ✅ Returns `TransactionWithRawData<T>[]` with both `raw` and `normalized`
-- ✅ Fail-fast validation (errors propagate immediately)
-- ⚠️ Internal pagination loop still exists (not yet externalized)
-
-### 2.4 Current Processing Service (As Implemented)
-
-**File:** `packages/import/src/app/services/ingestion-service.ts` (lines 195-208)
-
-```typescript
-// Load raw data from database
-const rawDataItemsResult = await this.rawDataRepository.load(loadFilters);
-const rawDataItems = rawDataItemsResult.value;
-
-// ✅ NEW: Load normalized_data (already validated during import)
-const normalizedRawDataItems: unknown[] = [];
-
-for (const item of pendingItems) {
-  // ✅ NEW: Try normalized_data first (preferred path)
-  let normalized_data: unknown =
-    typeof item.normalized_data === 'string' ? JSON.parse(item.normalized_data) : item.normalized_data;
-
-  // Fallback to raw_data for backwards compatibility
-  if (!normalized_data || Object.keys(normalized_data as Record<string, never>).length === 0) {
-    normalized_data = typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
-  }
-
-  normalizedRawDataItems.push(normalized_data);
-}
-
-// ✅ NEW: No normalization step - data already validated
-const processor = await this.processorFactory.create(sourceId, sourceType, parsedSessionMetadata);
-const sessionTransactionsResult = await processor.process(normalizedRawDataItems, parsedSessionMetadata);
-
-if (sessionTransactionsResult.isErr()) {
-  // Only processor errors possible - normalization errors caught during import
-  return err(sessionTransactionsResult.error);
-}
-```
-
-**Key Changes:**
-
-- ✅ Loads `normalized_data` directly (no normalization step)
-- ✅ Fallback to `raw_data` for backwards compatibility
-- ✅ Validation errors caught during import, not processing
-- ✅ Cleaner error handling (only processor errors possible here)
-
----
-
 ## 3. Identified Issues
 
-### 3.1 ✅ Normalization Issues (RESOLVED)
+### 3.2 ⚠️ Pagination Issues
 
-These issues have been **resolved** by the normalization refactoring:
-
-| Issue                       | Status   | Solution                                                  |
-| --------------------------- | -------- | --------------------------------------------------------- |
-| **Late validation**         | ✅ FIXED | Validation happens during import (fail-fast)              |
-| **Cannot extract metadata** | ✅ FIXED | Metadata extracted during normalization in API client     |
-| **Double parsing**          | ✅ FIXED | Single parse during import, stored normalized data reused |
-| **Silent failures**         | ✅ FIXED | Validation errors propagate immediately, no silent skips  |
-
-### 3.2 ⚠️ Pagination Issues (STILL PRESENT)
-
-| Issue                                      | Impact                 | Example                                                                                                              |
-| ------------------------------------------ | ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Non-parallelizable**                     | Slow imports           | Single provider handles all 10,000+ transactions sequentially                                                        |
-| **No failover mid-pagination**             | Lost progress          | Provider fails on page 50/100, restart from page 1                                                                   |
-| **Client-controlled `since` is a footgun** | Data completeness gaps | Client passes `since=yesterday`, misses all historical transactions; portfolio balance calculations become incorrect |
-| **Memory bloat**                           | OOM crashes            | Loading 50,000 transactions into memory before processing                                                            |
-| **No resumability**                        | Wasted work            | Crash on page 80/100, must restart entire import                                                                     |
+| Issue                          | Impact        | Example                                                       |
+| ------------------------------ | ------------- | ------------------------------------------------------------- |
+| **Non-parallelizable**         | Slow imports  | Single provider handles all 10,000+ transactions sequentially |
+| **No failover mid-pagination** | Lost progress | Provider fails on page 50/100, restart from page 1            |
+| **Memory bloat**               | OOM crashes   | Loading 50,000 transactions into memory before processing     |
+| **No resumability**            | Wasted work   | Crash on page 80/100, must restart entire import              |
 
 ### 3.3 Code Examples of Issues
-
-#### Issue 1: Client-Controlled `since` Parameter is Dangerous
-
-**Problem:** Allowing clients to pass `since` parameter creates completeness gaps:
-
-```typescript
-// Current API exposes since to clients
-await importer.import({ address: '0x...', since: Date.now() - 86400000 }); // ❌ Only imports last 24h!
-
-// Portfolio app needs ALL transactions to calculate balances correctly
-// But nothing prevents clients from passing incomplete ranges
-```
-
-**Root Cause:** `since` should be **server-owned**, computed from persisted session state:
-
-```typescript
-// Server should derive start cursor from last successful import
-const lastCursor = await sessionRepository.getLastCursor(address);
-const startFrom = lastCursor || 'genesis'; // Resume or start fresh
-
-// Provider inconsistencies compound the problem:
-// - Alchemy ignores since entirely (hardcoded fromBlock: '0x0')
-// - Moralis respects it but trusts client values blindly
-// - No validation that since produces complete history
-```
 
 #### Issue 2: Internal Pagination Loops
 
@@ -422,25 +161,6 @@ private async getAssetTransfersPaginated(params: AlchemyAssetTransferParams): Pr
   } while (pageKey && pageCount < maxPages);
 
   return transfers; // Returns ALL transfers
-}
-```
-
-#### Issue 3: Late Normalization Failures
-
-**File:** `packages/import/src/app/services/ingestion-service.ts` (lines 378-394)
-
-```typescript
-// STRICT MODE: Fail if any raw data items could not be normalized
-if (normalizationErrors.length > 0) {
-  this.logger.error(`CRITICAL: ${normalizationErrors.length}/${pendingItems.length} items failed normalization`);
-
-  // ❌ Too late! Session already marked complete, raw data stored
-  return err(
-    new Error(
-      `Cannot proceed: ${normalizationErrors.length} raw data items failed normalization. ` +
-        `This would corrupt portfolio calculations.`
-    )
-  );
 }
 ```
 

@@ -1,1 +1,1 @@
-export { createClackEmitter } from './clack.ts';
+export { createClackEmitter } from './cli/clack.ts';

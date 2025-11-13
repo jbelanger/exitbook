@@ -177,8 +177,6 @@ export class ImportHandler {
         result.processingErrors = processResult.value.errors;
       }
 
-      progress.complete('Complete');
-
       return ok(result);
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
