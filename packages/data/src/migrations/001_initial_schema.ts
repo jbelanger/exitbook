@@ -20,6 +20,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('error_details', 'text')
     .addColumn('import_params', 'text', (col) => col.notNull().defaultTo('{}'))
     .addColumn('import_result_metadata', 'text', (col) => col.notNull().defaultTo('{}'))
+    .addColumn('last_cursor', 'text') // JSON: Record<operationType, CursorState> for per-operation resumption
     .addColumn('last_balance_check_at', 'text')
     .addColumn('verification_metadata', 'text')
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
@@ -33,7 +34,6 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('data_source_id', 'integer', (col) => col.notNull().references('data_sources.id'))
     .addColumn('provider_name', 'text', (col) => col.notNull())
     .addColumn('external_id', 'text', (col) => col.notNull())
-    .addColumn('cursor', 'text')
     .addColumn('source_address', 'text')
     .addColumn('transaction_type_hint', 'text')
     .addColumn('raw_data', 'text', (col) => col.notNull())

@@ -148,7 +148,7 @@ describe('createKrakenClient - fetchTransactionData', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    const transactions = result.value;
+    const { transactions } = result.value;
     expect(transactions).toHaveLength(2);
     expect(transactions[0]?.externalId).toBe('LEDGER1');
     expect(transactions[1]?.externalId).toBe('LEDGER2');
@@ -222,7 +222,7 @@ describe('createKrakenClient - fetchTransactionData', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    const transactions = result.value;
+    const { transactions } = result.value;
     expect(transactions).toHaveLength(75);
 
     // Verify fetchLedger was called twice with correct offsets
@@ -239,12 +239,19 @@ describe('createKrakenClient - fetchTransactionData', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    expect(result.value).toHaveLength(0);
+    expect(result.value.transactions).toHaveLength(0);
     expect(mockFetchLedger).toHaveBeenCalledTimes(1);
   });
 
   test('uses cursor to resume from last position', async () => {
-    const cursor = { ledger: 1704067200000 };
+    const cursor = {
+      ledger: {
+        primary: { type: 'timestamp' as const, value: 1704067200000 },
+        lastTransactionId: 'tx-1',
+        totalFetched: 1,
+        metadata: { providerName: 'kraken', updatedAt: Date.now() },
+      },
+    };
     const params = { cursor };
 
     mockFetchLedger.mockResolvedValueOnce([]);
@@ -255,7 +262,14 @@ describe('createKrakenClient - fetchTransactionData', () => {
   });
 
   test('resumes from cursor with offset', async () => {
-    const cursor = { ledger: 1704067200000, offset: 100 };
+    const cursor = {
+      ledger: {
+        primary: { type: 'timestamp' as const, value: 1704067200000 },
+        lastTransactionId: 'tx-1',
+        totalFetched: 1,
+        metadata: { providerName: 'kraken', updatedAt: Date.now(), offset: 100 },
+      },
+    };
     const params = { cursor };
 
     mockFetchLedger.mockResolvedValueOnce([]);
@@ -320,7 +334,7 @@ describe('createKrakenClient - fetchTransactionData', () => {
       expect(partialError.successfulItems[0]?.externalId).toBe('LEDGER1');
       expect(partialError.successfulItems[49]?.externalId).toBe('LEDGER50');
       // Verify cursor includes offset for resumption
-      expect(partialError.lastSuccessfulCursor?.offset).toBe(50);
+      expect(partialError.lastSuccessfulCursorUpdates?.ledger?.metadata?.offset).toBe(49);
     }
   });
 
@@ -489,8 +503,8 @@ describe('createKrakenClient - fetchTransactionData', () => {
       expect(partialError.successfulItems[0]?.externalId).toBe('LEDGER1');
       expect(partialError.successfulItems[50]?.externalId).toBe('LEDGER51');
       // Verify cursor is set for resumption
-      expect(partialError.lastSuccessfulCursor?.ledger).toBe(1704067250000);
-      expect(partialError.lastSuccessfulCursor?.offset).toBe(50);
+      expect(partialError.lastSuccessfulCursorUpdates?.ledger?.primary.value).toBe(1704067250000);
+      expect(partialError.lastSuccessfulCursorUpdates?.ledger?.metadata?.offset).toBe(50);
     }
   });
 
@@ -555,9 +569,10 @@ describe('createKrakenClient - fetchTransactionData', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    const transactions = result.value;
-    // Latest cursor should be from LEDGER2
-    expect(transactions[1]?.cursor?.ledger).toBe(1704067300000);
+    const { transactions } = result.value;
+    expect(transactions).toHaveLength(2);
+    expect(transactions[0]?.externalId).toBe('LEDGER1');
+    expect(transactions[1]?.externalId).toBe('LEDGER2');
   });
 
   test('handles three-page pagination correctly', async () => {
@@ -646,7 +661,7 @@ describe('createKrakenClient - fetchTransactionData', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    expect(result.value).toHaveLength(110);
+    expect(result.value.transactions).toHaveLength(110);
     expect(mockFetchLedger).toHaveBeenCalledTimes(3);
     expect(mockFetchLedger).toHaveBeenNthCalledWith(1, undefined, undefined, 50, { ofs: 0 });
     expect(mockFetchLedger).toHaveBeenNthCalledWith(2, undefined, undefined, 50, { ofs: 50 });

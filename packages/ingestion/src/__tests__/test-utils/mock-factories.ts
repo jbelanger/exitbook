@@ -1,6 +1,7 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import type { PaginationCursor } from '@exitbook/core';
 import type { IExchangeClient, BalanceSnapshot } from '@exitbook/exchanges-providers';
-import { ok } from 'neverthrow';
+import { errAsync, ok } from 'neverthrow';
 import { vi, type Mocked } from 'vitest';
 
 import type { ITokenMetadataService } from '../../services/token-metadata/token-metadata-service.interface.js';
@@ -15,8 +16,6 @@ export function createMockRawDataRepository(): Mocked<IRawDataRepository> {
     saveBatch: vi.fn().mockResolvedValue(ok(0)),
     save: vi.fn().mockResolvedValue(ok(1)),
     load: vi.fn().mockResolvedValue(ok([])),
-    // eslint-disable-next-line unicorn/no-null -- Repository interface requires null for no cursor
-    getLatestCursor: vi.fn().mockResolvedValue(ok(null)),
     markAsProcessed: vi.fn().mockResolvedValue(ok()),
     getValidRecords: vi.fn().mockResolvedValue(ok([])),
   } as unknown as Mocked<IRawDataRepository>;
@@ -83,6 +82,11 @@ export function createMockProviderManager(
       execute: vi.fn(),
       isHealthy: vi.fn().mockResolvedValue(true),
       rateLimit: { requestsPerSecond: 1 },
+      executeStreaming: vi.fn(async function* () {
+        yield errAsync(new Error('Streaming not implemented in mock'));
+      }),
+      extractCursors: vi.fn((_transaction: unknown): PaginationCursor[] => []),
+      applyReplayWindow: vi.fn((cursor: PaginationCursor): PaginationCursor => cursor),
     },
   ]);
 

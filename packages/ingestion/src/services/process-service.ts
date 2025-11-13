@@ -237,7 +237,6 @@ export class TransactionProcessService {
               raw: item.rawData,
               normalized: normalizedData,
               externalId: item.externalId || '',
-              cursor: item.cursor || {},
             };
 
             normalizedRawDataItems.push(dataPackage);

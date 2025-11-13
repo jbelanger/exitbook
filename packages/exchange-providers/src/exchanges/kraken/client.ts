@@ -1,4 +1,4 @@
-import { getErrorMessage, wrapError, type ExternalTransaction } from '@exitbook/core';
+import { getErrorMessage, wrapError, type CursorState, type ExternalTransaction } from '@exitbook/core';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -7,7 +7,13 @@ import type z from 'zod';
 import { PartialImportError } from '../../core/errors.js';
 import * as ExchangeUtils from '../../core/exchange-utils.js';
 import type { ExchangeLedgerEntry } from '../../core/schemas.js';
-import type { BalanceSnapshot, ExchangeCredentials, FetchParams, IExchangeClient } from '../../core/types.js';
+import type {
+  BalanceSnapshot,
+  ExchangeCredentials,
+  FetchParams,
+  FetchTransactionDataResult,
+  IExchangeClient,
+} from '../../core/types.js';
 
 import { KrakenCredentialsSchema, KrakenLedgerEntrySchema } from './schemas.js';
 
@@ -75,17 +81,18 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
     return {
       exchangeId: 'kraken',
 
-      async fetchTransactionData(params?: FetchParams): Promise<Result<ExternalTransaction[], Error>> {
+      async fetchTransactionData(params?: FetchParams): Promise<Result<FetchTransactionDataResult, Error>> {
         const allTransactions: ExternalTransaction[] = [];
-        const currentCursor = { ...(params?.cursor || {}) };
+        let lastSuccessfulCursorUpdates: Record<string, CursorState> = {};
 
-        // Fetch ledger entries - this includes ALL balance changes:
-        // deposits, withdrawals, trades, conversions, fees, etc.
-        const since = currentCursor.ledger;
-
-        // Kraken uses 'ofs' parameter for offset - resume from cursor if available
-        let ofs = currentCursor.offset || 0;
+        // Extract timestamp and offset from ledger cursor (if exists)
+        const ledgerCursor = params?.cursor?.['ledger'];
+        const since = ledgerCursor?.primary.value as number | undefined;
+        let ofs = (ledgerCursor?.metadata?.offset as number) || 0;
         const limit = 50; // Kraken's default/max per request
+
+        // Track cumulative count starting from previous cursor's totalFetched
+        let cumulativeFetched = (ledgerCursor?.totalFetched as number) || 0;
 
         try {
           while (true) {
@@ -121,13 +128,23 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
                 };
 
                 return {
-                  cursor: { ledger: timestamp.getTime() },
+                  cursorUpdates: {
+                    ledger: {
+                      primary: { type: 'timestamp', value: timestamp.getTime() },
+                      lastTransactionId: validatedData.id,
+                      totalFetched: 1,
+                      metadata: {
+                        providerName: 'kraken',
+                        updatedAt: Date.now(),
+                        offset: ofs + ledgerEntries.length, // Next page offset, not current item index
+                      },
+                    },
+                  },
                   externalId: validatedData.id,
                   normalizedData,
                 };
               },
-              'kraken',
-              currentCursor
+              'kraken'
             );
 
             if (processResult.isErr()) {
@@ -141,31 +158,32 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
                   partialError.message,
                   allTransactions,
                   partialError.failedItem,
-                  partialError.lastSuccessfulCursor
+                  partialError.lastSuccessfulCursorUpdates
                 )
               );
             }
 
             // Accumulate successful results
-            allTransactions.push(...processResult.value);
+            const { transactions, cursorUpdates } = processResult.value;
+            allTransactions.push(...transactions);
 
-            // Update cursor with latest timestamp from this batch
-            if (processResult.value.length > 0) {
-              const lastItem = processResult.value[processResult.value.length - 1];
-              if (lastItem?.cursor) {
-                Object.assign(currentCursor, lastItem.cursor);
-              }
+            // Update cumulative count
+            cumulativeFetched += transactions.length;
+
+            // Update cursor with cumulative totalFetched
+            if (cursorUpdates['ledger']) {
+              cursorUpdates['ledger'].totalFetched = cumulativeFetched;
             }
+            lastSuccessfulCursorUpdates = cursorUpdates;
 
             // If we got less than the limit, we've reached the end
             if (ledgerEntries.length < limit) break;
 
             // Update offset for next page
             ofs += ledgerEntries.length;
-            currentCursor.offset = ofs;
           }
 
-          return ok(allTransactions);
+          return ok({ transactions: allTransactions, cursorUpdates: lastSuccessfulCursorUpdates });
         } catch (error) {
           // Network/API error during fetch - return partial results if we have any
           if (allTransactions.length > 0) {
@@ -174,7 +192,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
                 `Fetch failed after processing ${allTransactions.length} transactions: ${getErrorMessage(error)}`,
                 allTransactions,
                 { ofs, since },
-                currentCursor
+                lastSuccessfulCursorUpdates
               )
             );
           }

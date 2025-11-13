@@ -57,8 +57,8 @@ export async function resolveCommandParams<TParams>(config: {
   output: OutputManager;
   promptFn: () => Promise<TParams>;
 }): Promise<TParams> {
-  config.output.intro(`exitbook ${config.commandName}`);
   if (config.isInteractive) {
+    config.output.intro(`exitbook ${config.commandName}`);
     const params = await config.promptFn();
     const shouldProceed = await promptConfirm(config.confirmMessage, true);
     if (!shouldProceed) {
