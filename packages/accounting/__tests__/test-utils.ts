@@ -34,9 +34,9 @@ export function createPriceAtTxTime(
 /**
  * Creates an AssetMovement object with price
  */
-export function createMovement(asset: string, amount: string, priceAmount: string, currency = 'USD'): AssetMovement {
+export function createMovement(asset: Currency, amount: string, priceAmount: string, currency = 'USD'): AssetMovement {
   return {
-    asset: Currency.create(asset),
+    asset,
     grossAmount: parseDecimal(amount),
     priceAtTxTime: createPriceAtTxTime(priceAmount, currency),
   };
@@ -72,8 +72,8 @@ export function createFee(
 export function createTransaction(
   id: number,
   datetime: string,
-  inflows: { amount: string; asset: string; price: string }[],
-  outflows: { amount: string; asset: string; price: string }[] = [],
+  inflows: { amount: string; asset: Currency; price: string }[],
+  outflows: { amount: string; asset: Currency; price: string }[] = [],
   options?: {
     category?: 'trade' | 'transfer';
     fees?: FeeMovement[];
@@ -109,13 +109,13 @@ export function createTransaction(
 export function createTransactionWithFee(
   id: number,
   datetime: string,
-  inflows: { amount: string; asset: string; price: string }[],
-  outflows: { amount: string; asset: string; price: string }[],
-  platformFee?: { amount: string; asset: string; price: string }
+  inflows: { amount: string; asset: Currency; price: string }[],
+  outflows: { amount: string; asset: Currency; price: string }[],
+  platformFee?: { amount: string; asset: Currency; price: string }
 ): UniversalTransaction {
   const fees: FeeMovement[] = platformFee
     ? [
-        createFee(platformFee.asset, platformFee.amount, {
+        createFee(platformFee.asset.toString(), platformFee.amount, {
           priceAmount: platformFee.price,
         }),
       ]
