@@ -333,8 +333,8 @@ describe('createKrakenClient - fetchTransactionData', () => {
       expect(partialError.successfulItems).toHaveLength(50);
       expect(partialError.successfulItems[0]?.externalId).toBe('LEDGER1');
       expect(partialError.successfulItems[49]?.externalId).toBe('LEDGER50');
-      // Verify cursor includes offset for resumption
-      expect(partialError.lastSuccessfulCursorUpdates?.ledger?.metadata?.offset).toBe(49);
+      // Verify cursor includes offset for resumption (next page offset = ofs + batch length = 0 + 50)
+      expect(partialError.lastSuccessfulCursorUpdates?.ledger?.metadata?.offset).toBe(50);
     }
   });
 
@@ -502,9 +502,9 @@ describe('createKrakenClient - fetchTransactionData', () => {
       expect(partialError.successfulItems).toHaveLength(51);
       expect(partialError.successfulItems[0]?.externalId).toBe('LEDGER1');
       expect(partialError.successfulItems[50]?.externalId).toBe('LEDGER51');
-      // Verify cursor is set for resumption
+      // Verify cursor is set for resumption (next page offset = ofs + batch length = 50 + 2)
       expect(partialError.lastSuccessfulCursorUpdates?.ledger?.primary.value).toBe(1704067250000);
-      expect(partialError.lastSuccessfulCursorUpdates?.ledger?.metadata?.offset).toBe(50);
+      expect(partialError.lastSuccessfulCursorUpdates?.ledger?.metadata?.offset).toBe(52);
     }
   });
 
