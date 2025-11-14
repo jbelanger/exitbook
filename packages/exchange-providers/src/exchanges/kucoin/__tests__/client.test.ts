@@ -172,7 +172,7 @@ describe('createKuCoinClient - fetchTransactionData', () => {
     expect(mockFetchLedger).toHaveBeenCalledWith(
       undefined,
       undefined,
-       
+
       expect.any(Number),
       {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.any() is a vitest matcher
@@ -284,7 +284,7 @@ describe('createKuCoinClient - fetchTransactionData', () => {
     expect(mockFetchLedger).toHaveBeenCalledWith(
       undefined,
       undefined,
-       
+
       expect.any(Number),
       {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.any() is a vitest matcher
@@ -373,7 +373,7 @@ describe('createKuCoinClient - fetchTransactionData', () => {
       before: 0,
       after: 100,
       currency: 'USDT',
-      direction: 'invalid-direction' as unknown, // Invalid direction
+      direction: 'invalid-direction' as unknown as ccxt.LedgerEntry['direction'], // Invalid direction
       fee: { cost: 0, currency: 'USDT' },
       status: 'ok',
       timestamp: 1704067201000,
@@ -447,7 +447,7 @@ describe('createKuCoinClient - fetchTransactionData', () => {
       before: 0,
       after: 100,
       currency: 'USDT',
-      direction: 'invalid-direction' as unknown,
+      direction: 'invalid-direction' as unknown as ccxt.LedgerEntry['direction'],
       fee: { cost: 0, currency: 'USDT' },
       status: 'ok',
       timestamp: now - 12000,

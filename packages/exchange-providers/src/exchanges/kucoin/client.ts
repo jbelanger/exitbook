@@ -3,7 +3,6 @@ import { getErrorMessage, wrapError, type ExternalTransaction } from '@exitbook/
 import { getLogger } from '@exitbook/logger';
 import { emitProgress } from '@exitbook/ui';
 import * as ccxt from 'ccxt';
-import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -173,8 +172,8 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
                       timestamp,
                       type: validatedData.type,
                       asset: validatedData.currency,
-                      amount: new Decimal(validatedData.amount).toFixed(), // DecimalStringSchema provides string, wrap in Decimal for safety
-                      fee: validatedData.fee?.cost ? new Decimal(validatedData.fee.cost).toFixed() : undefined,
+                      amount: validatedData.amount, // Already a string from DecimalStringSchema
+                      fee: validatedData.fee?.cost, // Already a string from DecimalStringSchema
                       feeCurrency: validatedData.fee?.currency,
                       status: mapKuCoinStatus(validatedData.status),
                     };

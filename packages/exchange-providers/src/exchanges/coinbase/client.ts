@@ -1,9 +1,8 @@
 import type { TransactionStatus } from '@exitbook/core';
-import { getErrorMessage, wrapError, type CursorState, type ExternalTransaction } from '@exitbook/core';
+import { getErrorMessage, parseDecimal, wrapError, type CursorState, type ExternalTransaction } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { emitProgress } from '@exitbook/ui';
 import * as ccxt from 'ccxt';
-import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -205,7 +204,6 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                     // Extract and validate raw Coinbase data from CCXT's info property
                     // CCXT returns Coinbase Consumer API v2 transactions
 
-                     
                     const rawInfo = RawCoinbaseLedgerEntrySchema.parse(item.info);
 
                     // Extract correlation ID from type-specific nested object
@@ -227,15 +225,10 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                       }
 
                       const typeSpecificData: TypeSpecific | undefined =
-                         
                         (rawInfo.advanced_trade_fill as TypeSpecific | undefined) ??
-                         
                         (rawInfo.buy as TypeSpecific | undefined) ??
-                         
                         (rawInfo.sell as TypeSpecific | undefined) ??
-                         
                         (rawInfo.send as TypeSpecific | undefined) ??
-                         
                         (rawInfo.trade as TypeSpecific | undefined);
 
                       if (typeSpecificData) {
@@ -268,7 +261,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                     // (our previous implementation) accidentally defaulted to zero decimal places,
                     // truncating values like 18.1129667 UNI to "18" and throwing balances off.
                     // Keep everything in Decimal to preserve the exact ledger precision.
-                    const amountDecimal = new Decimal(validatedData.amount);
+                    const amountDecimal = parseDecimal(validatedData.amount);
                     const absoluteAmount = amountDecimal.abs();
                     const signedAmountDecimal =
                       validatedData.direction === 'out' ? absoluteAmount.negated() : absoluteAmount;
@@ -280,22 +273,19 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                     let feeAmount: string | undefined;
                     let feeCurrency: string | undefined;
 
-                     
                     if (validatedData.type === 'advanced_trade_fill' && rawInfo.advanced_trade_fill?.commission) {
                       // Commission is paid in the quote currency (second part of product_id)
                       // e.g., "BTC-USDC" -> commission paid in USDC
-                       
+
                       if (rawInfo.advanced_trade_fill.product_id) {
-                         
                         const parts = rawInfo.advanced_trade_fill.product_id.split('-');
-                         
+
                         feeCurrency = parts[1]; // Quote currency
 
                         // Only include fee on the entry that matches the fee currency
                         // This avoids duplicates - each fill creates 2 entries (base + quote)
                         // but we only want to record the fee once (on the quote currency side)
                         if (validatedData.currency === feeCurrency) {
-                           
                           feeAmount = rawInfo.advanced_trade_fill.commission;
                         }
                       }
@@ -303,7 +293,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                       // Use CCXT's normalized fee for other transaction types
                       feeAmount =
                         validatedData.fee?.cost !== undefined
-                          ? new Decimal(validatedData.fee.cost).toFixed()
+                          ? parseDecimal(validatedData.fee.cost).toFixed()
                           : undefined;
                       feeCurrency = validatedData.fee?.currency;
                     }
