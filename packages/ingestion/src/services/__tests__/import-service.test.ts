@@ -6,12 +6,11 @@
  */
 
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
-/* eslint-disable @typescript-eslint/no-explicit-any -- Acceptable for test mocks */
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { CursorState, DataSource, ExternalTransaction } from '@exitbook/core';
 import { PartialImportError } from '@exitbook/exchanges-providers';
-import { err, ok } from 'neverthrow';
+import { err, errAsync, ok, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ImportParams } from '../../types/importers.js';
@@ -27,6 +26,19 @@ vi.mock('@exitbook/logger', () => ({
     warn: vi.fn(),
   }),
 }));
+
+// Create a mock import streaming function that can be controlled per-test
+const mockImportStreamingFn = vi.fn().mockImplementation(async function* () {
+  yield okAsync({
+    rawTransactions: [
+      { transactionHash: 'tx1', blockHeight: 100 },
+      { transactionHash: 'tx2', blockHeight: 101 },
+    ],
+    operationType: 'normal',
+    cursor: { primary: { type: 'offset', value: 2 }, totalFetched: 2 },
+    isComplete: true,
+  });
+});
 
 // Create a mock import function that can be controlled per-test
 const mockImportFn = vi.fn().mockResolvedValue(
@@ -47,6 +59,7 @@ vi.mock('../../infrastructure/blockchains/index.js', () => ({
         normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
         createImporter: () => ({
           import: mockImportFn,
+          importStreaming: mockImportStreamingFn,
         }),
       };
     }
@@ -91,6 +104,19 @@ describe('TransactionImportService', () => {
   let mockProviderManager: BlockchainProviderManager;
 
   beforeEach(() => {
+    // Reset the mock import streaming function to default behavior
+    mockImportStreamingFn.mockReset().mockImplementation(async function* () {
+      yield okAsync({
+        rawTransactions: [
+          { transactionHash: 'tx1', blockHeight: 100 },
+          { transactionHash: 'tx2', blockHeight: 101 },
+        ],
+        operationType: 'normal',
+        cursor: { primary: { type: 'blockNumber', value: 2 }, lastTransactionId: 'tx2', totalFetched: 2 },
+        isComplete: true,
+      });
+    });
+
     // Reset the mock import functions to default behavior
     mockImportFn.mockReset().mockResolvedValue(
       ok({
@@ -129,6 +155,8 @@ describe('TransactionImportService', () => {
       finalize: vi.fn(),
       findBySource: vi.fn(),
       findCompletedWithMatchingParams: vi.fn(),
+      findLatestIncomplete: vi.fn(),
+      update: vi.fn(),
       updateCursor: vi.fn().mockResolvedValue(ok()),
     } as unknown as IDataSourceRepository;
 
@@ -143,7 +171,7 @@ describe('TransactionImportService', () => {
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
       };
 
-      vi.mocked(mockDataSourceRepo.findCompletedWithMatchingParams).mockResolvedValue(ok(undefined));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
       vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
@@ -176,7 +204,7 @@ describe('TransactionImportService', () => {
         expect.any(Number),
         undefined,
         undefined,
-        expect.objectContaining({ blockRange: '100-101' })
+        { transactionsImported: 2 }
       );
     });
 
@@ -185,7 +213,7 @@ describe('TransactionImportService', () => {
         address: 'BC1QXY2KGDYGJRSQTZQ2N0YRF2493P83KKFJHX0WLH', // Uppercase
       };
 
-      vi.mocked(mockDataSourceRepo.findCompletedWithMatchingParams).mockResolvedValue(ok(undefined));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
       vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
@@ -196,7 +224,7 @@ describe('TransactionImportService', () => {
 
       // Verify normalized address was used
       expect(mockDataSourceRepo.create).toHaveBeenCalledWith(
-        'bitcoin',
+        'bitcoin', // sourceId is blockchain name, not address
         'blockchain',
         expect.objectContaining({
           address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh', // Lowercase
@@ -204,43 +232,47 @@ describe('TransactionImportService', () => {
       );
     });
 
-    it('should reuse existing completed data source with matching params', async () => {
+    it('should resume from incomplete data source with cursor', async () => {
       const params: ImportParams = {
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
       };
 
-      const existingDataSource: DataSource = {
+      const incompleteDataSource: DataSource = {
         id: 42,
-        sourceId: 'bitcoin',
+        sourceId: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
         sourceType: 'blockchain' as const,
-        status: 'completed' as const,
+        status: 'started' as const,
         importParams: params,
         createdAt: new Date(),
         updatedAt: new Date(),
         startedAt: new Date(),
-        importResultMetadata: {},
+        importResultMetadata: { transactionsImported: 50 },
+        lastCursor: {
+          normal: {
+            primary: { type: 'blockNumber', value: 50 },
+            lastTransactionId: 'tx-50',
+            totalFetched: 50,
+          },
+        },
       };
 
-      vi.mocked(mockDataSourceRepo.findCompletedWithMatchingParams).mockResolvedValue(ok(existingDataSource));
-      vi.mocked(mockRawDataRepo.load).mockResolvedValue(
-        ok([
-          { id: 1, dataSourceId: 42, rawData: { hash: 'tx1' } },
-          { id: 2, dataSourceId: 42, rawData: { hash: 'tx2' } },
-        ] as any)
-      );
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(incompleteDataSource));
+      vi.mocked(mockDataSourceRepo.update).mockResolvedValue(ok());
+      vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
+      vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
 
       const result = await service.importFromSource('bitcoin', 'blockchain', params);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.imported).toBe(2);
+        expect(result.value.imported).toBe(52); // 50 previous + 2 new = cumulative total
         expect(result.value.dataSourceId).toBe(42);
       }
 
-      // Should NOT create new data source
+      // Should NOT create new data source (resuming existing one)
       expect(mockDataSourceRepo.create).not.toHaveBeenCalled();
-      // Should load existing raw data
-      expect(mockRawDataRepo.load).toHaveBeenCalledWith({ dataSourceId: 42 });
+      // Should update status back to 'started'
+      expect(mockDataSourceRepo.update).toHaveBeenCalledWith(42, { status: 'started' });
     });
 
     it('should return error for unknown blockchain', async () => {
@@ -272,7 +304,7 @@ describe('TransactionImportService', () => {
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
       };
 
-      vi.mocked(mockDataSourceRepo.findCompletedWithMatchingParams).mockResolvedValue(ok(undefined));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(err(new Error('Database connection failed')));
 
       const result = await service.importFromSource('bitcoin', 'blockchain', params);
@@ -288,7 +320,7 @@ describe('TransactionImportService', () => {
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
       };
 
-      vi.mocked(mockDataSourceRepo.findCompletedWithMatchingParams).mockResolvedValue(ok(undefined));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(err(new Error('Disk full')));
 
@@ -305,12 +337,15 @@ describe('TransactionImportService', () => {
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
       };
 
-      vi.mocked(mockDataSourceRepo.findCompletedWithMatchingParams).mockResolvedValue(ok(undefined));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
       vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
 
-      // Configure the mock import function to reject with an error (simulating a thrown exception)
-      mockImportFn.mockRejectedValueOnce(new Error('Network timeout'));
+      // Configure the mock streaming function to throw an error
+      // eslint-disable-next-line @typescript-eslint/require-await, require-yield -- acceptable for tests
+      mockImportStreamingFn.mockImplementationOnce(async function* () {
+        throw new Error('Network timeout');
+      });
 
       const result = await service.importFromSource('bitcoin', 'blockchain', params);
 
@@ -545,11 +580,13 @@ describe('TransactionImportService', () => {
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
       };
 
-      vi.mocked(mockDataSourceRepo.findCompletedWithMatchingParams).mockResolvedValue(ok(undefined));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
 
-      // Importer returns err() (not throwing)
-      mockImportFn.mockResolvedValueOnce(err(new Error('Provider unavailable')));
+      // Importer yields err() (not throwing)
+      mockImportStreamingFn.mockImplementationOnce(async function* () {
+        yield errAsync(new Error('Provider unavailable'));
+      });
 
       const result = await service.importFromSource('bitcoin', 'blockchain', params);
 
@@ -562,25 +599,14 @@ describe('TransactionImportService', () => {
       expect(mockRawDataRepo.saveBatch).not.toHaveBeenCalled();
     });
 
-    it('should handle errors when loading existing data source raw data', async () => {
+    it('should handle errors when checking for incomplete data source', async () => {
       const params: ImportParams = {
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
       };
 
-      const existingDataSource: DataSource = {
-        id: 42,
-        sourceId: 'bitcoin',
-        sourceType: 'blockchain' as const,
-        status: 'completed' as const,
-        importParams: params,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        startedAt: new Date(),
-        importResultMetadata: {},
-      };
-
-      vi.mocked(mockDataSourceRepo.findCompletedWithMatchingParams).mockResolvedValue(ok(existingDataSource));
-      vi.mocked(mockRawDataRepo.load).mockResolvedValue(err(new Error('Database corruption detected')));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(
+        err(new Error('Database corruption detected'))
+      );
 
       const result = await service.importFromSource('bitcoin', 'blockchain', params);
 

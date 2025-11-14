@@ -13,6 +13,7 @@ import type { ImportParams, ImportResult } from '../types/importers.js';
 import type { IDataSourceRepository, IRawDataRepository } from '../types/repositories.js';
 
 import {
+  extractResumeCursor,
   normalizeBlockchainImportParams,
   prepareImportSession,
   shouldReuseExistingImport,
@@ -31,6 +32,7 @@ export class TransactionImportService {
 
   /**
    * Import raw data from source and store it in external_transaction_data table.
+   * Uses streaming for blockchains (with crash recovery) and batch for exchanges.
    */
   async importFromSource(
     sourceId: string,
@@ -40,12 +42,184 @@ export class TransactionImportService {
     if (sourceType === 'exchange') {
       return this.importFromExchange(sourceId, params);
     } else {
-      return this.importFromBlockchain(sourceId, params);
+      return this.importFromBlockchainStreaming(sourceId, params);
+    }
+  }
+
+  /**
+   * Import raw data from blockchain using streaming with incremental persistence and crash recovery
+   * Automatically resumes from incomplete imports
+   */
+  private async importFromBlockchainStreaming(
+    sourceId: string,
+    params: ImportParams
+  ): Promise<Result<ImportResult, Error>> {
+    const sourceType = 'blockchain';
+    this.logger.info(`Starting blockchain streaming import for ${sourceId}`);
+
+    // Normalize sourceId to lowercase for config lookup (registry keys are lowercase)
+    const normalizedSourceId = sourceId.toLowerCase();
+
+    // Get blockchain config
+    const config = getBlockchainConfig(normalizedSourceId);
+    if (!config) {
+      return err(new Error(`Unknown blockchain: ${sourceId}`));
+    }
+
+    // Normalize and validate params using pure function
+    const normalizedParamsResult = normalizeBlockchainImportParams(sourceId, params, config);
+    if (normalizedParamsResult.isErr()) {
+      return err(normalizedParamsResult.error);
+    }
+    const normalizedParams = normalizedParamsResult.value;
+
+    // Check for existing incomplete data source to resume
+    // Use sourceId (blockchain name) and address to prevent cross-chain resume corruption
+    const incompleteDataSourceResult = await this.dataSourceRepository.findLatestIncomplete(
+      sourceId,
+      sourceType,
+      normalizedParams.address
+    );
+
+    if (incompleteDataSourceResult.isErr()) {
+      return err(incompleteDataSourceResult.error);
+    }
+
+    const incompleteDataSource = incompleteDataSourceResult.value;
+    let dataSourceId: number;
+    let totalImported = 0;
+    const resumeCursor = extractResumeCursor(incompleteDataSource);
+
+    if (incompleteDataSource && resumeCursor) {
+      // Resume existing import
+      dataSourceId = incompleteDataSource.id;
+      totalImported = (incompleteDataSource.importResultMetadata?.transactionsImported as number) || 0;
+
+      this.logger.info(`Resuming import from data source #${dataSourceId} (total so far: ${totalImported})`);
+
+      // Update status back to 'started' (in case it was 'failed')
+      const updateResult = await this.dataSourceRepository.update(dataSourceId, { status: 'started' });
+      if (updateResult.isErr()) {
+        return err(updateResult.error);
+      }
+    } else {
+      // Create new data source with sourceId as blockchain name (not address)
+      const dataSourceCreateResult = await this.dataSourceRepository.create(sourceId, sourceType, normalizedParams);
+
+      if (dataSourceCreateResult.isErr()) {
+        return err(dataSourceCreateResult.error);
+      }
+
+      dataSourceId = dataSourceCreateResult.value;
+      this.logger.info(`Starting new import with data source #${dataSourceId}`);
+    }
+
+    const startTime = Date.now();
+
+    try {
+      // Create importer with resume cursor
+      const importParams: ImportParams = {
+        ...normalizedParams,
+        cursor: resumeCursor,
+      };
+
+      const importer = config.createImporter(this.providerManager, normalizedParams.providerName);
+      this.logger.info(`Importer for ${sourceId} created successfully`);
+
+      // Check if importer supports streaming
+      if (!importer.importStreaming) {
+        return err(new Error(`Importer for ${sourceId} does not support streaming yet`));
+      }
+
+      // Stream batches from importer
+      const batchIterator = importer.importStreaming(importParams);
+
+      for await (const batchResult of batchIterator) {
+        if (batchResult.isErr()) {
+          // Update data source with error
+          await this.dataSourceRepository.update(dataSourceId, {
+            status: 'failed',
+            error_message: batchResult.error.message,
+          });
+          return err(batchResult.error);
+        }
+
+        const batch = batchResult.value;
+
+        // Save batch to database
+        progress.update(`Saving ${batch.rawTransactions.length} ${batch.operationType} transactions...`);
+        const saveResult = await this.rawDataRepository.saveBatch(dataSourceId, batch.rawTransactions);
+
+        if (saveResult.isErr()) {
+          await this.dataSourceRepository.update(dataSourceId, {
+            status: 'failed',
+            error_message: saveResult.error.message,
+          });
+          return err(saveResult.error);
+        }
+
+        totalImported += batch.rawTransactions.length;
+
+        // Update progress and cursor after EACH batch for crash recovery
+        const cursorUpdateResult = await this.dataSourceRepository.updateCursor(
+          dataSourceId,
+          batch.operationType,
+          batch.cursor
+        );
+
+        if (cursorUpdateResult.isErr()) {
+          this.logger.warn(`Failed to update cursor for ${batch.operationType}: ${cursorUpdateResult.error.message}`);
+          // Don't fail the import, just log warning
+        }
+
+        this.logger.info(
+          `Batch saved: ${batch.rawTransactions.length} ${batch.operationType} transactions (total: ${totalImported}, cursor progress: ${batch.cursor.totalFetched})`
+        );
+
+        if (batch.isComplete) {
+          this.logger.info(`Import for ${batch.operationType} marked complete by provider`);
+        }
+      }
+
+      // Mark complete
+      const finalizeResult = await this.dataSourceRepository.finalize(
+        dataSourceId,
+        'completed',
+        startTime,
+        undefined,
+        undefined,
+        { transactionsImported: totalImported }
+      );
+
+      if (finalizeResult.isErr()) {
+        return err(finalizeResult.error);
+      }
+
+      this.logger.info(`Import completed for ${sourceId}: ${totalImported} items saved`);
+
+      return ok({
+        imported: totalImported,
+        dataSourceId,
+      });
+    } catch (error) {
+      const originalError = error instanceof Error ? error : new Error(String(error));
+
+      await this.dataSourceRepository.finalize(
+        dataSourceId,
+        'failed',
+        startTime,
+        originalError.message,
+        error instanceof Error ? { stack: error.stack } : { error: String(error) }
+      );
+
+      this.logger.error(`Import failed for ${sourceId}: ${originalError.message}`);
+      return err(originalError);
     }
   }
 
   /**
    * Import raw data from blockchain and store it in external_transaction_data table.
+   * @deprecated Use importFromBlockchainStreaming instead
    */
   private async importFromBlockchain(sourceId: string, params: ImportParams): Promise<Result<ImportResult, Error>> {
     const sourceType = 'blockchain';

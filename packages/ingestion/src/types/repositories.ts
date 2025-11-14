@@ -96,6 +96,17 @@ export interface IDataSourceRepository {
   findBySource(sourceId: string, limit?: number): Promise<Result<DataSource[], Error>>;
 
   /**
+   * Find latest incomplete data source for resume
+   * Status 'started' or 'failed' indicates incomplete import
+   * For blockchain imports, filters by both blockchain (sourceId) and address to prevent cross-chain resume
+   */
+  findLatestIncomplete(
+    sourceId: string,
+    sourceType: SourceType,
+    address?: string
+  ): Promise<Result<DataSource | undefined, Error>>;
+
+  /**
    * Update an existing data source.
    */
   update(sessionId: number, updates: DataSourceUpdate): Promise<Result<void, Error>>;

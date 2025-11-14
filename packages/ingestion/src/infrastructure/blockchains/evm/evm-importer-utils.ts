@@ -1,0 +1,29 @@
+import type { EvmTransaction, TransactionWithRawData } from '@exitbook/blockchain-providers';
+import { generateUniqueTransactionId } from '@exitbook/blockchain-providers';
+import type { ExternalTransaction } from '@exitbook/core';
+
+/**
+ * Map provider transactions to external transaction format
+ * Pure function - no side effects, testable in isolation
+ *
+ * @param transactions - Array of transactions with raw data from provider
+ * @param providerName - Name of the provider that fetched the data
+ * @param sourceAddress - Address being imported
+ * @param transactionTypeHint - Type of transaction (normal, internal, token)
+ * @returns Array of external transactions ready for database storage
+ */
+export function mapToExternalTransactions(
+  transactions: TransactionWithRawData<EvmTransaction>[],
+  providerName: string,
+  sourceAddress: string,
+  transactionTypeHint: 'normal' | 'internal' | 'token'
+): ExternalTransaction[] {
+  return transactions.map((txWithRaw) => ({
+    providerName,
+    externalId: generateUniqueTransactionId(txWithRaw.normalized),
+    transactionTypeHint,
+    sourceAddress,
+    normalizedData: txWithRaw.normalized,
+    rawData: txWithRaw.raw,
+  }));
+}
