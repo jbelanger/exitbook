@@ -26,3 +26,5 @@ export const KrakenLedgerEntrySchema = z.object({
   fee: z.string(), // Fee as string
   balance: z.string(), // Running balance after this entry
 });
+
+export type KrakenLedgerEntry = z.infer<typeof KrakenLedgerEntrySchema>;

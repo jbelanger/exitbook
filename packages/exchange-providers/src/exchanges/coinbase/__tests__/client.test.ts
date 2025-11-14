@@ -60,6 +60,45 @@ describe('createCoinbaseClient - Factory', () => {
       expect(result.error.message).toContain('Invalid coinbase credentials');
     }
   });
+
+  test('returns error with malformed apiKey (missing /apiKeys/ path)', () => {
+    const credentials = {
+      apiKey: 'test-api-key', // Missing organizations/{org_id}/apiKeys/{key_id} format
+      secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEITest123\n-----END EC PRIVATE KEY-----',
+    };
+
+    const result = createCoinbaseClient(credentials);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Invalid Coinbase API key format');
+      expect(result.error.message).toContain('/apiKeys/');
+    }
+  });
+
+  test('returns error with non-ECDSA private key', () => {
+    const credentials = {
+      apiKey: 'organizations/test-org/apiKeys/test-key',
+      secret: '-----BEGIN PRIVATE KEY-----\nMHcCAQEEITest123\n-----END PRIVATE KEY-----', // Not EC PRIVATE KEY
+    };
+
+    const result = createCoinbaseClient(credentials);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Invalid Coinbase private key format');
+      expect(result.error.message).toContain('ECDSA');
+    }
+  });
+
+  test('normalizes PEM key with escaped newlines', () => {
+    const credentials = {
+      apiKey: 'organizations/test-org/apiKeys/test-key',
+      secret: '-----BEGIN EC PRIVATE KEY-----\\nMHcCAQEEITest123\\n-----END EC PRIVATE KEY-----', // Escaped newlines
+    };
+
+    const result = createCoinbaseClient(credentials);
+    // Should succeed - normalization handles escaped newlines
+    expect(result.isOk()).toBe(true);
+  });
 });
 
 describe('createCoinbaseClient - fetchTransactionData', () => {
@@ -805,6 +844,197 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     expect(mockFetchLedger).toHaveBeenNthCalledWith(3, undefined, 1704067200000 + 199 * 1000 + 1, 100, {
       account_id: 'account1',
     });
+  });
+
+  test('handles multiple accounts and fetches ledger for each', async () => {
+    // Mock multiple accounts
+    mockFetchAccounts.mockResolvedValueOnce([
+      { id: 'account1', currency: 'BTC' },
+      { id: 'account2', currency: 'USD' },
+    ]);
+
+    const btcEntries: ccxt.LedgerEntry[] = [
+      {
+        id: 'BTC1',
+        account: 'account1',
+        amount: 0.1,
+        before: 0,
+        after: 0.1,
+        currency: 'BTC',
+        direction: 'in',
+        fee: { cost: 0, currency: 'BTC' },
+        status: 'ok',
+        timestamp: 1704067200000,
+        datetime: '2024-01-01T00:00:00.000Z',
+        type: 'transaction',
+        info: {
+          id: 'BTC1',
+          type: 'transaction',
+          status: 'ok',
+          amount: { amount: '0.1', currency: 'BTC' },
+          created_at: '2024-01-01T00:00:00.000Z',
+        },
+      },
+    ];
+
+    const usdEntries: ccxt.LedgerEntry[] = [
+      {
+        id: 'USD1',
+        account: 'account2',
+        amount: 1000,
+        before: 0,
+        after: 1000,
+        currency: 'USD',
+        direction: 'in',
+        fee: { cost: 0, currency: 'USD' },
+        status: 'ok',
+        timestamp: 1704067201000,
+        datetime: '2024-01-01T00:00:01.000Z',
+        type: 'transaction',
+        info: {
+          id: 'USD1',
+          type: 'transaction',
+          status: 'ok',
+          amount: { amount: '1000', currency: 'USD' },
+          created_at: '2024-01-01T00:00:01.000Z',
+        },
+      },
+    ];
+
+    mockFetchLedger
+      .mockResolvedValueOnce(btcEntries) // Account1 entries
+      .mockResolvedValueOnce(usdEntries); // Account2 entries
+
+    const result = await client.fetchTransactionData();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const { transactions, cursorUpdates } = result.value;
+    expect(transactions).toHaveLength(2);
+    expect(transactions[0]?.externalId).toBe('BTC1');
+    expect(transactions[1]?.externalId).toBe('USD1');
+
+    // Verify fetchLedger was called once per account with correct account_id
+    expect(mockFetchLedger).toHaveBeenCalledTimes(2);
+    expect(mockFetchLedger).toHaveBeenNthCalledWith(1, undefined, undefined, 100, { account_id: 'account1' });
+    expect(mockFetchLedger).toHaveBeenNthCalledWith(2, undefined, undefined, 100, { account_id: 'account2' });
+
+    // Verify cursor updates for both accounts
+    expect(cursorUpdates.account1).toBeDefined();
+    expect(cursorUpdates.account2).toBeDefined();
+  });
+
+  test('extracts correlation ID from buy transaction', async () => {
+    mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'BTC' }]);
+
+    const mockBuyEntry: ccxt.LedgerEntry = {
+      id: 'BUY1',
+      account: 'account1',
+      amount: 0.1,
+      before: 0,
+      after: 0.1,
+      currency: 'BTC',
+      direction: 'in',
+      fee: { cost: 0.001, currency: 'BTC' },
+      status: 'ok',
+      timestamp: 1704067200000,
+      datetime: '2024-01-01T00:00:00.000Z',
+      type: 'trade',
+      referenceId: undefined,
+      info: {
+        id: 'BUY1',
+        type: 'buy',
+        status: 'ok',
+        amount: { amount: '0.1', currency: 'BTC' },
+        created_at: '2024-01-01T00:00:00.000Z',
+        buy: {
+          id: 'BUY_TX_123',
+        },
+      },
+    };
+
+    mockFetchLedger.mockResolvedValueOnce([mockBuyEntry]);
+
+    const result = await client.fetchTransactionData();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const { transactions } = result.value;
+    expect(transactions).toHaveLength(1);
+
+    const correlationId = (transactions[0]?.normalizedData as { correlationId?: string })?.correlationId;
+    expect(correlationId).toBe('BUY_TX_123');
+  });
+
+  test('extracts fee correctly from advanced_trade_fill commission', async () => {
+    mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USDC' }]);
+
+    const mockTradeEntry: ccxt.LedgerEntry = {
+      id: 'TRADE1',
+      account: 'account1',
+      amount: -100,
+      before: 1000,
+      after: 900,
+      currency: 'USDC',
+      direction: 'out',
+      fee: { cost: 0, currency: 'USDC' }, // CCXT doesn't map commission to fee
+      status: 'ok',
+      timestamp: 1704067200000,
+      datetime: '2024-01-01T00:00:00.000Z',
+      type: 'advanced_trade_fill',
+      info: {
+        id: 'TRADE1',
+        type: 'TRADE_FILL',
+        status: 'ok',
+        amount: { amount: '-100', currency: 'USDC' },
+        created_at: '2024-01-01T00:00:00.000Z',
+        advanced_trade_fill: {
+          order_id: 'ORDER123',
+          product_id: 'BTC-USDC',
+          commission: '0.5', // Fee should be extracted from here
+        },
+      },
+    };
+
+    mockFetchLedger.mockResolvedValueOnce([mockTradeEntry]);
+
+    const result = await client.fetchTransactionData();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const { transactions } = result.value;
+    expect(transactions).toHaveLength(1);
+
+    const normalizedData = transactions[0]?.normalizedData as { fee?: string; feeCurrency?: string };
+    expect(normalizedData.fee).toBe('0.5');
+    expect(normalizedData.feeCurrency).toBe('USDC');
+  });
+
+  test('handles no accounts gracefully', async () => {
+    mockFetchAccounts.mockResolvedValueOnce([]);
+
+    const result = await client.fetchTransactionData();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value.transactions).toHaveLength(0);
+    expect(mockFetchLedger).not.toHaveBeenCalled();
+  });
+
+  test('handles account without id', async () => {
+    mockFetchAccounts.mockResolvedValueOnce([{ id: undefined, currency: 'BTC' }]);
+
+    const result = await client.fetchTransactionData();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value.transactions).toHaveLength(0);
+    expect(mockFetchLedger).not.toHaveBeenCalled();
   });
 });
 

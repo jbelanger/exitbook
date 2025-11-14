@@ -14,10 +14,27 @@ export type { BalanceSnapshot, ExchangeCredentials, IExchangeClient } from './co
 
 // Coinbase
 export { createCoinbaseClient } from './exchanges/coinbase/client.js';
-export { CoinbaseLedgerEntrySchema } from './exchanges/coinbase/schemas.js';
-export type { CoinbaseLedgerEntry } from './exchanges/coinbase/client.js';
+export {
+  CoinbaseCredentialsSchema,
+  CoinbaseLedgerEntrySchema,
+  type CoinbaseCredentials,
+  type CoinbaseLedgerEntry,
+} from './exchanges/coinbase/schemas.js';
 
 // Kraken
 export { createKrakenClient } from './exchanges/kraken/client.js';
+export {
+  KrakenCredentialsSchema,
+  KrakenLedgerEntrySchema,
+  type KrakenCredentials,
+  type KrakenLedgerEntry,
+} from './exchanges/kraken/schemas.js';
+
 // KuCoin
 export { createKuCoinClient } from './exchanges/kucoin/client.js';
+export {
+  KuCoinCredentialsSchema,
+  KuCoinLedgerEntrySchema,
+  type KuCoinCredentials,
+  type KuCoinLedgerEntry,
+} from './exchanges/kucoin/schemas.js';
