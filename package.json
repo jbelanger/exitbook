@@ -39,7 +39,6 @@
   },
   "dependencies": {
     "@effect/eslint-plugin": "^0.3.2",
-    "@exitbook/ui": "link:packages/ui",
     "prettier-plugin-packagejson": "^2.5.19"
   },
   "devDependencies": {
