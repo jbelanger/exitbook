@@ -1,4 +1,5 @@
 import { getErrorMessage, wrapError, type CursorState, type ExternalTransaction } from '@exitbook/core';
+import { emitProgress } from '@exitbook/ui';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -92,6 +93,14 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
         let cumulativeFetched = (ledgerCursor?.totalFetched as number) || 0;
 
         try {
+          emitProgress({
+            type: 'started',
+            message: 'Fetching Kraken ledger transactions',
+            data: { metadata: { since, startOffset: ofs } },
+          });
+
+          let pageCount = 0;
+
           while (true) {
             // Side effect: Fetch from API (uses exchange from closure)
             const ledgerEntries = await exchange.fetchLedger(undefined, since, limit, { ofs });
@@ -167,6 +176,21 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
             // Update cumulative count
             cumulativeFetched += transactions.length;
 
+            pageCount++;
+            emitProgress({
+              type: 'progress',
+              message: `Fetched Kraken page ${pageCount}: ${cumulativeFetched} total transactions`,
+              data: { current: cumulativeFetched, metadata: { pageCount, offset: ofs, pageSize: transactions.length } },
+            });
+
+            if (pageCount % 10 === 0) {
+              emitProgress({
+                type: 'log',
+                message: `Progress: ${pageCount} pages fetched, ${cumulativeFetched} transactions`,
+                data: { metadata: { pageCount, totalTransactions: cumulativeFetched } },
+              });
+            }
+
             // Update cursor with cumulative totalFetched
             if (cursorUpdates['ledger']) {
               cursorUpdates['ledger'].totalFetched = cumulativeFetched;
@@ -179,6 +203,12 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
             // Update offset for next page
             ofs += ledgerEntries.length;
           }
+
+          emitProgress({
+            type: 'completed',
+            message: `Completed Kraken fetch: ${allTransactions.length} transactions (${pageCount} pages)`,
+            data: { total: allTransactions.length, metadata: { totalPages: pageCount } },
+          });
 
           return ok({ transactions: allTransactions, cursorUpdates: lastSuccessfulCursorUpdates });
         } catch (error) {

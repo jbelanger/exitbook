@@ -1,6 +1,7 @@
 import type { TransactionStatus } from '@exitbook/core';
 import { getErrorMessage, wrapError, type CursorState, type ExternalTransaction } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
+import { emitProgress } from '@exitbook/ui';
 import * as ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
@@ -148,11 +149,29 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
               return ok({ transactions: [], cursorUpdates: {} }); // No accounts, no transactions
             }
 
+            emitProgress({
+              type: 'started',
+              message: `Fetching Coinbase transactions from ${accounts.length} account(s)`,
+              data: { total: accounts.length },
+            });
+
             // Step 2: Fetch ledger entries for each account
+            let accountIndex = 0;
             for (const account of accounts) {
               const accountId = account.id;
+
+              emitProgress({
+                type: 'progress',
+                message: `Processing Coinbase account ${accountIndex + 1}/${accounts.length}`,
+                data: { current: accountIndex + 1, total: accounts.length },
+              });
               if (!accountId) {
                 logger.warn({ account }, 'Skipping Coinbase account without ID');
+                emitProgress({
+                  type: 'warning',
+                  message: 'Skipping Coinbase account without ID',
+                });
+                accountIndex++;
                 continue;
               }
 
@@ -186,8 +205,8 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                     // Extract and validate raw Coinbase data from CCXT's info property
                     // CCXT returns Coinbase Consumer API v2 transactions
 
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Coinbase raw data has dynamic structure
-                    const rawInfo = RawCoinbaseLedgerEntrySchema.parse(item.info) as RawCoinbaseLedgerEntry;
+                     
+                    const rawInfo = RawCoinbaseLedgerEntrySchema.parse(item.info);
 
                     // Extract correlation ID from type-specific nested object
                     // Different transaction types store correlation IDs in different locations
@@ -207,17 +226,16 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                         transfer_id?: string;
                       }
 
-                       
                       const typeSpecificData: TypeSpecific | undefined =
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Type-specific nested objects from Coinbase API
+                         
                         (rawInfo.advanced_trade_fill as TypeSpecific | undefined) ??
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Type-specific nested objects from Coinbase API
+                         
                         (rawInfo.buy as TypeSpecific | undefined) ??
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Type-specific nested objects from Coinbase API
+                         
                         (rawInfo.sell as TypeSpecific | undefined) ??
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Type-specific nested objects from Coinbase API
+                         
                         (rawInfo.send as TypeSpecific | undefined) ??
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Type-specific nested objects from Coinbase API
+                         
                         (rawInfo.trade as TypeSpecific | undefined);
 
                       if (typeSpecificData) {
@@ -262,22 +280,22 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                     let feeAmount: string | undefined;
                     let feeCurrency: string | undefined;
 
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Advanced trade fill data from Coinbase API
+                     
                     if (validatedData.type === 'advanced_trade_fill' && rawInfo.advanced_trade_fill?.commission) {
                       // Commission is paid in the quote currency (second part of product_id)
                       // e.g., "BTC-USDC" -> commission paid in USDC
-                      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Advanced trade fill data from Coinbase API
+                       
                       if (rawInfo.advanced_trade_fill.product_id) {
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Product ID parsing from Coinbase API
+                         
                         const parts = rawInfo.advanced_trade_fill.product_id.split('-');
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Quote currency extraction
+                         
                         feeCurrency = parts[1]; // Quote currency
 
                         // Only include fee on the entry that matches the fee currency
                         // This avoids duplicates - each fill creates 2 entries (base + quote)
                         // but we only want to record the fee once (on the quote currency side)
                         if (validatedData.currency === feeCurrency) {
-                          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Commission from Coinbase API
+                           
                           feeAmount = rawInfo.advanced_trade_fill.commission;
                         }
                       }
@@ -367,7 +385,15 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   accountCursor = accountCursor + 1;
                 }
               }
+
+              accountIndex++;
             }
+
+            emitProgress({
+              type: 'completed',
+              message: `Completed Coinbase fetch: ${allTransactions.length} transactions from ${accounts.length} account(s)`,
+              data: { total: allTransactions.length },
+            });
 
             return ok({ transactions: allTransactions, cursorUpdates: lastSuccessfulCursorUpdates });
           } catch (error) {

@@ -1,6 +1,7 @@
 import type { CursorState, TransactionStatus } from '@exitbook/core';
 import { getErrorMessage, wrapError, type ExternalTransaction } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
+import { emitProgress } from '@exitbook/ui';
 import * as ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
@@ -26,6 +27,10 @@ const logger = getLogger('KuCoinClient');
  */
 function mapKuCoinStatus(status: string | undefined): TransactionStatus {
   if (!status) {
+    emitProgress({
+      type: 'warning',
+      message: 'KuCoin transaction missing status - defaulting to "success"',
+    });
     logger.warn('KuCoin transaction missing status, defaulting to success');
     return 'success';
   }
@@ -43,6 +48,10 @@ function mapKuCoinStatus(status: string | undefined): TransactionStatus {
     case 'failed':
       return 'failed';
     default:
+      emitProgress({
+        type: 'warning',
+        message: `Unknown KuCoin transaction status: "${status}" - defaulting to "success"`,
+      });
       logger.warn(`Unknown KuCoin status "${status}", defaulting to success`);
       return 'success';
   }
@@ -100,56 +109,29 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
           let cumulativeFetched = (ledgerCursor?.totalFetched as number) || 0;
 
           try {
-            // First, check if we can access the account at all
-            logger.info('Checking KuCoin account access...');
-            const balance = await exchange.fetchBalance();
-            const totalBalances = balance.total as Record<string, number> | undefined;
-            const activeCurrencies = totalBalances
-              ? Object.keys(totalBalances).filter((k) => totalBalances[k] && totalBalances[k] > 0)
-              : [];
-            logger.info(`Account currencies: ${activeCurrencies.join(', ') || 'none'}`);
-
-            // Check available accounts
-            const accounts = await exchange.fetchAccounts();
-            logger.info(`Found ${accounts.length} KuCoin accounts`);
-            accounts.forEach((acc) => {
-              logger.info(`  - Account: ${acc.type || 'unknown'} (${acc.id})`);
+            emitProgress({
+              type: 'started',
+              message: `Fetching KuCoin ledger from ${new Date(currentStartTime).toISOString()} to ${new Date(now).toISOString()}`,
+              data: {
+                metadata: {
+                  startTime: currentStartTime,
+                  endTime: now,
+                  timeRangeDays: Math.floor((now - currentStartTime) / ONE_DAY),
+                },
+              },
             });
-
-            // First, try fetching recent data without time constraints to see if we get anything
-            logger.info('Attempting to fetch recent KuCoin ledger data (no time constraints)');
-            const testFetch = await exchange.fetchLedger(undefined, undefined, 10);
-            logger.info(`Test fetch returned ${testFetch.length} entries`);
-            if (testFetch.length > 0) {
-              logger.info(`Sample entry: ${JSON.stringify(testFetch[0])}`);
-            } else {
-              // Try fetching trades as an alternative
-              logger.info('No ledger entries found. Checking if there are any trades...');
-              try {
-                const trades = await exchange.fetchMyTrades(undefined, undefined, 10);
-                logger.info(`Found ${trades.length} trades`);
-                if (trades.length > 0) {
-                  logger.warn(
-                    'Account has trades but no ledger entries - this suggests fetchLedger may not work for this account type'
-                  );
-                }
-              } catch (tradeError) {
-                logger.debug(
-                  `fetchMyTrades failed: ${tradeError instanceof Error ? tradeError.message : String(tradeError)}`
-                );
-              }
-            }
-
-            logger.info(
-              `Starting KuCoin ledger fetch from ${new Date(currentStartTime).toISOString()} to ${new Date(now).toISOString()}`
-            );
 
             // KuCoin fetches backwards from 'until' timestamp
             // Only specify 'until' and it automatically fetches previous 24 hours
             let currentEnd = now;
+            let dayCount = 0;
+            let batchCount = 0;
 
             // Process data in 1-day batches going backwards in time
             while (currentEnd > currentStartTime) {
+              dayCount++;
+              batchCount = 0;
+              const currentDate = new Date(currentEnd).toISOString().split('T')[0];
               logger.debug(`Fetching ledger ending at: ${new Date(currentEnd).toISOString()}`);
 
               // Fetch all data for the 24-hour period ending at currentEnd
@@ -160,6 +142,7 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
                 const ledgerEntries = await exchange.fetchLedger(undefined, undefined, limit, {
                   until: currentEnd,
                 });
+                batchCount++;
 
                 logger.debug(`Received ${ledgerEntries.length} ledger entries for this batch`);
 
@@ -240,6 +223,23 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
                 // Update cumulative count
                 cumulativeFetched += transactions.length;
 
+                if (transactions.length > 0) {
+                  emitProgress({
+                    type: 'log',
+                    message: `Fetched batch ${batchCount} for ${currentDate}: ${transactions.length} transactions (${cumulativeFetched} total)`,
+                    data: {
+                      current: cumulativeFetched,
+                      metadata: {
+                        date: currentDate,
+                        batchCount,
+                        batchSize: transactions.length,
+                        totalTransactions: cumulativeFetched,
+                        dayCount,
+                      },
+                    },
+                  });
+                }
+
                 // Update cursor with cumulative totalFetched
                 if (cursorUpdates['ledger']) {
                   cursorUpdates['ledger'].totalFetched = cumulativeFetched;
@@ -260,11 +260,27 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
               currentEnd = currentEnd - ONE_DAY;
 
               // Log progress every 30 days
-              const daysFetched = Math.floor((now - currentEnd) / ONE_DAY);
-              if (daysFetched % 30 === 0 && daysFetched > 0) {
-                logger.info(`Progress: Fetched ${daysFetched} days, ${allTransactions.length} transactions so far`);
+              if (dayCount % 30 === 0) {
+                emitProgress({
+                  type: 'progress',
+                  message: `Progress: Processed ${dayCount} days, ${cumulativeFetched} transactions`,
+                  data: {
+                    current: dayCount,
+                    total: Math.floor((now - currentStartTime) / ONE_DAY),
+                    metadata: { totalTransactions: cumulativeFetched },
+                  },
+                });
               }
             }
+
+            emitProgress({
+              type: 'completed',
+              message: `Completed KuCoin fetch: ${allTransactions.length} transactions (${dayCount} days processed)`,
+              data: {
+                total: allTransactions.length,
+                metadata: { daysProcessed: dayCount },
+              },
+            });
 
             logger.info(`KuCoin fetch completed successfully: ${allTransactions.length} total transactions`);
             return ok({ transactions: allTransactions, cursorUpdates: lastSuccessfulCursorUpdates });
