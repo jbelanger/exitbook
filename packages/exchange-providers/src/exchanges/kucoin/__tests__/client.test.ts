@@ -294,11 +294,8 @@ describe('createKuCoinClient - fetchTransactionData', () => {
   });
 
   test('handles network errors gracefully', async () => {
-    // Mock diagnostic calls - balance call fails
-    mockFetchBalance.mockRejectedValue(new Error('Network timeout'));
-    mockFetchAccounts.mockResolvedValue([{ id: 'main', type: 'main' }]);
-    mockFetchMyTrades.mockResolvedValue([]);
-    mockFetchLedger.mockResolvedValue([]);
+    // Mock ledger call to fail immediately
+    mockFetchLedger.mockRejectedValue(new Error('Network timeout'));
 
     const result = await client.fetchTransactionData();
 
