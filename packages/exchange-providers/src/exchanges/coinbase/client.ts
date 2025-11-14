@@ -1,10 +1,10 @@
 import type { TransactionStatus } from '@exitbook/core';
 import { getErrorMessage, wrapError, type CursorState, type ExternalTransaction } from '@exitbook/core';
+import { getLogger } from '@exitbook/logger';
 import * as ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
-import type z from 'zod';
 
 import { PartialImportError } from '../../core/errors.js';
 import * as ExchangeUtils from '../../core/exchange-utils.js';
@@ -17,10 +17,14 @@ import type {
   IExchangeClient,
 } from '../../core/types.js';
 
-import { CoinbaseCredentialsSchema, CoinbaseLedgerEntrySchema, RawCoinbaseLedgerEntrySchema } from './schemas.js';
-import type { RawCoinbaseLedgerEntry } from './types.js';
+import {
+  CoinbaseCredentialsSchema,
+  CoinbaseLedgerEntrySchema,
+  RawCoinbaseLedgerEntrySchema,
+  type CoinbaseLedgerEntry,
+} from './schemas.js';
 
-export type CoinbaseLedgerEntry = z.infer<typeof CoinbaseLedgerEntrySchema>;
+const logger = getLogger('CoinbaseClient');
 
 /**
  * Validate Coinbase credentials format and provide helpful error messages
@@ -73,7 +77,10 @@ function normalizePemKey(secret: string): string {
  * Map Coinbase status to universal status format
  */
 function mapCoinbaseStatus(status: string | undefined): TransactionStatus {
-  if (!status) return 'success';
+  if (!status) {
+    logger.warn('Coinbase transaction missing status, defaulting to success');
+    return 'success';
+  }
 
   switch (status.toLowerCase()) {
     case 'pending':
@@ -88,6 +95,7 @@ function mapCoinbaseStatus(status: string | undefined): TransactionStatus {
     case 'failed':
       return 'failed';
     default:
+      logger.warn(`Unknown Coinbase status "${status}", defaulting to success`);
       return 'success';
   }
 }
@@ -143,7 +151,10 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
             // Step 2: Fetch ledger entries for each account
             for (const account of accounts) {
               const accountId = account.id;
-              if (!accountId) continue;
+              if (!accountId) {
+                logger.warn({ account }, 'Skipping Coinbase account without ID');
+                continue;
+              }
 
               // Extract cursor for this account
               const accountCursorState = params?.cursor?.[accountId];
@@ -175,6 +186,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                     // Extract and validate raw Coinbase data from CCXT's info property
                     // CCXT returns Coinbase Consumer API v2 transactions
 
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Coinbase raw data has dynamic structure
                     const rawInfo = RawCoinbaseLedgerEntrySchema.parse(item.info) as RawCoinbaseLedgerEntry;
 
                     // Extract correlation ID from type-specific nested object
@@ -195,11 +207,17 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                         transfer_id?: string;
                       }
 
+                       
                       const typeSpecificData: TypeSpecific | undefined =
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Type-specific nested objects from Coinbase API
                         (rawInfo.advanced_trade_fill as TypeSpecific | undefined) ??
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Type-specific nested objects from Coinbase API
                         (rawInfo.buy as TypeSpecific | undefined) ??
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Type-specific nested objects from Coinbase API
                         (rawInfo.sell as TypeSpecific | undefined) ??
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Type-specific nested objects from Coinbase API
                         (rawInfo.send as TypeSpecific | undefined) ??
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Type-specific nested objects from Coinbase API
                         (rawInfo.trade as TypeSpecific | undefined);
 
                       if (typeSpecificData) {
@@ -244,17 +262,22 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                     let feeAmount: string | undefined;
                     let feeCurrency: string | undefined;
 
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Advanced trade fill data from Coinbase API
                     if (validatedData.type === 'advanced_trade_fill' && rawInfo.advanced_trade_fill?.commission) {
                       // Commission is paid in the quote currency (second part of product_id)
                       // e.g., "BTC-USDC" -> commission paid in USDC
+                      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Advanced trade fill data from Coinbase API
                       if (rawInfo.advanced_trade_fill.product_id) {
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Product ID parsing from Coinbase API
                         const parts = rawInfo.advanced_trade_fill.product_id.split('-');
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Quote currency extraction
                         feeCurrency = parts[1]; // Quote currency
 
                         // Only include fee on the entry that matches the fee currency
                         // This avoids duplicates - each fill creates 2 entries (base + quote)
                         // but we only want to record the fee once (on the quote currency side)
                         if (validatedData.currency === feeCurrency) {
+                          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Commission from Coinbase API
                           feeAmount = rawInfo.advanced_trade_fill.commission;
                         }
                       }

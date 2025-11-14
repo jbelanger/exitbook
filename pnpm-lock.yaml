@@ -339,6 +339,9 @@ importers:
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
+      '@exitbook/ui':
+        specifier: workspace:*
+        version: link:../ui
       ccxt:
         specifier: ^4.5.10
         version: 4.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10)

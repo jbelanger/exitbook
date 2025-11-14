@@ -2,7 +2,6 @@ import { getErrorMessage, wrapError, type CursorState, type ExternalTransaction 
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
-import type z from 'zod';
 
 import { PartialImportError } from '../../core/errors.js';
 import * as ExchangeUtils from '../../core/exchange-utils.js';
@@ -15,9 +14,7 @@ import type {
   IExchangeClient,
 } from '../../core/types.js';
 
-import { KrakenCredentialsSchema, KrakenLedgerEntrySchema } from './schemas.js';
-
-export type KrakenLedgerEntry = z.infer<typeof KrakenLedgerEntrySchema>;
+import { KrakenCredentialsSchema, KrakenLedgerEntrySchema, type KrakenLedgerEntry } from './schemas.js';
 
 /**
  * Normalize Kraken asset symbols by removing X/Z prefixes.

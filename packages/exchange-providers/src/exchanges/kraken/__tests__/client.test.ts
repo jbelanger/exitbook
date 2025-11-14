@@ -788,4 +788,36 @@ describe('createKrakenClient - fetchBalance', () => {
     expect(balances.XXBT).toBeUndefined();
     expect(balances.ZUSD).toBeUndefined();
   });
+
+  test('handles various Kraken asset formats', async () => {
+    const mockBalance = {
+      XXBT: { free: 1, used: 0, total: 1 },
+      XBT: { free: 0.5, used: 0, total: 0.5 },
+      XETH: { free: 10, used: 0, total: 10 },
+      XXRP: { free: 100, used: 0, total: 100 },
+      ZUSD: { free: 1000, used: 0, total: 1000 },
+      ZEUR: { free: 500, used: 0, total: 500 },
+      ZGBP: { free: 200, used: 0, total: 200 },
+      XDOGE: { free: 1000, used: 0, total: 1000 }, // Should normalize to DOGE
+      USDC: { free: 500, used: 0, total: 500 }, // No prefix, should stay USDC
+    };
+
+    mockFetchBalance.mockResolvedValueOnce(mockBalance);
+
+    const result = await client.fetchBalance();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const { balances } = result.value;
+    // XXBT and XBT should both normalize to BTC and be combined
+    expect(balances.BTC).toBeDefined();
+    expect(balances.ETH).toBe('10');
+    expect(balances.XRP).toBe('100');
+    expect(balances.USD).toBe('1000');
+    expect(balances.EUR).toBe('500');
+    expect(balances.GBP).toBe('200');
+    expect(balances.DOGE).toBe('1000');
+    expect(balances.USDC).toBe('500');
+  });
 });

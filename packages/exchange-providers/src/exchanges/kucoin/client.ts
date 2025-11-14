@@ -2,9 +2,9 @@ import type { CursorState, TransactionStatus } from '@exitbook/core';
 import { getErrorMessage, wrapError, type ExternalTransaction } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import * as ccxt from 'ccxt';
+import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
-import type z from 'zod';
 
 import { PartialImportError } from '../../core/errors.js';
 import * as ExchangeUtils from '../../core/exchange-utils.js';
@@ -17,15 +17,18 @@ import type {
   IExchangeClient,
 } from '../../core/types.js';
 
-import { KuCoinCredentialsSchema, KuCoinLedgerEntrySchema } from './schemas.js';
+import { KuCoinCredentialsSchema, KuCoinLedgerEntrySchema, type KuCoinLedgerEntry } from './schemas.js';
 
-export type KuCoinLedgerEntry = z.infer<typeof KuCoinLedgerEntrySchema>;
+const logger = getLogger('KuCoinClient');
 
 /**
  * Map KuCoin status to universal status format
  */
 function mapKuCoinStatus(status: string | undefined): TransactionStatus {
-  if (!status) return 'success';
+  if (!status) {
+    logger.warn('KuCoin transaction missing status, defaulting to success');
+    return 'success';
+  }
 
   switch (status.toLowerCase()) {
     case 'pending':
@@ -40,6 +43,7 @@ function mapKuCoinStatus(status: string | undefined): TransactionStatus {
     case 'failed':
       return 'failed';
     default:
+      logger.warn(`Unknown KuCoin status "${status}", defaulting to success`);
       return 'success';
   }
 }
@@ -186,8 +190,8 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
                       timestamp,
                       type: validatedData.type,
                       asset: validatedData.currency,
-                      amount: validatedData.amount.toFixed(),
-                      fee: validatedData.fee?.cost.toString(),
+                      amount: new Decimal(validatedData.amount).toFixed(), // DecimalStringSchema provides string, wrap in Decimal for safety
+                      fee: validatedData.fee?.cost ? new Decimal(validatedData.fee.cost).toFixed() : undefined,
                       feeCurrency: validatedData.fee?.currency,
                       status: mapKuCoinStatus(validatedData.status),
                     };
