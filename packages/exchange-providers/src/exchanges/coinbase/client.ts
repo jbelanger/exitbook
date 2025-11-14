@@ -1,7 +1,7 @@
 import type { TransactionStatus } from '@exitbook/core';
 import { getErrorMessage, parseDecimal, wrapError, type CursorState, type ExternalTransaction } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { emitProgress } from '@exitbook/ui';
+import { progress } from '@exitbook/ui';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -148,28 +148,21 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
               return ok({ transactions: [], cursorUpdates: {} }); // No accounts, no transactions
             }
 
-            emitProgress({
-              type: 'started',
-              message: `Fetching Coinbase transactions from ${accounts.length} account(s)`,
-              data: { total: accounts.length },
-            });
+            progress.start(`Fetching Coinbase transactions from ${accounts.length} account(s)`);
 
             // Step 2: Fetch ledger entries for each account
             let accountIndex = 0;
             for (const account of accounts) {
               const accountId = account.id;
 
-              emitProgress({
-                type: 'progress',
-                message: `Processing Coinbase account ${accountIndex + 1}/${accounts.length}`,
-                data: { current: accountIndex + 1, total: accounts.length },
-              });
+              progress.update(
+                `Processing Coinbase account ${accountIndex + 1}/${accounts.length}`,
+                accountIndex + 1,
+                accounts.length
+              );
               if (!accountId) {
                 logger.warn({ account }, 'Skipping Coinbase account without ID');
-                emitProgress({
-                  type: 'warning',
-                  message: 'Skipping Coinbase account without ID',
-                });
+                progress.warn('Skipping Coinbase account without ID');
                 accountIndex++;
                 continue;
               }
@@ -379,11 +372,9 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
               accountIndex++;
             }
 
-            emitProgress({
-              type: 'completed',
-              message: `Completed Coinbase fetch: ${allTransactions.length} transactions from ${accounts.length} account(s)`,
-              data: { total: allTransactions.length },
-            });
+            progress.complete(
+              `Completed Coinbase fetch: ${allTransactions.length} transactions from ${accounts.length} account(s)`
+            );
 
             return ok({ transactions: allTransactions, cursorUpdates: lastSuccessfulCursorUpdates });
           } catch (error) {

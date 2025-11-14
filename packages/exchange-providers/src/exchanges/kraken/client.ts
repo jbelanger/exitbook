@@ -1,5 +1,5 @@
 import { getErrorMessage, wrapError, type CursorState, type ExternalTransaction } from '@exitbook/core';
-import { emitProgress } from '@exitbook/ui';
+import { progress } from '@exitbook/ui';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -93,11 +93,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
         let cumulativeFetched = (ledgerCursor?.totalFetched as number) || 0;
 
         try {
-          emitProgress({
-            type: 'started',
-            message: 'Fetching Kraken ledger transactions',
-            data: { metadata: { since, startOffset: ofs } },
-          });
+          progress.start('Fetching Kraken ledger transactions');
 
           let pageCount = 0;
 
@@ -177,18 +173,15 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
             cumulativeFetched += transactions.length;
 
             pageCount++;
-            emitProgress({
-              type: 'progress',
-              message: `Fetched Kraken page ${pageCount}: ${cumulativeFetched} total transactions`,
-              data: { current: cumulativeFetched, metadata: { pageCount, offset: ofs, pageSize: transactions.length } },
-            });
 
+            // Log every page for debugging
+            progress.log(
+              `Fetched Kraken page ${pageCount}: ${transactions.length} transactions (${cumulativeFetched} total)`
+            );
+
+            // Report progress every 10 pages
             if (pageCount % 10 === 0) {
-              emitProgress({
-                type: 'log',
-                message: `Progress: ${pageCount} pages fetched, ${cumulativeFetched} transactions`,
-                data: { metadata: { pageCount, totalTransactions: cumulativeFetched } },
-              });
+              progress.update(`Processed ${pageCount} pages`, cumulativeFetched);
             }
 
             // Update cursor with cumulative totalFetched
@@ -204,11 +197,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
             ofs += ledgerEntries.length;
           }
 
-          emitProgress({
-            type: 'completed',
-            message: `Completed Kraken fetch: ${allTransactions.length} transactions (${pageCount} pages)`,
-            data: { total: allTransactions.length, metadata: { totalPages: pageCount } },
-          });
+          progress.complete(`Completed Kraken fetch: ${allTransactions.length} transactions (${pageCount} pages)`);
 
           return ok({ transactions: allTransactions, cursorUpdates: lastSuccessfulCursorUpdates });
         } catch (error) {

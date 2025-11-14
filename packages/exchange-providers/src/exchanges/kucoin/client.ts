@@ -1,7 +1,7 @@
 import type { CursorState, TransactionStatus } from '@exitbook/core';
 import { getErrorMessage, wrapError, type ExternalTransaction } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { emitProgress } from '@exitbook/ui';
+import { progress } from '@exitbook/ui';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -26,10 +26,7 @@ const logger = getLogger('KuCoinClient');
  */
 function mapKuCoinStatus(status: string | undefined): TransactionStatus {
   if (!status) {
-    emitProgress({
-      type: 'warning',
-      message: 'KuCoin transaction missing status - defaulting to "success"',
-    });
+    progress.warn('KuCoin transaction missing status - defaulting to "success"');
     logger.warn('KuCoin transaction missing status, defaulting to success');
     return 'success';
   }
@@ -47,10 +44,7 @@ function mapKuCoinStatus(status: string | undefined): TransactionStatus {
     case 'failed':
       return 'failed';
     default:
-      emitProgress({
-        type: 'warning',
-        message: `Unknown KuCoin transaction status: "${status}" - defaulting to "success"`,
-      });
+      progress.warn(`Unknown KuCoin transaction status: "${status}" - defaulting to "success"`);
       logger.warn(`Unknown KuCoin status "${status}", defaulting to success`);
       return 'success';
   }
@@ -108,17 +102,9 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
           let cumulativeFetched = (ledgerCursor?.totalFetched as number) || 0;
 
           try {
-            emitProgress({
-              type: 'started',
-              message: `Fetching KuCoin ledger from ${new Date(currentStartTime).toISOString()} to ${new Date(now).toISOString()}`,
-              data: {
-                metadata: {
-                  startTime: currentStartTime,
-                  endTime: now,
-                  timeRangeDays: Math.floor((now - currentStartTime) / ONE_DAY),
-                },
-              },
-            });
+            progress.start(
+              `Fetching KuCoin ledger from ${new Date(currentStartTime).toISOString()} to ${new Date(now).toISOString()}`
+            );
 
             // KuCoin fetches backwards from 'until' timestamp
             // Only specify 'until' and it automatically fetches previous 24 hours
@@ -222,21 +208,11 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
                 // Update cumulative count
                 cumulativeFetched += transactions.length;
 
+                // Log batches with transactions (for debugging)
                 if (transactions.length > 0) {
-                  emitProgress({
-                    type: 'log',
-                    message: `Fetched batch ${batchCount} for ${currentDate}: ${transactions.length} transactions (${cumulativeFetched} total)`,
-                    data: {
-                      current: cumulativeFetched,
-                      metadata: {
-                        date: currentDate,
-                        batchCount,
-                        batchSize: transactions.length,
-                        totalTransactions: cumulativeFetched,
-                        dayCount,
-                      },
-                    },
-                  });
+                  progress.log(
+                    `Fetched batch ${batchCount} for ${currentDate}: ${transactions.length} transactions (${cumulativeFetched} total)`
+                  );
                 }
 
                 // Update cursor with cumulative totalFetched
@@ -258,28 +234,16 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
               // Move to previous day (24 hours earlier)
               currentEnd = currentEnd - ONE_DAY;
 
-              // Log progress every 30 days
+              // Report progress every 30 days
               if (dayCount % 30 === 0) {
-                emitProgress({
-                  type: 'progress',
-                  message: `Progress: Processed ${dayCount} days, ${cumulativeFetched} transactions`,
-                  data: {
-                    current: dayCount,
-                    total: Math.floor((now - currentStartTime) / ONE_DAY),
-                    metadata: { totalTransactions: cumulativeFetched },
-                  },
-                });
+                const totalDays = Math.floor((now - currentStartTime) / ONE_DAY);
+                progress.update(`Processed ${dayCount} days (${cumulativeFetched} transactions)`, dayCount, totalDays);
               }
             }
 
-            emitProgress({
-              type: 'completed',
-              message: `Completed KuCoin fetch: ${allTransactions.length} transactions (${dayCount} days processed)`,
-              data: {
-                total: allTransactions.length,
-                metadata: { daysProcessed: dayCount },
-              },
-            });
+            progress.complete(
+              `Completed KuCoin fetch: ${allTransactions.length} transactions (${dayCount} days processed)`
+            );
 
             logger.info(`KuCoin fetch completed successfully: ${allTransactions.length} total transactions`);
             return ok({ transactions: allTransactions, cursorUpdates: lastSuccessfulCursorUpdates });
