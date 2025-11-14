@@ -36,6 +36,18 @@ export function shouldReuseExistingImport(existingSource: DataSource | undefined
 }
 
 /**
+ * Extract resume cursor from incomplete data source for blockchain imports
+ * Pure function for determining cursor state when resuming an import
+ *
+ * @param dataSource - Incomplete data source to resume from
+ * @returns Cursor map or undefined if no cursor available
+ */
+export function extractResumeCursor(dataSource: DataSource | undefined): Record<string, CursorState> | undefined {
+  if (!dataSource) return undefined;
+  return dataSource.lastCursor;
+}
+
+/**
  * Normalize and validate blockchain import parameters.
  * Validates that address is provided and normalizes it using blockchain-specific logic.
  *

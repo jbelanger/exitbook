@@ -16,6 +16,7 @@ import {
 import type { KyselyDB } from '@exitbook/data';
 import type { StoredDataSource, ImportSessionQuery, DataSourceUpdate } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
+import { sql } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { z } from 'zod';
@@ -376,6 +377,47 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       return ok();
     } catch (error) {
       return wrapError(error, 'Failed to delete all data sources');
+    }
+  }
+
+  /**
+   * Find latest incomplete data source for resume
+   * Status 'started' or 'failed' indicates incomplete import
+   * For blockchain imports, filters by both blockchain (sourceId) and address to prevent cross-chain resume
+   */
+  async findLatestIncomplete(
+    sourceId: string,
+    sourceType: SourceType,
+    address?: string
+  ): Promise<Result<DataSource | undefined, Error>> {
+    try {
+      let query = this.db
+        .selectFrom('data_sources')
+        .selectAll()
+        .where('source_id', '=', sourceId)
+        .where('source_type', '=', sourceType)
+        .where('status', 'in', ['started', 'failed']);
+
+      // For blockchain imports, also filter by address to prevent cross-chain resume corruption
+      // Use json_extract() with bound parameter for safe, exact comparison
+      if (sourceType === 'blockchain' && address) {
+        query = query.where(sql`json_extract(import_params, '$.address') collate nocase`, '=', address.toLowerCase());
+      }
+
+      const row = await query.orderBy('started_at', 'desc').limit(1).executeTakeFirst();
+
+      if (!row) {
+        return ok(undefined);
+      }
+
+      const result = this.toDataSource(row);
+      if (result.isErr()) {
+        return err(result.error);
+      }
+
+      return ok(result.value);
+    } catch (error) {
+      return wrapError(error, 'Failed to find latest incomplete data source');
     }
   }
 

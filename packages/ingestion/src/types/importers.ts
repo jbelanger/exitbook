@@ -16,6 +16,20 @@ export interface ImportResult {
   metadata?: Record<string, unknown> | undefined;
 }
 
+/**
+ * Single batch of imported transactions from streaming import
+ */
+export interface ImportBatchResult {
+  // Successfully fetched and validated transactions in this batch
+  rawTransactions: ExternalTransaction[];
+  // Operation type (e.g., "normal", "internal", "token" for blockchains, "ledger", "trade" for exchanges)
+  operationType: string;
+  // Cursor state for this specific operation type
+  cursor: CursorState;
+  // Whether this operation type has completed (no more batches for this operation)
+  isComplete: boolean;
+}
+
 export interface ImportRunResult {
   // Successfully fetched and validated transactions
   rawTransactions: ExternalTransaction[];
@@ -35,6 +49,21 @@ export interface ImportRunResult {
  */
 export interface IImporter {
   /**
+   * Streaming import - yields batches as they're fetched
+   * Enables memory-bounded processing and mid-import resumption
+   *
+   * Optional during migration - blockchain importers should implement this,
+   * exchange importers may implement later
+   *
+   * @param params - Import parameters including optional resume cursors
+   * @returns AsyncIterator yielding Result-wrapped batches
+   */
+  importStreaming?(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>>;
+
+  /**
+   * Legacy batch import - accumulates all transactions before returning
+   * @deprecated Use importStreaming instead when available
+   *
    * Import raw data from the source and return it with API client provenance and metadata.
    * Does NOT save to database - that's handled by the ingestion service.
    * Returns Result to make error handling explicit.

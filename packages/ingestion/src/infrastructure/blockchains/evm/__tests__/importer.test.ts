@@ -3,11 +3,10 @@
  * Tests the three-method fetch pattern (normal, internal, token) across multiple chains
  */
 
-import type { FailoverExecutionResult } from '@exitbook/blockchain-providers';
 import { type EvmChainConfig, type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
 import type { PaginationCursor } from '@exitbook/core';
-import { err, errAsync, ok } from 'neverthrow';
+import { errAsync, ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
 import { EvmImporter } from '../importer.js';
@@ -37,7 +36,10 @@ const mockTokenTx = {
 };
 
 type ProviderManagerMock = Mocked<
-  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'executeWithFailover' | 'getProviders'>
+  Pick<
+    BlockchainProviderManager,
+    'autoRegisterFromConfig' | 'executeWithFailover' | 'executeWithFailoverStreaming' | 'getProviders'
+  >
 >;
 
 describe('EvmImporter', () => {
@@ -47,6 +49,7 @@ describe('EvmImporter', () => {
     mockProviderManager = {
       autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
       executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
+      executeWithFailoverStreaming: vi.fn<BlockchainProviderManager['executeWithFailoverStreaming']>(),
       getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
 
@@ -71,6 +74,17 @@ describe('EvmImporter', () => {
         applyReplayWindow: vi.fn((cursor: PaginationCursor): PaginationCursor => cursor),
       },
     ]);
+
+    // Default streaming mock implementation - yields empty batch (will be overridden per test)
+    mockProviderManager.executeWithFailoverStreaming.mockImplementation(async function* () {
+      yield Promise.resolve(
+        ok({
+          data: [],
+          providerName: 'alchemy',
+          cursor: { primary: { type: 'blockNumber' as const, value: 0 }, lastTransactionId: '', totalFetched: 0 },
+        })
+      );
+    });
   });
 
   const createImporter = (
@@ -120,25 +134,40 @@ describe('EvmImporter', () => {
       const importer = createImporter();
       const address = '0x1234567890123456789012345678901234567890';
 
-      mockProviderManager.executeWithFailover
-        .mockResolvedValueOnce(
-          ok({
-            data: [{ raw: mockNormalTx, normalized: { id: mockNormalTx.hash }, externalId: mockNormalTx.hash }],
+      // Mock streaming responses for each transaction type
+      mockProviderManager.executeWithFailoverStreaming.mockImplementation(async function* (_blockchain, operation) {
+        if (operation.type === 'getAddressTransactions') {
+          yield okAsync({
+            data: [{ raw: mockNormalTx, normalized: { id: mockNormalTx.hash } }],
             providerName: 'alchemy',
-          } as FailoverExecutionResult<unknown>)
-        )
-        .mockResolvedValueOnce(
-          ok({
-            data: [{ raw: mockInternalTx, normalized: { id: mockInternalTx.hash }, externalId: mockInternalTx.hash }],
+            cursor: {
+              primary: { type: 'blockNumber' as const, value: 1 },
+              lastTransactionId: mockNormalTx.hash,
+              totalFetched: 1,
+            },
+          });
+        } else if (operation.type === 'getAddressInternalTransactions') {
+          yield ok({
+            data: [{ raw: mockInternalTx, normalized: { id: mockInternalTx.hash } }],
             providerName: 'alchemy',
-          } as FailoverExecutionResult<unknown>)
-        )
-        .mockResolvedValueOnce(
-          ok({
-            data: [{ raw: mockTokenTx, normalized: { id: mockTokenTx.hash }, externalId: mockTokenTx.hash }],
+            cursor: {
+              primary: { type: 'blockNumber' as const, value: 1 },
+              lastTransactionId: mockInternalTx.hash,
+              totalFetched: 1,
+            },
+          });
+        } else if (operation.type === 'getAddressTokenTransactions') {
+          yield ok({
+            data: [{ raw: mockTokenTx, normalized: { id: mockTokenTx.hash } }],
             providerName: 'alchemy',
-          } as FailoverExecutionResult<unknown>)
-        );
+            cursor: {
+              primary: { type: 'blockNumber' as const, value: 1 },
+              lastTransactionId: mockTokenTx.hash,
+              totalFetched: 1,
+            },
+          });
+        }
+      });
 
       const result = await importer.import({ address });
 
@@ -177,23 +206,23 @@ describe('EvmImporter', () => {
         expect(result.value.rawTransactions[2]?.externalId).toMatch(/^[a-f0-9]{64}$/);
       }
 
-      // Verify all three API calls were made in parallel
-      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(3);
+      // Verify all three streaming calls were made (one for each transaction type)
+      expect(mockProviderManager.executeWithFailoverStreaming).toHaveBeenCalledTimes(3);
 
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const streamingCalls: Parameters<BlockchainProviderManager['executeWithFailoverStreaming']>[] =
+        mockProviderManager.executeWithFailoverStreaming.mock.calls;
 
-      const [, normalOperation] = executeCalls[0]!;
+      const [, normalOperation] = streamingCalls[0]!;
       assertOperationType(normalOperation, 'getAddressTransactions');
       expect(normalOperation.address).toBe(address);
       expect(normalOperation.getCacheKey).toBeDefined();
 
-      const [, internalOperation] = executeCalls[1]!;
+      const [, internalOperation] = streamingCalls[1]!;
       assertOperationType(internalOperation, 'getAddressInternalTransactions');
       expect(internalOperation.address).toBe(address);
       expect(internalOperation.getCacheKey).toBeDefined();
 
-      const [, tokenOperation] = executeCalls[2]!;
+      const [, tokenOperation] = streamingCalls[2]!;
       assertOperationType(tokenOperation, 'getAddressTokenTransactions');
       expect(tokenOperation.address).toBe(address);
       expect(tokenOperation.getCacheKey).toBeDefined();
@@ -205,26 +234,36 @@ describe('EvmImporter', () => {
       const importer = createImporter();
       const address = '0x1234567890123456789012345678901234567890';
 
-      mockProviderManager.executeWithFailover
-        .mockResolvedValueOnce(
-          err(
+      // Mock streaming to fail for normal transactions
+      mockProviderManager.executeWithFailoverStreaming.mockImplementation(async function* (_blockchain, operation) {
+        if (operation.type === 'getAddressTransactions') {
+          yield errAsync(
             new ProviderError('Failed to fetch normal transactions', 'ALL_PROVIDERS_FAILED', {
               blockchain: 'ethereum',
             })
-          )
-        )
-        .mockResolvedValueOnce(
-          ok({
+          );
+        } else if (operation.type === 'getAddressInternalTransactions') {
+          yield ok({
             data: [{ raw: mockInternalTx, normalized: { id: mockInternalTx.hash } }],
             providerName: 'alchemy',
-          } as FailoverExecutionResult<unknown>)
-        )
-        .mockResolvedValueOnce(
-          ok({
+            cursor: {
+              primary: { type: 'blockNumber' as const, value: 1 },
+              lastTransactionId: mockInternalTx.hash,
+              totalFetched: 1,
+            },
+          });
+        } else if (operation.type === 'getAddressTokenTransactions') {
+          yield ok({
             data: [{ raw: mockTokenTx, normalized: { id: mockTokenTx.hash } }],
             providerName: 'alchemy',
-          } as FailoverExecutionResult<unknown>)
-        );
+            cursor: {
+              primary: { type: 'blockNumber' as const, value: 1 },
+              lastTransactionId: mockTokenTx.hash,
+              totalFetched: 1,
+            },
+          });
+        }
+      });
 
       const result = await importer.import({ address });
 
@@ -251,34 +290,39 @@ describe('EvmImporter', () => {
       const importer = createImporter(AVALANCHE_CONFIG);
       const address = '0x1234567890123456789012345678901234567890';
 
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
+      mockProviderManager.executeWithFailoverStreaming.mockImplementation(async function* () {
+        yield okAsync({
           data: [{ raw: mockNormalTx, normalized: { id: mockNormalTx.hash } }],
           providerName: 'snowtrace',
-        } as FailoverExecutionResult<unknown>)
-      );
+          cursor: {
+            primary: { type: 'blockNumber' as const, value: 1 },
+            lastTransactionId: mockNormalTx.hash,
+            totalFetched: 1,
+          },
+        });
+      });
 
       const result = await importer.import({ address });
 
       expect(result.isOk()).toBe(true);
 
       // Verify calls were made with 'avalanche' blockchain name
-      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const streamingCalls: Parameters<BlockchainProviderManager['executeWithFailoverStreaming']>[] =
+        mockProviderManager.executeWithFailoverStreaming.mock.calls;
 
-      expect(executeCalls[0]?.[0]).toBe('avalanche');
-      expect(executeCalls[1]?.[0]).toBe('avalanche');
-      expect(executeCalls[2]?.[0]).toBe('avalanche');
+      expect(streamingCalls[0]?.[0]).toBe('avalanche');
+      expect(streamingCalls[1]?.[0]).toBe('avalanche');
+      expect(streamingCalls[2]?.[0]).toBe('avalanche');
 
-      const [, normalOperation] = executeCalls[0]!;
+      const [, normalOperation] = streamingCalls[0]!;
       assertOperationType(normalOperation, 'getAddressTransactions');
       expect(normalOperation.address).toBe(address);
 
-      const [, internalOperation] = executeCalls[1]!;
+      const [, internalOperation] = streamingCalls[1]!;
       assertOperationType(internalOperation, 'getAddressInternalTransactions');
       expect(internalOperation.address).toBe(address);
 
-      const [, tokenOperation] = executeCalls[2]!;
+      const [, tokenOperation] = streamingCalls[2]!;
       assertOperationType(tokenOperation, 'getAddressTokenTransactions');
       expect(tokenOperation.address).toBe(address);
     });
@@ -292,25 +336,29 @@ describe('EvmImporter', () => {
         { raw: { ...mockNormalTx, hash: '0x789' }, normalized: { id: '0x789' } },
       ];
 
-      mockProviderManager.executeWithFailover
-        .mockResolvedValueOnce(
-          ok({
+      mockProviderManager.executeWithFailoverStreaming.mockImplementation(async function* (_blockchain, operation) {
+        if (operation.type === 'getAddressTransactions') {
+          yield okAsync({
             data: multipleNormalTxs,
             providerName: 'alchemy',
-          } as FailoverExecutionResult<unknown>)
-        )
-        .mockResolvedValueOnce(
-          ok({
+            cursor: {
+              primary: { type: 'blockNumber' as const, value: 2 },
+              lastTransactionId: '0x789',
+              totalFetched: 2,
+            },
+          });
+        } else {
+          yield okAsync({
             data: [],
             providerName: 'alchemy',
-          } as FailoverExecutionResult<unknown>)
-        )
-        .mockResolvedValueOnce(
-          ok({
-            data: [],
-            providerName: 'alchemy',
-          } as FailoverExecutionResult<unknown>)
-        );
+            cursor: {
+              primary: { type: 'blockNumber' as const, value: 0 },
+              lastTransactionId: '',
+              totalFetched: 0,
+            },
+          });
+        }
+      });
 
       const result = await importer.import({ address });
 
@@ -328,17 +376,22 @@ describe('EvmImporter', () => {
       const importer = createImporter();
       const address = '0x1234567890123456789012345678901234567890';
 
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
+      mockProviderManager.executeWithFailoverStreaming.mockImplementation(async function* () {
+        yield okAsync({
           data: [],
           providerName: 'alchemy',
-        } as FailoverExecutionResult<unknown>)
-      );
+          cursor: {
+            primary: { type: 'blockNumber' as const, value: 0 },
+            lastTransactionId: '',
+            totalFetched: 0,
+          },
+        });
+      });
 
       await importer.import({ address });
 
-      const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
-        mockProviderManager.executeWithFailover.mock.calls;
+      const calls: Parameters<BlockchainProviderManager['executeWithFailoverStreaming']>[] =
+        mockProviderManager.executeWithFailoverStreaming.mock.calls;
 
       const normalCall = calls[0]![1];
       const normalCacheKey = normalCall.getCacheKey!(normalCall);
