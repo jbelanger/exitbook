@@ -1,5 +1,5 @@
 import type { KyselyDB } from '@exitbook/data';
-import type { TransactionImportService, TransactionProcessService } from '@exitbook/ingestion';
+import type { ImportOrchestrator, TransactionProcessService } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
@@ -16,19 +16,27 @@ vi.mock('@exitbook/blockchain-providers', () => ({
 }));
 
 vi.mock('@exitbook/ingestion', () => ({
-  ImporterFactory: vi.fn(),
   DataSourceRepository: vi.fn(),
-  ProcessorFactory: vi.fn(),
+  ImportOrchestrator: vi.fn(),
   RawDataRepository: vi.fn(),
   TokenMetadataService: vi.fn(),
-  TransactionImportService: vi.fn(),
   TransactionProcessService: vi.fn(),
   TransactionRepository: vi.fn(),
 }));
 
+vi.mock('@exitbook/data', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@exitbook/data')>();
+  return {
+    ...actual,
+    UserRepository: vi.fn(),
+    AccountRepository: vi.fn(),
+    TokenMetadataRepository: vi.fn(),
+  };
+});
+
 describe('ImportHandler', () => {
   let mockDatabase: KyselyDB;
-  let mockImportService: Partial<TransactionImportService>;
+  let mockImportOrchestrator: Partial<ImportOrchestrator>;
   let mockProcessService: Partial<TransactionProcessService>;
   let handler: ImportHandler;
 
@@ -38,9 +46,11 @@ describe('ImportHandler', () => {
     // Mock database
     mockDatabase = {} as KyselyDB;
 
-    // Mock import and process services
-    mockImportService = {
-      importFromSource: vi.fn(),
+    // Mock import orchestrator and process service
+    mockImportOrchestrator = {
+      importBlockchain: vi.fn(),
+      importExchangeApi: vi.fn(),
+      importExchangeCsv: vi.fn(),
     };
 
     mockProcessService = {
@@ -48,8 +58,8 @@ describe('ImportHandler', () => {
     };
 
     // Setup service mocks to return our mock instances
-    const { TransactionImportService, TransactionProcessService } = await import('@exitbook/ingestion');
-    (TransactionImportService as unknown as Mock).mockImplementation(() => mockImportService);
+    const { ImportOrchestrator, TransactionProcessService } = await import('@exitbook/ingestion');
+    (ImportOrchestrator as unknown as Mock).mockImplementation(() => mockImportOrchestrator);
     (TransactionProcessService as unknown as Mock).mockImplementation(() => mockProcessService);
 
     handler = new ImportHandler(mockDatabase);
@@ -63,7 +73,7 @@ describe('ImportHandler', () => {
         address: 'bc1qtest',
       };
 
-      (mockImportService.importFromSource as Mock).mockResolvedValue(
+      (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
           dataSourceId: 123,
           imported: 50,
@@ -78,10 +88,7 @@ describe('ImportHandler', () => {
         imported: 50,
       });
 
-      expect(mockImportService.importFromSource).toHaveBeenCalledWith('bitcoin', 'blockchain', {
-        address: 'bc1qtest',
-        providerName: undefined,
-      });
+      expect(mockImportOrchestrator.importBlockchain).toHaveBeenCalledWith('bitcoin', 'bc1qtest', undefined);
     });
 
     it('should successfully import exchange data from CSV', async () => {
@@ -91,7 +98,7 @@ describe('ImportHandler', () => {
         csvDir: './data/kraken',
       };
 
-      (mockImportService.importFromSource as Mock).mockResolvedValue(
+      (mockImportOrchestrator.importExchangeCsv as Mock).mockResolvedValue(
         ok({
           dataSourceId: 456,
           imported: 100,
@@ -106,9 +113,7 @@ describe('ImportHandler', () => {
         imported: 100,
       });
 
-      expect(mockImportService.importFromSource).toHaveBeenCalledWith('kraken', 'exchange', {
-        csvDirectories: ['./data/kraken'],
-      });
+      expect(mockImportOrchestrator.importExchangeCsv).toHaveBeenCalledWith('kraken', ['./data/kraken']);
     });
 
     it('should successfully import exchange data from API', async () => {
@@ -122,7 +127,7 @@ describe('ImportHandler', () => {
         },
       };
 
-      (mockImportService.importFromSource as Mock).mockResolvedValue(
+      (mockImportOrchestrator.importExchangeApi as Mock).mockResolvedValue(
         ok({
           dataSourceId: 789,
           imported: 75,
@@ -132,12 +137,10 @@ describe('ImportHandler', () => {
       const result = await handler.execute(params);
 
       expect(result.isOk()).toBe(true);
-      expect(mockImportService.importFromSource).toHaveBeenCalledWith('kucoin', 'exchange', {
-        credentials: {
-          apiKey: 'test-key',
-          secret: 'test-secret',
-          passphrase: 'test-passphrase',
-        },
+      expect(mockImportOrchestrator.importExchangeApi).toHaveBeenCalledWith('kucoin', {
+        apiKey: 'test-key',
+        secret: 'test-secret',
+        passphrase: 'test-passphrase',
       });
     });
 
@@ -149,7 +152,7 @@ describe('ImportHandler', () => {
         shouldProcess: true,
       };
 
-      (mockImportService.importFromSource as Mock).mockResolvedValue(
+      (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
           dataSourceId: 123,
           imported: 50,
@@ -186,7 +189,7 @@ describe('ImportHandler', () => {
         shouldProcess: true,
       };
 
-      (mockImportService.importFromSource as Mock).mockResolvedValue(
+      (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
           dataSourceId: 123,
           imported: 50,
@@ -220,7 +223,7 @@ describe('ImportHandler', () => {
       };
 
       const importError = new Error('Import failed: network timeout');
-      (mockImportService.importFromSource as Mock).mockResolvedValue(err(importError));
+      (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(err(importError));
 
       const result = await handler.execute(params);
 
@@ -236,7 +239,7 @@ describe('ImportHandler', () => {
         shouldProcess: true,
       };
 
-      (mockImportService.importFromSource as Mock).mockResolvedValue(
+      (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
           dataSourceId: 123,
           imported: 50,

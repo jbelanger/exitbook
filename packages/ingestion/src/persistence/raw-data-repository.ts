@@ -29,8 +29,8 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .innerJoin('import_sessions', 'external_transaction_data.data_source_id', 'import_sessions.id')
         .selectAll('external_transaction_data');
 
-      if (filters?.sourceId) {
-        query = query.where('source_id', '=', filters.sourceId);
+      if (filters?.accountId !== undefined) {
+        query = query.where('import_sessions.account_id', '=', filters.accountId);
       }
 
       if (filters?.dataSourceId) {
@@ -210,7 +210,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async resetProcessingStatusBySource(sourceId: string): Promise<Result<number, Error>> {
+  async resetProcessingStatusByAccount(accountId: number): Promise<Result<number, Error>> {
     try {
       const result = await this.db
         .updateTable('external_transaction_data')
@@ -222,13 +222,13 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .where(
           'data_source_id',
           'in',
-          this.db.selectFrom('import_sessions').select('id').where('source_id', '=', sourceId)
+          this.db.selectFrom('import_sessions').select('id').where('account_id', '=', accountId)
         )
         .executeTakeFirst();
 
       return ok(Number(result.numUpdatedRows));
     } catch (error) {
-      return wrapError(error, 'Failed to reset processing status by source');
+      return wrapError(error, 'Failed to reset processing status by account');
     }
   }
 
@@ -249,20 +249,20 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async deleteBySource(sourceId: string): Promise<Result<number, Error>> {
+  async deleteByAccount(accountId: number): Promise<Result<number, Error>> {
     try {
       const result = await this.db
         .deleteFrom('external_transaction_data')
         .where(
           'data_source_id',
           'in',
-          this.db.selectFrom('import_sessions').select('id').where('source_id', '=', sourceId)
+          this.db.selectFrom('import_sessions').select('id').where('account_id', '=', accountId)
         )
         .executeTakeFirst();
 
       return ok(Number(result.numDeletedRows));
     } catch (error) {
-      return wrapError(error, 'Failed to delete raw data by source');
+      return wrapError(error, 'Failed to delete raw data by account');
     }
   }
 

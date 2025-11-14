@@ -5,6 +5,7 @@ import { ok } from 'neverthrow';
  * Clear command options
  */
 export interface ClearCommandOptions {
+  accountId?: number | undefined;
   source?: string | undefined;
   includeRaw?: boolean | undefined;
   confirm?: boolean | undefined;
@@ -15,6 +16,7 @@ export interface ClearCommandOptions {
  * Clear handler parameters
  */
 export interface ClearHandlerParams {
+  accountId?: number | undefined;
   source?: string | undefined;
   includeRaw: boolean;
 }
@@ -24,6 +26,7 @@ export interface ClearHandlerParams {
  */
 export function buildClearParamsFromFlags(options: ClearCommandOptions): Result<ClearHandlerParams, Error> {
   return ok({
+    accountId: options.accountId,
     source: options.source,
     includeRaw: options.includeRaw ?? false,
   });

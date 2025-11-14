@@ -3,9 +3,9 @@ import {
   loadExplorerConfig,
   type BlockchainExplorersConfig,
 } from '@exitbook/blockchain-providers';
-import type { VerificationMetadata } from '@exitbook/core';
+import type { Account, DataSource, SourceParams, VerificationMetadata, UniversalTransaction } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
-import { TokenMetadataRepository, TransactionRepository } from '@exitbook/data';
+import { AccountRepository, TokenMetadataRepository, TransactionRepository } from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchanges-providers';
 import {
   calculateBalances,
@@ -26,10 +26,8 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { BalanceHandlerParams } from './balance-utils.js';
 import {
-  buildSourceParams,
   decimalRecordToStringRecord,
   findMostRecentCompletedSession,
-  findSessionByAddress,
   getExchangeCredentialsFromEnv,
   subtractExcludedAmounts,
   sumExcludedInflowAmounts,
@@ -47,6 +45,7 @@ export class BalanceHandler {
   private providerManager: BlockchainProviderManager;
   private transactionRepository: TransactionRepository;
   private sessionRepository: DataSourceRepository;
+  private accountRepository: AccountRepository;
   private tokenMetadataRepository: TokenMetadataRepository;
 
   constructor(database: KyselyDB, explorerConfig?: BlockchainExplorersConfig) {
@@ -56,6 +55,7 @@ export class BalanceHandler {
     // Initialize services
     this.transactionRepository = new TransactionRepository(database);
     this.sessionRepository = new DataSourceRepository(database);
+    this.accountRepository = new AccountRepository(database);
     this.tokenMetadataRepository = new TokenMetadataRepository(database);
     this.providerManager = new BlockchainProviderManager(config);
   }
@@ -156,45 +156,56 @@ export class BalanceHandler {
   }
 
   /**
-   * Get derived addresses from session metadata for extended public keys.
+   * Helper method to find an account based on balance params.
+   */
+  private async findAccount(params: BalanceHandlerParams): Promise<Result<Account, Error>> {
+    // Map sourceType to accountType
+    const accountType = params.sourceType === 'exchange' ? 'exchange-api' : 'blockchain';
+
+    // For blockchain: identifier is the address
+    // For exchange: we don't have identifier here, need to search by source name
+    // This is a temporary solution - we may need to refactor this
+    const identifier = params.sourceType === 'blockchain' && params.address ? params.address : '';
+
+    // Find account (user_id is null for tracking-only accounts)
+    const accountResult: Result<Account | undefined, Error> = await this.accountRepository.findByUniqueConstraint(
+      accountType,
+      params.sourceName,
+      identifier,
+      // eslint-disable-next-line unicorn/no-null -- AccountRepository.findByUniqueConstraint requires null for DB compatibility
+      null // Assuming tracking-only accounts for now
+    );
+
+    if (accountResult.isErr()) {
+      return err(accountResult.error);
+    }
+
+    if (!accountResult.value) {
+      return err(new Error(`No account found for ${params.sourceName} ${identifier || ''}`));
+    }
+
+    return ok(accountResult.value);
+  }
+
+  /**
+   * Get derived addresses from account metadata for extended public keys.
    * Returns the list of derived addresses stored during import (e.g., from xpub).
    */
-  private async getDerivedAddressesFromSession(params: BalanceHandlerParams): Promise<Result<string[], Error>> {
+  private async getDerivedAddressesFromAccount(params: BalanceHandlerParams): Promise<Result<string[], Error>> {
     try {
-      const sessionsResult = await this.sessionRepository.findBySource(params.sourceName);
-
-      if (sessionsResult.isErr()) {
-        return err(sessionsResult.error);
+      // Find the account
+      const accountResult = await this.findAccount(params);
+      if (accountResult.isErr()) {
+        return err(accountResult.error);
       }
 
-      const sessions = sessionsResult.value;
-      if (sessions.length === 0) {
-        return err(new Error(`No data source found for ${params.sourceName}`));
-      }
+      const account = accountResult.value;
 
-      // Find session matching this specific address
-      const normalizedAddress = params.address?.toLowerCase();
-      const matchingSession = sessions.find((session) => {
-        const importParams = session.importParams;
-        return importParams.address?.toLowerCase() === normalizedAddress;
-      });
+      // Extract derived addresses from account
+      const derivedAddresses = account.derivedAddresses;
 
-      if (!matchingSession) {
-        return err(new Error(`No data source found for address ${params.address}`));
-      }
-
-      // Extract derived addresses from importResultMetadata (not importParams)
-      // The derivedAddresses are stored by the importer in the metadata field of ImportRunResult
-      const resultMetadata = matchingSession.importResultMetadata;
-
-      const derivedAddresses = resultMetadata.derivedAddresses;
-
-      if (!Array.isArray(derivedAddresses) || derivedAddresses.length === 0) {
-        return err(
-          new Error(
-            `No derived addresses found in session metadata for ${params.address}. Was this imported as an xpub?`
-          )
-        );
+      if (!derivedAddresses || derivedAddresses.length === 0) {
+        return err(new Error(`No derived addresses found for ${params.address}. Was this imported as an xpub?`));
       }
 
       return ok(derivedAddresses);
@@ -204,12 +215,22 @@ export class BalanceHandler {
   }
 
   /**
-   * Get the timestamp of the most recent completed import for the source.
+   * Get the timestamp of the most recent completed import for the account.
    * Returns undefined if no completed imports found.
    */
   private async getLastImportTimestamp(params: BalanceHandlerParams): Promise<number | undefined> {
     try {
-      const sessionsResult = await this.sessionRepository.findBySource(params.sourceName);
+      // Find the account
+      const accountResult = await this.findAccount(params);
+      if (accountResult.isErr()) {
+        logger.warn(`Failed to find account: ${accountResult.error.message}`);
+        return undefined;
+      }
+
+      const account = accountResult.value;
+
+      // Find sessions for this account
+      const sessionsResult: Result<DataSource[], Error> = await this.sessionRepository.findByAccount(account.id);
 
       if (sessionsResult.isErr()) {
         logger.warn(`Failed to fetch import sessions: ${sessionsResult.error.message}`);
@@ -225,20 +246,9 @@ export class BalanceHandler {
         return undefined;
       }
 
-      // For blockchain sources, find session matching the specific address
-      if (params.sourceType === 'blockchain' && params.address) {
-        const matchingSession = findSessionByAddress(completedSessions, params.address);
-
-        if (!matchingSession) {
-          return undefined;
-        }
-
-        return matchingSession.completedAt?.getTime();
-      }
-
-      // For exchanges, find the most recent completed session
-      const mostRecentSession = findMostRecentCompletedSession(sessions);
-      return mostRecentSession?.completedAt ? new Date(mostRecentSession.completedAt).getTime() : undefined;
+      // Find the most recent completed session
+      const mostRecentSession = findMostRecentCompletedSession(completedSessions);
+      return mostRecentSession?.completedAt?.getTime();
     } catch (error) {
       logger.warn(`Error fetching last import timestamp: ${error instanceof Error ? error.message : String(error)}`);
       return undefined;
@@ -247,46 +257,43 @@ export class BalanceHandler {
 
   /**
    * Calculate balances from transactions in the database.
-   * For blockchain: find the data_source for the address, then query by data_source_id
-   * For exchange: find the most recent completed data_source, then query by data_source_id
+   * Finds the account, then the most recent completed session, then queries transactions.
    */
   private async calculateBalancesFromTransactions(
     params: BalanceHandlerParams
   ): Promise<Result<Record<string, import('decimal.js').Decimal>, Error>> {
     try {
-      // Find the data_source that matches this source
-      const sessionsResult = await this.sessionRepository.findBySource(params.sourceName);
+      // Find the account
+      const accountResult = await this.findAccount(params);
+      if (accountResult.isErr()) {
+        return err(accountResult.error);
+      }
+
+      const account = accountResult.value;
+
+      // Find sessions for this account
+      const sessionsResult: Result<DataSource[], Error> = await this.sessionRepository.findByAccount(account.id);
       if (sessionsResult.isErr()) {
         return err(sessionsResult.error);
       }
 
       const sessions = sessionsResult.value;
       if (sessions.length === 0) {
-        return err(new Error(`No data source found for ${params.sourceName}`));
+        return err(new Error(`No import sessions found for ${params.sourceName}`));
       }
 
-      let matchingSession: (typeof sessions)[0] | undefined;
-
-      if (params.sourceType === 'blockchain' && params.address) {
-        // Find session matching this specific address
-        matchingSession = findSessionByAddress(sessions, params.address);
-
-        if (!matchingSession) {
-          return err(new Error(`No data source found for address ${params.address}`));
-        }
-      } else {
-        // For exchanges, use the most recent completed session
-        matchingSession = findMostRecentCompletedSession(sessions);
-      }
+      // Use the most recent completed session
+      const matchingSession = findMostRecentCompletedSession(sessions);
 
       if (!matchingSession) {
-        return err(new Error(`No data source found for ${params.sourceName}`));
+        return err(new Error(`No completed import session found for ${params.sourceName}`));
       }
 
-      // Fetch all transactions for this data_source_id
-      const transactionsResult = await this.transactionRepository.getTransactions({
-        sessionId: matchingSession.id,
-      });
+      // Fetch all transactions for this session
+      const transactionsResult: Result<UniversalTransaction[], Error> =
+        await this.transactionRepository.getTransactions({
+          sessionId: matchingSession.id,
+        });
 
       if (transactionsResult.isErr()) {
         return err(transactionsResult.error);
@@ -349,7 +356,7 @@ export class BalanceHandler {
     }
 
     // Check if this address has derived addresses (e.g., from xpub import)
-    const derivedAddressesResult = await this.getDerivedAddressesFromSession(params);
+    const derivedAddressesResult = await this.getDerivedAddressesFromAccount(params);
 
     if (derivedAddressesResult.isOk()) {
       const derivedAddresses = derivedAddressesResult.value;
@@ -376,13 +383,21 @@ export class BalanceHandler {
   }
 
   /**
-   * Get excluded asset amounts (scam tokens) for the given source.
+   * Get excluded asset amounts (scam tokens) for the given account.
    * Returns a map of asset -> total amount to subtract from live balance.
    */
   private async getExcludedAssetAmounts(params: BalanceHandlerParams): Promise<Result<Record<string, Decimal>, Error>> {
     try {
-      // Find the matching session
-      const sessionsResult = await this.sessionRepository.findBySource(params.sourceName);
+      // Find the account
+      const accountResult = await this.findAccount(params);
+      if (accountResult.isErr()) {
+        return ok({}); // Return empty if account not found
+      }
+
+      const account = accountResult.value;
+
+      // Find sessions for this account
+      const sessionsResult: Result<DataSource[], Error> = await this.sessionRepository.findByAccount(account.id);
       if (sessionsResult.isErr()) {
         return err(sessionsResult.error);
       }
@@ -392,25 +407,16 @@ export class BalanceHandler {
         return ok({});
       }
 
-      // For blockchain: find session matching the specific address
-      // For exchange: use the most recent completed session
-      let targetSessionId: number | undefined;
-
-      if (params.sourceType === 'blockchain' && params.address) {
-        const matchingSession = findSessionByAddress(sessions, params.address);
-        targetSessionId = matchingSession?.id;
-      } else {
-        // For exchanges, use the most recent completed session
-        const mostRecentSession = findMostRecentCompletedSession(sessions);
-        targetSessionId = mostRecentSession?.id;
-      }
+      // Use the most recent completed session
+      const mostRecentSession = findMostRecentCompletedSession(sessions);
+      const targetSessionId = mostRecentSession?.id;
 
       if (!targetSessionId) {
         return ok({});
       }
 
       // Fetch all transactions with excluded_from_accounting = true
-      const excludedTxResult = await this.transactionRepository.getTransactions({
+      const excludedTxResult: Result<UniversalTransaction[], Error> = await this.transactionRepository.getTransactions({
         sessionId: targetSessionId,
         includeExcluded: true, // Must include to get the excluded ones
       });
@@ -429,8 +435,8 @@ export class BalanceHandler {
   }
 
   /**
-   * Persist verification results to the session matching source/address.
-   * Finds THE session (not "most recent") that matches the exact source and address/exchange.
+   * Persist verification results to the account matching source/address.
+   * Finds THE account that matches the exact source and address/exchange.
    */
   private async persistVerificationResults(
     params: BalanceHandlerParams,
@@ -441,39 +447,22 @@ export class BalanceHandler {
     suggestion?: string
   ): Promise<Result<void, Error>> {
     try {
-      // Find session matching this source
-      const sessionsResult = await this.sessionRepository.findBySource(params.sourceName);
-      if (sessionsResult.isErr()) {
-        return err(sessionsResult.error);
+      // Find the account
+      const accountResult = await this.findAccount(params);
+      if (accountResult.isErr()) {
+        return err(accountResult.error);
       }
 
-      const sessions = sessionsResult.value;
-      if (sessions.length === 0) {
-        return err(new Error(`No data source  found for ${params.sourceName}`));
-      }
-
-      // For blockchain: find session matching the specific address
-      // For exchange: use the most recent completed session
-      let targetSession: (typeof sessions)[0] | undefined;
-      if (params.sourceType === 'blockchain' && params.address) {
-        targetSession = findSessionByAddress(sessions, params.address);
-
-        if (!targetSession) {
-          return err(new Error(`No data source  found for ${params.sourceName} with address ${params.address}`));
-        }
-      } else {
-        // For exchanges, use the most recent completed session
-        targetSession = findMostRecentCompletedSession(sessions);
-      }
-
-      // Ensure we found a session
-      if (!targetSession) {
-        return err(new Error(`No data source  found for ${params.sourceName}`));
-      }
+      const account = accountResult.value;
 
       // Build verification metadata
       const calculatedBalancesStr = decimalRecordToStringRecord(calculatedBalances);
-      const sourceParams = buildSourceParams(targetSession, params.sourceType, params.address);
+
+      // Build source params from account data
+      const sourceParams: SourceParams =
+        params.sourceType === 'exchange'
+          ? { exchange: account.sourceName }
+          : { blockchain: account.sourceName, address: account.identifier };
 
       const discrepancies = comparisons
         .filter((c) => c.status !== 'match')
@@ -497,17 +486,17 @@ export class BalanceHandler {
         },
       };
 
-      // Update the session
-      const updateResult = await this.sessionRepository.updateVerificationMetadata(
-        targetSession.id,
-        verificationMetadata
-      );
+      // Update the account with verification metadata
+      const updateResult: Result<void, Error> = await this.accountRepository.update(account.id, {
+        verificationMetadata,
+        lastBalanceCheckAt: new Date(),
+      });
 
       if (updateResult.isErr()) {
         return err(updateResult.error);
       }
 
-      logger.info(`Verification results persisted to session ${targetSession.id}`);
+      logger.info(`Verification results persisted to account ${account.id}`);
       return ok();
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));

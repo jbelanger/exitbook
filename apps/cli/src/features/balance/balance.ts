@@ -1,5 +1,5 @@
-import type { SourceType } from '@exitbook/core';
-import { closeDatabase, initializeDatabase } from '@exitbook/data';
+import type { Account, SourceType } from '@exitbook/core';
+import { AccountRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
 import type { BalanceVerificationResult } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
@@ -40,6 +40,7 @@ async function executeBalanceCommand(options: ExtendedBalanceCommandOptions): Pr
   // Initialize database
   const database = await initializeDatabase();
   const handler = new BalanceHandler(database);
+  const accountRepo = new AccountRepository(database);
 
   try {
     // Build params from flags (no interactive mode for balance command)
@@ -47,6 +48,23 @@ async function executeBalanceCommand(options: ExtendedBalanceCommandOptions): Pr
 
     const spinner = output.spinner();
     spinner?.start(`Fetching and verifying balance for ${params.sourceName}...`);
+
+    // Fetch account info to display
+    const accountType = params.sourceType === 'exchange' ? 'exchange-api' : 'blockchain';
+    const identifier = params.sourceType === 'blockchain' && params.address ? params.address : '';
+
+    const accountResult = await accountRepo.findByUniqueConstraint(
+      accountType,
+      params.sourceName,
+      identifier,
+      // eslint-disable-next-line unicorn/no-null -- AccountRepository.findByUniqueConstraint requires null for DB compatibility
+      null
+    );
+
+    let account: Account | undefined;
+    if (accountResult.isOk()) {
+      account = accountResult.value;
+    }
 
     const result = await handler.execute(params);
 
@@ -57,7 +75,7 @@ async function executeBalanceCommand(options: ExtendedBalanceCommandOptions): Pr
       return;
     }
 
-    handleBalanceSuccess(output, result.value, params.sourceName, params.sourceType, params.address);
+    handleBalanceSuccess(output, result.value, params.sourceName, params.sourceType, params.address, account);
   } catch (error) {
     output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   } finally {
@@ -74,10 +92,29 @@ function handleBalanceSuccess(
   verificationResult: BalanceVerificationResult,
   sourceName: string,
   sourceType: SourceType,
-  address?: string
+  address?: string,
+  account?: Account
 ) {
   // Display results in text mode
   if (output.isTextMode()) {
+    // Display account info if available
+    if (account) {
+      console.log('');
+      console.log('Account Information:');
+      console.log(`  Account ID: ${account.id}`);
+      console.log(`  Source: ${account.sourceName}`);
+      console.log(`  Type: ${account.accountType}`);
+      if (account.accountType === 'blockchain') {
+        console.log(`  Address: ${account.identifier}`);
+      } else {
+        console.log(`  Identifier: ${account.identifier || 'N/A'}`);
+      }
+      if (account.providerName) {
+        console.log(`  Provider: ${account.providerName}`);
+      }
+      console.log('');
+    }
+
     const statusSymbol =
       verificationResult.status === 'success' ? '✓' : verificationResult.status === 'warning' ? '⚠' : '✗';
     output.outro(`${statusSymbol} Balance verification ${verificationResult.status.toUpperCase()} for ${sourceName}`);
@@ -133,6 +170,15 @@ function handleBalanceSuccess(
       name: sourceName,
       address,
     },
+    account: account
+      ? {
+          id: account.id,
+          type: account.accountType,
+          sourceName: account.sourceName,
+          identifier: account.identifier,
+          providerName: account.providerName,
+        }
+      : undefined,
     meta: {
       timestamp: new Date(verificationResult.timestamp).toISOString(),
     },

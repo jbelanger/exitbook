@@ -1,29 +1,24 @@
 import type {
-  CursorState,
-  DataImportParams,
   DataSource,
   DataSourceStatus,
-  VerificationMetadata,
   ExternalTransaction,
   ExternalTransactionData,
   ProcessingStatus,
-  SourceType,
 } from '@exitbook/core';
 import type { DataSourceUpdate, ImportSessionQuery } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
-import type { ImportParams } from './importers.js';
-
 /**
  * Filter options for loading raw data from repository
  * Ingestion-specific concern
+ * Per ADR-007: Use accountId to filter by source (via import_sessions.account_id)
  */
 export interface LoadRawDataFilters {
+  accountId?: number | undefined;
   dataSourceId?: number | undefined;
   processingStatus?: ProcessingStatus | undefined;
   providerName?: string | undefined;
   since?: number | undefined;
-  sourceId?: string | undefined;
 }
 
 /**
@@ -60,16 +55,18 @@ export interface IRawDataRepository {
 }
 
 /**
- * Interface for data source repository operations.
+ * Interface for import session repository operations.
+ * Per ADR-007: import_sessions represents discrete import events, linked to accounts via account_id
  */
 export interface IDataSourceRepository {
   /**
-   * Create a new data source.
+   * Create a new import session for an account.
+   * Per ADR-007: Each import execution creates a new session record
    */
-  create(sourceId: string, sourceType: SourceType, importParams?: DataImportParams): Promise<Result<number, Error>>;
+  create(accountId: number): Promise<Result<number, Error>>;
 
   /**
-   * Finalize a data source with results and status.
+   * Finalize an import session with results and status.
    */
   finalize(
     sessionId: number,
@@ -81,66 +78,39 @@ export interface IDataSourceRepository {
   ): Promise<Result<void, Error>>;
 
   /**
-   * Find all data sources with optional filtering.
+   * Find all import sessions with optional filtering.
    */
   findAll(filters?: ImportSessionQuery): Promise<Result<DataSource[], Error>>;
 
   /**
-   * Find data source by ID.
+   * Find import session by ID.
    */
   findById(sessionId: number): Promise<Result<DataSource | undefined, Error>>;
 
   /**
-   * Find data sources by source ID.
+   * Find all import sessions for an account.
    */
-  findBySource(sourceId: string, limit?: number): Promise<Result<DataSource[], Error>>;
+  findByAccount(accountId: number, limit?: number): Promise<Result<DataSource[], Error>>;
 
   /**
-   * Find latest incomplete data source for resume
-   * Status 'started' or 'failed' indicates incomplete import
-   * For blockchain imports, filters by both blockchain (sourceId) and address to prevent cross-chain resume
+   * Find latest incomplete import session for an account to support resume.
+   * Status 'started' or 'failed' indicates incomplete import.
+   * Per ADR-007: Cursors are stored in accounts table, not sessions
    */
-  findLatestIncomplete(
-    sourceId: string,
-    sourceType: SourceType,
-    address?: string
-  ): Promise<Result<DataSource | undefined, Error>>;
+  findLatestIncomplete(accountId: number): Promise<Result<DataSource | undefined, Error>>;
 
   /**
-   * Update an existing data source.
+   * Update an existing import session.
    */
   update(sessionId: number, updates: DataSourceUpdate): Promise<Result<void, Error>>;
 
   /**
-   * Find a completed data source with matching parameters.
+   * Delete all import sessions for an account.
    */
-  findCompletedWithMatchingParams(
-    sourceId: string,
-    sourceType: SourceType,
-    params: ImportParams
-  ): Promise<Result<DataSource | undefined, Error>>;
+  deleteByAccount(accountId: number): Promise<Result<void, Error>>;
 
   /**
-   * Update verification metadata for a session.
-   */
-  updateVerificationMetadata(
-    sessionId: number,
-    verificationMetadata: VerificationMetadata
-  ): Promise<Result<void, Error>>;
-
-  /**
-   * Update cursor for a specific operation type.
-   * Merges with existing cursors to support multi-operation imports.
-   */
-  updateCursor(dataSourceId: number, operationType: string, cursor: CursorState): Promise<Result<void, Error>>;
-
-  /**
-   * Delete all data sources for a given source ID.
-   */
-  deleteBySource(sourceId: string): Promise<Result<void, Error>>;
-
-  /**
-   * Delete all data sources.
+   * Delete all import sessions.
    */
   deleteAll(): Promise<Result<void, Error>>;
 }

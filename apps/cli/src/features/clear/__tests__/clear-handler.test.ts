@@ -1,5 +1,6 @@
 import type { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
-import type { KyselyDB, TransactionRepository } from '@exitbook/data';
+import type { Account } from '@exitbook/core';
+import type { AccountRepository, KyselyDB, TransactionRepository } from '@exitbook/data';
 import type { DataSourceRepository, RawDataRepository } from '@exitbook/ingestion';
 import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
@@ -9,6 +10,7 @@ import type { ClearHandlerParams } from '../clear-utils.js';
 
 describe('ClearHandler', () => {
   let mockDatabase: KyselyDB;
+  let mockAccountRepo: AccountRepository;
   let mockTransactionRepo: TransactionRepository;
   let mockTransactionLinkRepo: TransactionLinkRepository;
   let mockCostBasisRepo: CostBasisRepository;
@@ -20,6 +22,8 @@ describe('ClearHandler', () => {
   let mockDeleteFrom: Mock;
 
   // Store mock functions to avoid unbound-method lint errors
+  let mockFindAccountById: Mock;
+  let mockFindAccountsBySourceName: Mock;
   let mockDeleteAllTransactions: Mock;
   let mockDeleteTransactionsBySource: Mock;
   let mockDeleteAllLinks: Mock;
@@ -31,11 +35,11 @@ describe('ClearHandler', () => {
   let mockDeleteAllTransfers: Mock;
   let mockDeleteAllCalculations: Mock;
   let mockDeleteAllRawData: Mock;
-  let mockDeleteRawDataBySource: Mock;
+  let mockDeleteRawDataByAccount: Mock;
   let mockResetProcessingStatusAll: Mock;
-  let mockResetProcessingStatusBySource: Mock;
+  let mockResetProcessingStatusByAccount: Mock;
   let mockDeleteAllDataSources: Mock;
-  let mockDeleteDataSourcesBySource: Mock;
+  let mockDeleteDataSourceByAccount: Mock;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -49,7 +53,22 @@ describe('ClearHandler', () => {
       selectFrom: mockSelectFrom,
     } as unknown as KyselyDB;
 
+    // Create mock account for testing
+    const mockAccount: Account = {
+      id: 1,
+      userId: undefined,
+      accountType: 'blockchain',
+      sourceName: 'kraken',
+      identifier: 'test-address',
+      providerName: 'kraken-api',
+      credentials: undefined,
+      derivedAddresses: undefined,
+      createdAt: new Date('2024-01-01T00:00:00Z'),
+    };
+
     // Create mock functions
+    mockFindAccountById = vi.fn().mockResolvedValue(ok(mockAccount));
+    mockFindAccountsBySourceName = vi.fn().mockResolvedValue(ok([mockAccount]));
     mockDeleteAllTransactions = vi.fn().mockResolvedValue(ok(10));
     mockDeleteTransactionsBySource = vi.fn().mockResolvedValue(ok(10));
     mockDeleteAllLinks = vi.fn().mockResolvedValue(ok(5));
@@ -61,13 +80,18 @@ describe('ClearHandler', () => {
     mockDeleteAllTransfers = vi.fn().mockResolvedValue(ok(2));
     mockDeleteAllCalculations = vi.fn().mockResolvedValue(ok(2));
     mockDeleteAllRawData = vi.fn().mockResolvedValue(ok(100));
-    mockDeleteRawDataBySource = vi.fn().mockResolvedValue(ok(100));
+    mockDeleteRawDataByAccount = vi.fn().mockResolvedValue(ok(100));
     mockResetProcessingStatusAll = vi.fn().mockResolvedValue(ok(100));
-    mockResetProcessingStatusBySource = vi.fn().mockResolvedValue(ok(100));
+    mockResetProcessingStatusByAccount = vi.fn().mockResolvedValue(ok(100));
     mockDeleteAllDataSources = vi.fn().mockResolvedValue(ok());
-    mockDeleteDataSourcesBySource = vi.fn().mockResolvedValue(ok());
+    mockDeleteDataSourceByAccount = vi.fn().mockResolvedValue(ok());
 
     // Mock repositories with successful responses
+    mockAccountRepo = {
+      findById: mockFindAccountById,
+      findBySourceName: mockFindAccountsBySourceName,
+    } as unknown as AccountRepository;
+
     mockTransactionRepo = {
       deleteAll: mockDeleteAllTransactions,
       deleteBySource: mockDeleteTransactionsBySource,
@@ -92,18 +116,19 @@ describe('ClearHandler', () => {
 
     mockRawDataRepo = {
       deleteAll: mockDeleteAllRawData,
-      deleteBySource: mockDeleteRawDataBySource,
+      deleteByAccount: mockDeleteRawDataByAccount,
       resetProcessingStatusAll: mockResetProcessingStatusAll,
-      resetProcessingStatusBySource: mockResetProcessingStatusBySource,
+      resetProcessingStatusByAccount: mockResetProcessingStatusByAccount,
     } as unknown as RawDataRepository;
 
     mockDataSourceRepo = {
       deleteAll: mockDeleteAllDataSources,
-      deleteBySource: mockDeleteDataSourcesBySource,
+      deleteByAccount: mockDeleteDataSourceByAccount,
     } as unknown as DataSourceRepository;
 
     handler = new ClearHandler(
       mockDatabase,
+      mockAccountRepo,
       mockTransactionRepo,
       mockTransactionLinkRepo,
       mockCostBasisRepo,
@@ -203,12 +228,17 @@ describe('ClearHandler', () => {
 
       expect(result.isOk()).toBe(true);
 
-      // Verify source-specific methods were called
+      // Verify account was looked up by source name
+      expect(mockFindAccountsBySourceName).toHaveBeenCalledWith('kraken');
+
+      // Verify source-specific methods were called (transactions use source_id)
       expect(mockDeleteDisposalsBySource).toHaveBeenCalledWith('kraken');
       expect(mockDeleteLotsBySource).toHaveBeenCalledWith('kraken');
       expect(mockDeleteLinksBySource).toHaveBeenCalledWith('kraken');
       expect(mockDeleteTransactionsBySource).toHaveBeenCalledWith('kraken');
-      expect(mockResetProcessingStatusBySource).toHaveBeenCalledWith('kraken');
+
+      // Verify account-based methods were called (raw data uses account_id)
+      expect(mockResetProcessingStatusByAccount).toHaveBeenCalledWith(1); // account ID from mock
     });
 
     it('should return early when there is no data to delete', async () => {

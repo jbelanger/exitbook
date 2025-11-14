@@ -1,71 +1,53 @@
-import type {
-  CursorState,
-  DataImportParams,
-  DataSource,
-  DataSourceStatus,
-  SourceType,
-  VerificationMetadata,
-} from '@exitbook/core';
-import {
-  CursorStateSchema,
-  DataImportParamsSchema,
-  ImportResultMetadataSchema,
-  VerificationMetadataSchema,
-  wrapError,
-} from '@exitbook/core';
+import type { DataSource, DataSourceStatus } from '@exitbook/core';
+import { ImportResultMetadataSchema, wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import type { StoredDataSource, ImportSessionQuery, DataSourceUpdate } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
-import { sql } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
-import { z } from 'zod';
 
-import type { ImportParams } from '../types/importers.js';
 import type { IDataSourceRepository } from '../types/repositories.js';
 
 /**
- * Kysely-based repository for data source  database operations.
+ * Kysely-based repository for import session database operations.
  * Handles storage and retrieval of DataSource entities using type-safe queries.
+ * Per ADR-007: import_sessions represents discrete import events, linked to accounts via account_id
  */
 export class DataSourceRepository extends BaseRepository implements IDataSourceRepository {
   constructor(db: KyselyDB) {
     super(db, 'DataSourceRepository');
   }
 
-  async create(
-    sourceId: string,
-    sourceType: SourceType,
-    importParams?: DataImportParams
-  ): Promise<Result<number, Error>> {
+  /**
+   * Create a new import session
+   * Per ADR-007: Each import execution creates a new session record
+   */
+  async create(accountId: number): Promise<Result<number, Error>> {
     try {
-      // Validate import params before saving
-      const paramsToSave = importParams ?? {};
-      const validationResult = DataImportParamsSchema.safeParse(paramsToSave);
-      if (!validationResult.success) {
-        return err(new Error(`Invalid import params: ${validationResult.error.message}`));
-      }
-
       const result = await this.db
         .insertInto('import_sessions')
         .values({
+          account_id: accountId,
           created_at: this.getCurrentDateTimeForDB(),
-          import_params: this.serializeToJson(validationResult.data) ?? '{}',
           import_result_metadata: this.serializeToJson({}) ?? '{}',
-          source_id: sourceId,
-          source_type: sourceType,
           started_at: this.getCurrentDateTimeForDB(),
           status: 'started',
+          transactions_imported: 0,
+          transactions_failed: 0,
         })
         .returning('id')
         .executeTakeFirstOrThrow();
 
       return ok(result.id);
     } catch (error) {
-      return wrapError(error, 'Failed to create data source ');
+      return wrapError(error, 'Failed to create import session');
     }
   }
 
+  /**
+   * Finalize an import session
+   * Sets final status, duration, and result metadata
+   */
   async finalize(
     sessionId: number,
     status: Exclude<DataSourceStatus, 'started'>,
@@ -100,20 +82,19 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
         .execute();
       return ok();
     } catch (error) {
-      return wrapError(error, 'Failed to finalize data source ');
+      return wrapError(error, 'Failed to finalize import session');
     }
   }
 
+  /**
+   * Find all import sessions matching filters
+   */
   async findAll(filters?: ImportSessionQuery): Promise<Result<DataSource[], Error>> {
     try {
       let query = this.db.selectFrom('import_sessions').selectAll();
 
-      if (filters?.sourceId) {
-        query = query.where('source_id', '=', filters.sourceId);
-      }
-
-      if (filters?.sourceType) {
-        query = query.where('source_type', '=', filters.sourceType);
+      if (filters?.accountId !== undefined) {
+        query = query.where('account_id', '=', filters.accountId);
       }
 
       if (filters?.status) {
@@ -150,6 +131,9 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
     }
   }
 
+  /**
+   * Find import session by ID
+   */
   async findById(sessionId: number): Promise<Result<DataSource | undefined, Error>> {
     try {
       const row = await this.db
@@ -169,14 +153,20 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
       return ok(result.value);
     } catch (error) {
-      return wrapError(error, 'Failed to find data source  by ID');
+      return wrapError(error, 'Failed to find import session by ID');
     }
   }
 
-  async findBySource(sourceId: string, limit?: number): Promise<Result<DataSource[], Error>> {
-    return this.findAll({ limit, sourceId });
+  /**
+   * Find all import sessions for an account
+   */
+  async findByAccount(accountId: number, limit?: number): Promise<Result<DataSource[], Error>> {
+    return this.findAll({ accountId, limit });
   }
 
+  /**
+   * Update import session
+   */
   async update(sessionId: number, updates: DataSourceUpdate): Promise<Result<void, Error>> {
     try {
       const currentTimestamp = this.getCurrentDateTimeForDB();
@@ -200,19 +190,6 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
         updateData.error_details = this.serializeToJson(updates.error_details);
       }
 
-      if (updates.import_params !== undefined) {
-        if (typeof updates.import_params === 'string') {
-          updateData.import_params = updates.import_params;
-        } else {
-          // Validate before saving
-          const validationResult = DataImportParamsSchema.safeParse(updates.import_params);
-          if (!validationResult.success) {
-            return err(new Error(`Invalid import params: ${validationResult.error.message}`));
-          }
-          updateData.import_params = this.serializeToJson(validationResult.data);
-        }
-      }
-
       if (updates.import_result_metadata !== undefined) {
         if (typeof updates.import_result_metadata === 'string') {
           updateData.import_result_metadata = updates.import_result_metadata;
@@ -226,14 +203,12 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
         }
       }
 
-      if (updates.last_cursor !== undefined) {
-        if (typeof updates.last_cursor === 'string') {
-          updateData.last_cursor = updates.last_cursor;
-        } else if (updates.last_cursor === null) {
-          updateData.last_cursor = undefined;
-        } else {
-          updateData.last_cursor = this.serializeCursor(updates.last_cursor as Record<string, CursorState> | undefined);
-        }
+      if (updates.transactions_imported !== undefined) {
+        updateData.transactions_imported = updates.transactions_imported;
+      }
+
+      if (updates.transactions_failed !== undefined) {
+        updateData.transactions_failed = updates.transactions_failed;
       }
 
       // Only update if there are actual changes besides updated_at
@@ -246,169 +221,48 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
       return ok();
     } catch (error) {
-      return wrapError(error, 'Failed to update data source ');
-    }
-  }
-
-  async findCompletedWithMatchingParams(
-    sourceId: string,
-    sourceType: SourceType,
-    params: ImportParams
-  ): Promise<Result<DataSource | undefined, Error>> {
-    try {
-      // Find all completed sessions for this source
-      const sessionsResult = await this.findAll({
-        sourceId,
-        sourceType,
-        status: 'completed',
-      });
-
-      if (sessionsResult.isErr()) {
-        return err(sessionsResult.error);
-      }
-
-      const sessions = sessionsResult.value;
-
-      // Find a session with matching import parameters
-      for (const session of sessions) {
-        // Use already-parsed importParams from domain model
-        const storedParams = session.importParams;
-
-        // Compare relevant parameters
-        const addressMatches = params.address === storedParams.address;
-
-        // Compare CSV directories (arrays need deep comparison)
-        const csvDirsMatch =
-          JSON.stringify(params.csvDirectories?.sort()) === JSON.stringify(storedParams.csvDirectories?.sort());
-
-        if (addressMatches && csvDirsMatch) {
-          return ok(session);
-        }
-      }
-
-      return ok(undefined);
-    } catch (error) {
-      return wrapError(error, 'Failed to find completed session with matching params');
-    }
-  }
-
-  async updateVerificationMetadata(
-    sessionId: number,
-    verificationMetadata: VerificationMetadata
-  ): Promise<Result<void, Error>> {
-    try {
-      // Validate verification metadata before saving
-      const validationResult = VerificationMetadataSchema.safeParse(verificationMetadata);
-      if (!validationResult.success) {
-        return err(new Error(`Invalid verification metadata: ${validationResult.error.message}`));
-      }
-
-      const currentTimestamp = this.getCurrentDateTimeForDB();
-
-      await this.db
-        .updateTable('import_sessions')
-        .set({
-          last_balance_check_at: currentTimestamp,
-          updated_at: currentTimestamp,
-          verification_metadata: this.serializeToJson(verificationMetadata),
-        })
-        .where('id', '=', sessionId)
-        .execute();
-
-      return ok();
-    } catch (error) {
-      return wrapError(error, 'Failed to update verification metadata');
+      return wrapError(error, 'Failed to update import session');
     }
   }
 
   /**
-   * Update cursor for a specific operation type
-   * Merges with existing cursors to support multi-operation imports
+   * Delete all import sessions for an account
    */
-  async updateCursor(dataSourceId: number, operationType: string, cursor: CursorState): Promise<Result<void, Error>> {
+  async deleteByAccount(accountId: number): Promise<Result<void, Error>> {
     try {
-      // Load current cursors
-      const dataSourceResult = await this.findById(dataSourceId);
-      if (dataSourceResult.isErr()) {
-        return err(dataSourceResult.error);
-      }
-
-      const dataSource = dataSourceResult.value;
-      if (!dataSource) {
-        return err(new Error(`Data source ${dataSourceId} not found`));
-      }
-
-      // Merge with existing cursors
-      const updatedCursors = {
-        ...(dataSource.lastCursor ?? {}),
-        [operationType]: cursor,
-      };
-
-      // Validate merged structure
-      const validationResult = z.record(z.string(), CursorStateSchema).safeParse(updatedCursors);
-      if (!validationResult.success) {
-        return err(new Error(`Invalid cursor map: ${validationResult.error.message}`));
-      }
-
-      // Persist
-      await this.db
-        .updateTable('import_sessions')
-        .set({
-          last_cursor: JSON.stringify(validationResult.data),
-          updated_at: this.getCurrentDateTimeForDB(),
-        })
-        .where('id', '=', dataSourceId)
-        .execute();
-
+      await this.db.deleteFrom('import_sessions').where('account_id', '=', accountId).execute();
       return ok();
     } catch (error) {
-      return wrapError(error, 'Failed to update cursor');
+      return wrapError(error, 'Failed to delete import sessions by account ID');
     }
   }
 
-  async deleteBySource(sourceId: string): Promise<Result<void, Error>> {
-    try {
-      await this.db.deleteFrom('import_sessions').where('source_id', '=', sourceId).execute();
-      return ok();
-    } catch (error) {
-      return wrapError(error, 'Failed to delete data sources by source ID');
-    }
-  }
-
+  /**
+   * Delete all import sessions
+   */
   async deleteAll(): Promise<Result<void, Error>> {
     try {
       await this.db.deleteFrom('import_sessions').execute();
       return ok();
     } catch (error) {
-      return wrapError(error, 'Failed to delete all data sources');
+      return wrapError(error, 'Failed to delete all import sessions');
     }
   }
 
   /**
-   * Find latest incomplete data source for resume
+   * Find latest incomplete import session for an account to support resume
    * Status 'started' or 'failed' indicates incomplete import
-   * For blockchain imports, filters by both blockchain (sourceId) and address to prevent cross-chain resume
    */
-  async findLatestIncomplete(
-    sourceId: string,
-    sourceType: SourceType,
-    address?: string
-  ): Promise<Result<DataSource | undefined, Error>> {
+  async findLatestIncomplete(accountId: number): Promise<Result<DataSource | undefined, Error>> {
     try {
-      let query = this.db
+      const row = await this.db
         .selectFrom('import_sessions')
         .selectAll()
-        .where('source_id', '=', sourceId)
-        .where('source_type', '=', sourceType)
-        .where('status', 'in', ['started', 'failed']);
-
-      // For blockchain imports, also filter by address to prevent cross-chain resume corruption
-      // Use json_extract() with bound parameter for safe, exact comparison
-      if (sourceType === 'blockchain' && address) {
-        query = query.where(sql`json_extract(import_params, '$.address') collate nocase`, '=', address.toLowerCase());
-      }
-
-      const row = await query.orderBy('started_at', 'desc').limit(1).executeTakeFirst();
+        .where('account_id', '=', accountId)
+        .where('status', 'in', ['started', 'failed'])
+        .orderBy('started_at', 'desc')
+        .limit(1)
+        .executeTakeFirst();
 
       if (!row) {
         return ok(undefined);
@@ -421,35 +275,8 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
       return ok(result.value);
     } catch (error) {
-      return wrapError(error, 'Failed to find latest incomplete data source');
+      return wrapError(error, 'Failed to find latest incomplete import session');
     }
-  }
-
-  /**
-   * Serialize cursor map for database storage
-   */
-  private serializeCursor(cursor: Record<string, CursorState> | undefined): string | undefined {
-    return cursor ? this.serializeToJson(cursor) : undefined;
-  }
-
-  /**
-   * Deserialize and validate cursor map from database
-   */
-  private deserializeCursor(cursorJson: unknown): Result<Record<string, CursorState> | undefined, Error> {
-    if (!cursorJson) {
-      return ok(undefined);
-    }
-
-    if (typeof cursorJson !== 'string') {
-      return err(new Error('Cursor must be a JSON string'));
-    }
-
-    const parsedResult = this.parseWithSchema(cursorJson, z.record(z.string(), CursorStateSchema));
-    if (parsedResult.isErr()) {
-      return err(new Error(`Invalid cursor map in database: ${parsedResult.error.message}`));
-    }
-
-    return ok(parsedResult.value);
   }
 
   /**
@@ -458,14 +285,6 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
    */
   private toDataSource(row: StoredDataSource): Result<DataSource, Error> {
     // Parse and validate JSON fields using schemas
-    const importParamsResult = this.parseWithSchema(row.import_params, DataImportParamsSchema);
-    if (importParamsResult.isErr()) {
-      return err(importParamsResult.error);
-    }
-    if (importParamsResult.value === undefined) {
-      return err(new Error('import_params is required but was undefined'));
-    }
-
     const importResultMetadataResult = this.parseWithSchema(row.import_result_metadata, ImportResultMetadataSchema);
     if (importResultMetadataResult.isErr()) {
       return err(importResultMetadataResult.error);
@@ -476,33 +295,20 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       return err(errorDetailsResult.error);
     }
 
-    const verificationMetadataResult = this.parseWithSchema(row.verification_metadata, VerificationMetadataSchema);
-    if (verificationMetadataResult.isErr()) {
-      return err(verificationMetadataResult.error);
-    }
-
-    const lastCursorResult = this.deserializeCursor(row.last_cursor);
-    if (lastCursorResult.isErr()) {
-      return err(lastCursorResult.error);
-    }
-
     return ok({
       id: row.id,
-      sourceId: row.source_id,
-      sourceType: row.source_type,
+      accountId: row.account_id,
       status: row.status,
       startedAt: new Date(row.started_at),
       completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
       createdAt: new Date(row.created_at),
       updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
       durationMs: row.duration_ms ?? undefined,
+      transactionsImported: row.transactions_imported,
+      transactionsFailed: row.transactions_failed,
       errorMessage: row.error_message ?? undefined,
       errorDetails: errorDetailsResult.value,
-      importParams: importParamsResult.value,
       importResultMetadata: importResultMetadataResult.value ?? {},
-      lastBalanceCheckAt: row.last_balance_check_at ? new Date(row.last_balance_check_at) : undefined,
-      verificationMetadata: verificationMetadataResult.value,
-      lastCursor: lastCursorResult.value,
     });
   }
 }

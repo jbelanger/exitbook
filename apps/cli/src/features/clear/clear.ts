@@ -24,7 +24,8 @@ export function registerClearCommand(program: Command): void {
   program
     .command('clear')
     .description('Clear processed data (keeps raw data by default for reprocessing)')
-    .option('--source <name>', 'Clear data for specific exchange or blockchain only')
+    .option('--account-id <id>', 'Clear data for specific account ID', parseInt)
+    .option('--source <name>', 'Clear data for all accounts with this source name')
     .option('--include-raw', 'Also clear raw imported data (WARNING: requires re-import)')
     .option('--confirm', 'Skip confirmation prompt')
     .option('--json', 'Output results in JSON format')
@@ -43,7 +44,12 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const params = unwrapResult(buildClearParamsFromFlags(options));
 
     // Create handler to preview deletion
-    const { initializeDatabase, closeDatabase, TransactionRepository: TxRepo } = await import('@exitbook/data');
+    const {
+      initializeDatabase,
+      closeDatabase,
+      TransactionRepository: TxRepo,
+      AccountRepository: AcctRepo,
+    } = await import('@exitbook/data');
     const {
       TransactionLinkRepository: TLRepo,
       CostBasisRepository: CBRepo,
@@ -52,6 +58,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const { RawDataRepository: RDRepo, DataSourceRepository: DSRepo } = await import('@exitbook/ingestion');
 
     const database = await initializeDatabase();
+    const acctRepo = new AcctRepo(database);
     const txRepo = new TxRepo(database);
     const tlRepo = new TLRepo(database);
     const cbRepo = new CBRepo(database);
@@ -59,7 +66,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const rdRepo = new RDRepo(database);
     const dsRepo = new DSRepo(database);
 
-    const handler = new ClearHandler(database, txRepo, tlRepo, cbRepo, ltRepo, rdRepo, dsRepo);
+    const handler = new ClearHandler(database, acctRepo, txRepo, tlRepo, cbRepo, ltRepo, rdRepo, dsRepo);
 
     const previewResult = await handler.previewDeletion(params);
     handler.destroy();
@@ -138,6 +145,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
       initializeDatabase: initDb,
       closeDatabase: closeDb,
       TransactionRepository,
+      AccountRepository,
     } = await import('@exitbook/data');
     const { TransactionLinkRepository, CostBasisRepository, LotTransferRepository } = await import(
       '@exitbook/accounting'
@@ -145,6 +153,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const { RawDataRepository, DataSourceRepository } = await import('@exitbook/ingestion');
 
     const db = await initDb();
+    const accountRepo = new AccountRepository(db);
     const transactionRepo = new TransactionRepository(db);
     const transactionLinkRepo = new TransactionLinkRepository(db);
     const costBasisRepo = new CostBasisRepository(db);
@@ -154,6 +163,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
 
     const clearHandler = new ClearHandler(
       db,
+      accountRepo,
       transactionRepo,
       transactionLinkRepo,
       costBasisRepo,

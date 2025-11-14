@@ -1,10 +1,4 @@
-import {
-  parseDecimal,
-  type DataSource,
-  type SourceParams,
-  type SourceType,
-  type UniversalTransaction,
-} from '@exitbook/core';
+import { parseDecimal, type DataSource, type SourceType, type UniversalTransaction } from '@exitbook/core';
 import type { ExchangeCredentials } from '@exitbook/exchanges-providers';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -134,20 +128,6 @@ export function getExchangeCredentialsFromEnv(exchangeName: string): Result<Exch
 }
 
 /**
- * Build source params for storage.
- * Pure function that constructs SourceParams from session data.
- */
-export function buildSourceParams(session: DataSource, sourceType: SourceType, address?: string): SourceParams {
-  if (sourceType === 'exchange') {
-    return { exchange: session.sourceId };
-  } else {
-    // Use already-parsed importParams from domain model
-    const effectiveAddress = address || session.importParams.address || 'unknown';
-    return { address: effectiveAddress, blockchain: session.sourceId };
-  }
-}
-
-/**
  * Convert Record<string, Decimal> to Record<string, string>.
  * Pure function for decimal-to-string conversion.
  * Uses toFixed() to avoid scientific notation for very small/large numbers.
@@ -183,18 +163,6 @@ export function findMostRecentCompletedSession(sessions: DataSource[]): DataSour
   }
   const sorted = sortSessionsByCompletedDate(completedSessions);
   return sorted[0];
-}
-
-/**
- * Find a session matching a specific blockchain address.
- * Pure function that searches for a session with matching address in import params.
- */
-export function findSessionByAddress(sessions: DataSource[], address: string): DataSource | undefined {
-  const normalizedAddress = address.toLowerCase();
-  return sessions.find((session) => {
-    const importParams = session.importParams;
-    return importParams.address?.toLowerCase() === normalizedAddress;
-  });
 }
 
 /**

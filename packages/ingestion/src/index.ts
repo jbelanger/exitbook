@@ -1,6 +1,7 @@
 // Initialize blockchain configs by importing the registry
 import './infrastructure/blockchains';
 
+export { ImportOrchestrator } from './services/import-orchestrator.js';
 export { TransactionImportService } from './services/import-service.js';
 export { TransactionProcessService } from './services/process-service.js';
 
