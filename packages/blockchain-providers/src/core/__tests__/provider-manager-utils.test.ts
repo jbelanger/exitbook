@@ -8,10 +8,9 @@ import { createInitialCircuitState, recordFailure, type CircuitState } from '@ex
 import { getLogger } from '@exitbook/logger';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { CursorResolutionConfig, CursorStateConfig } from '../provider-manager-utils.js';
+import type { CursorResolutionConfig } from '../provider-manager-utils.js';
 import {
   addToDeduplicationWindow,
-  buildCursorState,
   buildProviderNotFoundError,
   buildProviderSelectionDebugInfo,
   canProviderResume,
@@ -29,12 +28,7 @@ import {
   updateHealthMetrics,
   validateProviderApiKey,
 } from '../provider-manager-utils.js';
-import type {
-  IBlockchainProvider,
-  ProviderCapabilities,
-  ProviderHealth,
-  TransactionWithRawData,
-} from '../types/index.js';
+import type { IBlockchainProvider, ProviderCapabilities, ProviderHealth } from '../types/index.js';
 
 const logger = getLogger('test');
 
@@ -958,148 +952,6 @@ describe('provider-manager-utils', () => {
       });
       // Replay window function should NOT be called
       expect(applyReplayWindowSpy).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('buildCursorState', () => {
-    const mockExtractCursors = (tx: { blockHeight: number; timestamp: number }): PaginationCursor[] => {
-      return [
-        { type: 'blockNumber', value: tx.blockHeight },
-        { type: 'timestamp', value: tx.timestamp },
-      ];
-    };
-
-    it('should build cursor state with pageToken', () => {
-      const transactions: TransactionWithRawData<{ blockHeight: number; id: string; timestamp: number }>[] = [
-        {
-          raw: {},
-          normalized: { id: 'tx-1', blockHeight: 15000000, timestamp: 1640000000000 },
-        },
-        {
-          raw: {},
-          normalized: { id: 'tx-2', blockHeight: 15000001, timestamp: 1640000001000 },
-        },
-      ];
-
-      const config: CursorStateConfig<{ blockHeight: number; id: string; timestamp: number }> = {
-        transactions,
-        extractCursors: mockExtractCursors,
-        totalFetched: 200,
-        providerName: 'moralis',
-        pageToken: 'next-page-token',
-        isComplete: false,
-      };
-
-      const cursorState = buildCursorState(config);
-
-      expect(cursorState).toMatchObject({
-        primary: { type: 'pageToken', value: 'next-page-token', providerName: 'moralis' },
-        alternatives: [
-          { type: 'blockNumber', value: 15000001 },
-          { type: 'timestamp', value: 1640000001000 },
-        ],
-        lastTransactionId: 'tx-2',
-        totalFetched: 200,
-        metadata: {
-          providerName: 'moralis',
-          isComplete: false,
-        },
-      });
-      expect(cursorState.metadata?.updatedAt).toBeGreaterThan(0);
-    });
-
-    it('should build cursor state without pageToken (using blockNumber fallback)', () => {
-      const transactions: TransactionWithRawData<{ blockHeight: number; id: string; timestamp: number }>[] = [
-        {
-          raw: {},
-          normalized: { id: 'tx-1', blockHeight: 15000000, timestamp: 1640000000000 },
-        },
-      ];
-
-      const config: CursorStateConfig<{ blockHeight: number; id: string; timestamp: number }> = {
-        transactions,
-        extractCursors: mockExtractCursors,
-        totalFetched: 100,
-        providerName: 'moralis',
-        pageToken: undefined,
-        isComplete: true,
-      };
-
-      const cursorState = buildCursorState(config);
-
-      expect(cursorState).toMatchObject({
-        primary: { type: 'blockNumber', value: 15000000 },
-        alternatives: [
-          { type: 'blockNumber', value: 15000000 },
-          { type: 'timestamp', value: 1640000000000 },
-        ],
-        lastTransactionId: 'tx-1',
-        totalFetched: 100,
-        metadata: {
-          providerName: 'moralis',
-          isComplete: true,
-        },
-      });
-    });
-
-    it('should use last transaction for cursor extraction', () => {
-      const extractCursorsSpy = vi.fn(mockExtractCursors);
-
-      const transactions: TransactionWithRawData<{ blockHeight: number; id: string; timestamp: number }>[] = [
-        {
-          raw: {},
-          normalized: { id: 'tx-1', blockHeight: 15000000, timestamp: 1640000000000 },
-        },
-        {
-          raw: {},
-          normalized: { id: 'tx-2', blockHeight: 15000001, timestamp: 1640000001000 },
-        },
-        {
-          raw: {},
-          normalized: { id: 'tx-3', blockHeight: 15000002, timestamp: 1640000002000 },
-        },
-      ];
-
-      const config: CursorStateConfig<{ blockHeight: number; id: string; timestamp: number }> = {
-        transactions,
-        extractCursors: extractCursorsSpy,
-        totalFetched: 300,
-        providerName: 'moralis',
-        pageToken: 'token',
-        isComplete: false,
-      };
-
-      buildCursorState(config);
-
-      // Should only call extractCursors on last transaction
-      expect(extractCursorsSpy).toHaveBeenCalledTimes(1);
-      expect(extractCursorsSpy).toHaveBeenCalledWith({
-        id: 'tx-3',
-        blockHeight: 15000002,
-        timestamp: 1640000002000,
-      });
-    });
-
-    it('should handle zero blockNumber fallback when no cursors extracted', () => {
-      const transactions: TransactionWithRawData<{ id: string }>[] = [
-        {
-          raw: {},
-          normalized: { id: 'tx-1' },
-        },
-      ];
-
-      const config: CursorStateConfig<{ id: string }> = {
-        transactions,
-        extractCursors: () => [], // No cursors available
-        totalFetched: 1,
-        providerName: 'moralis',
-        pageToken: undefined,
-        isComplete: true,
-      };
-
-      const cursorState = buildCursorState(config);
-
-      expect(cursorState.primary).toEqual({ type: 'blockNumber', value: 0 });
     });
   });
 });

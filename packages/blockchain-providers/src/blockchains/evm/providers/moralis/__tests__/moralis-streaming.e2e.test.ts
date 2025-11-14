@@ -488,6 +488,95 @@ describe('MoralisApiClient Streaming E2E', () => {
       }, 60000);
     });
 
+    describe('streamAddressInternalTransactions via executeStreaming', () => {
+      it('should yield empty completion batch for internal transactions', async () => {
+        const operation = {
+          type: 'getAddressInternalTransactions' as const,
+          address: testAddress,
+        };
+
+        let batchCount = 0;
+        let lastBatch: StreamingBatchResult<EvmTransaction> | undefined;
+
+        for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
+          expect(result.isOk()).toBe(true);
+          if (result.isErr()) {
+            console.error('Streaming error:', result.error.message);
+            break;
+          }
+
+          const batch = result.value;
+          lastBatch = batch;
+          batchCount++;
+
+          // Should yield exactly one empty batch
+          expect(batch.data).toEqual([]);
+          expect(batch.cursor).toBeDefined();
+
+          // Verify cursor structure
+          expect(batch.cursor).toHaveProperty('primary');
+          expect(batch.cursor).toHaveProperty('lastTransactionId');
+          expect(batch.cursor).toHaveProperty('totalFetched');
+          expect(batch.cursor).toHaveProperty('metadata');
+
+          // Verify synthetic cursor values
+          expect(batch.cursor.primary.type).toBe('blockNumber');
+          if (batch.cursor.primary.type === 'blockNumber') {
+            expect(batch.cursor.primary.value).toBe(0);
+          }
+          expect(batch.cursor.lastTransactionId).toContain('internal:empty');
+          expect(batch.cursor.totalFetched).toBe(0);
+
+          // Verify completion metadata
+          expect(batch.cursor.metadata?.providerName).toBe('moralis');
+          expect(batch.cursor.metadata?.isComplete).toBe(true);
+          expect(batch.cursor.metadata?.updatedAt).toBeGreaterThan(0);
+        }
+
+        // Should yield exactly one batch
+        expect(batchCount).toBe(1);
+        expect(lastBatch).toBeDefined();
+        expect(lastBatch?.cursor.metadata?.isComplete).toBe(true);
+      }, 30000);
+
+      it('should handle resume from internal transaction cursor', async () => {
+        const operation = {
+          type: 'getAddressInternalTransactions' as const,
+          address: testAddress,
+        };
+
+        // Fetch first batch and get cursor
+        let firstCursor: CursorState | undefined;
+        for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
+          expect(result.isOk()).toBe(true);
+          if (result.isErr()) break;
+
+          const batch = result.value;
+          firstCursor = batch.cursor;
+          break;
+        }
+
+        expect(firstCursor).toBeDefined();
+
+        // Resume from cursor - should yield same empty completion batch
+        let resumedBatchCount = 0;
+        for await (const result of provider.executeStreaming<EvmTransaction>(operation, firstCursor)) {
+          expect(result.isOk()).toBe(true);
+          if (result.isErr()) break;
+
+          const batch = result.value;
+          resumedBatchCount++;
+
+          // Should still yield empty batch with completion marker
+          expect(batch.data).toEqual([]);
+          expect(batch.cursor.metadata?.isComplete).toBe(true);
+        }
+
+        // Should yield exactly one batch on resume
+        expect(resumedBatchCount).toBe(1);
+      }, 30000);
+    });
+
     describe('Cursor extraction and replay window', () => {
       it('should extract blockNumber and timestamp cursors from transactions', async () => {
         const operation = {

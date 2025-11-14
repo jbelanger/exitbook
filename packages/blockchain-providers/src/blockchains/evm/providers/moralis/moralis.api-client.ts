@@ -5,13 +5,10 @@ import { z } from 'zod';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/index.js';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
-import {
-  buildCursorState,
-  createDeduplicationWindow,
-  deduplicateTransactions,
-} from '../../../../core/provider-manager-utils.js';
+import { createDeduplicationWindow, deduplicateTransactions } from '../../../../core/provider-manager-utils.js';
 import type { RawBalanceData, StreamingBatchResult, TransactionWithRawData } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
+import { buildCursorState, createEmptyCompletionCursor } from '../../../../core/utils/cursor-utils.js';
 import { convertWeiToDecimal } from '../../balance-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
@@ -191,6 +188,22 @@ export class MoralisApiClient extends BaseApiClient {
           operation.contractAddress,
           resumeCursor
         ) as AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>>;
+        break;
+      case 'getAddressInternalTransactions':
+        // Moralis includes internal transactions automatically in getAddressTransactions
+        // with the 'include=internal_transactions' parameter. Yield empty completion batch
+        // to signal successful completion without duplicate fetching.
+        this.logger.info(
+          `Moralis internal transactions are included in getAddressTransactions stream - yielding empty batch for ${maskAddress(operation.address)}`
+        );
+        yield ok({
+          data: [],
+          cursor: createEmptyCompletionCursor({
+            providerName: this.name,
+            operationType: 'internal',
+            identifier: operation.address,
+          }),
+        });
         break;
       default:
         yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
