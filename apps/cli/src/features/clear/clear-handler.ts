@@ -38,20 +38,20 @@ export class ClearHandler {
       const countTable = async (tableName: string, sourceFilter?: boolean): Promise<number> => {
         if (sourceFilter && params.source) {
           const result = await this.db
-            .selectFrom(tableName as 'data_sources')
+            .selectFrom(tableName as 'import_sessions')
             .select(({ fn }) => [fn.count<number>('id').as('count')])
             .where('source_id', '=', params.source)
             .executeTakeFirst();
           return result?.count ?? 0;
         }
         const result = await this.db
-          .selectFrom(tableName as 'data_sources')
+          .selectFrom(tableName as 'import_sessions')
           .select(({ fn }) => [fn.count<number>('id').as('count')])
           .executeTakeFirst();
         return result?.count ?? 0;
       };
 
-      const sessions = await countTable('data_sources', true);
+      const sessions = await countTable('import_sessions', true);
       const rawData = await countTable('external_transaction_data', false);
       const transactions = await countTable('transactions', true);
       const links = await countTable('transaction_links', false);
@@ -149,7 +149,7 @@ export class ClearHandler {
           }
         }
       } else {
-        // Delete all data (except external_transaction_data and data_sources)
+        // Delete all data (except external_transaction_data and import_sessions)
         const disposalsResult = await this.costBasisRepo.deleteAllDisposals();
         if (disposalsResult.isErr()) {
           return err(disposalsResult.error);

@@ -47,7 +47,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       }
 
       const result = await this.db
-        .insertInto('data_sources')
+        .insertInto('import_sessions')
         .values({
           created_at: this.getCurrentDateTimeForDB(),
           import_params: this.serializeToJson(validationResult.data) ?? '{}',
@@ -86,7 +86,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       const currentTimestamp = this.getCurrentDateTimeForDB();
 
       await this.db
-        .updateTable('data_sources')
+        .updateTable('import_sessions')
         .set({
           completed_at: currentTimestamp as unknown as string,
           duration_ms: durationMs,
@@ -106,7 +106,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
   async findAll(filters?: ImportSessionQuery): Promise<Result<DataSource[], Error>> {
     try {
-      let query = this.db.selectFrom('data_sources').selectAll();
+      let query = this.db.selectFrom('import_sessions').selectAll();
 
       if (filters?.sourceId) {
         query = query.where('source_id', '=', filters.sourceId);
@@ -152,7 +152,11 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
   async findById(sessionId: number): Promise<Result<DataSource | undefined, Error>> {
     try {
-      const row = await this.db.selectFrom('data_sources').selectAll().where('id', '=', sessionId).executeTakeFirst();
+      const row = await this.db
+        .selectFrom('import_sessions')
+        .selectAll()
+        .where('id', '=', sessionId)
+        .executeTakeFirst();
 
       if (!row) {
         return ok(undefined);
@@ -238,7 +242,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
         return ok();
       }
 
-      await this.db.updateTable('data_sources').set(updateData).where('id', '=', sessionId).execute();
+      await this.db.updateTable('import_sessions').set(updateData).where('id', '=', sessionId).execute();
 
       return ok();
     } catch (error) {
@@ -302,7 +306,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       const currentTimestamp = this.getCurrentDateTimeForDB();
 
       await this.db
-        .updateTable('data_sources')
+        .updateTable('import_sessions')
         .set({
           last_balance_check_at: currentTimestamp,
           updated_at: currentTimestamp,
@@ -348,7 +352,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
       // Persist
       await this.db
-        .updateTable('data_sources')
+        .updateTable('import_sessions')
         .set({
           last_cursor: JSON.stringify(validationResult.data),
           updated_at: this.getCurrentDateTimeForDB(),
@@ -364,7 +368,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
   async deleteBySource(sourceId: string): Promise<Result<void, Error>> {
     try {
-      await this.db.deleteFrom('data_sources').where('source_id', '=', sourceId).execute();
+      await this.db.deleteFrom('import_sessions').where('source_id', '=', sourceId).execute();
       return ok();
     } catch (error) {
       return wrapError(error, 'Failed to delete data sources by source ID');
@@ -373,7 +377,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
   async deleteAll(): Promise<Result<void, Error>> {
     try {
-      await this.db.deleteFrom('data_sources').execute();
+      await this.db.deleteFrom('import_sessions').execute();
       return ok();
     } catch (error) {
       return wrapError(error, 'Failed to delete all data sources');
@@ -392,7 +396,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
   ): Promise<Result<DataSource | undefined, Error>> {
     try {
       let query = this.db
-        .selectFrom('data_sources')
+        .selectFrom('import_sessions')
         .selectAll()
         .where('source_id', '=', sourceId)
         .where('source_type', '=', sourceType)

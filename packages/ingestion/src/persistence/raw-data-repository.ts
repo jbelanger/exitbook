@@ -26,7 +26,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     try {
       let query = this.db
         .selectFrom('external_transaction_data')
-        .innerJoin('data_sources', 'external_transaction_data.data_source_id', 'data_sources.id')
+        .innerJoin('import_sessions', 'external_transaction_data.data_source_id', 'import_sessions.id')
         .selectAll('external_transaction_data');
 
       if (filters?.sourceId) {
@@ -222,7 +222,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .where(
           'data_source_id',
           'in',
-          this.db.selectFrom('data_sources').select('id').where('source_id', '=', sourceId)
+          this.db.selectFrom('import_sessions').select('id').where('source_id', '=', sourceId)
         )
         .executeTakeFirst();
 
@@ -256,7 +256,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .where(
           'data_source_id',
           'in',
-          this.db.selectFrom('data_sources').select('id').where('source_id', '=', sourceId)
+          this.db.selectFrom('import_sessions').select('id').where('source_id', '=', sourceId)
         )
         .executeTakeFirst();
 

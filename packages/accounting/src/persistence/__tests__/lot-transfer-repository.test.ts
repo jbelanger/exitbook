@@ -22,13 +22,13 @@ describe('LotTransferRepository', () => {
     await db.deleteFrom('cost_basis_calculations').execute();
     await db.deleteFrom('transaction_links').execute();
     await db.deleteFrom('transactions').execute();
-    await db.deleteFrom('data_sources').execute();
+    await db.deleteFrom('import_sessions').execute();
 
     repo = new LotTransferRepository(db);
 
     // Create dummy data source for foreign key constraints
     await db
-      .insertInto('data_sources')
+      .insertInto('import_sessions')
       .values({
         id: 1,
         source_id: 'test',

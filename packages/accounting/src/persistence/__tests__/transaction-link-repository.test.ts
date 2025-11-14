@@ -20,13 +20,13 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
     // Clear all data before each test to avoid constraint violations
     await db.deleteFrom('transaction_links').execute();
     await db.deleteFrom('transactions').execute();
-    await db.deleteFrom('data_sources').execute();
+    await db.deleteFrom('import_sessions').execute();
 
     repo = new TransactionLinkRepository(db);
 
     // Create dummy transactions for foreign key constraints
     await db
-      .insertInto('data_sources')
+      .insertInto('import_sessions')
       .values({
         id: 1,
         source_id: 'test',
