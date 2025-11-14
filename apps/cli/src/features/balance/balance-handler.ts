@@ -5,7 +5,7 @@ import {
 } from '@exitbook/blockchain-providers';
 import type { Account, DataSource, SourceParams, VerificationMetadata, UniversalTransaction } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
-import { AccountRepository, TokenMetadataRepository, TransactionRepository } from '@exitbook/data';
+import { AccountRepository, TokenMetadataRepository, TransactionRepository, UserRepository } from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchanges-providers';
 import {
   calculateBalances,
@@ -47,6 +47,7 @@ export class BalanceHandler {
   private sessionRepository: DataSourceRepository;
   private accountRepository: AccountRepository;
   private tokenMetadataRepository: TokenMetadataRepository;
+  private userRepository: UserRepository;
 
   constructor(database: KyselyDB, explorerConfig?: BlockchainExplorersConfig) {
     // Load explorer config
@@ -57,6 +58,7 @@ export class BalanceHandler {
     this.sessionRepository = new DataSourceRepository(database);
     this.accountRepository = new AccountRepository(database);
     this.tokenMetadataRepository = new TokenMetadataRepository(database);
+    this.userRepository = new UserRepository(database);
     this.providerManager = new BlockchainProviderManager(config);
   }
 
@@ -159,21 +161,51 @@ export class BalanceHandler {
    * Helper method to find an account based on balance params.
    */
   private async findAccount(params: BalanceHandlerParams): Promise<Result<Account, Error>> {
-    // Map sourceType to accountType
+    // 1. Get the default user (same as import orchestrator)
+    const userResult = await this.userRepository.ensureDefaultUser();
+    if (userResult.isErr()) {
+      return err(userResult.error);
+    }
+    const user = userResult.value;
+
+    // 2. Map sourceType to accountType
     const accountType = params.sourceType === 'exchange' ? 'exchange-api' : 'blockchain';
 
-    // For blockchain: identifier is the address
-    // For exchange: we don't have identifier here, need to search by source name
-    // This is a temporary solution - we may need to refactor this
-    const identifier = params.sourceType === 'blockchain' && params.address ? params.address : '';
+    // 3. Determine identifier based on source type
+    let identifier: string;
+    if (params.sourceType === 'blockchain') {
+      // For blockchain: identifier is the address
+      if (!params.address) {
+        return err(new Error('Address is required for blockchain balance'));
+      }
+      identifier = params.address;
+    } else {
+      // For exchange: identifier is the API key
+      // Get credentials from params or env
+      let credentials = params.credentials;
+      if (!credentials) {
+        const envCredentials = getExchangeCredentialsFromEnv(params.sourceName);
+        if (envCredentials.isErr()) {
+          return err(
+            new Error(
+              `No credentials provided. Either use --api-key and --api-secret flags, or set ${params.sourceName.toUpperCase()}_API_KEY and ${params.sourceName.toUpperCase()}_SECRET in .env`
+            )
+          );
+        }
+        credentials = envCredentials.value;
+      }
+      if (!credentials.apiKey) {
+        return err(new Error('API key is required for exchange balance'));
+      }
+      identifier = credentials.apiKey;
+    }
 
-    // Find account (user_id is null for tracking-only accounts)
+    // 4. Find account with the same unique constraint used during import
     const accountResult: Result<Account | undefined, Error> = await this.accountRepository.findByUniqueConstraint(
       accountType,
       params.sourceName,
       identifier,
-      // eslint-disable-next-line unicorn/no-null -- AccountRepository.findByUniqueConstraint requires null for DB compatibility
-      null // Assuming tracking-only accounts for now
+      user.id
     );
 
     if (accountResult.isErr()) {
@@ -181,7 +213,11 @@ export class BalanceHandler {
     }
 
     if (!accountResult.value) {
-      return err(new Error(`No account found for ${params.sourceName} ${identifier || ''}`));
+      return err(
+        new Error(
+          `No account found for ${params.sourceName}. Please run import first to create the account. (Looking for: accountType=${accountType}, identifier=${identifier}, userId=${user.id})`
+        )
+      );
     }
 
     return ok(accountResult.value);

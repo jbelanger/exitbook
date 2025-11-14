@@ -67,6 +67,22 @@ export class ClearHandler {
       // Helper to count rows filtered by account_id (for sessions, raw data)
       const countByAccount = async (tableName: string, accountIds: number[]): Promise<number> => {
         if (accountIds.length === 0) return 0;
+
+        // external_transaction_data doesn't have account_id - join through import_sessions
+        if (tableName === 'external_transaction_data') {
+          const result = await this.db
+            .selectFrom('external_transaction_data')
+            .select(({ fn }) => [fn.count<number>('id').as('count')])
+            .where(
+              'data_source_id',
+              'in',
+              this.db.selectFrom('import_sessions').select('id').where('account_id', 'in', accountIds)
+            )
+            .executeTakeFirst();
+          return result?.count ?? 0;
+        }
+
+        // Other tables have account_id column
         const result = await this.db
           .selectFrom(tableName as 'import_sessions')
           .select(({ fn }) => [fn.count<number>('id').as('count')])

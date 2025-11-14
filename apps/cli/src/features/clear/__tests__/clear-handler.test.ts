@@ -167,6 +167,44 @@ describe('ClearHandler', () => {
       expect(preview.transactions).toBe(100);
       expect(preview.transfers).toBe(15);
     });
+
+    it('should use subquery for external_transaction_data when filtering by account', async () => {
+      const params: ClearHandlerParams = {
+        accountId: 1,
+        includeRaw: false,
+      };
+
+      // Track which tables and subqueries are accessed
+      const tablesAccessed: string[] = [];
+
+      const createMockCountQuery = (count: number) => ({
+        executeTakeFirst: vi.fn().mockResolvedValue({ count }),
+        select: vi.fn().mockImplementation(function (this: { _table?: string }) {
+          // Track the table being queried
+          if (this._table) {
+            tablesAccessed.push(this._table);
+          }
+          return this;
+        }),
+        where: vi.fn().mockReturnThis(),
+        _table: undefined as string | undefined,
+      });
+
+      mockSelectFrom.mockImplementation((tableName: string) => {
+        const query = createMockCountQuery(10);
+        query._table = tableName;
+        return query;
+      });
+
+      const result = await handler.previewDeletion(params);
+
+      expect(result.isOk()).toBe(true);
+
+      // Verify that external_transaction_data is queried directly (not via account_id column)
+      // and that import_sessions is queried as part of the subquery
+      expect(tablesAccessed).toContain('external_transaction_data');
+      expect(tablesAccessed).toContain('import_sessions');
+    });
   });
 
   describe('execute', () => {
