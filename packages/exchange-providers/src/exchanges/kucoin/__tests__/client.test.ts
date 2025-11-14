@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- expect.any() is a vitest matcher that returns type any */
+
 import * as ccxt from 'ccxt';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -175,7 +177,6 @@ describe('createKuCoinClient - fetchTransactionData', () => {
 
       expect.any(Number),
       {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.any() is a vitest matcher
         until: expect.any(Number),
       }
     );
@@ -287,7 +288,6 @@ describe('createKuCoinClient - fetchTransactionData', () => {
 
       expect.any(Number),
       {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.any() is a vitest matcher
         until: expect.any(Number),
       }
     );
