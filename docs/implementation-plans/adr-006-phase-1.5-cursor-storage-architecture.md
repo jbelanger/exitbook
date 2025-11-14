@@ -11,7 +11,7 @@
 
 This phase redesigns cursor storage to support per-operation-type resumption for both blockchain and exchange imports. The key changes:
 
-1. **Convert `data_sources.last_cursor` to a map** - Store cursor per operation type instead of single cursor
+1. **Convert `import_sessions.last_cursor` to a map** - Store cursor per operation type instead of single cursor
 2. **Remove `external_transaction_data.cursor` field** - Eliminate per-record cursor storage (~99.995% storage reduction)
 3. **Unified architecture** - Blockchains and exchanges use the same cursor storage pattern
 
@@ -29,7 +29,7 @@ This phase redesigns cursor storage to support per-operation-type resumption for
 
 **Two cursor fields exist:**
 
-1. **`data_sources.last_cursor`** - Single `CursorState` for blockchain resumption (not yet used)
+1. **`import_sessions.last_cursor`** - Single `CursorState` for blockchain resumption (not yet used)
 2. **`external_transaction_data.cursor`** - Per-record cursor for exchange resumption (actively used)
 
 **Current exchange resumption flow:**
@@ -68,7 +68,7 @@ But the ADR only passes cursor to normal transactions - internal/token always re
 
 ### 1. Per-Operation Cursor Map
 
-**Change `data_sources.last_cursor` from single cursor to map:**
+**Change `import_sessions.last_cursor` from single cursor to map:**
 
 ```typescript
 // Before (ADR Phase 1.0)
@@ -145,7 +145,7 @@ lastCursor: Record<string, CursorState> | undefined;
 
 - Remove column from schema
 - Delete `getLatestCursor()` method
-- Update exchange imports to use `data_sources.last_cursor` map
+- Update exchange imports to use `import_sessions.last_cursor` map
 
 ### 3. Incremental Cursor Updates
 
@@ -224,7 +224,7 @@ export const ExternalTransactionSchema = z.object({
 **File:** `packages/data/src/migrations/001_initial_schema.ts`
 
 ```typescript
-// data_sources table - line 23
+// import_sessions table - line 23
 .addColumn('last_cursor', 'text') // Still JSON, now stores Record<string, CursorState>
 
 // external_transaction_data table - REMOVE line 37
@@ -279,7 +279,7 @@ async updateCursor(
 
     // Persist
     await this.db
-      .updateTable('data_sources')
+      .updateTable('import_sessions')
       .set({
         last_cursor: JSON.stringify(validationResult.data),
         updated_at: this.getCurrentDateTimeForDB(),
@@ -652,7 +652,7 @@ Just update `001_initial_schema.ts`:
 await db.schema
   .createTable('external_transaction_data')
   .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-  .addColumn('data_source_id', 'integer', (col) => col.notNull().references('data_sources.id'))
+  .addColumn('data_source_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
   .addColumn('provider_name', 'text', (col) => col.notNull())
   .addColumn('external_id', 'text', (col) => col.notNull())
   // REMOVED: .addColumn('cursor', 'text')
@@ -690,7 +690,7 @@ await db.schema
 
 ## Success Criteria
 
-- ✅ `data_sources.last_cursor` stores map of cursors per operation type
+- ✅ `import_sessions.last_cursor` stores map of cursors per operation type
 - ✅ `external_transaction_data.cursor` column removed from schema
 - ✅ `getLatestCursor()` method deleted
 - ✅ Exchange imports update cursor after each batch
@@ -712,7 +712,7 @@ pnpm build
 pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET --process
 
 # Verify cursor persistence (check database)
-sqlite3 apps/cli/data/transactions.db "SELECT id, source_id, last_cursor FROM data_sources;"
+sqlite3 apps/cli/data/transactions.db "SELECT id, source_id, last_cursor FROM import_sessions;"
 ```
 
 ---

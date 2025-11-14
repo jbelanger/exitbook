@@ -445,7 +445,7 @@ Action: Subscan resumes from timestamp
 
 ### Alternative 1: Quick Fix - Data Source Level Cursor (Rejected)
 
-Store single cursor at `data_sources` table level instead of per-transaction.
+Store single cursor at `import_sessions` table level instead of per-transaction.
 
 **Why rejected**:
 

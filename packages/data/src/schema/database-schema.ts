@@ -47,8 +47,8 @@ export interface DataSourcesTable {
    * - Exchanges: 'trade', 'deposit', 'withdrawal', etc.
    *
    * This is the AUTHORITATIVE cursor for resume operations:
-   * - Read on import start: `SELECT last_cursor FROM data_sources WHERE id = ?`
-   * - Write after EACH batch: `UPDATE data_sources SET last_cursor = ? WHERE id = ?`
+   * - Read on import start: `SELECT last_cursor FROM import_sessions WHERE id = ?`
+   * - Write after EACH batch: `UPDATE import_sessions SET last_cursor = ? WHERE id = ?`
    *
    * Schema validation: z.record(z.string(), CursorStateSchema) from @exitbook/core/schemas
    */
@@ -67,7 +67,7 @@ export interface ExternalTransactionDataTable {
 
   id: Generated<number>;
   // Foreign key relationship
-  data_source_id: number; // FK to data_sources.id
+  data_source_id: number; // FK to import_sessions.id
 
   provider_name: string;
 
@@ -95,7 +95,7 @@ export interface ExternalTransactionDataTable {
 export interface TransactionsTable {
   // Core identification
   id: Generated<number>;
-  data_source_id: number; // FK to data_sources.id
+  data_source_id: number; // FK to import_sessions.id
   source_id: string;
   source_type: SourceType;
   external_id: string | null; // hash, transaction ID, etc.
@@ -297,7 +297,7 @@ export interface DatabaseSchema {
   acquisition_lots: AcquisitionLotsTable;
   cost_basis_calculations: CostBasisCalculationsTable;
   external_transaction_data: ExternalTransactionDataTable;
-  data_sources: DataSourcesTable;
+  import_sessions: DataSourcesTable;
   lot_disposals: LotDisposalsTable;
   lot_transfers: LotTransfersTable;
   symbol_index: SymbolIndexTable;

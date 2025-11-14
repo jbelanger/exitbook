@@ -15,7 +15,7 @@ describe('TransactionRepository - delete methods', () => {
 
     // Create mock import sessions for different sources
     await db
-      .insertInto('data_sources')
+      .insertInto('import_sessions')
       .values([
         {
           id: 1,
@@ -184,7 +184,7 @@ describe('TransactionRepository - scam token filtering', () => {
 
     // Create mock import session
     await db
-      .insertInto('data_sources')
+      .insertInto('import_sessions')
       .values({
         id: 1,
         source_type: 'blockchain',
@@ -314,7 +314,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
 
     // Create mock import session
     await db
-      .insertInto('data_sources')
+      .insertInto('import_sessions')
       .values({
         id: 1,
         source_type: 'exchange',

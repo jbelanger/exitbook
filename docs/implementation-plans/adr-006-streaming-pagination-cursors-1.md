@@ -281,7 +281,7 @@ export { PaginationCursorSchema, CursorStateSchema } from './cursor.js';
 
 **File:** `packages/data/src/schema/database-schema.ts`
 
-Update the `data_sources` table to store authoritative cursor state:
+Update the `import_sessions` table to store authoritative cursor state:
 
 ```typescript
 export interface DataSourcesTable {
@@ -292,8 +292,8 @@ export interface DataSourcesTable {
    * Stores the discriminated union CursorState as JSON
    *
    * This is the AUTHORITATIVE cursor for resume operations:
-   * - Read on import start: `SELECT last_cursor FROM data_sources WHERE id = ?`
-   * - Write after EACH batch: `UPDATE data_sources SET last_cursor = ? WHERE id = ?`
+   * - Read on import start: `SELECT last_cursor FROM import_sessions WHERE id = ?`
+   * - Write after EACH batch: `UPDATE import_sessions SET last_cursor = ? WHERE id = ?`
    *
    * Schema validation: CursorStateSchema from @exitbook/core/schemas
    */
@@ -305,9 +305,9 @@ export interface DataSourcesTable {
 
 **Migration Path:**
 
-The `external_transaction_data.cursor` field (line 49) stores per-transaction cursor for provenance/debugging. The NEW `data_sources.last_cursor` field stores the authoritative cursor for resumption. Developer must:
+The `external_transaction_data.cursor` field (line 49) stores per-transaction cursor for provenance/debugging. The NEW `import_sessions.last_cursor` field stores the authoritative cursor for resumption. Developer must:
 
-1. Add `last_cursor` column to `data_sources` table in migration
+1. Add `last_cursor` column to `import_sessions` table in migration
 2. Parse/validate using `CursorStateSchema.safeParse()` on read
 3. Serialize via `JSON.stringify()` on write
 4. Query on import start: Look up data source, parse `last_cursor`, pass to `ImportParams.cursor`
@@ -317,9 +317,9 @@ The `external_transaction_data.cursor` field (line 49) stores per-transaction cu
 Add column directly to the initial CREATE TABLE statement (per CLAUDE.md requirements):
 
 ```typescript
-// Find the data_sources table creation and add last_cursor column
+// Find the import_sessions table creation and add last_cursor column
 await db.schema
-  .createTable('data_sources')
+  .createTable('import_sessions')
   .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
   // ... existing columns ...
   .addColumn('last_cursor', 'text') // JSON-serialized CursorState for resumption
@@ -376,7 +376,7 @@ async create(params: {
   // ... existing code ...
 
   const result = await db
-    .insertInto('data_sources')
+    .insertInto('import_sessions')
     .values({
       // ... existing fields ...
       last_cursor: this.serializeCursor(params.lastCursor),
@@ -396,7 +396,7 @@ async update(id: number, params: {
   // ... existing code ...
 
   const result = await db
-    .updateTable('data_sources')
+    .updateTable('import_sessions')
     .set({
       // ... existing fields ...
       last_cursor: this.serializeCursor(params.lastCursor),
