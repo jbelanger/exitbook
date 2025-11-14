@@ -93,8 +93,6 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
         let cumulativeFetched = (ledgerCursor?.totalFetched as number) || 0;
 
         try {
-          progress.start('Fetching Kraken ledger transactions');
-
           let pageCount = 0;
 
           while (true) {
@@ -196,8 +194,6 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
             // Update offset for next page
             ofs += ledgerEntries.length;
           }
-
-          progress.complete(`Completed Kraken fetch: ${allTransactions.length} transactions (${pageCount} pages)`);
 
           return ok({ transactions: allTransactions, cursorUpdates: lastSuccessfulCursorUpdates });
         } catch (error) {

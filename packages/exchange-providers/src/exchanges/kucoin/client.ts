@@ -102,10 +102,6 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
           let cumulativeFetched = (ledgerCursor?.totalFetched as number) || 0;
 
           try {
-            progress.start(
-              `Fetching KuCoin ledger from ${new Date(currentStartTime).toISOString()} to ${new Date(now).toISOString()}`
-            );
-
             // KuCoin fetches backwards from 'until' timestamp
             // Only specify 'until' and it automatically fetches previous 24 hours
             let currentEnd = now;
@@ -240,10 +236,6 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
                 progress.update(`Processed ${dayCount} days (${cumulativeFetched} transactions)`, dayCount, totalDays);
               }
             }
-
-            progress.complete(
-              `Completed KuCoin fetch: ${allTransactions.length} transactions (${dayCount} days processed)`
-            );
 
             logger.info(`KuCoin fetch completed successfully: ${allTransactions.length} total transactions`);
             return ok({ transactions: allTransactions, cursorUpdates: lastSuccessfulCursorUpdates });

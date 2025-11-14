@@ -148,8 +148,6 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
               return ok({ transactions: [], cursorUpdates: {} }); // No accounts, no transactions
             }
 
-            progress.start(`Fetching Coinbase transactions from ${accounts.length} account(s)`);
-
             // Step 2: Fetch ledger entries for each account
             let accountIndex = 0;
             for (const account of accounts) {
@@ -371,10 +369,6 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
 
               accountIndex++;
             }
-
-            progress.complete(
-              `Completed Coinbase fetch: ${allTransactions.length} transactions from ${accounts.length} account(s)`
-            );
 
             return ok({ transactions: allTransactions, cursorUpdates: lastSuccessfulCursorUpdates });
           } catch (error) {
