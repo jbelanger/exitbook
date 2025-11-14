@@ -18,10 +18,9 @@ import {
   createDeduplicationWindow,
   createInitialHealth,
   deduplicateTransactions,
-  findBestCursor,
   getProviderHealthWithCircuit,
   hasAvailableProviders,
-  selectBestCursorType,
+  resolveCursorForResumption,
   selectProvidersForOperation,
   updateHealthMetrics,
   validateProviderApiKey,
@@ -174,29 +173,44 @@ export class BlockchainProviderManager {
         continue;
       }
 
-      const isFailover = currentCursor && currentCursor.metadata?.providerName !== provider.name;
+      const isFailover = currentCursor ? currentCursor.metadata?.providerName !== provider.name : false;
 
-      // Apply cursor translation and replay window for failover
-      let adjustedCursor = currentCursor;
-      if (isFailover && currentCursor) {
-        // Find best cursor type this provider can use
-        const bestCursor = findBestCursor(provider, currentCursor);
-        if (bestCursor) {
-          // Apply replay window to prevent gaps at failover boundary
-          const cursorWithReplay = provider.applyReplayWindow(bestCursor);
+      // Use manager's cursor resolution for ALL cursor handling
+      // This handles: same-provider resumption, cross-provider failover, replay windows
+      const adjustedCursor = currentCursor
+        ? (() => {
+            const resolved = resolveCursorForResumption(
+              currentCursor,
+              {
+                providerName: provider.name,
+                supportedCursorTypes: provider.capabilities.supportedCursorTypes || [],
+                isFailover, // Only apply replay window during cross-provider failover
+                applyReplayWindow: (c) => provider.applyReplayWindow(c),
+              },
+              logger
+            );
 
-          // Update cursor state with adjusted primary cursor
-          adjustedCursor = {
-            ...currentCursor,
-            primary: cursorWithReplay,
-          };
-
-          logger.info(
-            `Applying cursor translation for failover: ${bestCursor.type}=${bestCursor.value} -> ` +
-              `${cursorWithReplay.type}=${cursorWithReplay.value} (replay window applied)`
-          );
-        }
-      }
+            // Convert resolved cursor back to CursorState format
+            // Manager resolves to the specific value, provider just needs to receive it
+            if (resolved.pageToken) {
+              return {
+                ...currentCursor,
+                primary: { type: 'pageToken' as const, value: resolved.pageToken, providerName: provider.name },
+              };
+            } else if (resolved.fromBlock !== undefined) {
+              return {
+                ...currentCursor,
+                primary: { type: 'blockNumber' as const, value: resolved.fromBlock },
+              };
+            } else if (resolved.fromTimestamp !== undefined) {
+              return {
+                ...currentCursor,
+                primary: { type: 'timestamp' as const, value: resolved.fromTimestamp },
+              };
+            }
+            return currentCursor;
+          })()
+        : undefined;
 
       logger.info(
         `Using provider ${provider.name} for ${operation.type}` +
@@ -236,8 +250,10 @@ export class BlockchainProviderManager {
             DEDUP_WINDOW_SIZE
           );
 
-          if (deduplicated.length > 0) {
-            // ✅ Yield Result-wrapped batch
+          // Critical: Always yield completion batches, even with zero data after dedup
+          // Otherwise importer never receives "complete" signal when last page contains only duplicates
+          const isComplete = batch.cursor.metadata?.isComplete ?? false;
+          if (deduplicated.length > 0 || isComplete) {
             yield ok({
               data: deduplicated as T[],
               providerName: provider.name,
@@ -275,8 +291,7 @@ export class BlockchainProviderManager {
         if (providerIndex < providers.length) {
           const nextProvider = providers[providerIndex];
           if (nextProvider) {
-            const bestCursorType = selectBestCursorType(nextProvider, currentCursor);
-            logger.info(`Failing over to ${nextProvider.name}. ` + `Will use ${bestCursorType} cursor for resumption.`);
+            logger.info(`Failing over to ${nextProvider.name}`);
           }
         } else {
           // All providers exhausted - yield error

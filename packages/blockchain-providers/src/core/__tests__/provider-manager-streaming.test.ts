@@ -541,7 +541,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
   });
 
   describe('Edge Cases', () => {
-    it('should handle empty batches', async () => {
+    it('should handle empty batches (non-completion)', async () => {
       provider1.setBatches([
         {
           data: [],
@@ -549,7 +549,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
             primary: { type: 'blockNumber', value: 1000 },
             lastTransactionId: 'none',
             totalFetched: 0,
-            metadata: { providerName: 'provider-1', updatedAt: Date.now() },
+            metadata: { providerName: 'provider-1', updatedAt: Date.now(), isComplete: false },
           },
         },
       ]);
@@ -568,8 +568,48 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
         }
       }
 
-      // Empty batches should not yield results
+      // Empty non-completion batches should not yield results
       expect(results).toHaveLength(0);
+    });
+
+    it('should forward completion batches even when data is empty after deduplication', async () => {
+      // This test verifies the fix for HIGH priority bug:
+      // Manager must forward completion batches even with zero data
+      // Otherwise importer never receives "complete" signal when last page contains only duplicates
+      provider1.setBatches([
+        {
+          data: [],
+          cursor: {
+            primary: { type: 'blockNumber', value: 1000 },
+            lastTransactionId: 'none',
+            totalFetched: 0,
+            metadata: {
+              providerName: 'provider-1',
+              updatedAt: Date.now(),
+              isComplete: true, // This is the completion signal
+            },
+          },
+        },
+      ]);
+
+      manager.registerProviders('ethereum', [provider1 as unknown as IBlockchainProvider]);
+
+      const operation: ProviderOperation = {
+        type: 'getAddressTransactions',
+        address: '0x123',
+      };
+
+      const results: FailoverStreamingExecutionResult<TransactionWithRawData<unknown>>[] = [];
+      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation)) {
+        if (result.isOk()) {
+          results.push(result.value as FailoverStreamingExecutionResult<TransactionWithRawData<unknown>>);
+        }
+      }
+
+      // Completion batch MUST be forwarded even with empty data
+      expect(results).toHaveLength(1);
+      expect(results[0]!.data).toHaveLength(0);
+      expect(results[0]!.cursor.metadata?.isComplete).toBe(true);
     });
 
     it('should handle no providers available', async () => {

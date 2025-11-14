@@ -3,10 +3,12 @@
  * Pure function tests without mocks
  */
 
-import type { CursorState, CursorType } from '@exitbook/core';
+import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
 import { createInitialCircuitState, recordFailure, type CircuitState } from '@exitbook/http';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { getLogger } from '@exitbook/logger';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CursorResolutionConfig } from '../provider-manager-utils.js';
 import {
   addToDeduplicationWindow,
   buildProviderNotFoundError,
@@ -15,19 +17,20 @@ import {
   createDeduplicationWindow,
   createInitialHealth,
   deduplicateTransactions,
-  findBestCursor,
   getProviderHealthWithCircuit,
   hasAvailableProviders,
   isCacheValid,
   isInDeduplicationWindow,
+  resolveCursorForResumption,
   scoreProvider,
-  selectBestCursorType,
   selectProvidersForOperation,
   supportsOperation,
   updateHealthMetrics,
   validateProviderApiKey,
 } from '../provider-manager-utils.js';
 import type { IBlockchainProvider, ProviderCapabilities, ProviderHealth } from '../types/index.js';
+
+const logger = getLogger('test');
 
 // Helper to create mock provider
 function createMockProvider(
@@ -470,84 +473,6 @@ describe('provider-manager-utils', () => {
     });
   });
 
-  describe('selectBestCursorType', () => {
-    it('should return preferred type if no cursor provided', () => {
-      const provider = createMockProvider('test', ['getAddressTransactions'], ['blockNumber', 'timestamp']);
-      expect(selectBestCursorType(provider)).toBe('blockNumber');
-    });
-
-    it('should prioritize blockNumber over other types', () => {
-      const provider = createMockProvider('test', ['getAddressTransactions'], ['timestamp', 'blockNumber', 'txHash']);
-      const cursor: CursorState = {
-        primary: { type: 'timestamp', value: Date.now() },
-        alternatives: [
-          { type: 'blockNumber', value: 1000 },
-          { type: 'txHash', value: 'hash' },
-        ],
-        lastTransactionId: 'tx-1',
-        totalFetched: 100,
-        metadata: { providerName: 'test', updatedAt: Date.now() },
-      };
-
-      expect(selectBestCursorType(provider, cursor)).toBe('blockNumber');
-    });
-
-    it('should follow priority order: blockNumber > timestamp > txHash > pageToken', () => {
-      const provider = createMockProvider('test', ['getAddressTransactions'], ['pageToken', 'txHash']);
-      const cursor: CursorState = {
-        primary: { type: 'pageToken', value: 'token', providerName: 'test' },
-        alternatives: [{ type: 'txHash', value: 'hash' }],
-        lastTransactionId: 'tx-1',
-        totalFetched: 100,
-        metadata: { providerName: 'test', updatedAt: Date.now() },
-      };
-
-      expect(selectBestCursorType(provider, cursor)).toBe('txHash');
-    });
-  });
-
-  describe('findBestCursor', () => {
-    it('should return primary cursor if supported', () => {
-      const provider = createMockProvider('test', ['getAddressTransactions'], ['blockNumber']);
-      const cursor: CursorState = {
-        primary: { type: 'blockNumber', value: 1000 },
-        lastTransactionId: 'tx-1',
-        totalFetched: 100,
-        metadata: { providerName: 'test', updatedAt: Date.now() },
-      };
-
-      const result = findBestCursor(provider, cursor);
-      expect(result).toEqual({ type: 'blockNumber', value: 1000 });
-    });
-
-    it('should return alternative if primary not supported', () => {
-      const provider = createMockProvider('test', ['getAddressTransactions'], ['timestamp']);
-      const cursor: CursorState = {
-        primary: { type: 'blockNumber', value: 1000 },
-        alternatives: [{ type: 'timestamp', value: Date.now() }],
-        lastTransactionId: 'tx-1',
-        totalFetched: 100,
-        metadata: { providerName: 'test', updatedAt: Date.now() },
-      };
-
-      const result = findBestCursor(provider, cursor);
-      expect(result?.type).toBe('timestamp');
-    });
-
-    it('should return undefined if no compatible cursor', () => {
-      const provider = createMockProvider('test', ['getAddressTransactions'], ['blockNumber']);
-      const cursor: CursorState = {
-        primary: { type: 'timestamp', value: Date.now() },
-        lastTransactionId: 'tx-1',
-        totalFetched: 100,
-        metadata: { providerName: 'test', updatedAt: Date.now() },
-      };
-
-      const result = findBestCursor(provider, cursor);
-      expect(result).toBeUndefined();
-    });
-  });
-
   describe('deduplication window', () => {
     describe('createDeduplicationWindow', () => {
       it('should create empty window', () => {
@@ -791,6 +716,242 @@ describe('provider-manager-utils', () => {
       const error = buildProviderNotFoundError('bitcoin', 'invalid', ['blockstream']);
 
       expect(error).toContain('💡 Available providers for bitcoin: blockstream');
+    });
+  });
+
+  describe('resolveCursorForResumption', () => {
+    const mockApplyReplayWindow = (cursor: PaginationCursor): PaginationCursor => {
+      if (cursor.type === 'blockNumber') {
+        return { type: 'blockNumber', value: Math.max(0, cursor.value - 5) };
+      }
+      if (cursor.type === 'timestamp') {
+        return { type: 'timestamp', value: Math.max(0, cursor.value - 300000) }; // 5 min
+      }
+      return cursor;
+    };
+
+    it('should return empty object when no resume cursor provided', () => {
+      const config: CursorResolutionConfig = {
+        providerName: 'moralis',
+        supportedCursorTypes: ['pageToken', 'blockNumber'],
+        isFailover: false,
+        applyReplayWindow: mockApplyReplayWindow,
+      };
+
+      const resolved = resolveCursorForResumption(undefined, config, logger);
+
+      expect(resolved).toEqual({});
+    });
+
+    it('should use pageToken from same provider (Priority 1)', () => {
+      const resumeCursor: CursorState = {
+        primary: { type: 'pageToken', value: 'abc123', providerName: 'moralis' },
+        alternatives: [{ type: 'blockNumber', value: 15000000 }],
+        lastTransactionId: 'tx-123',
+        totalFetched: 100,
+      };
+
+      const config: CursorResolutionConfig = {
+        providerName: 'moralis',
+        supportedCursorTypes: ['pageToken', 'blockNumber'],
+        isFailover: false, // Same provider resume
+        applyReplayWindow: mockApplyReplayWindow,
+      };
+
+      const resolved = resolveCursorForResumption(resumeCursor, config, logger);
+
+      expect(resolved).toEqual({
+        pageToken: 'abc123',
+      });
+    });
+
+    it('should not use pageToken from different provider', () => {
+      const resumeCursor: CursorState = {
+        primary: { type: 'pageToken', value: 'abc123', providerName: 'alchemy' },
+        alternatives: [{ type: 'blockNumber', value: 15000000 }],
+        lastTransactionId: 'tx-123',
+        totalFetched: 100,
+      };
+
+      const config: CursorResolutionConfig = {
+        providerName: 'moralis',
+        supportedCursorTypes: ['pageToken', 'blockNumber'],
+        isFailover: true, // Cross-provider failover
+        applyReplayWindow: mockApplyReplayWindow,
+      };
+
+      const resolved = resolveCursorForResumption(resumeCursor, config, logger);
+
+      // Should fall back to blockNumber with replay window
+      expect(resolved).toEqual({
+        fromBlock: 14999995, // 15000000 - 5
+      });
+    });
+
+    it('should use blockNumber from primary cursor with replay window on failover', () => {
+      const resumeCursor: CursorState = {
+        primary: { type: 'blockNumber', value: 15000000 },
+        alternatives: [{ type: 'timestamp', value: 1640000000000 }],
+        lastTransactionId: 'tx-123',
+        totalFetched: 100,
+      };
+
+      const config: CursorResolutionConfig = {
+        providerName: 'moralis',
+        supportedCursorTypes: ['pageToken', 'blockNumber'],
+        isFailover: true, // Cross-provider failover
+        applyReplayWindow: mockApplyReplayWindow,
+      };
+
+      const resolved = resolveCursorForResumption(resumeCursor, config, logger);
+
+      expect(resolved).toEqual({
+        fromBlock: 14999995, // With replay window applied
+      });
+    });
+
+    it('should use blockNumber from alternatives if not in primary', () => {
+      const resumeCursor: CursorState = {
+        primary: { type: 'pageToken', value: 'abc123', providerName: 'alchemy' },
+        alternatives: [
+          { type: 'blockNumber', value: 15000000 },
+          { type: 'timestamp', value: 1640000000000 },
+        ],
+        lastTransactionId: 'tx-123',
+        totalFetched: 100,
+      };
+
+      const config: CursorResolutionConfig = {
+        providerName: 'moralis',
+        supportedCursorTypes: ['blockNumber'],
+        isFailover: true, // Cross-provider failover
+        applyReplayWindow: mockApplyReplayWindow,
+      };
+
+      const resolved = resolveCursorForResumption(resumeCursor, config, logger);
+
+      expect(resolved).toEqual({
+        fromBlock: 14999995,
+      });
+    });
+
+    it('should use timestamp cursor if blockNumber not available', () => {
+      const resumeCursor: CursorState = {
+        primary: { type: 'timestamp', value: 1640000000000 },
+        alternatives: [],
+        lastTransactionId: 'tx-123',
+        totalFetched: 100,
+      };
+
+      const config: CursorResolutionConfig = {
+        providerName: 'moralis',
+        supportedCursorTypes: ['timestamp'],
+        isFailover: true, // Cross-provider failover
+        applyReplayWindow: mockApplyReplayWindow,
+      };
+
+      const resolved = resolveCursorForResumption(resumeCursor, config, logger);
+
+      expect(resolved).toEqual({
+        fromTimestamp: 1639999700000, // With replay window applied
+      });
+    });
+
+    it('should return empty if no compatible cursor type supported', () => {
+      const resumeCursor: CursorState = {
+        primary: { type: 'blockNumber', value: 15000000 },
+        alternatives: [{ type: 'timestamp', value: 1640000000000 }],
+        lastTransactionId: 'tx-123',
+        totalFetched: 100,
+      };
+
+      const config: CursorResolutionConfig = {
+        providerName: 'moralis',
+        supportedCursorTypes: ['pageToken'], // Only supports pageToken
+        isFailover: false,
+        applyReplayWindow: mockApplyReplayWindow,
+      };
+
+      const resolved = resolveCursorForResumption(resumeCursor, config, logger);
+
+      expect(resolved).toEqual({});
+    });
+
+    it('should apply replay window to cross-provider cursors', () => {
+      const applyReplayWindowSpy = vi.fn(mockApplyReplayWindow);
+
+      const resumeCursor: CursorState = {
+        primary: { type: 'blockNumber', value: 15000000 },
+        alternatives: [],
+        lastTransactionId: 'tx-123',
+        totalFetched: 100,
+      };
+
+      const config: CursorResolutionConfig = {
+        providerName: 'moralis',
+        supportedCursorTypes: ['blockNumber'],
+        isFailover: true, // Cross-provider failover
+        applyReplayWindow: applyReplayWindowSpy,
+      };
+
+      resolveCursorForResumption(resumeCursor, config, logger);
+
+      expect(applyReplayWindowSpy).toHaveBeenCalledWith({ type: 'blockNumber', value: 15000000 });
+    });
+
+    // NEW: Test for regression fix - replay window should NOT apply on same-provider resume
+    it('should NOT apply replay window for same-provider blockNumber resume', () => {
+      const applyReplayWindowSpy = vi.fn(mockApplyReplayWindow);
+
+      const resumeCursor: CursorState = {
+        primary: { type: 'blockNumber', value: 15000000 },
+        alternatives: [],
+        lastTransactionId: 'tx-123',
+        totalFetched: 100,
+      };
+
+      const config: CursorResolutionConfig = {
+        providerName: 'moralis',
+        supportedCursorTypes: ['blockNumber'],
+        isFailover: false, // Same provider resume - NO replay window
+        applyReplayWindow: applyReplayWindowSpy,
+      };
+
+      const resolved = resolveCursorForResumption(resumeCursor, config, logger);
+
+      // Should use exact cursor value without replay window
+      expect(resolved).toEqual({
+        fromBlock: 15000000, // Exact value, NOT 14999995
+      });
+      // Replay window function should NOT be called
+      expect(applyReplayWindowSpy).not.toHaveBeenCalled();
+    });
+
+    it('should NOT apply replay window for same-provider timestamp resume', () => {
+      const applyReplayWindowSpy = vi.fn(mockApplyReplayWindow);
+
+      const resumeCursor: CursorState = {
+        primary: { type: 'timestamp', value: 1640000000000 },
+        alternatives: [],
+        lastTransactionId: 'tx-123',
+        totalFetched: 100,
+      };
+
+      const config: CursorResolutionConfig = {
+        providerName: 'moralis',
+        supportedCursorTypes: ['timestamp'],
+        isFailover: false, // Same provider resume - NO replay window
+        applyReplayWindow: applyReplayWindowSpy,
+      };
+
+      const resolved = resolveCursorForResumption(resumeCursor, config, logger);
+
+      // Should use exact cursor value without replay window
+      expect(resolved).toEqual({
+        fromTimestamp: 1640000000000, // Exact value, NOT 1639999700000
+      });
+      // Replay window function should NOT be called
+      expect(applyReplayWindowSpy).not.toHaveBeenCalled();
     });
   });
 });

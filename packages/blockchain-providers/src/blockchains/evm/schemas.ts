@@ -58,6 +58,7 @@ export const EvmTransactionSchema = z.object({
   tokenSymbol: z.string().optional(),
   tokenDecimals: z.number().nonnegative().optional(),
   tokenType: z.enum(['erc20', 'erc721', 'erc1155', 'native']).optional(),
+  logIndex: z.number().nonnegative().optional(),
 
   // Internal transaction tracking
   traceId: z.string().optional(),

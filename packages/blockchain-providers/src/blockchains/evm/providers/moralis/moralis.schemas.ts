@@ -53,6 +53,7 @@ export const MoralisTokenTransferSchema = z.object({
   block_timestamp: timestampToDate,
   contract_type: z.string().optional(),
   from_address: EvmAddressSchema,
+  log_index: z.string().regex(/^\d+$/, 'Log index must be numeric string'),
   to_address: EvmAddressSchema,
   token_decimals: z.string().regex(/^\d+$/, 'Token decimals must be numeric string'),
   token_logo: z.string().nullish(),
