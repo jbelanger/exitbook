@@ -38,7 +38,7 @@ export interface BalanceServiceParams {
   credentials?:
     | {
         apiKey: string;
-        apiPassphrase?: string | undefined;
+        passphrase?: string | undefined;
         secret: string;
       }
     | undefined;
@@ -312,8 +312,8 @@ export class BalanceService {
       apiKey: params.credentials.apiKey,
       secret: params.credentials.secret,
     };
-    if (params.credentials.apiPassphrase) {
-      credentials.passphrase = params.credentials.apiPassphrase;
+    if (params.credentials.passphrase) {
+      credentials.passphrase = params.credentials.passphrase;
     }
 
     const clientResult = createExchangeClient(params.sourceName, credentials);
