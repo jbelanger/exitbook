@@ -8,7 +8,7 @@ import {
   TransactionRepository,
   UserRepository,
 } from '@exitbook/data';
-import { DataSourceRepository, type BalanceVerificationResult } from '@exitbook/ingestion';
+import { DataSourceRepository, BalanceService, type BalanceVerificationResult } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
 import { unwrapResult } from '../shared/command-execution.js';
@@ -59,15 +59,18 @@ async function executeBalanceCommand(options: ExtendedBalanceCommandOptions): Pr
   const config = loadExplorerConfig();
   const providerManager = new BlockchainProviderManager(config);
 
-  // Create handler with repositories
-  const handler = new BalanceHandler(
+  // Create service with repositories
+  const balanceService = new BalanceService(
+    userRepository,
+    accountRepository,
     transactionRepository,
     sessionRepository,
-    accountRepository,
     tokenMetadataRepository,
-    userRepository,
     providerManager
   );
+
+  // Create handler with service
+  const handler = new BalanceHandler(balanceService);
 
   try {
     // Build params from flags (no interactive mode for balance command)
