@@ -497,6 +497,7 @@ export class BalanceService {
 
   /**
    * Subtract excluded amounts from live balances.
+   * Removes assets entirely when balance becomes zero or negative after subtraction.
    */
   private subtractExcludedAmounts(
     liveBalances: Record<string, Decimal>,
@@ -506,7 +507,15 @@ export class BalanceService {
 
     for (const [asset, excludedAmount] of Object.entries(excludedAmounts)) {
       if (adjusted[asset]) {
-        adjusted[asset] = adjusted[asset].minus(excludedAmount);
+        const newBalance = adjusted[asset].minus(excludedAmount);
+
+        // If balance becomes zero or negative, remove the asset entirely
+        // This prevents false mismatches for fully-excluded scam tokens
+        if (newBalance.lte(0)) {
+          delete adjusted[asset];
+        } else {
+          adjusted[asset] = newBalance;
+        }
       }
     }
 
