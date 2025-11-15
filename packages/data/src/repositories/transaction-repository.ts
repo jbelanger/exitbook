@@ -355,6 +355,50 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
+  async countAll(): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .selectFrom('transactions')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      return wrapError(error, 'Failed to count all transactions');
+    }
+  }
+
+  async countByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (dataSourceIds.length === 0) {
+        return ok(0);
+      }
+
+      const result = await this.db
+        .selectFrom('transactions')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .where('data_source_id', 'in', dataSourceIds)
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      return wrapError(error, 'Failed to count transactions by data source IDs');
+    }
+  }
+
+  async deleteByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (dataSourceIds.length === 0) {
+        return ok(0);
+      }
+      const result = await this.db
+        .deleteFrom('transactions')
+        .where('data_source_id', 'in', dataSourceIds)
+        .executeTakeFirst();
+      return ok(Number(result.numDeletedRows));
+    } catch (error) {
+      return wrapError(error, 'Failed to delete transactions by data source IDs');
+    }
+  }
+
   async deleteAll(): Promise<Result<number, Error>> {
     try {
       const result = await this.db.deleteFrom('transactions').executeTakeFirst();

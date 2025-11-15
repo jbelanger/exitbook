@@ -345,7 +345,7 @@ export interface ExternalTransactionDataTable {
 }
 ```
 
-#### Update: `data_sources` table
+#### Update: `import_sessions` table
 
 ```typescript
 export interface DataSourcesTable {
@@ -594,7 +594,7 @@ if (countResult.isOk()) {
 
 **Storage:**
 
-- `data_sources.expected_total_count` stores the initial count (nullable)
+- `import_sessions.expected_total_count` stores the initial count (nullable)
 - Logs include progress info derived from `totalImported / expectedTotalCount`
 
 **Benefits:**
@@ -1031,8 +1031,8 @@ async processRawDataToTransactions(
 
 1. ✅ Add `normalized_data` column to `external_transaction_data` table
 2. ✅ Add `dedup_key` column (unique index) to `external_transaction_data` table
-3. ✅ Add `pagination_cursor` column to `data_sources` table
-4. ✅ Add `expected_total_count` column to `data_sources` table (for progress tracking)
+3. ✅ Add `pagination_cursor` column to `import_sessions` table
+4. ✅ Add `expected_total_count` column to `import_sessions` table (for progress tracking)
 5. ✅ Create `CursorType` enum in `packages/import/src/app/ports/importers.ts`
 6. ✅ Create `PaginationCursor` type with semantic/opaque distinction
 7. ✅ Create `NormalizedRawPair` interface with `dedupKey` field
@@ -1522,7 +1522,7 @@ This refactoring addresses fundamental architectural issues in the import pipeli
    - New `getTransactionCount` operation for providers that support it
    - Mempool.space (Bitcoin) and Subscan (Substrate) provide upfront counts
    - Display: `"150/500 (30%)"` when available, `"150 imported so far..."` otherwise
-   - Stored in `data_sources.expected_total_count` for session-level visibility
+   - Stored in `import_sessions.expected_total_count` for session-level visibility
 
 **Benefits:**
 

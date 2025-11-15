@@ -3,13 +3,43 @@ import { sql, type Kysely } from 'kysely';
 import type { KyselyDB } from '../storage/database.js';
 
 export async function up(db: Kysely<KyselyDB>): Promise<void> {
-  // Create data_sources table
+  // Create users table
   await db.schema
-    .createTable('data_sources')
+    .createTable('users')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('source_id', 'text', (col) => col.notNull())
-    .addColumn('source_type', 'text', (col) => col.notNull())
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .execute();
+
+  // Create accounts table
+  await db.schema
+    .createTable('accounts')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('user_id', 'integer', (col) => col.references('users.id'))
+    .addColumn('account_type', 'text', (col) => col.notNull())
+    .addColumn('source_name', 'text', (col) => col.notNull())
+    .addColumn('identifier', 'text', (col) => col.notNull()) // address for blockchain, apiKey for exchange-api, comma-separated CSV dirs for exchange-csv
     .addColumn('provider_name', 'text')
+    .addColumn('credentials', 'text') // JSON: ExchangeCredentials for exchange-api accounts only
+    .addColumn('derived_addresses', 'text')
+    .addColumn('last_cursor', 'text')
+    .addColumn('last_balance_check_at', 'text')
+    .addColumn('verification_metadata', 'text')
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .addColumn('updated_at', 'text')
+    .execute();
+
+  // Create unique index on accounts to prevent duplicate accounts
+  // Using raw SQL because the index includes expressions (COALESCE for nullable user_id)
+  await sql`
+    CREATE UNIQUE INDEX idx_accounts_unique
+    ON accounts (account_type, source_name, identifier, COALESCE(user_id, 0))
+  `.execute(db);
+
+  // Create import_sessions table
+  await db.schema
+    .createTable('import_sessions')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('account_id', 'integer', (col) => col.references('accounts.id').notNull())
     .addColumn('status', 'text', (col) => col.notNull().defaultTo('started'))
     .addColumn('started_at', 'text', (col) => col.notNull())
     .addColumn('completed_at', 'text')
@@ -18,20 +48,19 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('transactions_failed', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('error_message', 'text')
     .addColumn('error_details', 'text')
-    .addColumn('import_params', 'text', (col) => col.notNull().defaultTo('{}'))
     .addColumn('import_result_metadata', 'text', (col) => col.notNull().defaultTo('{}'))
-    .addColumn('last_cursor', 'text') // JSON: Record<operationType, CursorState> for per-operation resumption
-    .addColumn('last_balance_check_at', 'text')
-    .addColumn('verification_metadata', 'text')
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
     .execute();
+
+  // Create index on account_id for fast lookup
+  await db.schema.createIndex('idx_import_sessions_account_id').on('import_sessions').column('account_id').execute();
 
   // Create external_transaction_data table
   await db.schema
     .createTable('external_transaction_data')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('data_source_id', 'integer', (col) => col.notNull().references('data_sources.id'))
+    .addColumn('data_source_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
     .addColumn('provider_name', 'text', (col) => col.notNull())
     .addColumn('external_id', 'text', (col) => col.notNull())
     .addColumn('source_address', 'text')
@@ -56,7 +85,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
   await db.schema
     .createTable('transactions')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('data_source_id', 'integer', (col) => col.notNull().references('data_sources.id'))
+    .addColumn('data_source_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
     .addColumn('source_id', 'text', (col) => col.notNull())
     .addColumn('source_type', 'text', (col) => col.notNull())
     .addColumn('external_id', 'text')
@@ -314,5 +343,8 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   // Drop transaction-related tables
   await db.schema.dropTable('transactions').execute();
   await db.schema.dropTable('external_transaction_data').execute();
-  await db.schema.dropTable('data_sources').execute();
+  await db.schema.dropTable('import_sessions').execute();
+  // Drop accounts and users tables
+  await db.schema.dropTable('accounts').execute();
+  await db.schema.dropTable('users').execute();
 }

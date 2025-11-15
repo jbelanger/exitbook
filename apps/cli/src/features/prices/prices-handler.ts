@@ -3,8 +3,7 @@
 
 import type { UniversalTransaction } from '@exitbook/core';
 import { Currency } from '@exitbook/core';
-import { TransactionRepository } from '@exitbook/data';
-import type { KyselyDB } from '@exitbook/data';
+import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { CoinNotFoundError, PriceDataUnavailableError, type PriceProviderManager } from '@exitbook/price-providers';
 import type { Result } from 'neverthrow';
@@ -26,13 +25,10 @@ const logger = getLogger('PricesHandler');
  * Handler for prices fetch command
  */
 export class PricesFetchHandler {
-  private transactionRepo: TransactionRepository;
   private priceManager: PriceProviderManager | undefined;
   private errors: string[] = [];
 
-  constructor(private db: KyselyDB) {
-    this.transactionRepo = new TransactionRepository(db);
-  }
+  constructor(private transactionRepo: TransactionRepository) {}
 
   /**
    * Execute prices fetch command

@@ -1,7 +1,9 @@
-import { DEFAULT_MATCHING_CONFIG, TransactionLinkingService } from '@exitbook/accounting';
-import { TransactionLinkRepository } from '@exitbook/accounting';
-import type { KyselyDB } from '@exitbook/data';
-import { TransactionRepository } from '@exitbook/data';
+import {
+  DEFAULT_MATCHING_CONFIG,
+  TransactionLinkingService,
+  type TransactionLinkRepository,
+} from '@exitbook/accounting';
+import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -44,13 +46,10 @@ export interface LinksRunResult {
  * Reusable by both CLI command and other contexts.
  */
 export class LinksRunHandler {
-  private transactionRepository: TransactionRepository;
-  private linkRepository: TransactionLinkRepository;
-
-  constructor(private database: KyselyDB) {
-    this.transactionRepository = new TransactionRepository(this.database);
-    this.linkRepository = new TransactionLinkRepository(this.database);
-  }
+  constructor(
+    private transactionRepository: TransactionRepository,
+    private linkRepository: TransactionLinkRepository
+  ) {}
 
   /**
    * Execute the links run operation.

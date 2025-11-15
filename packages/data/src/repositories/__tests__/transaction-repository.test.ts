@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-null -- acceptable for tests */
 import { Currency, parseDecimal, type UniversalTransaction } from '@exitbook/core';
 import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -13,28 +14,66 @@ describe('TransactionRepository - delete methods', () => {
     await runMigrations(db);
     repository = new TransactionRepository(db);
 
-    // Create mock import sessions for different sources
+    // Create default user
+    await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
+
+    // Create mock accounts
     await db
-      .insertInto('data_sources')
+      .insertInto('accounts')
       .values([
         {
           id: 1,
-          source_type: 'exchange',
-          source_id: 'kraken',
+          user_id: 1,
+          account_type: 'exchange-api',
+          source_name: 'kraken',
+          identifier: 'test-api-key',
+          provider_name: null,
+          derived_addresses: null,
+          last_cursor: null,
+          last_balance_check_at: null,
+          verification_metadata: null,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+        },
+        {
+          id: 2,
+          user_id: 1,
+          account_type: 'blockchain',
+          source_name: 'ethereum',
+          identifier: '0x123',
+          provider_name: null,
+          derived_addresses: null,
+          last_cursor: null,
+          last_balance_check_at: null,
+          verification_metadata: null,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+        },
+      ])
+      .execute();
+
+    // Create mock import sessions for different sources
+    await db
+      .insertInto('import_sessions')
+      .values([
+        {
+          id: 1,
+          account_id: 1,
           started_at: new Date().toISOString(),
           status: 'completed',
-          import_params: '{}',
+          transactions_imported: 0,
+          transactions_failed: 0,
           import_result_metadata: '{}',
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
         },
         {
           id: 2,
-          source_type: 'blockchain',
-          source_id: 'ethereum',
+          account_id: 2,
           started_at: new Date().toISOString(),
           status: 'completed',
-          import_params: '{}',
+          transactions_imported: 0,
+          transactions_failed: 0,
           import_result_metadata: '{}',
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
@@ -182,16 +221,36 @@ describe('TransactionRepository - scam token filtering', () => {
     await runMigrations(db);
     repository = new TransactionRepository(db);
 
-    // Create mock import session
+    // Create default user and account
+    await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
     await db
-      .insertInto('data_sources')
+      .insertInto('accounts')
       .values({
         id: 1,
-        source_type: 'blockchain',
-        source_id: 'ethereum',
+        user_id: 1,
+        account_type: 'blockchain',
+        source_name: 'ethereum',
+        identifier: '0x123',
+        provider_name: null,
+        derived_addresses: null,
+        last_cursor: null,
+        last_balance_check_at: null,
+        verification_metadata: null,
+        created_at: new Date().toISOString(),
+        updated_at: null,
+      })
+      .execute();
+
+    // Create mock import session
+    await db
+      .insertInto('import_sessions')
+      .values({
+        id: 1,
+        account_id: 1,
         started_at: new Date().toISOString(),
         status: 'completed',
-        import_params: '{}',
+        transactions_imported: 0,
+        transactions_failed: 0,
         import_result_metadata: '{}',
         created_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
@@ -312,16 +371,36 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
     await runMigrations(db);
     repository = new TransactionRepository(db);
 
-    // Create mock import session
+    // Create default user and account
+    await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
     await db
-      .insertInto('data_sources')
+      .insertInto('accounts')
       .values({
         id: 1,
-        source_type: 'exchange',
-        source_id: 'kraken',
+        user_id: 1,
+        account_type: 'exchange-api',
+        source_name: 'kraken',
+        identifier: 'test-api-key',
+        provider_name: null,
+        derived_addresses: null,
+        last_cursor: null,
+        last_balance_check_at: null,
+        verification_metadata: null,
+        created_at: new Date().toISOString(),
+        updated_at: null,
+      })
+      .execute();
+
+    // Create mock import session
+    await db
+      .insertInto('import_sessions')
+      .values({
+        id: 1,
+        account_id: 1,
         started_at: new Date().toISOString(),
         status: 'completed',
-        import_params: '{}',
+        transactions_imported: 0,
+        transactions_failed: 0,
         import_result_metadata: '{}',
         created_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),

@@ -326,7 +326,7 @@ Test streaming, resumption, and cursor extraction.
 
 - ✅ All blockchain providers support streaming pagination with Result wrappers
 - ✅ Provider manager successfully fails over mid-pagination
-- ✅ Cursor state persists correctly in `data_sources.last_cursor`
+- ✅ Cursor state persists correctly in `import_sessions.last_cursor`
 - ✅ **Imports automatically resume after crashes from last persisted cursor**
 - ✅ Memory usage remains bounded during large imports (no accumulation)
 - ✅ **Deduplication prevents duplicates across replay windows (loads recent IDs from storage)**

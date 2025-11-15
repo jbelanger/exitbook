@@ -38,6 +38,7 @@
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
+    "@exitbook/accounting": "workspace:*",
     "@exitbook/blockchain-providers": "workspace:*",
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",

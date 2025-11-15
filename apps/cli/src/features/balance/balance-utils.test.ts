@@ -4,10 +4,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   buildBalanceParamsFromFlags,
-  buildSourceParams,
   decimalRecordToStringRecord,
   findMostRecentCompletedSession,
-  findSessionByAddress,
   getExchangeCredentialsFromEnv,
   sortSessionsByCompletedDate,
   subtractExcludedAmounts,
@@ -285,108 +283,6 @@ describe('getExchangeCredentialsFromEnv', () => {
   });
 });
 
-describe('buildSourceParams', () => {
-  it('should build source params for exchange', () => {
-    const session: DataSource = {
-      id: 123,
-      sourceId: 'kraken',
-      sourceType: 'exchange',
-      status: 'completed',
-      importParams: {},
-      importResultMetadata: {},
-      createdAt: new Date('2024-01-01T00:00:00Z'),
-      startedAt: new Date('2024-01-01T00:00:00Z'),
-      completedAt: new Date('2024-01-01T01:00:00Z'),
-      durationMs: 60000,
-    };
-
-    const result = buildSourceParams(session, 'exchange');
-
-    expect(result).toEqual({ exchange: 'kraken' });
-  });
-
-  it('should build source params for blockchain with address', () => {
-    const session: DataSource = {
-      id: 456,
-      sourceId: 'bitcoin',
-      sourceType: 'blockchain',
-      status: 'completed',
-      importParams: { address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' },
-      importResultMetadata: {},
-      createdAt: new Date('2024-01-01T00:00:00Z'),
-      startedAt: new Date('2024-01-01T00:00:00Z'),
-      completedAt: new Date('2024-01-01T01:00:00Z'),
-      updatedAt: undefined,
-      durationMs: 45000,
-      errorMessage: undefined,
-      errorDetails: undefined,
-      lastBalanceCheckAt: undefined,
-      verificationMetadata: undefined,
-    };
-
-    const result = buildSourceParams(session, 'blockchain', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
-
-    expect(result).toEqual({
-      blockchain: 'bitcoin',
-      address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-    });
-  });
-
-  it('should use address from params when session import_params lacks it', () => {
-    const session: DataSource = {
-      id: 789,
-      sourceId: 'ethereum',
-      sourceType: 'blockchain',
-      status: 'completed',
-      importParams: {},
-      importResultMetadata: {},
-      createdAt: new Date('2024-01-01T00:00:00Z'),
-      startedAt: new Date('2024-01-01T00:00:00Z'),
-      completedAt: new Date('2024-01-01T01:00:00Z'),
-      updatedAt: undefined,
-      durationMs: 90000,
-      errorMessage: undefined,
-      errorDetails: undefined,
-      lastBalanceCheckAt: undefined,
-      verificationMetadata: undefined,
-    };
-
-    const result = buildSourceParams(session, 'blockchain', '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb');
-
-    expect(result).toEqual({
-      blockchain: 'ethereum',
-      address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-    });
-  });
-
-  it('should use "unknown" when no address is available', () => {
-    const session: DataSource = {
-      id: 101,
-      sourceId: 'solana',
-      sourceType: 'blockchain',
-      status: 'completed',
-      importParams: {},
-      importResultMetadata: {},
-      createdAt: new Date('2024-01-01T00:00:00Z'),
-      startedAt: new Date('2024-01-01T00:00:00Z'),
-      completedAt: new Date('2024-01-01T01:00:00Z'),
-      updatedAt: undefined,
-      durationMs: 30000,
-      errorMessage: undefined,
-      errorDetails: undefined,
-      lastBalanceCheckAt: undefined,
-      verificationMetadata: undefined,
-    };
-
-    const result = buildSourceParams(session, 'blockchain');
-
-    expect(result).toEqual({
-      blockchain: 'solana',
-      address: 'unknown',
-    });
-  });
-});
-
 describe('decimalRecordToStringRecord', () => {
   it('should convert Decimal values to strings', () => {
     const input = {
@@ -456,11 +352,11 @@ describe('sortSessionsByCompletedDate', () => {
     const sessions: DataSource[] = [
       {
         id: 1,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'completed',
-        importParams: {},
         importResultMetadata: {},
+        transactionsImported: 10,
+        transactionsFailed: 0,
         createdAt: new Date('2024-01-01T00:00:00Z'),
         startedAt: new Date('2024-01-01T00:00:00Z'),
         completedAt: new Date('2024-01-01T01:00:00Z'),
@@ -468,11 +364,11 @@ describe('sortSessionsByCompletedDate', () => {
       },
       {
         id: 2,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'completed',
-        importParams: {},
         importResultMetadata: {},
+        transactionsImported: 20,
+        transactionsFailed: 0,
         createdAt: new Date('2024-01-02T00:00:00Z'),
         startedAt: new Date('2024-01-02T00:00:00Z'),
         completedAt: new Date('2024-01-02T01:00:00Z'),
@@ -480,11 +376,11 @@ describe('sortSessionsByCompletedDate', () => {
       },
       {
         id: 3,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'completed',
-        importParams: {},
         importResultMetadata: {},
+        transactionsImported: 30,
+        transactionsFailed: 0,
         createdAt: new Date('2024-01-03T00:00:00Z'),
         startedAt: new Date('2024-01-03T00:00:00Z'),
         completedAt: new Date('2024-01-03T01:00:00Z'),
@@ -503,26 +399,26 @@ describe('sortSessionsByCompletedDate', () => {
     const sessions: DataSource[] = [
       {
         id: 1,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'completed',
-        importParams: {},
         importResultMetadata: {},
         createdAt: new Date('2024-01-01T00:00:00Z'),
         startedAt: new Date('2024-01-01T00:00:00Z'),
         completedAt: new Date('2024-01-02T01:00:00Z'),
         durationMs: 60000,
+        transactionsImported: 10,
+        transactionsFailed: 0,
       },
       {
         id: 2,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'started',
-        importParams: {},
         importResultMetadata: {},
         createdAt: new Date('2024-01-02T00:00:00Z'),
         startedAt: new Date('2024-01-02T00:00:00Z'),
         durationMs: undefined,
+        transactionsImported: 20,
+        transactionsFailed: 0,
       },
     ];
 
@@ -536,27 +432,27 @@ describe('sortSessionsByCompletedDate', () => {
     const sessions: DataSource[] = [
       {
         id: 1,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'completed',
-        importParams: {},
         importResultMetadata: {},
         createdAt: new Date('2024-01-01T00:00:00Z'),
         startedAt: new Date('2024-01-01T00:00:00Z'),
         completedAt: new Date('2024-01-01T01:00:00Z'),
         durationMs: 60000,
+        transactionsImported: 10,
+        transactionsFailed: 0,
       },
       {
         id: 2,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'completed',
-        importParams: {},
         importResultMetadata: {},
         createdAt: new Date('2024-01-02T00:00:00Z'),
         startedAt: new Date('2024-01-02T00:00:00Z'),
         completedAt: new Date('2024-01-02T01:00:00Z'),
         durationMs: 60000,
+        transactionsImported: 20,
+        transactionsFailed: 0,
       },
     ];
 
@@ -572,38 +468,38 @@ describe('findMostRecentCompletedSession', () => {
     const sessions: DataSource[] = [
       {
         id: 1,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'completed',
-        importParams: {},
         importResultMetadata: {},
         createdAt: new Date('2024-01-01T00:00:00Z'),
         startedAt: new Date('2024-01-01T00:00:00Z'),
         completedAt: new Date('2024-01-01T01:00:00Z'),
         durationMs: 60000,
+        transactionsImported: 10,
+        transactionsFailed: 0,
       },
       {
         id: 2,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'completed',
-        importParams: {},
         importResultMetadata: {},
         createdAt: new Date('2024-01-02T00:00:00Z'),
         startedAt: new Date('2024-01-02T00:00:00Z'),
         completedAt: new Date('2024-01-02T01:00:00Z'),
         durationMs: 60000,
+        transactionsImported: 20,
+        transactionsFailed: 0,
       },
       {
         id: 3,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'started',
-        importParams: {},
         importResultMetadata: {},
         createdAt: new Date('2024-01-03T00:00:00Z'),
         startedAt: new Date('2024-01-03T00:00:00Z'),
         durationMs: undefined,
+        transactionsImported: 30,
+        transactionsFailed: 0,
       },
     ];
 
@@ -616,14 +512,14 @@ describe('findMostRecentCompletedSession', () => {
     const sessions: DataSource[] = [
       {
         id: 1,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'started',
-        importParams: {},
         importResultMetadata: {},
         createdAt: new Date('2024-01-01T00:00:00Z'),
         startedAt: new Date('2024-01-01T00:00:00Z'),
         durationMs: undefined,
+        transactionsImported: 10,
+        transactionsFailed: 0,
       },
     ];
 
@@ -634,89 +530,6 @@ describe('findMostRecentCompletedSession', () => {
 
   it('should return undefined when sessions array is empty', () => {
     const result = findMostRecentCompletedSession([]);
-
-    expect(result).toBeUndefined();
-  });
-});
-
-describe('findSessionByAddress', () => {
-  it('should find session by address (case insensitive)', () => {
-    const sessions: DataSource[] = [
-      {
-        id: 1,
-        sourceId: 'bitcoin',
-        sourceType: 'blockchain',
-        status: 'completed',
-        importParams: { address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' },
-        importResultMetadata: {},
-        createdAt: new Date('2024-01-01T00:00:00Z'),
-        startedAt: new Date('2024-01-01T00:00:00Z'),
-        completedAt: new Date('2024-01-01T01:00:00Z'),
-        durationMs: 60000,
-      },
-      {
-        id: 2,
-        sourceId: 'bitcoin',
-        sourceType: 'blockchain',
-        status: 'completed',
-        importParams: { address: 'bc1qtest123' },
-        importResultMetadata: {},
-        createdAt: new Date('2024-01-02T00:00:00Z'),
-        startedAt: new Date('2024-01-02T00:00:00Z'),
-        completedAt: new Date('2024-01-02T01:00:00Z'),
-        durationMs: 60000,
-      },
-    ];
-
-    const result = findSessionByAddress(sessions, 'BC1QXY2KGDYGJRSQTZQ2N0YRF2493P83KKFJHX0WLH');
-
-    expect(result?.id).toBe(1);
-  });
-
-  it('should return undefined when address not found', () => {
-    const sessions: DataSource[] = [
-      {
-        id: 1,
-        sourceId: 'bitcoin',
-        sourceType: 'blockchain',
-        status: 'completed',
-        importParams: { address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' },
-        importResultMetadata: {},
-        createdAt: new Date('2024-01-01T00:00:00Z'),
-        startedAt: new Date('2024-01-01T00:00:00Z'),
-        completedAt: new Date('2024-01-01T01:00:00Z'),
-        durationMs: 60000,
-      },
-    ];
-
-    const result = findSessionByAddress(sessions, 'bc1qnotfound');
-
-    expect(result).toBeUndefined();
-  });
-
-  it('should return undefined when sessions array is empty', () => {
-    const result = findSessionByAddress([], 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
-
-    expect(result).toBeUndefined();
-  });
-
-  it('should handle sessions without address in importParams', () => {
-    const sessions: DataSource[] = [
-      {
-        id: 1,
-        sourceId: 'bitcoin',
-        sourceType: 'blockchain',
-        status: 'completed',
-        importParams: {},
-        importResultMetadata: {},
-        createdAt: new Date('2024-01-01T00:00:00Z'),
-        startedAt: new Date('2024-01-01T00:00:00Z'),
-        completedAt: new Date('2024-01-01T01:00:00Z'),
-        durationMs: 60000,
-      },
-    ];
-
-    const result = findSessionByAddress(sessions, 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
     expect(result).toBeUndefined();
   });

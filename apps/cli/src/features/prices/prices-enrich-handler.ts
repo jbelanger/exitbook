@@ -24,11 +24,10 @@ import {
   PriceEnrichmentService,
   PriceNormalizationService,
   StandardFxRateProvider,
-  TransactionLinkRepository,
+  type TransactionLinkRepository,
 } from '@exitbook/accounting';
 import type { IFxRateProvider, NormalizeResult } from '@exitbook/accounting';
-import { TransactionRepository } from '@exitbook/data';
-import type { KyselyDB } from '@exitbook/data';
+import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import type { PriceProviderManager } from '@exitbook/price-providers';
 import type { Result } from 'neverthrow';
@@ -82,14 +81,12 @@ export interface PricesEnrichResult {
  * Handler for prices enrich command
  */
 export class PricesEnrichHandler {
-  private transactionRepo: TransactionRepository;
-  private linkRepo: TransactionLinkRepository;
   private priceManager: PriceProviderManager | undefined;
 
-  constructor(private db: KyselyDB) {
-    this.transactionRepo = new TransactionRepository(db);
-    this.linkRepo = new TransactionLinkRepository(db);
-  }
+  constructor(
+    private transactionRepo: TransactionRepository,
+    private linkRepo: TransactionLinkRepository
+  ) {}
 
   /**
    * Execute prices enrich command
@@ -210,7 +207,7 @@ export class PricesEnrichHandler {
       if (stages.fetch) {
         logger.info('Stage 3: Fetching missing prices from external providers');
 
-        const fetchHandler = new PricesFetchHandler(this.db);
+        const fetchHandler = new PricesFetchHandler(this.transactionRepo);
         const fetchResult = await fetchHandler.execute({
           asset: options.asset,
           onMissing: options.onMissing,

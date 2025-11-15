@@ -1,4 +1,4 @@
-import type { BalanceCommandStatus, SourceType } from '@exitbook/core';
+import type { AccountType, BalanceCommandStatus, SourceType } from '@exitbook/core';
 
 import type { BalanceCommandOptions } from './balance-utils.js';
 
@@ -34,6 +34,15 @@ export interface BalanceCommandResult {
     name: string;
     type: SourceType;
   };
+  account?:
+    | {
+        id: number;
+        identifier: string;
+        providerName: string | undefined;
+        sourceName: string;
+        type: AccountType;
+      }
+    | undefined;
   meta: {
     timestamp: string;
   };

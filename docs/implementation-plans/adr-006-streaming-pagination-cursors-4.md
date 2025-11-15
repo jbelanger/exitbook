@@ -329,7 +329,7 @@ async findLatestIncomplete(
 ): Promise<Result<DataSource | undefined, Error>> {
   try {
     const row = await this.db
-      .selectFrom('data_sources')
+      .selectFrom('import_sessions')
       .selectAll()
       .where('source_id', '=', sourceId)
       .where('source_type', '=', sourceType)

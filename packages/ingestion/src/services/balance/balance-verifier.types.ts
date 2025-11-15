@@ -1,4 +1,4 @@
-import type { BalanceCommandStatus, SourceType } from '@exitbook/core';
+import type { Account, BalanceCommandStatus, SourceType } from '@exitbook/core';
 
 /**
  * Comparison result for a single currency balance
@@ -16,6 +16,7 @@ export interface BalanceComparison {
  * Complete verification result for a source
  */
 export interface BalanceVerificationResult {
+  account: Account;
   sourceId: string;
   sourceType: SourceType;
   timestamp: number;

@@ -264,4 +264,55 @@ export default [
       'unicorn/prefer-top-level-await': 'off',
     },
   },
+
+  // === CLI app: prohibit direct database access ===
+  {
+    files: ['apps/cli/**/src/**/*.{ts,tsx}'],
+    rules: {
+      // Prevent Kysely query construction in CLI
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'CallExpression[callee.property.name=/^(selectFrom|insertInto|updateTable|deleteFrom|schema)$/]',
+          message:
+            'CLI must not construct Kysely queries directly. Use services/repositories from @exitbook/data, @exitbook/ingestion, or @exitbook/accounting instead.',
+        },
+        {
+          selector: 'MemberExpression[property.name=/^(selectFrom|insertInto|updateTable|deleteFrom|schema)$/]',
+          message:
+            'CLI must not access Kysely query methods directly. Use services/repositories from @exitbook/data, @exitbook/ingestion, or @exitbook/accounting instead.',
+        },
+      ],
+      // Prevent KyselyDB type usage in CLI (except test files and specific utilities)
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@exitbook/data'],
+              importNames: ['KyselyDB'],
+              message:
+                'CLI should not use KyselyDB type directly. Accept services/repositories in constructors instead. Only command-execution.ts and index.ts may use initializeDatabase/closeDatabase.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // === CLI app: allow database lifecycle management only in entry points ===
+  {
+    files: ['apps/cli/src/index.ts', 'apps/cli/src/features/shared/command-execution.ts'],
+    rules: {
+      'no-restricted-imports': 'off', // Allow KyselyDB and initializeDatabase/closeDatabase in these files
+    },
+  },
+
+  // === CLI app: allow KyselyDB type in test files ===
+  {
+    files: ['apps/cli/**/__tests__/**/*.{ts,tsx}', 'apps/cli/**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': 'off', // Allow KyselyDB in test files for mocking
+    },
+  },
 ];

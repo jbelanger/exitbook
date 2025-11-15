@@ -15,12 +15,12 @@ describe('import-service-utils', () => {
     it('should return true when existing source is provided', () => {
       const existingSource: DataSource = {
         id: 1,
-        sourceId: 'bitcoin',
-        sourceType: 'blockchain',
+        accountId: 1,
         status: 'completed',
         startedAt: new Date(),
+        transactionsImported: 0,
+        transactionsFailed: 0,
         createdAt: new Date(),
-        importParams: { address: 'bc1q...' },
         importResultMetadata: {},
       };
       const params: ImportParams = { address: 'bc1q...' };
@@ -152,12 +152,12 @@ describe('import-service-utils', () => {
       const params: ImportParams = { csvDirectories: ['./data/kraken'] };
       const existingSource: DataSource = {
         id: 42,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'started',
         startedAt: new Date(),
+        transactionsImported: 0,
+        transactionsFailed: 0,
         createdAt: new Date(),
-        importParams: { csvDirectories: ['./data/kraken'] },
         importResultMetadata: {},
       };
       const latestCursor = undefined;
@@ -174,12 +174,12 @@ describe('import-service-utils', () => {
       const params: ImportParams = { csvDirectories: ['./data/kraken'] };
       const existingSource: DataSource = {
         id: 42,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'started',
         startedAt: new Date(),
+        transactionsImported: 0,
+        transactionsFailed: 0,
         createdAt: new Date(),
-        importParams: { csvDirectories: ['./data/kraken'] },
         importResultMetadata: {},
       };
       const latestCursor: Record<string, CursorState> = {
@@ -207,12 +207,12 @@ describe('import-service-utils', () => {
       const params: ImportParams = { csvDirectories: ['./data/kraken'] };
       const existingSource: DataSource = {
         id: 42,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'started',
         startedAt: new Date(),
+        transactionsImported: 0,
+        transactionsFailed: 0,
         createdAt: new Date(),
-        importParams: { csvDirectories: ['./data/kraken'] },
         importResultMetadata: {},
       };
       const latestCursor: Record<string, CursorState> = {

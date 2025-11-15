@@ -2,13 +2,12 @@ import type { CostBasisReport, CostBasisSummary } from '@exitbook/accounting';
 import {
   CostBasisCalculator,
   CostBasisReportGenerator,
-  CostBasisRepository,
-  LotTransferRepository,
   StandardFxRateProvider,
-  TransactionLinkRepository,
+  type CostBasisRepository,
+  type LotTransferRepository,
+  type TransactionLinkRepository,
 } from '@exitbook/accounting';
-import type { KyselyDB } from '@exitbook/data';
-import { TransactionRepository } from '@exitbook/data';
+import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
@@ -43,17 +42,12 @@ export interface CostBasisResult {
  * Reusable by both CLI command and other contexts.
  */
 export class CostBasisHandler {
-  private transactionRepository: TransactionRepository;
-  private transactionLinkRepository: TransactionLinkRepository;
-  private costBasisRepository: CostBasisRepository;
-  private lotTransferRepository: LotTransferRepository;
-
-  constructor(private database: KyselyDB) {
-    this.transactionRepository = new TransactionRepository(this.database);
-    this.transactionLinkRepository = new TransactionLinkRepository(this.database);
-    this.costBasisRepository = new CostBasisRepository(this.database);
-    this.lotTransferRepository = new LotTransferRepository(this.database);
-  }
+  constructor(
+    private transactionRepository: TransactionRepository,
+    private transactionLinkRepository: TransactionLinkRepository,
+    private costBasisRepository: CostBasisRepository,
+    private lotTransferRepository: LotTransferRepository
+  ) {}
 
   /**
    * Execute the cost basis calculation.

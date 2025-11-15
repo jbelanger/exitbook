@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-import { CursorStateSchema } from './cursor.js';
-
 /**
  * Source type schema - blockchain or exchange
  */
@@ -98,27 +96,23 @@ export const VerificationMetadataSchema = z.object({
 
 /**
  * Schema for data source domain model
- * Represents a complete import session with all metadata
+ * Represents a single import session execution (import_sessions table)
+ * Links to accounts table via accountId - source info lives in the account
  */
 export const DataSourceSchema = z.object({
   id: z.number(),
-  sourceId: z.string(),
-  sourceType: SourceTypeSchema,
+  accountId: z.number(),
   status: DataSourceStatusSchema,
   startedAt: z.date(),
   completedAt: z.date().optional(),
-  createdAt: z.date(),
-  updatedAt: z.date().optional(),
   durationMs: z.number().optional(),
+  transactionsImported: z.number(),
+  transactionsFailed: z.number(),
   errorMessage: z.string().optional(),
   errorDetails: z.unknown().optional(),
-  importParams: DataImportParamsSchema,
   importResultMetadata: ImportResultMetadataSchema,
-  lastBalanceCheckAt: z.date().optional(),
-  verificationMetadata: VerificationMetadataSchema.optional(),
-  // Map of cursors per operation type (e.g., 'normal', 'internal', 'token' for blockchains
-  // or 'trade', 'deposit', 'withdrawal' for exchanges)
-  lastCursor: z.record(z.string(), CursorStateSchema).optional(),
+  createdAt: z.date(),
+  updatedAt: z.date().optional(),
 });
 
 /**

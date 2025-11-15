@@ -285,6 +285,52 @@ export class TransactionLinkRepository extends BaseRepository {
   }
 
   /**
+   * Count all transaction links
+   *
+   * @returns Result with count
+   */
+  async countAll(): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .selectFrom('transaction_links')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      this.logger.error({ error }, 'Failed to count all transaction links');
+      return wrapError(error, 'Failed to count all transaction links');
+    }
+  }
+
+  /**
+   * Count transaction links by data source IDs
+   *
+   * @param dataSourceIds - Import session IDs to filter by
+   * @returns Result with count
+   */
+  async countByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (dataSourceIds.length === 0) {
+        return ok(0);
+      }
+
+      const result = await this.db
+        .selectFrom('transaction_links')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .where(
+          'source_transaction_id',
+          'in',
+          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+        )
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      this.logger.error({ error, dataSourceIds }, 'Failed to count transaction links by data source IDs');
+      return wrapError(error, 'Failed to count transaction links by data source IDs');
+    }
+  }
+
+  /**
    * Delete a transaction link
    *
    * @param id - Link ID
@@ -348,6 +394,37 @@ export class TransactionLinkRepository extends BaseRepository {
     } catch (error) {
       this.logger.error({ error, sourceId }, 'Failed to delete links by source');
       return wrapError(error, 'Failed to delete links by source');
+    }
+  }
+
+  /**
+   * Delete transaction links for transactions from specific data sources (import sessions).
+   * Uses data_source_id from transactions to properly scope deletions to specific accounts.
+   *
+   * @param dataSourceIds - Import session IDs to match
+   * @returns Result with count of deleted links
+   */
+  async deleteByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (dataSourceIds.length === 0) {
+        return ok(0);
+      }
+
+      const result = await this.db
+        .deleteFrom('transaction_links')
+        .where(
+          'source_transaction_id',
+          'in',
+          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+        )
+        .executeTakeFirst();
+
+      const count = Number(result.numDeletedRows ?? 0);
+      this.logger.debug({ dataSourceIds, count }, 'Deleted transaction links by data source IDs');
+      return ok(count);
+    } catch (error) {
+      this.logger.error({ error, dataSourceIds }, 'Failed to delete links by data source IDs');
+      return wrapError(error, 'Failed to delete links by data source IDs');
     }
   }
 
