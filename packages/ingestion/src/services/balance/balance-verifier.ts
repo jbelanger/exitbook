@@ -1,4 +1,4 @@
-import type { SourceType } from '@exitbook/core';
+import type { Account, SourceType } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -67,6 +67,7 @@ export function compareBalances(
  * Pure function that summarizes comparison data.
  */
 export function createVerificationResult(
+  account: Account,
   sourceId: string,
   sourceType: SourceType,
   comparisons: BalanceComparison[],
@@ -112,6 +113,7 @@ export function createVerificationResult(
   }
 
   return {
+    account,
     sourceId,
     sourceType,
     timestamp: Date.now(),

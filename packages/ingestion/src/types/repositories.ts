@@ -52,6 +52,38 @@ export interface IRawDataRepository {
    * Used during processing step.
    */
   getValidRecords(dataSourceId: number): Promise<Result<ExternalTransactionData[], Error>>;
+
+  /**
+   * Reset processing status to 'pending' for all raw data for an account.
+   * Used when clearing processed data but keeping raw data for reprocessing.
+   */
+  resetProcessingStatusByAccount(accountId: number): Promise<Result<number, Error>>;
+
+  /**
+   * Reset processing status to 'pending' for all raw data.
+   * Used when clearing all processed data but keeping raw data for reprocessing.
+   */
+  resetProcessingStatusAll(): Promise<Result<number, Error>>;
+
+  /**
+   * Count all raw data.
+   */
+  countAll(): Promise<Result<number, Error>>;
+
+  /**
+   * Count raw data by account IDs.
+   */
+  countByAccount(accountIds: number[]): Promise<Result<number, Error>>;
+
+  /**
+   * Delete all raw data for an account.
+   */
+  deleteByAccount(accountId: number): Promise<Result<number, Error>>;
+
+  /**
+   * Delete all raw data.
+   */
+  deleteAll(): Promise<Result<number, Error>>;
 }
 
 /**
@@ -93,6 +125,12 @@ export interface IDataSourceRepository {
   findByAccount(accountId: number, limit?: number): Promise<Result<DataSource[], Error>>;
 
   /**
+   * Get all data_source_ids (session IDs) for multiple accounts in one query (avoids N+1).
+   * Returns an array of session IDs across all specified accounts.
+   */
+  getDataSourceIdsByAccounts(accountIds: number[]): Promise<Result<number[], Error>>;
+
+  /**
    * Find latest incomplete import session for an account to support resume.
    * Status 'started' or 'failed' indicates incomplete import.
    * Per ADR-007: Cursors are stored in accounts table, not sessions
@@ -103,6 +141,16 @@ export interface IDataSourceRepository {
    * Update an existing import session.
    */
   update(sessionId: number, updates: DataSourceUpdate): Promise<Result<void, Error>>;
+
+  /**
+   * Count all import sessions.
+   */
+  countAll(): Promise<Result<number, Error>>;
+
+  /**
+   * Count import sessions by account IDs.
+   */
+  countByAccount(accountIds: number[]): Promise<Result<number, Error>>;
 
   /**
    * Delete all import sessions for an account.

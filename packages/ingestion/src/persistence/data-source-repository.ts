@@ -165,6 +165,63 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
   }
 
   /**
+   * Get session counts for multiple accounts in one query (avoids N+1).
+   * Returns a Map of accountId -> session count.
+   */
+  async getSessionCountsByAccount(accountIds: number[]): Promise<Result<Map<number, number>, Error>> {
+    try {
+      if (accountIds.length === 0) {
+        return ok(new Map());
+      }
+
+      const results = await this.db
+        .selectFrom('import_sessions')
+        .select(['account_id', (eb) => eb.fn.count<number>('id').as('count')])
+        .where('account_id', 'in', accountIds)
+        .groupBy('account_id')
+        .execute();
+
+      const counts = new Map<number, number>();
+      for (const row of results) {
+        counts.set(row.account_id, row.count);
+      }
+
+      // Add zero counts for accounts with no sessions
+      for (const accountId of accountIds) {
+        if (!counts.has(accountId)) {
+          counts.set(accountId, 0);
+        }
+      }
+
+      return ok(counts);
+    } catch (error) {
+      return wrapError(error, 'Failed to get session counts by account');
+    }
+  }
+
+  /**
+   * Get all data_source_ids (session IDs) for multiple accounts in one query (avoids N+1).
+   * Returns an array of session IDs across all specified accounts.
+   */
+  async getDataSourceIdsByAccounts(accountIds: number[]): Promise<Result<number[], Error>> {
+    try {
+      if (accountIds.length === 0) {
+        return ok([]);
+      }
+
+      const results = await this.db
+        .selectFrom('import_sessions')
+        .select('id')
+        .where('account_id', 'in', accountIds)
+        .execute();
+
+      return ok(results.map((row) => row.id));
+    } catch (error) {
+      return wrapError(error, 'Failed to get data source IDs by accounts');
+    }
+  }
+
+  /**
    * Update import session
    */
   async update(sessionId: number, updates: DataSourceUpdate): Promise<Result<void, Error>> {
@@ -222,6 +279,41 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       return ok();
     } catch (error) {
       return wrapError(error, 'Failed to update import session');
+    }
+  }
+
+  /**
+   * Count all import sessions
+   */
+  async countAll(): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .selectFrom('import_sessions')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      return wrapError(error, 'Failed to count all import sessions');
+    }
+  }
+
+  /**
+   * Count import sessions by account IDs
+   */
+  async countByAccount(accountIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (accountIds.length === 0) {
+        return ok(0);
+      }
+
+      const result = await this.db
+        .selectFrom('import_sessions')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .where('account_id', 'in', accountIds)
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      return wrapError(error, 'Failed to count import sessions by account');
     }
   }
 

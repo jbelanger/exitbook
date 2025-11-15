@@ -249,6 +249,39 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
+  async countAll(): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .selectFrom('external_transaction_data')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      return wrapError(error, 'Failed to count all raw data');
+    }
+  }
+
+  async countByAccount(accountIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (accountIds.length === 0) {
+        return ok(0);
+      }
+
+      const result = await this.db
+        .selectFrom('external_transaction_data')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .where(
+          'data_source_id',
+          'in',
+          this.db.selectFrom('import_sessions').select('id').where('account_id', 'in', accountIds)
+        )
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      return wrapError(error, 'Failed to count raw data by account');
+    }
+  }
+
   async deleteByAccount(accountId: number): Promise<Result<number, Error>> {
     try {
       const result = await this.db

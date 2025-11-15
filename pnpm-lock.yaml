@@ -380,6 +380,9 @@ importers:
 
   packages/ingestion:
     dependencies:
+      '@exitbook/accounting':
+        specifier: workspace:*
+        version: link:../accounting
       '@exitbook/blockchain-providers':
         specifier: workspace:*
         version: link:../blockchain-providers

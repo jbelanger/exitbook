@@ -1,3 +1,4 @@
+import type { ClearResult, DeletionPreview } from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 
@@ -6,9 +7,8 @@ import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { handleCancellation, promptConfirm } from '../shared/prompts.js';
 
-import type { ClearResult } from './clear-handler.js';
 import { ClearHandler } from './clear-handler.js';
-import { buildClearParamsFromFlags, type ClearCommandOptions, type DeletionPreview } from './clear-utils.js';
+import { buildClearParamsFromFlags, type ClearCommandOptions } from './clear-utils.js';
 
 /**
  * Clear command result data.
@@ -43,7 +43,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
   try {
     const params = unwrapResult(buildClearParamsFromFlags(options));
 
-    // Create handler to preview deletion
+    // Create service and handler to preview deletion
     const {
       initializeDatabase,
       closeDatabase,
@@ -55,7 +55,11 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
       CostBasisRepository: CBRepo,
       LotTransferRepository: LTRepo,
     } = await import('@exitbook/accounting');
-    const { RawDataRepository: RDRepo, DataSourceRepository: DSRepo } = await import('@exitbook/ingestion');
+    const {
+      RawDataRepository: RDRepo,
+      DataSourceRepository: DSRepo,
+      ClearService,
+    } = await import('@exitbook/ingestion');
 
     const database = await initializeDatabase();
     const acctRepo = new AcctRepo(database);
@@ -66,7 +70,8 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const rdRepo = new RDRepo(database);
     const dsRepo = new DSRepo(database);
 
-    const handler = new ClearHandler(database, acctRepo, txRepo, tlRepo, cbRepo, ltRepo, rdRepo, dsRepo);
+    const clearService = new ClearService(database, acctRepo, txRepo, tlRepo, cbRepo, ltRepo, rdRepo, dsRepo);
+    const handler = new ClearHandler(clearService);
 
     const previewResult = await handler.previewDeletion(params);
     handler.destroy();
@@ -140,7 +145,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
       verbose: false,
     });
 
-    // Initialize database and repositories
+    // Initialize database, repositories, and service
     const {
       initializeDatabase: initDb,
       closeDatabase: closeDb,
@@ -150,7 +155,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const { TransactionLinkRepository, CostBasisRepository, LotTransferRepository } = await import(
       '@exitbook/accounting'
     );
-    const { RawDataRepository, DataSourceRepository } = await import('@exitbook/ingestion');
+    const { RawDataRepository, DataSourceRepository, ClearService: ClearSvc } = await import('@exitbook/ingestion');
 
     const db = await initDb();
     const accountRepo = new AccountRepository(db);
@@ -161,7 +166,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const rawDataRepo = new RawDataRepository(db);
     const dataSourceRepo = new DataSourceRepository(db);
 
-    const clearHandler = new ClearHandler(
+    const clearSvc = new ClearSvc(
       db,
       accountRepo,
       transactionRepo,
@@ -171,6 +176,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
       rawDataRepo,
       dataSourceRepo
     );
+    const clearHandler = new ClearHandler(clearSvc);
 
     const result = await clearHandler.execute(params);
     clearHandler.destroy();

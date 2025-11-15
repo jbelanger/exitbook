@@ -1,4 +1,3 @@
-import type { KyselyDB } from '@exitbook/data';
 import type { ImportOrchestrator, TransactionProcessService } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
@@ -35,16 +34,12 @@ vi.mock('@exitbook/data', async (importOriginal) => {
 });
 
 describe('ImportHandler', () => {
-  let mockDatabase: KyselyDB;
   let mockImportOrchestrator: Partial<ImportOrchestrator>;
   let mockProcessService: Partial<TransactionProcessService>;
   let handler: ImportHandler;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-
-    // Mock database
-    mockDatabase = {} as KyselyDB;
 
     // Mock import orchestrator and process service
     mockImportOrchestrator = {
@@ -57,12 +52,10 @@ describe('ImportHandler', () => {
       processRawDataToTransactions: vi.fn(),
     };
 
-    // Setup service mocks to return our mock instances
-    const { ImportOrchestrator, TransactionProcessService } = await import('@exitbook/ingestion');
-    (ImportOrchestrator as unknown as Mock).mockImplementation(() => mockImportOrchestrator);
-    (TransactionProcessService as unknown as Mock).mockImplementation(() => mockProcessService);
-
-    handler = new ImportHandler(mockDatabase);
+    handler = new ImportHandler(
+      mockImportOrchestrator as ImportOrchestrator,
+      mockProcessService as TransactionProcessService
+    );
   });
 
   describe('execute', () => {
@@ -264,7 +257,10 @@ describe('ImportHandler', () => {
         destroy: mockDestroy,
       }));
 
-      const newHandler = new ImportHandler(mockDatabase);
+      const newHandler = new ImportHandler(
+        mockImportOrchestrator as ImportOrchestrator,
+        mockProcessService as TransactionProcessService
+      );
       newHandler.destroy();
 
       expect(mockDestroy).toHaveBeenCalled();

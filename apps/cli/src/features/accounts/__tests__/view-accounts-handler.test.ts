@@ -1,5 +1,5 @@
-import type { Account, DataSource } from '@exitbook/core';
-import type { AccountRepository } from '@exitbook/data';
+import type { Account, DataSource, User } from '@exitbook/core';
+import type { AccountRepository, UserRepository } from '@exitbook/data';
 import type { DataSourceRepository } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
@@ -10,17 +10,28 @@ import type { ViewAccountsParams } from '../view-accounts-utils.js';
 describe('ViewAccountsHandler', () => {
   let mockAccountRepo: AccountRepository;
   let mockDataSourceRepo: DataSourceRepository;
+  let mockUserRepo: UserRepository;
   let handler: ViewAccountsHandler;
   let mockFindAll: Mock;
   let mockFindById: Mock;
   let mockFindByAccount: Mock;
+  let mockGetSessionCountsByAccount: Mock;
+  let mockEnsureDefaultUser: Mock;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
+    const mockUser: User = {
+      id: 1,
+      name: 'Default User',
+      createdAt: new Date('2024-01-01T00:00:00Z'),
+    };
+
     mockFindAll = vi.fn();
     mockFindById = vi.fn();
     mockFindByAccount = vi.fn();
+    mockGetSessionCountsByAccount = vi.fn().mockResolvedValue(ok(new Map()));
+    mockEnsureDefaultUser = vi.fn().mockResolvedValue(ok(mockUser));
 
     mockAccountRepo = {
       findAll: mockFindAll,
@@ -29,9 +40,14 @@ describe('ViewAccountsHandler', () => {
 
     mockDataSourceRepo = {
       findByAccount: mockFindByAccount,
+      getSessionCountsByAccount: mockGetSessionCountsByAccount,
     } as unknown as DataSourceRepository;
 
-    handler = new ViewAccountsHandler(mockAccountRepo, mockDataSourceRepo);
+    mockUserRepo = {
+      ensureDefaultUser: mockEnsureDefaultUser,
+    } as unknown as UserRepository;
+
+    handler = new ViewAccountsHandler(mockAccountRepo, mockDataSourceRepo, mockUserRepo);
   });
 
   const createMockAccount = (overrides: Partial<Account> = {}): Account => ({
@@ -130,7 +146,7 @@ describe('ViewAccountsHandler', () => {
       expect(mockFindAll).toHaveBeenCalledWith({
         accountType: undefined,
         sourceName: 'kraken',
-        userId: undefined,
+        userId: 1,
       });
     });
 
@@ -147,7 +163,7 @@ describe('ViewAccountsHandler', () => {
       expect(mockFindAll).toHaveBeenCalledWith({
         accountType: 'blockchain',
         sourceName: undefined,
-        userId: undefined,
+        userId: 1,
       });
     });
 
@@ -170,10 +186,10 @@ describe('ViewAccountsHandler', () => {
 
     it('should include session counts when not showing sessions', async () => {
       const mockAccount = createMockAccount();
-      const mockSessions = [createMockDataSource({ id: 1 }), createMockDataSource({ id: 2 })];
+      const sessionCounts = new Map([[1, 2]]);
 
       mockFindAll.mockResolvedValue(ok([mockAccount]));
-      mockFindByAccount.mockResolvedValue(ok(mockSessions));
+      mockGetSessionCountsByAccount.mockResolvedValue(ok(sessionCounts));
 
       const params: ViewAccountsParams = {};
       const result = await handler.execute(params);

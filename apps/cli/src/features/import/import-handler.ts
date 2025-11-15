@@ -1,24 +1,13 @@
 import {
   BlockchainProviderManager,
   initializeProviders,
-  loadExplorerConfig,
   type BlockchainExplorersConfig,
 } from '@exitbook/blockchain-providers';
 import type { SourceType } from '@exitbook/core';
-import {
-  AccountRepository,
-  TokenMetadataRepository,
-  TransactionRepository,
-  UserRepository,
-  type KyselyDB,
-} from '@exitbook/data';
-import {
-  DataSourceRepository,
+import type {
   ImportOrchestrator,
-  RawDataRepository,
-  TokenMetadataService,
   TransactionProcessService,
-  type ImportResult as ServiceImportResult,
+  ImportResult as ServiceImportResult,
 } from '@exitbook/ingestion';
 import { progress } from '@exitbook/ui';
 import { err, ok, type Result } from 'neverthrow';
@@ -86,45 +75,15 @@ export interface ImportResult {
  */
 export class ImportHandler {
   private providerManager: BlockchainProviderManager;
-  private importOrchestrator: ImportOrchestrator;
-  private processService: TransactionProcessService;
 
   constructor(
-    private database: KyselyDB,
+    private importOrchestrator: ImportOrchestrator,
+    private processService: TransactionProcessService,
+    providerManager?: BlockchainProviderManager,
     explorerConfig?: BlockchainExplorersConfig
   ) {
-    // Load explorer config
-    const config = explorerConfig || loadExplorerConfig();
-
-    // Initialize repositories
-    const transactionRepository = new TransactionRepository(this.database);
-    const rawDataRepository = new RawDataRepository(this.database);
-    const sessionRepository = new DataSourceRepository(this.database);
-    const tokenMetadataRepository = new TokenMetadataRepository(this.database);
-    const userRepository = new UserRepository(this.database);
-    const accountRepository = new AccountRepository(this.database);
-
-    // Initialize provider manager
-    this.providerManager = new BlockchainProviderManager(config);
-
-    // Initialize services
-    const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, this.providerManager);
-
-    this.importOrchestrator = new ImportOrchestrator(
-      userRepository,
-      accountRepository,
-      rawDataRepository,
-      sessionRepository,
-      this.providerManager
-    );
-
-    this.processService = new TransactionProcessService(
-      rawDataRepository,
-      sessionRepository,
-      accountRepository,
-      transactionRepository,
-      tokenMetadataService
-    );
+    // Use provided provider manager or create new one
+    this.providerManager = providerManager ?? new BlockchainProviderManager(explorerConfig);
   }
 
   /**
