@@ -1,279 +1,116 @@
-import type { Account, DataSource, User } from '@exitbook/core';
-import type { AccountRepository, UserRepository } from '@exitbook/data';
-import type { DataSourceRepository } from '@exitbook/ingestion';
+import type { AccountService } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { ViewAccountsHandler } from '../view-accounts-handler.js';
-import type { ViewAccountsParams } from '../view-accounts-utils.js';
+import type { AccountInfo, ViewAccountsParams } from '../view-accounts-utils.js';
 
 describe('ViewAccountsHandler', () => {
-  let mockAccountRepo: AccountRepository;
-  let mockDataSourceRepo: DataSourceRepository;
-  let mockUserRepo: UserRepository;
+  let mockAccountService: AccountService;
   let handler: ViewAccountsHandler;
-  let mockFindAll: Mock;
-  let mockFindById: Mock;
-  let mockFindByAccount: Mock;
-  let mockGetSessionCountsByAccount: Mock;
-  let mockEnsureDefaultUser: Mock;
+  let mockViewAccounts: Mock;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
-    const mockUser: User = {
-      id: 1,
-      name: 'Default User',
-      createdAt: new Date('2024-01-01T00:00:00Z'),
-    };
+    mockViewAccounts = vi.fn();
 
-    mockFindAll = vi.fn();
-    mockFindById = vi.fn();
-    mockFindByAccount = vi.fn();
-    mockGetSessionCountsByAccount = vi.fn().mockResolvedValue(ok(new Map()));
-    mockEnsureDefaultUser = vi.fn().mockResolvedValue(ok(mockUser));
+    mockAccountService = {
+      viewAccounts: mockViewAccounts,
+    } as unknown as AccountService;
 
-    mockAccountRepo = {
-      findAll: mockFindAll,
-      findById: mockFindById,
-    } as unknown as AccountRepository;
-
-    mockDataSourceRepo = {
-      findByAccount: mockFindByAccount,
-      getSessionCountsByAccount: mockGetSessionCountsByAccount,
-    } as unknown as DataSourceRepository;
-
-    mockUserRepo = {
-      ensureDefaultUser: mockEnsureDefaultUser,
-    } as unknown as UserRepository;
-
-    handler = new ViewAccountsHandler(mockAccountRepo, mockDataSourceRepo, mockUserRepo);
+    handler = new ViewAccountsHandler(mockAccountService);
   });
 
-  const createMockAccount = (overrides: Partial<Account> = {}): Account => ({
+  const createMockAccount = (): AccountInfo => ({
     id: 1,
-    userId: undefined,
     accountType: 'blockchain',
     sourceName: 'bitcoin',
     identifier: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
     providerName: 'blockstream',
-    credentials: undefined,
-    derivedAddresses: undefined,
-    lastBalanceCheckAt: new Date('2024-01-01T00:00:00Z'),
-    verificationMetadata: {
-      current_balance: {},
-      last_verification: {
-        calculated_balance: {},
-        status: 'match',
-        verified_at: '2024-01-01T00:00:00Z',
-      },
-      source_params: {
-        blockchain: 'bitcoin',
-        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-      },
-    },
-    createdAt: new Date('2024-01-01T00:00:00Z'),
-    ...overrides,
-  });
-
-  const createMockDataSource = (overrides: Partial<DataSource> = {}): DataSource => ({
-    id: 1,
-    accountId: 1,
-    status: 'completed',
-    startedAt: new Date('2024-01-01T00:00:00Z'),
-    completedAt: new Date('2024-01-01T00:01:00Z'),
-    durationMs: 60000,
-    transactionsImported: 0,
-    transactionsFailed: 0,
-    importResultMetadata: {},
-    createdAt: new Date('2024-01-01T00:00:00Z'),
-    ...overrides,
+    lastBalanceCheckAt: '2024-01-01T00:00:00.000Z',
+    verificationStatus: 'match',
+    sessionCount: 0,
+    createdAt: '2024-01-01T00:00:00.000Z',
   });
 
   describe('execute', () => {
-    it('should return all accounts when no filters provided', async () => {
-      const mockAccounts: Account[] = [
-        createMockAccount(),
-        createMockAccount({
-          id: 2,
-          accountType: 'exchange-api',
-          sourceName: 'kraken',
-          identifier: 'apiKey123',
-          providerName: undefined,
-          verificationMetadata: {
-            current_balance: {},
-            last_verification: {
-              calculated_balance: {},
-              status: 'match',
-              verified_at: '2024-01-01T00:00:00Z',
-            },
-            source_params: {
-              exchange: 'kraken',
-            },
-          },
-        }),
-      ];
+    it('should delegate to AccountService and return result', async () => {
+      const mockResult = {
+        accounts: [createMockAccount()],
+        count: 1,
+      };
 
-      mockFindAll.mockResolvedValue(ok(mockAccounts));
-      mockFindByAccount.mockResolvedValue(ok([createMockDataSource()]));
+      mockViewAccounts.mockResolvedValue(ok(mockResult));
 
       const params: ViewAccountsParams = {};
       const result = await handler.execute(params);
 
-      expect(result.isOk()).toBe(true);
-      const value = result._unsafeUnwrap();
-
-      expect(value.count).toBe(2);
-      expect(value.accounts).toHaveLength(2);
-      expect(value.accounts[0]).toMatchObject({
-        id: 1,
-        accountType: 'blockchain',
-        sourceName: 'bitcoin',
-        verificationStatus: 'match',
-      });
-    });
-
-    it('should filter accounts by source name', async () => {
-      const mockAccounts: Account[] = [createMockAccount({ sourceName: 'kraken' })];
-
-      mockFindAll.mockResolvedValue(ok(mockAccounts));
-      mockFindByAccount.mockResolvedValue(ok([]));
-
-      const params: ViewAccountsParams = { source: 'kraken' };
-      const result = await handler.execute(params);
-
-      expect(result.isOk()).toBe(true);
-      expect(mockFindAll).toHaveBeenCalledWith({
+      expect(mockViewAccounts).toHaveBeenCalledWith({
+        accountId: undefined,
         accountType: undefined,
-        sourceName: 'kraken',
-        userId: 1,
+        source: undefined,
+        showSessions: undefined,
       });
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toEqual(mockResult);
+      }
     });
 
-    it('should filter accounts by account type', async () => {
-      const mockAccounts: Account[] = [createMockAccount({ accountType: 'blockchain' })];
+    it('should pass all params to service', async () => {
+      const mockResult = {
+        accounts: [createMockAccount()],
+        count: 1,
+      };
 
-      mockFindAll.mockResolvedValue(ok(mockAccounts));
-      mockFindByAccount.mockResolvedValue(ok([]));
+      mockViewAccounts.mockResolvedValue(ok(mockResult));
 
-      const params: ViewAccountsParams = { accountType: 'blockchain' };
-      const result = await handler.execute(params);
-
-      expect(result.isOk()).toBe(true);
-      expect(mockFindAll).toHaveBeenCalledWith({
+      const params: ViewAccountsParams = {
+        accountId: 5,
         accountType: 'blockchain',
-        sourceName: undefined,
-        userId: 1,
+        source: 'bitcoin',
+        showSessions: true,
+      };
+      await handler.execute(params);
+
+      expect(mockViewAccounts).toHaveBeenCalledWith({
+        accountId: 5,
+        accountType: 'blockchain',
+        source: 'bitcoin',
+        showSessions: true,
       });
     });
 
-    it('should fetch specific account by ID', async () => {
-      const mockAccount = createMockAccount({ id: 5 });
-
-      mockFindById.mockResolvedValue(ok(mockAccount));
-      mockFindByAccount.mockResolvedValue(ok([]));
-
-      const params: ViewAccountsParams = { accountId: 5 };
-      const result = await handler.execute(params);
-
-      expect(result.isOk()).toBe(true);
-      expect(mockFindById).toHaveBeenCalledWith(5);
-
-      const value = result._unsafeUnwrap();
-      expect(value.accounts).toHaveLength(1);
-      expect(value.accounts[0]?.id).toBe(5);
-    });
-
-    it('should include session counts when not showing sessions', async () => {
-      const mockAccount = createMockAccount();
-      const sessionCounts = new Map([[1, 2]]);
-
-      mockFindAll.mockResolvedValue(ok([mockAccount]));
-      mockGetSessionCountsByAccount.mockResolvedValue(ok(sessionCounts));
-
-      const params: ViewAccountsParams = {};
-      const result = await handler.execute(params);
-
-      expect(result.isOk()).toBe(true);
-      const value = result._unsafeUnwrap();
-      expect(value.accounts[0]?.sessionCount).toBe(2);
-      expect(value.sessions).toBeUndefined();
-    });
-
-    it('should include session details when showSessions is true', async () => {
-      const mockAccount = createMockAccount();
-      const mockSessions = [
-        createMockDataSource({ id: 1, status: 'completed' }),
-        createMockDataSource({ id: 2, status: 'failed' }),
-      ];
-
-      mockFindAll.mockResolvedValue(ok([mockAccount]));
-      mockFindByAccount.mockResolvedValue(ok(mockSessions));
-
-      const params: ViewAccountsParams = { showSessions: true };
-      const result = await handler.execute(params);
-
-      expect(result.isOk()).toBe(true);
-      const value = result._unsafeUnwrap();
-      expect(value.sessions).toBeDefined();
-      expect(value.sessions?.get(1)).toHaveLength(2);
-      expect(value.sessions?.get(1)?.[0]).toMatchObject({
-        id: 1,
-        status: 'completed',
-      });
-    });
-
-    it('should return empty array when no accounts found', async () => {
-      mockFindAll.mockResolvedValue(ok([]));
-
-      const params: ViewAccountsParams = {};
-      const result = await handler.execute(params);
-
-      expect(result.isOk()).toBe(true);
-      const value = result._unsafeUnwrap();
-      expect(value.count).toBe(0);
-      expect(value.accounts).toEqual([]);
-    });
-
-    it('should return error when repository fails', async () => {
-      const error = new Error('Database connection failed');
-      mockFindAll.mockResolvedValue(err(error));
+    it('should return error from service', async () => {
+      const error = new Error('Service failed');
+      mockViewAccounts.mockResolvedValue(err(error));
 
       const params: ViewAccountsParams = {};
       const result = await handler.execute(params);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toBe('Database connection failed');
+        expect(result.error.message).toBe('Service failed');
       }
     });
 
-    it('should handle mismatch verification status', async () => {
-      const mockAccount = createMockAccount({
-        verificationMetadata: {
-          current_balance: {},
-          last_verification: {
-            calculated_balance: {},
-            status: 'mismatch',
-            verified_at: '2024-01-01T00:00:00Z',
-            discrepancies: [{ asset: 'BTC', calculated: '1.0', live: '0.5', difference: '-0.5' }],
-          },
-          source_params: {
-            blockchain: 'bitcoin',
-            address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          },
-        },
-      });
+    it('should handle empty results', async () => {
+      const mockResult = {
+        accounts: [],
+        count: 0,
+      };
 
-      mockFindAll.mockResolvedValue(ok([mockAccount]));
-      mockFindByAccount.mockResolvedValue(ok([]));
+      mockViewAccounts.mockResolvedValue(ok(mockResult));
 
       const params: ViewAccountsParams = {};
       const result = await handler.execute(params);
 
       expect(result.isOk()).toBe(true);
-      const value = result._unsafeUnwrap();
-      expect(value.accounts[0]?.verificationStatus).toBe('mismatch');
+      if (result.isOk()) {
+        expect(result.value.count).toBe(0);
+        expect(result.value.accounts).toEqual([]);
+      }
     });
   });
 
