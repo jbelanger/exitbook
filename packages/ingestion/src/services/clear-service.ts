@@ -1,6 +1,6 @@
 import type { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import type { Account } from '@exitbook/core';
-import type { AccountRepository, KyselyDB, TransactionRepository } from '@exitbook/data';
+import type { AccountRepository, TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -29,7 +29,6 @@ export interface ClearResult {
  */
 export class ClearService {
   constructor(
-    private db: KyselyDB,
     private accountRepo: AccountRepository,
     private transactionRepo: TransactionRepository,
     private transactionLinkRepo: TransactionLinkRepository,
