@@ -150,6 +150,13 @@ export class BalanceService {
   }
 
   /**
+   * Cleanup resources (stops provider manager timers/health checks).
+   */
+  destroy(): void {
+    this.providerManager.destroy();
+  }
+
+  /**
    * Helper method to find an account based on balance params.
    */
   private async findAccount(params: BalanceServiceParams): Promise<Result<Account, Error>> {

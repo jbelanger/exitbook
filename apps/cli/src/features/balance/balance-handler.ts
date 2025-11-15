@@ -53,9 +53,9 @@ export class BalanceHandler {
   }
 
   /**
-   * Cleanup resources.
+   * Cleanup resources (delegates to service).
    */
   destroy(): void {
-    // No resources to cleanup in handler
+    this.balanceService.destroy();
   }
 }
