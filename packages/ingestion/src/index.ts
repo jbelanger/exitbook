@@ -7,6 +7,14 @@ export { TransactionProcessService } from './services/process-service.js';
 export { ClearService } from './services/clear-service.js';
 export type { ClearResult } from './services/clear-service.js';
 export type { ClearServiceParams, DeletionPreview } from './services/clear-service-utils.js';
+export { AccountService } from './services/account-service.js';
+export type { ViewAccountsParams } from './services/account-service.js';
+export type {
+  AccountQueryParams,
+  AccountQueryResult,
+  FormattedAccount,
+  SessionSummary,
+} from './services/account-service-utils.js';
 
 // Token metadata services
 export { TokenMetadataService } from './services/token-metadata/token-metadata-service.js';

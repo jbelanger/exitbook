@@ -131,6 +131,12 @@ export interface IDataSourceRepository {
   getDataSourceIdsByAccounts(accountIds: number[]): Promise<Result<number[], Error>>;
 
   /**
+   * Get session counts for multiple accounts in one query (avoids N+1).
+   * Returns a Map of accountId -> session count.
+   */
+  getSessionCountsByAccount(accountIds: number[]): Promise<Result<Map<number, number>, Error>>;
+
+  /**
    * Find latest incomplete import session for an account to support resume.
    * Status 'started' or 'failed' indicates incomplete import.
    * Per ADR-007: Cursors are stored in accounts table, not sessions
