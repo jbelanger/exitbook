@@ -13,6 +13,7 @@ export { TokenMetadataService } from './services/token-metadata/token-metadata-s
 export type { ITokenMetadataService } from './services/token-metadata/token-metadata-service.interface.js';
 
 // Balance services
+export { BalanceService, type BalanceServiceParams } from './services/balance/balance-service.js';
 export { calculateBalances } from './services/balance/balance-calculator.js';
 export {
   fetchExchangeBalance,
