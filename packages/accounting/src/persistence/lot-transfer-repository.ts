@@ -174,6 +174,47 @@ export class LotTransferRepository extends BaseRepository {
   }
 
   /**
+   * Count all lot transfers
+   */
+  async countAll(): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .selectFrom('lot_transfers')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      this.logger.error({ error }, 'Failed to count all lot transfers');
+      return wrapError(error, 'Failed to count all lot transfers');
+    }
+  }
+
+  /**
+   * Count lot transfers by data source IDs
+   */
+  async countByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (dataSourceIds.length === 0) {
+        return ok(0);
+      }
+
+      const result = await this.db
+        .selectFrom('lot_transfers')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .where(
+          'source_transaction_id',
+          'in',
+          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+        )
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      this.logger.error({ error, dataSourceIds }, 'Failed to count lot transfers by data source IDs');
+      return wrapError(error, 'Failed to count lot transfers by data source IDs');
+    }
+  }
+
+  /**
    * Delete all transfers for a calculation
    */
   async deleteByCalculationId(calculationId: string): Promise<Result<number, Error>> {
@@ -189,6 +230,34 @@ export class LotTransferRepository extends BaseRepository {
     } catch (error) {
       this.logger.error({ error, calculationId }, 'Failed to delete transfers by calculation ID');
       return wrapError(error, 'Failed to delete transfers by calculation ID');
+    }
+  }
+
+  /**
+   * Delete lot transfers for transactions from specific data sources (import sessions).
+   * Uses data_source_id from transactions to properly scope deletions to specific accounts.
+   */
+  async deleteByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (dataSourceIds.length === 0) {
+        return ok(0);
+      }
+
+      const result = await this.db
+        .deleteFrom('lot_transfers')
+        .where(
+          'source_transaction_id',
+          'in',
+          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+        )
+        .executeTakeFirst();
+
+      const count = Number(result.numDeletedRows ?? 0);
+      this.logger.debug({ dataSourceIds, count }, 'Deleted lot transfers by data source IDs');
+      return ok(count);
+    } catch (error) {
+      this.logger.error({ error, dataSourceIds }, 'Failed to delete lot transfers by data source IDs');
+      return wrapError(error, 'Failed to delete lot transfers by data source IDs');
     }
   }
 

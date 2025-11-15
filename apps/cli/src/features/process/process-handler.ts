@@ -1,12 +1,5 @@
-import { BlockchainProviderManager, loadExplorerConfig } from '@exitbook/blockchain-providers';
-import type { KyselyDB } from '@exitbook/data';
-import { TokenMetadataRepository, TransactionRepository } from '@exitbook/data';
-import {
-  DataSourceRepository,
-  RawDataRepository,
-  TokenMetadataService,
-  TransactionProcessService,
-} from '@exitbook/ingestion';
+import { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import type { TransactionProcessService } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { type Result } from 'neverthrow';
 
@@ -28,25 +21,14 @@ export interface ProcessResult {
  * Reusable by both CLI command and other contexts.
  */
 export class ProcessHandler {
-  private processService: TransactionProcessService;
   private providerManager: BlockchainProviderManager;
 
-  constructor(private database: KyselyDB) {
-    // Initialize services
-    const config = loadExplorerConfig();
-    const transactionRepository = new TransactionRepository(this.database);
-    const rawDataRepository = new RawDataRepository(this.database);
-    const sessionRepository = new DataSourceRepository(this.database);
-    const tokenMetadataRepository = new TokenMetadataRepository(this.database);
-    this.providerManager = new BlockchainProviderManager(config);
-    const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, this.providerManager);
-
-    this.processService = new TransactionProcessService(
-      rawDataRepository,
-      sessionRepository,
-      transactionRepository,
-      tokenMetadataService
-    );
+  constructor(
+    private processService: TransactionProcessService,
+    providerManager?: BlockchainProviderManager
+  ) {
+    // Use provided provider manager or create new one
+    this.providerManager = providerManager ?? new BlockchainProviderManager();
   }
 
   /**

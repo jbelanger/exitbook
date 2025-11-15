@@ -1,8 +1,12 @@
 // Initialize blockchain configs by importing the registry
 import './infrastructure/blockchains';
 
+export { ImportOrchestrator } from './services/import-orchestrator.js';
 export { TransactionImportService } from './services/import-service.js';
 export { TransactionProcessService } from './services/process-service.js';
+export { ClearService } from './services/clear-service.js';
+export type { ClearResult } from './services/clear-service.js';
+export type { ClearServiceParams, DeletionPreview } from './services/clear-service-utils.js';
 
 // Token metadata services
 export { TokenMetadataService } from './services/token-metadata/token-metadata-service.js';

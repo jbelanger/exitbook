@@ -26,11 +26,11 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     try {
       let query = this.db
         .selectFrom('external_transaction_data')
-        .innerJoin('data_sources', 'external_transaction_data.data_source_id', 'data_sources.id')
+        .innerJoin('import_sessions', 'external_transaction_data.data_source_id', 'import_sessions.id')
         .selectAll('external_transaction_data');
 
-      if (filters?.sourceId) {
-        query = query.where('source_id', '=', filters.sourceId);
+      if (filters?.accountId !== undefined) {
+        query = query.where('import_sessions.account_id', '=', filters.accountId);
       }
 
       if (filters?.dataSourceId) {
@@ -210,7 +210,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async resetProcessingStatusBySource(sourceId: string): Promise<Result<number, Error>> {
+  async resetProcessingStatusByAccount(accountId: number): Promise<Result<number, Error>> {
     try {
       const result = await this.db
         .updateTable('external_transaction_data')
@@ -222,13 +222,13 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .where(
           'data_source_id',
           'in',
-          this.db.selectFrom('data_sources').select('id').where('source_id', '=', sourceId)
+          this.db.selectFrom('import_sessions').select('id').where('account_id', '=', accountId)
         )
         .executeTakeFirst();
 
       return ok(Number(result.numUpdatedRows));
     } catch (error) {
-      return wrapError(error, 'Failed to reset processing status by source');
+      return wrapError(error, 'Failed to reset processing status by account');
     }
   }
 
@@ -249,20 +249,53 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async deleteBySource(sourceId: string): Promise<Result<number, Error>> {
+  async countAll(): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .selectFrom('external_transaction_data')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      return wrapError(error, 'Failed to count all raw data');
+    }
+  }
+
+  async countByAccount(accountIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (accountIds.length === 0) {
+        return ok(0);
+      }
+
+      const result = await this.db
+        .selectFrom('external_transaction_data')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .where(
+          'data_source_id',
+          'in',
+          this.db.selectFrom('import_sessions').select('id').where('account_id', 'in', accountIds)
+        )
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      return wrapError(error, 'Failed to count raw data by account');
+    }
+  }
+
+  async deleteByAccount(accountId: number): Promise<Result<number, Error>> {
     try {
       const result = await this.db
         .deleteFrom('external_transaction_data')
         .where(
           'data_source_id',
           'in',
-          this.db.selectFrom('data_sources').select('id').where('source_id', '=', sourceId)
+          this.db.selectFrom('import_sessions').select('id').where('account_id', '=', accountId)
         )
         .executeTakeFirst();
 
       return ok(Number(result.numDeletedRows));
     } catch (error) {
-      return wrapError(error, 'Failed to delete raw data by source');
+      return wrapError(error, 'Failed to delete raw data by account');
     }
   }
 

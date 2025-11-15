@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-null -- null needed by db */
 import { closeDatabase, createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -22,21 +23,41 @@ describe('LotTransferRepository', () => {
     await db.deleteFrom('cost_basis_calculations').execute();
     await db.deleteFrom('transaction_links').execute();
     await db.deleteFrom('transactions').execute();
-    await db.deleteFrom('data_sources').execute();
+    await db.deleteFrom('import_sessions').execute();
 
     repo = new LotTransferRepository(db);
 
-    // Create dummy data source for foreign key constraints
+    // Create default user and account for foreign key constraints
+    await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
     await db
-      .insertInto('data_sources')
+      .insertInto('accounts')
       .values({
         id: 1,
-        source_id: 'test',
-        source_type: 'exchange',
+        user_id: 1,
+        account_type: 'exchange-api',
+        source_name: 'test',
+        identifier: 'test-api-key',
+        provider_name: null,
+        derived_addresses: null,
+        last_cursor: null,
+        last_balance_check_at: null,
+        verification_metadata: null,
+        created_at: new Date().toISOString(),
+        updated_at: null,
+      })
+      .execute();
+
+    // Create dummy data source for foreign key constraints
+    await db
+      .insertInto('import_sessions')
+      .values({
+        id: 1,
+        account_id: 1,
         status: 'completed',
         started_at: new Date().toISOString(),
-        import_params: '{}',
         import_result_metadata: '{}',
+        transactions_imported: 0,
+        transactions_failed: 0,
         created_at: new Date().toISOString(),
       })
       .execute();

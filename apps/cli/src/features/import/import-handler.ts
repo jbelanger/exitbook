@@ -1,19 +1,14 @@
 import {
   BlockchainProviderManager,
   initializeProviders,
-  loadExplorerConfig,
   type BlockchainExplorersConfig,
 } from '@exitbook/blockchain-providers';
 import type { SourceType } from '@exitbook/core';
-import { TokenMetadataRepository, TransactionRepository, type KyselyDB } from '@exitbook/data';
-import {
-  DataSourceRepository,
-  RawDataRepository,
-  TokenMetadataService,
-  TransactionImportService,
+import type {
+  ImportOrchestrator,
   TransactionProcessService,
+  ImportResult as ServiceImportResult,
 } from '@exitbook/ingestion';
-import type { ImportParams } from '@exitbook/ingestion';
 import { progress } from '@exitbook/ui';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -80,31 +75,15 @@ export interface ImportResult {
  */
 export class ImportHandler {
   private providerManager: BlockchainProviderManager;
-  private importService: TransactionImportService;
-  private processService: TransactionProcessService;
 
   constructor(
-    private database: KyselyDB,
+    private importOrchestrator: ImportOrchestrator,
+    private processService: TransactionProcessService,
+    providerManager?: BlockchainProviderManager,
     explorerConfig?: BlockchainExplorersConfig
   ) {
-    // Load explorer config
-    const config = explorerConfig || loadExplorerConfig();
-
-    // Initialize services
-    const transactionRepository = new TransactionRepository(this.database);
-    const rawDataRepository = new RawDataRepository(this.database);
-    const sessionRepository = new DataSourceRepository(this.database);
-    const tokenMetadataRepository = new TokenMetadataRepository(this.database);
-    this.providerManager = new BlockchainProviderManager(config);
-    const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, this.providerManager);
-
-    this.importService = new TransactionImportService(rawDataRepository, sessionRepository, this.providerManager);
-    this.processService = new TransactionProcessService(
-      rawDataRepository,
-      sessionRepository,
-      transactionRepository,
-      tokenMetadataService
-    );
+    // Use provided provider manager or create new one
+    this.providerManager = providerManager ?? new BlockchainProviderManager(explorerConfig);
   }
 
   /**
@@ -118,12 +97,17 @@ export class ImportHandler {
         return err(validation.error);
       }
 
-      // Build import params
-      const importParams: ImportParams = {};
+      progress.start(`Importing from ${params.sourceName}`);
+
+      // Call appropriate orchestrator method based on source type and params
+      let importResult: Result<ServiceImportResult, Error>;
+
       if (params.sourceType === 'exchange') {
         if (params.csvDir) {
-          importParams.csvDirectories = [params.csvDir];
+          // Exchange CSV import
+          importResult = await this.importOrchestrator.importExchangeCsv(params.sourceName, [params.csvDir]);
         } else if (params.credentials) {
+          // Exchange API import
           const credentials: Record<string, string> = {
             apiKey: params.credentials.apiKey,
             secret: params.credentials.secret,
@@ -131,21 +115,21 @@ export class ImportHandler {
           if (params.credentials.apiPassphrase) {
             credentials.passphrase = params.credentials.apiPassphrase;
           }
-          importParams.credentials = credentials;
+          importResult = await this.importOrchestrator.importExchangeApi(params.sourceName, credentials);
+        } else {
+          return err(new Error('Either csvDir or credentials must be provided for exchange imports'));
         }
       } else {
-        importParams.address = params.address;
-        importParams.providerName = params.providerName;
+        // Blockchain import
+        if (!params.address) {
+          return err(new Error('Address is required for blockchain imports'));
+        }
+        importResult = await this.importOrchestrator.importBlockchain(
+          params.sourceName,
+          params.address,
+          params.providerName
+        );
       }
-
-      progress.start(`Importing from ${params.sourceName}`);
-
-      // Import raw data
-      const importResult = await this.importService.importFromSource(
-        params.sourceName,
-        params.sourceType,
-        importParams
-      );
 
       if (importResult.isErr()) {
         return err(importResult.error);
