@@ -251,6 +251,30 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         transactions.push(result.value);
       }
 
+      // Deduplicate by (source_id, external_id) when aggregating across multiple sessions
+      // This prevents double-counting if the same transaction appears in multiple sessions
+      if (sessionIds !== undefined && sessionIds.length > 1) {
+        const seen = new Set<string>();
+        const deduplicated: UniversalTransaction[] = [];
+
+        for (const tx of transactions) {
+          const key = `${tx.source}:${tx.externalId}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            deduplicated.push(tx);
+          }
+        }
+
+        if (deduplicated.length < transactions.length) {
+          const duplicateCount = transactions.length - deduplicated.length;
+          this.logger.warn(
+            `Deduplication removed ${duplicateCount} duplicate transaction(s) when aggregating across ${sessionIds.length} sessions`
+          );
+        }
+
+        return ok(deduplicated);
+      }
+
       return ok(transactions);
     } catch (error) {
       return wrapError(error, 'Failed to retrieve transactions');
