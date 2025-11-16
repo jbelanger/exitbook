@@ -10,13 +10,13 @@ import {
 import type { Selectable, Updateable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
-import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 
 import type { TransactionsTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
 
 import { BaseRepository } from './base-repository.js';
+import { generateDeterministicTransactionHash } from './transaction-id-utils.js';
 import type { ITransactionRepository, TransactionFilters } from './transaction-repository.interface.js';
 
 /**
@@ -109,7 +109,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           created_at: this.getCurrentDateTimeForDB(),
           external_id: (transaction.metadata?.hash ||
             transaction.externalId ||
-            `${transaction.source}-${transaction.timestamp}-${uuidv4()}`) as string,
+            generateDeterministicTransactionHash(transaction)) as string,
           from_address: transaction.from,
           data_source_id: dataSourceId,
           note_message: transaction.note?.message,
