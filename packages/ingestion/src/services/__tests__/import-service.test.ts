@@ -184,6 +184,7 @@ describe('TransactionImportService', () => {
       findLatestIncomplete: vi.fn(),
       update: vi.fn(),
     } as unknown as IDataSourceRepository;
+    vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
 
     mockAccountRepo = {
       updateCursor: vi.fn().mockResolvedValue(ok()),
@@ -383,7 +384,7 @@ describe('TransactionImportService', () => {
         },
       });
 
-      vi.mocked(mockDataSourceRepo.findByAccount).mockResolvedValue(ok([]));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
       vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
@@ -448,7 +449,7 @@ describe('TransactionImportService', () => {
         importResultMetadata: {},
       };
 
-      vi.mocked(mockDataSourceRepo.findByAccount).mockResolvedValue(ok([existingDataSource]));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(existingDataSource));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
       vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
 
@@ -467,7 +468,7 @@ describe('TransactionImportService', () => {
         },
       });
 
-      vi.mocked(mockDataSourceRepo.findByAccount).mockResolvedValue(ok([]));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
 
       const result = await service.importFromSource(account);
@@ -485,7 +486,7 @@ describe('TransactionImportService', () => {
         },
       });
 
-      vi.mocked(mockDataSourceRepo.findByAccount).mockResolvedValue(err(new Error('Database unavailable')));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(err(new Error('Database unavailable')));
 
       const result = await service.importFromSource(account);
 

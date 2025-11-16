@@ -95,7 +95,18 @@ export class AccountService {
       if (accountResult.isErr()) {
         return err(accountResult.error);
       }
-      return ok([accountResult.value]);
+      const account = accountResult.value;
+
+      // Enforce tenancy: only return accounts owned by the default user
+      if (account.userId !== user.id) {
+        return err(
+          new Error(
+            `Account ${params.accountId} does not belong to the default user (expected userId=${user.id}, found ${account.userId ?? 'null'})`
+          )
+        );
+      }
+
+      return ok([account]);
     }
 
     // Scope to default user's accounts only (not tracking-only accounts with userId=null)

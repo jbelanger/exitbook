@@ -72,6 +72,9 @@ export function normalizeBlockchainImportParams(
  * Determines whether to create a new session or resume an existing one,
  * and what parameters to use (e.g., including cursor for resumption).
  *
+ * Only resumes sessions with status 'started' or 'failed' per ADR-007.
+ * Completed/cancelled sessions should not be resumed.
+ *
  * @param sourceId - Source identifier (blockchain or exchange name)
  * @param params - Import parameters
  * @param existingSource - Previously created data source, or null
@@ -84,8 +87,10 @@ export function prepareImportSession(
   existingSource: DataSource | undefined,
   latestCursor: Record<string, CursorState> | undefined
 ): ImportSessionConfig {
-  // If we have an existing source, resume it
-  if (existingSource) {
+  // Only resume if we have an existing source with incomplete status
+  const canResume = existingSource && (existingSource.status === 'started' || existingSource.status === 'failed');
+
+  if (canResume) {
     const resumeParams = { ...params };
 
     // Add cursor if available
@@ -100,7 +105,7 @@ export function prepareImportSession(
     };
   }
 
-  // No existing source - create new session with original params
+  // No existing source or session is completed/cancelled - create new session with original params
   return {
     params,
     shouldResume: false,

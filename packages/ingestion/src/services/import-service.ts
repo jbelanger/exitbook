@@ -335,15 +335,15 @@ export class TransactionImportService {
    * Supports resumption using per-operation-type cursors.
    */
   private async importFromExchange(account: Account): Promise<Result<ImportResult, Error>> {
-    const sourceId = account.sourceName;
-    this.logger.info(`Starting exchange import for ${sourceId}`);
+    const sourceName = account.sourceName;
+    this.logger.info(`Starting exchange import for ${sourceName}`);
 
-    // Check for existing data sources for this account
-    const existingDataSourceResult = await this.dataSourceRepository.findByAccount(account.id, 1);
+    // Check for latest incomplete data source to resume
+    const existingDataSourceResult = await this.dataSourceRepository.findLatestIncomplete(account.id);
     if (existingDataSourceResult.isErr()) {
       return err(existingDataSourceResult.error);
     }
-    const existingDataSource = existingDataSourceResult.value[0];
+    const existingDataSource = existingDataSourceResult.value;
 
     // Get latest cursors from account (not data source)
     let latestCursors: Record<string, CursorState> | undefined = undefined;
@@ -368,7 +368,7 @@ export class TransactionImportService {
     }
 
     // Use pure function to prepare import session config
-    const sessionConfig = prepareImportSession(sourceId, params, existingDataSource || undefined, latestCursors);
+    const sessionConfig = prepareImportSession(sourceName, params, existingDataSource, latestCursors);
 
     const startTime = Date.now();
     let dataSourceCreated = false;
@@ -393,14 +393,14 @@ export class TransactionImportService {
     }
 
     try {
-      const importerResult = await createExchangeImporter(sourceId, sessionConfig.params);
+      const importerResult = await createExchangeImporter(sourceName, sessionConfig.params);
 
       if (importerResult.isErr()) {
         return err(importerResult.error);
       }
 
       const importer = importerResult.value;
-      this.logger.info(`Importer for ${sourceId} created successfully`);
+      this.logger.info(`Importer for ${sourceName} created successfully`);
 
       this.logger.info('Starting raw data import...');
       progress.update('Fetching exchange data...');
@@ -509,7 +509,7 @@ export class TransactionImportService {
         return err(finalizeResult.error);
       }
 
-      this.logger.info(`Import completed for ${sourceId}: ${savedCount} items saved`);
+      this.logger.info(`Import completed for ${sourceName}: ${savedCount} items saved`);
 
       return ok({
         imported: savedCount,
@@ -537,7 +537,7 @@ export class TransactionImportService {
         }
       }
 
-      this.logger.error(`Import failed for ${sourceId}: ${originalError.message}`);
+      this.logger.error(`Import failed for ${sourceName}: ${originalError.message}`);
       return err(originalError);
     }
   }
