@@ -43,13 +43,13 @@ export function generateDeterministicTransactionHash(transaction: UniversalTrans
   const movementParts: string[] = [];
 
   for (const inflow of transaction.movements.inflows ?? []) {
-    const netAmount = inflow.netAmount?.toString() ?? inflow.grossAmount.toString();
-    movementParts.push(`in:${inflow.asset}:${inflow.grossAmount.toString()}:${netAmount}`);
+    const netAmount = inflow.netAmount?.toFixed() ?? inflow.grossAmount.toFixed();
+    movementParts.push(`in:${inflow.asset}:${inflow.grossAmount.toFixed()}:${netAmount}`);
   }
 
   for (const outflow of transaction.movements.outflows ?? []) {
-    const netAmount = outflow.netAmount?.toString() ?? outflow.grossAmount.toString();
-    movementParts.push(`out:${outflow.asset}:${outflow.grossAmount.toString()}:${netAmount}`);
+    const netAmount = outflow.netAmount?.toFixed() ?? outflow.grossAmount.toFixed();
+    movementParts.push(`out:${outflow.asset}:${outflow.grossAmount.toFixed()}:${netAmount}`);
   }
 
   // Sort movements for determinism (same movements in different order should produce same hash)
@@ -59,7 +59,7 @@ export function generateDeterministicTransactionHash(transaction: UniversalTrans
   // Collect all fees
   const feeParts: string[] = [];
   for (const fee of transaction.fees ?? []) {
-    feeParts.push(`fee:${fee.asset}:${fee.amount.toString()}:${fee.scope}:${fee.settlement}`);
+    feeParts.push(`fee:${fee.asset}:${fee.amount.toFixed()}:${fee.scope}:${fee.settlement}`);
   }
 
   // Sort fees for determinism
@@ -70,7 +70,7 @@ export function generateDeterministicTransactionHash(transaction: UniversalTrans
   const dataString = parts.join('|');
   const hash = createHash('sha256').update(dataString).digest('hex');
 
-  // Return a truncated hash (first 16 chars) with a prefix to indicate it's generated
-  // Format: gen-<16-char-hex>
-  return `gen-${hash.substring(0, 16)}`;
+  // Return full SHA-256 hash with a prefix to indicate it's generated
+  // Format: gen-<64-char-hex> (full SHA-256 to eliminate collision risk)
+  return `gen-${hash}`;
 }

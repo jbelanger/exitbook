@@ -25,7 +25,7 @@ describe('generateDeterministicTransactionHash', () => {
     const hash2 = generateDeterministicTransactionHash(transaction);
 
     expect(hash1).toBe(hash2);
-    expect(hash1).toMatch(/^gen-[a-f0-9]{16}$/);
+    expect(hash1).toMatch(/^gen-[a-f0-9]{64}$/);
   });
 
   it('should generate different hashes for different transactions', () => {
@@ -195,7 +195,7 @@ describe('generateDeterministicTransactionHash', () => {
 
     const hash = generateDeterministicTransactionHash(transaction);
 
-    expect(hash).toMatch(/^gen-[a-f0-9]{16}$/);
+    expect(hash).toMatch(/^gen-[a-f0-9]{64}$/);
   });
 
   it('should include operation type in hash calculation', () => {
