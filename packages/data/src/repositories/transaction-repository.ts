@@ -116,7 +116,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
           note_severity: transaction.note?.severity,
           note_type: transaction.note?.type,
-          excluded_from_accounting: transaction.note?.type === 'SCAM_TOKEN',
+          excluded_from_accounting: transaction.excludedFromAccounting ?? transaction.note?.type === 'SCAM_TOKEN',
           raw_normalized_data: rawDataJson,
           source_id: transaction.source,
           source_type: transaction.blockchain ? 'blockchain' : 'exchange',

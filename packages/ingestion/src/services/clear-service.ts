@@ -56,6 +56,16 @@ export class ClearService {
       }
       const accountsToClear = accountsResult.value;
 
+      // If filters were provided but matched no accounts, return error to prevent accidental deletion
+      const filtersProvided = params.accountId !== undefined || params.source !== undefined;
+      if (filtersProvided && accountsToClear.length === 0) {
+        return err(
+          new Error(
+            `No accounts matched the provided filters (${params.accountId ? `accountId=${params.accountId}` : ''}${params.accountId && params.source ? ', ' : ''}${params.source ? `source=${params.source}` : ''}). No data deleted.`
+          )
+        );
+      }
+
       // Count what will be deleted
       if (accountsToClear.length > 0) {
         // Account-scoped deletion
@@ -226,6 +236,16 @@ export class ClearService {
       }
       const accountsToClear = accountsResult.value;
 
+      // If filters were provided but matched no accounts, return error to prevent accidental deletion
+      const filtersProvided = params.accountId !== undefined || params.source !== undefined;
+      if (filtersProvided && accountsToClear.length === 0) {
+        return err(
+          new Error(
+            `No accounts matched the provided filters (${params.accountId ? `accountId=${params.accountId}` : ''}${params.accountId && params.source ? ', ' : ''}${params.source ? `source=${params.source}` : ''}). No data deleted.`
+          )
+        );
+      }
+
       // Delete in correct order (respecting FK constraints)
       if (accountsToClear.length > 0) {
         const deleteResult = await this.deleteForAccounts(accountsToClear, params.includeRaw);
@@ -233,6 +253,7 @@ export class ClearService {
           return err(deleteResult.error);
         }
       } else {
+        // Only delete all if no filters were provided (explicit delete-all request)
         const deleteResult = await this.deleteAll(params.includeRaw);
         if (deleteResult.isErr()) {
           return err(deleteResult.error);
