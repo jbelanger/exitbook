@@ -186,6 +186,28 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   async getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransaction[], Error>> {
     try {
+      // If filtering by account or session status, first get matching session IDs
+      let sessionIds: number[] | undefined;
+      if (filters && (filters.accountId !== undefined || filters.sessionStatus !== undefined)) {
+        let sessionQuery = this.db.selectFrom('import_sessions').select('id');
+
+        if (filters.accountId !== undefined) {
+          sessionQuery = sessionQuery.where('account_id', '=', filters.accountId);
+        }
+
+        if (filters.sessionStatus !== undefined) {
+          sessionQuery = sessionQuery.where('status', '=', filters.sessionStatus);
+        }
+
+        const sessions = await sessionQuery.execute();
+        sessionIds = sessions.map((s) => s.id);
+
+        // If no matching sessions found, return empty array
+        if (sessionIds.length === 0) {
+          return ok([]);
+        }
+      }
+
       let query = this.db.selectFrom('transactions').selectAll();
 
       // Add WHERE conditions if provided
@@ -202,6 +224,9 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
         if (filters.sessionId !== undefined) {
           query = query.where('data_source_id', '=', filters.sessionId);
+        } else if (sessionIds !== undefined) {
+          // Use the session IDs from account/status filtering
+          query = query.where('data_source_id', 'in', sessionIds);
         }
       }
 
