@@ -186,6 +186,16 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   async getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransaction[], Error>> {
     try {
+      // Enforce that sessionStatus requires accountId for proper tenant scoping
+      if (filters?.sessionStatus !== undefined && filters.accountId === undefined) {
+        return err(
+          new Error(
+            'sessionStatus filter requires accountId to be set for proper account scoping. ' +
+              'Use { accountId: X, sessionStatus: "completed" } instead of just { sessionStatus: "completed" }.'
+          )
+        );
+      }
+
       // If filtering by account or session status, first get matching session IDs
       let sessionIds: number[] | undefined;
       if (filters && (filters.accountId !== undefined || filters.sessionStatus !== undefined)) {
