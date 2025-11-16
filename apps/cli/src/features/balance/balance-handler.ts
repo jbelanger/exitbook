@@ -127,12 +127,14 @@ export class BalanceHandler {
         hasTransactions
       );
 
-      // 6. Persist verification results to the session matching this source/address
+      // 6. Persist verification results to the account with adjusted live balances
+      // Convert adjusted liveBalances (after scam token subtraction) to strings for storage
+      const adjustedLiveBalancesStr = decimalRecordToStringRecord(liveBalances);
       const persistResult = await this.persistVerificationResults(
         account,
         params.sourceType,
         calculatedBalances,
-        liveSnapshot.balances,
+        adjustedLiveBalancesStr,
         comparisons,
         verificationResult.status,
         verificationResult.suggestion
@@ -271,13 +273,13 @@ export class BalanceHandler {
 
   /**
    * Calculate balances from transactions in the database.
-   * Uses the account's most recent completed session to query transactions.
+   * Aggregates transactions from ALL completed sessions for the account.
    */
   private async calculateBalancesFromTransactions(
     account: Account
   ): Promise<Result<Record<string, import('decimal.js').Decimal>, Error>> {
     try {
-      // Find sessions for this account
+      // Find sessions for this account to verify at least one is completed
       const sessionsResult: Result<DataSource[], Error> = await this.sessionRepository.findByAccount(account.id);
       if (sessionsResult.isErr()) {
         return err(sessionsResult.error);
@@ -288,17 +290,18 @@ export class BalanceHandler {
         return err(new Error(`No import sessions found for ${account.sourceName}`));
       }
 
-      // Use the most recent completed session
-      const matchingSession = findMostRecentCompletedSession(sessions);
-
-      if (!matchingSession) {
+      // Check if there's at least one completed session
+      const hasCompletedSession = sessions.some((s) => s.status === 'completed');
+      if (!hasCompletedSession) {
         return err(new Error(`No completed import session found for ${account.sourceName}`));
       }
 
-      // Fetch all transactions for this session
+      // Fetch ALL transactions for this account (across all completed sessions)
+      // The repository will query sessions by account_id and filter by status
       const transactionsResult: Result<UniversalTransaction[], Error> =
         await this.transactionRepository.getTransactions({
-          sessionId: matchingSession.id,
+          accountId: account.id,
+          sessionStatus: 'completed',
         });
 
       if (transactionsResult.isErr()) {
@@ -312,7 +315,7 @@ export class BalanceHandler {
         return ok({});
       }
 
-      logger.info(`Calculating balances from ${transactions.length} transactions`);
+      logger.info(`Calculating balances from ${transactions.length} transactions across all completed sessions`);
       const calculatedBalances = calculateBalances(transactions);
 
       return ok(calculatedBalances);
@@ -394,10 +397,11 @@ export class BalanceHandler {
   /**
    * Get excluded asset amounts (scam tokens) for the given account.
    * Returns a map of asset -> total amount to subtract from live balance.
+   * Aggregates excluded transactions from ALL completed sessions.
    */
   private async getExcludedAssetAmounts(account: Account): Promise<Result<Record<string, Decimal>, Error>> {
     try {
-      // Find sessions for this account
+      // Find sessions for this account to verify at least one exists
       const sessionsResult: Result<DataSource[], Error> = await this.sessionRepository.findByAccount(account.id);
       if (sessionsResult.isErr()) {
         return err(sessionsResult.error);
@@ -408,17 +412,16 @@ export class BalanceHandler {
         return ok({});
       }
 
-      // Use the most recent completed session
-      const mostRecentSession = findMostRecentCompletedSession(sessions);
-      const targetSessionId = mostRecentSession?.id;
-
-      if (!targetSessionId) {
+      // Check if there's at least one completed session
+      const hasCompletedSession = sessions.some((s) => s.status === 'completed');
+      if (!hasCompletedSession) {
         return ok({});
       }
 
-      // Fetch all transactions with excluded_from_accounting = true
+      // Fetch ALL excluded transactions for this account (across all completed sessions)
       const excludedTxResult: Result<UniversalTransaction[], Error> = await this.transactionRepository.getTransactions({
-        sessionId: targetSessionId,
+        accountId: account.id,
+        sessionStatus: 'completed',
         includeExcluded: true, // Must include to get the excluded ones
       });
 
