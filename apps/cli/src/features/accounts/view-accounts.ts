@@ -10,7 +10,7 @@ import type { ViewCommandResult } from '../shared/view-utils.js';
 import { buildViewMeta } from '../shared/view-utils.js';
 
 import { ViewAccountsHandler } from './view-accounts-handler.js';
-import type { AccountInfo, ViewAccountsParams, ViewAccountsResult } from './view-accounts-utils.js';
+import type { AccountInfo, SessionSummary, ViewAccountsParams, ViewAccountsResult } from './view-accounts-utils.js';
 import { formatAccountsListForDisplay } from './view-accounts-utils.js';
 
 /**
@@ -24,7 +24,12 @@ export interface ExtendedViewAccountsCommandOptions extends ViewAccountsParams {
 /**
  * Result data for view accounts command (JSON mode).
  */
-type ViewAccountsCommandResult = ViewCommandResult<AccountInfo[]>;
+interface ViewAccountsCommandResultData {
+  accounts: AccountInfo[];
+  sessions?: Record<string, SessionSummary[]> | undefined;
+}
+
+type ViewAccountsCommandResult = ViewCommandResult<ViewAccountsCommandResultData>;
 
 /**
  * Register the accounts view subcommand.
@@ -143,8 +148,18 @@ function handleViewAccountsSuccess(
   if (params.source) filters.source = params.source;
   if (params.accountType) filters.accountType = params.accountType;
 
+  // Convert sessions Map to Record for JSON serialization (if requested)
+  const sessionsRecord: Record<string, SessionSummary[]> | undefined = sessions
+    ? Object.fromEntries(Array.from(sessions.entries()).map(([key, value]) => [key.toString(), value]))
+    : undefined;
+
+  const data: ViewAccountsCommandResultData = {
+    accounts,
+    sessions: params.showSessions ? sessionsRecord : undefined,
+  };
+
   const resultData: ViewAccountsCommandResult = {
-    data: accounts,
+    data,
     meta: buildViewMeta(count, 0, count, count, filters),
   };
 

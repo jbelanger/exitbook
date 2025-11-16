@@ -69,6 +69,12 @@ export function getVerificationStatus(account: Account): 'match' | 'mismatch' | 
   }
 
   const metadata = account.verificationMetadata;
+
+  // Guard against missing last_verification (legacy or corrupted data)
+  if (!metadata.last_verification) {
+    return account.lastBalanceCheckAt ? undefined : 'never-checked';
+  }
+
   const status = metadata.last_verification.status;
 
   if (status === 'match') {
