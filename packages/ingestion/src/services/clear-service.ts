@@ -56,6 +56,16 @@ export class ClearService {
       }
       const accountsToClear = accountsResult.value;
 
+      // If filters were provided but matched no accounts, return error to prevent accidental deletion
+      const filtersProvided = params.accountId !== undefined || params.source !== undefined;
+      if (filtersProvided && accountsToClear.length === 0) {
+        return err(
+          new Error(
+            `No accounts matched the provided filters (${params.accountId ? `accountId=${params.accountId}` : ''}${params.accountId && params.source ? ', ' : ''}${params.source ? `source=${params.source}` : ''}). No data deleted.`
+          )
+        );
+      }
+
       // Count what will be deleted
       if (accountsToClear.length > 0) {
         // Account-scoped deletion
@@ -68,15 +78,22 @@ export class ClearService {
         }
         const dataSourceIds = dataSourceIdsResult.value;
 
-        // Use repository count methods instead of raw Kysely queries
-        const sessionsResult = await this.dataSourceRepo.countByAccount(accountIds);
-        if (sessionsResult.isErr()) {
-          return err(sessionsResult.error);
-        }
+        // Only count sessions and rawData if includeRaw is true (otherwise they won't be deleted)
+        let sessionsCount = 0;
+        let rawDataCount = 0;
 
-        const rawDataResult = await this.rawDataRepo.countByAccount(accountIds);
-        if (rawDataResult.isErr()) {
-          return err(rawDataResult.error);
+        if (params.includeRaw) {
+          const sessionsResult = await this.dataSourceRepo.countByAccount(accountIds);
+          if (sessionsResult.isErr()) {
+            return err(sessionsResult.error);
+          }
+          sessionsCount = sessionsResult.value;
+
+          const rawDataResult = await this.rawDataRepo.countByAccount(accountIds);
+          if (rawDataResult.isErr()) {
+            return err(rawDataResult.error);
+          }
+          rawDataCount = rawDataResult.value;
         }
 
         const transactionsResult = await this.transactionRepo.countByDataSourceIds(dataSourceIds);
@@ -114,21 +131,29 @@ export class ClearService {
           disposals: disposalsResult.value,
           links: linksResult.value,
           lots: lotsResult.value,
-          rawData: rawDataResult.value,
-          sessions: sessionsResult.value,
+          rawData: rawDataCount,
+          sessions: sessionsCount,
           transfers: transfersResult.value,
           transactions: transactionsResult.value,
         });
       } else {
         // Delete all - use repository count methods
-        const sessionsResult = await this.dataSourceRepo.countAll();
-        if (sessionsResult.isErr()) {
-          return err(sessionsResult.error);
-        }
+        // Only count sessions and rawData if includeRaw is true (otherwise they won't be deleted)
+        let sessionsCount = 0;
+        let rawDataCount = 0;
 
-        const rawDataResult = await this.rawDataRepo.countAll();
-        if (rawDataResult.isErr()) {
-          return err(rawDataResult.error);
+        if (params.includeRaw) {
+          const sessionsResult = await this.dataSourceRepo.countAll();
+          if (sessionsResult.isErr()) {
+            return err(sessionsResult.error);
+          }
+          sessionsCount = sessionsResult.value;
+
+          const rawDataResult = await this.rawDataRepo.countAll();
+          if (rawDataResult.isErr()) {
+            return err(rawDataResult.error);
+          }
+          rawDataCount = rawDataResult.value;
         }
 
         const transactionsResult = await this.transactionRepo.countAll();
@@ -166,8 +191,8 @@ export class ClearService {
           disposals: disposalsResult.value,
           links: linksResult.value,
           lots: lotsResult.value,
-          rawData: rawDataResult.value,
-          sessions: sessionsResult.value,
+          rawData: rawDataCount,
+          sessions: sessionsCount,
           transfers: transfersResult.value,
           transactions: transactionsResult.value,
         });
@@ -211,6 +236,16 @@ export class ClearService {
       }
       const accountsToClear = accountsResult.value;
 
+      // If filters were provided but matched no accounts, return error to prevent accidental deletion
+      const filtersProvided = params.accountId !== undefined || params.source !== undefined;
+      if (filtersProvided && accountsToClear.length === 0) {
+        return err(
+          new Error(
+            `No accounts matched the provided filters (${params.accountId ? `accountId=${params.accountId}` : ''}${params.accountId && params.source ? ', ' : ''}${params.source ? `source=${params.source}` : ''}). No data deleted.`
+          )
+        );
+      }
+
       // Delete in correct order (respecting FK constraints)
       if (accountsToClear.length > 0) {
         const deleteResult = await this.deleteForAccounts(accountsToClear, params.includeRaw);
@@ -218,6 +253,7 @@ export class ClearService {
           return err(deleteResult.error);
         }
       } else {
+        // Only delete all if no filters were provided (explicit delete-all request)
         const deleteResult = await this.deleteAll(params.includeRaw);
         if (deleteResult.isErr()) {
           return err(deleteResult.error);

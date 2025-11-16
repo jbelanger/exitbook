@@ -107,7 +107,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
         query = query.where('started_at', '>=', sinceDate);
       }
 
-      query = query.orderBy('started_at', 'asc');
+      query = query.orderBy('started_at', 'desc');
 
       if (filters?.limit) {
         query = query.limit(filters.limit);

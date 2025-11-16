@@ -10,13 +10,13 @@ import {
 import type { Selectable, Updateable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
-import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 
 import type { TransactionsTable } from '../schema/database-schema.js';
 import type { KyselyDB } from '../storage/database.js';
 
 import { BaseRepository } from './base-repository.js';
+import { generateDeterministicTransactionHash } from './transaction-id-utils.js';
 import type { ITransactionRepository, TransactionFilters } from './transaction-repository.interface.js';
 
 /**
@@ -109,14 +109,14 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           created_at: this.getCurrentDateTimeForDB(),
           external_id: (transaction.metadata?.hash ||
             transaction.externalId ||
-            `${transaction.source}-${transaction.timestamp}-${uuidv4()}`) as string,
+            generateDeterministicTransactionHash(transaction)) as string,
           from_address: transaction.from,
           data_source_id: dataSourceId,
           note_message: transaction.note?.message,
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
           note_severity: transaction.note?.severity,
           note_type: transaction.note?.type,
-          excluded_from_accounting: transaction.note?.type === 'SCAM_TOKEN',
+          excluded_from_accounting: transaction.excludedFromAccounting ?? transaction.note?.type === 'SCAM_TOKEN',
           raw_normalized_data: rawDataJson,
           source_id: transaction.source,
           source_type: transaction.blockchain ? 'blockchain' : 'exchange',
@@ -186,6 +186,38 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   async getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransaction[], Error>> {
     try {
+      // Enforce that sessionStatus requires accountId for proper tenant scoping
+      if (filters?.sessionStatus !== undefined && filters.accountId === undefined) {
+        return err(
+          new Error(
+            'sessionStatus filter requires accountId to be set for proper account scoping. ' +
+              'Use { accountId: X, sessionStatus: "completed" } instead of just { sessionStatus: "completed" }.'
+          )
+        );
+      }
+
+      // If filtering by account or session status, first get matching session IDs
+      let sessionIds: number[] | undefined;
+      if (filters && (filters.accountId !== undefined || filters.sessionStatus !== undefined)) {
+        let sessionQuery = this.db.selectFrom('import_sessions').select('id');
+
+        if (filters.accountId !== undefined) {
+          sessionQuery = sessionQuery.where('account_id', '=', filters.accountId);
+        }
+
+        if (filters.sessionStatus !== undefined) {
+          sessionQuery = sessionQuery.where('status', '=', filters.sessionStatus);
+        }
+
+        const sessions = await sessionQuery.execute();
+        sessionIds = sessions.map((s) => s.id);
+
+        // If no matching sessions found, return empty array
+        if (sessionIds.length === 0) {
+          return ok([]);
+        }
+      }
+
       let query = this.db.selectFrom('transactions').selectAll();
 
       // Add WHERE conditions if provided
@@ -202,6 +234,9 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
         if (filters.sessionId !== undefined) {
           query = query.where('data_source_id', '=', filters.sessionId);
+        } else if (sessionIds !== undefined) {
+          // Use the session IDs from account/status filtering
+          query = query.where('data_source_id', 'in', sessionIds);
         }
       }
 
@@ -224,6 +259,30 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           return err(result.error);
         }
         transactions.push(result.value);
+      }
+
+      // Deduplicate by (source_id, external_id) when aggregating across multiple sessions
+      // This prevents double-counting if the same transaction appears in multiple sessions
+      if (sessionIds !== undefined && sessionIds.length > 1) {
+        const seen = new Set<string>();
+        const deduplicated: UniversalTransaction[] = [];
+
+        for (const tx of transactions) {
+          const key = `${tx.source}:${tx.externalId}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            deduplicated.push(tx);
+          }
+        }
+
+        if (deduplicated.length < transactions.length) {
+          const duplicateCount = transactions.length - deduplicated.length;
+          this.logger.warn(
+            `Deduplication removed ${duplicateCount} duplicate transaction(s) when aggregating across ${sessionIds.length} sessions`
+          );
+        }
+
+        return ok(deduplicated);
       }
 
       return ok(transactions);
