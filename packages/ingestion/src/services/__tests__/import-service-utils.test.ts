@@ -15,12 +15,12 @@ describe('import-service-utils', () => {
     it('should return true when existing source is provided', () => {
       const existingSource: DataSource = {
         id: 1,
-        sourceId: 'bitcoin',
-        sourceType: 'blockchain',
+        accountId: 1,
         status: 'completed',
         startedAt: new Date(),
+        transactionsImported: 0,
+        transactionsFailed: 0,
         createdAt: new Date(),
-        importParams: { address: 'bc1q...' },
         importResultMetadata: {},
       };
       const params: ImportParams = { address: 'bc1q...' };
@@ -147,17 +147,17 @@ describe('import-service-utils', () => {
       expect(result.params).toEqual(params);
     });
 
-    it('should return resume config when existing source provided', () => {
+    it('should return resume config when existing source has started status', () => {
       const sourceId = 'kraken';
       const params: ImportParams = { csvDirectories: ['./data/kraken'] };
       const existingSource: DataSource = {
         id: 42,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'started',
         startedAt: new Date(),
+        transactionsImported: 0,
+        transactionsFailed: 0,
         createdAt: new Date(),
-        importParams: { csvDirectories: ['./data/kraken'] },
         importResultMetadata: {},
       };
       const latestCursor = undefined;
@@ -169,17 +169,83 @@ describe('import-service-utils', () => {
       expect(result.params).toEqual(params);
     });
 
+    it('should return resume config when existing source has failed status', () => {
+      const sourceId = 'kraken';
+      const params: ImportParams = { csvDirectories: ['./data/kraken'] };
+      const existingSource: DataSource = {
+        id: 42,
+        accountId: 1,
+        status: 'failed',
+        startedAt: new Date(),
+        createdAt: new Date(),
+        transactionsImported: 0,
+        transactionsFailed: 0,
+        importResultMetadata: {},
+      };
+      const latestCursor = undefined;
+
+      const result = prepareImportSession(sourceId, params, existingSource, latestCursor);
+
+      expect(result.shouldResume).toBe(true);
+      expect(result.existingDataSourceId).toBe(42);
+      expect(result.params).toEqual(params);
+    });
+
+    it('should NOT resume when existing source has completed status', () => {
+      const sourceId = 'kraken';
+      const params: ImportParams = { csvDirectories: ['./data/kraken'] };
+      const existingSource: DataSource = {
+        id: 42,
+        accountId: 1,
+        status: 'completed',
+        startedAt: new Date(),
+        createdAt: new Date(),
+        transactionsImported: 10,
+        transactionsFailed: 0,
+        importResultMetadata: {},
+      };
+      const latestCursor = undefined;
+
+      const result = prepareImportSession(sourceId, params, existingSource, latestCursor);
+
+      expect(result.shouldResume).toBe(false);
+      expect(result.existingDataSourceId).toBeUndefined();
+      expect(result.params).toEqual(params);
+    });
+
+    it('should NOT resume when existing source has cancelled status', () => {
+      const sourceId = 'kraken';
+      const params: ImportParams = { csvDirectories: ['./data/kraken'] };
+      const existingSource: DataSource = {
+        id: 42,
+        accountId: 1,
+        status: 'cancelled',
+        startedAt: new Date(),
+        createdAt: new Date(),
+        transactionsImported: 0,
+        transactionsFailed: 0,
+        importResultMetadata: {},
+      };
+      const latestCursor = undefined;
+
+      const result = prepareImportSession(sourceId, params, existingSource, latestCursor);
+
+      expect(result.shouldResume).toBe(false);
+      expect(result.existingDataSourceId).toBeUndefined();
+      expect(result.params).toEqual(params);
+    });
+
     it('should include cursor in params when resuming', () => {
       const sourceId = 'kraken';
       const params: ImportParams = { csvDirectories: ['./data/kraken'] };
       const existingSource: DataSource = {
         id: 42,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'started',
         startedAt: new Date(),
+        transactionsImported: 0,
+        transactionsFailed: 0,
         createdAt: new Date(),
-        importParams: { csvDirectories: ['./data/kraken'] },
         importResultMetadata: {},
       };
       const latestCursor: Record<string, CursorState> = {
@@ -207,12 +273,12 @@ describe('import-service-utils', () => {
       const params: ImportParams = { csvDirectories: ['./data/kraken'] };
       const existingSource: DataSource = {
         id: 42,
-        sourceId: 'kraken',
-        sourceType: 'exchange',
+        accountId: 1,
         status: 'started',
         startedAt: new Date(),
+        transactionsImported: 0,
+        transactionsFailed: 0,
         createdAt: new Date(),
-        importParams: { csvDirectories: ['./data/kraken'] },
         importResultMetadata: {},
       };
       const latestCursor: Record<string, CursorState> = {

@@ -8,7 +8,8 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { CursorState, DataSource, ExternalTransaction } from '@exitbook/core';
+import type { Account, AccountType, CursorState, DataSource, ExternalTransaction } from '@exitbook/core';
+import type { AccountRepository } from '@exitbook/data';
 import { PartialImportError } from '@exitbook/exchanges-providers';
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,6 +17,30 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ImportParams } from '../../types/importers.js';
 import type { IDataSourceRepository, IRawDataRepository } from '../../types/repositories.js';
 import { TransactionImportService } from '../import-service.js';
+
+// Helper to create mock accounts
+function createMockAccount(
+  accountType: AccountType,
+  sourceName: string,
+  identifier: string,
+  options?: {
+    credentials?: Record<string, string>;
+    lastCursor?: Record<string, CursorState>;
+    providerName?: string;
+  }
+): Account {
+  return {
+    id: 1,
+    userId: 1,
+    accountType,
+    sourceName,
+    identifier,
+    providerName: options?.providerName,
+    credentials: options?.credentials,
+    lastCursor: options?.lastCursor,
+    createdAt: new Date(),
+  };
+}
 
 // Mock logger
 vi.mock('@exitbook/logger', () => ({
@@ -101,6 +126,7 @@ describe('TransactionImportService', () => {
   let service: TransactionImportService;
   let mockRawDataRepo: IRawDataRepository;
   let mockDataSourceRepo: IDataSourceRepository;
+  let mockAccountRepo: AccountRepository;
   let mockProviderManager: BlockchainProviderManager;
 
   beforeEach(() => {
@@ -153,30 +179,32 @@ describe('TransactionImportService', () => {
     mockDataSourceRepo = {
       create: vi.fn(),
       finalize: vi.fn(),
-      findBySource: vi.fn(),
+      findByAccount: vi.fn(),
       findCompletedWithMatchingParams: vi.fn(),
       findLatestIncomplete: vi.fn(),
       update: vi.fn(),
-      updateCursor: vi.fn().mockResolvedValue(ok()),
     } as unknown as IDataSourceRepository;
+    vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+
+    mockAccountRepo = {
+      updateCursor: vi.fn().mockResolvedValue(ok()),
+    } as unknown as AccountRepository;
 
     mockProviderManager = {} as BlockchainProviderManager;
 
-    service = new TransactionImportService(mockRawDataRepo, mockDataSourceRepo, mockProviderManager);
+    service = new TransactionImportService(mockRawDataRepo, mockDataSourceRepo, mockAccountRepo, mockProviderManager);
   });
 
   describe('importFromSource - blockchain', () => {
     it('should successfully import from blockchain', async () => {
-      const params: ImportParams = {
-        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-      };
+      const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
       vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
       vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
 
-      const result = await service.importFromSource('bitcoin', 'blockchain', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -184,13 +212,7 @@ describe('TransactionImportService', () => {
         expect(result.value.dataSourceId).toBe(1);
       }
 
-      expect(mockDataSourceRepo.create).toHaveBeenCalledWith(
-        'bitcoin',
-        'blockchain',
-        expect.objectContaining({
-          address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-        })
-      );
+      expect(mockDataSourceRepo.create).toHaveBeenCalledWith(1);
       expect(mockRawDataRepo.saveBatch).toHaveBeenCalledWith(
         1,
         expect.arrayContaining([
@@ -209,44 +231,23 @@ describe('TransactionImportService', () => {
     });
 
     it('should normalize blockchain address before import', async () => {
-      const params: ImportParams = {
-        address: 'BC1QXY2KGDYGJRSQTZQ2N0YRF2493P83KKFJHX0WLH', // Uppercase
-      };
+      const account = createMockAccount('blockchain', 'bitcoin', 'BC1QXY2KGDYGJRSQTZQ2N0YRF2493P83KKFJHX0WLH'); // Uppercase
 
       vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
       vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
 
-      const result = await service.importFromSource('bitcoin', 'blockchain', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isOk()).toBe(true);
 
-      // Verify normalized address was used
-      expect(mockDataSourceRepo.create).toHaveBeenCalledWith(
-        'bitcoin', // sourceId is blockchain name, not address
-        'blockchain',
-        expect.objectContaining({
-          address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh', // Lowercase
-        })
-      );
+      // Verify normalized address was used - create is called with accountId only
+      expect(mockDataSourceRepo.create).toHaveBeenCalledWith(1);
     });
 
     it('should resume from incomplete data source with cursor', async () => {
-      const params: ImportParams = {
-        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-      };
-
-      const incompleteDataSource: DataSource = {
-        id: 42,
-        sourceId: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-        sourceType: 'blockchain' as const,
-        status: 'started' as const,
-        importParams: params,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        startedAt: new Date(),
-        importResultMetadata: { transactionsImported: 50 },
+      const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh', {
         lastCursor: {
           normal: {
             primary: { type: 'blockNumber', value: 50 },
@@ -254,6 +255,18 @@ describe('TransactionImportService', () => {
             totalFetched: 50,
           },
         },
+      });
+
+      const incompleteDataSource: DataSource = {
+        id: 42,
+        accountId: 1,
+        status: 'started' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        startedAt: new Date(),
+        transactionsImported: 50,
+        transactionsFailed: 0,
+        importResultMetadata: { transactionsImported: 50 },
       };
 
       vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(incompleteDataSource));
@@ -261,7 +274,7 @@ describe('TransactionImportService', () => {
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
       vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
 
-      const result = await service.importFromSource('bitcoin', 'blockchain', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -276,11 +289,11 @@ describe('TransactionImportService', () => {
     });
 
     it('should return error for unknown blockchain', async () => {
-      const params: ImportParams = {
-        address: 'some-address',
-      };
+      const account = createMockAccount('blockchain', 'unknown-chain', 'some-address');
 
-      const result = await service.importFromSource('unknown-chain', 'blockchain', params);
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+
+      const result = await service.importFromSource(account);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -289,9 +302,9 @@ describe('TransactionImportService', () => {
     });
 
     it('should return error if address is missing', async () => {
-      const params: ImportParams = {}; // No address
+      const account = createMockAccount('blockchain', 'bitcoin', ''); // No address
 
-      const result = await service.importFromSource('bitcoin', 'blockchain', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -300,14 +313,12 @@ describe('TransactionImportService', () => {
     });
 
     it('should handle database errors during data source creation', async () => {
-      const params: ImportParams = {
-        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-      };
+      const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
       vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(err(new Error('Database connection failed')));
 
-      const result = await service.importFromSource('bitcoin', 'blockchain', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -316,15 +327,13 @@ describe('TransactionImportService', () => {
     });
 
     it('should finalize as failed if saveBatch fails', async () => {
-      const params: ImportParams = {
-        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-      };
+      const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
       vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(err(new Error('Disk full')));
 
-      const result = await service.importFromSource('bitcoin', 'blockchain', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -333,9 +342,7 @@ describe('TransactionImportService', () => {
     });
 
     it('should finalize as failed if importer throws error', async () => {
-      const params: ImportParams = {
-        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-      };
+      const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
       vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
@@ -347,7 +354,7 @@ describe('TransactionImportService', () => {
         throw new Error('Network timeout');
       });
 
-      const result = await service.importFromSource('bitcoin', 'blockchain', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -370,19 +377,19 @@ describe('TransactionImportService', () => {
 
   describe('importFromSource - exchange', () => {
     it('should successfully import from exchange', async () => {
-      const params: ImportParams = {
+      const account = createMockAccount('exchange-api', 'kraken', 'test-api-key', {
         credentials: {
           apiKey: 'test-key',
           apiSecret: 'test-secret',
         },
-      };
+      });
 
-      vi.mocked(mockDataSourceRepo.findBySource).mockResolvedValue(ok([]));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
       vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
 
-      const result = await service.importFromSource('kraken', 'exchange', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -390,7 +397,7 @@ describe('TransactionImportService', () => {
         expect(result.value.dataSourceId).toBe(1);
       }
 
-      expect(mockDataSourceRepo.create).toHaveBeenCalledWith('kraken', 'exchange', params);
+      expect(mockDataSourceRepo.create).toHaveBeenCalledWith(1);
       expect(mockRawDataRepo.saveBatch).toHaveBeenCalledWith(
         1,
         expect.arrayContaining([
@@ -409,26 +416,6 @@ describe('TransactionImportService', () => {
     });
 
     it('should resume existing exchange import with cursor', async () => {
-      const params: ImportParams = {
-        credentials: {
-          apiKey: 'test-key',
-          apiSecret: 'test-secret',
-        },
-      };
-
-      const existingDataSource: DataSource = {
-        id: 10,
-        sourceId: 'kraken',
-        sourceType: 'exchange' as const,
-        status: 'started' as const,
-        importParams: params,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        startedAt: new Date(),
-        importResultMetadata: {},
-      };
-
-      // Phase 1.5: Cursor now stored in data source
       const cursorMap: Record<string, CursorState> = {
         trade: {
           primary: { type: 'timestamp', value: 1 },
@@ -441,13 +428,32 @@ describe('TransactionImportService', () => {
           totalFetched: 50,
         },
       };
-      existingDataSource.lastCursor = cursorMap;
 
-      vi.mocked(mockDataSourceRepo.findBySource).mockResolvedValue(ok([existingDataSource]));
+      const account = createMockAccount('exchange-api', 'kraken', 'test-api-key', {
+        credentials: {
+          apiKey: 'test-key',
+          apiSecret: 'test-secret',
+        },
+        lastCursor: cursorMap,
+      });
+
+      const existingDataSource: DataSource = {
+        id: 10,
+        accountId: 1,
+        status: 'started' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        startedAt: new Date(),
+        transactionsImported: 0,
+        transactionsFailed: 0,
+        importResultMetadata: {},
+      };
+
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(existingDataSource));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
       vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
 
-      const result = await service.importFromSource('kraken', 'exchange', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isOk()).toBe(true);
 
@@ -456,16 +462,16 @@ describe('TransactionImportService', () => {
     });
 
     it('should return error for unknown exchange', async () => {
-      const params: ImportParams = {
+      const account = createMockAccount('exchange-api', 'unknown-exchange', 'test-api-key', {
         credentials: {
           apiKey: 'test-key',
         },
-      };
+      });
 
-      vi.mocked(mockDataSourceRepo.findBySource).mockResolvedValue(ok([]));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
 
-      const result = await service.importFromSource('unknown-exchange', 'exchange', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -474,15 +480,15 @@ describe('TransactionImportService', () => {
     });
 
     it('should handle database errors gracefully', async () => {
-      const params: ImportParams = {
+      const account = createMockAccount('exchange-api', 'kraken', 'test-api-key', {
         credentials: {
           apiKey: 'test-key',
         },
-      };
+      });
 
-      vi.mocked(mockDataSourceRepo.findBySource).mockResolvedValue(err(new Error('Database unavailable')));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(err(new Error('Database unavailable')));
 
-      const result = await service.importFromSource('kraken', 'exchange', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -491,12 +497,12 @@ describe('TransactionImportService', () => {
     });
 
     it('should handle PartialImportError by saving successful items and finalizing as failed', async () => {
-      const params: ImportParams = {
+      const account = createMockAccount('exchange-api', 'kraken', 'test-api-key', {
         credentials: {
           apiKey: 'test-key',
           apiSecret: 'test-secret',
         },
-      };
+      });
 
       const successfulItems = [
         { refid: 'kraken-1', type: 'trade' },
@@ -510,7 +516,7 @@ describe('TransactionImportService', () => {
         { trade: { primary: { type: 'timestamp', value: 2 }, lastTransactionId: 'trade-2', totalFetched: 2 } }
       );
 
-      vi.mocked(mockDataSourceRepo.findBySource).mockResolvedValue(ok([]));
+      vi.mocked(mockDataSourceRepo.findByAccount).mockResolvedValue(ok([]));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
       vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
@@ -518,7 +524,7 @@ describe('TransactionImportService', () => {
       // Configure the mock to return a PartialImportError
       mockExchangeImportFn.mockResolvedValueOnce(err(partialError));
 
-      const result = await service.importFromSource('kraken', 'exchange', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -549,20 +555,20 @@ describe('TransactionImportService', () => {
     });
 
     it('should handle importer returning err (not throwing)', async () => {
-      const params: ImportParams = {
+      const account = createMockAccount('exchange-api', 'kraken', 'test-api-key', {
         credentials: {
           apiKey: 'test-key',
           apiSecret: 'test-secret',
         },
-      };
+      });
 
-      vi.mocked(mockDataSourceRepo.findBySource).mockResolvedValue(ok([]));
+      vi.mocked(mockDataSourceRepo.findByAccount).mockResolvedValue(ok([]));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
 
       // Importer returns an Error wrapped in err() (not PartialImportError)
       mockExchangeImportFn.mockResolvedValueOnce(err(new Error('API rate limit exceeded')));
 
-      const result = await service.importFromSource('kraken', 'exchange', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -576,9 +582,7 @@ describe('TransactionImportService', () => {
 
   describe('importFromSource - blockchain - additional error cases', () => {
     it('should handle importer returning err() instead of throwing', async () => {
-      const params: ImportParams = {
-        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-      };
+      const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
       vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
@@ -588,7 +592,7 @@ describe('TransactionImportService', () => {
         yield errAsync(new Error('Provider unavailable'));
       });
 
-      const result = await service.importFromSource('bitcoin', 'blockchain', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -600,15 +604,13 @@ describe('TransactionImportService', () => {
     });
 
     it('should handle errors when checking for incomplete data source', async () => {
-      const params: ImportParams = {
-        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-      };
+      const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
       vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(
         err(new Error('Database corruption detected'))
       );
 
-      const result = await service.importFromSource('bitcoin', 'blockchain', params);
+      const result = await service.importFromSource(account);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

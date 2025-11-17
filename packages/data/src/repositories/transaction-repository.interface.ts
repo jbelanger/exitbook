@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { DataSourceStatus, UniversalTransaction } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 /**
@@ -11,6 +11,10 @@ export interface TransactionFilters {
   since?: number | undefined;
   /** Filter by data source session ID */
   sessionId?: number | undefined;
+  /** Filter by account ID (queries all sessions for the account) */
+  accountId?: number | undefined;
+  /** Filter by session status (e.g., 'completed'). Requires accountId to be set. */
+  sessionStatus?: DataSourceStatus | undefined;
   /** Include transactions excluded from accounting (scam tokens, test data, etc.). Defaults to false. */
   includeExcluded?: boolean | undefined;
 }

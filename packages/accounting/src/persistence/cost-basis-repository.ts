@@ -595,6 +595,141 @@ export class CostBasisRepository extends BaseRepository {
     }
   }
 
+  // ==================== COUNT OPERATIONS ====================
+
+  /**
+   * Count all acquisition lots
+   */
+  async countAllLots(): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .selectFrom('acquisition_lots')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      this.logger.error({ error }, 'Failed to count all acquisition lots');
+      return wrapError(error, 'Failed to count all acquisition lots');
+    }
+  }
+
+  /**
+   * Count acquisition lots by data source IDs
+   */
+  async countLotsByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (dataSourceIds.length === 0) {
+        return ok(0);
+      }
+
+      const result = await this.db
+        .selectFrom('acquisition_lots')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .where(
+          'acquisition_transaction_id',
+          'in',
+          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+        )
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      this.logger.error({ error, dataSourceIds }, 'Failed to count lots by data source IDs');
+      return wrapError(error, 'Failed to count lots by data source IDs');
+    }
+  }
+
+  /**
+   * Count all lot disposals
+   */
+  async countAllDisposals(): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .selectFrom('lot_disposals')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      this.logger.error({ error }, 'Failed to count all lot disposals');
+      return wrapError(error, 'Failed to count all lot disposals');
+    }
+  }
+
+  /**
+   * Count lot disposals by data source IDs
+   */
+  async countDisposalsByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (dataSourceIds.length === 0) {
+        return ok(0);
+      }
+
+      const result = await this.db
+        .selectFrom('lot_disposals')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .where(
+          'lot_id',
+          'in',
+          this.db
+            .selectFrom('acquisition_lots')
+            .select('id')
+            .where(
+              'acquisition_transaction_id',
+              'in',
+              this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+            )
+        )
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      this.logger.error({ error, dataSourceIds }, 'Failed to count disposals by data source IDs');
+      return wrapError(error, 'Failed to count disposals by data source IDs');
+    }
+  }
+
+  /**
+   * Count all cost basis calculations
+   */
+  async countAllCalculations(): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .selectFrom('cost_basis_calculations')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .executeTakeFirst();
+      return ok(result?.count ?? 0);
+    } catch (error) {
+      this.logger.error({ error }, 'Failed to count all cost basis calculations');
+      return wrapError(error, 'Failed to count all cost basis calculations');
+    }
+  }
+
+  /**
+   * Count cost basis calculations by data source IDs
+   */
+  async countCalculationsByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (dataSourceIds.length === 0) {
+        return ok(0);
+      }
+
+      // Count distinct calculation IDs that have lots referencing the data sources
+      const calculationIds = await this.db
+        .selectFrom('acquisition_lots')
+        .select('calculation_id')
+        .distinct()
+        .where(
+          'acquisition_transaction_id',
+          'in',
+          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+        )
+        .execute();
+
+      return ok(calculationIds.length);
+    } catch (error) {
+      this.logger.error({ error, dataSourceIds }, 'Failed to count calculations by data source IDs');
+      return wrapError(error, 'Failed to count calculations by data source IDs');
+    }
+  }
+
   // ==================== DELETE OPERATIONS ====================
 
   /**
@@ -628,6 +763,41 @@ export class CostBasisRepository extends BaseRepository {
   }
 
   /**
+   * Delete lot disposals for transactions from specific data sources (import sessions).
+   * Uses data_source_id from transactions to properly scope deletions to specific accounts.
+   */
+  async deleteDisposalsByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (dataSourceIds.length === 0) {
+        return ok(0);
+      }
+
+      const result = await this.db
+        .deleteFrom('lot_disposals')
+        .where(
+          'lot_id',
+          'in',
+          this.db
+            .selectFrom('acquisition_lots')
+            .select('id')
+            .where(
+              'acquisition_transaction_id',
+              'in',
+              this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+            )
+        )
+        .executeTakeFirst();
+
+      const count = Number(result.numDeletedRows ?? 0);
+      this.logger.debug({ dataSourceIds, count }, 'Deleted lot disposals by data source IDs');
+      return ok(count);
+    } catch (error) {
+      this.logger.error({ error, dataSourceIds }, 'Failed to delete lot disposals by data source IDs');
+      return wrapError(error, 'Failed to delete lot disposals by data source IDs');
+    }
+  }
+
+  /**
    * Delete all acquisition lots for transactions from a specific source
    */
   async deleteLotsBySource(sourceId: string): Promise<Result<number, Error>> {
@@ -647,6 +817,34 @@ export class CostBasisRepository extends BaseRepository {
     } catch (error) {
       this.logger.error({ error, sourceId }, 'Failed to delete acquisition lots by source');
       return wrapError(error, 'Failed to delete acquisition lots by source');
+    }
+  }
+
+  /**
+   * Delete acquisition lots for transactions from specific data sources (import sessions).
+   * Uses data_source_id from transactions to properly scope deletions to specific accounts.
+   */
+  async deleteLotsByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (dataSourceIds.length === 0) {
+        return ok(0);
+      }
+
+      const result = await this.db
+        .deleteFrom('acquisition_lots')
+        .where(
+          'acquisition_transaction_id',
+          'in',
+          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+        )
+        .executeTakeFirst();
+
+      const count = Number(result.numDeletedRows ?? 0);
+      this.logger.debug({ dataSourceIds, count }, 'Deleted acquisition lots by data source IDs');
+      return ok(count);
+    } catch (error) {
+      this.logger.error({ error, dataSourceIds }, 'Failed to delete acquisition lots by data source IDs');
+      return wrapError(error, 'Failed to delete acquisition lots by data source IDs');
     }
   }
 
@@ -695,6 +893,46 @@ export class CostBasisRepository extends BaseRepository {
     } catch (error) {
       this.logger.error({ error }, 'Failed to delete all cost basis calculations');
       return wrapError(error, 'Failed to delete all cost basis calculations');
+    }
+  }
+
+  /**
+   * Delete cost basis calculations for transactions from specific data sources (import sessions).
+   * Finds calculations that have lots referencing transactions with the given data_source_ids.
+   */
+  async deleteCalculationsByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (dataSourceIds.length === 0) {
+        return ok(0);
+      }
+
+      // Find calculation IDs that have lots referencing the data sources
+      const calculationIds = await this.db
+        .selectFrom('acquisition_lots')
+        .select('calculation_id')
+        .distinct()
+        .where(
+          'acquisition_transaction_id',
+          'in',
+          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+        )
+        .execute();
+
+      if (calculationIds.length === 0) {
+        return ok(0);
+      }
+
+      const ids = calculationIds.map((row) => row.calculation_id);
+
+      // Delete calculations with those IDs
+      const result = await this.db.deleteFrom('cost_basis_calculations').where('id', 'in', ids).executeTakeFirst();
+
+      const count = Number(result.numDeletedRows ?? 0);
+      this.logger.debug({ dataSourceIds, count }, 'Deleted cost basis calculations by data source IDs');
+      return ok(count);
+    } catch (error) {
+      this.logger.error({ error, dataSourceIds }, 'Failed to delete calculations by data source IDs');
+      return wrapError(error, 'Failed to delete calculations by data source IDs');
     }
   }
 

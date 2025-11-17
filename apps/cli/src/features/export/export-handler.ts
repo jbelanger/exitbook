@@ -1,5 +1,4 @@
-import type { KyselyDB } from '@exitbook/data';
-import { TransactionRepository } from '@exitbook/data';
+import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -36,11 +35,7 @@ export interface ExportResult {
  * Reusable by both CLI command and other contexts.
  */
 export class ExportHandler {
-  private transactionRepository: TransactionRepository;
-
-  constructor(private database: KyselyDB) {
-    this.transactionRepository = new TransactionRepository(this.database);
-  }
+  constructor(private transactionRepository: TransactionRepository) {}
 
   /**
    * Execute the export operation.

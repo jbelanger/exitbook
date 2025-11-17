@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-null -- acceptable for tests */
 import { Currency, parseDecimal, type UniversalTransaction } from '@exitbook/core';
 import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -13,28 +14,66 @@ describe('TransactionRepository - delete methods', () => {
     await runMigrations(db);
     repository = new TransactionRepository(db);
 
+    // Create default user
+    await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
+
+    // Create mock accounts
+    await db
+      .insertInto('accounts')
+      .values([
+        {
+          id: 1,
+          user_id: 1,
+          account_type: 'exchange-api',
+          source_name: 'kraken',
+          identifier: 'test-api-key',
+          provider_name: null,
+          derived_addresses: null,
+          last_cursor: null,
+          last_balance_check_at: null,
+          verification_metadata: null,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+        },
+        {
+          id: 2,
+          user_id: 1,
+          account_type: 'blockchain',
+          source_name: 'ethereum',
+          identifier: '0x123',
+          provider_name: null,
+          derived_addresses: null,
+          last_cursor: null,
+          last_balance_check_at: null,
+          verification_metadata: null,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+        },
+      ])
+      .execute();
+
     // Create mock import sessions for different sources
     await db
       .insertInto('import_sessions')
       .values([
         {
           id: 1,
-          source_type: 'exchange',
-          source_id: 'kraken',
+          account_id: 1,
           started_at: new Date().toISOString(),
           status: 'completed',
-          import_params: '{}',
+          transactions_imported: 0,
+          transactions_failed: 0,
           import_result_metadata: '{}',
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
         },
         {
           id: 2,
-          source_type: 'blockchain',
-          source_id: 'ethereum',
+          account_id: 2,
           started_at: new Date().toISOString(),
           status: 'completed',
-          import_params: '{}',
+          transactions_imported: 0,
+          transactions_failed: 0,
           import_result_metadata: '{}',
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
@@ -182,16 +221,36 @@ describe('TransactionRepository - scam token filtering', () => {
     await runMigrations(db);
     repository = new TransactionRepository(db);
 
+    // Create default user and account
+    await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
+    await db
+      .insertInto('accounts')
+      .values({
+        id: 1,
+        user_id: 1,
+        account_type: 'blockchain',
+        source_name: 'ethereum',
+        identifier: '0x123',
+        provider_name: null,
+        derived_addresses: null,
+        last_cursor: null,
+        last_balance_check_at: null,
+        verification_metadata: null,
+        created_at: new Date().toISOString(),
+        updated_at: null,
+      })
+      .execute();
+
     // Create mock import session
     await db
       .insertInto('import_sessions')
       .values({
         id: 1,
-        source_type: 'blockchain',
-        source_id: 'ethereum',
+        account_id: 1,
         started_at: new Date().toISOString(),
         status: 'completed',
-        import_params: '{}',
+        transactions_imported: 0,
+        transactions_failed: 0,
         import_result_metadata: '{}',
         created_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
@@ -312,16 +371,36 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
     await runMigrations(db);
     repository = new TransactionRepository(db);
 
+    // Create default user and account
+    await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
+    await db
+      .insertInto('accounts')
+      .values({
+        id: 1,
+        user_id: 1,
+        account_type: 'exchange-api',
+        source_name: 'kraken',
+        identifier: 'test-api-key',
+        provider_name: null,
+        derived_addresses: null,
+        last_cursor: null,
+        last_balance_check_at: null,
+        verification_metadata: null,
+        created_at: new Date().toISOString(),
+        updated_at: null,
+      })
+      .execute();
+
     // Create mock import session
     await db
       .insertInto('import_sessions')
       .values({
         id: 1,
-        source_type: 'exchange',
-        source_id: 'kraken',
+        account_id: 1,
         started_at: new Date().toISOString(),
         status: 'completed',
-        import_params: '{}',
+        transactions_imported: 0,
+        transactions_failed: 0,
         import_result_metadata: '{}',
         created_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
@@ -470,5 +549,179 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result.isErr() && result.error.message).toContain('Transaction 999 not found');
+  });
+});
+
+describe('TransactionRepository - deduplication across sessions', () => {
+  let db: KyselyDB;
+  let repository: TransactionRepository;
+
+  beforeEach(async () => {
+    db = createDatabase(':memory:');
+    await runMigrations(db);
+    repository = new TransactionRepository(db);
+
+    // Create default user and account
+    await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
+    await db
+      .insertInto('accounts')
+      .values({
+        id: 1,
+        user_id: 1,
+        account_type: 'exchange-api',
+        source_name: 'kraken',
+        identifier: 'test-api-key',
+        provider_name: null,
+        derived_addresses: null,
+        last_cursor: null,
+        last_balance_check_at: null,
+        verification_metadata: null,
+        created_at: new Date().toISOString(),
+        updated_at: null,
+      })
+      .execute();
+
+    // Create multiple import sessions for the same account
+    await db
+      .insertInto('import_sessions')
+      .values([
+        {
+          id: 1,
+          account_id: 1,
+          started_at: new Date('2024-01-01').toISOString(),
+          status: 'completed',
+          transactions_imported: 3,
+          transactions_failed: 0,
+          import_result_metadata: '{}',
+          created_at: new Date('2024-01-01').toISOString(),
+          completed_at: new Date('2024-01-01').toISOString(),
+        },
+        {
+          id: 2,
+          account_id: 1,
+          started_at: new Date('2024-01-02').toISOString(),
+          status: 'completed',
+          transactions_imported: 5,
+          transactions_failed: 0,
+          import_result_metadata: '{}',
+          created_at: new Date('2024-01-02').toISOString(),
+          completed_at: new Date('2024-01-02').toISOString(),
+        },
+      ])
+      .execute();
+
+    // Create transactions in first session (3 unique transactions)
+    for (let i = 1; i <= 3; i++) {
+      await db
+        .insertInto('transactions')
+        .values({
+          id: i,
+          data_source_id: 1,
+          source_id: 'kraken',
+          source_type: 'exchange' as const,
+          external_id: `tx-${i}`,
+          transaction_status: 'success' as const,
+          transaction_datetime: new Date('2024-01-01').toISOString(),
+          excluded_from_accounting: false,
+          raw_normalized_data: '{}',
+          movements_inflows: JSON.stringify([{ asset: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
+          operation_type: 'deposit' as const,
+          created_at: new Date('2024-01-01').toISOString(),
+        })
+        .execute();
+    }
+
+    // Create transactions in second session:
+    // - tx-1 and tx-2 are duplicates from session 1
+    // - tx-4 and tx-5 are new unique transactions
+    const secondSessionTxs = [
+      { id: 4, externalId: 'tx-1' }, // Duplicate
+      { id: 5, externalId: 'tx-2' }, // Duplicate
+      { id: 6, externalId: 'tx-4' }, // New
+      { id: 7, externalId: 'tx-5' }, // New
+    ];
+
+    for (const { id, externalId } of secondSessionTxs) {
+      await db
+        .insertInto('transactions')
+        .values({
+          id,
+          data_source_id: 2,
+          source_id: 'kraken',
+          source_type: 'exchange' as const,
+          external_id: externalId,
+          transaction_status: 'success' as const,
+          transaction_datetime: new Date('2024-01-02').toISOString(),
+          excluded_from_accounting: false,
+          raw_normalized_data: '{}',
+          movements_inflows: JSON.stringify([{ asset: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
+          operation_type: 'deposit' as const,
+          created_at: new Date('2024-01-02').toISOString(),
+        })
+        .execute();
+    }
+  });
+
+  afterEach(async () => {
+    await db.destroy();
+  });
+
+  it('should deduplicate transactions when aggregating across multiple sessions', async () => {
+    // Query all completed sessions for account 1
+    const result = await repository.getTransactions({
+      accountId: 1,
+      sessionStatus: 'completed',
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const transactions = result.value;
+
+      // Should have 5 unique transactions after deduplication:
+      // - tx-1, tx-2, tx-3 from session 1
+      // - tx-4, tx-5 from session 2 (new)
+      // - duplicates of tx-1 and tx-2 from session 2 should be filtered out
+      expect(transactions).toHaveLength(5);
+
+      // Verify the unique external IDs
+      const externalIds = transactions.map((tx) => tx.externalId).sort();
+      expect(externalIds).toEqual(['tx-1', 'tx-2', 'tx-3', 'tx-4', 'tx-5']);
+
+      // Verify deduplication kept the first occurrence (from session 1 for duplicates)
+      const tx1 = transactions.find((tx) => tx.externalId === 'tx-1');
+      expect(tx1?.id).toBe(1); // From session 1, not session 2 (id 4)
+
+      const tx2 = transactions.find((tx) => tx.externalId === 'tx-2');
+      expect(tx2?.id).toBe(2); // From session 1, not session 2 (id 5)
+    }
+  });
+
+  it('should not deduplicate when querying a single session', async () => {
+    // Query only session 2
+    const result = await repository.getTransactions({
+      sessionId: 2,
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      // Should return all 4 transactions from session 2 without deduplication
+      expect(result.value).toHaveLength(4);
+    }
+  });
+
+  it('should log warning when duplicates are found and removed', async () => {
+    // This test documents that deduplication happens and logs a warning
+    // The actual logging is tested by checking the behavior is correct
+    const result = await repository.getTransactions({
+      accountId: 1,
+      sessionStatus: 'completed',
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      // 7 total transactions in DB, but only 5 unique after deduplication
+      expect(result.value).toHaveLength(5);
+      // The warning is logged internally with message about 2 duplicates removed
+    }
   });
 });

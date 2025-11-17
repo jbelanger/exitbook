@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-null -- needed for db */
 import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -12,31 +13,69 @@ describe('RawDataRepository', () => {
     await runMigrations(db);
     repository = new RawDataRepository(db);
 
+    // Create default user
+    await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
+
+    // Create mock accounts
+    await db
+      .insertInto('accounts')
+      .values([
+        {
+          id: 1,
+          user_id: 1,
+          account_type: 'exchange-api',
+          source_name: 'kraken',
+          identifier: 'test-api-key',
+          provider_name: null,
+          derived_addresses: null,
+          last_cursor: null,
+          last_balance_check_at: null,
+          verification_metadata: null,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+        },
+        {
+          id: 2,
+          user_id: 1,
+          account_type: 'blockchain',
+          source_name: 'ethereum',
+          identifier: '0x123',
+          provider_name: null,
+          derived_addresses: null,
+          last_cursor: null,
+          last_balance_check_at: null,
+          verification_metadata: null,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+        },
+      ])
+      .execute();
+
     // Create mock import sessions
     await db
       .insertInto('import_sessions')
       .values([
         {
           id: 1,
-          source_type: 'exchange',
-          source_id: 'kraken',
+          account_id: 1,
           started_at: new Date().toISOString(),
           status: 'completed',
-          import_params: '{}',
           import_result_metadata: '{}',
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
+          transactions_imported: 0,
+          transactions_failed: 0,
         },
         {
           id: 2,
-          source_type: 'blockchain',
-          source_id: 'ethereum',
+          account_id: 2,
           started_at: new Date().toISOString(),
           status: 'completed',
-          import_params: '{}',
           import_result_metadata: '{}',
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
+          transactions_imported: 0,
+          transactions_failed: 0,
         },
       ])
       .execute();
@@ -64,19 +103,19 @@ describe('RawDataRepository', () => {
     await db.destroy();
   });
 
-  describe('resetProcessingStatusBySource', () => {
-    it('should reset processing status for records from a specific source', async () => {
+  describe('resetProcessingStatusByAccount', () => {
+    it('should reset processing status for records from a specific account', async () => {
       // Verify initial state - some records are processed
       const initialProcessed = await db
         .selectFrom('external_transaction_data')
         .where('processing_status', '=', 'processed')
-        .where('data_source_id', 'in', db.selectFrom('import_sessions').select('id').where('source_id', '=', 'kraken'))
+        .where('data_source_id', 'in', db.selectFrom('import_sessions').select('id').where('account_id', '=', 1))
         .selectAll()
         .execute();
       expect(initialProcessed.length).toBeGreaterThan(0);
 
-      // Reset processing status for kraken
-      const result = await repository.resetProcessingStatusBySource('kraken');
+      // Reset processing status for kraken (account_id = 1)
+      const result = await repository.resetProcessingStatusByAccount(1);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -86,7 +125,7 @@ describe('RawDataRepository', () => {
       // Verify all kraken records are now pending
       const krakenRecords = await db
         .selectFrom('external_transaction_data')
-        .where('data_source_id', 'in', db.selectFrom('import_sessions').select('id').where('source_id', '=', 'kraken'))
+        .where('data_source_id', 'in', db.selectFrom('import_sessions').select('id').where('account_id', '=', 1))
         .selectAll()
         .execute();
 
@@ -99,18 +138,14 @@ describe('RawDataRepository', () => {
       const ethereumProcessed = await db
         .selectFrom('external_transaction_data')
         .where('processing_status', '=', 'processed')
-        .where(
-          'data_source_id',
-          'in',
-          db.selectFrom('import_sessions').select('id').where('source_id', '=', 'ethereum')
-        )
+        .where('data_source_id', 'in', db.selectFrom('import_sessions').select('id').where('account_id', '=', 2))
         .selectAll()
         .execute();
       expect(ethereumProcessed.length).toBeGreaterThan(0);
     });
 
-    it('should return 0 when no records match the source', async () => {
-      const result = await repository.resetProcessingStatusBySource('nonexistent');
+    it('should return 0 when no records match the account', async () => {
+      const result = await repository.resetProcessingStatusByAccount(999);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -121,7 +156,7 @@ describe('RawDataRepository', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.resetProcessingStatusBySource('kraken');
+      const result = await repository.resetProcessingStatusByAccount(1);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -181,14 +216,14 @@ describe('RawDataRepository', () => {
     });
   });
 
-  describe('deleteBySource', () => {
-    it('should delete raw data records from a specific source', async () => {
+  describe('deleteByAccount', () => {
+    it('should delete raw data records from a specific account', async () => {
       // Verify initial state
       const initialRecords = await db.selectFrom('external_transaction_data').selectAll().execute();
       expect(initialRecords).toHaveLength(5);
 
-      // Delete kraken records
-      const result = await repository.deleteBySource('kraken');
+      // Delete kraken records (account_id = 1)
+      const result = await repository.deleteByAccount(1);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -201,8 +236,8 @@ describe('RawDataRepository', () => {
       expect(remainingRecords.every((r) => r.data_source_id === 2)).toBe(true);
     });
 
-    it('should return 0 when no records match the source', async () => {
-      const result = await repository.deleteBySource('nonexistent');
+    it('should return 0 when no records match the account', async () => {
+      const result = await repository.deleteByAccount(999);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -217,7 +252,7 @@ describe('RawDataRepository', () => {
     it('should handle database errors', async () => {
       await db.destroy();
 
-      const result = await repository.deleteBySource('kraken');
+      const result = await repository.deleteByAccount(1);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

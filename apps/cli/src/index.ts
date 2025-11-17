@@ -5,6 +5,7 @@ import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { Command } from 'commander';
 
+import { registerAccountsCommand } from './features/accounts/accounts.js';
 import { registerBalanceCommand } from './features/balance/balance.js';
 import { registerBenchmarkRateLimitCommand } from './features/benchmark-rate-limit/benchmark-rate-limit.js';
 import { registerClearCommand } from './features/clear/clear.js';
@@ -16,7 +17,6 @@ import { registerLinksCommand } from './features/links/links.js';
 import { registerListBlockchainsCommand } from './features/list-blockchains/list-blockchains.js';
 import { registerPricesCommand } from './features/prices/prices.js';
 import { registerProcessCommand } from './features/process/process.js';
-import { registerSessionsCommand } from './features/sessions/sessions.js';
 import { registerTransactionsCommand } from './features/transactions/transactions.js';
 
 // Initialize all providers at startup
@@ -40,8 +40,8 @@ async function main() {
   // Gaps command - data quality inspection (view fees, prices, links, validation gaps)
   registerGapsCommand(program);
 
-  // Sessions command - import session management (view session history)
-  registerSessionsCommand(program);
+  // Accounts command - account management (view account information)
+  registerAccountsCommand(program);
 
   // Transactions command - processed transaction management (view transactions)
   registerTransactionsCommand(program);

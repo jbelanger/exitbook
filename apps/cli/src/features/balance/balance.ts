@@ -1,6 +1,14 @@
+import { BlockchainProviderManager, loadExplorerConfig } from '@exitbook/blockchain-providers';
 import type { SourceType } from '@exitbook/core';
-import { closeDatabase, initializeDatabase } from '@exitbook/data';
-import type { BalanceVerificationResult } from '@exitbook/ingestion';
+import {
+  AccountRepository,
+  closeDatabase,
+  initializeDatabase,
+  TokenMetadataRepository,
+  TransactionRepository,
+  UserRepository,
+} from '@exitbook/data';
+import { DataSourceRepository, BalanceService, type BalanceVerificationResult } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
 import { unwrapResult } from '../shared/command-execution.js';
@@ -39,7 +47,30 @@ async function executeBalanceCommand(options: ExtendedBalanceCommandOptions): Pr
 
   // Initialize database
   const database = await initializeDatabase();
-  const handler = new BalanceHandler(database);
+
+  // Initialize repositories
+  const transactionRepository = new TransactionRepository(database);
+  const sessionRepository = new DataSourceRepository(database);
+  const accountRepository = new AccountRepository(database);
+  const tokenMetadataRepository = new TokenMetadataRepository(database);
+  const userRepository = new UserRepository(database);
+
+  // Initialize provider manager
+  const config = loadExplorerConfig();
+  const providerManager = new BlockchainProviderManager(config);
+
+  // Create service with repositories
+  const balanceService = new BalanceService(
+    userRepository,
+    accountRepository,
+    transactionRepository,
+    sessionRepository,
+    tokenMetadataRepository,
+    providerManager
+  );
+
+  // Create handler with service
+  const handler = new BalanceHandler(balanceService);
 
   try {
     // Build params from flags (no interactive mode for balance command)
@@ -57,6 +88,7 @@ async function executeBalanceCommand(options: ExtendedBalanceCommandOptions): Pr
       return;
     }
 
+    // Account is now included in the verification result
     handleBalanceSuccess(output, result.value, params.sourceName, params.sourceType, params.address);
   } catch (error) {
     output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
@@ -76,8 +108,26 @@ function handleBalanceSuccess(
   sourceType: SourceType,
   address?: string
 ) {
+  const account = verificationResult.account;
+
   // Display results in text mode
   if (output.isTextMode()) {
+    // Display account info
+    console.log('');
+    console.log('Account Information:');
+    console.log(`  Account ID: ${account.id}`);
+    console.log(`  Source: ${account.sourceName}`);
+    console.log(`  Type: ${account.accountType}`);
+    if (account.accountType === 'blockchain') {
+      console.log(`  Address: ${account.identifier}`);
+    } else {
+      console.log(`  Identifier: ${account.identifier || 'N/A'}`);
+    }
+    if (account.providerName) {
+      console.log(`  Provider: ${account.providerName}`);
+    }
+    console.log('');
+
     const statusSymbol =
       verificationResult.status === 'success' ? '✓' : verificationResult.status === 'warning' ? '⚠' : '✗';
     output.outro(`${statusSymbol} Balance verification ${verificationResult.status.toUpperCase()} for ${sourceName}`);
@@ -132,6 +182,13 @@ function handleBalanceSuccess(
       type: sourceType,
       name: sourceName,
       address,
+    },
+    account: {
+      id: account.id,
+      type: account.accountType,
+      sourceName: account.sourceName,
+      identifier: account.identifier,
+      providerName: account.providerName,
     },
     meta: {
       timestamp: new Date(verificationResult.timestamp).toISOString(),

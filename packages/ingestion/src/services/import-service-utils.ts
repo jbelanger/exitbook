@@ -36,18 +36,6 @@ export function shouldReuseExistingImport(existingSource: DataSource | undefined
 }
 
 /**
- * Extract resume cursor from incomplete data source for blockchain imports
- * Pure function for determining cursor state when resuming an import
- *
- * @param dataSource - Incomplete data source to resume from
- * @returns Cursor map or undefined if no cursor available
- */
-export function extractResumeCursor(dataSource: DataSource | undefined): Record<string, CursorState> | undefined {
-  if (!dataSource) return undefined;
-  return dataSource.lastCursor;
-}
-
-/**
  * Normalize and validate blockchain import parameters.
  * Validates that address is provided and normalizes it using blockchain-specific logic.
  *
@@ -84,6 +72,9 @@ export function normalizeBlockchainImportParams(
  * Determines whether to create a new session or resume an existing one,
  * and what parameters to use (e.g., including cursor for resumption).
  *
+ * Only resumes sessions with status 'started' or 'failed' per ADR-007.
+ * Completed/cancelled sessions should not be resumed.
+ *
  * @param sourceId - Source identifier (blockchain or exchange name)
  * @param params - Import parameters
  * @param existingSource - Previously created data source, or null
@@ -96,8 +87,10 @@ export function prepareImportSession(
   existingSource: DataSource | undefined,
   latestCursor: Record<string, CursorState> | undefined
 ): ImportSessionConfig {
-  // If we have an existing source, resume it
-  if (existingSource) {
+  // Only resume if we have an existing source with incomplete status
+  const canResume = existingSource && (existingSource.status === 'started' || existingSource.status === 'failed');
+
+  if (canResume) {
     const resumeParams = { ...params };
 
     // Add cursor if available
@@ -112,7 +105,7 @@ export function prepareImportSession(
     };
   }
 
-  // No existing source - create new session with original params
+  // No existing source or session is completed/cancelled - create new session with original params
   return {
     params,
     shouldResume: false,

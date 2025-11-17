@@ -12,51 +12,60 @@ export type DateTime = ColumnType<string, string | Date, string>; // ISO 8601 st
 export type JSONString = ColumnType<unknown, string, string>;
 
 /**
- * Import sessions table - tracks data source  metadata and execution details
+ * Users table - tracks who is using the application and tracking accounts
  */
-export interface DataSourcesTable {
-  completed_at: DateTime | null;
-  created_at: DateTime;
-  duration_ms: number | null;
-
-  // Error handling
-  error_details: JSONString | null;
-  error_message: string | null;
-
+export interface UsersTable {
   id: Generated<number>;
-  // Import parameters and results
-  import_params: JSONString;
-  import_result_metadata: JSONString;
+  created_at: DateTime;
+}
 
-  // Session identification
-  source_id: string;
-  source_type: SourceType;
-
-  // Status and metrics
-  status: DataSourceStatus;
-
-  started_at: DateTime;
-  updated_at: DateTime | null;
-
-  /**
-   * Map of cursor states per operation type for resumable imports
-   * Stores Record<operationType, CursorState> as JSON
-   *
-   * Operation types:
-   * - Blockchains: 'normal', 'internal', 'token'
-   * - Exchanges: 'trade', 'deposit', 'withdrawal', etc.
-   *
-   * This is the AUTHORITATIVE cursor for resume operations:
-   * - Read on import start: `SELECT last_cursor FROM import_sessions WHERE id = ?`
-   * - Write after EACH batch: `UPDATE import_sessions SET last_cursor = ? WHERE id = ?`
-   *
-   * Schema validation: z.record(z.string(), CursorStateSchema) from @exitbook/core/schemas
-   */
-  last_cursor: JSONString | null;
-
-  // Balance verification
+/**
+ * Accounts table - persistent account metadata for exchanges and blockchains
+ */
+export interface AccountsTable {
+  id: Generated<number>;
+  user_id: number | null; // FK to users.id, NULL for tracking-only accounts
+  account_type: string; // 'blockchain' | 'exchange-api' | 'exchange-csv'
+  source_name: string; // 'kraken', 'bitcoin', 'ethereum', etc.
+  identifier: string; // address/xpub for blockchain, apiKey for exchange-api, comma-separated CSV dirs for exchange-csv
+  provider_name: string | null; // preferred provider for blockchain imports
+  credentials: JSONString | null; // JSON: ExchangeCredentials for exchange-api accounts only
+  derived_addresses: JSONString | null; // JSON array for xpub wallets, NULL otherwise
+  last_cursor: JSONString | null; // JSON: Record<operationType, CursorState>
   last_balance_check_at: DateTime | null;
   verification_metadata: JSONString | null;
+  created_at: DateTime;
+  updated_at: DateTime | null;
+}
+
+/**
+ * Import sessions table - tracks import execution events
+ * Each session represents a single import run (manual or scheduled)
+ */
+export interface DataSourcesTable {
+  id: Generated<number>;
+  account_id: number; // FK to accounts.id
+
+  // Session lifecycle
+  status: DataSourceStatus;
+  started_at: DateTime;
+  completed_at: DateTime | null;
+  duration_ms: number | null;
+
+  // Session results
+  transactions_imported: number;
+  transactions_failed: number;
+
+  // Error handling
+  error_message: string | null;
+  error_details: JSONString | null;
+
+  // Import metadata
+  import_result_metadata: JSONString;
+
+  // Audit trail
+  created_at: DateTime;
+  updated_at: DateTime | null;
 }
 
 /**
@@ -294,6 +303,8 @@ export interface SymbolIndexTable {
  * Main database interface combining all tables
  */
 export interface DatabaseSchema {
+  users: UsersTable;
+  accounts: AccountsTable;
   acquisition_lots: AcquisitionLotsTable;
   cost_basis_calculations: CostBasisCalculationsTable;
   external_transaction_data: ExternalTransactionDataTable;

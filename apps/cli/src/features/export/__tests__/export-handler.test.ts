@@ -1,6 +1,5 @@
 import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import type { KyselyDB } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
@@ -17,28 +16,20 @@ vi.mock('@exitbook/data', async () => {
 });
 
 describe('ExportHandler', () => {
-  let mockDatabase: KyselyDB;
   let mockTransactionRepository: {
     getTransactions: Mock;
   };
   let handler: ExportHandler;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-
-    // Mock database
-    mockDatabase = {} as KyselyDB;
 
     // Mock transaction repository
     mockTransactionRepository = {
       getTransactions: vi.fn(),
     };
 
-    // Setup TransactionRepository mock
-    const { TransactionRepository } = await import('@exitbook/data');
-    (TransactionRepository as unknown as Mock).mockImplementation(() => mockTransactionRepository);
-
-    handler = new ExportHandler(mockDatabase);
+    handler = new ExportHandler(mockTransactionRepository as unknown);
   });
 
   const createMockTransaction = (id: number, source: string, asset: string): UniversalTransaction => ({

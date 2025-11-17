@@ -1,5 +1,6 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { CursorState, SourceType } from '@exitbook/core';
+import type { Account, CursorState, SourceType } from '@exitbook/core';
+import type { AccountRepository } from '@exitbook/data';
 import { PartialImportError } from '@exitbook/exchanges-providers';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -12,12 +13,7 @@ import { createExchangeImporter } from '../infrastructure/exchanges/shared/excha
 import type { ImportParams, ImportResult } from '../types/importers.js';
 import type { IDataSourceRepository, IRawDataRepository } from '../types/repositories.js';
 
-import {
-  extractResumeCursor,
-  normalizeBlockchainImportParams,
-  prepareImportSession,
-  shouldReuseExistingImport,
-} from './import-service-utils.js';
+import { normalizeBlockchainImportParams, prepareImportSession } from './import-service-utils.js';
 
 export class TransactionImportService {
   private logger: Logger;
@@ -25,6 +21,7 @@ export class TransactionImportService {
   constructor(
     private rawDataRepository: IRawDataRepository,
     private dataSourceRepository: IDataSourceRepository,
+    private accountRepository: AccountRepository,
     private providerManager: BlockchainProviderManager
   ) {
     this.logger = getLogger('TransactionImportService');
@@ -33,16 +30,15 @@ export class TransactionImportService {
   /**
    * Import raw data from source and store it in external_transaction_data table.
    * Uses streaming for blockchains (with crash recovery) and batch for exchanges.
+   * All parameters are extracted from the account object.
    */
-  async importFromSource(
-    sourceId: string,
-    sourceType: SourceType,
-    params: ImportParams
-  ): Promise<Result<ImportResult, Error>> {
+  async importFromSource(account: Account): Promise<Result<ImportResult, Error>> {
+    const sourceType = deriveSourceType(account.accountType);
+
     if (sourceType === 'exchange') {
-      return this.importFromExchange(sourceId, params);
+      return this.importFromExchange(account);
     } else {
-      return this.importFromBlockchainStreaming(sourceId, params);
+      return this.importFromBlockchainStreaming(account);
     }
   }
 
@@ -50,11 +46,8 @@ export class TransactionImportService {
    * Import raw data from blockchain using streaming with incremental persistence and crash recovery
    * Automatically resumes from incomplete imports
    */
-  private async importFromBlockchainStreaming(
-    sourceId: string,
-    params: ImportParams
-  ): Promise<Result<ImportResult, Error>> {
-    const sourceType = 'blockchain';
+  private async importFromBlockchainStreaming(account: Account): Promise<Result<ImportResult, Error>> {
+    const sourceId = account.sourceName;
     this.logger.info(`Starting blockchain streaming import for ${sourceId}`);
 
     // Normalize sourceId to lowercase for config lookup (registry keys are lowercase)
@@ -66,6 +59,13 @@ export class TransactionImportService {
       return err(new Error(`Unknown blockchain: ${sourceId}`));
     }
 
+    // Build ImportParams from account
+    const params: ImportParams = {
+      address: account.identifier,
+      providerName: account.providerName ?? undefined,
+      cursor: account.lastCursor,
+    };
+
     // Normalize and validate params using pure function
     const normalizedParamsResult = normalizeBlockchainImportParams(sourceId, params, config);
     if (normalizedParamsResult.isErr()) {
@@ -74,12 +74,7 @@ export class TransactionImportService {
     const normalizedParams = normalizedParamsResult.value;
 
     // Check for existing incomplete data source to resume
-    // Use sourceId (blockchain name) and address to prevent cross-chain resume corruption
-    const incompleteDataSourceResult = await this.dataSourceRepository.findLatestIncomplete(
-      sourceId,
-      sourceType,
-      normalizedParams.address
-    );
+    const incompleteDataSourceResult = await this.dataSourceRepository.findLatestIncomplete(account.id);
 
     if (incompleteDataSourceResult.isErr()) {
       return err(incompleteDataSourceResult.error);
@@ -88,10 +83,9 @@ export class TransactionImportService {
     const incompleteDataSource = incompleteDataSourceResult.value;
     let dataSourceId: number;
     let totalImported = 0;
-    const resumeCursor = extractResumeCursor(incompleteDataSource);
 
-    if (incompleteDataSource && resumeCursor) {
-      // Resume existing import
+    if (incompleteDataSource) {
+      // Resume existing import - cursor comes from account.lastCursor
       dataSourceId = incompleteDataSource.id;
       totalImported = (incompleteDataSource.importResultMetadata?.transactionsImported as number) || 0;
 
@@ -103,8 +97,8 @@ export class TransactionImportService {
         return err(updateResult.error);
       }
     } else {
-      // Create new data source with sourceId as blockchain name (not address)
-      const dataSourceCreateResult = await this.dataSourceRepository.create(sourceId, sourceType, normalizedParams);
+      // Create new data source for this account
+      const dataSourceCreateResult = await this.dataSourceRepository.create(account.id);
 
       if (dataSourceCreateResult.isErr()) {
         return err(dataSourceCreateResult.error);
@@ -117,10 +111,10 @@ export class TransactionImportService {
     const startTime = Date.now();
 
     try {
-      // Create importer with resume cursor
+      // Create importer with resume cursor from account (single source of truth)
       const importParams: ImportParams = {
         ...normalizedParams,
-        cursor: resumeCursor,
+        cursor: account.lastCursor,
       };
 
       const importer = config.createImporter(this.providerManager, normalizedParams.providerName);
@@ -161,8 +155,8 @@ export class TransactionImportService {
         totalImported += batch.rawTransactions.length;
 
         // Update progress and cursor after EACH batch for crash recovery
-        const cursorUpdateResult = await this.dataSourceRepository.updateCursor(
-          dataSourceId,
+        const cursorUpdateResult = await this.accountRepository.updateCursor(
+          account.id,
           batch.operationType,
           batch.cursor
         );
@@ -221,8 +215,8 @@ export class TransactionImportService {
    * Import raw data from blockchain and store it in external_transaction_data table.
    * @deprecated Use importFromBlockchainStreaming instead
    */
-  private async importFromBlockchain(sourceId: string, params: ImportParams): Promise<Result<ImportResult, Error>> {
-    const sourceType = 'blockchain';
+  private async importFromBlockchain(account: Account): Promise<Result<ImportResult, Error>> {
+    const sourceId = account.sourceName;
     this.logger.info(`Starting blockchain import for ${sourceId}`);
 
     // Normalize sourceId to lowercase for config lookup (registry keys are lowercase)
@@ -234,6 +228,13 @@ export class TransactionImportService {
       return err(new Error(`Unknown blockchain: ${sourceId}`));
     }
 
+    // Build ImportParams from account
+    const params: ImportParams = {
+      address: account.identifier,
+      providerName: account.providerName ?? undefined,
+      cursor: account.lastCursor,
+    };
+
     // Normalize and validate params using pure function
     const normalizedParamsResult = normalizeBlockchainImportParams(sourceId, params, config);
     if (normalizedParamsResult.isErr()) {
@@ -241,50 +242,11 @@ export class TransactionImportService {
     }
     const normalizedParams = normalizedParamsResult.value;
 
-    // Check for existing completed import
-    const existingDataSourceResult = await this.dataSourceRepository.findCompletedWithMatchingParams(
-      sourceId,
-      sourceType,
-      normalizedParams
-    );
-
-    if (existingDataSourceResult.isErr()) {
-      return err(existingDataSourceResult.error);
-    }
-
-    const existingDataSource = existingDataSourceResult.value;
-
-    // Use pure function to decide if we should reuse existing import
-    if (shouldReuseExistingImport(existingDataSource ?? undefined, normalizedParams)) {
-      this.logger.info(
-        `Found existing completed data source ${existingDataSource!.id} with matching parameters - reusing data`
-      );
-
-      progress.update('Found existing data, reusing...');
-
-      const rawDataResult = await this.rawDataRepository.load({
-        dataSourceId: existingDataSource!.id,
-      });
-
-      if (rawDataResult.isErr()) {
-        return err(rawDataResult.error);
-      }
-
-      const rawDataCount = rawDataResult.value.length;
-
-      progress.update(`Loaded ${rawDataCount} cached transactions`);
-
-      return ok({
-        imported: rawDataCount,
-        dataSourceId: existingDataSource!.id,
-      });
-    }
-
     const startTime = Date.now();
     let dataSourceCreated = false;
     let dataSourceId = 0;
     try {
-      const dataSourceCreateResult = await this.dataSourceRepository.create(sourceId, sourceType, normalizedParams);
+      const dataSourceCreateResult = await this.dataSourceRepository.create(account.id);
 
       if (dataSourceCreateResult.isErr()) {
         return err(dataSourceCreateResult.error);
@@ -372,25 +334,41 @@ export class TransactionImportService {
    * Handles validation errors by saving successful items and recording errors.
    * Supports resumption using per-operation-type cursors.
    */
-  private async importFromExchange(sourceId: string, params: ImportParams): Promise<Result<ImportResult, Error>> {
-    const sourceType = 'exchange';
-    this.logger.info(`Starting exchange import for ${sourceId}`);
+  private async importFromExchange(account: Account): Promise<Result<ImportResult, Error>> {
+    const sourceName = account.sourceName;
+    this.logger.info(`Starting exchange import for ${sourceName}`);
 
-    // Check for existing data source
-    const existingDataSourceResult = await this.dataSourceRepository.findBySource(sourceId);
+    // Check for latest incomplete data source to resume
+    const existingDataSourceResult = await this.dataSourceRepository.findLatestIncomplete(account.id);
     if (existingDataSourceResult.isErr()) {
       return err(existingDataSourceResult.error);
     }
-    const existingDataSource = existingDataSourceResult.value[0];
+    const existingDataSource = existingDataSourceResult.value;
 
-    // Get latest cursors if resuming
+    // Get latest cursors from account (not data source)
     let latestCursors: Record<string, CursorState> | undefined = undefined;
-    if (existingDataSource?.lastCursor) {
-      latestCursors = existingDataSource.lastCursor;
+    if (account.lastCursor) {
+      latestCursors = account.lastCursor;
+    }
+
+    // Build ImportParams from account
+    const params: ImportParams = {};
+
+    if (account.accountType === 'exchange-api') {
+      // For API accounts, use credentials
+      params.credentials = account.credentials ?? undefined;
+    } else if (account.accountType === 'exchange-csv') {
+      // For CSV accounts, parse identifier as comma-separated directories
+      params.csvDirectories = account.identifier.split(',');
+    }
+
+    // Add cursor if available
+    if (account.lastCursor) {
+      params.cursor = account.lastCursor;
     }
 
     // Use pure function to prepare import session config
-    const sessionConfig = prepareImportSession(sourceId, params, existingDataSource || undefined, latestCursors);
+    const sessionConfig = prepareImportSession(sourceName, params, existingDataSource, latestCursors);
 
     const startTime = Date.now();
     let dataSourceCreated = false;
@@ -403,7 +381,7 @@ export class TransactionImportService {
         this.logger.info(`Resuming from cursors: ${JSON.stringify(latestCursors)}`);
       }
     } else {
-      const dataSourceCreateResult = await this.dataSourceRepository.create(sourceId, sourceType, sessionConfig.params);
+      const dataSourceCreateResult = await this.dataSourceRepository.create(account.id);
 
       if (dataSourceCreateResult.isErr()) {
         return err(dataSourceCreateResult.error);
@@ -415,14 +393,14 @@ export class TransactionImportService {
     }
 
     try {
-      const importerResult = await createExchangeImporter(sourceId, sessionConfig.params);
+      const importerResult = await createExchangeImporter(sourceName, sessionConfig.params);
 
       if (importerResult.isErr()) {
         return err(importerResult.error);
       }
 
       const importer = importerResult.value;
-      this.logger.info(`Importer for ${sourceId} created successfully`);
+      this.logger.info(`Importer for ${sourceName} created successfully`);
 
       this.logger.info('Starting raw data import...');
       progress.update('Fetching exchange data...');
@@ -451,8 +429,8 @@ export class TransactionImportService {
           // Persist cursor updates from partial import error
           if (error.lastSuccessfulCursorUpdates) {
             for (const [operationType, cursorState] of Object.entries(error.lastSuccessfulCursorUpdates)) {
-              const cursorUpdateResult = await this.dataSourceRepository.updateCursor(
-                dataSourceId,
+              const cursorUpdateResult = await this.accountRepository.updateCursor(
+                account.id,
                 operationType,
                 cursorState
               );
@@ -507,11 +485,7 @@ export class TransactionImportService {
       // Update cursors after successful batch save
       if (importResult.cursorUpdates) {
         for (const [operationType, cursorState] of Object.entries(importResult.cursorUpdates)) {
-          const cursorUpdateResult = await this.dataSourceRepository.updateCursor(
-            dataSourceId,
-            operationType,
-            cursorState
-          );
+          const cursorUpdateResult = await this.accountRepository.updateCursor(account.id, operationType, cursorState);
 
           if (cursorUpdateResult.isErr()) {
             this.logger.warn(`Failed to update cursor for ${operationType}: ${cursorUpdateResult.error.message}`);
@@ -535,7 +509,7 @@ export class TransactionImportService {
         return err(finalizeResult.error);
       }
 
-      this.logger.info(`Import completed for ${sourceId}: ${savedCount} items saved`);
+      this.logger.info(`Import completed for ${sourceName}: ${savedCount} items saved`);
 
       return ok({
         imported: savedCount,
@@ -563,8 +537,19 @@ export class TransactionImportService {
         }
       }
 
-      this.logger.error(`Import failed for ${sourceId}: ${originalError.message}`);
+      this.logger.error(`Import failed for ${sourceName}: ${originalError.message}`);
       return err(originalError);
     }
   }
+}
+
+/**
+ * Derive SourceType from AccountType
+ */
+function deriveSourceType(accountType: Account['accountType']): SourceType {
+  if (accountType === 'blockchain') {
+    return 'blockchain';
+  }
+  // Both exchange-api and exchange-csv map to 'exchange' source type
+  return 'exchange';
 }
