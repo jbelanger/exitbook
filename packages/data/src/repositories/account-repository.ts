@@ -19,7 +19,7 @@ import { BaseRepository } from './base-repository.js';
  * Parameters for finding or creating an account
  */
 export interface FindOrCreateAccountParams {
-  userId: number | null;
+  userId: number | undefined;
   accountType: AccountType;
   sourceName: string;
   identifier: string;
@@ -31,12 +31,12 @@ export interface FindOrCreateAccountParams {
  * Parameters for updating an account
  */
 export interface UpdateAccountParams {
-  providerName?: string | null | undefined;
-  credentials?: ExchangeCredentials | null | undefined;
-  derivedAddresses?: string[] | null | undefined;
-  lastCursor?: Record<string, CursorState> | null | undefined;
-  lastBalanceCheckAt?: Date | null | undefined;
-  verificationMetadata?: VerificationMetadata | null | undefined;
+  providerName?: string | undefined;
+  credentials?: ExchangeCredentials | undefined;
+  derivedAddresses?: string[] | undefined;
+  lastCursor?: Record<string, CursorState> | undefined;
+  lastBalanceCheckAt?: Date | undefined;
+  verificationMetadata?: VerificationMetadata | undefined;
 }
 
 /**
@@ -141,7 +141,7 @@ export class AccountRepository extends BaseRepository {
     accountType: AccountType,
     sourceName: string,
     identifier: string,
-    userId: number | null
+    userId: number | undefined
   ): Promise<Result<Account | undefined, Error>> {
     try {
       // Build query matching the unique constraint logic
@@ -156,7 +156,7 @@ export class AccountRepository extends BaseRepository {
       if (userId === null || userId === 0) {
         query = query.where((eb) => eb.or([eb('user_id', 'is', null), eb('user_id', '=', 0)]));
       } else {
-        query = query.where('user_id', '=', userId);
+        query = query.where('user_id', '=', userId ?? null);
       }
 
       const row = await query.executeTakeFirst();
@@ -382,13 +382,13 @@ export class AccountRepository extends BaseRepository {
     verification_metadata: unknown;
   }): Result<Account, Error> {
     // Parse credentials
-    const credentialsResult = this.parseWithSchema(row.credentials, ExchangeCredentialsSchema.nullable());
+    const credentialsResult = this.parseWithSchema(row.credentials, ExchangeCredentialsSchema.optional());
     if (credentialsResult.isErr()) {
       return err(credentialsResult.error);
     }
 
     // Parse derived addresses
-    const derivedAddressesResult = this.parseWithSchema(row.derived_addresses, z.array(z.string()).nullable());
+    const derivedAddressesResult = this.parseWithSchema(row.derived_addresses, z.array(z.string()).optional());
     if (derivedAddressesResult.isErr()) {
       return err(derivedAddressesResult.error);
     }

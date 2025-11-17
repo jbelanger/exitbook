@@ -1,6 +1,6 @@
 import type { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import type { Account } from '@exitbook/core';
-import type { AccountRepository, TransactionRepository } from '@exitbook/data';
+import type { AccountRepository, TransactionRepository, UserRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -29,6 +29,7 @@ export interface ClearResult {
  */
 export class ClearService {
   constructor(
+    private userRepo: UserRepository,
     private accountRepo: AccountRepository,
     private transactionRepo: TransactionRepository,
     private transactionLinkRepo: TransactionLinkRepository,
@@ -398,28 +399,46 @@ export class ClearService {
   /**
    * Resolve accounts to clear based on params.
    * Imperative - fetches from repositories.
+   * Scoped to default user to prevent accidental cross-user data deletion.
    */
   private async resolveAccounts(params: ClearServiceParams): Promise<Result<ResolvedAccount[], Error>> {
+    // 1. Ensure default user exists (id=1)
+    const userResult = await this.userRepo.ensureDefaultUser();
+    if (userResult.isErr()) {
+      return err(userResult.error);
+    }
+    const user = userResult.value;
+
     let accountById;
     let accountsBySource: Account[] = [];
 
+    // 2. Find accounts scoped to this user
     if (params.accountId) {
-      const result = await this.accountRepo.findById(params.accountId);
+      // Use findAll with userId filter to ensure user scoping
+      const result = await this.accountRepo.findAll({ userId: user.id });
       if (result.isErr()) {
         return err(result.error);
       }
-      accountById = result.value;
+      // Find the specific account by ID within this user's accounts
+      accountById = result.value.find((acc) => acc.id === params.accountId);
+      if (!accountById) {
+        return err(new Error(`Account ${params.accountId} not found for user ${user.id}`));
+      }
     }
 
     if (params.source) {
-      const result = await this.accountRepo.findBySourceName(params.source);
+      // Use findAll with userId and sourceName filters
+      const result = await this.accountRepo.findAll({
+        userId: user.id,
+        sourceName: params.source,
+      });
       if (result.isErr()) {
         return err(result.error);
       }
       accountsBySource = result.value;
     }
 
-    // Use pure function to determine accounts
+    // 3. Use pure function to determine accounts
     const resolved = resolveAccountsForClear(params, accountById, accountsBySource);
     return ok(resolved);
   }

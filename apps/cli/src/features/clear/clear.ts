@@ -47,6 +47,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const {
       initializeDatabase,
       closeDatabase,
+      UserRepository: UserRepo,
       TransactionRepository: TxRepo,
       AccountRepository: AcctRepo,
     } = await import('@exitbook/data');
@@ -62,6 +63,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     } = await import('@exitbook/ingestion');
 
     const database = await initializeDatabase();
+    const previewUserRepo = new UserRepo(database);
     const acctRepo = new AcctRepo(database);
     const txRepo = new TxRepo(database);
     const tlRepo = new TLRepo(database);
@@ -70,7 +72,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const rdRepo = new RDRepo(database);
     const dsRepo = new DSRepo(database);
 
-    const clearService = new ClearService(database, acctRepo, txRepo, tlRepo, cbRepo, ltRepo, rdRepo, dsRepo);
+    const clearService = new ClearService(previewUserRepo, acctRepo, txRepo, tlRepo, cbRepo, ltRepo, rdRepo, dsRepo);
     const handler = new ClearHandler(clearService);
 
     const previewResult = await handler.previewDeletion(params);
@@ -149,6 +151,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const {
       initializeDatabase: initDb,
       closeDatabase: closeDb,
+      UserRepository,
       TransactionRepository,
       AccountRepository,
     } = await import('@exitbook/data');
@@ -158,6 +161,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const { RawDataRepository, DataSourceRepository, ClearService: ClearSvc } = await import('@exitbook/ingestion');
 
     const db = await initDb();
+    const userRepo = new UserRepository(db);
     const accountRepo = new AccountRepository(db);
     const transactionRepo = new TransactionRepository(db);
     const transactionLinkRepo = new TransactionLinkRepository(db);
@@ -167,7 +171,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const dataSourceRepo = new DataSourceRepository(db);
 
     const clearSvc = new ClearSvc(
-      db,
+      userRepo,
       accountRepo,
       transactionRepo,
       transactionLinkRepo,

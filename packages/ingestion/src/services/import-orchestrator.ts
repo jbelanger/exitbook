@@ -6,6 +6,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err } from 'neverthrow';
 
+import { getBlockchainConfig } from '../infrastructure/blockchains/index.js';
 import type { ImportResult } from '../types/importers.js';
 import type { IDataSourceRepository, IRawDataRepository } from '../types/repositories.js';
 
@@ -57,12 +58,25 @@ export class ImportOrchestrator {
     }
     const user = userResult.value;
 
-    // 2. Find or create account
+    // 2. Normalize address using blockchain-specific logic
+    const normalizedBlockchain = blockchain.toLowerCase();
+    const blockchainConfig = getBlockchainConfig(normalizedBlockchain);
+    if (!blockchainConfig) {
+      return err(new Error(`Unknown blockchain: ${blockchain}`));
+    }
+
+    const normalizedAddressResult = blockchainConfig.normalizeAddress(address);
+    if (normalizedAddressResult.isErr()) {
+      return err(normalizedAddressResult.error);
+    }
+    const normalizedAddress = normalizedAddressResult.value;
+
+    // 3. Find or create account with normalized address as identifier
     const accountResult = await this.accountRepository.findOrCreate({
       userId: user.id,
       accountType: 'blockchain',
       sourceName: blockchain,
-      identifier: address,
+      identifier: normalizedAddress,
       providerName,
       credentials: undefined,
     });
@@ -74,7 +88,7 @@ export class ImportOrchestrator {
 
     this.logger.info(`Using account #${account.id} (blockchain) for import`);
 
-    // 3. Delegate to import service with account
+    // 4. Delegate to import service with account
     return this.importService.importFromSource(account);
   }
 
