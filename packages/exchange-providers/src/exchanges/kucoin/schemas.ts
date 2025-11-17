@@ -1,3 +1,4 @@
+import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
@@ -23,16 +24,18 @@ export const KuCoinLedgerEntrySchema = z.object({
   referenceId: z.string().optional(), // Reference to related transaction
   type: z.string(), // trade, transaction, fee, rebate, etc.
   currency: z.string(), // Asset currency code
-  amount: z.number(), // Amount (positive or negative)
+  amount: DecimalStringSchema, // Amount (positive or negative)
   timestamp: z.number(), // Unix timestamp in milliseconds
   datetime: z.string(), // ISO8601 datetime string
-  before: z.number().optional(), // Balance before
-  after: z.number().optional(), // Balance after
+  before: DecimalStringSchema.optional(), // Balance before
+  after: DecimalStringSchema.optional(), // Balance after
   status: z.string().optional(), // pending, ok, canceled
   fee: z
     .object({
       currency: z.string(),
-      cost: z.number(),
+      cost: DecimalStringSchema,
     })
     .optional(),
 });
+
+export type KuCoinLedgerEntry = z.infer<typeof KuCoinLedgerEntrySchema>;

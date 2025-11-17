@@ -29,7 +29,7 @@ function buildEntry(
       account: 'account-1',
       type: 'advanced_trade_fill',
       currency: 'USDC',
-      amount: 61.902,
+      amount: '61.902', // DecimalStringSchema expects string
       timestamp,
       datetime: new Date(timestamp).toISOString(),
       status: 'ok',

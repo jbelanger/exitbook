@@ -1,8 +1,8 @@
 import { getErrorMessage, wrapError, type CursorState, type ExternalTransaction } from '@exitbook/core';
+import { progress } from '@exitbook/ui';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
-import type z from 'zod';
 
 import { PartialImportError } from '../../core/errors.js';
 import * as ExchangeUtils from '../../core/exchange-utils.js';
@@ -15,9 +15,7 @@ import type {
   IExchangeClient,
 } from '../../core/types.js';
 
-import { KrakenCredentialsSchema, KrakenLedgerEntrySchema } from './schemas.js';
-
-export type KrakenLedgerEntry = z.infer<typeof KrakenLedgerEntrySchema>;
+import { KrakenCredentialsSchema, KrakenLedgerEntrySchema, type KrakenLedgerEntry } from './schemas.js';
 
 /**
  * Normalize Kraken asset symbols by removing X/Z prefixes.
@@ -95,6 +93,8 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
         let cumulativeFetched = (ledgerCursor?.totalFetched as number) || 0;
 
         try {
+          let pageCount = 0;
+
           while (true) {
             // Side effect: Fetch from API (uses exchange from closure)
             const ledgerEntries = await exchange.fetchLedger(undefined, since, limit, { ofs });
@@ -169,6 +169,18 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
 
             // Update cumulative count
             cumulativeFetched += transactions.length;
+
+            pageCount++;
+
+            // Log every page for debugging
+            progress.log(
+              `Fetched Kraken page ${pageCount}: ${transactions.length} transactions (${cumulativeFetched} total)`
+            );
+
+            // Report progress every 10 pages
+            if (pageCount % 10 === 0) {
+              progress.update(`Processed ${pageCount} pages`, cumulativeFetched);
+            }
 
             // Update cursor with cumulative totalFetched
             if (cursorUpdates['ledger']) {
