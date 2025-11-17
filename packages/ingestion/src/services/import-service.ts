@@ -286,7 +286,10 @@ export class TransactionImportService {
           startTime,
           undefined,
           undefined,
-          importResult.metadata
+          {
+            ...importResult.metadata,
+            transactionsImported: savedCount,
+          }
         );
 
         if (finalizeResult.isErr()) {
@@ -453,6 +456,10 @@ export class TransactionImportService {
             {
               failedItem: error.failedItem,
               lastSuccessfulCursorUpdates: error.lastSuccessfulCursorUpdates,
+            },
+            {
+              transactionsImported: savedCount,
+              transactionsFailed: 1, // The single failed item that caused validation error
             }
           );
 
@@ -502,7 +509,10 @@ export class TransactionImportService {
         startTime,
         undefined,
         undefined,
-        importResult.metadata
+        {
+          ...importResult.metadata,
+          transactionsImported: savedCount,
+        }
       );
 
       if (finalizeResult.isErr()) {

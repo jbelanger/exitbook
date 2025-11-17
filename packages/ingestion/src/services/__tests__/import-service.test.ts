@@ -550,6 +550,10 @@ describe('TransactionImportService', () => {
               totalFetched: 2,
             },
           },
+        }),
+        expect.objectContaining({
+          transactionsImported: 2,
+          transactionsFailed: 1,
         })
       );
     });

@@ -47,6 +47,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
   /**
    * Finalize an import session
    * Sets final status, duration, and result metadata
+   * Extracts transactionsImported and transactionsFailed from metadata and writes to dedicated columns
    */
   async finalize(
     sessionId: number,
@@ -67,6 +68,12 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       const durationMs = Date.now() - startTime;
       const currentTimestamp = this.getCurrentDateTimeForDB();
 
+      // Extract transaction counts from metadata to populate dedicated columns
+      const transactionsImported =
+        typeof metadataToSave.transactionsImported === 'number' ? metadataToSave.transactionsImported : 0;
+      const transactionsFailed =
+        typeof metadataToSave.transactionsFailed === 'number' ? metadataToSave.transactionsFailed : 0;
+
       await this.db
         .updateTable('import_sessions')
         .set({
@@ -76,6 +83,8 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
           error_message: errorMessage,
           import_result_metadata: this.serializeToJson(validationResult.data),
           status,
+          transactions_imported: transactionsImported,
+          transactions_failed: transactionsFailed,
           updated_at: currentTimestamp,
         })
         .where('id', '=', sessionId)

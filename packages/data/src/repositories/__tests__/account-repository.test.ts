@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- acceptable for tests */
 import type { Account, CursorState } from '@exitbook/core';
 import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -166,7 +165,7 @@ describe('AccountRepository', () => {
 
     it('should support tracking external accounts with null userId (ADR-007 Use Case 3)', async () => {
       const result = await repository.findOrCreate({
-        userId: null,
+        userId: undefined,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
         identifier: 'bc1qscammer...',
@@ -286,13 +285,13 @@ describe('AccountRepository', () => {
     it('should handle null userId correctly (COALESCE logic)', async () => {
       // Create account with null userId
       await repository.findOrCreate({
-        userId: null,
+        userId: undefined,
         accountType: 'blockchain',
         sourceName: 'bitcoin',
         identifier: 'bc1q...',
       });
 
-      const result = await repository.findByUniqueConstraint('blockchain', 'bitcoin', 'bc1q...', null);
+      const result = await repository.findByUniqueConstraint('blockchain', 'bitcoin', 'bc1q...', undefined);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -519,8 +518,8 @@ describe('AccountRepository', () => {
 
     it('should allow setting fields to null', async () => {
       const result = await repository.update(account.id, {
-        providerName: null,
-        derivedAddresses: null,
+        providerName: undefined,
+        derivedAddresses: undefined,
       });
 
       expect(result.isOk()).toBe(true);

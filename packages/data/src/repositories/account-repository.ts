@@ -153,10 +153,10 @@ export class AccountRepository extends BaseRepository {
         .where('identifier', '=', identifier);
 
       // Match COALESCE(user_id, 0)
-      if (userId === null || userId === 0) {
+      if (userId === null || userId === undefined || userId === 0) {
         query = query.where((eb) => eb.or([eb('user_id', 'is', null), eb('user_id', '=', 0)]));
       } else {
-        query = query.where('user_id', '=', userId ?? null);
+        query = query.where('user_id', '=', userId);
       }
 
       const row = await query.executeTakeFirst();
