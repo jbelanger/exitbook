@@ -54,13 +54,13 @@ export interface CursorStateConfig<T> {
  * @param config - Configuration for cursor state building
  * @returns Complete cursor state for this batch
  */
-export function buildCursorState<T>(config: CursorStateConfig<T>): CursorState {
+export function buildCursorState<T extends { id: string }>(config: CursorStateConfig<T>): CursorState {
   const { transactions, extractCursors, totalFetched, providerName, pageToken, isComplete } = config;
 
   // Extract cursors from last transaction
   const lastTx = transactions[transactions.length - 1]!; // Safe: caller ensures transactions.length > 0
   const cursors = extractCursors(lastTx.normalized);
-  const lastTransactionId = (lastTx.normalized as { id: string }).id;
+  const lastTransactionId = lastTx.normalized.id;
 
   // Build cursor state
   return {

@@ -5,7 +5,14 @@ import type { CursorStateSchema, PaginationCursorSchema } from '../schemas/curso
 /**
  * Cursor type classification for cross-provider compatibility
  */
-export type CursorType = 'blockNumber' | 'timestamp' | 'txHash' | 'pageToken';
+export type CursorType = 'blockNumber' | 'timestamp' | 'txHash' | 'slot' | 'signature' | 'pageToken';
+
+/**
+ * Base interface for transactions that support cursor extraction
+ */
+export interface TransactionWithId {
+  id: string;
+}
 
 /**
  * Typed pagination cursor - inferred from Zod schema

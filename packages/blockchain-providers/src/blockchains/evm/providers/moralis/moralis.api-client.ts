@@ -5,10 +5,14 @@ import { z } from 'zod';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/index.js';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
-import { createDeduplicationWindow, deduplicateTransactions } from '../../../../core/provider-manager-utils.js';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../../core/streaming/streaming-adapter.js';
 import type { RawBalanceData, StreamingBatchResult, TransactionWithRawData } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
-import { buildCursorState, createEmptyCompletionCursor } from '../../../../core/utils/cursor-utils.js';
+import { createEmptyCompletionCursor } from '../../../../core/utils/cursor-utils.js';
 import { convertWeiToDecimal } from '../../balance-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
@@ -485,39 +489,22 @@ export class MoralisApiClient extends BaseApiClient {
     return ok(transactions);
   }
 
-  private async *streamAddressTransactions(
+  private streamAddressTransactions(
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
-    let totalFetched = resumeCursor?.totalFetched || 0;
-
-    // Manager has already resolved the cursor - just extract the value
-    // Provider simply trusts the cursor it receives is already translated/adjusted
-    let cursor =
-      resumeCursor?.primary.type === 'pageToken' && resumeCursor.primary.providerName === this.name
-        ? resumeCursor.primary.value
-        : undefined;
-    const fromBlock = resumeCursor?.primary.type === 'blockNumber' ? String(resumeCursor.primary.value) : undefined;
-
-    // Use bounded deduplication window sized to replay window
-    // 5 blocks * ~100 txs/block = ~500 transactions
-    const DEDUP_WINDOW_SIZE = 500;
-    const dedupWindow = createDeduplicationWindow(
-      resumeCursor?.lastTransactionId ? [resumeCursor.lastTransactionId] : []
-    );
-
-    while (true) {
+    const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<MoralisTransaction>, Error>> => {
       const params = new URLSearchParams({
         chain: this.moralisChainId,
         limit: '100',
       });
 
-      if (cursor) {
-        params.append('cursor', cursor);
+      if (ctx.pageToken) {
+        params.append('cursor', ctx.pageToken);
       }
 
-      if (fromBlock) {
-        params.append('from_block', fromBlock);
+      if (ctx.replayedCursor?.type === 'blockNumber') {
+        params.append('from_block', String(ctx.replayedCursor.value));
       }
 
       // Include internal transactions in the same call for efficiency
@@ -530,110 +517,52 @@ export class MoralisApiClient extends BaseApiClient {
         this.logger.error(
           `Failed to fetch address transactions for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
         );
-        yield err(result.error);
-        return;
+        return err(result.error);
       }
 
       const response = result.value;
-      const rawTransactions = response.result || [];
+      return ok({
+        items: response.result || [],
+        nextPageToken: response.cursor ?? undefined,
+        isComplete: !response.cursor,
+      });
+    };
 
-      if (rawTransactions.length === 0) break;
-
-      // Map transactions
-      const mappedBatch: TransactionWithRawData<EvmTransaction>[] = [];
-      for (const rawTx of rawTransactions) {
-        const mapResult = mapMoralisTransaction(rawTx, {}, this.chainConfig.nativeCurrency);
-
-        if (mapResult.isErr()) {
-          const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+    return createStreamingIterator<MoralisTransaction, EvmTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapMoralisTransaction(raw, {}, this.chainConfig.nativeCurrency);
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(
             `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
           );
-          yield err(new Error(`Provider data validation failed: ${errorMessage}`));
-          return;
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 
-        mappedBatch.push({
-          raw: rawTx,
-          normalized: mapResult.value,
+        return ok({
+          raw,
+          normalized: mapped.value,
         });
-      }
-
-      // Deduplicate using bounded window
-      const mappedTransactions = deduplicateTransactions(mappedBatch, dedupWindow, DEDUP_WINDOW_SIZE);
-
-      // If all transactions were deduplicated, check if we still need to emit completion cursor
-      if (mappedTransactions.length === 0) {
-        this.logger.debug(`All ${rawTransactions.length} transactions in batch were duplicates, fetching next page`);
-        cursor = response.cursor || undefined;
-
-        // Critical: If this was the last page, must emit completion cursor even with zero data
-        // Otherwise importer never receives "complete" signal and will retry same page forever
-        if (!cursor) {
-          const cursorState = buildCursorState({
-            transactions: mappedBatch, // Use pre-dedup batch to extract cursor info
-            extractCursors: (tx) => this.extractCursors(tx),
-            totalFetched,
-            providerName: this.name,
-            pageToken: undefined,
-            isComplete: true,
-          });
-
-          yield ok({
-            data: [], // Empty data but with completion cursor
-            cursor: cursorState,
-          });
-          break;
-        }
-        continue;
-      }
-
-      totalFetched += mappedTransactions.length;
-
-      // Build cursor state using utility
-      const cursorState = buildCursorState({
-        transactions: mappedTransactions,
-        extractCursors: (tx) => this.extractCursors(tx),
-        totalFetched,
-        providerName: this.name,
-        pageToken: response.cursor || undefined,
-        isComplete: !response.cursor,
-      });
-
-      // Yield Result-wrapped batch
-      yield ok({
-        data: mappedTransactions,
-        cursor: cursorState,
-      });
-
-      cursor = response.cursor || undefined;
-      if (!cursor) break;
-    }
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 500,
+      logger: this.logger,
+    });
   }
 
-  private async *streamAddressTokenTransactions(
+  private streamAddressTokenTransactions(
     address: string,
     contractAddress?: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
-    let totalFetched = resumeCursor?.totalFetched || 0;
-
-    // Manager has already resolved the cursor - just extract the value
-    // Provider simply trusts the cursor it receives is already translated/adjusted
-    let cursor =
-      resumeCursor?.primary.type === 'pageToken' && resumeCursor.primary.providerName === this.name
-        ? resumeCursor.primary.value
-        : undefined;
-    const fromBlock = resumeCursor?.primary.type === 'blockNumber' ? String(resumeCursor.primary.value) : undefined;
-
-    // Use bounded deduplication window sized to replay window
-    // 5 blocks * ~100 txs/block = ~500 transactions
-    const DEDUP_WINDOW_SIZE = 500;
-    const dedupWindow = createDeduplicationWindow(
-      resumeCursor?.lastTransactionId ? [resumeCursor.lastTransactionId] : []
-    );
-
-    while (true) {
+    const fetchPage = async (
+      ctx: StreamingPageContext
+    ): Promise<Result<StreamingPage<MoralisTokenTransfer>, Error>> => {
       const params = new URLSearchParams({
         chain: this.moralisChainId,
         limit: '100',
@@ -643,12 +572,12 @@ export class MoralisApiClient extends BaseApiClient {
         params.append('contract_addresses[]', contractAddress);
       }
 
-      if (cursor) {
-        params.append('cursor', cursor);
+      if (ctx.pageToken) {
+        params.append('cursor', ctx.pageToken);
       }
 
-      if (fromBlock) {
-        params.append('from_block', fromBlock);
+      if (ctx.replayedCursor?.type === 'blockNumber') {
+        params.append('from_block', String(ctx.replayedCursor.value));
       }
 
       const endpoint = `/${address}/erc20/transfers?${params.toString()}`;
@@ -658,84 +587,41 @@ export class MoralisApiClient extends BaseApiClient {
         this.logger.error(
           `Failed to fetch token transactions for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
         );
-        yield err(result.error);
-        return;
+        return err(result.error);
       }
 
       const response = result.value;
-      const rawTransfers = response.result || [];
+      return ok({
+        items: response.result || [],
+        nextPageToken: response.cursor ?? undefined,
+        isComplete: !response.cursor,
+      });
+    };
 
-      if (rawTransfers.length === 0) break;
-
-      // Map transactions
-      const mappedBatch: TransactionWithRawData<EvmTransaction>[] = [];
-      for (const rawTx of rawTransfers) {
-        const mapResult = mapMoralisTokenTransfer(rawTx, {});
-
-        if (mapResult.isErr()) {
-          const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+    return createStreamingIterator<MoralisTokenTransfer, EvmTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTokenTransactions', address, contractAddress },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapMoralisTokenTransfer(raw, {});
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(
             `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
           );
-          yield err(new Error(`Provider data validation failed: ${errorMessage}`));
-          return;
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 
-        mappedBatch.push({
-          raw: rawTx,
-          normalized: mapResult.value,
+        return ok({
+          raw,
+          normalized: mapped.value,
         });
-      }
-
-      // Deduplicate using bounded window
-      const mappedTransactions = deduplicateTransactions(mappedBatch, dedupWindow, DEDUP_WINDOW_SIZE);
-
-      // If all transactions were deduplicated, check if we still need to emit completion cursor
-      if (mappedTransactions.length === 0) {
-        this.logger.debug(`All ${rawTransfers.length} token transfers in batch were duplicates, fetching next page`);
-        cursor = response.cursor || undefined;
-
-        // Critical: If this was the last page, must emit completion cursor even with zero data
-        // Otherwise importer never receives "complete" signal and will retry same page forever
-        if (!cursor) {
-          const cursorState = buildCursorState({
-            transactions: mappedBatch, // Use pre-dedup batch to extract cursor info
-            extractCursors: (tx) => this.extractCursors(tx),
-            totalFetched,
-            providerName: this.name,
-            pageToken: undefined,
-            isComplete: true,
-          });
-
-          yield ok({
-            data: [], // Empty data but with completion cursor
-            cursor: cursorState,
-          });
-          break;
-        }
-        continue;
-      }
-
-      totalFetched += mappedTransactions.length;
-
-      // Build cursor state using utility
-      const cursorState = buildCursorState({
-        transactions: mappedTransactions,
-        extractCursors: (tx) => this.extractCursors(tx),
-        totalFetched,
-        providerName: this.name,
-        pageToken: response.cursor || undefined,
-        isComplete: !response.cursor,
-      });
-
-      // Yield Result-wrapped batch
-      yield ok({
-        data: mappedTransactions,
-        cursor: cursorState,
-      });
-
-      cursor = response.cursor || undefined;
-      if (!cursor) break;
-    }
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 500,
+      logger: this.logger,
+    });
   }
 }

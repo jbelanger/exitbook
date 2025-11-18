@@ -7,6 +7,7 @@ import { getLogger } from '@exitbook/logger';
 import { err, errAsync, ok, type Result } from 'neverthrow';
 
 import { ProviderRegistry } from '../registry/provider-registry.js';
+import { createStreamingIterator, type StreamingAdapterOptions } from '../streaming/streaming-adapter.js';
 import type {
   IBlockchainProvider,
   ProviderCapabilities,
@@ -455,6 +456,34 @@ export abstract class BaseApiClient implements IBlockchainProvider {
 
   get rateLimit(): RateLimitConfig {
     return this.metadata.defaultConfig.rateLimit;
+  }
+
+  /**
+   * Convenience wrapper around the shared streaming adapter. Providers can call
+   * this to reuse the standardized pagination/dedup/replay/cursor handling while
+   * only supplying fetch + map logic. Keeps inheritance consumers ergonomic while
+   * preserving the standalone helper as the single source of truth.
+   */
+  protected streamWithPagination<Raw, Tx extends { id: string }>(
+    config: Omit<
+      StreamingAdapterOptions<Raw, Tx>,
+      'providerName' | 'logger' | 'extractCursors' | 'applyReplayWindow'
+    > & {
+      applyReplayWindow?: ((cursor: PaginationCursor) => PaginationCursor) | undefined;
+      extractCursors?: ((tx: Tx) => PaginationCursor[]) | undefined;
+    }
+  ): AsyncIterableIterator<Result<StreamingBatchResult<Tx>, Error>> {
+    const extractCursors = config.extractCursors ?? ((tx: Tx) => this.extractCursors(tx as unknown as never));
+    const applyReplayWindow =
+      config.applyReplayWindow ?? ((cursor: PaginationCursor) => this.applyReplayWindow(cursor));
+
+    return createStreamingIterator<Raw, Tx>({
+      ...config,
+      providerName: this.name,
+      logger: this.logger,
+      extractCursors,
+      applyReplayWindow,
+    });
   }
 
   /**

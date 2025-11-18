@@ -17,6 +17,14 @@ export const PaginationCursorSchema = z.discriminatedUnion('type', [
     value: z.string().min(1),
   }),
   z.object({
+    type: z.literal('slot'),
+    value: z.number().int().nonnegative(),
+  }),
+  z.object({
+    type: z.literal('signature'),
+    value: z.string().min(1),
+  }),
+  z.object({
     type: z.literal('pageToken'),
     value: z.string().min(1),
     providerName: z.string().min(1),
