@@ -78,8 +78,17 @@ export const TatumBitcoinOutputSchema = z.object({
  */
 export const TatumBitcoinTransactionSchema = z
   .object({
-    block: z.string(),
-    blockNumber: z.number().nonnegative(),
+    block: z
+      .string()
+      .nullable()
+      .optional()
+      .transform((val) => val ?? undefined),
+    blockNumber: z
+      .number()
+      .nonnegative()
+      .nullable()
+      .optional()
+      .transform((val) => val ?? undefined),
     fee: DecimalStringSchema,
     hash: z.string().min(1, 'Transaction hash must not be empty'),
     hex: z.string(),
