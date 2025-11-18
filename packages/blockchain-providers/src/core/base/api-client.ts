@@ -463,6 +463,12 @@ export abstract class BaseApiClient implements IBlockchainProvider {
    * this to reuse the standardized pagination/dedup/replay/cursor handling while
    * only supplying fetch + map logic. Keeps inheritance consumers ergonomic while
    * preserving the standalone helper as the single source of truth.
+   *
+   * Use cases:
+   * - Simple providers: call streamWithPagination and provide fetchPage/mapItem.
+   * - Complex pagination (Solana/NEAR/Subscan): also pass derivePageParams to
+   *   translate persisted CursorState into the provider’s pagination dialect
+   *   (signatures, page numbers, before/slot, etc.).
    */
   protected streamWithPagination<Raw, Tx extends { id: string }>(
     config: Omit<

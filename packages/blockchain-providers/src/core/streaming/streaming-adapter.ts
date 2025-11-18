@@ -6,16 +6,30 @@ import { createDeduplicationWindow, deduplicateTransactions } from '../provider-
 import type { StreamingBatchResult, TransactionWithRawData } from '../types/index.js';
 import { buildCursorState } from '../utils/cursor-utils.js';
 
+/**
+ * Generic shape for a provider page.
+ * - items: raw items to be mapped later by mapItem
+ * - nextPageToken: opaque token when the provider offers one
+ * - isComplete: explicit signal that no further pages exist (even if the
+ *   provider does not return a nextPageToken). Prefer setting this for APIs
+ *   that return a final empty page or signal completion via HTTP status.
+ */
 export interface StreamingPage<Raw> {
   items: Raw[];
   nextPageToken?: string | null | undefined;
-  /**
-   * Explicit completion flag when the provider can determine final page
-   * regardless of `nextPageToken` value.
-   */
   isComplete?: boolean | undefined;
 }
 
+/**
+ * Context passed into fetchPage on every iteration. Use this to express your
+ * pagination dialect:
+ * - pageToken: opaque token from previous page
+ * - replayedCursor: primary cursor after replay window was applied (block,
+ *   timestamp, slot, signature, etc.)
+ * - resumeCursor: full persisted cursor if you need alternatives/metadata
+ * - pageNumber: zero-based index (convenient for page-numbered APIs like
+ *   Subscan or NearBlocks, and for logging/backoff decisions)
+ */
 export interface StreamingPageContext {
   pageToken?: string | undefined;
   replayedCursor?: PaginationCursor | undefined;
@@ -23,6 +37,20 @@ export interface StreamingPageContext {
   pageNumber: number;
 }
 
+/**
+ * Configuration for the streaming adapter. Supply only provider-specific
+ * pieces; the adapter owns the loop, dedup, cursor-state building, and replay.
+ *
+ * Key hooks for complex providers:
+ * - fetchPage: perform the HTTP/RPC call; read ctx.replayedCursor/pageToken to
+ *   build params (e.g., Solana `before`=signature, EVM `from_block`, NEAR
+ *   `page`). Return raw items plus nextPageToken/isComplete.
+ * - derivePageParams: translate persisted CursorState into your pagination
+ *   dialect (page numbers from timestamp cursor, Solana signature from slot or
+ *   timestamp). The return merges into the context before fetchPage runs.
+ * - applyReplayWindow: adjust primary cursor before use (block-5, slot-2,
+ *   timestamp-5min). Optional if replay is meaningless for the cursor type.
+ */
 export interface StreamingAdapterOptions<Raw, Tx> {
   providerName: string;
   operation: ProviderOperation;
