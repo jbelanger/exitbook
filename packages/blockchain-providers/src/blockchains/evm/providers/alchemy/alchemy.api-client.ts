@@ -14,16 +14,23 @@
  * ╚═══════════════════════════════════════════════════════════════════════════════╝
  */
 
+import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { HttpClient } from '@exitbook/http';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig } from '../../../../core/index.js';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../../core/streaming/streaming-adapter.js';
 import type {
   ProviderOperation,
   JsonRpcResponse,
   RawBalanceData,
+  StreamingBatchResult,
   TransactionWithRawData,
 } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
@@ -54,6 +61,9 @@ import {
       'getAddressBalances',
       'getAddressTokenBalances',
     ],
+    supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
+    preferredCursorType: 'pageToken',
+    replayWindow: { blocks: 5 },
   },
   defaultConfig: {
     rateLimit: {
@@ -144,6 +154,36 @@ export class AlchemyApiClient extends BaseApiClient {
     });
   }
 
+  extractCursors(transaction: EvmTransaction): PaginationCursor[] {
+    const cursors: PaginationCursor[] = [];
+
+    if (transaction.blockHeight !== undefined) {
+      cursors.push({ type: 'blockNumber', value: transaction.blockHeight });
+    }
+
+    if (transaction.timestamp) {
+      cursors.push({
+        type: 'timestamp',
+        value: transaction.timestamp,
+      });
+    }
+
+    return cursors;
+  }
+
+  applyReplayWindow(cursor: PaginationCursor): PaginationCursor {
+    const replayWindow = this.capabilities.replayWindow;
+    if (!replayWindow || cursor.type !== 'blockNumber') return cursor;
+
+    return {
+      type: 'blockNumber',
+      value: Math.max(0, cursor.value - (replayWindow.blocks || 0)),
+    };
+  }
+
+  /**
+   * @deprecated Use executeStreaming instead
+   */
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
@@ -177,6 +217,34 @@ export class AlchemyApiClient extends BaseApiClient {
       }
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
+    }
+  }
+
+  async *executeStreaming<T>(
+    operation: ProviderOperation,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
+    // Route to appropriate streaming implementation
+    switch (operation.type) {
+      case 'getAddressTransactions':
+        yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      case 'getAddressTokenTransactions':
+        yield* this.streamAddressTokenTransactions(
+          operation.address,
+          operation.contractAddress,
+          resumeCursor
+        ) as AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>>;
+        break;
+      case 'getAddressInternalTransactions':
+        yield* this.streamAddressInternalTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      default:
+        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
     }
   }
 
@@ -633,5 +701,387 @@ export class AlchemyApiClient extends BaseApiClient {
       `Successfully retrieved and normalized token transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
     );
     return ok(transactions);
+  }
+
+  private streamAddressTransactions(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
+    const baseParams: AlchemyAssetTransferParams = {
+      category: ['external'],
+      excludeZeroValue: false,
+      fromBlock: '0x0',
+      maxCount: '0x3e8', // 1000 in hex
+      toBlock: 'latest',
+      withMetadata: true,
+    };
+
+    const fetchPage = async (
+      ctx: StreamingPageContext
+    ): Promise<Result<StreamingPage<AlchemyAssetTransfer>, Error>> => {
+      // Determine if we're fetching FROM or TO transfers based on pageToken
+      // For simplicity, we'll fetch both FROM and TO in separate iterations
+      // This is a limitation of Alchemy's API design
+      const fromParams: AlchemyAssetTransferParams = {
+        ...baseParams,
+        fromAddress: address,
+      };
+      const toParams: AlchemyAssetTransferParams = {
+        ...baseParams,
+        toAddress: address,
+      };
+
+      const { from: fromPageKey, to: toPageKey } = this.parseDualPageToken(ctx.pageToken);
+      if (fromPageKey) {
+        fromParams.pageKey = fromPageKey;
+      }
+      if (toPageKey) {
+        toParams.pageKey = toPageKey;
+      }
+
+      // Fetch FROM transfers
+      const fromResult = await this.httpClient.post(
+        `/${this.apiKey}`,
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'alchemy_getAssetTransfers',
+          params: [fromParams],
+        },
+        { schema: AlchemyAssetTransfersJsonRpcResponseSchema }
+      );
+
+      if (fromResult.isErr()) {
+        this.logger.error(
+          `Failed to fetch FROM asset transfers for ${maskAddress(address)} - Error: ${getErrorMessage(fromResult.error)}`
+        );
+        return err(fromResult.error);
+      }
+
+      // Fetch TO transfers
+      const toResult = await this.httpClient.post(
+        `/${this.apiKey}`,
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'alchemy_getAssetTransfers',
+          params: [toParams],
+        },
+        { schema: AlchemyAssetTransfersJsonRpcResponseSchema }
+      );
+
+      if (toResult.isErr()) {
+        this.logger.error(
+          `Failed to fetch TO asset transfers for ${maskAddress(address)} - Error: ${getErrorMessage(toResult.error)}`
+        );
+        return err(toResult.error);
+      }
+
+      const fromTransfers = fromResult.value.result?.transfers || [];
+      const toTransfers = toResult.value.result?.transfers || [];
+      const allTransfers = [...fromTransfers, ...toTransfers];
+
+      const nextFromKey = fromResult.value.result?.pageKey || undefined;
+      const nextToKey = toResult.value.result?.pageKey || undefined;
+      const nextPageToken = this.buildDualPageToken(nextFromKey, nextToKey);
+
+      return ok({
+        items: allTransfers,
+        nextPageToken,
+        isComplete: !nextFromKey && !nextToKey,
+      });
+    };
+
+    return createStreamingIterator<AlchemyAssetTransfer, EvmTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapAlchemyTransaction(raw, {});
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok({
+          raw,
+          normalized: mapped.value,
+        });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 500,
+      logger: this.logger,
+    });
+  }
+
+  private streamAddressInternalTransactions(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
+    const baseParams: AlchemyAssetTransferParams = {
+      category: ['internal'],
+      excludeZeroValue: false,
+      fromBlock: '0x0',
+      maxCount: '0x3e8', // 1000 in hex
+      toBlock: 'latest',
+      withMetadata: true,
+    };
+
+    const fetchPage = async (
+      ctx: StreamingPageContext
+    ): Promise<Result<StreamingPage<AlchemyAssetTransfer>, Error>> => {
+      const fromParams: AlchemyAssetTransferParams = {
+        ...baseParams,
+        fromAddress: address,
+      };
+      const toParams: AlchemyAssetTransferParams = {
+        ...baseParams,
+        toAddress: address,
+      };
+
+      const { from: fromPageKey, to: toPageKey } = this.parseDualPageToken(ctx.pageToken);
+      if (fromPageKey) {
+        fromParams.pageKey = fromPageKey;
+      }
+      if (toPageKey) {
+        toParams.pageKey = toPageKey;
+      }
+
+      // Fetch FROM transfers
+      const fromResult = await this.httpClient.post(
+        `/${this.apiKey}`,
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'alchemy_getAssetTransfers',
+          params: [fromParams],
+        },
+        { schema: AlchemyAssetTransfersJsonRpcResponseSchema }
+      );
+
+      if (fromResult.isErr()) {
+        this.logger.error(
+          `Failed to fetch FROM internal transfers for ${maskAddress(address)} - Error: ${getErrorMessage(fromResult.error)}`
+        );
+        return err(fromResult.error);
+      }
+
+      // Fetch TO transfers
+      const toResult = await this.httpClient.post(
+        `/${this.apiKey}`,
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'alchemy_getAssetTransfers',
+          params: [toParams],
+        },
+        { schema: AlchemyAssetTransfersJsonRpcResponseSchema }
+      );
+
+      if (toResult.isErr()) {
+        this.logger.error(
+          `Failed to fetch TO internal transfers for ${maskAddress(address)} - Error: ${getErrorMessage(toResult.error)}`
+        );
+        return err(toResult.error);
+      }
+
+      const fromTransfers = fromResult.value.result?.transfers || [];
+      const toTransfers = toResult.value.result?.transfers || [];
+      const allTransfers = [...fromTransfers, ...toTransfers];
+
+      const nextFromKey = fromResult.value.result?.pageKey || undefined;
+      const nextToKey = toResult.value.result?.pageKey || undefined;
+      const nextPageToken = this.buildDualPageToken(nextFromKey, nextToKey);
+
+      return ok({
+        items: allTransfers,
+        nextPageToken,
+        isComplete: !nextFromKey && !nextToKey,
+      });
+    };
+
+    return createStreamingIterator<AlchemyAssetTransfer, EvmTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressInternalTransactions', address },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapAlchemyTransaction(raw, {});
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok({
+          raw,
+          normalized: mapped.value,
+        });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 500,
+      logger: this.logger,
+    });
+  }
+
+  private streamAddressTokenTransactions(
+    address: string,
+    contractAddress?: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
+    const baseParams: AlchemyAssetTransferParams = {
+      category: ['erc20', 'erc721', 'erc1155'],
+      excludeZeroValue: false,
+      fromBlock: '0x0',
+      maxCount: '0x3e8', // 1000 in hex
+      toBlock: 'latest',
+      withMetadata: true,
+    };
+
+    if (contractAddress) {
+      baseParams.contractAddresses = [contractAddress];
+    }
+
+    const fetchPage = async (
+      ctx: StreamingPageContext
+    ): Promise<Result<StreamingPage<AlchemyAssetTransfer>, Error>> => {
+      const fromParams: AlchemyAssetTransferParams = {
+        ...baseParams,
+        fromAddress: address,
+      };
+      const toParams: AlchemyAssetTransferParams = {
+        ...baseParams,
+        toAddress: address,
+      };
+
+      const { from: fromPageKey, to: toPageKey } = this.parseDualPageToken(ctx.pageToken);
+      if (fromPageKey) {
+        fromParams.pageKey = fromPageKey;
+      }
+      if (toPageKey) {
+        toParams.pageKey = toPageKey;
+      }
+
+      // Fetch FROM transfers
+      const fromResult = await this.httpClient.post(
+        `/${this.apiKey}`,
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'alchemy_getAssetTransfers',
+          params: [fromParams],
+        },
+        { schema: AlchemyAssetTransfersJsonRpcResponseSchema }
+      );
+
+      if (fromResult.isErr()) {
+        this.logger.error(
+          `Failed to fetch FROM token transfers for ${maskAddress(address)} - Error: ${getErrorMessage(fromResult.error)}`
+        );
+        return err(fromResult.error);
+      }
+
+      // Fetch TO transfers
+      const toResult = await this.httpClient.post(
+        `/${this.apiKey}`,
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'alchemy_getAssetTransfers',
+          params: [toParams],
+        },
+        { schema: AlchemyAssetTransfersJsonRpcResponseSchema }
+      );
+
+      if (toResult.isErr()) {
+        this.logger.error(
+          `Failed to fetch TO token transfers for ${maskAddress(address)} - Error: ${getErrorMessage(toResult.error)}`
+        );
+        return err(toResult.error);
+      }
+
+      const fromTransfers = fromResult.value.result?.transfers || [];
+      const toTransfers = toResult.value.result?.transfers || [];
+      const allTransfers = [...fromTransfers, ...toTransfers];
+
+      const nextFromKey = fromResult.value.result?.pageKey || undefined;
+      const nextToKey = toResult.value.result?.pageKey || undefined;
+      const nextPageToken = this.buildDualPageToken(nextFromKey, nextToKey);
+
+      return ok({
+        items: allTransfers,
+        nextPageToken,
+        isComplete: !nextFromKey && !nextToKey,
+      });
+    };
+
+    return createStreamingIterator<AlchemyAssetTransfer, EvmTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTokenTransactions', address, contractAddress },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapAlchemyTransaction(raw, {});
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok({
+          raw,
+          normalized: mapped.value,
+        });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 500,
+      logger: this.logger,
+    });
+  }
+
+  /**
+   * Decode combined pageToken used to track independent FROM/TO pagination.
+   * Supports both the JSON-encoded format introduced for streaming and the
+   * legacy single-token format (treated as FROM-only).
+   */
+  private parseDualPageToken(token?: string): { from?: string; to?: string } {
+    if (!token) return {};
+
+    try {
+      const parsed = JSON.parse(token) as { from?: string | null; to?: string | null };
+      const result: { from?: string; to?: string } = {};
+      if (parsed.from) result.from = parsed.from;
+      if (parsed.to) result.to = parsed.to;
+      return result;
+    } catch {
+      const parts = token.split(':::');
+      if (parts.length === 2) {
+        const result: { from?: string; to?: string } = {};
+        if (parts[0]) result.from = parts[0];
+        if (parts[1]) result.to = parts[1];
+        return result;
+      }
+      return { from: token };
+    }
+  }
+
+  /**
+   * Encode FROM/TO pageKeys into a single pageToken string for the adapter.
+   * Returns undefined when both directions are exhausted.
+   */
+  private buildDualPageToken(fromKey?: string | null, toKey?: string | null): string | undefined {
+    if (!fromKey && !toKey) return undefined;
+    return JSON.stringify({ from: fromKey ?? undefined, to: toKey ?? undefined });
   }
 }
