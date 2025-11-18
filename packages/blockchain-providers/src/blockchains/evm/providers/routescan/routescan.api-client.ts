@@ -1,3 +1,4 @@
+import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { ServiceError } from '@exitbook/http';
 import { err, ok, type Result } from 'neverthrow';
@@ -5,7 +6,12 @@ import { err, ok, type Result } from 'neverthrow';
 import { BaseApiClient } from '../../../../core/base/api-client.js';
 import type { ProviderConfig, ProviderOperation } from '../../../../core/index.js';
 import { RegisterApiClient } from '../../../../core/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../core/types/index.js';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../../core/streaming/streaming-adapter.js';
+import type { RawBalanceData, StreamingBatchResult, TransactionWithRawData } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
@@ -83,6 +89,9 @@ const CHAIN_ID_MAP: Record<string, number> = {
       'getAddressTransactions',
       'getAddressTokenTransactions',
     ],
+    supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
+    preferredCursorType: 'pageToken',
+    replayWindow: { blocks: 5 },
   },
   defaultConfig: {
     rateLimit: {
@@ -131,6 +140,36 @@ export class RoutescanApiClient extends BaseApiClient {
     );
   }
 
+  extractCursors(transaction: EvmTransaction): PaginationCursor[] {
+    const cursors: PaginationCursor[] = [];
+
+    if (transaction.blockHeight !== undefined) {
+      cursors.push({ type: 'blockNumber', value: transaction.blockHeight });
+    }
+
+    if (transaction.timestamp) {
+      cursors.push({
+        type: 'timestamp',
+        value: transaction.timestamp,
+      });
+    }
+
+    return cursors;
+  }
+
+  applyReplayWindow(cursor: PaginationCursor): PaginationCursor {
+    const replayWindow = this.capabilities.replayWindow;
+    if (!replayWindow || cursor.type !== 'blockNumber') return cursor;
+
+    return {
+      type: 'blockNumber',
+      value: Math.max(0, cursor.value - (replayWindow.blocks || 0)),
+    };
+  }
+
+  /**
+   * @deprecated Use executeStreaming instead
+   */
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
@@ -157,6 +196,34 @@ export class RoutescanApiClient extends BaseApiClient {
         })) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
+    }
+  }
+
+  async *executeStreaming<T>(
+    operation: ProviderOperation,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
+    // Route to appropriate streaming implementation
+    switch (operation.type) {
+      case 'getAddressTransactions':
+        yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      case 'getAddressTokenTransactions':
+        yield* this.streamAddressTokenTransactions(
+          operation.address,
+          operation.contractAddress,
+          resumeCursor
+        ) as AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>>;
+        break;
+      case 'getAddressInternalTransactions':
+        yield* this.streamAddressInternalTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      default:
+        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
     }
   }
 
@@ -542,5 +609,343 @@ export class RoutescanApiClient extends BaseApiClient {
       `Successfully retrieved and normalized ${transactionType} - Address: ${maskAddress(address)}, Count: ${transactions.length}`
     );
     return ok(transactions);
+  }
+
+  private streamAddressTransactions(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
+    const fetchPage = async (
+      ctx: StreamingPageContext
+    ): Promise<Result<StreamingPage<RoutescanTransaction>, Error>> => {
+      // Parse page token to extract page number
+      const page = ctx.pageToken ? parseInt(ctx.pageToken, 10) : 1;
+
+      // API constraint: page * offset <= 10000
+      const maxOffset = Math.floor(10000 / page);
+      if (maxOffset < 1) {
+        // Reached pagination limit
+        return ok({
+          items: [],
+          nextPageToken: undefined,
+          isComplete: true,
+        });
+      }
+
+      const params = new URLSearchParams({
+        action: 'txlist',
+        address: address,
+        endblock: '99999999',
+        module: 'account',
+        offset: maxOffset.toString(),
+        page: page.toString(),
+        sort: 'asc',
+        startblock: '0',
+      });
+
+      // Apply replay window from cursor if provided
+      if (ctx.replayedCursor?.type === 'blockNumber') {
+        params.set('startblock', String(ctx.replayedCursor.value));
+      }
+
+      if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
+        params.append('apikey', this.apiKey);
+      }
+
+      const result = await this.httpClient.get(`?${params.toString()}`, {
+        schema: RoutescanTransactionsResponseSchema,
+      });
+
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch transactions for ${maskAddress(address)} page ${page} - Error: ${getErrorMessage(result.error)}`
+        );
+        return err(result.error);
+      }
+
+      const res = result.value;
+
+      if (res.status !== '1') {
+        // No transactions found is a valid completion state
+        if (res.message === 'No transactions found') {
+          return ok({
+            items: [],
+            nextPageToken: undefined,
+            isComplete: true,
+          });
+        }
+        return err(new ServiceError(`Routescan API error: ${res.message}`, this.name, 'streamAddressTransactions'));
+      }
+
+      // Handle case where result is a string (error message) instead of array
+      if (typeof res.result === 'string') {
+        return err(new ServiceError(`Routescan API error: ${res.result}`, this.name, 'streamAddressTransactions'));
+      }
+
+      const transactions = res.result || [];
+      const hasMore = transactions.length >= maxOffset;
+      const nextPageToken = hasMore ? String(page + 1) : undefined;
+
+      return ok({
+        items: transactions,
+        nextPageToken,
+        isComplete: !hasMore,
+      });
+    };
+
+    return createStreamingIterator<RoutescanTransaction, EvmTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapRoutescanTransaction(raw, {}, this.chainConfig.nativeCurrency);
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok({
+          raw,
+          normalized: mapped.value,
+        });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 500,
+      logger: this.logger,
+    });
+  }
+
+  private streamAddressInternalTransactions(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
+    const fetchPage = async (
+      ctx: StreamingPageContext
+    ): Promise<Result<StreamingPage<RoutescanInternalTransaction>, Error>> => {
+      // Parse page token to extract page number
+      const page = ctx.pageToken ? parseInt(ctx.pageToken, 10) : 1;
+
+      // API constraint: page * offset <= 10000
+      const maxOffset = Math.floor(10000 / page);
+      if (maxOffset < 1) {
+        // Reached pagination limit
+        return ok({
+          items: [],
+          nextPageToken: undefined,
+          isComplete: true,
+        });
+      }
+
+      const params = new URLSearchParams({
+        action: 'txlistinternal',
+        address: address,
+        endblock: '99999999',
+        module: 'account',
+        offset: maxOffset.toString(),
+        page: page.toString(),
+        sort: 'asc',
+        startblock: '0',
+      });
+
+      // Apply replay window from cursor if provided
+      if (ctx.replayedCursor?.type === 'blockNumber') {
+        params.set('startblock', String(ctx.replayedCursor.value));
+      }
+
+      if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
+        params.append('apikey', this.apiKey);
+      }
+
+      const result = await this.httpClient.get(`?${params.toString()}`, {
+        schema: RoutescanInternalTransactionsResponseSchema,
+      });
+
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch internal transactions for ${maskAddress(address)} page ${page} - Error: ${getErrorMessage(result.error)}`
+        );
+        return err(result.error);
+      }
+
+      const res = result.value;
+
+      if (res.status !== '1') {
+        // No transactions found is a valid completion state
+        if (res.message === 'No transactions found') {
+          return ok({
+            items: [],
+            nextPageToken: undefined,
+            isComplete: true,
+          });
+        }
+        return err(
+          new ServiceError(`Routescan API error: ${res.message}`, this.name, 'streamAddressInternalTransactions')
+        );
+      }
+
+      // Handle case where result is a string (error message) instead of array
+      if (typeof res.result === 'string') {
+        return err(
+          new ServiceError(`Routescan API error: ${res.result}`, this.name, 'streamAddressInternalTransactions')
+        );
+      }
+
+      const transactions = res.result || [];
+      const hasMore = transactions.length >= maxOffset;
+      const nextPageToken = hasMore ? String(page + 1) : undefined;
+
+      return ok({
+        items: transactions,
+        nextPageToken,
+        isComplete: !hasMore,
+      });
+    };
+
+    return createStreamingIterator<RoutescanInternalTransaction, EvmTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressInternalTransactions', address },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapRoutescanTransaction(raw, {}, this.chainConfig.nativeCurrency);
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok({
+          raw,
+          normalized: mapped.value,
+        });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 500,
+      logger: this.logger,
+    });
+  }
+
+  private streamAddressTokenTransactions(
+    address: string,
+    contractAddress?: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
+    const fetchPage = async (
+      ctx: StreamingPageContext
+    ): Promise<Result<StreamingPage<RoutescanTokenTransfer>, Error>> => {
+      // Parse page token to extract page number
+      const page = ctx.pageToken ? parseInt(ctx.pageToken, 10) : 1;
+
+      // API constraint: page * offset <= 10000
+      const maxOffset = Math.floor(10000 / page);
+      if (maxOffset < 1) {
+        // Reached pagination limit
+        return ok({
+          items: [],
+          nextPageToken: undefined,
+          isComplete: true,
+        });
+      }
+
+      const params = new URLSearchParams({
+        action: 'tokentx',
+        address: address,
+        endblock: '99999999',
+        module: 'account',
+        offset: maxOffset.toString(),
+        page: page.toString(),
+        sort: 'asc',
+        startblock: '0',
+      });
+
+      if (contractAddress) {
+        params.append('contractaddress', contractAddress);
+      }
+
+      // Apply replay window from cursor if provided
+      if (ctx.replayedCursor?.type === 'blockNumber') {
+        params.set('startblock', String(ctx.replayedCursor.value));
+      }
+
+      if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
+        params.append('apikey', this.apiKey);
+      }
+
+      const result = await this.httpClient.get(`?${params.toString()}`, {
+        schema: RoutescanTokenTransfersResponseSchema,
+      });
+
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch token transactions for ${maskAddress(address)} page ${page} - Error: ${getErrorMessage(result.error)}`
+        );
+        return err(result.error);
+      }
+
+      const res = result.value;
+
+      if (res.status !== '1') {
+        // No transactions found is a valid completion state
+        if (res.message === 'No transactions found') {
+          return ok({
+            items: [],
+            nextPageToken: undefined,
+            isComplete: true,
+          });
+        }
+        return err(
+          new ServiceError(`Routescan API error: ${res.message}`, this.name, 'streamAddressTokenTransactions')
+        );
+      }
+
+      // Handle case where result is a string (error message) instead of array
+      if (typeof res.result === 'string') {
+        return err(new ServiceError(`Routescan API error: ${res.result}`, this.name, 'streamAddressTokenTransactions'));
+      }
+
+      const transactions = res.result || [];
+      const hasMore = transactions.length >= maxOffset;
+      const nextPageToken = hasMore ? String(page + 1) : undefined;
+
+      return ok({
+        items: transactions,
+        nextPageToken,
+        isComplete: !hasMore,
+      });
+    };
+
+    return createStreamingIterator<RoutescanTokenTransfer, EvmTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTokenTransactions', address, contractAddress },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapRoutescanTransaction(raw, {}, this.chainConfig.nativeCurrency);
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok({
+          raw,
+          normalized: mapped.value,
+        });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 500,
+      logger: this.logger,
+    });
   }
 }
