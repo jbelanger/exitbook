@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/types/index.js';
+import type { RawBalanceData, StreamingBatchResult, TransactionWithRawData } from '../../../../../core/types/index.js';
 import type { EvmTransaction } from '../../../types.js';
 import { ThetaScanApiClient } from '../thetascan.api-client.js';
 
@@ -136,6 +136,83 @@ describe('ThetaScanApiClient Integration', () => {
       if (result.isOk()) {
         const transactions = result.value;
         expect(Array.isArray(transactions)).toBe(true);
+      }
+    }, 30000);
+  });
+
+  describe('Streaming Transactions', () => {
+    it('should stream address transactions successfully', async () => {
+      const batches: StreamingBatchResult<EvmTransaction>[] = [];
+
+      for await (const result of provider.executeStreaming<EvmTransaction>({
+        address: testAddress,
+        type: 'getAddressTransactions',
+      })) {
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          batches.push(result.value);
+        }
+      }
+
+      // ThetaScan should return at least one batch (even if empty)
+      expect(batches.length).toBeGreaterThan(0);
+
+      // Verify structure of batches
+      for (const batch of batches) {
+        expect(batch).toHaveProperty('data');
+        expect(batch).toHaveProperty('cursor');
+        expect(Array.isArray(batch.data)).toBe(true);
+
+        // Verify each transaction has the expected structure
+        for (const tx of batch.data) {
+          expect(tx).toHaveProperty('raw');
+          expect(tx).toHaveProperty('normalized');
+          expect(tx.normalized).toHaveProperty('id');
+          expect(tx.normalized).toHaveProperty('from');
+          expect(tx.normalized).toHaveProperty('to');
+          expect(tx.normalized).toHaveProperty('blockHeight');
+          expect(tx.normalized).toHaveProperty('timestamp');
+          expect(tx.normalized.providerName).toBe('thetascan');
+        }
+      }
+
+      // The final batch should be marked as complete
+      const lastBatch = batches[batches.length - 1];
+      expect(lastBatch?.cursor.metadata?.isComplete).toBe(true);
+    }, 30000);
+
+    it('should handle resuming from cursor (single-batch provider)', async () => {
+      const batches: StreamingBatchResult<EvmTransaction>[] = [];
+
+      // First, fetch all transactions
+      for await (const result of provider.executeStreaming<EvmTransaction>({
+        address: testAddress,
+        type: 'getAddressTransactions',
+      })) {
+        if (result.isOk()) {
+          batches.push(result.value);
+        }
+      }
+
+      // For ThetaScan (single-batch provider), resuming should yield no new data
+      if (batches.length > 0 && batches[0]) {
+        const cursor = batches[0].cursor;
+        const resumedBatches: StreamingBatchResult<EvmTransaction>[] = [];
+
+        for await (const result of provider.executeStreaming<EvmTransaction>(
+          {
+            address: testAddress,
+            type: 'getAddressTransactions',
+          },
+          cursor
+        )) {
+          if (result.isOk()) {
+            resumedBatches.push(result.value);
+          }
+        }
+
+        // Should still complete successfully (may return empty or same data)
+        expect(resumedBatches.length).toBeGreaterThan(0);
       }
     }, 30000);
   });

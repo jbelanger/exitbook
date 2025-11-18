@@ -1,9 +1,15 @@
+import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/index.js';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../core/types/index.js';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../../core/streaming/streaming-adapter.js';
+import type { RawBalanceData, StreamingBatchResult, TransactionWithRawData } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import type { EvmTransaction } from '../../types.js';
 
@@ -16,6 +22,9 @@ import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBala
   blockchain: 'theta',
   capabilities: {
     supportedOperations: ['getAddressBalances', 'getAddressTransactions', 'getAddressTokenBalances'],
+    supportedCursorTypes: ['blockNumber', 'timestamp'],
+    preferredCursorType: 'blockNumber',
+    replayWindow: { blocks: 5 },
   },
   defaultConfig: {
     rateLimit: {
@@ -38,6 +47,36 @@ export class ThetaScanApiClient extends BaseApiClient {
     super(config);
   }
 
+  extractCursors(transaction: EvmTransaction): PaginationCursor[] {
+    const cursors: PaginationCursor[] = [];
+
+    if (transaction.blockHeight !== undefined) {
+      cursors.push({ type: 'blockNumber', value: transaction.blockHeight });
+    }
+
+    if (transaction.timestamp) {
+      cursors.push({
+        type: 'timestamp',
+        value: transaction.timestamp,
+      });
+    }
+
+    return cursors;
+  }
+
+  applyReplayWindow(cursor: PaginationCursor): PaginationCursor {
+    const replayWindow = this.capabilities.replayWindow;
+    if (!replayWindow || cursor.type !== 'blockNumber') return cursor;
+
+    return {
+      type: 'blockNumber',
+      value: Math.max(0, cursor.value - (replayWindow.blocks || 0)),
+    };
+  }
+
+  /**
+   * @deprecated Use executeStreaming instead
+   */
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
@@ -59,6 +98,22 @@ export class ThetaScanApiClient extends BaseApiClient {
         })) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
+    }
+  }
+
+  async *executeStreaming<T>(
+    operation: ProviderOperation,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
+    // Route to appropriate streaming implementation
+    switch (operation.type) {
+      case 'getAddressTransactions':
+        yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      default:
+        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
     }
   }
 
@@ -252,5 +307,80 @@ export class ThetaScanApiClient extends BaseApiClient {
   private isValidEthAddress(address: string): boolean {
     const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
     return ethAddressRegex.test(address);
+  }
+
+  private streamAddressTransactions(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
+    const fetchPage = async (
+      ctx: StreamingPageContext
+    ): Promise<Result<StreamingPage<ThetaScanTransaction>, Error>> => {
+      // ThetaScan API does not support pagination - it returns all transactions in a single call
+      // We only fetch once and ignore any pageToken (should not be present)
+      if (ctx.pageToken) {
+        // If we have a pageToken, we've already fetched everything
+        return ok({
+          items: [],
+          nextPageToken: undefined,
+          isComplete: true,
+        });
+      }
+
+      const params = new URLSearchParams({
+        address: address,
+      });
+
+      const url = `/transactions/?${params.toString()}`;
+      this.logger.info(`ThetaScan API Request: ${this.baseUrl}${url}`);
+
+      const result = await this.httpClient.get(url);
+
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
+        );
+        return err(result.error);
+      }
+
+      // ThetaScan returns a direct array of transactions
+      const transactions = result.value as ThetaScanTransaction[];
+
+      this.logger.info(
+        `Fetched ${Array.isArray(transactions) ? transactions.length : 0} transactions from ThetaScan (single batch)`
+      );
+
+      return ok({
+        items: Array.isArray(transactions) ? transactions : [],
+        nextPageToken: undefined,
+        isComplete: true,
+      });
+    };
+
+    return createStreamingIterator<ThetaScanTransaction, EvmTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapThetaScanTransaction(raw, {});
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok({
+          raw,
+          normalized: mapped.value,
+        });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 500,
+      logger: this.logger,
+    });
   }
 }
