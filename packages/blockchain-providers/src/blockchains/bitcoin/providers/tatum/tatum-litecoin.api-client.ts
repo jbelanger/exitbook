@@ -1,3 +1,4 @@
+import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 import { z, type ZodSchema } from 'zod';
@@ -6,9 +7,15 @@ import type {
   ProviderConfig,
   ProviderOperation,
   RawBalanceData,
+  StreamingBatchResult,
   TransactionWithRawData,
 } from '../../../../core/index.js';
 import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../../core/streaming/streaming-adapter.js';
 import { calculateTatumBalance, createRawBalanceData } from '../../balance-utils.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../../chain-registry.js';
@@ -28,6 +35,9 @@ import {
   blockchain: 'litecoin',
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalances', 'hasAddressTransactions'],
+    supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
+    preferredCursorType: 'pageToken',
+    replayWindow: { blocks: 5 },
   },
   defaultConfig: {
     rateLimit: {
@@ -71,6 +81,36 @@ export class TatumLitecoinApiClient extends BaseApiClient {
     );
   }
 
+  extractCursors(transaction: BitcoinTransaction): PaginationCursor[] {
+    const cursors: PaginationCursor[] = [];
+
+    if (transaction.blockHeight !== undefined) {
+      cursors.push({ type: 'blockNumber', value: transaction.blockHeight });
+    }
+
+    if (transaction.timestamp) {
+      cursors.push({
+        type: 'timestamp',
+        value: transaction.timestamp,
+      });
+    }
+
+    return cursors;
+  }
+
+  applyReplayWindow(cursor: PaginationCursor): PaginationCursor {
+    const replayWindow = this.capabilities.replayWindow;
+    if (!replayWindow || cursor.type !== 'blockNumber') return cursor;
+
+    return {
+      type: 'blockNumber',
+      value: Math.max(0, cursor.value - (replayWindow.blocks || 0)),
+    };
+  }
+
+  /**
+   * @deprecated Use executeStreaming instead
+   */
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
@@ -85,6 +125,22 @@ export class TatumLitecoinApiClient extends BaseApiClient {
         return (await this.hasAddressTransactions(operation.address)) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
+    }
+  }
+
+  async *executeStreaming<T>(
+    operation: ProviderOperation,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
+    // Route to appropriate streaming implementation
+    switch (operation.type) {
+      case 'getAddressTransactions':
+        yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      default:
+        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
     }
   }
 
@@ -223,6 +279,79 @@ export class TatumLitecoinApiClient extends BaseApiClient {
         return response !== null && response !== undefined;
       },
     };
+  }
+
+  private streamAddressTransactions(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<BitcoinTransaction>, Error>> {
+    const pageSize = 50; // Tatum max page size
+
+    const fetchPage = async (
+      ctx: StreamingPageContext
+    ): Promise<Result<StreamingPage<TatumLitecoinTransaction>, Error>> => {
+      // Parse offset from pageToken (offset-based pagination)
+      const offset = ctx.pageToken ? parseInt(ctx.pageToken, 10) : 0;
+
+      const queryParams: Record<string, unknown> = {
+        offset,
+        pageSize,
+      };
+
+      // Apply replay window if we have a block cursor
+      if (ctx.replayedCursor?.type === 'blockNumber') {
+        queryParams.blockFrom = ctx.replayedCursor.value;
+      }
+
+      const result = await this.makeRequest<TatumLitecoinTransaction[]>(
+        `/transaction/address/${address}`,
+        queryParams,
+        z.array(TatumLitecoinTransactionSchema)
+      );
+
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch address transactions for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
+        );
+        return err(result.error);
+      }
+
+      const items = result.value;
+      const hasMore = items.length === pageSize;
+      const nextOffset = hasMore ? offset + pageSize : undefined;
+
+      return ok({
+        items,
+        nextPageToken: nextOffset !== undefined ? String(nextOffset) : undefined,
+        isComplete: !hasMore,
+      });
+    };
+
+    return createStreamingIterator<TatumLitecoinTransaction, BitcoinTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapTatumLitecoinTransaction(raw, {}, this.chainConfig);
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok({
+          raw,
+          normalized: mapped.value,
+        });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 500,
+      logger: this.logger,
+    });
   }
 
   /**
