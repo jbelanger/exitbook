@@ -32,6 +32,7 @@ import {
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
 import { calculateSimpleBalance, createRawBalanceData } from '../../balance-utils.js';
+import { BITCOIN_STREAMING_DEDUP_WINDOW } from '../../bitcoin-streaming.constants.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../../chain-registry.js';
 import type { BitcoinTransaction } from '../../schemas.js';
@@ -500,7 +501,7 @@ export class BlockCypherApiClient extends BaseApiClient {
       },
       extractCursors: (tx) => this.extractCursors(tx),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
-      dedupWindowSize: 500,
+      dedupWindowSize: BITCOIN_STREAMING_DEDUP_WINDOW,
       logger: this.logger,
     });
   }
