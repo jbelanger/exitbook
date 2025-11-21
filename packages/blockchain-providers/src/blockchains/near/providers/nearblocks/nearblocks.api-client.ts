@@ -706,6 +706,7 @@ export class NearBlocksApiClient extends BaseApiClient {
   /**
    * Stream address transactions with batch-level enrichment
    * Fetches transactions page by page, enriching each batch with activities and receipts
+   * Activities use cursor-based pagination to maintain consistency across batches
    */
   private streamAddressTransactions(
     address: string,
@@ -714,6 +715,8 @@ export class NearBlocksApiClient extends BaseApiClient {
     // Enrichment data maps shared across fetchPage and mapItem via closure
     let receiptsByTxHash = new Map<string, NearBlocksReceipt[]>();
     let activitiesByReceiptId = new Map<string, NearBlocksActivity[]>();
+    // Track activities cursor across batches (activities use cursor-based pagination)
+    let activitiesCursor: string | undefined = undefined;
 
     const fetchPage = async (
       ctx: StreamingPageContext
@@ -752,7 +755,7 @@ export class NearBlocksApiClient extends BaseApiClient {
       receiptsByTxHash = new Map<string, NearBlocksReceipt[]>();
       activitiesByReceiptId = new Map<string, NearBlocksActivity[]>();
 
-      // Fetch receipts for this page
+      // Fetch receipts for this page (page-based pagination)
       const receiptsResult = await this.httpClient.get(
         `/v1/account/${address}/receipts?page=${page}&per_page=${perPage}`,
         {
@@ -774,13 +777,26 @@ export class NearBlocksApiClient extends BaseApiClient {
         );
       }
 
-      // Fetch activities for this page
-      const activitiesResult = await this.httpClient.get(`/v1/account/${address}/activities?per_page=${perPage}`, {
+      // Fetch activities for this batch (cursor-based pagination)
+      // Activities API uses cursor, not page numbers
+      const activitiesUrl = activitiesCursor
+        ? `/v1/account/${address}/activities?cursor=${activitiesCursor}&per_page=${perPage}`
+        : `/v1/account/${address}/activities?per_page=${perPage}`;
+
+      const activitiesResult = await this.httpClient.get(activitiesUrl, {
         schema: NearBlocksActivitiesResponseSchema,
       });
 
       if (activitiesResult.isOk()) {
-        const sortedActivities = [...activitiesResult.value.activities].sort((a, b) => {
+        const activitiesData = activitiesResult.value;
+
+        // Update cursor for next batch
+        if (activitiesData.activities.length > 0) {
+          const lastActivity = activitiesData.activities[activitiesData.activities.length - 1];
+          activitiesCursor = lastActivity?.receipt_id ?? undefined;
+        }
+
+        const sortedActivities = [...activitiesData.activities].sort((a, b) => {
           const timestampA = BigInt(a.block_timestamp);
           const timestampB = BigInt(b.block_timestamp);
           return timestampA < timestampB ? -1 : timestampA > timestampB ? 1 : 0;
