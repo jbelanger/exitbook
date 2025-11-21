@@ -1,3 +1,4 @@
+import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -5,15 +6,25 @@ import type {
   ProviderConfig,
   ProviderOperation,
   RawBalanceData,
+  StreamingBatchResult,
   TransactionWithRawData,
 } from '../../../../core/index.js';
 import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../../core/streaming/streaming-adapter.js';
 import { calculateSimpleBalance, createRawBalanceData } from '../../balance-utils.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../../chain-registry.js';
 import type { BitcoinTransaction } from '../../schemas.js';
 
-import { BlockchainComAddressResponseSchema, type BlockchainComAddressResponse } from './blockchain-com.schemas.js';
+import {
+  BlockchainComAddressResponseSchema,
+  type BlockchainComAddressResponse,
+  type BlockchainComTransaction,
+} from './blockchain-com.schemas.js';
 import { mapBlockchainComTransaction } from './mapper-utils.js';
 
 @RegisterApiClient({
@@ -22,6 +33,9 @@ import { mapBlockchainComTransaction } from './mapper-utils.js';
   blockchain: 'bitcoin',
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalances', 'hasAddressTransactions'],
+    supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
+    preferredCursorType: 'pageToken',
+    replayWindow: { blocks: 6 },
   },
   defaultConfig: {
     rateLimit: {
@@ -53,6 +67,38 @@ export class BlockchainComApiClient extends BaseApiClient {
     this.logger.debug(`Initialized BlockchainComApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
 
+  extractCursors(transaction: BitcoinTransaction): PaginationCursor[] {
+    const cursors: PaginationCursor[] = [];
+
+    // Alternative cursor: block height
+    if (transaction.blockHeight !== undefined) {
+      cursors.push({ type: 'blockNumber', value: transaction.blockHeight });
+    }
+
+    // Alternative cursor: timestamp
+    if (transaction.timestamp) {
+      cursors.push({
+        type: 'timestamp',
+        value: transaction.timestamp,
+      });
+    }
+
+    return cursors;
+  }
+
+  applyReplayWindow(cursor: PaginationCursor): PaginationCursor {
+    const replayWindow = this.capabilities.replayWindow;
+    if (!replayWindow || cursor.type !== 'blockNumber') return cursor;
+
+    return {
+      type: 'blockNumber',
+      value: Math.max(0, cursor.value - (replayWindow.blocks || 0)),
+    };
+  }
+
+  /**
+   * @deprecated Use executeStreaming instead
+   */
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
@@ -73,6 +119,22 @@ export class BlockchainComApiClient extends BaseApiClient {
         })) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
+    }
+  }
+
+  async *executeStreaming<T>(
+    operation: ProviderOperation,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
+    // Route to appropriate streaming implementation
+    switch (operation.type) {
+      case 'getAddressTransactions':
+        yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      default:
+        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
     }
   }
 
@@ -197,5 +259,75 @@ export class BlockchainComApiClient extends BaseApiClient {
     );
 
     return ok(transactions);
+  }
+
+  private streamAddressTransactions(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<BitcoinTransaction>, Error>> {
+    const pageSize = 50; // Blockchain.com default/max page size
+
+    const fetchPage = async (
+      ctx: StreamingPageContext
+    ): Promise<Result<StreamingPage<BlockchainComTransaction>, Error>> => {
+      // Parse offset from pageToken (offset-based pagination)
+      const offset = ctx.pageToken ? parseInt(ctx.pageToken, 10) : 0;
+
+      const endpoint = `/rawaddr/${address}?limit=${pageSize}&offset=${offset}`;
+
+      const result = await this.httpClient.get<BlockchainComAddressResponse>(endpoint, {
+        schema: BlockchainComAddressResponseSchema,
+      });
+
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch address transactions for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
+        );
+        return err(result.error);
+      }
+
+      const addressData = result.value;
+      const items = addressData.txs || [];
+
+      // Sort by timestamp (newest first) to ensure consistent ordering
+      items.sort((a, b) => b.time - a.time);
+
+      // Blockchain.com returns up to 50 transactions per page
+      // If we get exactly pageSize transactions, there might be more
+      const hasMore = items.length === pageSize;
+      const nextOffset = hasMore ? offset + pageSize : undefined;
+
+      return ok({
+        items,
+        nextPageToken: nextOffset !== undefined ? String(nextOffset) : undefined,
+        isComplete: !hasMore,
+      });
+    };
+
+    return createStreamingIterator<BlockchainComTransaction, BitcoinTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapBlockchainComTransaction(raw, {}, this.chainConfig);
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok({
+          raw,
+          normalized: mapped.value,
+        });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 500,
+      logger: this.logger,
+    });
   }
 }
