@@ -1,0 +1,1 @@
+export const BITCOIN_STREAMING_DEDUP_WINDOW = 500;
