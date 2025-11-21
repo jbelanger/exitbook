@@ -1,10 +1,22 @@
+import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
+import { z } from 'zod';
 
 import { BaseApiClient } from '../../../core/base/api-client.js';
 import type { ProviderConfig } from '../../../core/index.js';
 import { RegisterApiClient } from '../../../core/index.js';
-import type { ProviderOperation, RawBalanceData, TransactionWithRawData } from '../../../core/types/index.js';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../core/streaming/streaming-adapter.js';
+import type {
+  ProviderOperation,
+  RawBalanceData,
+  StreamingBatchResult,
+  TransactionWithRawData,
+} from '../../../core/types/index.js';
 import { maskAddress } from '../../../core/utils/address-utils.js';
 import type { CardanoTransaction } from '../schemas.js';
 import { createRawBalanceData } from '../utils.js';
@@ -14,6 +26,7 @@ import type { BlockfrostTransactionHash, BlockfrostTransactionWithMetadata } fro
 import {
   BlockfrostAddressSchema,
   BlockfrostTransactionDetailsSchema,
+  BlockfrostTransactionHashSchema,
   BlockfrostTransactionUtxosSchema,
 } from './blockfrost.schemas.js';
 
@@ -36,6 +49,9 @@ import {
   blockchain: 'cardano',
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalances', 'hasAddressTransactions'],
+    supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
+    preferredCursorType: 'pageToken',
+    replayWindow: { blocks: 5 },
   },
   defaultConfig: {
     rateLimit: {
@@ -59,6 +75,36 @@ export class BlockfrostApiClient extends BaseApiClient {
     this.logger.debug(`Initialized BlockfrostApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
 
+  extractCursors(transaction: CardanoTransaction): PaginationCursor[] {
+    const cursors: PaginationCursor[] = [];
+
+    if (transaction.blockHeight !== undefined) {
+      cursors.push({ type: 'blockNumber', value: transaction.blockHeight });
+    }
+
+    if (transaction.timestamp) {
+      cursors.push({
+        type: 'timestamp',
+        value: transaction.timestamp,
+      });
+    }
+
+    return cursors;
+  }
+
+  applyReplayWindow(cursor: PaginationCursor): PaginationCursor {
+    const replayWindow = this.capabilities.replayWindow;
+    if (!replayWindow || cursor.type !== 'blockNumber') return cursor;
+
+    return {
+      type: 'blockNumber',
+      value: Math.max(0, cursor.value - (replayWindow.blocks || 0)),
+    };
+  }
+
+  /**
+   * @deprecated Use executeStreaming instead
+   */
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
@@ -80,6 +126,22 @@ export class BlockfrostApiClient extends BaseApiClient {
         })) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
+    }
+  }
+
+  async *executeStreaming<T>(
+    operation: ProviderOperation,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
+    // Route to appropriate streaming implementation
+    switch (operation.type) {
+      case 'getAddressTransactions':
+        yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      default:
+        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
     }
   }
 
@@ -385,5 +447,154 @@ export class BlockfrostApiClient extends BaseApiClient {
     }
 
     return ok(allTxHashes);
+  }
+
+  private streamAddressTransactions(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<CardanoTransaction>, Error>> {
+    // Use smaller page size to minimize API usage (each tx = 3 API calls: hash + details + utxos)
+    // 10 transactions = 31 API calls per batch (1 for hashes + 10 details + 10 utxos)
+    const pageSize = 10;
+
+    const fetchPage = async (
+      ctx: StreamingPageContext
+    ): Promise<Result<StreamingPage<BlockfrostTransactionWithMetadata>, Error>> => {
+      // Parse page number from pageToken (page-based pagination)
+      const page = ctx.pageToken ? parseInt(ctx.pageToken, 10) : 1;
+
+      // Build query parameters
+      const queryParams = new URLSearchParams({
+        order: 'desc',
+        count: String(pageSize),
+        page: String(page),
+      });
+
+      // Apply replay window if we have a block cursor
+      // Note: Blockfrost doesn't support filtering by block height in the transactions endpoint
+      // So we'll fetch all pages and filter in the streaming adapter via deduplication
+
+      const endpoint = `/addresses/${address}/transactions?${queryParams.toString()}`;
+
+      // Fetch transaction hashes for this page
+      const hashesResult = await this.httpClient.get<BlockfrostTransactionHash[]>(endpoint, {
+        headers: { project_id: this.apiKey },
+        schema: z.array(BlockfrostTransactionHashSchema),
+      });
+
+      if (hashesResult.isErr()) {
+        const errorMessage = getErrorMessage(hashesResult.error);
+
+        // BlockFrost returns 404 for addresses that have never been used on-chain
+        // Treat 404 as "no transactions" rather than an error
+        if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+          this.logger.debug(`Address has no transactions (404 response) - Address: ${maskAddress(address)}`);
+          return ok({
+            items: [],
+            nextPageToken: undefined,
+            isComplete: true,
+          });
+        }
+
+        this.logger.error(`Failed to fetch transaction hashes for ${maskAddress(address)} - Error: ${errorMessage}`);
+        return err(hashesResult.error);
+      }
+
+      const txHashes = hashesResult.value;
+
+      if (!Array.isArray(txHashes) || txHashes.length === 0) {
+        return ok({
+          items: [],
+          nextPageToken: undefined,
+          isComplete: true,
+        });
+      }
+
+      // For each transaction hash, fetch complete details and UTXO data
+      const transactions: BlockfrostTransactionWithMetadata[] = [];
+
+      for (const txHashEntry of txHashes) {
+        const txHash = txHashEntry.tx_hash;
+
+        // Fetch complete transaction details (including fees, block hash, status)
+        const detailsResult = await this.httpClient.get(`/txs/${txHash}`, {
+          headers: { project_id: this.apiKey },
+          schema: BlockfrostTransactionDetailsSchema,
+        });
+
+        if (detailsResult.isErr()) {
+          this.logger.error(
+            `Failed to fetch transaction details - TxHash: ${txHash}, Address: ${maskAddress(address)}, Error: ${getErrorMessage(detailsResult.error)}`
+          );
+          return err(detailsResult.error);
+        }
+
+        const txDetails = detailsResult.value;
+
+        // Fetch UTXO details for this transaction
+        const utxoResult = await this.httpClient.get(`/txs/${txHash}/utxos`, {
+          headers: { project_id: this.apiKey },
+          schema: BlockfrostTransactionUtxosSchema,
+        });
+
+        if (utxoResult.isErr()) {
+          this.logger.error(
+            `Failed to fetch UTXO data for transaction - TxHash: ${txHash}, Address: ${maskAddress(address)}, Error: ${getErrorMessage(utxoResult.error)}`
+          );
+          return err(utxoResult.error);
+        }
+
+        const rawUtxo = utxoResult.value;
+
+        // Combine UTXO data with transaction metadata
+        const combinedData: BlockfrostTransactionWithMetadata = {
+          ...rawUtxo,
+          block_height: txDetails.block_height,
+          block_time: txDetails.block_time,
+          block_hash: txDetails.block,
+          fees: txDetails.fees,
+          tx_index: txHashEntry.tx_index,
+          valid_contract: txDetails.valid_contract,
+        };
+
+        transactions.push(combinedData);
+      }
+
+      // If we got a full page, there might be more
+      const hasMore = txHashes.length === pageSize;
+      const nextPage = hasMore ? page + 1 : undefined;
+
+      return ok({
+        items: transactions,
+        nextPageToken: nextPage !== undefined ? String(nextPage) : undefined,
+        isComplete: !hasMore,
+      });
+    };
+
+    return createStreamingIterator<BlockfrostTransactionWithMetadata, CardanoTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapBlockfrostTransaction(raw, {});
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok({
+          raw,
+          normalized: mapped.value,
+        });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 500,
+      logger: this.logger,
+    });
   }
 }
