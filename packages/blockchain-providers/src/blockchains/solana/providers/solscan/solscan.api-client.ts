@@ -1,3 +1,4 @@
+import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -5,9 +6,15 @@ import type {
   ProviderConfig,
   ProviderOperation,
   RawBalanceData,
+  StreamingBatchResult,
   TransactionWithRawData,
 } from '../../../../core/index.ts';
 import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../../core/streaming/streaming-adapter.js';
 import { transformSolBalance } from '../../balance-utils.ts';
 import type { SolanaTransaction } from '../../schemas.ts';
 import { isValidSolanaAddress } from '../../utils.ts';
@@ -30,6 +37,8 @@ export interface SolscanRawBalanceData {
   blockchain: 'solana',
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalances'],
+    supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
+    preferredCursorType: 'pageToken',
   },
   defaultConfig: {
     rateLimit: {
@@ -72,6 +81,29 @@ export class SolscanApiClient extends BaseApiClient {
     });
   }
 
+  extractCursors(transaction: SolanaTransaction): PaginationCursor[] {
+    const cursors: PaginationCursor[] = [];
+
+    if (transaction.timestamp) {
+      cursors.push({ type: 'timestamp', value: transaction.timestamp });
+    }
+
+    if (transaction.blockHeight !== undefined) {
+      cursors.push({ type: 'blockNumber', value: transaction.blockHeight });
+    }
+
+    return cursors;
+  }
+
+  applyReplayWindow(cursor: PaginationCursor): PaginationCursor {
+    // Offset-based pagination doesn't support replay window effectively
+    // as the offset is just an index.
+    return cursor;
+  }
+
+  /**
+   * @deprecated Use executeStreaming instead
+   */
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
@@ -88,6 +120,21 @@ export class SolscanApiClient extends BaseApiClient {
         })) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
+    }
+  }
+
+  async *executeStreaming<T>(
+    operation: ProviderOperation,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
+    switch (operation.type) {
+      case 'getAddressTransactions':
+        yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      default:
+        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
     }
   }
 
@@ -250,5 +297,129 @@ export class SolscanApiClient extends BaseApiClient {
     );
 
     return ok(transactions);
+  }
+
+  private streamAddressTransactions(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<SolanaTransaction>, Error>> {
+    const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<SolscanTransaction>, Error>> => {
+      const limit = 100;
+      // Use pageToken as offset, default to 0
+      const offset = ctx.pageToken ? parseInt(ctx.pageToken, 10) : 0;
+
+      const queryParams = new URLSearchParams({
+        account: address,
+        limit: limit.toString(),
+        offset: offset.toString(),
+      });
+
+      let items: SolscanTransaction[] = [];
+      let fetchError: Error | undefined;
+
+      // Try primary endpoint (V2)
+      // LIMITATION: This endpoint requires a Solscan Pro API Key.
+      // Standard/Free keys may receive 401 Unauthorized.
+      const result = await this.httpClient.get<
+        SolscanResponse<
+          | SolscanTransaction[]
+          | {
+              data?: SolscanTransaction[];
+              items?: SolscanTransaction[];
+            }
+        >
+      >(`/account/transactions?${queryParams.toString()}`, { schema: SolscanAccountTransactionsResponseSchema });
+
+      if (result.isOk()) {
+        const response = result.value;
+        if (response && response.success && response.data) {
+          const data = response.data;
+          if (Array.isArray(data)) {
+            items = data;
+          } else if (data && typeof data === 'object') {
+            const maybeItems = (data as { items?: SolscanTransaction[] }).items;
+            const maybeData = (data as { data?: SolscanTransaction[] }).data;
+
+            if (Array.isArray(maybeItems)) {
+              items = maybeItems;
+            } else if (Array.isArray(maybeData)) {
+              items = maybeData;
+            }
+          }
+        }
+      } else {
+        fetchError = result.error;
+        this.logger.warn(
+          `Primary Solscan endpoint failed - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
+        );
+      }
+
+      // If primary endpoint failed or returned no data, try legacy endpoint (V1)
+      // This endpoint is deprecated but may work for some addresses/keys where V2 fails.
+      if (items.length === 0) {
+        this.logger.debug(`Attempting legacy Solscan endpoint - Address: ${maskAddress(address)}`);
+
+        const legacyResult = await this.httpClient.get<SolscanResponse<SolscanTransaction[]>>(
+          `/account/transaction?address=${address}&limit=${limit}&offset=${offset}`,
+          { schema: SolscanLegacyTransactionsResponseSchema }
+        );
+
+        if (legacyResult.isOk()) {
+          const legacyResponse = legacyResult.value;
+          if (legacyResponse && legacyResponse.success && legacyResponse.data) {
+            items = Array.isArray(legacyResponse.data) ? legacyResponse.data : [];
+            // Clear error if legacy succeeded
+            fetchError = undefined;
+          }
+        } else if (!fetchError) {
+          // If primary succeeded (but empty) and legacy failed, keep primary success (empty)
+          // If primary failed and legacy failed, keep primary error (or legacy error?)
+          // Let's keep primary error if it exists, otherwise legacy error
+          fetchError = legacyResult.error;
+        }
+      }
+
+      if (fetchError && items.length === 0) {
+        this.logger.error(
+          `All Solscan endpoints failed - Address: ${maskAddress(address)}, Error: ${getErrorMessage(fetchError)}`
+        );
+        return err(fetchError);
+      }
+
+      // Calculate next offset
+      const nextOffset = items.length < limit ? undefined : (offset + limit).toString();
+
+      return ok({
+        items,
+        nextPageToken: nextOffset,
+        isComplete: !nextOffset,
+      });
+    };
+
+    return createStreamingIterator<SolscanTransaction, SolanaTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapSolscanTransaction(raw, {});
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        return ok({
+          raw,
+          normalized: mapped.value,
+        });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 200, // Keep some history for dedup, though offset pagination makes it tricky
+      logger: this.logger,
+    });
   }
 }

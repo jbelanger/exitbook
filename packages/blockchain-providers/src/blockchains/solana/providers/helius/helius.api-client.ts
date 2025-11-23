@@ -1,4 +1,4 @@
-import type { TokenMetadata } from '@exitbook/core';
+import type { CursorState, PaginationCursor, TokenMetadata } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -7,9 +7,15 @@ import type {
   ProviderOperation,
   JsonRpcResponse,
   RawBalanceData,
+  StreamingBatchResult,
   TransactionWithRawData,
 } from '../../../../core/index.ts';
 import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../../core/streaming/streaming-adapter.js';
 import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.ts';
 import type { SolanaSignature, SolanaAccountBalance, SolanaTransaction } from '../../schemas.ts';
 import type { SolanaTokenAccountsResponse } from '../../types.ts';
@@ -42,8 +48,11 @@ export interface SolanaRawTokenBalanceData {
       'getAddressTransactions',
       'getAddressBalances',
       'getAddressTokenBalances',
+      'getAddressTokenTransactions',
       'getTokenMetadata',
     ],
+    supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
+    preferredCursorType: 'pageToken',
   },
   defaultConfig: {
     rateLimit: {
@@ -75,6 +84,30 @@ export class HeliusApiClient extends BaseApiClient {
     }
   }
 
+  extractCursors(transaction: SolanaTransaction): PaginationCursor[] {
+    const cursors: PaginationCursor[] = [];
+
+    // Primary cursor: signature (pageToken)
+    if (transaction.id) {
+      cursors.push({ type: 'pageToken', value: transaction.id, providerName: this.name });
+    }
+
+    if (transaction.timestamp) {
+      cursors.push({ type: 'timestamp', value: transaction.timestamp });
+    }
+
+    if (transaction.blockHeight !== undefined) {
+      cursors.push({ type: 'blockNumber', value: transaction.blockHeight });
+    }
+
+    return cursors;
+  }
+
+  applyReplayWindow(cursor: PaginationCursor): PaginationCursor {
+    // Signature-based pagination is precise, no replay window needed
+    return cursor;
+  }
+
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
@@ -83,6 +116,10 @@ export class HeliusApiClient extends BaseApiClient {
     switch (operation.type) {
       case 'getAddressTransactions':
         return (await this.getAddressTransactions({
+          address: operation.address,
+        })) as Result<T, Error>;
+      case 'getAddressTokenTransactions':
+        return (await this.getAddressTokenTransactions({
           address: operation.address,
         })) as Result<T, Error>;
       case 'getAddressBalances':
@@ -98,6 +135,26 @@ export class HeliusApiClient extends BaseApiClient {
         return (await this.getTokenMetadata(operation.contractAddress)) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
+    }
+  }
+
+  async *executeStreaming<T>(
+    operation: ProviderOperation,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
+    switch (operation.type) {
+      case 'getAddressTransactions':
+        yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      case 'getAddressTokenTransactions':
+        yield* this.streamAddressTokenTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      default:
+        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
     }
   }
 
@@ -336,6 +393,48 @@ export class HeliusApiClient extends BaseApiClient {
     return ok(transactions);
   }
 
+  private async getAddressTokenTransactions(params: {
+    address: string;
+  }): Promise<Result<TransactionWithRawData<SolanaTransaction>[], Error>> {
+    const { address } = params;
+
+    if (!isValidSolanaAddress(address)) {
+      return err(new Error(`Invalid Solana address: ${address}`));
+    }
+
+    this.logger.debug(`Fetching raw token address transactions - Address: ${maskAddress(address)}`);
+
+    const tokenResult = await this.getTokenAccountTransactions(address);
+    if (tokenResult.isErr()) {
+      this.logger.error(
+        `Failed to get raw token address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(tokenResult.error)}`
+      );
+      return err(tokenResult.error);
+    }
+
+    const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
+    for (const rawTx of tokenResult.value) {
+      const mapResult = mapHeliusTransaction(rawTx, {});
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        normalized: mapResult.value,
+        raw: rawTx,
+      });
+    }
+
+    this.logger.debug(
+      `Successfully retrieved and normalized token transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
+    );
+
+    return ok(transactions);
+  }
+
   private async getAddressTokenBalances(params: {
     address: string;
     contractAddresses?: string[] | undefined;
@@ -522,5 +621,251 @@ export class HeliusApiClient extends BaseApiClient {
     );
 
     return ok(tokenTransactions);
+  }
+
+  private streamAddressTransactions(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<SolanaTransaction>, Error>> {
+    const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<HeliusTransaction>, Error>> => {
+      const limit = 100;
+      const options: { before?: string; limit: number } = { limit };
+
+      // Use pageToken as the 'before' cursor for pagination
+      if (ctx.pageToken) {
+        options.before = ctx.pageToken;
+      }
+
+      const params = [address, options];
+
+      // Fetch signatures for main address
+      const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>(
+        '/',
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'getSignaturesForAddress',
+          params,
+        },
+        { schema: HeliusSignaturesJsonRpcResponseSchema }
+      );
+
+      if (signaturesResult.isErr()) {
+        this.logger.error(
+          `Failed to fetch signatures - Address: ${maskAddress(address)}, Error: ${getErrorMessage(signaturesResult.error)}`
+        );
+        return err(signaturesResult.error);
+      }
+
+      const signatures = signaturesResult.value?.result || [];
+
+      if (signatures.length === 0) {
+        return ok({ items: [], isComplete: true });
+      }
+
+      // Fetch transaction details for each signature
+      const transactions: HeliusTransaction[] = [];
+      for (const sig of signatures) {
+        const txResult = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>(
+          '/',
+          {
+            id: 1,
+            jsonrpc: '2.0',
+            method: 'getTransaction',
+            params: [
+              sig.signature,
+              {
+                encoding: 'json',
+                maxSupportedTransactionVersion: 0,
+              },
+            ],
+          },
+          { schema: HeliusTransactionJsonRpcResponseSchema }
+        );
+
+        if (txResult.isOk() && txResult.value?.result) {
+          transactions.push(txResult.value.result);
+        }
+      }
+
+      // Use the last signature as the next page token
+      const lastSignature = signatures[signatures.length - 1]?.signature;
+
+      return ok({
+        items: transactions,
+        nextPageToken: lastSignature,
+        isComplete: signatures.length < limit,
+      });
+    };
+
+    return createStreamingIterator<HeliusTransaction, SolanaTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapHeliusTransaction(raw, {});
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+        return ok({ raw, normalized: mapped.value });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 200,
+      logger: this.logger,
+    });
+  }
+
+  private streamAddressTokenTransactions(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<SolanaTransaction>, Error>> {
+    // State to track token accounts and current streaming position
+    let tokenAccounts: string[] = [];
+    let currentAccountIndex = 0;
+    let isInitialized = false;
+
+    const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<HeliusTransaction>, Error>> => {
+      // Initialize: fetch token accounts list
+      if (!isInitialized) {
+        const tokenAccountsResult = await this.getTokenAccountsOwnedByAddress(address);
+        if (tokenAccountsResult.isErr()) {
+          return err(tokenAccountsResult.error);
+        }
+        tokenAccounts = tokenAccountsResult.value.slice(0, 20); // Limit to 20
+
+        // If resuming, restore the account index and cursor from metadata
+        if (ctx.resumeCursor?.metadata?.tokenAccountIndex !== undefined) {
+          currentAccountIndex = ctx.resumeCursor.metadata.tokenAccountIndex as number;
+        }
+
+        isInitialized = true;
+
+        // Store token accounts in metadata for future reference
+        if (tokenAccounts.length === 0) {
+          return ok({ items: [], isComplete: true });
+        }
+      }
+
+      // If we've exhausted all token accounts
+      if (currentAccountIndex >= tokenAccounts.length) {
+        return ok({ items: [], isComplete: true });
+      }
+
+      const currentAccount = tokenAccounts[currentAccountIndex]!;
+      const limit = 50;
+      const options: { before?: string; limit: number } = { limit };
+
+      // Use pageToken for current account pagination
+      if (ctx.pageToken) {
+        options.before = ctx.pageToken;
+      }
+
+      // Fetch signatures for current token account
+      const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>(
+        '/',
+        {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'getSignaturesForAddress',
+          params: [currentAccount, options],
+        },
+        { schema: HeliusSignaturesJsonRpcResponseSchema }
+      );
+
+      if (signaturesResult.isErr()) {
+        // Move to next account on error
+        currentAccountIndex++;
+        return fetchPage({ ...ctx, pageToken: undefined });
+      }
+
+      const signatures = signaturesResult.value?.result || [];
+
+      // If no more signatures for this account, move to next
+      if (signatures.length === 0) {
+        currentAccountIndex++;
+        // Recursively fetch from next account
+        return fetchPage({ ...ctx, pageToken: undefined });
+      }
+
+      // Fetch transaction details
+      const transactions: HeliusTransaction[] = [];
+      for (const sig of signatures) {
+        const txResult = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>(
+          '/',
+          {
+            id: 1,
+            jsonrpc: '2.0',
+            method: 'getTransaction',
+            params: [
+              sig.signature,
+              {
+                encoding: 'json',
+                maxSupportedTransactionVersion: 0,
+              },
+            ],
+          },
+          { schema: HeliusTransactionJsonRpcResponseSchema }
+        );
+
+        if (txResult.isOk() && txResult.value?.result) {
+          transactions.push(txResult.value.result);
+        }
+      }
+
+      const lastSignature = signatures[signatures.length - 1]?.signature;
+      const isCurrentAccountComplete = signatures.length < limit;
+
+      // Prepare next page token and metadata
+      let nextPageToken: string | undefined;
+      const metadata: Record<string, unknown> = {
+        tokenAccountIndex: currentAccountIndex,
+        tokenAccounts,
+      };
+
+      if (isCurrentAccountComplete) {
+        // Move to next account
+        currentAccountIndex++;
+        nextPageToken = undefined; // Reset cursor for next account
+        metadata.tokenAccountIndex = currentAccountIndex;
+      } else {
+        nextPageToken = lastSignature;
+      }
+
+      const isComplete = currentAccountIndex >= tokenAccounts.length && isCurrentAccountComplete;
+
+      return ok({
+        items: transactions,
+        nextPageToken,
+        isComplete,
+      });
+    };
+
+    return createStreamingIterator<HeliusTransaction, SolanaTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTokenTransactions', address },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = mapHeliusTransaction(raw, {});
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+        return ok({ raw, normalized: mapped.value });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 200,
+      logger: this.logger,
+    });
   }
 }
