@@ -37,6 +37,9 @@ import {
   type NearBlocksTransaction,
 } from './nearblocks.schemas.js';
 
+// Enrichment pagination limits to avoid unbounded requests while still covering multi-receipt batches
+const MAX_ENRICHMENT_EXTRA_PAGES = 5;
+
 @RegisterApiClient({
   apiKeyEnvVar: 'NEARBLOCKS_API_KEY',
   baseUrl: 'https://api.nearblocks.io',
@@ -704,6 +707,170 @@ export class NearBlocksApiClient extends BaseApiClient {
   }
 
   /**
+   * Fetch receipts needed for the current transaction batch.
+   * NearBlocks paginates receipts independently from transactions, so we may need to
+   * walk several pages to cover all receipts emitted by the batch transactions.
+   */
+  private async fetchReceiptsForBatch(params: {
+    address: string;
+    perPage: number;
+    startPage: number;
+    txHashes: Set<string>;
+  }): Promise<{ receiptsByTxHash: Map<string, NearBlocksReceipt[]>; truncated: boolean }> {
+    const { address, startPage, perPage, txHashes } = params;
+
+    const receiptsByTxHash = new Map<string, NearBlocksReceipt[]>();
+    let page = startPage;
+    let pagesFetched = 0;
+    let truncated = false;
+
+    while (pagesFetched === 0 || pagesFetched <= MAX_ENRICHMENT_EXTRA_PAGES) {
+      const receiptsResult = await this.httpClient.get(
+        `/v1/account/${address}/receipts?page=${page}&per_page=${perPage}`,
+        {
+          schema: NearBlocksReceiptsResponseSchema,
+        }
+      );
+
+      if (receiptsResult.isErr()) {
+        this.logger.warn(
+          `Failed to fetch receipts page ${page} for enrichment - Address: ${maskAddress(address)}, Error: ${receiptsResult.error.message}`
+        );
+        truncated = pagesFetched > 0;
+        break;
+      }
+
+      const receipts = receiptsResult.value.txns;
+
+      for (const receipt of receipts) {
+        const txHash = receipt.transaction_hash;
+        if (!receiptsByTxHash.has(txHash)) {
+          receiptsByTxHash.set(txHash, []);
+        }
+        receiptsByTxHash.get(txHash)!.push(receipt);
+      }
+
+      pagesFetched += 1;
+
+      const coverageComplete = txHashes.size === 0 || Array.from(txHashes).every((hash) => receiptsByTxHash.has(hash));
+
+      // Stop if we reached the end, covered all tx hashes, or hit our safeguard
+      if (receipts.length < perPage) {
+        truncated = !coverageComplete;
+        break;
+      }
+
+      if (coverageComplete || pagesFetched > MAX_ENRICHMENT_EXTRA_PAGES) {
+        truncated = !coverageComplete && pagesFetched > MAX_ENRICHMENT_EXTRA_PAGES;
+        break;
+      }
+
+      page += 1;
+    }
+
+    return { receiptsByTxHash, truncated };
+  }
+
+  /**
+   * Fetch activities needed for the current batch of receipts using cursor-based pagination.
+   * We walk forward from the shared activities cursor to ensure we don't miss activities that
+   * belong to receipts in the current transaction batch.
+   */
+  private async fetchActivitiesForBatch(params: {
+    address: string;
+    initialCursor?: string | undefined;
+    perPage: number;
+    targetReceiptIds: Set<string>;
+  }): Promise<{
+    activitiesByReceiptId: Map<string, NearBlocksActivity[]>;
+    nextCursor?: string | undefined;
+    truncated: boolean;
+  }> {
+    const { address, perPage, initialCursor, targetReceiptIds } = params;
+
+    const activitiesByReceiptId = new Map<string, NearBlocksActivity[]>();
+    let cursor = initialCursor;
+    let pagesFetched = 0;
+    let truncated = false;
+
+    while (pagesFetched === 0 || pagesFetched <= MAX_ENRICHMENT_EXTRA_PAGES) {
+      const activitiesUrl = cursor
+        ? `/v1/account/${address}/activities?cursor=${cursor}&per_page=${perPage}`
+        : `/v1/account/${address}/activities?per_page=${perPage}`;
+
+      const activitiesResult = await this.httpClient.get(activitiesUrl, {
+        schema: NearBlocksActivitiesResponseSchema,
+      });
+
+      if (activitiesResult.isErr()) {
+        this.logger.warn(
+          `Failed to fetch activities (cursor=${cursor || 'initial'}) for enrichment - Address: ${maskAddress(address)}, Error: ${activitiesResult.error.message}`
+        );
+        truncated = pagesFetched > 0;
+        break;
+      }
+
+      const activitiesData = activitiesResult.value;
+      const activities = activitiesData.activities;
+
+      if (activities.length === 0) {
+        cursor = activitiesData.cursor || cursor;
+        break;
+      }
+
+      // Update global cursor to keep advancing across batches (prefer server-provided cursor when present)
+      cursor = activitiesData.cursor ?? activities[activities.length - 1]?.receipt_id ?? cursor;
+
+      const sortedActivities = [...activities].sort((a, b) => {
+        const timestampA = BigInt(a.block_timestamp);
+        const timestampB = BigInt(b.block_timestamp);
+        return timestampA < timestampB ? -1 : timestampA > timestampB ? 1 : 0;
+      });
+
+      const previousBalances = new Map<string, bigint>();
+
+      for (const activity of sortedActivities) {
+        const accountId = activity.affected_account_id;
+        const currentBalance = BigInt(activity.absolute_nonstaked_amount);
+
+        const previousBalance = previousBalances.get(accountId);
+        if (previousBalance !== undefined && activity.delta_nonstaked_amount === undefined) {
+          const delta = currentBalance - previousBalance;
+          activity.delta_nonstaked_amount = delta.toString();
+        }
+
+        previousBalances.set(accountId, currentBalance);
+
+        const receiptId = activity.receipt_id;
+        if (receiptId) {
+          if (!activitiesByReceiptId.has(receiptId)) {
+            activitiesByReceiptId.set(receiptId, []);
+          }
+          activitiesByReceiptId.get(receiptId)!.push(activity);
+        }
+      }
+
+      pagesFetched += 1;
+
+      const coverageComplete =
+        targetReceiptIds.size === 0 ||
+        Array.from(targetReceiptIds).every((receiptId) => activitiesByReceiptId.has(receiptId));
+
+      if (activities.length < perPage) {
+        truncated = !coverageComplete;
+        break;
+      }
+
+      if (coverageComplete || pagesFetched > MAX_ENRICHMENT_EXTRA_PAGES) {
+        truncated = !coverageComplete && pagesFetched > MAX_ENRICHMENT_EXTRA_PAGES;
+        break;
+      }
+    }
+
+    return { activitiesByReceiptId, nextCursor: cursor, truncated };
+  }
+
+  /**
    * Stream address transactions with batch-level enrichment
    * Fetches transactions page by page, enriching each batch with activities and receipts
    * Activities use cursor-based pagination to maintain consistency across batches
@@ -755,80 +922,43 @@ export class NearBlocksApiClient extends BaseApiClient {
       receiptsByTxHash = new Map<string, NearBlocksReceipt[]>();
       activitiesByReceiptId = new Map<string, NearBlocksActivity[]>();
 
-      // Fetch receipts for this page (page-based pagination)
-      const receiptsResult = await this.httpClient.get(
-        `/v1/account/${address}/receipts?page=${page}&per_page=${perPage}`,
-        {
-          schema: NearBlocksReceiptsResponseSchema,
-        }
+      const txHashes = new Set(transactions.map((tx) => tx.transaction_hash));
+
+      const { receiptsByTxHash: fetchedReceipts, truncated: receiptsTruncated } = await this.fetchReceiptsForBatch({
+        address,
+        startPage: page,
+        perPage,
+        txHashes,
+      });
+      receiptsByTxHash = fetchedReceipts;
+
+      const receiptIds = new Set(
+        Array.from(receiptsByTxHash.values()).flatMap((receiptList) => receiptList.map((receipt) => receipt.receipt_id))
       );
 
-      if (receiptsResult.isOk()) {
-        for (const receipt of receiptsResult.value.txns) {
-          const txHash = receipt.transaction_hash;
-          if (!receiptsByTxHash.has(txHash)) {
-            receiptsByTxHash.set(txHash, []);
-          }
-          receiptsByTxHash.get(txHash)!.push(receipt);
-        }
-      } else {
+      const {
+        activitiesByReceiptId: fetchedActivities,
+        nextCursor,
+        truncated: activitiesTruncated,
+      } = await this.fetchActivitiesForBatch({
+        address,
+        perPage,
+        initialCursor: activitiesCursor,
+        targetReceiptIds: receiptIds,
+      });
+
+      activitiesByReceiptId = fetchedActivities;
+      activitiesCursor = nextCursor;
+
+      if (receiptsTruncated) {
         this.logger.warn(
-          `Failed to fetch receipts for page ${page} enrichment - Address: ${maskAddress(address)}, Error: ${receiptsResult.error.message}`
+          `Receipt enrichment truncated after ${MAX_ENRICHMENT_EXTRA_PAGES + 1} pages - Address: ${maskAddress(address)}, TxPage: ${page}`
         );
       }
 
-      // Fetch activities for this batch (cursor-based pagination)
-      // Activities API uses cursor, not page numbers
-      const activitiesUrl = activitiesCursor
-        ? `/v1/account/${address}/activities?cursor=${activitiesCursor}&per_page=${perPage}`
-        : `/v1/account/${address}/activities?per_page=${perPage}`;
-
-      const activitiesResult = await this.httpClient.get(activitiesUrl, {
-        schema: NearBlocksActivitiesResponseSchema,
-      });
-
-      if (activitiesResult.isOk()) {
-        const activitiesData = activitiesResult.value;
-
-        // Update cursor for next batch
-        if (activitiesData.activities.length > 0) {
-          const lastActivity = activitiesData.activities[activitiesData.activities.length - 1];
-          activitiesCursor = lastActivity?.receipt_id ?? undefined;
-        }
-
-        const sortedActivities = [...activitiesData.activities].sort((a, b) => {
-          const timestampA = BigInt(a.block_timestamp);
-          const timestampB = BigInt(b.block_timestamp);
-          return timestampA < timestampB ? -1 : timestampA > timestampB ? 1 : 0;
-        });
-
-        const previousBalances = new Map<string, bigint>();
-
-        for (const activity of sortedActivities) {
-          const accountId = activity.affected_account_id;
-          const currentBalance = BigInt(activity.absolute_nonstaked_amount);
-
-          const previousBalance = previousBalances.get(accountId);
-          if (previousBalance !== undefined) {
-            const delta = currentBalance - previousBalance;
-            if (activity.delta_nonstaked_amount === undefined) {
-              activity.delta_nonstaked_amount = delta.toString();
-            }
-          }
-
-          previousBalances.set(accountId, currentBalance);
-
-          const receiptId = activity.receipt_id;
-          if (receiptId) {
-            if (!activitiesByReceiptId.has(receiptId)) {
-              activitiesByReceiptId.set(receiptId, []);
-            }
-            activitiesByReceiptId.get(receiptId)!.push(activity);
-          }
-        }
-      } else {
+      if (activitiesTruncated) {
         this.logger.warn(
-          `Failed to fetch activities for page ${page} enrichment - Address: ${maskAddress(address)}, Error: ${activitiesResult.error.message}`
+          `Activity enrichment truncated after ${MAX_ENRICHMENT_EXTRA_PAGES + 1} pages - Address: ${maskAddress(address)}, TxPage: ${page}`
         );
       }
 
