@@ -1,8 +1,14 @@
+import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig, ProviderOperation } from '../../../../core/index.js';
+import type { ProviderConfig, ProviderOperation, StreamingBatchResult } from '../../../../core/index.js';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../../core/streaming/streaming-adapter.js';
 import type { RawBalanceData, TransactionWithRawData } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import { convertToMainUnit, createRawBalanceData } from '../../balance-utils.js';
@@ -21,6 +27,8 @@ import { TaostatsBalanceResponseSchema, TaostatsTransactionsResponseSchema } fro
   blockchain: 'bittensor',
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalances'],
+    supportedCursorTypes: ['blockNumber', 'timestamp'],
+    preferredCursorType: 'blockNumber',
   },
   defaultConfig: {
     rateLimit: {
@@ -67,6 +75,27 @@ export class TaostatsApiClient extends BaseApiClient {
     );
   }
 
+  extractCursors(transaction: SubstrateTransaction): PaginationCursor[] {
+    const cursors: PaginationCursor[] = [];
+
+    // Primary cursor: block height
+    if (transaction.blockHeight !== undefined) {
+      cursors.push({ type: 'blockNumber', value: transaction.blockHeight });
+    }
+
+    // Alternative cursor: timestamp
+    if (transaction.timestamp) {
+      cursors.push({ type: 'timestamp', value: transaction.timestamp });
+    }
+
+    return cursors;
+  }
+
+  applyReplayWindow(cursor: PaginationCursor): PaginationCursor {
+    // No replay window needed for Taostats offset-based pagination
+    return cursor;
+  }
+
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
@@ -83,6 +112,21 @@ export class TaostatsApiClient extends BaseApiClient {
         })) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
+    }
+  }
+
+  async *executeStreaming<T>(
+    operation: ProviderOperation,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
+    switch (operation.type) {
+      case 'getAddressTransactions':
+        yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      default:
+        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
     }
   }
 
@@ -220,5 +264,77 @@ export class TaostatsApiClient extends BaseApiClient {
     );
 
     return ok(normalizedTransactions);
+  }
+
+  private streamAddressTransactions(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<SubstrateTransaction>, Error>> {
+    const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<TaostatsTransaction>, Error>> => {
+      const limit = 100;
+
+      // Parse offset from pageToken, or start from 0
+      const offset = ctx.pageToken ? parseInt(ctx.pageToken, 10) : 0;
+
+      // Build query parameters
+      const params = new URLSearchParams({
+        network: 'finney',
+        address: address,
+        limit: limit.toString(),
+        offset: offset.toString(),
+      });
+
+      const endpoint = `/transfer/v1?${params.toString()}`;
+      const result = await this.httpClient.get<{ data?: TaostatsTransaction[] }>(endpoint, {
+        schema: TaostatsTransactionsResponseSchema,
+      });
+
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch transactions - Address: ${maskAddress(address)}, Offset: ${offset}, Error: ${getErrorMessage(result.error)}`
+        );
+        return err(result.error);
+      }
+
+      const response = result.value;
+      const items = response.data || [];
+
+      // Filter for relevant transactions only
+      const relevantAddresses = new Set([address]);
+      const relevantItems = items.filter((tx) => isTransactionRelevant(tx, relevantAddresses));
+
+      // Check if there are more pages
+      const hasMore = items.length === limit;
+      const nextOffset = offset + limit;
+      const nextPageToken = hasMore ? nextOffset.toString() : undefined;
+
+      return ok({
+        items: relevantItems,
+        nextPageToken,
+        isComplete: !hasMore,
+      });
+    };
+
+    return createStreamingIterator<TaostatsTransaction, SubstrateTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        const mapped = convertTaostatsTransaction(raw, {}, this.chainConfig.nativeCurrency);
+        if (mapped.isErr()) {
+          const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+        return ok({ raw, normalized: mapped.value });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 100,
+      logger: this.logger,
+    });
   }
 }

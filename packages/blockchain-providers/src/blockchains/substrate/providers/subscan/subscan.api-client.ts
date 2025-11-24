@@ -1,8 +1,14 @@
+import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig, ProviderOperation } from '../../../../core/index.js';
+import type { ProviderConfig, ProviderOperation, StreamingBatchResult } from '../../../../core/index.js';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../../core/streaming/streaming-adapter.js';
 import type { RawBalanceData, TransactionWithRawData } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import { convertToMainUnit, createRawBalanceData } from '../../balance-utils.js';
@@ -114,6 +120,8 @@ const CHAIN_SUBDOMAIN_MAP: Record<string, string> = {
   blockchain: 'polkadot',
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalances'],
+    supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
+    preferredCursorType: 'pageToken',
   },
   defaultConfig: {
     rateLimit: {
@@ -162,6 +170,30 @@ export class SubscanApiClient extends BaseApiClient {
     );
   }
 
+  extractCursors(transaction: SubstrateTransaction): PaginationCursor[] {
+    const cursors: PaginationCursor[] = [];
+
+    // Primary cursor: transaction timestamp
+    if (transaction.timestamp) {
+      cursors.push({ type: 'timestamp', value: transaction.timestamp });
+    }
+
+    // Alternative cursor: block height if available
+    if (transaction.blockHeight !== undefined) {
+      cursors.push({ type: 'blockNumber', value: transaction.blockHeight });
+    }
+
+    return cursors;
+  }
+
+  applyReplayWindow(cursor: PaginationCursor): PaginationCursor {
+    // Page-based pagination is precise, no replay window needed
+    return cursor;
+  }
+
+  /**
+   * @deprecated Use executeStreaming instead
+   */
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
@@ -178,6 +210,22 @@ export class SubscanApiClient extends BaseApiClient {
         })) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
+    }
+  }
+
+  async *executeStreaming<T>(
+    operation: ProviderOperation,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
+    // Route to appropriate streaming implementation
+    switch (operation.type) {
+      case 'getAddressTransactions':
+        yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
+          Result<StreamingBatchResult<T>, Error>
+        >;
+        break;
+      default:
+        yield err(new Error(`Streaming not yet implemented for operation: ${operation.type}`));
     }
   }
 
@@ -351,5 +399,116 @@ export class SubscanApiClient extends BaseApiClient {
     );
 
     return ok(transactions);
+  }
+
+  /**
+   * Stream address transactions with page-based pagination
+   * Subscan uses 0-based page numbering
+   */
+  private streamAddressTransactions(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<StreamingBatchResult<SubstrateTransaction>, Error>> {
+    const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<SubscanTransfer>, Error>> => {
+      // Subscan uses 0-based page numbering
+      const page = ctx.pageToken ? parseInt(ctx.pageToken, 10) : 0;
+      const rowsPerPage = 100;
+
+      this.logger.debug(`Fetching transfers page ${page} - Address: ${maskAddress(address)}`);
+
+      const body: Record<string, unknown> = {
+        address: address,
+        page: page,
+        row: rowsPerPage,
+      };
+
+      const result = await this.httpClient.post<SubscanTransfersResponse>('/api/v2/scan/transfers', body, {
+        schema: SubscanTransfersResponseSchema,
+      });
+
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to fetch transfers for ${maskAddress(address)} page ${page} - Error: ${getErrorMessage(result.error)}`
+        );
+        return err(result.error);
+      }
+
+      const response = result.value;
+
+      // Check for API errors
+      if (response.code !== 0) {
+        const error = new Error(`Subscan API error: ${response.message || `Code ${response.code}`}`);
+        this.logger.error(
+          `Failed to fetch transfers - Address: ${maskAddress(address)}, Page: ${page}, Error: ${getErrorMessage(error)}`
+        );
+        return err(error);
+      }
+
+      const transfers = response.data?.transfers || [];
+
+      if (transfers.length === 0) {
+        return ok({
+          items: [],
+          nextPageToken: undefined,
+          isComplete: true,
+        });
+      }
+
+      // Check if there are more pages
+      const hasMore = transfers.length === rowsPerPage;
+      const nextPageToken = hasMore ? String(page + 1) : undefined;
+
+      this.logger.debug(
+        `Fetched page ${page} - Address: ${maskAddress(address)}, Transfers: ${transfers.length}, HasMore: ${hasMore}`
+      );
+
+      return ok({
+        items: transfers,
+        nextPageToken,
+        isComplete: !hasMore,
+      });
+    };
+
+    return createStreamingIterator<SubscanTransfer, SubstrateTransaction>({
+      providerName: this.name,
+      operation: { type: 'getAddressTransactions', address },
+      resumeCursor,
+      fetchPage,
+      mapItem: (raw) => {
+        // Normalize transaction using pure mapping function
+        const relevantAddresses = new Set([address]);
+        const mapResult = convertSubscanTransaction(
+          raw,
+          {},
+          relevantAddresses,
+          this.chainConfig,
+          this.chainConfig.nativeCurrency,
+          this.chainConfig.nativeDecimals
+        );
+
+        // Skip transactions that aren't relevant to this address or have validation errors
+        if (mapResult.isErr()) {
+          const error = mapResult.error;
+          if (error.type === 'skip') {
+            // Return a skip error that the streaming adapter will filter out
+            return err(new Error(`Transaction not relevant: ${error.reason}`));
+          }
+          // error.type === 'error'
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${error.message}`
+          );
+          return err(new Error(`Provider data validation failed: ${error.message}`));
+        }
+
+        return ok({
+          raw,
+          normalized: mapResult.value,
+        });
+      },
+      extractCursors: (tx) => this.extractCursors(tx),
+      applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
+      dedupWindowSize: 200,
+      logger: this.logger,
+    });
   }
 }
