@@ -93,6 +93,7 @@ describe('NearBlocks enrichment pagination helpers', () => {
       perPage: 25,
       initialCursor: undefined,
       targetReceiptIds: new Set(['rA', 'rB']),
+      previousBalances: new Map<string, bigint>(),
     });
 
     expect(get).toHaveBeenCalledTimes(2);

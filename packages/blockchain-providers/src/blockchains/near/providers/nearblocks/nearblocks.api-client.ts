@@ -780,13 +780,14 @@ export class NearBlocksApiClient extends BaseApiClient {
     address: string;
     initialCursor?: string | undefined;
     perPage: number;
+    previousBalances: Map<string, bigint>;
     targetReceiptIds: Set<string>;
   }): Promise<{
     activitiesByReceiptId: Map<string, NearBlocksActivity[]>;
     nextCursor?: string | undefined;
     truncated: boolean;
   }> {
-    const { address, perPage, initialCursor, targetReceiptIds } = params;
+    const { address, perPage, initialCursor, targetReceiptIds, previousBalances } = params;
 
     const activitiesByReceiptId = new Map<string, NearBlocksActivity[]>();
     let cursor = initialCursor;
@@ -827,8 +828,7 @@ export class NearBlocksApiClient extends BaseApiClient {
         return timestampA < timestampB ? -1 : timestampA > timestampB ? 1 : 0;
       });
 
-      const previousBalances = new Map<string, bigint>();
-
+      // Use the shared previousBalances map (seeded from cursor metadata on resume)
       for (const activity of sortedActivities) {
         const accountId = activity.affected_account_id;
         const currentBalance = BigInt(activity.absolute_nonstaked_amount);
@@ -883,7 +883,16 @@ export class NearBlocksApiClient extends BaseApiClient {
     let receiptsByTxHash = new Map<string, NearBlocksReceipt[]>();
     let activitiesByReceiptId = new Map<string, NearBlocksActivity[]>();
     // Track activities cursor across batches (activities use cursor-based pagination)
-    let activitiesCursor: string | undefined = undefined;
+    // Restore from previous run to avoid re-fetching activities from page 1
+    const customMeta = resumeCursor?.metadata?.custom as Record<string, unknown> | undefined;
+    let activitiesCursor: string | undefined = (customMeta?.activitiesCursor as string) || undefined;
+    // Track previous balances across batches for delta computation when API doesn't provide deltas
+    const previousBalances = new Map<string, bigint>(
+      Object.entries((customMeta?.prevBalances as Record<string, string>) || {}).map(([account, balance]) => [
+        account,
+        BigInt(balance),
+      ])
+    );
 
     const fetchPage = async (
       ctx: StreamingPageContext
@@ -945,6 +954,7 @@ export class NearBlocksApiClient extends BaseApiClient {
         perPage,
         initialCursor: activitiesCursor,
         targetReceiptIds: receiptIds,
+        previousBalances,
       });
 
       activitiesByReceiptId = fetchedActivities;
@@ -965,10 +975,21 @@ export class NearBlocksApiClient extends BaseApiClient {
       const hasMore = transactions.length >= perPage;
       const nextPageToken = hasMore ? String(page + 1) : undefined;
 
+      // Serialize balance state to cursor metadata (keep only recent accounts to avoid bloat)
+      const prevBalances: Record<string, string> = {};
+      for (const [account, balance] of previousBalances.entries()) {
+        prevBalances[account] = balance.toString();
+      }
+
       return ok({
         items: transactions,
         nextPageToken,
         isComplete: !hasMore,
+        customMetadata: {
+          prevBalances,
+          activitiesCursor,
+          enrichmentTruncated: receiptsTruncated || activitiesTruncated,
+        },
       });
     };
 

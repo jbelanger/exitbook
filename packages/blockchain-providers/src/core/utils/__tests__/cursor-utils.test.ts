@@ -151,6 +151,74 @@ describe('Cursor Utils', () => {
 
       expect(cursorState.primary).toEqual({ type: 'blockNumber', value: 0 });
     });
+
+    it('should namespace customMetadata to prevent collision with core fields', () => {
+      const transactions: TransactionWithRawData<{ blockHeight: number; id: string; timestamp: number }>[] = [
+        {
+          raw: {},
+          normalized: { id: 'tx-1', blockHeight: 15000000, timestamp: 1640000000000 },
+        },
+      ];
+
+      const config: CursorStateConfig<{ blockHeight: number; id: string; timestamp: number }> = {
+        transactions,
+        extractCursors: mockExtractCursors,
+        totalFetched: 100,
+        providerName: 'nearblocks',
+        pageToken: 'page-2',
+        isComplete: false,
+        customMetadata: {
+          prevBalances: { account1: '1000' },
+          activitiesCursor: 'cursor-abc',
+          enrichmentTruncated: false,
+        },
+      };
+
+      const cursorState = buildCursorState(config);
+
+      // Custom metadata should be namespaced under 'custom'
+      expect(cursorState.metadata).toMatchObject({
+        providerName: 'nearblocks',
+        isComplete: false,
+        custom: {
+          prevBalances: { account1: '1000' },
+          activitiesCursor: 'cursor-abc',
+          enrichmentTruncated: false,
+        },
+      });
+
+      // Ensure custom metadata doesn't clobber core fields
+      expect(cursorState.metadata?.providerName).toBe('nearblocks');
+      expect(cursorState.metadata?.isComplete).toBe(false);
+    });
+
+    it('should omit custom key when customMetadata is omitted', () => {
+      const transactions: TransactionWithRawData<{ blockHeight: number; id: string; timestamp: number }>[] = [
+        {
+          raw: {},
+          normalized: { id: 'tx-1', blockHeight: 15000000, timestamp: 1640000000000 },
+        },
+      ];
+
+      const config: CursorStateConfig<{ blockHeight: number; id: string; timestamp: number }> = {
+        transactions,
+        extractCursors: mockExtractCursors,
+        totalFetched: 100,
+        providerName: 'moralis',
+        pageToken: undefined,
+        isComplete: true,
+        // customMetadata omitted
+      };
+
+      const cursorState = buildCursorState(config);
+
+      // Should not have 'custom' key when customMetadata is omitted
+      expect(cursorState.metadata?.custom).toBeUndefined();
+      expect(cursorState.metadata).toMatchObject({
+        providerName: 'moralis',
+        isComplete: true,
+      });
+    });
   });
 
   describe('createEmptyCompletionCursor', () => {

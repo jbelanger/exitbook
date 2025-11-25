@@ -18,6 +18,11 @@ export interface StreamingPage<Raw> {
   items: Raw[];
   nextPageToken?: string | null | undefined;
   isComplete?: boolean | undefined;
+  /**
+   * Optional provider-specific metadata to attach to the cursor
+   * (e.g., NEAR balance snapshots for delta computation across batches)
+   */
+  customMetadata?: Record<string, unknown> | undefined;
 }
 
 /**
@@ -160,6 +165,7 @@ export function createStreamingIterator<Raw, Tx extends { id: string }>(
             providerName,
             pageToken,
             isComplete: true,
+            customMetadata: page.customMetadata,
           });
 
           yield ok({ data: [], cursor: cursorState });
@@ -180,6 +186,7 @@ export function createStreamingIterator<Raw, Tx extends { id: string }>(
         providerName,
         pageToken: page.nextPageToken || undefined,
         isComplete: page.isComplete ?? !page.nextPageToken,
+        customMetadata: page.customMetadata,
       });
 
       yield ok({ data: deduped, cursor: cursorState });
