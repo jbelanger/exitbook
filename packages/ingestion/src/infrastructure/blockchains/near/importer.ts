@@ -1,15 +1,14 @@
 import type {
   BlockchainProviderManager,
   NearTransaction,
-  ProviderError,
   TransactionWithRawData,
 } from '@exitbook/blockchain-providers';
 import { generateUniqueTransactionId } from '@exitbook/blockchain-providers';
-import type { ExternalTransaction } from '@exitbook/core';
+import type { CursorState } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.js';
+import type { IImporter, ImportParams, ImportBatchResult } from '../../../types/importers.js';
 
 /**
  * NEAR transaction importer that fetches raw transaction data from blockchain APIs.
@@ -44,109 +43,90 @@ export class NearTransactionImporter implements IImporter {
   }
 
   /**
-   * Import raw transaction data from NEAR blockchain APIs with provider provenance.
+   * Streaming import implementation
+   * Streams NORMAL + TOKEN batches without accumulating everything in memory
    */
-  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
+  async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     if (!params.address) {
-      return err(new Error('Address required for NEAR transaction import'));
+      yield err(new Error('Address required for NEAR transaction import'));
+      return;
     }
 
-    this.logger.info(`Starting NEAR transaction import for account: ${params.address.substring(0, 20)}...`);
+    this.logger.info(`Starting NEAR streaming import for account: ${params.address.substring(0, 20)}...`);
 
-    const result = await this.fetchAllTransactions(params.address);
+    // Stream normal transactions (with resume support)
+    const normalCursor = params.cursor?.['normal'];
+    for await (const batchResult of this.streamTransactionType(
+      params.address,
+      'normal',
+      'getAddressTransactions',
+      normalCursor
+    )) {
+      yield batchResult;
+    }
 
-    return result
-      .map((rawTransactions) => {
-        this.logger.info(`NEAR import completed: ${rawTransactions.length} transactions`);
-        return { rawTransactions: rawTransactions };
-      })
-      .mapErr((error) => {
-        this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
-        return error;
-      });
+    // Stream token transactions (with resume support)
+    const tokenCursor = params.cursor?.['token'];
+    for await (const batchResult of this.streamTransactionType(
+      params.address,
+      'token',
+      'getAddressTokenTransactions',
+      tokenCursor
+    )) {
+      yield batchResult;
+    }
+
+    this.logger.info(`NEAR streaming import completed`);
   }
 
   /**
-   * Fetch all transaction types (normal, token) for an address in parallel.
-   * Provider layer handles enrichment internally, so transactions are returned
-   * with accountChanges and tokenTransfers already populated.
+   * Stream a specific transaction type with resume support
+   * Uses provider manager's streaming failover to handle pagination and provider switching
    */
-  private async fetchAllTransactions(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
-    // Fetch both transaction types in parallel for optimal performance
-    const [normalResult, tokenResult] = await Promise.all([
-      this.fetchNormalTransactions(address),
-      this.fetchTokenTransactions(address),
-    ]);
+  private async *streamTransactionType(
+    address: string,
+    operationType: 'normal' | 'token',
+    providerOperationType: 'getAddressTransactions' | 'getAddressTokenTransactions',
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
+    const cacheKeyPrefix = operationType === 'normal' ? 'normal-txs' : 'token-txs';
 
-    if (normalResult.isErr()) {
-      return normalResult;
-    }
-
-    if (tokenResult.isErr()) {
-      return tokenResult;
-    }
-
-    // Combine all successful results
-    const allTransactions: ExternalTransaction[] = [...normalResult.value, ...tokenResult.value];
-
-    this.logger.debug(
-      `Total transactions fetched: ${allTransactions.length} (${normalResult.value.length} normal, ${tokenResult.value.length} token)`
+    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<NearTransaction>>(
+      'near',
+      {
+        type: providerOperationType,
+        address,
+        getCacheKey: (params) =>
+          `near:${cacheKeyPrefix}:${params.type === providerOperationType ? params.address : 'unknown'}:all`,
+      },
+      resumeCursor
     );
 
-    return ok(allTransactions);
-  }
+    for await (const providerBatchResult of iterator) {
+      if (providerBatchResult.isErr()) {
+        yield err(providerBatchResult.error);
+        return;
+      }
 
-  /**
-   * Fetch normal transactions for an address with provider provenance.
-   * Transactions are already enriched with accountChanges by the provider.
-   */
-  private async fetchNormalTransactions(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
-    const result = await this.providerManager.executeWithFailover('near', {
-      address: address,
-      getCacheKey: (params) =>
-        `near:normal-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? 'all' : 'unknown'}`,
-      type: 'getAddressTransactions',
-    });
+      const providerBatch = providerBatchResult.value;
+      const transactionsWithRaw = providerBatch.data;
 
-    return result.map((response) => {
-      const transactionsWithRaw = response.data as TransactionWithRawData<NearTransaction>[];
-      const providerName = response.providerName;
-
-      return transactionsWithRaw.map((txWithRaw) => ({
-        providerName,
+      // Map to external transactions
+      const externalTransactions = transactionsWithRaw.map((txWithRaw) => ({
+        providerName: providerBatch.providerName,
         externalId: generateUniqueTransactionId(txWithRaw.normalized),
-        transactionTypeHint: 'normal',
+        transactionTypeHint: operationType,
         sourceAddress: address,
         normalizedData: txWithRaw.normalized,
         rawData: txWithRaw.raw,
       }));
-    });
-  }
 
-  /**
-   * Fetch token transactions (NEP-141) for an address with provider provenance.
-   * Each token transfer is returned as a separate transaction record.
-   */
-  private async fetchTokenTransactions(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
-    const result = await this.providerManager.executeWithFailover('near', {
-      address: address,
-      getCacheKey: (params) =>
-        `near:token-txs:${params.type === 'getAddressTokenTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTokenTransactions' ? 'all' : 'unknown'}`,
-      type: 'getAddressTokenTransactions',
-    });
-
-    return result.map((response) => {
-      const transactionsWithRaw = response.data as TransactionWithRawData<NearTransaction>[];
-      const providerName = response.providerName;
-
-      return transactionsWithRaw.map((txWithRaw) => ({
-        providerName,
-        externalId: generateUniqueTransactionId(txWithRaw.normalized),
-        transactionTypeHint: 'token',
-        sourceAddress: address,
-        normalizedData: txWithRaw.normalized,
-        rawData: txWithRaw.raw,
-      }));
-    });
+      yield ok({
+        rawTransactions: externalTransactions,
+        operationType,
+        cursor: providerBatch.cursor,
+        isComplete: providerBatch.cursor.metadata?.isComplete ?? false,
+      });
+    }
   }
 }

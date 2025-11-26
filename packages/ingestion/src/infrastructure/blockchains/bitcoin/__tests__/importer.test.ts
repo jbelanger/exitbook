@@ -3,15 +3,41 @@
  * Tests transaction fetching with provider failover
  */
 
-import type { FailoverExecutionResult } from '@exitbook/blockchain-providers';
 import { ProviderError, type BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getBitcoinChainConfig } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
-import type { PaginationCursor } from '@exitbook/core';
-import { err, errAsync, ok } from 'neverthrow';
+import type { CursorState, ExternalTransaction, PaginationCursor } from '@exitbook/core';
+import { err, errAsync, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
+import type { ImportParams, ImportRunResult } from '../../../../types/importers.ts';
 import { BitcoinTransactionImporter } from '../importer.js';
+
+/**
+ * Helper to consume streaming iterator
+ */
+async function consumeImportStream(
+  importer: BitcoinTransactionImporter,
+  params: ImportParams
+): Promise<Result<ImportRunResult, Error>> {
+  const allTransactions: ExternalTransaction[] = [];
+  const cursorUpdates: Record<string, CursorState> = {};
+
+  for await (const batchResult of importer.importStreaming(params)) {
+    if (batchResult.isErr()) {
+      return err(batchResult.error);
+    }
+
+    const batch = batchResult.value;
+    allTransactions.push(...batch.rawTransactions);
+    cursorUpdates[batch.operationType] = batch.cursor;
+  }
+
+  return ok({
+    rawTransactions: allTransactions,
+    cursorUpdates,
+  });
+}
 
 const USER_ADDRESS = 'bc1quser1111111111111111111111111111111';
 const EXTERNAL_ADDRESS = 'bc1qexternal111111111111111111111111111';
@@ -137,14 +163,25 @@ describe('BitcoinTransactionImporter', () => {
         outputs: mockBitcoinTx.outputs,
       };
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
+      // Mock executeWithFailover to return an async iterator
+      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+        yield okAsync({
           data: [{ normalized: mockNormalized, raw: mockBitcoinTx }],
           providerName: 'blockstream.info',
-        } as FailoverExecutionResult<unknown>)
-      );
+          cursor: {
+            primary: { type: 'blockNumber' as const, value: 800000 },
+            lastTransactionId: 'tx1abc',
+            totalFetched: 1,
+            metadata: {
+              providerName: 'blockstream.info',
+              updatedAt: Date.now(),
+              isComplete: true,
+            },
+          },
+        });
+      });
 
-      const result = await importer.import({ address: USER_ADDRESS });
+      const result = await consumeImportStream(importer, { address: USER_ADDRESS });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -175,14 +212,25 @@ describe('BitcoinTransactionImporter', () => {
     test('should handle empty transaction list', async () => {
       const importer = createImporter();
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
+      // Mock executeWithFailover to return an async iterator with empty data
+      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+        yield okAsync({
           data: [],
           providerName: 'blockstream.info',
-        } as FailoverExecutionResult<unknown>)
-      );
+          cursor: {
+            primary: { type: 'blockNumber' as const, value: 0 },
+            lastTransactionId: '',
+            totalFetched: 0,
+            metadata: {
+              providerName: 'blockstream.info',
+              updatedAt: Date.now(),
+              isComplete: true,
+            },
+          },
+        });
+      });
 
-      const result = await importer.import({ address: USER_ADDRESS });
+      const result = await consumeImportStream(importer, { address: USER_ADDRESS });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -203,14 +251,25 @@ describe('BitcoinTransactionImporter', () => {
         { normalized: { ...tx3, id: 'tx3ghi' }, raw: tx3 },
       ];
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
+      // Mock executeWithFailover to return an async iterator with multiple transactions
+      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+        yield okAsync({
           data: multipleTxs,
           providerName: 'blockstream.info',
-        } as FailoverExecutionResult<unknown>)
-      );
+          cursor: {
+            primary: { type: 'blockNumber' as const, value: 800000 },
+            lastTransactionId: 'tx3ghi',
+            totalFetched: 3,
+            metadata: {
+              providerName: 'blockstream.info',
+              updatedAt: Date.now(),
+              isComplete: true,
+            },
+          },
+        });
+      });
 
-      const result = await importer.import({ address: USER_ADDRESS });
+      const result = await consumeImportStream(importer, { address: USER_ADDRESS });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -226,15 +285,16 @@ describe('BitcoinTransactionImporter', () => {
     test('should fail if provider fails', async () => {
       const importer = createImporter();
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        err(
+      // Mock executeWithFailover to return an async iterator that yields an error
+      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+        yield errAsync(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'bitcoin',
           })
-        )
-      );
+        );
+      });
 
-      const result = await importer.import({ address: USER_ADDRESS });
+      const result = await consumeImportStream(importer, { address: USER_ADDRESS });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -245,7 +305,7 @@ describe('BitcoinTransactionImporter', () => {
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
 
-      const result = await importer.import({});
+      const result = await consumeImportStream(importer, {});
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -258,14 +318,25 @@ describe('BitcoinTransactionImporter', () => {
     test('should generate correct cache key', async () => {
       const importer = createImporter();
 
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
+      // Mock executeWithFailover to return an async iterator with empty data
+      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+        yield okAsync({
           data: [],
           providerName: 'blockstream.info',
-        } as FailoverExecutionResult<unknown>)
-      );
+          cursor: {
+            primary: { type: 'blockNumber' as const, value: 0 },
+            lastTransactionId: '',
+            totalFetched: 0,
+            metadata: {
+              providerName: 'blockstream.info',
+              updatedAt: Date.now(),
+              isComplete: true,
+            },
+          },
+        });
+      });
 
-      await importer.import({ address: USER_ADDRESS });
+      await consumeImportStream(importer, { address: USER_ADDRESS });
 
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;

@@ -97,9 +97,6 @@ export class BlockchainComApiClient extends BaseApiClient {
     };
   }
 
-  /**
-   * @deprecated Use executeStreaming instead
-   */
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`

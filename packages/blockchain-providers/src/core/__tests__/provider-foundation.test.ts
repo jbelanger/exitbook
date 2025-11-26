@@ -6,13 +6,13 @@
 import { type CursorState, type PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { type RateLimitConfig } from '@exitbook/http';
-import { err, errAsync, ok, okAsync, type Result } from 'neverthrow';
+import { err, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { initializeProviders } from '../../initialize.js';
 import { BlockchainProviderManager } from '../provider-manager.js';
 import { ProviderRegistry } from '../registry/provider-registry.js';
-import type { ProviderInfo, StreamingBatchResult } from '../types/index.js';
+import type { OneShotOperation, ProviderInfo, StreamingBatchResult } from '../types/index.js';
 import {
   ProviderError,
   type IBlockchainProvider,
@@ -91,10 +91,51 @@ class MockProvider implements IBlockchainProvider {
   }
 
   async *executeStreaming<T>(
-    _operation: ProviderOperation,
+    operation: ProviderOperation,
     _cursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
-    yield errAsync(new Error('Streaming not implemented in mock'));
+    if (this.responseDelay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, this.responseDelay));
+    }
+
+    if (this.shouldFail) {
+      yield err(new Error(`${this.name} provider failed`));
+      return;
+    }
+
+    // Mock streaming response in TransactionWithRawData format for transaction operations
+    // For other operations, return simple data
+    let data: T[];
+    switch (operation.type) {
+      case 'getAddressTransactions':
+      case 'getAddressInternalTransactions':
+      case 'getAddressTokenTransactions':
+        // Return empty array of transactions in TransactionWithRawData format
+        data = [] as T[];
+        break;
+      case 'getAddressBalances':
+        data = [{ balance: 100, currency: 'ETH' }] as T[];
+        break;
+      default:
+        data = [{ success: true }] as T[];
+    }
+
+    // Yield single batch with completion marker
+    // Cast to StreamingBatchResult<T> since mock data structure matches at runtime
+    yield ok({
+      data,
+      providerName: this.name,
+      cursor: {
+        primary: { type: 'blockNumber' as const, value: 0 },
+        lastTransactionId: '',
+        totalFetched: data.length,
+        metadata: {
+          providerName: this.name,
+          updatedAt: Date.now(),
+          isComplete: true,
+        },
+      },
+    } as StreamingBatchResult<T>);
   }
 
   extractCursors(_transaction: unknown): PaginationCursor[] {
@@ -140,7 +181,7 @@ describe('BlockchainProviderManager', () => {
       type: 'getAddressBalances',
     };
 
-    const result = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
+    const result = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.data.balance).toBe(100);
@@ -157,7 +198,7 @@ describe('BlockchainProviderManager', () => {
       type: 'getAddressBalances',
     };
 
-    const result = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
+    const result = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.data.balance).toBe(100); // Should get result from fallback
@@ -173,11 +214,11 @@ describe('BlockchainProviderManager', () => {
       type: 'getAddressBalances',
     };
 
-    const result = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
+    const result = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error).toBeInstanceOf(ProviderError);
-      expect(result.error.code).toBe('ALL_PROVIDERS_FAILED');
+      expect((result.error as ProviderError).code).toBe('ALL_PROVIDERS_FAILED');
       expect(result.error.message).toContain('All providers failed');
     }
   });
@@ -192,13 +233,13 @@ describe('BlockchainProviderManager', () => {
     };
 
     // First call
-    const result1 = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
+    const result1 = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
 
     // Make provider fail - should still get cached result
     primaryProvider.setFailureMode(true);
     fallbackProvider.setFailureMode(true);
 
-    const result2 = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
+    const result2 = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
     expect(result2).toEqual(result1);
   });
 
@@ -214,15 +255,20 @@ describe('BlockchainProviderManager', () => {
   });
 
   test('should handle unsupported operations', async () => {
-    const operation = {
-      type: 'custom', // Not supported by mock providers
+    // Use a valid operation type that the mock providers do not support
+    const operation: OneShotOperation = {
+      address: '0x123',
+      type: 'getAddressTokenBalances',
     };
 
-    const result = await manager.executeWithFailover<{ success: boolean }>('ethereum', operation as ProviderOperation);
+    const result = await manager.executeWithFailoverOnce<{ success: boolean }>(
+      'ethereum',
+      operation as OneShotOperation
+    );
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error).toBeInstanceOf(ProviderError);
-      expect(result.error.code).toBe('NO_PROVIDERS');
+      expect((result.error as ProviderError).code).toBe('NO_PROVIDERS');
       expect(result.error.message).toContain('No providers available');
     }
   });
@@ -241,15 +287,15 @@ describe('BlockchainProviderManager', () => {
       primaryProvider.setFailureMode(true);
 
       // Make enough calls to trip the breaker
-      await manager.executeWithFailover<{
+      await manager.executeWithFailoverOnce<{
         balance: number;
         currency: string;
       }>('ethereum', operation);
-      await manager.executeWithFailover<{
+      await manager.executeWithFailoverOnce<{
         balance: number;
         currency: string;
       }>('ethereum', operation);
-      await manager.executeWithFailover<{
+      await manager.executeWithFailoverOnce<{
         balance: number;
         currency: string;
       }>('ethereum', operation);
@@ -260,7 +306,7 @@ describe('BlockchainProviderManager', () => {
       primaryProvider.setFailureMode(false);
 
       // Next call should skip primary (circuit breaker open) and go to fallback
-      const result = await manager.executeWithFailover<{
+      const result = await manager.executeWithFailoverOnce<{
         balance: number;
         currency: string;
       }>('ethereum', operation);
@@ -287,8 +333,9 @@ describe('BlockchainProviderManager', () => {
 
     manager.registerProviders('ethereum', [basicProvider, tokenProvider]);
 
-    const tokenExecuteSpy = vi.spyOn(tokenProvider, 'execute');
-    const basicExecuteSpy = vi.spyOn(basicProvider, 'execute');
+    // Spy on executeStreaming since transaction operations use streaming path
+    const tokenExecuteSpy = vi.spyOn(tokenProvider, 'executeStreaming');
+    const basicExecuteSpy = vi.spyOn(basicProvider, 'executeStreaming');
 
     // Execute token operation - should only use token provider
     const tokenOperation: ProviderOperation = {
@@ -297,7 +344,11 @@ describe('BlockchainProviderManager', () => {
       type: 'getAddressTokenTransactions',
     };
 
-    await manager.executeWithFailover('ethereum', tokenOperation);
+    // Consume iterator for transaction operation (streaming)
+    for await (const _ of manager.executeWithFailover('ethereum', tokenOperation)) {
+      // Just consume the iterator - test only checks that correct provider was called
+      break;
+    }
 
     expect(tokenExecuteSpy).toHaveBeenCalledTimes(1);
     expect(basicExecuteSpy).not.toHaveBeenCalled(); // Basic provider doesn't support token operations
@@ -318,7 +369,7 @@ describe('BlockchainProviderManager', () => {
     };
 
     // First call - should cache result
-    const result1 = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
+    const result1 = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
     expect(result1.isOk()).toBe(true);
     if (result1.isOk()) {
       expect(result1.value.data.balance).toBe(100);
@@ -331,7 +382,7 @@ describe('BlockchainProviderManager', () => {
     primaryProvider.setFailureMode(true);
 
     // Second call - cache expired, should fail over to fallback
-    const result2 = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
+    const result2 = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
     expect(result2.isOk()).toBe(true);
     if (result2.isOk()) {
       expect(result2.value.data.balance).toBe(100); // Should get result from fallback, not stale cache
@@ -515,14 +566,18 @@ describe('Provider System Integration', () => {
         type: 'getAddressTransactions',
       };
 
-      const result = await manager.executeWithFailover<{
+      // Consume streaming iterator for transaction operation
+      for await (const batchResult of manager.executeWithFailover<{
         address: string;
         transactions: unknown[];
-      }>('bitcoin', operation);
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.data.transactions).toEqual([]);
-        expect(result.value.data.address).toBe('bc1xyz');
+      }>('bitcoin', operation)) {
+        expect(batchResult.isOk()).toBe(true);
+        if (batchResult.isOk()) {
+          // MockProvider yields empty array for transaction operations
+          expect(batchResult.value.data).toEqual([]);
+          expect(batchResult.value.providerName).toBe('test');
+        }
+        break; // Only check first batch for this test
       }
 
       // Verify health status

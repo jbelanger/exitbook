@@ -1,15 +1,14 @@
 import type {
   BlockchainProviderManager,
-  ProviderError,
   SolanaTransaction,
   TransactionWithRawData,
 } from '@exitbook/blockchain-providers';
 import { generateUniqueTransactionId } from '@exitbook/blockchain-providers';
-import type { ExternalTransaction } from '@exitbook/core';
+import type { CursorState } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
-import { err, type Result } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.js';
+import type { IImporter, ImportParams, ImportBatchResult } from '../../../types/importers.js';
 
 /**
  * Solana transaction importer that fetches raw transaction data from blockchain APIs.
@@ -40,44 +39,55 @@ export class SolanaTransactionImporter implements IImporter {
   }
 
   /**
-   * Import raw transaction data from Solana blockchain APIs with provider provenance.
+   * Streaming import implementation
+   * Streams transaction batches without accumulating everything in memory
    */
-  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
+  async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     if (!params.address) {
-      return err(new Error('Address required for Solana transaction import'));
+      yield err(new Error('Address required for Solana transaction import'));
+      return;
     }
 
-    this.logger.info(`Starting Solana transaction import for address: ${params.address.substring(0, 20)}...`);
+    this.logger.info(`Starting Solana streaming import for address: ${params.address.substring(0, 20)}...`);
 
-    const result = await this.fetchRawTransactionsForAddress(params.address);
+    const normalCursor = params.cursor?.['normal'];
+    for await (const batchResult of this.streamTransactionsForAddress(params.address, normalCursor)) {
+      yield batchResult;
+    }
 
-    return result
-      .map((rawTransactions) => {
-        this.logger.info(`Solana import completed: ${rawTransactions.length} transactions`);
-        return { rawTransactions: rawTransactions };
-      })
-      .mapErr((error) => {
-        this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
-        return error;
-      });
+    this.logger.info(`Solana streaming import completed`);
   }
 
   /**
-   * Fetch raw transactions for a single address with provider provenance.
+   * Stream transactions for a single address with resume support
+   * Uses provider manager's streaming failover to handle pagination and provider switching
    */
-  private async fetchRawTransactionsForAddress(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
-    const result = await this.providerManager.executeWithFailover('solana', {
-      address: address,
-      getCacheKey: (params) =>
-        `solana:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? 'all' : 'unknown'}`,
-      type: 'getAddressTransactions',
-    });
+  private async *streamTransactionsForAddress(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
+    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<SolanaTransaction>>(
+      'solana',
+      {
+        type: 'getAddressTransactions',
+        address,
+        getCacheKey: (params) =>
+          `solana:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:all`,
+      },
+      resumeCursor
+    );
 
-    return result.map((response) => {
-      const transactionsWithRaw = response.data as TransactionWithRawData<SolanaTransaction>[];
-      const providerName = response.providerName;
+    for await (const providerBatchResult of iterator) {
+      if (providerBatchResult.isErr()) {
+        yield err(providerBatchResult.error);
+        return;
+      }
 
-      return transactionsWithRaw.map((txWithRaw) => ({
+      const providerBatch = providerBatchResult.value;
+      const transactionsWithRaw = providerBatch.data;
+
+      // Map to external transactions
+      const externalTransactions = transactionsWithRaw.map((txWithRaw) => ({
         externalId: generateUniqueTransactionId({
           amount: txWithRaw.normalized.amount,
           currency: txWithRaw.normalized.currency,
@@ -90,10 +100,17 @@ export class SolanaTransactionImporter implements IImporter {
           type: 'transfer',
         }),
         normalizedData: txWithRaw.normalized,
-        providerName,
+        providerName: providerBatch.providerName,
         rawData: txWithRaw.raw,
         sourceAddress: address,
       }));
-    });
+
+      yield ok({
+        rawTransactions: externalTransactions,
+        operationType: 'normal',
+        cursor: providerBatch.cursor,
+        isComplete: providerBatch.cursor.metadata?.isComplete ?? false,
+      });
+    }
   }
 }

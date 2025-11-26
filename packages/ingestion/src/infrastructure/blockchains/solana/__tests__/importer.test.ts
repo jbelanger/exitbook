@@ -3,14 +3,40 @@
  * Tests transaction fetching with provider failover
  */
 
-import type { FailoverExecutionResult } from '@exitbook/blockchain-providers';
 import { ProviderError, type BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
-import type { PaginationCursor } from '@exitbook/core';
-import { err, errAsync, ok } from 'neverthrow';
+import type { CursorState, ExternalTransaction, PaginationCursor } from '@exitbook/core';
+import { err, errAsync, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
+import type { ImportParams, ImportRunResult } from '../../../../types/importers.ts';
 import { SolanaTransactionImporter } from '../importer.js';
+
+/**
+ * Helper to consume streaming iterator
+ */
+async function consumeImportStream(
+  importer: SolanaTransactionImporter,
+  params: ImportParams
+): Promise<Result<ImportRunResult, Error>> {
+  const allTransactions: ExternalTransaction[] = [];
+  const cursorUpdates: Record<string, CursorState> = {};
+
+  for await (const batchResult of importer.importStreaming(params)) {
+    if (batchResult.isErr()) {
+      return err(batchResult.error);
+    }
+
+    const batch = batchResult.value;
+    allTransactions.push(...batch.rawTransactions);
+    cursorUpdates[batch.operationType] = batch.cursor;
+  }
+
+  return ok({
+    rawTransactions: allTransactions,
+    cursorUpdates,
+  });
+}
 
 const mockSolTx = {
   signature: 'sig123abc',
@@ -36,6 +62,24 @@ type ProviderManagerMock = Mocked<
 
 describe('SolanaTransactionImporter', () => {
   let mockProviderManager: ProviderManagerMock;
+
+  /**
+   * Helper to setup mock for transaction data
+   */
+  const setupMockData = (data: unknown[] = []) => {
+    mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+      yield okAsync({
+        data,
+        providerName: 'helius',
+        cursor: {
+          primary: { type: 'blockNumber' as const, value: 0 },
+          lastTransactionId: '',
+          totalFetched: data.length,
+          metadata: { providerName: 'helius', updatedAt: Date.now(), isComplete: true },
+        },
+      });
+    });
+  };
 
   beforeEach(() => {
     mockProviderManager = {
@@ -107,17 +151,12 @@ describe('SolanaTransactionImporter', () => {
       const mockNormalizedSol = { id: 'sig123abc', amount: '1', currency: 'SOL' };
       const mockNormalizedToken = { id: 'sig456def', amount: '1', currency: 'USDC' };
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: [
-            { normalized: mockNormalizedSol, raw: mockSolTx },
-            { normalized: mockNormalizedToken, raw: mockTokenTx },
-          ],
-          providerName: 'helius',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([
+        { normalized: mockNormalizedSol, raw: mockSolTx },
+        { normalized: mockNormalizedToken, raw: mockTokenTx },
+      ]);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -158,14 +197,9 @@ describe('SolanaTransactionImporter', () => {
       const importer = createImporter();
       const address = 'user1111111111111111111111111111111111111111';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: [],
-          providerName: 'helius',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([]);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -187,14 +221,9 @@ describe('SolanaTransactionImporter', () => {
         { normalized: { id: 'sig012' }, raw: tx3 },
       ];
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: multipleTxs,
-          providerName: 'helius',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData(multipleTxs);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -211,15 +240,15 @@ describe('SolanaTransactionImporter', () => {
       const importer = createImporter();
       const address = 'user1111111111111111111111111111111111111111';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        err(
+      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+        yield errAsync(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'solana',
           })
-        )
-      );
+        );
+      });
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -230,7 +259,7 @@ describe('SolanaTransactionImporter', () => {
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
 
-      const result = await importer.import({});
+      const result = await consumeImportStream(importer, {});
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -244,14 +273,9 @@ describe('SolanaTransactionImporter', () => {
       const importer = createImporter();
       const address = 'user1111111111111111111111111111111111111111';
 
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'helius',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([]);
 
-      await importer.import({ address });
+      await consumeImportStream(importer, { address });
 
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;

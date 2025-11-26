@@ -311,7 +311,7 @@ export class CardanoUtils {
       if (!address) continue; // Skip invalid addresses
 
       // Check if address has transactions using provider manager
-      const result = await providerManager.executeWithFailover('cardano', {
+      const result = await providerManager.executeWithFailoverOnce('cardano', {
         address,
         getCacheKey: (params) => `cardano:has-txs:${(params as { address: string }).address}`,
         type: 'hasAddressTransactions',

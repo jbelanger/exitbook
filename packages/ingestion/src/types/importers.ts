@@ -68,5 +68,5 @@ export interface IImporter {
    * Does NOT save to database - that's handled by the ingestion service.
    * Returns Result to make error handling explicit.
    */
-  import(params: ImportParams): Promise<Result<ImportRunResult, Error>>;
+  import?(params: ImportParams): Promise<Result<ImportRunResult, Error>>;
 }

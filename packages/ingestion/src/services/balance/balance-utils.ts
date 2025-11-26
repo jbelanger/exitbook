@@ -76,7 +76,7 @@ export async function fetchBlockchainBalance(
     const balances: Record<string, string> = {};
 
     // 1. Fetch native asset balance
-    const nativeResult = await providerManager.executeWithFailover<RawBalanceData>(blockchain, {
+    const nativeResult = await providerManager.executeWithFailoverOnce<RawBalanceData>(blockchain, {
       type: 'getAddressBalances',
       address,
     });
@@ -106,7 +106,7 @@ export async function fetchBlockchainBalance(
 
     // 3. Fetch token balances if supported
     if (supportsTokenBalances) {
-      const tokenResult = await providerManager.executeWithFailover<RawBalanceData[]>(blockchain, {
+      const tokenResult = await providerManager.executeWithFailoverOnce<RawBalanceData[]>(blockchain, {
         type: 'getAddressTokenBalances',
         address,
       });

@@ -55,6 +55,14 @@ export function createMockTokenMetadataService(): Mocked<ITokenMetadataService> 
  * Creates a mock BlockchainProviderManager with default implementations.
  * Provides a single mock provider for the specified blockchain.
  *
+ * The executeWithFailover method returns an async iterator by default.
+ * Override it in tests to provide specific behavior:
+ * ```
+ * mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+ *   yield ok({ data: [...], providerName: '...', cursor: {...} });
+ * });
+ * ```
+ *
  * @param blockchain - The blockchain identifier (e.g., 'ethereum', 'solana', 'bitcoin')
  */
 export function createMockProviderManager(
@@ -69,6 +77,12 @@ export function createMockProviderManager(
   >;
 
   mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
+
+  // Default implementation: returns empty async iterator
+  mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+    // By default, yield nothing. Tests should override this.
+  });
+
   mockProviderManager.getProviders.mockReturnValue([
     {
       name: 'mock-provider',

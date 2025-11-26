@@ -127,7 +127,8 @@ describe('fetchBlockchainBalance', () => {
     const mockProviderManager = {
       autoRegisterFromConfig: vi.fn(),
       destroy: vi.fn(),
-      executeWithFailover: vi.fn().mockResolvedValue(ok(mockProviderResult)),
+      executeWithFailover: vi.fn(),
+      executeWithFailoverOnce: vi.fn().mockResolvedValue(ok(mockProviderResult)),
       getProviders: vi.fn().mockReturnValue([
         {
           capabilities: {
@@ -155,7 +156,7 @@ describe('fetchBlockchainBalance', () => {
     }
 
     // eslint-disable-next-line @typescript-eslint/unbound-method -- vitest mock assertion
-    expect(mockProviderManager.executeWithFailover).toHaveBeenCalledWith('bitcoin', {
+    expect(mockProviderManager.executeWithFailoverOnce).toHaveBeenCalledWith('bitcoin', {
       type: 'getAddressBalances',
       address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
     });
@@ -167,7 +168,8 @@ describe('fetchBlockchainBalance', () => {
     const mockProviderManager = {
       autoRegisterFromConfig: vi.fn(),
       destroy: vi.fn(),
-      executeWithFailover: vi.fn().mockResolvedValue(err(mockError)),
+      executeWithFailover: vi.fn(),
+      executeWithFailoverOnce: vi.fn().mockResolvedValue(err(mockError)),
       getProviders: vi.fn().mockReturnValue([]),
     } as unknown as BlockchainProviderManager;
 
@@ -188,7 +190,8 @@ describe('fetchBlockchainBalance', () => {
     const mockProviderManager = {
       autoRegisterFromConfig: vi.fn(),
       destroy: vi.fn(),
-      executeWithFailover: vi.fn().mockRejectedValue(new Error('Network error')),
+      executeWithFailover: vi.fn(),
+      executeWithFailoverOnce: vi.fn().mockRejectedValue(new Error('Network error')),
       getProviders: vi.fn().mockReturnValue([]),
     } as unknown as BlockchainProviderManager;
 
@@ -221,7 +224,8 @@ describe('fetchBlockchainBalance', () => {
     const mockProviderManager = {
       autoRegisterFromConfig: vi.fn(),
       destroy: vi.fn(),
-      executeWithFailover: vi.fn().mockResolvedValue(ok(mockProviderResult)),
+      executeWithFailover: vi.fn(),
+      executeWithFailoverOnce: vi.fn().mockResolvedValue(ok(mockProviderResult)),
       getProviders: vi.fn().mockReturnValue([
         {
           capabilities: {
@@ -262,7 +266,8 @@ describe('fetchBlockchainBalance', () => {
     const mockProviderManager = {
       autoRegisterFromConfig: vi.fn(),
       destroy: vi.fn(),
-      executeWithFailover: vi.fn().mockResolvedValue(ok(mockProviderResult)),
+      executeWithFailover: vi.fn(),
+      executeWithFailoverOnce: vi.fn().mockResolvedValue(ok(mockProviderResult)),
       getProviders: vi.fn().mockReturnValue([
         {
           capabilities: {

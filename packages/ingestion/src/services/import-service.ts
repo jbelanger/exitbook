@@ -212,127 +212,6 @@ export class TransactionImportService {
   }
 
   /**
-   * Import raw data from blockchain and store it in external_transaction_data table.
-   * @deprecated Use importFromBlockchainStreaming instead
-   */
-  private async importFromBlockchain(account: Account): Promise<Result<ImportResult, Error>> {
-    const sourceId = account.sourceName;
-    this.logger.info(`Starting blockchain import for ${sourceId}`);
-
-    // Normalize sourceId to lowercase for config lookup (registry keys are lowercase)
-    const normalizedSourceId = sourceId.toLowerCase();
-
-    // Get blockchain config
-    const config = getBlockchainConfig(normalizedSourceId);
-    if (!config) {
-      return err(new Error(`Unknown blockchain: ${sourceId}`));
-    }
-
-    // Build ImportParams from account
-    const params: ImportParams = {
-      address: account.identifier,
-      providerName: account.providerName ?? undefined,
-      cursor: account.lastCursor,
-    };
-
-    // Normalize and validate params using pure function
-    const normalizedParamsResult = normalizeBlockchainImportParams(sourceId, params, config);
-    if (normalizedParamsResult.isErr()) {
-      return err(normalizedParamsResult.error);
-    }
-    const normalizedParams = normalizedParamsResult.value;
-
-    const startTime = Date.now();
-    let dataSourceCreated = false;
-    let dataSourceId = 0;
-    try {
-      const dataSourceCreateResult = await this.dataSourceRepository.create(account.id);
-
-      if (dataSourceCreateResult.isErr()) {
-        return err(dataSourceCreateResult.error);
-      }
-
-      dataSourceId = dataSourceCreateResult.value;
-      dataSourceCreated = true;
-      this.logger.info(`Created data source: ${dataSourceId}`);
-
-      const importer = config.createImporter(this.providerManager, normalizedParams.providerName);
-      this.logger.info(`Importer for ${sourceId} created successfully`);
-
-      this.logger.info('Starting raw data import...');
-      progress.update('Fetching blockchain transactions...');
-      const importResultOrError = await importer.import(normalizedParams);
-
-      if (importResultOrError.isErr()) {
-        return err(importResultOrError.error);
-      }
-
-      const importResult = importResultOrError.value;
-      const rawData = importResult.rawTransactions;
-
-      progress.update(`Saving ${rawData.length} transactions...`);
-      const savedCountResult = await this.rawDataRepository.saveBatch(dataSourceId, rawData);
-
-      if (savedCountResult.isErr()) {
-        return err(savedCountResult.error);
-      }
-      const savedCount = savedCountResult.value;
-
-      if (dataSourceCreated && typeof dataSourceId === 'number') {
-        this.logger.debug(`Finalizing import source ${dataSourceId} with ${savedCount} transactions`);
-        const finalizeResult = await this.dataSourceRepository.finalize(
-          dataSourceId,
-          'completed',
-          startTime,
-          undefined,
-          undefined,
-          {
-            ...importResult.metadata,
-            transactionsImported: savedCount,
-          }
-        );
-
-        if (finalizeResult.isErr()) {
-          return err(finalizeResult.error);
-        }
-
-        this.logger.debug(`Successfully finalized import source ${dataSourceId}`);
-      }
-
-      this.logger.info(`Import completed for ${sourceId}: ${savedCount} items saved`);
-
-      return ok({
-        imported: savedCount,
-        dataSourceId,
-      });
-    } catch (error) {
-      const originalError = error instanceof Error ? error : new Error(String(error));
-
-      if (dataSourceCreated && typeof dataSourceId === 'number' && dataSourceId > 0) {
-        const finalizeResult = await this.dataSourceRepository.finalize(
-          dataSourceId,
-          'failed',
-          startTime,
-          originalError.message,
-          error instanceof Error ? { stack: error.stack } : { error: String(error) }
-        );
-
-        if (finalizeResult.isErr()) {
-          this.logger.error(`Failed to update session on error: ${finalizeResult.error.message}`);
-          return err(
-            new Error(
-              `Import failed: ${originalError.message}. Additionally, failed to update session: ${finalizeResult.error.message}`
-            )
-          );
-        }
-      }
-
-      this.logger.error(`Import failed for ${sourceId}: ${originalError.message}`);
-      return err(originalError);
-    }
-  }
-
-  /**
    * Import raw data from exchange and store it in external_transaction_data table.
    * Handles validation errors by saving successful items and recording errors.
    * Supports resumption using per-operation-type cursors.
@@ -407,7 +286,7 @@ export class TransactionImportService {
 
       this.logger.info('Starting raw data import...');
       progress.update('Fetching exchange data...');
-      const importResultOrError = await importer.import(sessionConfig.params);
+      const importResultOrError = await importer.import!(sessionConfig.params);
 
       if (importResultOrError.isErr()) {
         const error = importResultOrError.error;

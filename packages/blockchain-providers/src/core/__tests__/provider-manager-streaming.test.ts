@@ -156,7 +156,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results = [];
-      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation, cursor)) {
+      for await (const result of manager.executeWithFailover('ethereum', operation, cursor)) {
         if (result.isOk()) {
           results.push(result.value);
         }
@@ -196,7 +196,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       const results = [];
       const errors = [];
-      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation, cursor)) {
+      for await (const result of manager.executeWithFailover('ethereum', operation, cursor)) {
         if (result.isOk()) {
           results.push(result.value);
         } else {
@@ -239,7 +239,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results = [];
-      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation, cursor)) {
+      for await (const result of manager.executeWithFailover('ethereum', operation, cursor)) {
         if (result.isOk()) {
           results.push(result.value);
         }
@@ -280,7 +280,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       const results = [];
       const errors = [];
-      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation, cursor)) {
+      for await (const result of manager.executeWithFailover('ethereum', operation, cursor)) {
         if (result.isOk()) {
           results.push(result.value);
         } else {
@@ -323,7 +323,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results = [];
-      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation)) {
+      for await (const result of manager.executeWithFailover('ethereum', operation)) {
         if (result.isOk()) {
           results.push(result.value);
         }
@@ -349,7 +349,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       const errors = [];
       const results = [];
-      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation)) {
+      for await (const result of manager.executeWithFailover('ethereum', operation)) {
         if (result.isErr()) {
           errors.push(result.error);
         } else {
@@ -399,7 +399,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results = [];
-      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation, initialCursor)) {
+      for await (const result of manager.executeWithFailover('ethereum', operation, initialCursor)) {
         if (result.isOk()) {
           results.push(result.value);
         }
@@ -436,7 +436,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results = [];
-      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation)) {
+      for await (const result of manager.executeWithFailover('ethereum', operation)) {
         if (result.isOk()) {
           results.push(result.value);
         }
@@ -477,7 +477,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results: FailoverStreamingExecutionResult<TransactionWithRawData<{ id: string }>>[] = [];
-      for await (const result of manager.executeWithFailoverStreaming<TransactionWithRawData<{ id: string }>>(
+      for await (const result of manager.executeWithFailover<TransactionWithRawData<{ id: string }>>(
         'ethereum',
         operation,
         cursor
@@ -529,7 +529,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results = [];
-      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation, cursor)) {
+      for await (const result of manager.executeWithFailover('ethereum', operation, cursor)) {
         if (result.isOk()) {
           results.push(result.value);
         }
@@ -562,7 +562,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results = [];
-      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation)) {
+      for await (const result of manager.executeWithFailover('ethereum', operation)) {
         if (result.isOk()) {
           results.push(result.value);
         }
@@ -600,7 +600,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const results: FailoverStreamingExecutionResult<TransactionWithRawData<unknown>>[] = [];
-      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation)) {
+      for await (const result of manager.executeWithFailover('ethereum', operation)) {
         if (result.isOk()) {
           results.push(result.value as FailoverStreamingExecutionResult<TransactionWithRawData<unknown>>);
         }
@@ -621,7 +621,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const errors = [];
-      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation)) {
+      for await (const result of manager.executeWithFailover('ethereum', operation)) {
         if (result.isErr()) {
           errors.push(result.error);
         }
@@ -651,7 +651,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
         address: '0x123',
       };
 
-      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation)) {
+      for await (const result of manager.executeWithFailover('ethereum', operation)) {
         expect(result.isOk()).toBe(true);
       }
 
@@ -670,7 +670,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       };
 
       const errors = [];
-      for await (const result of manager.executeWithFailoverStreaming('ethereum', operation)) {
+      for await (const result of manager.executeWithFailover('ethereum', operation)) {
         if (result.isErr()) {
           errors.push(result.error);
         }
