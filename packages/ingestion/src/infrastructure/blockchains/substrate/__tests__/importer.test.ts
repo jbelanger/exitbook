@@ -3,18 +3,44 @@
  * Tests the fetch pattern across multiple Substrate-based chains (Polkadot, Bittensor, Kusama, etc.)
  */
 
-import type { FailoverExecutionResult } from '@exitbook/blockchain-providers';
 import {
   type SubstrateChainConfig,
   type BlockchainProviderManager,
   ProviderError,
 } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
-import type { PaginationCursor } from '@exitbook/core';
-import { err, errAsync, ok } from 'neverthrow';
+import type { CursorState, ExternalTransaction, PaginationCursor } from '@exitbook/core';
+import { err, errAsync, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
+import type { ImportParams, ImportRunResult } from '../../../../types/importers.ts';
 import { SubstrateImporter } from '../importer.js';
+
+/**
+ * Helper to consume streaming iterator
+ */
+async function consumeImportStream(
+  importer: SubstrateImporter,
+  params: ImportParams
+): Promise<Result<ImportRunResult, Error>> {
+  const allTransactions: ExternalTransaction[] = [];
+  const cursorUpdates: Record<string, CursorState> = {};
+
+  for await (const batchResult of importer.importStreaming(params)) {
+    if (batchResult.isErr()) {
+      return err(batchResult.error);
+    }
+
+    const batch = batchResult.value;
+    allTransactions.push(...batch.rawTransactions);
+    cursorUpdates[batch.operationType] = batch.cursor;
+  }
+
+  return ok({
+    rawTransactions: allTransactions,
+    cursorUpdates,
+  });
+}
 
 const POLKADOT_CONFIG: SubstrateChainConfig = {
   chainName: 'polkadot',
@@ -85,6 +111,24 @@ type ProviderManagerMock = Mocked<
 
 describe('SubstrateImporter', () => {
   let mockProviderManager: ProviderManagerMock;
+
+  /**
+   * Helper to setup mock for transaction data
+   */
+  const setupMockData = (data: unknown[] = [], providerName = 'subscan') => {
+    mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+      yield okAsync({
+        data,
+        providerName,
+        cursor: {
+          primary: { type: 'blockNumber' as const, value: 0 },
+          lastTransactionId: '',
+          totalFetched: data.length,
+          metadata: { providerName, updatedAt: Date.now(), isComplete: true },
+        },
+      });
+    });
+  };
 
   beforeEach(() => {
     mockProviderManager = {
@@ -178,17 +222,12 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: [
-            { raw: { original: 'data1' }, normalized: mockSubstrateTx1 },
-            { raw: { original: 'data2' }, normalized: mockSubstrateTx2 },
-          ],
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([
+        { raw: { original: 'data1' }, normalized: mockSubstrateTx1 },
+        { raw: { original: 'data2' }, normalized: mockSubstrateTx2 },
+      ]);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -230,14 +269,9 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: [],
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([]);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -249,14 +283,9 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: [{ raw: { original: 'data' }, normalized: mockSubstrateTx1 }],
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([{ raw: { original: 'data' }, normalized: mockSubstrateTx1 }]);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -270,14 +299,9 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: [],
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([]);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -289,14 +313,9 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: [],
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([]);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -318,14 +337,9 @@ describe('SubstrateImporter', () => {
         },
       }));
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: largeBatch,
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData(largeBatch);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -341,15 +355,15 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        err(
+      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+        yield errAsync(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'polkadot',
           })
-        )
-      );
+        );
+      });
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -360,7 +374,7 @@ describe('SubstrateImporter', () => {
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
 
-      const result = await importer.import({});
+      const result = await consumeImportStream(importer, {});
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -371,7 +385,7 @@ describe('SubstrateImporter', () => {
     test('should return error if address is empty string', async () => {
       const importer = createImporter();
 
-      const result = await importer.import({ address: '' });
+      const result = await consumeImportStream(importer, { address: '' });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -383,15 +397,15 @@ describe('SubstrateImporter', () => {
       const importer = createImporter(BITTENSOR_CONFIG);
       const address = '5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        err(
+      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+        yield errAsync(
           new ProviderError('Taostats API unavailable', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'bittensor',
           })
-        )
-      );
+        );
+      });
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -407,9 +421,11 @@ describe('SubstrateImporter', () => {
         blockchain: 'polkadot',
       });
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(err(providerError));
+      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+        yield errAsync(providerError);
+      });
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -431,14 +447,9 @@ describe('SubstrateImporter', () => {
         feeCurrency: 'TAO',
       };
 
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [{ raw: { original: 'tao-data' }, normalized: bittensorTx }],
-          providerName: 'taostats',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([{ raw: { original: 'tao-data' }, normalized: bittensorTx }], 'taostats');
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
 
@@ -470,14 +481,9 @@ describe('SubstrateImporter', () => {
         feeCurrency: 'KSM',
       };
 
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [{ raw: { original: 'ksm-data' }, normalized: kusamaTx }],
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([{ raw: { original: 'ksm-data' }, normalized: kusamaTx }]);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
 
@@ -500,27 +506,39 @@ describe('SubstrateImporter', () => {
       const polkadotAddress = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
       const bittensorAddress = '5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: [{ raw: { original: 'dot-data' }, normalized: { ...mockSubstrateTx1, chainName: 'polkadot' } }],
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
-
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: [
-            {
-              raw: { original: 'tao-data' },
-              normalized: { ...mockSubstrateTx1, chainName: 'bittensor', currency: 'TAO' },
+      mockProviderManager.executeWithFailover
+        .mockImplementationOnce(async function* () {
+          yield okAsync({
+            data: [{ raw: { original: 'dot-data' }, normalized: { ...mockSubstrateTx1, chainName: 'polkadot' } }],
+            providerName: 'subscan',
+            cursor: {
+              primary: { type: 'blockNumber' as const, value: 0 },
+              lastTransactionId: '',
+              totalFetched: 1,
+              metadata: { providerName: 'subscan', updatedAt: Date.now(), isComplete: true },
             },
-          ],
-          providerName: 'taostats',
-        } as FailoverExecutionResult<unknown>)
-      );
+          });
+        })
+        .mockImplementationOnce(async function* () {
+          yield okAsync({
+            data: [
+              {
+                raw: { original: 'tao-data' },
+                normalized: { ...mockSubstrateTx1, chainName: 'bittensor', currency: 'TAO' },
+              },
+            ],
+            providerName: 'taostats',
+            cursor: {
+              primary: { type: 'blockNumber' as const, value: 0 },
+              lastTransactionId: '',
+              totalFetched: 1,
+              metadata: { providerName: 'taostats', updatedAt: Date.now(), isComplete: true },
+            },
+          });
+        });
 
-      const polkadotResult = await polkadotImporter.import({ address: polkadotAddress });
-      const bittensorResult = await bittensorImporter.import({ address: bittensorAddress });
+      const polkadotResult = await consumeImportStream(polkadotImporter, { address: polkadotAddress });
+      const bittensorResult = await consumeImportStream(bittensorImporter, { address: bittensorAddress });
 
       expect(polkadotResult.isOk()).toBe(true);
       expect(bittensorResult.isOk()).toBe(true);
@@ -537,14 +555,9 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([]);
 
-      await importer.import({ address });
+      await consumeImportStream(importer, { address });
 
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
@@ -560,15 +573,10 @@ describe('SubstrateImporter', () => {
 
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([]);
 
-      await polkadotImporter.import({ address });
-      await bittensorImporter.import({ address });
+      await consumeImportStream(polkadotImporter, { address });
+      await consumeImportStream(bittensorImporter, { address });
 
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
@@ -588,14 +596,9 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([]);
 
-      await importer.import({ address });
+      await consumeImportStream(importer, { address });
 
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
@@ -635,14 +638,9 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: [{ raw: { original: 'data' }, normalized: mockSubstrateTx1 }],
-          providerName: 'custom-provider',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([{ raw: { original: 'data' }, normalized: mockSubstrateTx1 }], 'custom-provider');
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -657,14 +655,9 @@ describe('SubstrateImporter', () => {
       // Generate a long address (SS58 addresses can be quite long)
       const address = '1' + 'a'.repeat(100);
 
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([]);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
 
@@ -680,14 +673,9 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'subscan',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([]);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
     });

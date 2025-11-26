@@ -26,6 +26,21 @@ export type ProviderOperation = {
   getCacheKey?: (params: ProviderOperationParams) => string;
 } & ProviderOperationParams;
 
+// Typed subsets that preserve getCacheKey support
+type StreamingOperationParams = Extract<
+  ProviderOperationParams,
+  | { type: 'getAddressTransactions' }
+  | { type: 'getAddressInternalTransactions' }
+  | { type: 'getAddressTokenTransactions' }
+>;
+
+type OneShotOperationParams = Exclude<ProviderOperationParams, StreamingOperationParams>;
+
+export type StreamingOperation = {
+  getCacheKey?: (params: ProviderOperationParams) => string;
+} & StreamingOperationParams;
+export type OneShotOperation = { getCacheKey?: (params: ProviderOperationParams) => string } & OneShotOperationParams;
+
 export type ProviderOperationType =
   | 'getAddressTransactions'
   | 'getAddressBalances'
@@ -45,7 +60,7 @@ export interface FailoverExecutionResult<T> {
 
 /**
  * Result from streaming failover execution with cursor state
- * Used by executeWithFailoverStreaming to yield batches with provenance and cursor
+ * Used by executeWithFailover to yield batches with provenance and cursor
  */
 export interface FailoverStreamingExecutionResult<T> {
   data: T[];

@@ -2,15 +2,14 @@ import type {
   BlockchainProviderManager,
   EvmChainConfig,
   EvmTransaction,
-  ProviderError,
   TransactionWithRawData,
 } from '@exitbook/blockchain-providers';
-import type { CursorState, ExternalTransaction } from '@exitbook/core';
+import type { CursorState } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportBatchResult, ImportParams, ImportRunResult } from '../../../types/importers.js';
+import type { IImporter, ImportBatchResult, ImportParams } from '../../../types/importers.js';
 
 import { mapToExternalTransactions } from './evm-importer-utils.js';
 
@@ -113,44 +112,6 @@ export class EvmImporter implements IImporter {
   }
 
   /**
-   * Legacy batch import (deprecated)
-   * Accumulates all batches from streaming implementation
-   * @deprecated Use importStreaming instead
-   */
-  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
-    if (!params.address) {
-      return err(new Error(`Address required for ${this.chainConfig.chainName} transaction import`));
-    }
-
-    const address = params.address;
-
-    this.logger.info(`Starting ${this.chainConfig.chainName} import for ${address.substring(0, 20)}...`);
-
-    const allTransactions: ExternalTransaction[] = [];
-    const cursorUpdates: Record<string, CursorState> = {};
-
-    // Consume streaming iterator
-    for await (const batchResult of this.importStreaming(params)) {
-      if (batchResult.isErr()) {
-        return err(batchResult.error);
-      }
-
-      const batch = batchResult.value;
-      allTransactions.push(...batch.rawTransactions);
-      cursorUpdates[batch.operationType] = batch.cursor;
-    }
-
-    this.logger.info(
-      `${this.chainConfig.chainName} import completed - Raw transactions collected: ${allTransactions.length}`
-    );
-
-    return ok({
-      rawTransactions: allTransactions,
-      cursorUpdates,
-    });
-  }
-
-  /**
    * Stream a specific transaction type with resume support
    * Uses provider manager's streaming failover to handle pagination and provider switching
    */
@@ -163,7 +124,7 @@ export class EvmImporter implements IImporter {
     const cacheKeyPrefix =
       operationType === 'normal' ? 'normal-txs' : operationType === 'internal' ? 'internal-txs' : 'token-txs';
 
-    const iterator = this.providerManager.executeWithFailoverStreaming<TransactionWithRawData<EvmTransaction>>(
+    const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<EvmTransaction>>(
       this.chainConfig.chainName,
       {
         type: providerOperationType,
@@ -181,7 +142,7 @@ export class EvmImporter implements IImporter {
       }
 
       const providerBatch = providerBatchResult.value;
-      // Provider batch data is TransactionWithRawData[] from executeWithFailoverStreaming
+      // Provider batch data is TransactionWithRawData[] from executeWithFailover
       const transactionsWithRaw = providerBatch.data;
 
       // Use pure function for mapping
@@ -199,98 +160,5 @@ export class EvmImporter implements IImporter {
         isComplete: providerBatch.cursor.metadata?.isComplete ?? false,
       });
     }
-  }
-
-  /**
-   * Fetch all transaction types (normal, internal, token) for an address in parallel.
-   * Only normal transactions are required; internal and token failures are handled gracefully.
-   * @deprecated Use streamTransactionType instead
-   */
-  private async fetchAllTransactions(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
-    // Fetch all three transaction types in parallel for optimal performance
-    const [normalResult, internalResult, tokenResult] = await Promise.all([
-      this.fetchNormalTransactions(address),
-      this.fetchInternalTransactions(address),
-      this.fetchTokenTransactions(address),
-    ]);
-
-    if (normalResult.isErr()) {
-      return normalResult;
-    }
-
-    if (internalResult.isErr()) {
-      return internalResult;
-    }
-
-    if (tokenResult.isErr()) {
-      return tokenResult;
-    }
-
-    // Combine all successful results
-    const allTransactions: ExternalTransaction[] = [
-      ...normalResult.value,
-      ...internalResult.value,
-      ...tokenResult.value,
-    ];
-
-    this.logger.debug(
-      `Total transactions fetched: ${allTransactions.length} (${normalResult.value.length} normal, ${internalResult.value.length} internal, ${tokenResult.value.length} token)`
-    );
-
-    return ok(allTransactions);
-  }
-
-  /**
-   * Fetch normal (external) transactions for an address with provider provenance.
-   * @deprecated Legacy method - use streamTransactionType instead
-   */
-  private async fetchNormalTransactions(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
-    const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
-      address: address,
-      getCacheKey: (params) =>
-        `${this.chainConfig.chainName}:normal-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? 'all' : 'unknown'}`,
-      type: 'getAddressTransactions',
-    });
-
-    return result.map((response) => {
-      const transactionsWithRaw = response.data as TransactionWithRawData<EvmTransaction>[];
-      return mapToExternalTransactions(transactionsWithRaw, response.providerName, address, 'normal');
-    });
-  }
-
-  /**
-   * Fetch internal transactions (contract calls) for an address with provider provenance.
-   * @deprecated Legacy method - use streamTransactionType instead
-   */
-  private async fetchInternalTransactions(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
-    const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
-      address: address,
-      getCacheKey: (params) =>
-        `${this.chainConfig.chainName}:internal-txs:${params.type === 'getAddressInternalTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressInternalTransactions' ? 'all' : 'unknown'}`,
-      type: 'getAddressInternalTransactions',
-    });
-
-    return result.map((response) => {
-      const transactionsWithRaw = response.data as TransactionWithRawData<EvmTransaction>[];
-      return mapToExternalTransactions(transactionsWithRaw, response.providerName, address, 'internal');
-    });
-  }
-
-  /**
-   * Fetch token transactions (ERC-20/721/1155) for an address with provider provenance.
-   * @deprecated Legacy method - use streamTransactionType instead
-   */
-  private async fetchTokenTransactions(address: string): Promise<Result<ExternalTransaction[], ProviderError>> {
-    const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
-      address: address,
-      getCacheKey: (params) =>
-        `${this.chainConfig.chainName}:token-txs:${params.type === 'getAddressTokenTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTokenTransactions' ? 'all' : 'unknown'}`,
-      type: 'getAddressTokenTransactions',
-    });
-
-    return result.map((response) => {
-      const transactionsWithRaw = response.data as TransactionWithRawData<EvmTransaction>[];
-      return mapToExternalTransactions(transactionsWithRaw, response.providerName, address, 'token');
-    });
   }
 }

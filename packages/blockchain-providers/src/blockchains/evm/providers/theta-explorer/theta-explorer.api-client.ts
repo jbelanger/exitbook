@@ -72,9 +72,6 @@ export class ThetaExplorerApiClient extends BaseApiClient {
     };
   }
 
-  /**
-   * @deprecated Use executeStreaming instead
-   */
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(`Executing operation: ${operation.type}`);
 

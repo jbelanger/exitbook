@@ -3,14 +3,41 @@
  * Tests the import pattern across multiple Cosmos SDK chains
  */
 
-import type { CosmosTransaction, FailoverExecutionResult } from '@exitbook/blockchain-providers';
+import type { CosmosTransaction } from '@exitbook/blockchain-providers';
 import { type CosmosChainConfig, type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
-import type { PaginationCursor } from '@exitbook/core';
-import { err, errAsync, ok } from 'neverthrow';
+import type { CursorState, ExternalTransaction, PaginationCursor } from '@exitbook/core';
+import { err, errAsync, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
+import type { ImportParams, ImportRunResult } from '../../../../types/importers.ts';
 import { CosmosImporter } from '../importer.js';
+
+/**
+ * Helper to consume streaming iterator
+ */
+async function consumeImportStream(
+  importer: CosmosImporter,
+  params: ImportParams
+): Promise<Result<ImportRunResult, Error>> {
+  const allTransactions: ExternalTransaction[] = [];
+  const cursorUpdates: Record<string, CursorState> = {};
+
+  for await (const batchResult of importer.importStreaming(params)) {
+    if (batchResult.isErr()) {
+      return err(batchResult.error);
+    }
+
+    const batch = batchResult.value;
+    allTransactions.push(...batch.rawTransactions);
+    cursorUpdates[batch.operationType] = batch.cursor;
+  }
+
+  return ok({
+    rawTransactions: allTransactions,
+    cursorUpdates,
+  });
+}
 
 const INJECTIVE_CONFIG: CosmosChainConfig = {
   bech32Prefix: 'inj',
@@ -68,6 +95,24 @@ type ProviderManagerMock = Mocked<
 
 describe('CosmosImporter', () => {
   let mockProviderManager: ProviderManagerMock;
+
+  /**
+   * Helper to setup mock for transaction data
+   */
+  const setupMockData = (data: unknown[] = [], providerName = 'injective-explorer') => {
+    mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+      yield okAsync({
+        data,
+        providerName,
+        cursor: {
+          primary: { type: 'blockNumber' as const, value: 0 },
+          lastTransactionId: '',
+          totalFetched: data.length,
+          metadata: { providerName, updatedAt: Date.now(), isComplete: true },
+        },
+      });
+    });
+  };
 
   beforeEach(() => {
     mockProviderManager = {
@@ -146,19 +191,14 @@ describe('CosmosImporter', () => {
       const importer = createImporter();
       const address = 'inj1abc123def456ghi789';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: [
-            {
-              raw: { block_timestamp: mockCosmosTransaction.timestamp, id: mockCosmosTransaction.id },
-              normalized: mockCosmosTransaction,
-            },
-          ],
-          providerName: 'injective-explorer',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([
+        {
+          raw: { block_timestamp: mockCosmosTransaction.timestamp, id: mockCosmosTransaction.id },
+          normalized: mockCosmosTransaction,
+        },
+      ]);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -190,19 +230,17 @@ describe('CosmosImporter', () => {
       const importer = createImporter(OSMOSIS_CONFIG);
       const address = 'osmo1abc123def456ghi789';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: [
-            {
-              raw: { block_timestamp: mockIbcTransaction.timestamp, hash: mockIbcTransaction.hash },
-              normalized: mockIbcTransaction,
-            },
-          ],
-          providerName: 'mintscan',
-        } as FailoverExecutionResult<unknown>)
+      setupMockData(
+        [
+          {
+            raw: { block_timestamp: mockIbcTransaction.timestamp, hash: mockIbcTransaction.hash },
+            normalized: mockIbcTransaction,
+          },
+        ],
+        'mintscan'
       );
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -231,14 +269,9 @@ describe('CosmosImporter', () => {
         },
       ];
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: multipleTransactions,
-          providerName: 'injective-explorer',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData(multipleTransactions);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -253,14 +286,9 @@ describe('CosmosImporter', () => {
       const importer = createImporter();
       const address = 'inj1abc123def456ghi789';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        ok({
-          data: [],
-          providerName: 'injective-explorer',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([]);
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -274,15 +302,15 @@ describe('CosmosImporter', () => {
       const importer = createImporter();
       const address = 'inj1abc123def456ghi789';
 
-      mockProviderManager.executeWithFailover.mockResolvedValueOnce(
-        err(
+      mockProviderManager.executeWithFailover.mockImplementation(async function* () {
+        yield errAsync(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
             blockchain: 'injective',
           })
-        )
-      );
+        );
+      });
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -293,7 +321,7 @@ describe('CosmosImporter', () => {
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
 
-      const result = await importer.import({});
+      const result = await consumeImportStream(importer, {});
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -304,7 +332,7 @@ describe('CosmosImporter', () => {
     test('should return error if address is empty string', async () => {
       const importer = createImporter();
 
-      const result = await importer.import({ address: '' });
+      const result = await consumeImportStream(importer, { address: '' });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -318,19 +346,17 @@ describe('CosmosImporter', () => {
       const importer = createImporter(OSMOSIS_CONFIG);
       const address = 'osmo1abc123def456ghi789';
 
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [
-            {
-              raw: { block_timestamp: mockIbcTransaction.timestamp, hash: mockIbcTransaction.hash },
-              normalized: mockIbcTransaction,
-            },
-          ],
-          providerName: 'mintscan',
-        } as FailoverExecutionResult<unknown>)
+      setupMockData(
+        [
+          {
+            raw: { block_timestamp: mockIbcTransaction.timestamp, hash: mockIbcTransaction.hash },
+            normalized: mockIbcTransaction,
+          },
+        ],
+        'mintscan'
       );
 
-      const result = await importer.import({ address });
+      const result = await consumeImportStream(importer, { address });
 
       expect(result.isOk()).toBe(true);
 
@@ -348,7 +374,7 @@ describe('CosmosImporter', () => {
     test('should generate correct error messages for different chains', async () => {
       const osmosisImporter = createImporter(OSMOSIS_CONFIG);
 
-      const result = await osmosisImporter.import({});
+      const result = await consumeImportStream(osmosisImporter, {});
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -362,14 +388,9 @@ describe('CosmosImporter', () => {
       const importer = createImporter();
       const address = 'inj1abc123def456ghi789';
 
-      mockProviderManager.executeWithFailover.mockResolvedValue(
-        ok({
-          data: [],
-          providerName: 'injective-explorer',
-        } as FailoverExecutionResult<unknown>)
-      );
+      setupMockData([]);
 
-      await importer.import({ address });
+      await consumeImportStream(importer, { address });
 
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;

@@ -109,7 +109,7 @@ async function fetchFromProvider(
 ): Promise<Result<TokenMetadataRecord | undefined, Error>> {
   try {
     // executeWithFailover handles auto-registration and capability checking
-    const result = await providerManager.executeWithFailover<TokenMetadata>(blockchain, {
+    const result = await providerManager.executeWithFailoverOnce<TokenMetadata>(blockchain, {
       type: 'getTokenMetadata',
       contractAddress,
     });

@@ -33,7 +33,9 @@ import type {
   IBlockchainProvider,
   ProviderConfig,
   ProviderHealth,
+  OneShotOperation,
   ProviderOperation,
+  StreamingOperation,
 } from './types/index.js';
 import type { BlockchainExplorersConfig, ProviderOverride } from './utils/config-utils.js';
 
@@ -117,6 +119,333 @@ export class BlockchainProviderManager {
   }
 
   /**
+   * Cleanup resources and stop background tasks
+   */
+  destroy(): void {
+    if (this.healthCheckTimer) {
+      clearInterval(this.healthCheckTimer);
+      this.healthCheckTimer = undefined;
+    }
+
+    if (this.cacheCleanupTimer) {
+      clearInterval(this.cacheCleanupTimer);
+      this.cacheCleanupTimer = undefined;
+    }
+
+    // Clear all caches and state
+    this.providers.clear();
+    this.healthStatus.clear();
+    this.circuitStates.clear();
+    this.requestCache.clear();
+  }
+
+  // // Streaming overload
+  // async *executeWithFailover<T>(
+  //   blockchain: string,
+  //   operation: StreamingOperation,
+  //   resumeCursor?: CursorState
+  // ): AsyncIterableIterator<Result<FailoverStreamingExecutionResult<T>, Error>>;
+
+  // // One-shot overload (still returns iterator for uniformity)
+  // async *executeWithFailover<T>(
+  //   blockchain: string,
+  //   operation: OneShotOperation,
+  //   resumeCursor?: CursorState
+  // ): AsyncIterableIterator<Result<FailoverStreamingExecutionResult<T>, Error>>;
+
+  /**
+   * Execute operation with intelligent failover - unified iterator API
+   *
+   * This method provides a consistent interface for both streaming and one-shot operations:
+   * - Transaction fetching operations (getAddressTransactions, etc.) yield multiple batches with pagination
+   * - One-shot operations (getBalance, getTokenMetadata, etc.) yield exactly once
+   *
+   * All operations return an AsyncIterableIterator for consistency. Consumers always use:
+   * ```typescript
+   * for await (const batchResult of manager.executeWithFailover(blockchain, operation)) {
+   *   if (batchResult.isErr()) { handle error }
+   *   const batch = batchResult.value;
+   *   // process batch.data
+   * }
+   * ```
+   *
+   * @param blockchain - Blockchain identifier (e.g., 'ethereum', 'bitcoin')
+   * @param operation - Operation to execute
+   * @param resumeCursor - Optional cursor for resuming streaming operations (ignored for one-shot)
+   * @returns AsyncIterableIterator yielding Result-wrapped batches
+   */
+  async *executeWithFailover<T>(
+    blockchain: string,
+    operation: ProviderOperation,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<FailoverStreamingExecutionResult<T>, Error>> {
+    // Define which operations require streaming pagination
+    const STREAMING_OPERATIONS: StreamingOperation['type'][] = [
+      'getAddressTransactions',
+      'getAddressInternalTransactions',
+      'getAddressTokenTransactions',
+    ];
+    const isStreamingOperation = (op: ProviderOperation): op is StreamingOperation =>
+      STREAMING_OPERATIONS.includes(op.type as StreamingOperation['type']);
+
+    if (isStreamingOperation(operation)) {
+      // Multi-batch streaming with pagination support
+      yield* this.executeStreamingImpl<T>(blockchain, operation, resumeCursor);
+    } else {
+      // One-shot operation - yield single batch and complete
+      const result = await this.executeOneShotImpl<T>(blockchain, operation);
+
+      if (result.isErr()) {
+        yield err(result.error);
+        return;
+      }
+
+      // Wrap one-shot result as single-element batch with completion marker
+      yield ok({
+        data: [result.value.data] as T[],
+        providerName: result.value.providerName,
+        cursor: {
+          primary: { type: 'blockNumber' as const, value: 0 },
+          lastTransactionId: '',
+          totalFetched: 1,
+          metadata: {
+            providerName: result.value.providerName,
+            updatedAt: Date.now(),
+            isComplete: true,
+          },
+        },
+      });
+    }
+  }
+
+  /**
+   * Helper method for one-shot operations - consumes first yielded result
+   *
+   * Use this for operations that always yield exactly once (getBalance, getTokenMetadata, hasAddressTransactions, etc.).
+   * For transaction fetching operations that may yield multiple batches, use executeWithFailover directly.
+   *
+   * @example
+   * ```typescript
+   * const result = await manager.executeWithFailoverOnce(blockchain, {
+   *   type: 'getBalance',
+   *   address: '0x...'
+   * });
+   * if (result.isOk()) {
+   *   const balance = result.value.data; // Direct access to data (unwrapped from array)
+   * }
+   * ```
+   */
+  async executeWithFailoverOnce<T>(
+    blockchain: string,
+    operation: OneShotOperation
+  ): Promise<Result<FailoverExecutionResult<T>, Error>> {
+    // Runtime guard in case typing is bypassed
+    const STREAMING_OPERATIONS = new Set<ProviderOperation['type']>([
+      'getAddressTransactions',
+      'getAddressInternalTransactions',
+      'getAddressTokenTransactions',
+    ]);
+    if (STREAMING_OPERATIONS.has(operation.type)) {
+      return err(
+        new Error(
+          `executeWithFailoverOnce is only for one-shot operations; received streaming operation: ${operation.type}`
+        )
+      );
+    }
+
+    let seenBatch = false;
+    for await (const batchResult of this.executeWithFailover<T>(blockchain, operation)) {
+      if (batchResult.isErr()) {
+        return err(batchResult.error);
+      }
+
+      // Extract first item from batch array for one-shot operations
+      const data = batchResult.value.data[0];
+      if (data === undefined) {
+        return err(new Error('One-shot operation yielded empty batch'));
+      }
+      if (seenBatch) {
+        return err(
+          new Error(
+            `One-shot operation yielded multiple batches. Use executeWithFailover for streaming operations. Operation: ${operation.type}`
+          )
+        );
+      }
+      seenBatch = true;
+      return ok({
+        data,
+        providerName: batchResult.value.providerName,
+      });
+    }
+
+    // Should never reach here for valid one-shot operations
+    return err(new Error('No result yielded from one-shot operation'));
+  }
+
+  /**
+   * Get provider health status for monitoring
+   */
+  getProviderHealth(blockchain?: string): Map<string, ProviderHealth & { circuitState: string }> {
+    const result = new Map<string, ProviderHealth & { circuitState: string }>();
+
+    const providersToCheck = blockchain
+      ? this.providers.get(blockchain) || []
+      : Array.from(this.providers.values()).flat();
+
+    const now = Date.now();
+    for (const provider of providersToCheck) {
+      const health = this.healthStatus.get(provider.name);
+      const circuitState = this.circuitStates.get(provider.name);
+
+      if (health && circuitState) {
+        result.set(provider.name, getProviderHealthWithCircuit(health, circuitState, now));
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Get registered providers for a blockchain
+   */
+  getProviders(blockchain: string): IBlockchainProvider[] {
+    return this.providers.get(blockchain) || [];
+  }
+
+  /**
+   * Register providers for a specific blockchain
+   */
+  registerProviders(blockchain: string, providers: IBlockchainProvider[]): void {
+    this.providers.set(blockchain, providers);
+
+    // Initialize health status and circuit breaker state for each provider
+    for (const provider of providers) {
+      this.healthStatus.set(provider.name, createInitialHealth());
+      this.circuitStates.set(provider.name, createInitialCircuitState());
+    }
+  }
+
+  /**
+   * Reset circuit breaker for a specific provider
+   */
+  resetCircuitBreaker(providerName: string): void {
+    const circuitState = this.circuitStates.get(providerName);
+    if (circuitState) {
+      this.circuitStates.set(providerName, resetCircuit(circuitState));
+    }
+  }
+
+  /**
+   * Auto-register all available providers from the registry (used when no config exists)
+   */
+  private autoRegisterFromRegistry(blockchain: string, preferredProvider?: string): IBlockchainProvider[] {
+    try {
+      let registeredProviders = ProviderRegistry.getAvailable(blockchain);
+
+      // If a preferred provider is specified, filter to only that provider
+      if (preferredProvider) {
+        const matchingProvider = registeredProviders.find((provider) => provider.name === preferredProvider);
+        if (matchingProvider) {
+          registeredProviders = [matchingProvider];
+          logger.info(`Filtering to preferred provider: ${preferredProvider} for ${blockchain}`);
+        } else {
+          const availableProviders = registeredProviders.map((p) => p.name);
+          throw new Error(buildProviderNotFoundError(blockchain, preferredProvider, availableProviders));
+        }
+      }
+
+      const providers: IBlockchainProvider[] = [];
+      let priority = 1;
+
+      for (const providerInfo of registeredProviders) {
+        try {
+          // Get provider metadata from registry
+          const metadata = ProviderRegistry.getMetadata(blockchain, providerInfo.name);
+          if (!metadata) {
+            logger.warn(`No metadata found for provider ${providerInfo.name}. Skipping.`);
+            continue;
+          }
+
+          // Check if provider requires API key and if it's available
+          if (metadata.requiresApiKey) {
+            const validation = validateProviderApiKey(metadata);
+            if (!validation.available) {
+              logger.warn(
+                `No API key found for ${metadata.displayName}. Set environment variable: ${validation.envVar}. Skipping provider.`
+              );
+              continue;
+            }
+          }
+
+          // Determine baseUrl: use chain-specific if available, otherwise use default
+          let baseUrl = metadata.baseUrl;
+
+          // If supportedChains is an object format, extract chain-specific baseUrl
+          if (metadata.supportedChains && !Array.isArray(metadata.supportedChains)) {
+            const chainConfig = metadata.supportedChains[blockchain];
+            if (chainConfig?.baseUrl) {
+              baseUrl = chainConfig.baseUrl;
+            }
+          }
+
+          // Build provider config using registry defaults
+          const providerConfig: ProviderConfig = {
+            ...metadata.defaultConfig,
+            baseUrl,
+            blockchain, // Add blockchain for multi-chain support
+            displayName: metadata.displayName,
+            enabled: true,
+            name: metadata.name,
+            priority: priority++,
+            requiresApiKey: metadata.requiresApiKey,
+          };
+
+          // Create provider instance from registry
+          const provider = ProviderRegistry.createProvider(blockchain, providerInfo.name, providerConfig);
+          providers.push(provider);
+
+          logger.debug(
+            `Successfully created provider ${providerInfo.name} for ${blockchain} (registry) - Priority: ${providerConfig.priority}, BaseUrl: ${providerConfig.baseUrl}, RequiresApiKey: ${metadata.requiresApiKey}`
+          );
+        } catch (error) {
+          logger.error(
+            `Failed to create provider ${providerInfo.name} for ${blockchain} - Error: ${getErrorMessage(error)}`
+          );
+        }
+      }
+
+      // Register the providers with this manager
+      if (providers.length > 0) {
+        this.registerProviders(blockchain, providers);
+        logger.info(
+          `Auto-registered ${providers.length} providers from registry for ${blockchain}: ${providers.map((p) => p.name).join(', ')}`
+        );
+      } else {
+        logger.warn(`No suitable providers found for ${blockchain}`);
+      }
+
+      return providers;
+    } catch (error) {
+      logger.error(
+        `Failed to auto-register providers from registry for ${blockchain} - Error: ${getErrorMessage(error)}`
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Clean up expired cache entries
+   */
+  private cleanupCache(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.requestCache.entries()) {
+      if (entry.expiry <= now) {
+        this.requestCache.delete(key);
+      }
+    }
+  }
+
+  /**
    * Execute operation with streaming pagination and intelligent failover
    *
    * Supports:
@@ -124,8 +453,10 @@ export class BlockchainProviderManager {
    * - Cross-provider cursor translation
    * - Automatic deduplication after replay windows
    * - Progress tracking
+   *
+   * @private Internal implementation for streaming operations
    */
-  async *executeWithFailoverStreaming<T>(
+  private async *executeStreamingImpl<T>(
     blockchain: string,
     operation: ProviderOperation,
     resumeCursor?: CursorState
@@ -317,32 +648,13 @@ export class BlockchainProviderManager {
   }
 
   /**
-   * Cleanup resources and stop background tasks
-   */
-  destroy(): void {
-    if (this.healthCheckTimer) {
-      clearInterval(this.healthCheckTimer);
-      this.healthCheckTimer = undefined;
-    }
-
-    if (this.cacheCleanupTimer) {
-      clearInterval(this.cacheCleanupTimer);
-      this.cacheCleanupTimer = undefined;
-    }
-
-    // Clear all caches and state
-    this.providers.clear();
-    this.healthStatus.clear();
-    this.circuitStates.clear();
-    this.requestCache.clear();
-  }
-
-  /**
    * Execute operation with intelligent failover and caching
+   *
+   * @private Internal implementation for one-shot operations
    */
-  async executeWithFailover<T>(
+  private async executeOneShotImpl<T>(
     blockchain: string,
-    operation: ProviderOperation
+    operation: OneShotOperation
   ): Promise<Result<FailoverExecutionResult<T>, ProviderError>> {
     // Auto-register providers for this blockchain if not already registered
     const existingProviders = this.providers.get(blockchain);
@@ -374,169 +686,6 @@ export class BlockchainProviderManager {
     }
 
     return result;
-  }
-
-  /**
-   * Get provider health status for monitoring
-   */
-  getProviderHealth(blockchain?: string): Map<string, ProviderHealth & { circuitState: string }> {
-    const result = new Map<string, ProviderHealth & { circuitState: string }>();
-
-    const providersToCheck = blockchain
-      ? this.providers.get(blockchain) || []
-      : Array.from(this.providers.values()).flat();
-
-    const now = Date.now();
-    for (const provider of providersToCheck) {
-      const health = this.healthStatus.get(provider.name);
-      const circuitState = this.circuitStates.get(provider.name);
-
-      if (health && circuitState) {
-        result.set(provider.name, getProviderHealthWithCircuit(health, circuitState, now));
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * Get registered providers for a blockchain
-   */
-  getProviders(blockchain: string): IBlockchainProvider[] {
-    return this.providers.get(blockchain) || [];
-  }
-
-  /**
-   * Register providers for a specific blockchain
-   */
-  registerProviders(blockchain: string, providers: IBlockchainProvider[]): void {
-    this.providers.set(blockchain, providers);
-
-    // Initialize health status and circuit breaker state for each provider
-    for (const provider of providers) {
-      this.healthStatus.set(provider.name, createInitialHealth());
-      this.circuitStates.set(provider.name, createInitialCircuitState());
-    }
-  }
-
-  /**
-   * Reset circuit breaker for a specific provider
-   */
-  resetCircuitBreaker(providerName: string): void {
-    const circuitState = this.circuitStates.get(providerName);
-    if (circuitState) {
-      this.circuitStates.set(providerName, resetCircuit(circuitState));
-    }
-  }
-
-  /**
-   * Auto-register all available providers from the registry (used when no config exists)
-   */
-  private autoRegisterFromRegistry(blockchain: string, preferredProvider?: string): IBlockchainProvider[] {
-    try {
-      let registeredProviders = ProviderRegistry.getAvailable(blockchain);
-
-      // If a preferred provider is specified, filter to only that provider
-      if (preferredProvider) {
-        const matchingProvider = registeredProviders.find((provider) => provider.name === preferredProvider);
-        if (matchingProvider) {
-          registeredProviders = [matchingProvider];
-          logger.info(`Filtering to preferred provider: ${preferredProvider} for ${blockchain}`);
-        } else {
-          const availableProviders = registeredProviders.map((p) => p.name);
-          throw new Error(buildProviderNotFoundError(blockchain, preferredProvider, availableProviders));
-        }
-      }
-
-      const providers: IBlockchainProvider[] = [];
-      let priority = 1;
-
-      for (const providerInfo of registeredProviders) {
-        try {
-          // Get provider metadata from registry
-          const metadata = ProviderRegistry.getMetadata(blockchain, providerInfo.name);
-          if (!metadata) {
-            logger.warn(`No metadata found for provider ${providerInfo.name}. Skipping.`);
-            continue;
-          }
-
-          // Check if provider requires API key and if it's available
-          if (metadata.requiresApiKey) {
-            const validation = validateProviderApiKey(metadata);
-            if (!validation.available) {
-              logger.warn(
-                `No API key found for ${metadata.displayName}. Set environment variable: ${validation.envVar}. Skipping provider.`
-              );
-              continue;
-            }
-          }
-
-          // Determine baseUrl: use chain-specific if available, otherwise use default
-          let baseUrl = metadata.baseUrl;
-
-          // If supportedChains is an object format, extract chain-specific baseUrl
-          if (metadata.supportedChains && !Array.isArray(metadata.supportedChains)) {
-            const chainConfig = metadata.supportedChains[blockchain];
-            if (chainConfig?.baseUrl) {
-              baseUrl = chainConfig.baseUrl;
-            }
-          }
-
-          // Build provider config using registry defaults
-          const providerConfig: ProviderConfig = {
-            ...metadata.defaultConfig,
-            baseUrl,
-            blockchain, // Add blockchain for multi-chain support
-            displayName: metadata.displayName,
-            enabled: true,
-            name: metadata.name,
-            priority: priority++,
-            requiresApiKey: metadata.requiresApiKey,
-          };
-
-          // Create provider instance from registry
-          const provider = ProviderRegistry.createProvider(blockchain, providerInfo.name, providerConfig);
-          providers.push(provider);
-
-          logger.debug(
-            `Successfully created provider ${providerInfo.name} for ${blockchain} (registry) - Priority: ${providerConfig.priority}, BaseUrl: ${providerConfig.baseUrl}, RequiresApiKey: ${metadata.requiresApiKey}`
-          );
-        } catch (error) {
-          logger.error(
-            `Failed to create provider ${providerInfo.name} for ${blockchain} - Error: ${getErrorMessage(error)}`
-          );
-        }
-      }
-
-      // Register the providers with this manager
-      if (providers.length > 0) {
-        this.registerProviders(blockchain, providers);
-        logger.info(
-          `Auto-registered ${providers.length} providers from registry for ${blockchain}: ${providers.map((p) => p.name).join(', ')}`
-        );
-      } else {
-        logger.warn(`No suitable providers found for ${blockchain}`);
-      }
-
-      return providers;
-    } catch (error) {
-      logger.error(
-        `Failed to auto-register providers from registry for ${blockchain} - Error: ${getErrorMessage(error)}`
-      );
-      return [];
-    }
-  }
-
-  /**
-   * Clean up expired cache entries
-   */
-  private cleanupCache(): void {
-    const now = Date.now();
-    for (const [key, entry] of this.requestCache.entries()) {
-      if (entry.expiry <= now) {
-        this.requestCache.delete(key);
-      }
-    }
   }
 
   /**

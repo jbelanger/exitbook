@@ -233,7 +233,7 @@ export class BitcoinUtils {
       if (!address) continue; // Skip invalid addresses
 
       // Check if address has transactions using provider manager
-      const result = await providerManager.executeWithFailover(blockchain, {
+      const result = await providerManager.executeWithFailoverOnce(blockchain, {
         address,
         getCacheKey: (params) => `bitcoin:has-txs:${(params as { address: string }).address}`,
         type: 'hasAddressTransactions',
@@ -344,7 +344,7 @@ export class BitcoinUtils {
 
         logger.debug(`Checking Legacy address for activity: ${firstLegacyAddress}`);
 
-        const legacyResult = await providerManager.executeWithFailover(blockchain, {
+        const legacyResult = await providerManager.executeWithFailoverOnce(blockchain, {
           address: firstLegacyAddress,
           type: 'hasAddressTransactions',
         });
@@ -380,7 +380,7 @@ export class BitcoinUtils {
 
         logger.debug(`Checking Native SegWit address for activity: ${firstSegwitAddress}`);
 
-        const segwitResult = await providerManager.executeWithFailover(blockchain, {
+        const segwitResult = await providerManager.executeWithFailoverOnce(blockchain, {
           address: firstSegwitAddress,
           type: 'hasAddressTransactions',
         });

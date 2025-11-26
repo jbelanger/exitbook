@@ -29,6 +29,7 @@ describe('token-metadata-utils', () => {
       mockProviderManager = {
         getProviders: vi.fn(),
         executeWithFailover: vi.fn(),
+        executeWithFailoverOnce: vi.fn(),
       } as unknown as BlockchainProviderManager;
     });
 
@@ -91,7 +92,7 @@ describe('token-metadata-utils', () => {
           },
         },
       ] as IBlockchainProvider[]);
-      vi.mocked(mockProviderManager.executeWithFailover).mockResolvedValue(
+      vi.mocked(mockProviderManager.executeWithFailoverOnce).mockResolvedValue(
         ok({
           data: mockMetadata,
           providerName: 'test-provider',
@@ -110,7 +111,7 @@ describe('token-metadata-utils', () => {
         decimals: 18,
       });
       expect(returnedMetadata?.refreshedAt).toBeInstanceOf(Date);
-      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledWith('ethereum', {
+      expect(mockProviderManager.executeWithFailoverOnce).toHaveBeenCalledWith('ethereum', {
         type: 'getTokenMetadata',
         contractAddress: '0x123',
       });
@@ -130,7 +131,7 @@ describe('token-metadata-utils', () => {
 
     it('should return undefined if provider does not support metadata', async () => {
       vi.mocked(mockRepository.getByContract).mockResolvedValue(ok(undefined));
-      vi.mocked(mockProviderManager.executeWithFailover).mockResolvedValue(
+      vi.mocked(mockProviderManager.executeWithFailoverOnce).mockResolvedValue(
         err(new ProviderError('No providers available for ethereum operation: getTokenMetadata', 'NO_PROVIDERS'))
       );
 
@@ -138,7 +139,7 @@ describe('token-metadata-utils', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toBeUndefined();
-      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledWith('ethereum', {
+      expect(mockProviderManager.executeWithFailoverOnce).toHaveBeenCalledWith('ethereum', {
         type: 'getTokenMetadata',
         contractAddress: '0x123',
       });
@@ -162,7 +163,7 @@ describe('token-metadata-utils', () => {
           },
         },
       ] as IBlockchainProvider[]);
-      vi.mocked(mockProviderManager.executeWithFailover).mockResolvedValue(
+      vi.mocked(mockProviderManager.executeWithFailoverOnce).mockResolvedValue(
         ok({
           data: mockMetadata,
           providerName: 'test-provider',
@@ -201,7 +202,7 @@ describe('token-metadata-utils', () => {
           },
         },
       ] as IBlockchainProvider[]);
-      vi.mocked(mockProviderManager.executeWithFailover).mockResolvedValue(
+      vi.mocked(mockProviderManager.executeWithFailoverOnce).mockResolvedValue(
         err(new ProviderError('Fetch failed', 'ALL_PROVIDERS_FAILED'))
       );
 
@@ -227,6 +228,7 @@ describe('token-metadata-utils', () => {
       mockProviderManager = {
         getProviders: vi.fn(),
         executeWithFailover: vi.fn(),
+        executeWithFailoverOnce: vi.fn(),
       } as unknown as BlockchainProviderManager;
     });
 
