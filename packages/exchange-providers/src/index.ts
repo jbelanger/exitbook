@@ -10,7 +10,7 @@ export { PartialImportError } from './core/errors.js';
 export { createExchangeClient } from './core/factory.js';
 export { ExchangeLedgerEntrySchema } from './core/schemas.js';
 export type { ExchangeLedgerEntry } from './core/schemas.js';
-export type { BalanceSnapshot, ExchangeCredentials, IExchangeClient } from './core/types.js';
+export type { BalanceSnapshot, ExchangeCredentials, FetchBatchResult, IExchangeClient } from './core/types.js';
 
 // Coinbase
 export { createCoinbaseClient } from './exchanges/coinbase/client.js';

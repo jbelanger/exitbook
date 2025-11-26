@@ -38,6 +38,20 @@ export interface FetchTransactionDataResult {
 }
 
 /**
+ * Single batch of transactions from streaming fetch
+ */
+export interface FetchBatchResult {
+  // Transactions in this batch
+  transactions: ExternalTransaction[];
+  // Operation type (e.g., "ledger", "trade", "deposit")
+  operationType: string;
+  // Cursor state for this operation type
+  cursor: CursorState;
+  // Whether this operation type has completed (no more batches)
+  isComplete: boolean;
+}
+
+/**
  * Base interface for exchange clients
  */
 export interface IExchangeClient {
@@ -49,6 +63,13 @@ export interface IExchangeClient {
    * May return partial results via PartialImportError if validation fails partway through.
    */
   fetchTransactionData(params?: FetchParams): Promise<Result<FetchTransactionDataResult, Error>>;
+
+  /**
+   * Stream transaction data in batches for memory-bounded processing
+   * Yields batches as they're fetched, enabling incremental persistence and crash recovery
+   * Optional - exchanges can implement this for improved performance
+   */
+  fetchTransactionDataStreaming?(params?: FetchParams): AsyncIterableIterator<Result<FetchBatchResult, Error>>;
 
   /**
    * Fetch current total balance for all currencies
