@@ -10,10 +10,14 @@ import { err, ok } from 'neverthrow';
 
 import { getBlockchainConfig } from '../infrastructure/blockchains/index.js';
 import { createExchangeImporter } from '../infrastructure/exchanges/shared/exchange-importer-factory.js';
-import type { ImportParams, ImportResult } from '../types/importers.js';
+import type { IImporter, ImportParams, ImportResult } from '../types/importers.js';
 import type { IDataSourceRepository, IRawDataRepository } from '../types/repositories.js';
 
-import { normalizeBlockchainImportParams, prepareImportSession } from './import-service-utils.js';
+import {
+  type ImportSessionConfig,
+  normalizeBlockchainImportParams,
+  prepareImportSession,
+} from './import-service-utils.js';
 
 export class TransactionImportService {
   private logger: Logger;
@@ -213,6 +217,8 @@ export class TransactionImportService {
 
   /**
    * Import raw data from exchange and store it in external_transaction_data table.
+   * Prefers streaming when available for better memory efficiency and crash recovery.
+   * Falls back to legacy batch import for non-streaming importers.
    * Handles validation errors by saving successful items and recording errors.
    * Supports resumption using per-operation-type cursors.
    */
@@ -252,6 +258,174 @@ export class TransactionImportService {
     // Use pure function to prepare import session config
     const sessionConfig = prepareImportSession(sourceName, params, existingDataSource, latestCursors);
 
+    // Create importer
+    const importerResult = await createExchangeImporter(sourceName, sessionConfig.params);
+
+    if (importerResult.isErr()) {
+      return err(importerResult.error);
+    }
+
+    const importer = importerResult.value;
+    this.logger.info(`Importer for ${sourceName} created successfully`);
+
+    // Check if importer supports streaming - prefer streaming over batch
+    if (importer.importStreaming) {
+      this.logger.info(`Using streaming import for ${sourceName}`);
+      return this.importFromExchangeStreaming(account, importer, sessionConfig.params);
+    } else {
+      this.logger.info(`Using legacy batch import for ${sourceName} (streaming not yet implemented)`);
+      return this.importFromExchangeLegacy(account, importer, sessionConfig);
+    }
+  }
+
+  /**
+   * Streaming import for exchanges - memory-bounded with crash recovery
+   */
+  private async importFromExchangeStreaming(
+    account: Account,
+    importer: IImporter,
+    params: ImportParams
+  ): Promise<Result<ImportResult, Error>> {
+    const sourceName = account.sourceName;
+
+    // Check for existing incomplete data source to resume
+    const incompleteDataSourceResult = await this.dataSourceRepository.findLatestIncomplete(account.id);
+
+    if (incompleteDataSourceResult.isErr()) {
+      return err(incompleteDataSourceResult.error);
+    }
+
+    const incompleteDataSource = incompleteDataSourceResult.value;
+    let dataSourceId: number;
+    let totalImported = 0;
+
+    if (incompleteDataSource) {
+      // Resume existing import - cursor comes from account.lastCursor
+      dataSourceId = incompleteDataSource.id;
+      totalImported = (incompleteDataSource.importResultMetadata?.transactionsImported as number) || 0;
+
+      this.logger.info(`Resuming import from data source #${dataSourceId} (total so far: ${totalImported})`);
+
+      // Update status back to 'started' (in case it was 'failed')
+      const updateResult = await this.dataSourceRepository.update(dataSourceId, { status: 'started' });
+      if (updateResult.isErr()) {
+        return err(updateResult.error);
+      }
+    } else {
+      // Create new data source for this account
+      const dataSourceCreateResult = await this.dataSourceRepository.create(account.id);
+
+      if (dataSourceCreateResult.isErr()) {
+        return err(dataSourceCreateResult.error);
+      }
+
+      dataSourceId = dataSourceCreateResult.value;
+      this.logger.info(`Starting new import with data source #${dataSourceId}`);
+    }
+
+    const startTime = Date.now();
+
+    try {
+      // Stream batches from importer - we've already checked importStreaming exists
+      if (!importer.importStreaming) {
+        return err(new Error(`Importer for ${sourceName} does not support streaming`));
+      }
+      const batchIterator = importer.importStreaming(params);
+
+      for await (const batchResult of batchIterator) {
+        if (batchResult.isErr()) {
+          // Update data source with error
+          await this.dataSourceRepository.update(dataSourceId, {
+            status: 'failed',
+            error_message: batchResult.error.message,
+          });
+          return err(batchResult.error);
+        }
+
+        const batch = batchResult.value;
+
+        // Save batch to database
+        progress.update(`Saving ${batch.rawTransactions.length} ${batch.operationType} transactions...`);
+        const saveResult = await this.rawDataRepository.saveBatch(dataSourceId, batch.rawTransactions);
+
+        if (saveResult.isErr()) {
+          await this.dataSourceRepository.update(dataSourceId, {
+            status: 'failed',
+            error_message: saveResult.error.message,
+          });
+          return err(saveResult.error);
+        }
+
+        totalImported += batch.rawTransactions.length;
+
+        // Update progress and cursor after EACH batch for crash recovery
+        const cursorUpdateResult = await this.accountRepository.updateCursor(
+          account.id,
+          batch.operationType,
+          batch.cursor
+        );
+
+        if (cursorUpdateResult.isErr()) {
+          this.logger.warn(`Failed to update cursor for ${batch.operationType}: ${cursorUpdateResult.error.message}`);
+          // Don't fail the import, just log warning
+        }
+
+        this.logger.info(
+          `Batch saved: ${batch.rawTransactions.length} ${batch.operationType} transactions (total: ${totalImported}, cursor progress: ${batch.cursor.totalFetched})`
+        );
+
+        if (batch.isComplete) {
+          this.logger.info(`Import for ${batch.operationType} marked complete by provider`);
+        }
+      }
+
+      // Mark complete
+      const finalizeResult = await this.dataSourceRepository.finalize(
+        dataSourceId,
+        'completed',
+        startTime,
+        undefined,
+        undefined,
+        { transactionsImported: totalImported }
+      );
+
+      if (finalizeResult.isErr()) {
+        return err(finalizeResult.error);
+      }
+
+      this.logger.info(`Import completed for ${sourceName}: ${totalImported} items saved`);
+
+      return ok({
+        imported: totalImported,
+        dataSourceId,
+      });
+    } catch (error) {
+      const originalError = error instanceof Error ? error : new Error(String(error));
+
+      await this.dataSourceRepository.finalize(
+        dataSourceId,
+        'failed',
+        startTime,
+        originalError.message,
+        error instanceof Error ? { stack: error.stack } : { error: String(error) }
+      );
+
+      this.logger.error(`Import failed for ${sourceName}: ${originalError.message}`);
+      return err(originalError);
+    }
+  }
+
+  /**
+   * Legacy batch import for exchanges
+   * @deprecated Used only for importers that don't support streaming yet
+   */
+  private async importFromExchangeLegacy(
+    account: Account,
+    importer: IImporter,
+    sessionConfig: ImportSessionConfig
+  ): Promise<Result<ImportResult, Error>> {
+    const sourceName = account.sourceName;
+
     const startTime = Date.now();
     let dataSourceCreated = false;
     let dataSourceId: number;
@@ -259,8 +433,8 @@ export class TransactionImportService {
     if (sessionConfig.shouldResume && sessionConfig.existingDataSourceId) {
       dataSourceId = sessionConfig.existingDataSourceId;
       this.logger.info(`Resuming existing data source: ${dataSourceId}`);
-      if (latestCursors) {
-        this.logger.info(`Resuming from cursors: ${JSON.stringify(latestCursors)}`);
+      if (account.lastCursor) {
+        this.logger.info(`Resuming from cursors: ${JSON.stringify(account.lastCursor)}`);
       }
     } else {
       const dataSourceCreateResult = await this.dataSourceRepository.create(account.id);
@@ -275,18 +449,14 @@ export class TransactionImportService {
     }
 
     try {
-      const importerResult = await createExchangeImporter(sourceName, sessionConfig.params);
-
-      if (importerResult.isErr()) {
-        return err(importerResult.error);
-      }
-
-      const importer = importerResult.value;
-      this.logger.info(`Importer for ${sourceName} created successfully`);
-
       this.logger.info('Starting raw data import...');
       progress.update('Fetching exchange data...');
-      const importResultOrError = await importer.import!(sessionConfig.params);
+
+      // We've already checked that import exists, so we can safely assert it
+      if (!importer.import) {
+        return err(new Error(`Importer for ${sourceName} does not support legacy batch import`));
+      }
+      const importResultOrError = await importer.import(sessionConfig.params);
 
       if (importResultOrError.isErr()) {
         const error = importResultOrError.error;
@@ -388,10 +558,12 @@ export class TransactionImportService {
         startTime,
         undefined,
         undefined,
-        {
-          ...importResult.metadata,
-          transactionsImported: savedCount,
-        }
+        importResult.metadata
+          ? {
+              ...importResult.metadata,
+              transactionsImported: savedCount,
+            }
+          : { transactionsImported: savedCount }
       );
 
       if (finalizeResult.isErr()) {
