@@ -1,19 +1,18 @@
 import type { TransactionStatus } from '@exitbook/core';
-import { getErrorMessage, parseDecimal, wrapError, type CursorState, type ExternalTransaction } from '@exitbook/core';
+import { getErrorMessage, parseDecimal, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { progress } from '@exitbook/ui';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { PartialImportError } from '../../core/errors.js';
 import * as ExchangeUtils from '../../core/exchange-utils.js';
 import type { ExchangeLedgerEntry } from '../../core/schemas.js';
 import type {
   BalanceSnapshot,
   ExchangeCredentials,
+  FetchBatchResult,
   FetchParams,
-  FetchTransactionDataResult,
   IExchangeClient,
 } from '../../core/types.js';
 
@@ -131,33 +130,40 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
       return ok({
         exchangeId: 'coinbase',
 
-        async fetchTransactionData(params?: FetchParams): Promise<Result<FetchTransactionDataResult, Error>> {
-          const allTransactions: ExternalTransaction[] = [];
-          let lastSuccessfulCursorUpdates: Record<string, CursorState> = {};
-
-          // Fetch ledger entries - this includes ALL balance changes:
-          // deposits, withdrawals, trades, fees, rebates, etc.
-          // Coinbase Advanced Trade API requires fetching accounts first,
-          // then fetching ledger entries for each account
+        async *fetchTransactionDataStreaming(
+          params?: FetchParams
+        ): AsyncIterableIterator<Result<FetchBatchResult, Error>> {
           const limit = 100; // Coinbase default limit
 
           try {
             // Step 1: Fetch all accounts
             const accounts = await exchange.fetchAccounts();
             if (accounts.length === 0) {
-              return ok({ transactions: [], cursorUpdates: {} }); // No accounts, no transactions
+              // No accounts - yield completion batch to mark source as checked
+              // Prevents unnecessary re-checks on subsequent imports
+              yield ok({
+                transactions: [],
+                operationType: 'coinbase:no-accounts',
+                cursor: {
+                  primary: { type: 'timestamp', value: Date.now() },
+                  lastTransactionId: 'coinbase:no-accounts',
+                  totalFetched: 0,
+                  metadata: {
+                    providerName: 'coinbase',
+                    updatedAt: Date.now(),
+                    isComplete: true,
+                  },
+                },
+                isComplete: true,
+              });
+              return;
             }
 
-            // Step 2: Fetch ledger entries for each account
+            // Step 2: Stream ledger entries for each account
             let accountIndex = 0;
             for (const account of accounts) {
               const accountId = account.id;
 
-              progress.update(
-                `Processing Coinbase account ${accountIndex + 1}/${accounts.length}`,
-                accountIndex + 1,
-                accounts.length
-              );
               if (!accountId) {
                 logger.warn({ account }, 'Skipping Coinbase account without ID');
                 progress.warn('Skipping Coinbase account without ID');
@@ -165,12 +171,22 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                 continue;
               }
 
-              // Extract cursor for this account
+              // Extract cursor for this specific account
               const accountCursorState = params?.cursor?.[accountId];
+
+              // Skip accounts that are already complete
+              if (accountCursorState?.metadata?.isComplete) {
+                logger.info({ accountId }, 'Skipping completed account');
+                accountIndex++;
+                continue;
+              }
+
               let accountCursor = accountCursorState?.primary.value as number | undefined;
 
               // Track cumulative count per account starting from previous cursor's totalFetched
               let cumulativeFetched = (accountCursorState?.totalFetched as number) || 0;
+
+              let pageCount = 0;
 
               while (true) {
                 // Side effect: Fetch from API (uses exchange from closure)
@@ -179,9 +195,46 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   account_id: accountId,
                 });
 
-                if (ledgerEntries.length === 0) break;
+                if (ledgerEntries.length === 0) {
+                  // No more data for this account - yield completion batch
+                  yield ok({
+                    transactions: [],
+                    operationType: accountId,
+                    cursor: {
+                      primary: { type: 'timestamp', value: accountCursor ?? Date.now() },
+                      lastTransactionId: accountCursorState?.lastTransactionId ?? `coinbase:${accountId}:none`,
+                      totalFetched: cumulativeFetched,
+                      metadata: {
+                        providerName: 'coinbase',
+                        updatedAt: Date.now(),
+                        accountId,
+                        isComplete: true,
+                      },
+                    },
+                    isComplete: true,
+                  });
+                  break;
+                }
 
-                // Delegate to pure function for processing
+                // TODO: Inline processItems loop like Kraken (packages/exchange-providers/src/exchanges/kraken/client.ts)
+                // Currently blocked by complexity - the metadata mapper is ~140 lines with critical debugged logic:
+                // - Correlation ID extraction (40 lines, 5+ transaction types, priority fallback system)
+                // - Amount signing with Decimal.js (precision bug took a week to debug, see comment line 293)
+                // - Fee extraction for advanced_trade_fill (product_id parsing, duplicate prevention)
+                // - Status mapping (custom function)
+                //
+                // RISK: Inlining this without comprehensive test coverage risks reintroducing subtle bugs
+                // in precision handling, correlation ID extraction, or fee accounting.
+                //
+                // APPROACH WHEN READY:
+                // 1. Extract metadata mapper to named function first (processCoinbaseLedgerEntry)
+                // 2. Add comprehensive unit tests for all transaction types
+                // 3. Then inline the loop with high confidence
+                //
+                // CRITICAL: This preserves all complex Coinbase-specific logic:
+                // - Fee extraction (advanced_trade_fill commission handling)
+                // - Correlation ID extraction (nested type-specific objects)
+                // - Amount signing (direction-based with Decimal.toFixed())
                 const processResult = ExchangeUtils.processItems(
                   ledgerEntries,
                   // Extractor: Get raw data from ccxt item
@@ -189,6 +242,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   // Validator: Validate using Zod schema
                   (rawItem) => ExchangeUtils.validateRawData(CoinbaseLedgerEntrySchema, rawItem, 'coinbase'),
                   // Metadata mapper: Extract cursor, externalId, and normalizedData
+                  // PRESERVED FROM BATCH IMPLEMENTATION (lines 192-320)
                   (validatedData: CoinbaseLedgerEntry, item) => {
                     const timestamp = Math.floor(validatedData.timestamp); // Ensure integer
 
@@ -322,68 +376,114 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                 );
 
                 if (processResult.isErr()) {
-                  // Validation failed - merge accumulated transactions with batch's successful items
+                  // Validation failed - yield error with successful items from this batch
                   const partialError = processResult.error;
-                  allTransactions.push(...partialError.successfulItems);
 
-                  // Return new PartialImportError with all accumulated transactions
-                  return err(
-                    new PartialImportError(
-                      partialError.message,
-                      allTransactions,
-                      partialError.failedItem,
-                      partialError.lastSuccessfulCursorUpdates
+                  // If we have successful items, yield them first
+                  if (partialError.successfulItems.length > 0) {
+                    const lastCursor = partialError.lastSuccessfulCursorUpdates?.[accountId];
+                    cumulativeFetched += partialError.successfulItems.length;
+
+                    // Build cursor with correct cumulative totalFetched
+                    const cursorToYield = lastCursor
+                      ? {
+                          ...lastCursor,
+                          totalFetched: cumulativeFetched, // Use cumulative count
+                          metadata: {
+                            ...lastCursor.metadata,
+                            providerName: 'coinbase',
+                            updatedAt: Date.now(),
+                            accountId,
+                          },
+                        }
+                      : {
+                          primary: { type: 'timestamp' as const, value: accountCursor ?? Date.now() },
+                          lastTransactionId:
+                            partialError.successfulItems[partialError.successfulItems.length - 1]?.externalId ?? '',
+                          totalFetched: cumulativeFetched,
+                          metadata: {
+                            providerName: 'coinbase',
+                            updatedAt: Date.now(),
+                            accountId,
+                          },
+                        };
+
+                    yield ok({
+                      transactions: partialError.successfulItems,
+                      operationType: accountId,
+                      cursor: cursorToYield,
+                      isComplete: false,
+                    });
+                  }
+
+                  // Then yield the error
+                  yield err(
+                    new Error(
+                      `Validation failed for account ${accountId} after ${partialError.successfulItems.length} items in batch: ${partialError.message}`
                     )
                   );
+                  return;
                 }
 
-                // Accumulate successful results and extract cursor updates
+                // Yield successful batch
                 const { transactions, cursorUpdates } = processResult.value;
-                allTransactions.push(...transactions);
-
-                // Update cumulative count for this account
                 cumulativeFetched += transactions.length;
+                pageCount++;
 
-                // Update cursor with cumulative totalFetched for this account
-                if (cursorUpdates[accountId]) {
-                  cursorUpdates[accountId].totalFetched = cumulativeFetched;
+                // Report progress
+                progress.update(
+                  `Account ${accountIndex + 1}/${accounts.length} (${accountId}): page ${pageCount}`,
+                  cumulativeFetched
+                );
+
+                // Update cursor with cumulative totalFetched
+                const currentAccountCursor = cursorUpdates[accountId];
+
+                // Check if this is the last page for this account
+                const isComplete = ledgerEntries.length < limit;
+
+                if (currentAccountCursor) {
+                  currentAccountCursor.totalFetched = cumulativeFetched;
+                  if (currentAccountCursor.metadata) {
+                    currentAccountCursor.metadata.updatedAt = Date.now();
+                    // CRITICAL: Mark account complete to prevent reprocessing on resume
+                    if (isComplete) {
+                      currentAccountCursor.metadata.isComplete = true;
+                    }
+                  }
                 }
 
-                // Track cursor updates across all accounts
-                lastSuccessfulCursorUpdates = { ...lastSuccessfulCursorUpdates, ...cursorUpdates };
-
-                // Update account cursor if present in result
-                const updatedCursorState = cursorUpdates[accountId];
-                if (updatedCursorState) {
-                  accountCursor = updatedCursorState.primary.value as number;
-                }
+                yield ok({
+                  transactions,
+                  operationType: accountId,
+                  cursor: currentAccountCursor ?? {
+                    primary: { type: 'timestamp', value: accountCursor ?? Date.now() },
+                    lastTransactionId: transactions[transactions.length - 1]?.externalId ?? '',
+                    totalFetched: cumulativeFetched,
+                    metadata: {
+                      providerName: 'coinbase',
+                      updatedAt: Date.now(),
+                      accountId,
+                      isComplete,
+                    },
+                  },
+                  isComplete,
+                });
 
                 // If we got less than the limit, we've reached the end for this account
-                if (ledgerEntries.length < limit) break;
+                if (isComplete) break;
 
                 // Update since timestamp for next page (add 1ms to avoid duplicate)
-                if (accountCursor) {
-                  accountCursor = accountCursor + 1;
+                if (currentAccountCursor) {
+                  accountCursor = (currentAccountCursor.primary.value as number) + 1;
                 }
               }
 
               accountIndex++;
             }
-
-            return ok({ transactions: allTransactions, cursorUpdates: lastSuccessfulCursorUpdates });
           } catch (error) {
-            // Network/API error during fetch - return partial results if we have any
-            if (allTransactions.length > 0) {
-              return err(
-                new PartialImportError(
-                  `Fetch failed after processing ${allTransactions.length} transactions: ${getErrorMessage(error)}`,
-                  allTransactions,
-                  undefined,
-                  lastSuccessfulCursorUpdates
-                )
-              );
-            }
-            return err(error instanceof Error ? error : new Error(String(error)));
+            // Network/API error during fetch - yield error
+            yield err(error instanceof Error ? error : new Error(`Coinbase API error: ${getErrorMessage(error)}`));
           }
         },
 

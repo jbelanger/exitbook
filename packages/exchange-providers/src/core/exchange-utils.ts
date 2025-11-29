@@ -40,6 +40,12 @@ export function validateRawData<T>(schema: ZodSchema<T>, rawData: unknown, excha
  * Process a batch of items with validation and metadata extraction
  * This is the pure functional core of ledger/transaction processing
  *
+ * @deprecated INTERNAL USE ONLY - Used by Coinbase client until refactored to inline loop pattern.
+ * See packages/exchange-providers/src/exchanges/kraken/client.ts for the preferred pattern.
+ *
+ * This function uses PartialImportError to carry successful items through the error channel,
+ * which is an architectural inconsistency. New code should inline the validation loop instead.
+ *
  * @param items - Raw items to process
  * @param extractor - Function to extract raw data from each item
  * @param validator - Function to validate extracted data

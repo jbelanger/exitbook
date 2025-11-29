@@ -8,13 +8,11 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { Account, AccountType, CursorState, DataSource, ExternalTransaction } from '@exitbook/core';
+import type { Account, AccountType, CursorState, DataSource } from '@exitbook/core';
 import type { AccountRepository } from '@exitbook/data';
-import { PartialImportError } from '@exitbook/exchanges-providers';
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ImportParams } from '../../types/importers.js';
 import type { IDataSourceRepository, IRawDataRepository } from '../../types/repositories.js';
 import { TransactionImportService } from '../import-service.js';
 
@@ -92,30 +90,29 @@ vi.mock('../../infrastructure/blockchains/index.js', () => ({
   },
 }));
 
-// Create a mock exchange import function that can be controlled per-test
-const mockExchangeImportFn = vi.fn().mockResolvedValue(
-  ok({
+// Create a mock exchange import streaming function that can be controlled per-test
+const mockExchangeImportStreamingFn = vi.fn().mockImplementation(async function* () {
+  yield okAsync({
     rawTransactions: [
       { refid: 'kraken-1', type: 'trade' },
       { refid: 'kraken-2', type: 'deposit' },
     ],
-    cursorUpdates: {
-      ledger: {
-        primary: { type: 'timestamp', value: 1 },
-        lastTransactionId: 'kraken-2',
-        totalFetched: 2,
-      },
+    operationType: 'ledger',
+    cursor: {
+      primary: { type: 'timestamp', value: 1 },
+      lastTransactionId: 'kraken-2',
+      totalFetched: 2,
     },
-    metadata: { apiVersion: 'v1' },
-  })
-);
+    isComplete: true,
+  });
+});
 
 // Mock exchange importer factory
 vi.mock('../../infrastructure/exchanges/shared/exchange-importer-factory.js', () => ({
-  createExchangeImporter: (sourceId: string, _params: ImportParams) => {
+  createExchangeImporter: async (sourceId: string) => {
     if (sourceId === 'kraken') {
-      return ok({
-        import: mockExchangeImportFn,
+      return okAsync({
+        importStreaming: mockExchangeImportStreamingFn,
       });
     }
     return err(new Error(`Unknown exchange: ${sourceId}`));
@@ -154,22 +151,21 @@ describe('TransactionImportService', () => {
       })
     );
 
-    mockExchangeImportFn.mockReset().mockResolvedValue(
-      ok({
+    mockExchangeImportStreamingFn.mockReset().mockImplementation(async function* () {
+      yield okAsync({
         rawTransactions: [
           { refid: 'kraken-1', type: 'trade' },
           { refid: 'kraken-2', type: 'deposit' },
         ],
-        cursorUpdates: {
-          ledger: {
-            primary: { type: 'timestamp', value: 1 },
-            lastTransactionId: 'kraken-2',
-            totalFetched: 2,
-          },
+        operationType: 'ledger',
+        cursor: {
+          primary: { type: 'timestamp', value: 1 },
+          lastTransactionId: 'kraken-2',
+          totalFetched: 2,
         },
-        metadata: { apiVersion: 'v1' },
-      })
-    );
+        isComplete: true,
+      });
+    });
 
     mockRawDataRepo = {
       saveBatch: vi.fn(),
@@ -388,6 +384,7 @@ describe('TransactionImportService', () => {
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
       vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
+      vi.mocked(mockAccountRepo.updateCursor).mockResolvedValue(ok());
 
       const result = await service.importFromSource(account);
 
@@ -411,7 +408,7 @@ describe('TransactionImportService', () => {
         expect.any(Number),
         undefined,
         undefined,
-        expect.objectContaining({ apiVersion: 'v1' })
+        expect.objectContaining({ transactionsImported: 2 })
       );
     });
 
@@ -450,8 +447,10 @@ describe('TransactionImportService', () => {
       };
 
       vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(existingDataSource));
+      vi.mocked(mockDataSourceRepo.update).mockResolvedValue(ok());
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
       vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
+      vi.mocked(mockAccountRepo.updateCursor).mockResolvedValue(ok());
 
       const result = await service.importFromSource(account);
 
@@ -496,7 +495,7 @@ describe('TransactionImportService', () => {
       }
     });
 
-    it('should handle PartialImportError by saving successful items and finalizing as failed', async () => {
+    it('should handle streaming failure after successful batch by saving successful items', async () => {
       const account = createMockAccount('exchange-api', 'kraken', 'test-api-key', {
         credentials: {
           apiKey: 'test-key',
@@ -509,56 +508,46 @@ describe('TransactionImportService', () => {
         { refid: 'kraken-2', type: 'deposit' },
       ];
 
-      const partialError = new PartialImportError(
-        'Validation failed on item 3',
-        successfulItems as unknown as ExternalTransaction[],
-        { refid: 'kraken-3', type: 'invalid' },
-        { trade: { primary: { type: 'timestamp', value: 2 }, lastTransactionId: 'trade-2', totalFetched: 2 } }
-      );
-
-      vi.mocked(mockDataSourceRepo.findByAccount).mockResolvedValue(ok([]));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
-      vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
+      vi.mocked(mockDataSourceRepo.update).mockResolvedValue(ok());
+      vi.mocked(mockAccountRepo.updateCursor).mockResolvedValue(ok());
 
-      // Configure the mock to return a PartialImportError
-      mockExchangeImportFn.mockResolvedValueOnce(err(partialError));
+      // Configure the mock to yield a successful batch, then an error
+      mockExchangeImportStreamingFn.mockImplementationOnce(async function* () {
+        // First batch succeeds
+        yield okAsync({
+          rawTransactions: successfulItems,
+          operationType: 'trade',
+          cursor: { primary: { type: 'timestamp', value: 2 }, lastTransactionId: 'trade-2', totalFetched: 2 },
+          isComplete: false,
+        });
+        // Second batch fails
+        yield err(new Error('Validation failed on item 3'));
+      });
 
       const result = await service.importFromSource(account);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('Validation failed after 2 successful items');
-        expect(result.error.message).toContain('Validation failed on item 3');
+        expect(result.error.message).toBe('Validation failed on item 3');
       }
 
-      // Should save successful items before failing
+      // Should save successful batch before failing
       expect(mockRawDataRepo.saveBatch).toHaveBeenCalledWith(1, successfulItems);
 
-      // Should finalize as failed with error metadata
-      expect(mockDataSourceRepo.finalize).toHaveBeenCalledWith(
+      // Should update data source as failed
+      expect(mockDataSourceRepo.update).toHaveBeenCalledWith(
         1,
-        'failed',
-        expect.any(Number),
-        'Validation failed on item 3',
         expect.objectContaining({
-          failedItem: { refid: 'kraken-3', type: 'invalid' },
-          lastSuccessfulCursorUpdates: {
-            trade: {
-              primary: { type: 'timestamp', value: 2 },
-              lastTransactionId: 'trade-2',
-              totalFetched: 2,
-            },
-          },
-        }),
-        expect.objectContaining({
-          transactionsImported: 2,
-          transactionsFailed: 1,
+          status: 'failed',
+          error_message: 'Validation failed on item 3',
         })
       );
     });
 
-    it('should handle importer returning err (not throwing)', async () => {
+    it('should handle importer yielding err (not throwing)', async () => {
       const account = createMockAccount('exchange-api', 'kraken', 'test-api-key', {
         credentials: {
           apiKey: 'test-key',
@@ -566,11 +555,14 @@ describe('TransactionImportService', () => {
         },
       });
 
-      vi.mocked(mockDataSourceRepo.findByAccount).mockResolvedValue(ok([]));
+      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
       vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
+      vi.mocked(mockDataSourceRepo.update).mockResolvedValue(ok());
 
-      // Importer returns an Error wrapped in err() (not PartialImportError)
-      mockExchangeImportFn.mockResolvedValueOnce(err(new Error('API rate limit exceeded')));
+      // Importer yields an Error wrapped in err() immediately
+      mockExchangeImportStreamingFn.mockImplementationOnce(async function* () {
+        yield errAsync(new Error('API rate limit exceeded'));
+      });
 
       const result = await service.importFromSource(account);
 
@@ -581,6 +573,15 @@ describe('TransactionImportService', () => {
 
       // Should NOT attempt to save anything
       expect(mockRawDataRepo.saveBatch).not.toHaveBeenCalled();
+
+      // Should update data source as failed
+      expect(mockDataSourceRepo.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          status: 'failed',
+          error_message: 'API rate limit exceeded',
+        })
+      );
     });
   });
 

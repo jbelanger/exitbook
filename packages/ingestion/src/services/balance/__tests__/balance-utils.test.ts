@@ -34,7 +34,7 @@ describe('fetchExchangeBalance', () => {
 
     const mockClient: IExchangeClient = {
       fetchBalance: vi.fn().mockResolvedValue(ok(mockBalance)),
-      fetchTransactionData: vi.fn(),
+      fetchTransactionDataStreaming: vi.fn(),
       exchangeId: 'kraken',
     };
 
@@ -61,7 +61,7 @@ describe('fetchExchangeBalance', () => {
     const mockError = new Error('API connection failed');
     const mockClient: IExchangeClient = {
       fetchBalance: vi.fn().mockResolvedValue(err(mockError)),
-      fetchTransactionData: vi.fn(),
+      fetchTransactionDataStreaming: vi.fn(),
       exchangeId: 'kucoin',
     };
 
@@ -76,7 +76,7 @@ describe('fetchExchangeBalance', () => {
   it('should handle exchange client throwing an error', async () => {
     const mockClient: IExchangeClient = {
       fetchBalance: vi.fn().mockRejectedValue(new Error('Network timeout')),
-      fetchTransactionData: vi.fn(),
+      fetchTransactionDataStreaming: vi.fn(),
       exchangeId: 'binance',
     };
 
@@ -96,7 +96,7 @@ describe('fetchExchangeBalance', () => {
 
     const mockClient: IExchangeClient = {
       fetchBalance: vi.fn().mockResolvedValue(ok(mockBalance)),
-      fetchTransactionData: vi.fn(),
+      fetchTransactionDataStreaming: vi.fn(),
       exchangeId: 'test-exchange',
     };
 

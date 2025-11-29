@@ -58,15 +58,5 @@ export interface IImporter {
    * @param params - Import parameters including optional resume cursors
    * @returns AsyncIterator yielding Result-wrapped batches
    */
-  importStreaming?(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>>;
-
-  /**
-   * Legacy batch import - accumulates all transactions before returning
-   * @deprecated Use importStreaming instead when available
-   *
-   * Import raw data from the source and return it with API client provenance and metadata.
-   * Does NOT save to database - that's handled by the ingestion service.
-   * Returns Result to make error handling explicit.
-   */
-  import?(params: ImportParams): Promise<Result<ImportRunResult, Error>>;
+  importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>>;
 }
