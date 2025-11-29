@@ -1,10 +1,9 @@
-import { getErrorMessage, wrapError, type CursorState, type ExternalTransaction } from '@exitbook/core';
+import { getErrorMessage, wrapError } from '@exitbook/core';
 import { progress } from '@exitbook/ui';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { PartialImportError } from '../../core/errors.js';
 import * as ExchangeUtils from '../../core/exchange-utils.js';
 import type { ExchangeLedgerEntry } from '../../core/schemas.js';
 import type {
@@ -12,7 +11,6 @@ import type {
   ExchangeCredentials,
   FetchBatchResult,
   FetchParams,
-  FetchTransactionDataResult,
   IExchangeClient,
 } from '../../core/types.js';
 
@@ -79,139 +77,6 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
     // Return object with methods that close over the exchange instance
     return {
       exchangeId: 'kraken',
-
-      async fetchTransactionData(params?: FetchParams): Promise<Result<FetchTransactionDataResult, Error>> {
-        const allTransactions: ExternalTransaction[] = [];
-        let lastSuccessfulCursorUpdates: Record<string, CursorState> = {};
-
-        // Extract timestamp and offset from ledger cursor (if exists)
-        const ledgerCursor = params?.cursor?.['ledger'];
-        const since = ledgerCursor?.primary.value as number | undefined;
-        let ofs = (ledgerCursor?.metadata?.offset as number) || 0;
-        const limit = 50; // Kraken's default/max per request
-
-        // Track cumulative count starting from previous cursor's totalFetched
-        let cumulativeFetched = (ledgerCursor?.totalFetched as number) || 0;
-
-        try {
-          let pageCount = 0;
-
-          while (true) {
-            // Side effect: Fetch from API (uses exchange from closure)
-            const ledgerEntries = await exchange.fetchLedger(undefined, since, limit, { ofs });
-
-            if (ledgerEntries.length === 0) break;
-
-            // Delegate to pure function for processing
-            const processResult = ExchangeUtils.processItems(
-              ledgerEntries,
-              // Extractor: Get raw data from ccxt item
-              (item) => ({ ...(item.info as Record<string, unknown>) }),
-              // Validator: Validate using Zod schema
-              (rawItem) => ExchangeUtils.validateRawData(KrakenLedgerEntrySchema, rawItem, 'kraken'),
-              // Metadata mapper: Extract cursor, externalId, and normalizedData
-              (validatedData: KrakenLedgerEntry, _item) => {
-                const timestamp = new Date(validatedData.time * 1000);
-                const normalizedAsset = normalizeKrakenAsset(validatedData.asset);
-
-                // Map KrakenLedgerEntry to ExchangeLedgerEntry with Kraken-specific normalization
-                // Additional Kraken-specific fields (subtype, aclass, balance) remain in rawData only
-                const normalizedData: ExchangeLedgerEntry = {
-                  id: validatedData.id,
-                  correlationId: validatedData.refid,
-                  timestamp: Math.floor(validatedData.time * 1000), // Convert to milliseconds and ensure integer
-                  type: validatedData.type,
-                  asset: normalizedAsset,
-                  amount: validatedData.amount,
-                  fee: validatedData.fee,
-                  feeCurrency: normalizedAsset, // Kraken fees are in the same currency as the asset
-                  status: 'success', // Kraken ledger entries don't have explicit status - they're all completed
-                };
-
-                return {
-                  cursorUpdates: {
-                    ledger: {
-                      primary: { type: 'timestamp', value: timestamp.getTime() },
-                      lastTransactionId: validatedData.id,
-                      totalFetched: 1,
-                      metadata: {
-                        providerName: 'kraken',
-                        updatedAt: Date.now(),
-                        offset: ofs + ledgerEntries.length, // Next page offset, not current item index
-                      },
-                    },
-                  },
-                  externalId: validatedData.id,
-                  normalizedData,
-                };
-              },
-              'kraken'
-            );
-
-            if (processResult.isErr()) {
-              // Validation failed - merge accumulated transactions with batch's successful items
-              const partialError = processResult.error;
-              allTransactions.push(...partialError.successfulItems);
-
-              // Return new PartialImportError with all accumulated transactions
-              return err(
-                new PartialImportError(
-                  partialError.message,
-                  allTransactions,
-                  partialError.failedItem,
-                  partialError.lastSuccessfulCursorUpdates
-                )
-              );
-            }
-
-            // Accumulate successful results
-            const { transactions, cursorUpdates } = processResult.value;
-            allTransactions.push(...transactions);
-
-            // Update cumulative count
-            cumulativeFetched += transactions.length;
-
-            pageCount++;
-
-            // Log every page for debugging
-            progress.log(
-              `Fetched Kraken page ${pageCount}: ${transactions.length} transactions (${cumulativeFetched} total)`
-            );
-
-            // Report progress every 10 pages
-            if (pageCount % 10 === 0) {
-              progress.update(`Processed ${pageCount} pages`, cumulativeFetched);
-            }
-
-            // Update cursor with cumulative totalFetched
-            if (cursorUpdates['ledger']) {
-              cursorUpdates['ledger'].totalFetched = cumulativeFetched;
-            }
-            lastSuccessfulCursorUpdates = cursorUpdates;
-
-            // If we got less than the limit, we've reached the end
-            if (ledgerEntries.length < limit) break;
-
-            // Update offset for next page
-            ofs += ledgerEntries.length;
-          }
-
-          return ok({ transactions: allTransactions, cursorUpdates: lastSuccessfulCursorUpdates });
-        } catch (error) {
-          // Network/API error during fetch - return partial results if we have any
-          if (allTransactions.length > 0) {
-            return err(
-              new PartialImportError(
-                `Fetch failed after processing ${allTransactions.length} transactions: ${getErrorMessage(error)}`,
-                allTransactions,
-                { ofs, since },
-                lastSuccessfulCursorUpdates
-              )
-            );
-          }
-          return err(error instanceof Error ? error : new Error(String(error)));
-        }
-      },
 
       async *fetchTransactionDataStreaming(
         params?: FetchParams

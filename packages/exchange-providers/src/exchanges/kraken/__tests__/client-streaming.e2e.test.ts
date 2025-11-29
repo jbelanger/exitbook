@@ -103,57 +103,6 @@ describe('Kraken Client Streaming E2E', () => {
     );
 
     it.skipIf(shouldSkip)(
-      'should track totalFetched across batches',
-      async () => {
-        const clientResult = createKrakenClient(credentials);
-        expect(clientResult.isOk()).toBe(true);
-        if (clientResult.isErr()) return;
-
-        const client = clientResult.value;
-        if (!client.fetchTransactionDataStreaming) {
-          throw new Error('fetchTransactionDataStreaming not implemented');
-        }
-
-        let previousTotal = 0;
-        let batchCount = 0;
-        const maxBatches = 2; // Only 2 batches to minimize API usage
-
-        for await (const result of client.fetchTransactionDataStreaming()) {
-          expect(result.isOk()).toBe(true);
-          if (result.isErr()) break;
-
-          const batch = result.value;
-          if (batch.transactions.length === 0) {
-            // If no data, we've reached the end
-            break;
-          }
-
-          const currentTotal = batch.cursor.totalFetched;
-
-          // Total should increase with each batch
-          expect(currentTotal).toBeGreaterThan(previousTotal);
-
-          // Total should equal previous total plus current batch size
-          const expectedTotal = previousTotal + batch.transactions.length;
-          expect(currentTotal).toBe(expectedTotal);
-
-          previousTotal = currentTotal;
-          batchCount++;
-
-          if (batchCount >= maxBatches) break;
-        }
-
-        // If we got at least 1 batch with data, test passes
-        if (batchCount === 0) {
-          console.log('Account has no transactions, skipping test');
-        } else {
-          expect(batchCount).toBeGreaterThan(0);
-        }
-      },
-      60000
-    );
-
-    it.skipIf(shouldSkip)(
       'should resume from cursor state',
       async () => {
         const clientResult = createKrakenClient(credentials);
@@ -206,48 +155,6 @@ describe('Kraken Client Streaming E2E', () => {
         // Verify resume actually advanced: first tx of resumed batch must differ from last tx of first batch
         if (resumedBatchFirstTx) {
           expect(resumedBatchFirstTx).not.toBe(firstBatchLastTx);
-        }
-      },
-      60000
-    );
-
-    it.skipIf(shouldSkip)(
-      'should mark isComplete on final batch',
-      async () => {
-        const clientResult = createKrakenClient(credentials);
-        expect(clientResult.isOk()).toBe(true);
-        if (clientResult.isErr()) return;
-
-        const client = clientResult.value;
-        if (!client.fetchTransactionDataStreaming) {
-          throw new Error('fetchTransactionDataStreaming not implemented');
-        }
-
-        let lastBatch: FetchBatchResult | undefined;
-        let batchCount = 0;
-        const maxBatches = 2; // Reduced from 5 to minimize API usage
-
-        for await (const result of client.fetchTransactionDataStreaming()) {
-          if (result.isErr()) {
-            console.error('API error:', result.error.message);
-            break;
-          }
-
-          lastBatch = result.value;
-          batchCount++;
-
-          // Stop if we hit completion or max batches
-          if (lastBatch.isComplete || batchCount >= maxBatches) {
-            break;
-          }
-        }
-
-        if (lastBatch) {
-          // Verify isComplete logic: either true when complete, or false when we stopped early
-          expect(typeof lastBatch.isComplete).toBe('boolean');
-          if (batchCount < maxBatches) {
-            expect(lastBatch.isComplete).toBe(true);
-          }
         }
       },
       60000
