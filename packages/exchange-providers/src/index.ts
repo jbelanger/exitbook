@@ -29,12 +29,3 @@ export {
   type KrakenCredentials,
   type KrakenLedgerEntry,
 } from './exchanges/kraken/schemas.js';
-
-// KuCoin
-export { createKuCoinClient } from './exchanges/kucoin/client.js';
-export {
-  KuCoinCredentialsSchema,
-  KuCoinLedgerEntrySchema,
-  type KuCoinCredentials,
-  type KuCoinLedgerEntry,
-} from './exchanges/kucoin/schemas.js';
