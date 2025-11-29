@@ -247,13 +247,27 @@ export class TransactionImportService {
       }
 
       // Mark complete
+      // Build import result metadata - include address for blockchain imports so processor can use it
+      const importResultMetadata: Record<string, unknown> = { transactionsImported: totalImported };
+
+      // For blockchain imports, include address (and derived addresses if present) in metadata
+      // This is required by blockchain processors for fund flow analysis
+      if (params.address) {
+        importResultMetadata.address = params.address;
+      }
+
+      // For xpub imports, include derived addresses from the account
+      if (account.derivedAddresses && account.derivedAddresses.length > 0) {
+        importResultMetadata.derivedAddresses = account.derivedAddresses;
+      }
+
       const finalizeResult = await this.dataSourceRepository.finalize(
         dataSourceId,
         'completed',
         startTime,
         undefined,
         undefined,
-        { transactionsImported: totalImported }
+        importResultMetadata
       );
 
       if (finalizeResult.isErr()) {
@@ -269,12 +283,24 @@ export class TransactionImportService {
     } catch (error) {
       const originalError = error instanceof Error ? error : new Error(String(error));
 
+      // Build import result metadata for error case - still include address for any partial data
+      const errorMetadata: Record<string, unknown> = { transactionsImported: totalImported };
+
+      if (params.address) {
+        errorMetadata.address = params.address;
+      }
+
+      if (account.derivedAddresses && account.derivedAddresses.length > 0) {
+        errorMetadata.derivedAddresses = account.derivedAddresses;
+      }
+
       await this.dataSourceRepository.finalize(
         dataSourceId,
         'failed',
         startTime,
         originalError.message,
-        error instanceof Error ? { stack: error.stack } : { error: String(error) }
+        error instanceof Error ? { stack: error.stack } : { error: String(error) },
+        errorMetadata
       );
 
       this.logger.error(`Import failed for ${sourceName}: ${originalError.message}`);
