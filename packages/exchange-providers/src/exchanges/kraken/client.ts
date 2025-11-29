@@ -5,7 +5,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import * as ExchangeUtils from '../../core/exchange-utils.js';
-import type { ExchangeLedgerEntry } from '../../core/schemas.js';
+import { ExchangeLedgerEntrySchema, type ExchangeLedgerEntry } from '../../core/schemas.js';
 import type {
   BalanceSnapshot,
   ExchangeCredentials,
@@ -14,7 +14,7 @@ import type {
   IExchangeClient,
 } from '../../core/types.js';
 
-import { KrakenCredentialsSchema, KrakenLedgerEntrySchema, type KrakenLedgerEntry } from './schemas.js';
+import { KrakenCredentialsSchema, KrakenLedgerEntrySchema } from './schemas.js';
 
 /**
  * Normalize Kraken asset symbols by removing X/Z prefixes.
@@ -119,103 +119,102 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
               break;
             }
 
-            // Delegate to pure function for processing
-            const processResult = ExchangeUtils.processItems(
-              ledgerEntries,
-              // Extractor: Get raw data from ccxt item
-              (item) => ({ ...(item.info as Record<string, unknown>) }),
-              // Validator: Validate using Zod schema
-              (rawItem) => ExchangeUtils.validateRawData(KrakenLedgerEntrySchema, rawItem, 'kraken'),
-              // Metadata mapper: Extract cursor, externalId, and normalizedData
-              (validatedData: KrakenLedgerEntry, _item) => {
-                const timestamp = new Date(validatedData.time * 1000);
-                const normalizedAsset = normalizeKrakenAsset(validatedData.asset);
+            // Process items inline - validate and transform each ledger entry
+            const transactions: import('@exitbook/core').ExternalTransaction[] = [];
+            let lastCursorState: import('@exitbook/core').CursorState | undefined;
+            let validationError: Error | undefined;
 
-                // Map KrakenLedgerEntry to ExchangeLedgerEntry with Kraken-specific normalization
-                const normalizedData: ExchangeLedgerEntry = {
-                  id: validatedData.id,
-                  correlationId: validatedData.refid,
-                  timestamp: Math.floor(validatedData.time * 1000),
-                  type: validatedData.type,
-                  asset: normalizedAsset,
-                  amount: validatedData.amount,
-                  fee: validatedData.fee,
-                  feeCurrency: normalizedAsset,
-                  status: 'success',
-                };
+            for (let i = 0; i < ledgerEntries.length; i++) {
+              const entry = ledgerEntries[i]!;
 
-                return {
-                  cursorUpdates: {
-                    ledger: {
-                      primary: { type: 'timestamp', value: timestamp.getTime() },
-                      lastTransactionId: validatedData.id,
-                      totalFetched: 1,
-                      metadata: {
-                        providerName: 'kraken',
-                        updatedAt: Date.now(),
-                        offset: ofs, // Start of current page; will be overridden with actual progress
-                      },
-                    },
-                  },
-                  externalId: validatedData.id,
-                  normalizedData,
-                };
-              },
-              'kraken'
-            );
+              // Extract raw data from ccxt item
+              const rawItem = { ...(entry.info as Record<string, unknown>) };
 
-            if (processResult.isErr()) {
-              // Validation failed - yield error with successful items from this batch
-              const partialError = processResult.error;
+              // Validate using Zod schema
+              const validationResult = ExchangeUtils.validateRawData(KrakenLedgerEntrySchema, rawItem, 'kraken');
+              if (validationResult.isErr()) {
+                validationError = new Error(
+                  `Validation failed after ${i} items in batch: ${validationResult.error.message}`
+                );
+                break;
+              }
 
+              const validatedData = validationResult.value;
+              const timestamp = new Date(validatedData.time * 1000);
+              const normalizedAsset = normalizeKrakenAsset(validatedData.asset);
+
+              // Map KrakenLedgerEntry to ExchangeLedgerEntry with Kraken-specific normalization
+              const normalizedData: ExchangeLedgerEntry = {
+                id: validatedData.id,
+                correlationId: validatedData.refid,
+                timestamp: Math.floor(validatedData.time * 1000),
+                type: validatedData.type,
+                asset: normalizedAsset,
+                amount: validatedData.amount,
+                fee: validatedData.fee,
+                feeCurrency: normalizedAsset,
+                status: 'success',
+              };
+
+              // Validate normalized data against schema
+              const normalizedValidation = ExchangeLedgerEntrySchema.safeParse(normalizedData);
+              if (!normalizedValidation.success) {
+                validationError = new Error(
+                  `Normalized data validation failed after ${i} items in batch: ${normalizedValidation.error.message}`
+                );
+                break;
+              }
+
+              // Add validated transaction to batch
+              transactions.push({
+                externalId: validatedData.id,
+                providerName: 'kraken',
+                rawData: validatedData,
+                normalizedData: normalizedValidation.data,
+              });
+
+              // Track cursor state (will be used for this batch)
+              lastCursorState = {
+                primary: { type: 'timestamp', value: timestamp.getTime() },
+                lastTransactionId: validatedData.id,
+                totalFetched: 1, // Will be overridden with cumulative count
+                metadata: {
+                  providerName: 'kraken',
+                  updatedAt: Date.now(),
+                  offset: ofs + i + 1, // Precise offset based on actual progress
+                },
+              };
+            }
+
+            // If validation failed partway through
+            if (validationError) {
               // If we have successful items, yield them first
-              if (partialError.successfulItems.length > 0) {
-                const lastCursor = partialError.lastSuccessfulCursorUpdates?.['ledger'];
-                cumulativeFetched += partialError.successfulItems.length;
-
-                // Build cursor with correct cumulative totalFetched and advanced offset
-                const cursorToYield = lastCursor
-                  ? {
-                      ...lastCursor,
-                      totalFetched: cumulativeFetched, // Use cumulative count
-                      metadata: {
-                        ...lastCursor.metadata,
-                        providerName: 'kraken',
-                        updatedAt: Date.now(),
-                        offset: ofs + partialError.successfulItems.length, // Only advance past successful items
-                      },
-                    }
-                  : {
-                      primary: { type: 'timestamp' as const, value: since ?? Date.now() },
-                      lastTransactionId:
-                        partialError.successfulItems[partialError.successfulItems.length - 1]?.externalId ?? '',
-                      totalFetched: cumulativeFetched,
-                      metadata: {
-                        providerName: 'kraken',
-                        updatedAt: Date.now(),
-                        offset: ofs + partialError.successfulItems.length, // Only advance past successful items
-                      },
-                    };
+              if (transactions.length > 0 && lastCursorState) {
+                cumulativeFetched += transactions.length;
 
                 yield ok({
-                  transactions: partialError.successfulItems,
+                  transactions,
                   operationType: 'ledger',
-                  cursor: cursorToYield,
+                  cursor: {
+                    ...lastCursorState,
+                    totalFetched: cumulativeFetched,
+                    metadata: {
+                      ...lastCursorState.metadata,
+                      providerName: 'kraken',
+                      updatedAt: Date.now(),
+                      offset: ofs + transactions.length,
+                    },
+                  },
                   isComplete: false,
                 });
               }
 
               // Then yield the error
-              yield err(
-                new Error(
-                  `Validation failed after ${partialError.successfulItems.length} items in batch: ${partialError.message}`
-                )
-              );
+              yield err(validationError);
               return;
             }
 
-            // Yield successful batch
-            const { transactions, cursorUpdates } = processResult.value;
+            // All items validated successfully
             cumulativeFetched += transactions.length;
             pageCount++;
 
@@ -229,33 +228,33 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
               progress.update(`Processed ${pageCount} pages`, cumulativeFetched);
             }
 
-            // Update cursor with cumulative totalFetched and correct offset
-            const currentLedgerCursor = cursorUpdates['ledger'];
-            if (currentLedgerCursor) {
-              currentLedgerCursor.totalFetched = cumulativeFetched;
-              // Override offset to reflect actual progress (mapper uses ledgerEntries.length)
-              if (currentLedgerCursor.metadata) {
-                currentLedgerCursor.metadata.offset = ofs + transactions.length;
-                currentLedgerCursor.metadata.updatedAt = Date.now();
-              }
-            }
-
             // Check if this is the last page
             const isComplete = ledgerEntries.length < limit;
 
             yield ok({
               transactions,
               operationType: 'ledger',
-              cursor: currentLedgerCursor ?? {
-                primary: { type: 'timestamp', value: since ?? Date.now() },
-                lastTransactionId: transactions[transactions.length - 1]?.externalId ?? '',
-                totalFetched: cumulativeFetched,
-                metadata: {
-                  providerName: 'kraken',
-                  updatedAt: Date.now(),
-                  offset: ofs + transactions.length, // Actual progress, not page size
-                },
-              },
+              cursor: lastCursorState
+                ? {
+                    ...lastCursorState,
+                    totalFetched: cumulativeFetched,
+                    metadata: {
+                      ...lastCursorState.metadata,
+                      providerName: 'kraken',
+                      updatedAt: Date.now(),
+                      offset: ofs + transactions.length,
+                    },
+                  }
+                : {
+                    primary: { type: 'timestamp', value: since ?? Date.now() },
+                    lastTransactionId: transactions[transactions.length - 1]?.externalId ?? '',
+                    totalFetched: cumulativeFetched,
+                    metadata: {
+                      providerName: 'kraken',
+                      updatedAt: Date.now(),
+                      offset: ofs + transactions.length,
+                    },
+                  },
               isComplete,
             });
 

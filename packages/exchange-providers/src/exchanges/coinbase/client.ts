@@ -216,7 +216,21 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   break;
                 }
 
-                // Delegate to pure function for processing
+                // TODO: Inline processItems loop like Kraken (packages/exchange-providers/src/exchanges/kraken/client.ts)
+                // Currently blocked by complexity - the metadata mapper is ~140 lines with critical debugged logic:
+                // - Correlation ID extraction (40 lines, 5+ transaction types, priority fallback system)
+                // - Amount signing with Decimal.js (precision bug took a week to debug, see comment line 293)
+                // - Fee extraction for advanced_trade_fill (product_id parsing, duplicate prevention)
+                // - Status mapping (custom function)
+                //
+                // RISK: Inlining this without comprehensive test coverage risks reintroducing subtle bugs
+                // in precision handling, correlation ID extraction, or fee accounting.
+                //
+                // APPROACH WHEN READY:
+                // 1. Extract metadata mapper to named function first (processCoinbaseLedgerEntry)
+                // 2. Add comprehensive unit tests for all transaction types
+                // 3. Then inline the loop with high confidence
+                //
                 // CRITICAL: This preserves all complex Coinbase-specific logic:
                 // - Fee extraction (advanced_trade_fill commission handling)
                 // - Correlation ID extraction (nested type-specific objects)
