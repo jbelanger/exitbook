@@ -1,6 +1,19 @@
+import { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import {
+  closeDatabase,
+  initializeDatabase,
+  TransactionRepository,
+  TokenMetadataRepository,
+  AccountRepository,
+} from '@exitbook/data';
+import {
+  TransactionProcessService,
+  RawDataRepository,
+  DataSourceRepository,
+  TokenMetadataService,
+} from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
-import { withDatabaseAndHandler } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 
@@ -45,7 +58,36 @@ async function executeProcessCommand(options: ProcessCommandOptions): Promise<vo
     const spinner = output.spinner();
     spinner?.start('Processing all pending data...');
 
-    const result = await withDatabaseAndHandler(ProcessHandler, {});
+    const database = await initializeDatabase();
+
+    // Initialize repositories
+    const accountRepository = new AccountRepository(database);
+    const transactionRepository = new TransactionRepository(database);
+    const rawDataRepository = new RawDataRepository(database);
+    const dataSourceRepository = new DataSourceRepository(database);
+    const tokenMetadataRepository = new TokenMetadataRepository(database);
+
+    // Initialize provider manager
+    const providerManager = new BlockchainProviderManager(undefined);
+
+    // Initialize services
+    const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, providerManager);
+    const processService = new TransactionProcessService(
+      rawDataRepository,
+      dataSourceRepository,
+      accountRepository,
+      transactionRepository,
+      tokenMetadataService
+    );
+
+    // Create handler
+    const handler = new ProcessHandler(processService, providerManager);
+
+    const result = await handler.execute({});
+
+    // Cleanup
+    handler.destroy();
+    await closeDatabase(database);
 
     spinner?.stop();
 

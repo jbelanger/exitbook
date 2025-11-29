@@ -56,7 +56,7 @@ export class BlockchainProviderManager {
   private providers = new Map<string, IBlockchainProvider[]>();
   private requestCache = new Map<string, CacheEntry>();
 
-  constructor(private readonly explorerConfig: BlockchainExplorersConfig | undefined) {
+  constructor(private readonly explorerConfig?: BlockchainExplorersConfig | undefined) {
     // Providers are auto-registered via the import in this file's header
 
     // Start periodic health checks

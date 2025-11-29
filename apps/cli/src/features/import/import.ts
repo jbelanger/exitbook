@@ -1,4 +1,19 @@
-import { closeDatabase, initializeDatabase } from '@exitbook/data';
+import { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import {
+  closeDatabase,
+  initializeDatabase,
+  TransactionRepository,
+  TokenMetadataRepository,
+  UserRepository,
+  AccountRepository,
+} from '@exitbook/data';
+import {
+  ImportOrchestrator,
+  TransactionProcessService,
+  RawDataRepository,
+  DataSourceRepository,
+  TokenMetadataService,
+} from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import { createClackEmitter, runWithProgress, type ProgressEmitter } from '@exitbook/ui';
 import type { Command } from 'commander';
@@ -83,7 +98,37 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
     // Create UI emitter and run with progress context
     const emitter = options.json ? silentProgressEmitter : createClackEmitter();
     const database = await initializeDatabase();
-    const handler = new ImportHandler(database);
+
+    // Initialize repositories
+    const userRepository = new UserRepository(database);
+    const accountRepository = new AccountRepository(database);
+    const transactionRepository = new TransactionRepository(database);
+    const rawDataRepository = new RawDataRepository(database);
+    const dataSourceRepository = new DataSourceRepository(database);
+    const tokenMetadataRepository = new TokenMetadataRepository(database);
+
+    // Initialize provider manager
+    const providerManager = new BlockchainProviderManager();
+
+    // Initialize services
+    const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, providerManager);
+    const importOrchestrator = new ImportOrchestrator(
+      userRepository,
+      accountRepository,
+      rawDataRepository,
+      dataSourceRepository,
+      providerManager
+    );
+    const processService = new TransactionProcessService(
+      rawDataRepository,
+      dataSourceRepository,
+      accountRepository,
+      transactionRepository,
+      tokenMetadataService
+    );
+
+    // Create handler (pass the provider manager so it uses the same instance and can clean it up)
+    const handler = new ImportHandler(importOrchestrator, processService, providerManager);
 
     try {
       const result = await runWithProgress(emitter, async () => {

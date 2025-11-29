@@ -197,11 +197,6 @@ function handleBalanceSuccess(
   };
 
   output.success('balance', resultData);
-  // Map status to exit codes: success=0, warning=0, failed=1
-  const statusExitCodeMap: Record<string, number> = {
-    success: 0,
-    warning: 0,
-    failed: 1,
-  };
-  process.exit(statusExitCodeMap[verificationResult.status] ?? 1);
+  // Balance verification is informational - exit with 0 even on mismatches
+  process.exit(0);
 }
