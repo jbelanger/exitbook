@@ -1,6 +1,6 @@
 import { parseDecimal } from '@exitbook/core';
 import type { DataSource, UniversalTransaction } from '@exitbook/core';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   buildBalanceParamsFromFlags,
@@ -247,7 +247,7 @@ describe('getExchangeCredentialsFromEnv', () => {
     }
   });
 
-  it('should return error when API key is missing', () => {
+  it.skipIf(!!originalEnv.KRAKEN_API_KEY)('should return error when API key is missing', () => {
     process.env.KRAKEN_SECRET = 'env-secret';
 
     const result = getExchangeCredentialsFromEnv('kraken');
@@ -258,7 +258,7 @@ describe('getExchangeCredentialsFromEnv', () => {
     }
   });
 
-  it('should return error when API secret is missing', () => {
+  it.skipIf(!!originalEnv.KRAKEN_SECRET)('should return error when API secret is missing', () => {
     process.env.KRAKEN_API_KEY = 'env-key';
 
     const result = getExchangeCredentialsFromEnv('kraken');

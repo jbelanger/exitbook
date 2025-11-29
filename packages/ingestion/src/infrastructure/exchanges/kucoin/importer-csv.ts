@@ -6,7 +6,7 @@ import { getErrorMessage, type ExternalTransaction } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportParams, ImportRunResult } from '../../../types/importers.js';
+import type { IImporter, ImportBatchResult, ImportParams, ImportRunResult } from '../../../types/importers.js';
 import { parseCsvFile, validateCsvHeaders } from '../shared/csv-parser-utils.js';
 
 import { CSV_FILE_TYPES } from './constants.js';
@@ -39,6 +39,106 @@ export class KucoinCsvImporter implements IImporter {
     this.usedExternalIds = new Map();
   }
 
+  /**
+   * Streaming import - yields one batch per CSV file
+   * Memory-bounded: processes one file at a time
+   * Supports resumption via cursor (skips completed files)
+   */
+  async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
+    this.logger.info(
+      `Starting KuCoin CSV streaming import from directories: ${params.csvDirectories?.join(', ') ?? 'none'}`
+    );
+
+    if (!params.csvDirectories?.length) {
+      yield err(new Error('CSV directories are required for KuCoin import'));
+      return;
+    }
+
+    // Reset external ID tracking for new import
+    this.usedExternalIds.clear();
+
+    // Track total fetched across all files for cursor
+    let totalFetched = 0;
+
+    // Resume support: build set of completed files from cursor (using full file paths)
+    const completedFiles = new Set<string>();
+    if (params.cursor) {
+      for (const [operationType, cursorState] of Object.entries(params.cursor)) {
+        if (operationType.startsWith('csv:kucoin:') && cursorState.metadata?.isComplete) {
+          const filePath = cursorState.metadata.filePath as string | undefined;
+          if (filePath) {
+            completedFiles.add(filePath);
+          }
+        }
+      }
+    }
+
+    try {
+      for (const csvDirectory of params.csvDirectories) {
+        this.logger.info(`Processing CSV directory: ${csvDirectory}`);
+
+        try {
+          const files = await fs.readdir(csvDirectory);
+          const csvFiles = files.filter((f) => f.endsWith('.csv')).sort(); // Sort for deterministic order
+
+          for (const file of csvFiles) {
+            const filePath = path.join(csvDirectory, file);
+
+            // Skip if already completed (using full path)
+            if (completedFiles.has(filePath)) {
+              this.logger.info(`Skipping completed file: ${filePath}`);
+              continue;
+            }
+
+            const fileType = await this.validateCSVHeaders(filePath);
+
+            // Skip unknown or unimplemented file types
+            if (fileType === 'unknown' || fileType.startsWith('not_implemented_') || fileType === 'convert') {
+              if (fileType === 'unknown') {
+                this.logger.warn(`Skipping unrecognized CSV file: ${file}`);
+              }
+              continue;
+            }
+
+            // Process file based on type (pass full path for unique identification)
+            const batchResult = await this.processFileAsBatch(filePath, fileType, totalFetched);
+
+            if (batchResult.isErr()) {
+              yield err(batchResult.error);
+              return;
+            }
+
+            const batch = batchResult.value;
+            totalFetched += batch.rawTransactions.length;
+
+            // Update cursor with cumulative total
+            batch.cursor.totalFetched = totalFetched;
+
+            yield ok(batch);
+
+            this.logger.info(
+              `Processed ${batch.rawTransactions.length} transactions from ${filePath} (total: ${totalFetched})`
+            );
+          }
+        } catch (dirError) {
+          this.logger.error(`Failed to process CSV directory ${csvDirectory}: ${String(dirError)}`);
+          yield err(new Error(`Failed to process directory ${csvDirectory}: ${getErrorMessage(dirError)}`));
+          return;
+        }
+      }
+
+      this.logger.info(`Completed KuCoin CSV streaming import: ${totalFetched} total transactions`);
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      this.logger.error(`CSV streaming import failed: ${errorMessage}`);
+      yield err(new Error(`${this.sourceId} streaming import failed: ${errorMessage}`));
+    }
+  }
+
+  /**
+   * Legacy batch import - accumulates all transactions before returning
+   * @deprecated Use importStreaming instead for better memory efficiency
+   */
   async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     this.logger.info(`Starting KuCoin CSV import from directories: ${params.csvDirectories?.join(', ') ?? 'none'}`);
 
@@ -411,6 +511,434 @@ export class KucoinCsvImporter implements IImporter {
       this.logger.error(`Import failed in CSV file processing: ${errorMessage}`);
       return err(new Error(`${this.sourceId} import failed: ${errorMessage}`));
     }
+  }
+
+  /**
+   * Process a single CSV file as a batch (used by streaming import)
+   * Preserves ALL logic from legacy import method
+   * @param filePath - Full absolute path to the CSV file (used for unique identification)
+   * @param fileType - Type of CSV file (trading, deposit, etc.)
+   * @param currentTotalFetched - Running total of transactions fetched so far
+   */
+  private async processFileAsBatch(
+    filePath: string,
+    fileType: string,
+    currentTotalFetched: number
+  ): Promise<Result<ImportBatchResult, Error>> {
+    const rawTransactions: ExternalTransaction[] = [];
+    const fileName = path.basename(filePath); // Extract filename for logging
+
+    try {
+      switch (fileType) {
+        case 'trading': {
+          this.logger.info(`Processing trading CSV file: ${fileName}`);
+          const rawRows = await this.parseCsvFile<CsvSpotOrderRow>(filePath);
+          const validationResult = validateKuCoinSpotOrders(rawRows);
+
+          if (validationResult.invalid.length > 0) {
+            this.logger.error(
+              `${validationResult.invalid.length} invalid trading rows in ${fileName}. ` +
+                `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+            );
+            validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
+              const fieldErrors = errors.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+              this.logger.debug(`Row ${rowIndex + 1} validation errors: ${fieldErrors}`);
+            });
+          }
+
+          this.logger.info(
+            `Parsed and validated ${validationResult.valid.length} trading transactions from ${fileName}`
+          );
+
+          for (const row of validationResult.valid) {
+            const externalId = this.getUniqueExternalId(row['Order ID']);
+            rawTransactions.push({
+              providerName: 'kucoin',
+              transactionTypeHint: 'spot_order',
+              rawData: { _rowType: 'spot_order', ...row },
+              normalizedData: { _rowType: 'spot_order', ...row },
+              externalId,
+            });
+          }
+          break;
+        }
+
+        case 'deposit': {
+          this.logger.info(`Processing deposit CSV file: ${fileName}`);
+          const rawRows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
+          const validationResult = validateKuCoinDepositsWithdrawals(rawRows);
+
+          if (validationResult.invalid.length > 0) {
+            this.logger.error(
+              `${validationResult.invalid.length} invalid deposit rows in ${fileName}. ` +
+                `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+            );
+            validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
+              const fieldErrors = errors.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+              this.logger.debug(`Row ${rowIndex + 1} validation errors: ${fieldErrors}`);
+            });
+          }
+
+          this.logger.info(
+            `Parsed and validated ${validationResult.valid.length} deposit transactions from ${fileName}`
+          );
+
+          for (const row of validationResult.valid) {
+            const baseId = row.Hash || this.generateExternalId('deposit', row['Time(UTC)'], row.Coin, row.Amount);
+            const externalId = this.getUniqueExternalId(baseId);
+            rawTransactions.push({
+              providerName: 'kucoin',
+              transactionTypeHint: 'deposit',
+              rawData: { _rowType: 'deposit', ...row },
+              normalizedData: { _rowType: 'deposit', ...row },
+              externalId,
+            });
+          }
+          break;
+        }
+
+        case 'withdrawal': {
+          this.logger.info(`Processing withdrawal CSV file: ${fileName}`);
+          const rawRows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
+          const validationResult = validateKuCoinDepositsWithdrawals(rawRows);
+
+          if (validationResult.invalid.length > 0) {
+            this.logger.error(
+              `${validationResult.invalid.length} invalid withdrawal rows in ${fileName}. ` +
+                `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+            );
+            validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
+              const fieldErrors = errors.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+              this.logger.debug(`Row ${rowIndex + 1} validation errors: ${fieldErrors}`);
+            });
+          }
+
+          this.logger.info(
+            `Parsed and validated ${validationResult.valid.length} withdrawal transactions from ${fileName}`
+          );
+
+          for (const row of validationResult.valid) {
+            const baseId = row.Hash || this.generateExternalId('withdrawal', row['Time(UTC)'], row.Coin, row.Amount);
+            const externalId = this.getUniqueExternalId(baseId);
+            rawTransactions.push({
+              providerName: 'kucoin',
+              transactionTypeHint: 'withdrawal',
+              normalizedData: { _rowType: 'withdrawal', ...row },
+              rawData: { _rowType: 'withdrawal', ...row },
+              externalId,
+            });
+          }
+          break;
+        }
+
+        case 'account_history': {
+          this.logger.info(`Processing account history CSV file: ${fileName}`);
+          const rawRows = await this.parseCsvFile<CsvAccountHistoryRow>(filePath);
+          const validationResult = validateKuCoinAccountHistory(rawRows);
+
+          if (validationResult.invalid.length > 0) {
+            this.logger.error(
+              `${validationResult.invalid.length} invalid account history rows in ${fileName}. ` +
+                `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+            );
+            validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
+              const fieldErrors = errors.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+              this.logger.debug(`Row ${rowIndex + 1} validation errors: ${fieldErrors}`);
+            });
+          }
+
+          this.logger.info(
+            `Parsed and validated ${validationResult.valid.length} account history entries from ${fileName}`
+          );
+
+          for (const row of validationResult.valid) {
+            const baseId = this.generateExternalId(row.Type, row['Time(UTC)'], row.Currency, row.Amount);
+            const externalId = this.getUniqueExternalId(baseId);
+            rawTransactions.push({
+              providerName: 'kucoin',
+              transactionTypeHint: 'account_history',
+              normalizedData: { _rowType: 'account_history', ...row },
+              rawData: { _rowType: 'account_history', ...row },
+              externalId,
+            });
+          }
+          break;
+        }
+
+        case 'order_splitting': {
+          // Skip Spot order-splitting files to avoid duplicates
+          if (fileName.includes('Spot Orders_')) {
+            const recordCount = await this.countCsvRecords(filePath);
+            this.logger.info(
+              `Skipping ${recordCount} spot order-splitting transaction${recordCount === 1 ? '' : 's'}: ${fileName}. Using Spot Orders_Filled Orders.csv instead to avoid duplicates.`
+            );
+            return ok({
+              rawTransactions: [],
+              operationType: `csv:kucoin:${filePath}`,
+              cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
+              isComplete: true,
+            });
+          }
+
+          this.logger.info(`Processing order-splitting CSV file: ${fileName}`);
+          const rawRows = await this.parseCsvFile<CsvOrderSplittingRow>(filePath);
+          const validationResult = validateKuCoinOrderSplitting(rawRows);
+
+          if (validationResult.invalid.length > 0) {
+            this.logger.error(
+              `${validationResult.invalid.length} invalid order-splitting rows in ${fileName}. ` +
+                `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+            );
+            validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
+              const fieldErrors = errors.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+              this.logger.debug(`Row ${rowIndex + 1} validation errors: ${fieldErrors}`);
+            });
+          }
+
+          this.logger.info(
+            `Parsed and validated ${validationResult.valid.length} order-splitting transactions from ${fileName}`
+          );
+
+          for (const row of validationResult.valid) {
+            const baseId = `${row['Order ID']}-${row['Filled Time(UTC)']}`;
+            const externalId = this.getUniqueExternalId(baseId);
+            rawTransactions.push({
+              providerName: 'kucoin',
+              transactionTypeHint: 'order_splitting',
+              normalizedData: { _rowType: 'order_splitting', ...row },
+              rawData: { _rowType: 'order_splitting', ...row },
+              externalId,
+            });
+          }
+          break;
+        }
+
+        case 'trading_bot': {
+          this.logger.info(`Processing trading bot CSV file: ${fileName}`);
+          const rawRows = await this.parseCsvFile<CsvTradingBotRow>(filePath);
+          const validationResult = validateKuCoinTradingBot(rawRows);
+
+          if (validationResult.invalid.length > 0) {
+            this.logger.error(
+              `${validationResult.invalid.length} invalid trading bot rows in ${fileName}. ` +
+                `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+            );
+            validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
+              const fieldErrors = errors.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+              this.logger.debug(`Row ${rowIndex + 1} validation errors: ${fieldErrors}`);
+            });
+          }
+
+          this.logger.info(
+            `Parsed and validated ${validationResult.valid.length} trading bot transactions from ${fileName}`
+          );
+
+          for (const row of validationResult.valid) {
+            const baseId = `${row['Order ID']}-${row['Time Filled(UTC)']}`;
+            const externalId = this.getUniqueExternalId(baseId);
+            rawTransactions.push({
+              providerName: 'kucoin',
+              transactionTypeHint: 'trading_bot',
+              normalizedData: { _rowType: 'trading_bot', ...row },
+              rawData: { _rowType: 'trading_bot', ...row },
+              externalId,
+            });
+          }
+          break;
+        }
+
+        case 'convert': {
+          this.logger.warn(`Skipping convert orders CSV file - using account history instead: ${fileName}`);
+          return ok({
+            rawTransactions: [],
+            operationType: `csv:kucoin:${filePath}`,
+            cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
+            isComplete: true,
+          });
+        }
+
+        case 'not_implemented_futures_orders':
+        case 'not_implemented_futures_pnl': {
+          const recordCount = await this.countCsvRecords(filePath);
+          if (recordCount > 0) {
+            this.logger.warn(
+              `Skipping ${recordCount} futures trading transaction${recordCount === 1 ? '' : 's'} (not yet implemented): ${fileName}. Futures trading support coming soon.`
+            );
+          } else {
+            this.logger.info(`No records found in futures trading file: ${fileName}`);
+          }
+          return ok({
+            rawTransactions: [],
+            operationType: `csv:kucoin:${filePath}`,
+            cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
+            isComplete: true,
+          });
+        }
+
+        case 'not_implemented_margin_borrowings':
+        case 'not_implemented_margin_orders':
+        case 'not_implemented_margin_lending': {
+          const recordCount = await this.countCsvRecords(filePath);
+          if (recordCount > 0) {
+            this.logger.warn(
+              `Skipping ${recordCount} margin trading transaction${recordCount === 1 ? '' : 's'} (not yet implemented): ${fileName}. Margin trading support coming soon.`
+            );
+          } else {
+            this.logger.info(`No records found in margin trading file: ${fileName}`);
+          }
+          return ok({
+            rawTransactions: [],
+            operationType: `csv:kucoin:${filePath}`,
+            cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
+            isComplete: true,
+          });
+        }
+
+        case 'not_implemented_fiat_trading':
+        case 'not_implemented_fiat_deposits':
+        case 'not_implemented_fiat_withdrawals':
+        case 'not_implemented_fiat_p2p':
+        case 'not_implemented_fiat_third_party': {
+          const recordCount = await this.countCsvRecords(filePath);
+          if (recordCount > 0) {
+            this.logger.warn(
+              `Skipping ${recordCount} fiat transaction${recordCount === 1 ? '' : 's'} (not yet implemented): ${fileName}. Fiat transaction support coming soon.`
+            );
+          } else {
+            this.logger.info(`No records found in fiat transaction file: ${fileName}`);
+          }
+          return ok({
+            rawTransactions: [],
+            operationType: `csv:kucoin:${filePath}`,
+            cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
+            isComplete: true,
+          });
+        }
+
+        case 'not_implemented_earn_profit':
+        case 'not_implemented_earn_staking': {
+          const recordCount = await this.countCsvRecords(filePath);
+          if (recordCount > 0) {
+            this.logger.warn(
+              `Skipping ${recordCount} earn/staking transaction${recordCount === 1 ? '' : 's'} (not yet implemented): ${fileName}. Staking rewards support coming soon.`
+            );
+          } else {
+            this.logger.info(`No records found in earn/staking file: ${fileName}`);
+          }
+          return ok({
+            rawTransactions: [],
+            operationType: `csv:kucoin:${filePath}`,
+            cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
+            isComplete: true,
+          });
+        }
+
+        case 'not_implemented_trading_bot': {
+          const recordCount = await this.countCsvRecords(filePath);
+          if (recordCount > 0) {
+            this.logger.warn(
+              `Skipping ${recordCount} trading bot transaction${recordCount === 1 ? '' : 's'} (not yet implemented): ${fileName}. Trading bot transaction support coming soon.`
+            );
+          } else {
+            this.logger.info(`No records found in trading bot file: ${fileName}`);
+          }
+          return ok({
+            rawTransactions: [],
+            operationType: `csv:kucoin:${filePath}`,
+            cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
+            isComplete: true,
+          });
+        }
+
+        case 'not_implemented_snapshots': {
+          const recordCount = await this.countCsvRecords(filePath);
+          this.logger.info(
+            `Skipping asset snapshots file (${recordCount} snapshot${recordCount === 1 ? '' : 's'}): ${fileName}. Snapshots are informational only and not imported.`
+          );
+          return ok({
+            rawTransactions: [],
+            operationType: `csv:kucoin:${filePath}`,
+            cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
+            isComplete: true,
+          });
+        }
+
+        case 'unknown': {
+          this.logger.warn(`Skipping unrecognized CSV file: ${fileName}`);
+          return ok({
+            rawTransactions: [],
+            operationType: `csv:kucoin:${filePath}`,
+            cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
+            isComplete: true,
+          });
+        }
+
+        default: {
+          this.logger.warn(`No handler for file type: ${fileType} in file: ${fileName}`);
+          return ok({
+            rawTransactions: [],
+            operationType: `csv:kucoin:${filePath}`,
+            cursor: this.createFileCursor(filePath, `csv:kucoin:${filePath}:none`, 0, currentTotalFetched, true),
+            isComplete: true,
+          });
+        }
+      }
+
+      // Create cursor for this file
+      const lastTransaction = rawTransactions.length > 0 ? rawTransactions[rawTransactions.length - 1] : undefined;
+      const lastTransactionId = lastTransaction?.externalId ?? `csv:kucoin:${filePath}:none`;
+
+      const cursor = this.createFileCursor(
+        filePath,
+        lastTransactionId,
+        rawTransactions.length,
+        currentTotalFetched,
+        true
+      );
+
+      return ok({
+        rawTransactions,
+        operationType: `csv:kucoin:${filePath}`, // Use full path for uniqueness
+        cursor,
+        isComplete: true, // Each file is complete when processed
+      });
+    } catch (error) {
+      return err(new Error(`Failed to process ${fileName}: ${getErrorMessage(error)}`));
+    }
+  }
+
+  /**
+   * Create a cursor for a CSV file
+   * @param filePath - Full absolute path to the CSV file (ensures uniqueness)
+   * @param lastTransactionId - ID of the last transaction in this batch
+   * @param rowCount - Number of rows/transactions in this file
+   * @param currentTotal - Cumulative total before this file
+   * @param isComplete - Whether this file is complete
+   */
+  private createFileCursor(
+    filePath: string,
+    lastTransactionId: string,
+    rowCount: number,
+    currentTotal: number,
+    isComplete: boolean
+  ) {
+    return {
+      primary: {
+        type: 'pageToken' as const,
+        value: filePath, // Use full path for uniqueness
+        providerName: 'kucoin',
+      },
+      lastTransactionId,
+      totalFetched: currentTotal + rowCount,
+      metadata: {
+        providerName: 'kucoin',
+        updatedAt: Date.now(),
+        isComplete,
+        filePath, // Store full path for resume detection
+        fileName: path.basename(filePath), // Also store basename for readability
+        rowCount,
+      },
+    };
   }
 
   /**
