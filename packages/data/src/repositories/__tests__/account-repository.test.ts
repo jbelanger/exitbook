@@ -414,19 +414,6 @@ describe('AccountRepository', () => {
       }
     });
 
-    it('should update derivedAddresses for xpub wallets (ADR-007 Use Case 2)', async () => {
-      const result = await repository.update(account.id, {
-        derivedAddresses: ['bc1q1...', 'bc1q2...', 'bc1q3...'],
-      });
-
-      expect(result.isOk()).toBe(true);
-
-      const updated = await repository.findById(account.id);
-      if (updated.isOk()) {
-        expect(updated.value.derivedAddresses).toEqual(['bc1q1...', 'bc1q2...', 'bc1q3...']);
-      }
-    });
-
     it('should update lastBalanceCheckAt', async () => {
       const checkTime = new Date('2025-01-15T10:30:00Z');
       const result = await repository.update(account.id, {
@@ -519,7 +506,6 @@ describe('AccountRepository', () => {
     it('should allow setting fields to null', async () => {
       const result = await repository.update(account.id, {
         providerName: undefined,
-        derivedAddresses: undefined,
       });
 
       expect(result.isOk()).toBe(true);
@@ -527,7 +513,6 @@ describe('AccountRepository', () => {
       const updated = await repository.findById(account.id);
       if (updated.isOk()) {
         expect(updated.value.providerName).toBeUndefined();
-        expect(updated.value.derivedAddresses).toBeUndefined();
       }
     });
 
@@ -548,6 +533,131 @@ describe('AccountRepository', () => {
       const result = await repository.update(account.id, {
         providerName: 'test',
       });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message.length).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('findByParent', () => {
+    it('should find all child accounts for a parent account', async () => {
+      // Create parent account (xpub)
+      const parentResult = await repository.findOrCreate({
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'xpub6C...',
+      });
+
+      expect(parentResult.isOk()).toBe(true);
+
+      if (parentResult.isOk()) {
+        const parentId = parentResult.value.id;
+
+        // Create child accounts
+        await repository.findOrCreate({
+          userId: 1,
+          parentAccountId: parentId,
+          accountType: 'blockchain',
+          sourceName: 'bitcoin',
+          identifier: 'bc1q1...',
+        });
+
+        await repository.findOrCreate({
+          userId: 1,
+          parentAccountId: parentId,
+          accountType: 'blockchain',
+          sourceName: 'bitcoin',
+          identifier: 'bc1q2...',
+        });
+
+        const result = await repository.findByParent(parentId);
+
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          expect(result.value).toHaveLength(2);
+          expect(result.value.every((a) => a.parentAccountId === parentId)).toBe(true);
+        }
+      }
+    });
+
+    it('should return empty array for parent with no children', async () => {
+      const parentResult = await repository.findOrCreate({
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'xpub6C...',
+      });
+
+      expect(parentResult.isOk()).toBe(true);
+
+      if (parentResult.isOk()) {
+        const result = await repository.findByParent(parentResult.value.id);
+
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          expect(result.value).toHaveLength(0);
+        }
+      }
+    });
+
+    it('should not include accounts from other parents', async () => {
+      // Create first parent with child
+      const parent1Result = await repository.findOrCreate({
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'xpub6C1...',
+      });
+
+      expect(parent1Result.isOk()).toBe(true);
+
+      if (parent1Result.isOk()) {
+        await repository.findOrCreate({
+          userId: 1,
+          parentAccountId: parent1Result.value.id,
+          accountType: 'blockchain',
+          sourceName: 'bitcoin',
+          identifier: 'bc1q1...',
+        });
+
+        // Create second parent with child
+        const parent2Result = await repository.findOrCreate({
+          userId: 1,
+          accountType: 'blockchain',
+          sourceName: 'bitcoin',
+          identifier: 'xpub6C2...',
+        });
+
+        expect(parent2Result.isOk()).toBe(true);
+
+        if (parent2Result.isOk()) {
+          await repository.findOrCreate({
+            userId: 1,
+            parentAccountId: parent2Result.value.id,
+            accountType: 'blockchain',
+            sourceName: 'bitcoin',
+            identifier: 'bc1q2...',
+          });
+
+          // Query parent 1 children - should only get one child
+          const result = await repository.findByParent(parent1Result.value.id);
+
+          expect(result.isOk()).toBe(true);
+          if (result.isOk()) {
+            expect(result.value).toHaveLength(1);
+            expect(result.value[0]?.identifier).toBe('bc1q1...');
+          }
+        }
+      }
+    });
+
+    it('should handle database errors', async () => {
+      await db.destroy();
+
+      const result = await repository.findByParent(1);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

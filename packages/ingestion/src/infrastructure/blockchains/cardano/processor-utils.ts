@@ -139,6 +139,7 @@ export function analyzeCardanoFundFlow(
   }
 
   const userAddress = sessionMetadata.address;
+  // Include derived addresses from xpub/HD wallet sessions for multi-address fund-flow analysis
   const derivedAddresses = Array.isArray(sessionMetadata.derivedAddresses)
     ? sessionMetadata.derivedAddresses.filter((addr): addr is string => typeof addr === 'string')
     : [];

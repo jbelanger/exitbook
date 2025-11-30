@@ -32,11 +32,11 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
       .values({
         id: 1,
         user_id: 1,
+        parent_account_id: null,
         account_type: 'exchange-api',
         source_name: 'test',
         identifier: 'test-api-key',
         provider_name: null,
-        derived_addresses: null,
         last_cursor: null,
         last_balance_check_at: null,
         verification_metadata: null,

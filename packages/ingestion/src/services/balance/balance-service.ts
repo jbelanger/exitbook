@@ -13,14 +13,14 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import { getBlockchainConfig } from '../../infrastructure/blockchains/index.js';
+import { getBlockchainAdapter } from '../../infrastructure/blockchains/index.js';
 import type { IDataSourceRepository } from '../../types/repositories.js';
 
 import { calculateBalances } from './balance-calculator.js';
 import {
   convertBalancesToDecimals,
   fetchBlockchainBalance,
-  fetchDerivedAddressesBalance,
+  fetchChildAccountsBalance,
   fetchExchangeBalance,
   type UnifiedBalanceSnapshot,
 } from './balance-utils.js';
@@ -182,12 +182,12 @@ export class BalanceService {
       }
 
       // Normalize address using blockchain-specific logic (e.g., lowercase for EVM)
-      const blockchainConfig = getBlockchainConfig(params.sourceName);
-      if (!blockchainConfig) {
+      const blockchainAdapter = getBlockchainAdapter(params.sourceName);
+      if (!blockchainAdapter) {
         return err(new Error(`No configuration found for blockchain: ${params.sourceName}`));
       }
 
-      const normalizedResult = blockchainConfig.normalizeAddress(params.address);
+      const normalizedResult = blockchainAdapter.normalizeAddress(params.address);
       if (normalizedResult.isErr()) {
         return err(normalizedResult.error);
       }
@@ -232,24 +232,23 @@ export class BalanceService {
   }
 
   /**
-   * Get derived addresses from account metadata for extended public keys.
-   */
-  private getDerivedAddressesFromAccount(account: Account, address: string): Result<string[], Error> {
-    const derivedAddresses = account.derivedAddresses;
-
-    if (!derivedAddresses || derivedAddresses.length === 0) {
-      return err(new Error(`No derived addresses found for ${address}. Was this imported as an xpub?`));
-    }
-
-    return ok(derivedAddresses);
-  }
-
-  /**
    * Get the timestamp of the most recent completed import for the account.
+   * For xpub/parent accounts, checks child account sessions as well.
    */
   private async getLastImportTimestamp(account: Account): Promise<number | undefined> {
     try {
-      const sessionsResult: Result<DataSource[], Error> = await this.sessionRepository.findByAccount(account.id);
+      // Get child accounts if this is a parent account (e.g., xpub)
+      const childAccountsResult = await this.accountRepository.findByParent(account.id);
+      if (childAccountsResult.isErr()) {
+        logger.warn(`Failed to fetch child accounts: ${childAccountsResult.error.message}`);
+        return undefined;
+      }
+
+      const childAccounts = childAccountsResult.value;
+      const accountIds = [account.id, ...childAccounts.map((child) => child.id)];
+
+      // Find sessions for all accounts in one query
+      const sessionsResult: Result<DataSource[], Error> = await this.sessionRepository.findByAccounts(accountIds);
 
       if (sessionsResult.isErr()) {
         logger.warn(`Failed to fetch import sessions: ${sessionsResult.error.message}`);
@@ -273,32 +272,41 @@ export class BalanceService {
 
   /**
    * Calculate balances from transactions in the database.
-   * Aggregates transactions from ALL completed sessions for the account.
+   * Aggregates transactions from ALL completed sessions for the account and its child accounts.
    */
   private async calculateBalancesFromTransactions(account: Account): Promise<Result<Record<string, Decimal>, Error>> {
     try {
-      // Find sessions for this account to verify at least one is completed
-      const sessionsResult: Result<DataSource[], Error> = await this.sessionRepository.findByAccount(account.id);
+      // Get child accounts if this is a parent account (e.g., xpub)
+      const childAccountsResult = await this.accountRepository.findByParent(account.id);
+      if (childAccountsResult.isErr()) {
+        return err(childAccountsResult.error);
+      }
+
+      const childAccounts = childAccountsResult.value;
+      const accountIds = [account.id, ...childAccounts.map((child) => child.id)];
+
+      // Find sessions for all accounts in one query (avoids N+1)
+      const sessionsResult: Result<DataSource[], Error> = await this.sessionRepository.findByAccounts(accountIds);
       if (sessionsResult.isErr()) {
         return err(sessionsResult.error);
       }
 
-      const sessions = sessionsResult.value;
-      if (sessions.length === 0) {
+      const allSessions = sessionsResult.value;
+
+      if (allSessions.length === 0) {
         return err(new Error(`No import sessions found for ${account.sourceName}`));
       }
 
       // Check if there's at least one completed session
-      const hasCompletedSession = sessions.some((s) => s.status === 'completed');
+      const hasCompletedSession = allSessions.some((s) => s.status === 'completed');
       if (!hasCompletedSession) {
         return err(new Error(`No completed import session found for ${account.sourceName}`));
       }
 
-      // Fetch ALL transactions for this account (across all completed sessions)
-      // The repository will query sessions by account_id and filter by status
+      // Fetch ALL transactions for all accounts in one query (avoids N+1)
       const transactionsResult: Result<UniversalTransaction[], Error> =
         await this.transactionRepository.getTransactions({
-          accountId: account.id,
+          accountIds,
           sessionStatus: 'completed',
         });
 
@@ -306,15 +314,26 @@ export class BalanceService {
         return err(transactionsResult.error);
       }
 
-      const transactions = transactionsResult.value;
+      const allTransactions = transactionsResult.value;
 
-      if (transactions.length === 0) {
+      if (allTransactions.length === 0) {
         logger.warn(`No transactions found for ${account.sourceName} - calculated balance will be empty`);
         return ok({});
       }
 
-      logger.info(`Calculating balances from ${transactions.length} transactions across all completed sessions`);
-      const calculatedBalances = calculateBalances(transactions);
+      // Deduplicate blockchain transactions that appear across multiple child accounts
+      // A single on-chain transaction can touch multiple derived addresses, so we need to
+      // count it only once by using blockchain.transaction_hash + blockchain.name as the key
+      const dedupedTransactions = this.deduplicateBlockchainTransactions(allTransactions);
+
+      const accountInfo =
+        childAccounts.length > 0
+          ? `${account.sourceName} (parent + ${childAccounts.length} child accounts)`
+          : account.sourceName;
+      logger.info(
+        `Calculating balances from ${dedupedTransactions.length} transactions (${allTransactions.length} before dedup) across all completed sessions for ${accountInfo}`
+      );
+      const calculatedBalances = calculateBalances(dedupedTransactions);
 
       return ok(calculatedBalances);
     } catch (error) {
@@ -354,7 +373,7 @@ export class BalanceService {
 
   /**
    * Fetch balance from a blockchain.
-   * For addresses with derived addresses (e.g., xpub), fetches balances from all derived addresses and sums them.
+   * For accounts with child accounts (e.g., xpub with derived addresses), fetches balances from all child accounts and sums them.
    */
   private async fetchBlockchainBalance(
     account: Account,
@@ -364,19 +383,23 @@ export class BalanceService {
       return err(new Error('Address is required for blockchain balance fetch'));
     }
 
-    // Check if this address has derived addresses (e.g., from xpub import)
-    const derivedAddressesResult = this.getDerivedAddressesFromAccount(account, params.address);
+    // Check if this account has child accounts (e.g., from xpub import)
+    const childAccountsResult = await this.accountRepository.findByParent(account.id);
+    if (childAccountsResult.isErr()) {
+      return err(childAccountsResult.error);
+    }
 
-    if (derivedAddressesResult.isOk()) {
-      const derivedAddresses = derivedAddressesResult.value;
-      logger.info(`Fetching balances for ${derivedAddresses.length} derived addresses`);
+    const childAccounts = childAccountsResult.value;
 
-      return fetchDerivedAddressesBalance(
+    if (childAccounts.length > 0) {
+      logger.info(`Fetching balances for ${childAccounts.length} child accounts`);
+
+      return fetchChildAccountsBalance(
         this.providerManager,
         this.tokenMetadataRepository,
         params.sourceName,
         params.address,
-        derivedAddresses,
+        childAccounts,
         params.providerName
       );
     }
@@ -392,32 +415,42 @@ export class BalanceService {
   }
 
   /**
-   * Get excluded asset amounts (scam tokens) for the given account.
+   * Get excluded asset amounts (scam tokens) for the given account and its child accounts.
    * Returns a map of asset -> total amount to subtract from live balance.
    * Aggregates excluded transactions from ALL completed sessions.
    */
   private async getExcludedAssetAmounts(account: Account): Promise<Result<Record<string, Decimal>, Error>> {
     try {
-      // Find sessions for this account to verify at least one exists
-      const sessionsResult: Result<DataSource[], Error> = await this.sessionRepository.findByAccount(account.id);
+      // Get child accounts if this is a parent account (e.g., xpub)
+      const childAccountsResult = await this.accountRepository.findByParent(account.id);
+      if (childAccountsResult.isErr()) {
+        return err(childAccountsResult.error);
+      }
+
+      const childAccounts = childAccountsResult.value;
+      const accountIds = [account.id, ...childAccounts.map((child) => child.id)];
+
+      // Find sessions for all accounts in one query (avoids N+1)
+      const sessionsResult: Result<DataSource[], Error> = await this.sessionRepository.findByAccounts(accountIds);
       if (sessionsResult.isErr()) {
         return err(sessionsResult.error);
       }
 
-      const sessions = sessionsResult.value;
-      if (sessions.length === 0) {
+      const allSessions = sessionsResult.value;
+
+      if (allSessions.length === 0) {
         return ok({});
       }
 
       // Check if there's at least one completed session
-      const hasCompletedSession = sessions.some((s) => s.status === 'completed');
+      const hasCompletedSession = allSessions.some((s) => s.status === 'completed');
       if (!hasCompletedSession) {
         return ok({});
       }
 
-      // Fetch ALL excluded transactions for this account (across all completed sessions)
+      // Fetch ALL excluded transactions for all accounts in one query (avoids N+1)
       const excludedTxResult: Result<UniversalTransaction[], Error> = await this.transactionRepository.getTransactions({
-        accountId: account.id,
+        accountIds,
         sessionStatus: 'completed',
         includeExcluded: true, // Must include to get the excluded ones
       });
@@ -426,7 +459,14 @@ export class BalanceService {
         return err(excludedTxResult.error);
       }
 
-      const excludedAmounts = this.sumExcludedInflowAmounts(excludedTxResult.value);
+      const allExcludedTransactions = excludedTxResult.value;
+
+      // Deduplicate blockchain transactions that appear across multiple child accounts
+      // A single on-chain transaction can touch multiple derived addresses, so we need to
+      // count it only once to avoid inflating the excluded amount
+      const dedupedExcludedTransactions = this.deduplicateBlockchainTransactions(allExcludedTransactions);
+
+      const excludedAmounts = this.sumExcludedInflowAmounts(dedupedExcludedTransactions);
       return ok(excludedAmounts);
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
@@ -551,6 +591,65 @@ export class BalanceService {
     }
 
     return adjusted;
+  }
+
+  /**
+   * Deduplicate blockchain transactions that appear across multiple child accounts.
+   * A single on-chain transaction can touch multiple derived addresses (e.g., payment to one address,
+   * change to another). We deduplicate by blockchain transaction hash to avoid double-counting.
+   * Exchange transactions are not affected and pass through unchanged.
+   */
+  private deduplicateBlockchainTransactions(transactions: UniversalTransaction[]): UniversalTransaction[] {
+    const seen = new Map<string, UniversalTransaction>();
+    const deduplicated: UniversalTransaction[] = [];
+
+    for (const tx of transactions) {
+      // Exchange transactions don't have blockchain metadata - include them as-is
+      if (!tx.blockchain) {
+        deduplicated.push(tx);
+        continue;
+      }
+
+      // Guard against missing transaction hash - include without deduplication
+      if (!tx.blockchain.transaction_hash) {
+        logger.warn(
+          {
+            blockchain: tx.blockchain.name,
+            externalId: tx.externalId,
+          },
+          'Blockchain transaction missing transaction_hash - including without deduplication'
+        );
+        deduplicated.push(tx);
+        continue;
+      }
+
+      // For blockchain transactions, use hash + blockchain name as the unique key
+      const key = `${tx.blockchain.name}:${tx.blockchain.transaction_hash}`;
+
+      if (!seen.has(key)) {
+        seen.set(key, tx);
+        deduplicated.push(tx);
+      } else {
+        // This is a duplicate - the same on-chain tx appearing for a different derived address
+        logger.debug(
+          {
+            txHash: tx.blockchain.transaction_hash,
+            blockchain: tx.blockchain.name,
+            externalId: tx.externalId,
+          },
+          'Skipping duplicate blockchain transaction (same on-chain tx across multiple addresses)'
+        );
+      }
+    }
+
+    const duplicateCount = transactions.length - deduplicated.length;
+    if (duplicateCount > 0) {
+      logger.info(
+        `Removed ${duplicateCount} duplicate blockchain transaction(s) (same on-chain tx appearing across multiple derived addresses)`
+      );
+    }
+
+    return deduplicated;
   }
 
   /**

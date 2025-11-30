@@ -36,6 +36,9 @@ export interface ImportHandlerParams {
   /** Provider Name (for blockchain imports) */
   providerName?: string | undefined;
 
+  /** Xpub gap limit (for xpub/extended public key imports) */
+  xpubGap?: number | undefined;
+
   /** API credentials (for exchange API imports) */
   credentials?:
     | {
@@ -127,7 +130,8 @@ export class ImportHandler {
         importResult = await this.importOrchestrator.importBlockchain(
           params.sourceName,
           params.address,
-          params.providerName
+          params.providerName,
+          params.xpubGap
         );
       }
 
@@ -139,12 +143,12 @@ export class ImportHandler {
 
       const result: ImportResult = {
         dataSourceId: importData.dataSourceId,
-        imported: importData.imported,
+        imported: importData.transactionsImported,
       };
 
       // Process data if requested
       if (params.shouldProcess) {
-        progress.update(`Processing ${importData.imported} transactions...`);
+        progress.update(`Processing ${importData.transactionsImported} transactions...`);
         const processResult = await this.processService.processRawDataToTransactions(
           params.sourceName,
           params.sourceType,

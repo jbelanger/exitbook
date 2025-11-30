@@ -20,6 +20,7 @@ export interface ImportCommandOptions {
   exchange?: string | undefined;
   process?: boolean | undefined;
   provider?: string | undefined;
+  xpubGap?: number | undefined;
 }
 
 /**
@@ -86,6 +87,19 @@ export function buildImportParamsFromFlags(options: ImportCommandOptions): Resul
     return err(new Error('--address is required for blockchain sources'));
   }
 
+  // Validate xpub-gap if provided
+  if (options.xpubGap !== undefined) {
+    if (isNaN(options.xpubGap) || !isFinite(options.xpubGap)) {
+      return err(new Error('--xpub-gap must be a valid number'));
+    }
+    if (!Number.isInteger(options.xpubGap)) {
+      return err(new Error('--xpub-gap must be an integer'));
+    }
+    if (options.xpubGap < 1) {
+      return err(new Error('--xpub-gap must be a positive integer (minimum: 1)'));
+    }
+  }
+
   // Build credentials if API keys provided
   let credentials: { apiKey: string; apiPassphrase?: string | undefined; secret: string } | undefined;
   if (options.apiKey && options.apiSecret) {
@@ -104,5 +118,6 @@ export function buildImportParamsFromFlags(options: ImportCommandOptions): Resul
     csvDir: options.csvDir,
     credentials,
     shouldProcess: options.process,
+    xpubGap: options.xpubGap,
   });
 }

@@ -27,7 +27,7 @@ export class BitcoinUtils {
    */
   static deriveAddressesFromXpub(
     xpub: string,
-    gap = 20
+    addressGapLimit = 20
   ): Promise<
     {
       address: string;
@@ -55,7 +55,7 @@ export class BitcoinUtils {
 
       // Derive addresses for receiving chain (0) and change chain (1)
       for (const chain of [0, 1]) {
-        for (let index = 0; index < gap; index++) {
+        for (let index = 0; index < addressGapLimit; index++) {
           const childNode = node.deriveChild(chain).deriveChild(index);
           const publicKeyBuffer = Buffer.from(childNode.publicKey!);
           const address = addressGenerator(publicKeyBuffer);

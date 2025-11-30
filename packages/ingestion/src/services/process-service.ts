@@ -6,7 +6,7 @@ import { getLogger } from '@exitbook/logger';
 import { progress } from '@exitbook/ui';
 import { err, ok, Result } from 'neverthrow';
 
-import { getBlockchainConfig } from '../infrastructure/blockchains/index.js';
+import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
 import { createExchangeProcessor } from '../infrastructure/exchanges/shared/exchange-processor-factory.js';
 import type { ITokenMetadataService } from '../services/token-metadata/token-metadata-service.interface.js';
 import type { ProcessResult } from '../types/processors.js';
@@ -253,7 +253,38 @@ export class TransactionProcessService {
 
         // Session metadata for processor context
         // Import identity now lives on accounts, not sessions
-        const parsedSessionMetadata = session.importResultMetadata;
+        let parsedSessionMetadata = session.importResultMetadata;
+
+        // For xpub/HD wallet sessions: augment metadata with sibling addresses
+        // This restores multi-address fund-flow analysis while maintaining parent/child architecture
+        if (sourceType === 'blockchain') {
+          const accountResult = await this.accountRepository.findById(session.accountId);
+          if (accountResult.isOk()) {
+            const account = accountResult.value;
+
+            // If this account is a child of an xpub parent, get all sibling addresses
+            if (account.parentAccountId) {
+              const siblingsResult = await this.accountRepository.findByParent(account.parentAccountId);
+              if (siblingsResult.isOk()) {
+                const siblings = siblingsResult.value;
+                // Include all sibling addresses (excluding this account's own address which is already in metadata)
+                const derivedAddresses = siblings
+                  .filter((sibling) => sibling.id !== account.id)
+                  .map((sibling) => sibling.identifier);
+
+                // Augment metadata with derivedAddresses for processor fund-flow analysis
+                parsedSessionMetadata = {
+                  ...parsedSessionMetadata,
+                  derivedAddresses,
+                };
+
+                this.logger.debug(
+                  `Session ${session.id}: Augmented metadata with ${derivedAddresses.length} sibling addresses for multi-address fund-flow analysis`
+                );
+              }
+            }
+          }
+        }
 
         for (const item of pendingItems) {
           let normalizedData: unknown = item.normalizedData;
@@ -280,11 +311,11 @@ export class TransactionProcessService {
         if (sourceType === 'blockchain') {
           // Normalize sourceId to lowercase for config lookup (registry keys are lowercase)
           const normalizedSourceId = sourceId.toLowerCase();
-          const config = getBlockchainConfig(normalizedSourceId);
-          if (!config) {
+          const adapter = getBlockchainAdapter(normalizedSourceId);
+          if (!adapter) {
             return err(new Error(`Unknown blockchain: ${sourceId}`));
           }
-          const processorResult = config.createProcessor(this.tokenMetadataService);
+          const processorResult = adapter.createProcessor(this.tokenMetadataService);
           if (processorResult.isErr()) {
             return err(processorResult.error);
           }

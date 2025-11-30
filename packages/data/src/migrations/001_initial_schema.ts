@@ -15,12 +15,12 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .createTable('accounts')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('user_id', 'integer', (col) => col.references('users.id'))
+    .addColumn('parent_account_id', 'integer', (col) => col.references('accounts.id'))
     .addColumn('account_type', 'text', (col) => col.notNull())
     .addColumn('source_name', 'text', (col) => col.notNull())
     .addColumn('identifier', 'text', (col) => col.notNull()) // address for blockchain, apiKey for exchange-api, comma-separated CSV dirs for exchange-csv
     .addColumn('provider_name', 'text')
     .addColumn('credentials', 'text') // JSON: ExchangeCredentials for exchange-api accounts only
-    .addColumn('derived_addresses', 'text')
     .addColumn('last_cursor', 'text')
     .addColumn('last_balance_check_at', 'text')
     .addColumn('verification_metadata', 'text')
@@ -34,6 +34,9 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     CREATE UNIQUE INDEX idx_accounts_unique
     ON accounts (account_type, source_name, identifier, COALESCE(user_id, 0))
   `.execute(db);
+
+  // Create index on parent_account_id for efficient child account queries (xpub hierarchies)
+  await db.schema.createIndex('idx_accounts_parent_account_id').on('accounts').column('parent_account_id').execute();
 
   // Create import_sessions table
   await db.schema
@@ -345,6 +348,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('external_transaction_data').execute();
   await db.schema.dropTable('import_sessions').execute();
   // Drop accounts and users tables
+  await db.schema.dropIndex('idx_accounts_parent_account_id').execute();
   await db.schema.dropTable('accounts').execute();
   await db.schema.dropTable('users').execute();
 }

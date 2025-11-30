@@ -15,6 +15,7 @@ export function analyzeBitcoinFundFlow(
   }
 
   // Convert all wallet addresses to lowercase for case-insensitive comparison
+  // Include primary address and any derived addresses from xpub/HD wallet sessions
   const allWalletAddresses = new Set(
     [
       sessionMetadata.address.toLowerCase(),

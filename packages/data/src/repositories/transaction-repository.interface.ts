@@ -13,7 +13,9 @@ export interface TransactionFilters {
   sessionId?: number | undefined;
   /** Filter by account ID (queries all sessions for the account) */
   accountId?: number | undefined;
-  /** Filter by session status (e.g., 'completed'). Requires accountId to be set. */
+  /** Filter by multiple account IDs (queries all sessions for these accounts). More efficient than multiple individual queries. */
+  accountIds?: number[] | undefined;
+  /** Filter by session status (e.g., 'completed'). Requires accountId or accountIds to be set. */
   sessionStatus?: DataSourceStatus | undefined;
   /** Include transactions excluded from accounting (scam tokens, test data, etc.). Defaults to false. */
   includeExcluded?: boolean | undefined;

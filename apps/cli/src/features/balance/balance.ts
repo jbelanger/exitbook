@@ -89,7 +89,14 @@ async function executeBalanceCommand(options: ExtendedBalanceCommandOptions): Pr
     }
 
     // Account is now included in the verification result
-    handleBalanceSuccess(output, result.value, params.sourceName, params.sourceType, params.address);
+    await handleBalanceSuccess(
+      output,
+      result.value,
+      params.sourceName,
+      params.sourceType,
+      params.address,
+      accountRepository
+    );
   } catch (error) {
     output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   } finally {
@@ -101,12 +108,13 @@ async function executeBalanceCommand(options: ExtendedBalanceCommandOptions): Pr
 /**
  * Handle successful balance verification.
  */
-function handleBalanceSuccess(
+async function handleBalanceSuccess(
   output: OutputManager,
   verificationResult: BalanceVerificationResult,
   sourceName: string,
   sourceType: SourceType,
-  address?: string
+  address?: string,
+  accountRepository?: AccountRepository
 ) {
   const account = verificationResult.account;
 
@@ -120,6 +128,15 @@ function handleBalanceSuccess(
     console.log(`  Type: ${account.accountType}`);
     if (account.accountType === 'blockchain') {
       console.log(`  Address: ${account.identifier}`);
+
+      // Check if this account has children (xpub wallet)
+      if (accountRepository) {
+        const childAccountsResult = await accountRepository.findByParent(account.id);
+        if (childAccountsResult.isOk() && childAccountsResult.value.length > 0) {
+          console.log(`  Extended Public Key: Yes (${childAccountsResult.value.length} derived addresses)`);
+          console.log(`  Note: Balance aggregated from all derived addresses`);
+        }
+      }
     } else {
       console.log(`  Identifier: ${account.identifier || 'N/A'}`);
     }

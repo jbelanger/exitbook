@@ -1,11 +1,11 @@
 // Auto-register all blockchain configs by importing them
-import './bitcoin/config.js';
-import './cardano/config.js';
-import './cosmos/config.js';
-import './evm/config.js';
-import './near/config.js';
-import './solana/config.js';
-import './substrate/config.js';
+import './bitcoin/adapter.ts';
+import './cardano/adapter.js';
+import './cosmos/adapter.js';
+import './evm/adapter.js';
+import './near/adapter.js';
+import './solana/adapter.js';
+import './substrate/adapter.js';
 
-// Export blockchain config utilities
-export * from './shared/blockchain-config.js';
+// Export blockchain adapter utilities
+export * from './shared/blockchain-adapter.js';

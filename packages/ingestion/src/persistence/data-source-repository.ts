@@ -174,6 +174,38 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
   }
 
   /**
+   * Find all import sessions for multiple accounts in one query (avoids N+1).
+   */
+  async findByAccounts(accountIds: number[]): Promise<Result<DataSource[], Error>> {
+    try {
+      if (accountIds.length === 0) {
+        return ok([]);
+      }
+
+      const rows = await this.db
+        .selectFrom('import_sessions')
+        .selectAll()
+        .where('account_id', 'in', accountIds)
+        .orderBy('started_at', 'desc')
+        .execute();
+
+      // Convert rows to domain models
+      const dataSources: DataSource[] = [];
+      for (const row of rows) {
+        const ds = this.toDataSource(row);
+        if (ds.isErr()) {
+          return err(ds.error);
+        }
+        dataSources.push(ds.value);
+      }
+
+      return ok(dataSources);
+    } catch (error) {
+      return wrapError(error, 'Failed to find import sessions by accounts');
+    }
+  }
+
+  /**
    * Get session counts for multiple accounts in one query (avoids N+1).
    * Returns a Map of accountId -> session count.
    */

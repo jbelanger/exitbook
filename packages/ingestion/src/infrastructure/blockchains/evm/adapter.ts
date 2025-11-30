@@ -3,7 +3,7 @@ import { EVM_CHAINS, getEvmChainConfig } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
-import { registerBlockchain } from '../shared/blockchain-config.js';
+import { registerBlockchain } from '../shared/blockchain-adapter.ts';
 
 import { EvmImporter } from './importer.js';
 import { EvmTransactionProcessor } from './processor.js';
