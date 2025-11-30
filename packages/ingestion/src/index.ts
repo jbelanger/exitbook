@@ -26,7 +26,7 @@ export { calculateBalances } from './services/balance/balance-calculator.js';
 export {
   fetchExchangeBalance,
   fetchBlockchainBalance,
-  fetchDerivedAddressesBalance,
+  fetchChildAccountsBalance,
   convertBalancesToDecimals,
   type UnifiedBalanceSnapshot,
 } from './services/balance/balance-utils.js';

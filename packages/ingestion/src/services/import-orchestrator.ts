@@ -4,7 +4,7 @@ import type { AccountRepository, UserRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 
 import { getBlockchainConfig } from '../infrastructure/blockchains/index.js';
 import type { ImportResult } from '../types/importers.js';
@@ -47,9 +47,10 @@ export class ImportOrchestrator {
   async importBlockchain(
     blockchain: string,
     address: string,
-    providerName?: string
+    providerName?: string,
+    xpubGap?: number
   ): Promise<Result<ImportResult, Error>> {
-    this.logger.info(`Starting blockchain import for ${blockchain} (${address})`);
+    this.logger.info(`Starting blockchain import for ${blockchain} (${address.substring(0, 20)}...)`);
 
     // 1. Ensure default CLI user exists (id=1)
     const userResult = await this.userRepository.ensureDefaultUser();
@@ -71,7 +72,22 @@ export class ImportOrchestrator {
     }
     const normalizedAddress = normalizedAddressResult.value;
 
-    // 3. Find or create account with normalized address as identifier
+    // 3. Check if address is an extended public key (xpub)
+    const isXpub = blockchainConfig.isExtendedPublicKey?.(normalizedAddress) ?? false;
+
+    if (isXpub && blockchainConfig.deriveAddressesFromXpub) {
+      // Handle xpub: create parent account + child accounts for derived addresses
+      return this.importFromXpub(user.id, blockchain, normalizedAddress, blockchainConfig, providerName, xpubGap);
+    }
+
+    // Warn if xpubGap was provided but address is not an xpub
+    if (xpubGap !== undefined && !isXpub) {
+      this.logger.warn(
+        `--xpub-gap was provided but address is not an extended public key (xpub). The flag will be ignored.`
+      );
+    }
+
+    // 4. Regular address: find or create account
     const accountResult = await this.accountRepository.findOrCreate({
       userId: user.id,
       accountType: 'blockchain',
@@ -88,7 +104,7 @@ export class ImportOrchestrator {
 
     this.logger.info(`Using account #${account.id} (blockchain) for import`);
 
-    // 4. Delegate to import service with account
+    // 5. Delegate to import service with account
     return this.importService.importFromSource(account);
   }
 
@@ -169,5 +185,124 @@ export class ImportOrchestrator {
 
     // 4. Delegate to import service with account
     return this.importService.importFromSource(account);
+  }
+
+  /**
+   * Import from xpub by creating parent + child accounts
+   */
+  private async importFromXpub(
+    userId: number,
+    blockchain: string,
+    xpub: string,
+    blockchainConfig: ReturnType<typeof getBlockchainConfig>,
+    providerName?: string,
+    xpubGap?: number
+  ): Promise<Result<ImportResult, Error>> {
+    try {
+      if (!blockchainConfig?.deriveAddressesFromXpub) {
+        return err(new Error(`Blockchain ${blockchain} does not support xpub derivation`));
+      }
+
+      this.logger.info(`Processing xpub import for ${blockchain}`);
+
+      // 1. Create parent account for xpub
+      const parentAccountResult = await this.accountRepository.findOrCreate({
+        userId,
+        accountType: 'blockchain',
+        sourceName: blockchain,
+        identifier: xpub,
+        providerName,
+        credentials: undefined,
+      });
+
+      if (parentAccountResult.isErr()) {
+        return err(parentAccountResult.error);
+      }
+      const parentAccount = parentAccountResult.value;
+
+      this.logger.info(`Created parent account #${parentAccount.id} for xpub`);
+
+      // 2. Derive child addresses
+      const derivedAddresses = await blockchainConfig.deriveAddressesFromXpub(xpub, xpubGap);
+      this.logger.info(
+        `Derived ${derivedAddresses.length} addresses from xpub${xpubGap !== undefined ? ` (gap: ${xpubGap})` : ''}`
+      );
+
+      // Validate that derivation produced at least one address
+      if (derivedAddresses.length === 0) {
+        return err(
+          new Error(
+            `Xpub derivation produced zero addresses. ` +
+              `This may indicate an invalid xpub or gap limit set to 0. ` +
+              `Please check the xpub format and try again${xpubGap !== undefined ? ` with a different --xpub-gap value (currently: ${xpubGap})` : ''}.`
+          )
+        );
+      }
+
+      // 3. Create child account for each derived address
+      const childAccounts = [];
+      for (const derived of derivedAddresses) {
+        const childAccountResult = await this.accountRepository.findOrCreate({
+          userId,
+          parentAccountId: parentAccount.id,
+          accountType: 'blockchain',
+          sourceName: blockchain,
+          identifier: derived.address,
+          providerName,
+          credentials: undefined,
+        });
+
+        if (childAccountResult.isErr()) {
+          return err(childAccountResult.error);
+        }
+
+        childAccounts.push(childAccountResult.value);
+      }
+
+      this.logger.info(`Created ${childAccounts.length} child accounts`);
+
+      // 4. Import each child account and aggregate results
+      let totalImported = 0;
+      let lastDataSourceId = 0;
+      let successfulImports = 0;
+      const errors: string[] = [];
+
+      for (const childAccount of childAccounts) {
+        this.logger.info(
+          `Importing child account #${childAccount.id} (${childAccount.identifier.substring(0, 20)}...)`
+        );
+
+        const importResult = await this.importService.importFromSource(childAccount);
+
+        if (importResult.isErr()) {
+          const errorMsg = `Account #${childAccount.id}: ${importResult.error.message}`;
+          this.logger.warn(`Failed to import child account - ${errorMsg}`);
+          errors.push(errorMsg);
+          // Continue with other addresses even if one fails
+          continue;
+        }
+
+        totalImported += importResult.value.imported;
+        lastDataSourceId = importResult.value.dataSourceId;
+        successfulImports++;
+      }
+
+      // If no child imports succeeded, return an error
+      if (successfulImports === 0) {
+        const errorSummary = errors.length > 0 ? errors.join('; ') : 'All child account imports failed';
+        return err(new Error(`Xpub import failed: ${errorSummary}`));
+      }
+
+      this.logger.info(
+        `Completed xpub import: ${totalImported} transactions from ${successfulImports}/${childAccounts.length} addresses`
+      );
+
+      return ok({
+        imported: totalImported,
+        dataSourceId: lastDataSourceId,
+      });
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 }

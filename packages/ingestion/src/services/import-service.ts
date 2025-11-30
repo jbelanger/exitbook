@@ -250,15 +250,10 @@ export class TransactionImportService {
       // Build import result metadata - include address for blockchain imports so processor can use it
       const importResultMetadata: Record<string, unknown> = { transactionsImported: totalImported };
 
-      // For blockchain imports, include address (and derived addresses if present) in metadata
+      // For blockchain imports, include address in metadata
       // This is required by blockchain processors for fund flow analysis
       if (params.address) {
         importResultMetadata.address = params.address;
-      }
-
-      // For xpub imports, include derived addresses from the account
-      if (account.derivedAddresses && account.derivedAddresses.length > 0) {
-        importResultMetadata.derivedAddresses = account.derivedAddresses;
       }
 
       const finalizeResult = await this.dataSourceRepository.finalize(
@@ -288,10 +283,6 @@ export class TransactionImportService {
 
       if (params.address) {
         errorMetadata.address = params.address;
-      }
-
-      if (account.derivedAddresses && account.derivedAddresses.length > 0) {
-        errorMetadata.derivedAddresses = account.derivedAddresses;
       }
 
       await this.dataSourceRepository.finalize(

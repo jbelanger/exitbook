@@ -27,10 +27,12 @@ export interface FormattedAccount {
   accountType: string;
   sourceName: string;
   identifier: string;
+  parentAccountId?: number | undefined;
   providerName?: string | undefined;
   lastBalanceCheckAt?: string | undefined;
   verificationStatus?: 'match' | 'mismatch' | 'never-checked' | undefined;
   sessionCount?: number | undefined;
+  childAccounts?: FormattedAccount[] | undefined;
   createdAt: string;
 }
 
@@ -91,16 +93,22 @@ export function getVerificationStatus(account: Account): 'match' | 'mismatch' | 
 /**
  * Format account for display.
  */
-export function formatAccount(account: Account, sessionCount: number | undefined): FormattedAccount {
+export function formatAccount(
+  account: Account,
+  sessionCount: number | undefined,
+  childAccounts?: FormattedAccount[]
+): FormattedAccount {
   return {
     id: account.id,
     accountType: account.accountType,
     sourceName: account.sourceName,
     identifier: maskIdentifier(account),
+    parentAccountId: account.parentAccountId,
     providerName: account.providerName ?? undefined,
     lastBalanceCheckAt: account.lastBalanceCheckAt?.toISOString(),
     verificationStatus: getVerificationStatus(account),
     sessionCount,
+    childAccounts,
     createdAt: account.createdAt.toISOString(),
   };
 }

@@ -62,6 +62,11 @@ export function registerImportCommand(program: Command): void {
     .option('--csv-dir <path>', 'CSV directory for exchange sources')
     .option('--address <address>', 'Wallet address for blockchain source')
     .option('--provider <name>', 'Blockchain provider for blockchain sources')
+    .option(
+      '--xpub-gap <number>',
+      'Address derivation limit for xpub/extended keys (default: 20 for Bitcoin, 10 for Cardano)',
+      parseInt
+    )
     .option('--api-key <key>', 'API key for exchange API access')
     .option('--api-secret <secret>', 'API secret for exchange API access')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange API access (if required)')

@@ -19,10 +19,12 @@ export interface AccountInfo {
   accountType: AccountType;
   sourceName: string;
   identifier: string;
+  parentAccountId?: number | undefined;
   providerName: string | undefined;
   lastBalanceCheckAt: string | undefined;
   verificationStatus: 'match' | 'mismatch' | 'never-checked' | undefined;
   sessionCount: number | undefined;
+  childAccounts?: AccountInfo[] | undefined;
   createdAt: string;
 }
 
@@ -97,37 +99,60 @@ export function getSessionStatusIcon(status: string): string {
 /**
  * Format a single account for text display.
  */
-export function formatAccountForDisplay(account: AccountInfo, sessions?: SessionSummary[]): string {
+export function formatAccountForDisplay(
+  account: AccountInfo,
+  sessions?: SessionSummary[],
+  indent = '',
+  allSessions?: Map<number, SessionSummary[]>
+): string {
   const typeIcon = getAccountTypeIcon(account.accountType);
   const lines: string[] = [];
 
-  lines.push(`${typeIcon} Account #${account.id} - ${account.sourceName} (${account.accountType})`);
-  lines.push(`   Identifier: ${account.identifier}`);
+  // Display xpub indicator for parent accounts with children
+  const accountLabel =
+    account.childAccounts && account.childAccounts.length > 0
+      ? `${account.sourceName} (xpub with ${account.childAccounts.length} derived addresses)`
+      : account.sourceName;
+
+  lines.push(`${indent}${typeIcon} Account #${account.id} - ${accountLabel} (${account.accountType})`);
+  lines.push(`${indent}   Identifier: ${account.identifier}`);
 
   if (account.providerName) {
-    lines.push(`   Provider: ${account.providerName}`);
+    lines.push(`${indent}   Provider: ${account.providerName}`);
   }
 
   if (account.lastBalanceCheckAt) {
     const verifyIcon = getVerificationIcon(account.verificationStatus);
-    lines.push(`   Last Balance Check: ${account.lastBalanceCheckAt} ${verifyIcon}`);
+    lines.push(`${indent}   Last Balance Check: ${account.lastBalanceCheckAt} ${verifyIcon}`);
     if (account.verificationStatus) {
-      lines.push(`   Verification Status: ${account.verificationStatus}`);
+      lines.push(`${indent}   Verification Status: ${account.verificationStatus}`);
     }
   }
 
   if (account.sessionCount !== undefined && account.sessionCount > 0) {
-    lines.push(`   Import Sessions: ${account.sessionCount}`);
+    lines.push(`${indent}   Import Sessions: ${account.sessionCount}`);
   }
 
-  lines.push(`   Created: ${account.createdAt}`);
+  lines.push(`${indent}   Created: ${account.createdAt}`);
 
   if (sessions && sessions.length > 0) {
-    lines.push(`   Recent Sessions:`);
+    lines.push(`${indent}   Recent Sessions:`);
     for (const session of sessions) {
       const statusIcon = getSessionStatusIcon(session.status);
       const completedInfo = session.completedAt ? ` → ${session.completedAt}` : '';
-      lines.push(`     ${statusIcon} Session #${session.id} (${session.status}): ${session.startedAt}${completedInfo}`);
+      lines.push(
+        `${indent}     ${statusIcon} Session #${session.id} (${session.status}): ${session.startedAt}${completedInfo}`
+      );
+    }
+  }
+
+  // Display child accounts if present
+  if (account.childAccounts && account.childAccounts.length > 0) {
+    lines.push(`${indent}   Child Accounts:`);
+    for (const child of account.childAccounts) {
+      const childSessions = allSessions?.get(child.id);
+      const childLines = formatAccountForDisplay(child, childSessions, `${indent}     `, allSessions);
+      lines.push(childLines);
     }
   }
 
@@ -154,7 +179,7 @@ export function formatAccountsListForDisplay(
   } else {
     for (const account of accounts) {
       const accountSessions = sessions?.get(account.id);
-      lines.push(formatAccountForDisplay(account, accountSessions));
+      lines.push(formatAccountForDisplay(account, accountSessions, '', sessions));
       lines.push('');
     }
   }

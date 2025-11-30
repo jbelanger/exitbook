@@ -20,6 +20,7 @@ import { BaseRepository } from './base-repository.js';
  */
 export interface FindOrCreateAccountParams {
   userId: number | undefined;
+  parentAccountId?: number | undefined;
   accountType: AccountType;
   sourceName: string;
   identifier: string;
@@ -31,9 +32,9 @@ export interface FindOrCreateAccountParams {
  * Parameters for updating an account
  */
 export interface UpdateAccountParams {
+  parentAccountId?: number | undefined;
   providerName?: string | undefined;
   credentials?: ExchangeCredentials | undefined;
-  derivedAddresses?: string[] | undefined;
   lastCursor?: Record<string, CursorState> | undefined;
   lastBalanceCheckAt?: Date | undefined;
   verificationMetadata?: VerificationMetadata | undefined;
@@ -66,8 +67,34 @@ export class AccountRepository extends BaseRepository {
       }
 
       if (existingResult.value) {
-        this.logger.debug({ accountId: existingResult.value.id }, 'Found existing account');
-        return ok(existingResult.value);
+        const existing = existingResult.value;
+        this.logger.debug({ accountId: existing.id }, 'Found existing account');
+
+        // If a parentAccountId is provided and the existing account has a different (or null) parent,
+        // update the parent relationship to maintain the hierarchy
+        if (params.parentAccountId !== undefined && existing.parentAccountId !== params.parentAccountId) {
+          this.logger.info(
+            {
+              accountId: existing.id,
+              currentParent: existing.parentAccountId,
+              newParent: params.parentAccountId,
+            },
+            'Updating parent account relationship for existing account'
+          );
+
+          const updateResult = await this.update(existing.id, {
+            parentAccountId: params.parentAccountId,
+          });
+
+          if (updateResult.isErr()) {
+            return err(updateResult.error);
+          }
+
+          // Fetch the updated account
+          return this.findById(existing.id);
+        }
+
+        return ok(existing);
       }
 
       // Validate and serialize credentials if provided
@@ -85,12 +112,12 @@ export class AccountRepository extends BaseRepository {
         .insertInto('accounts')
         .values({
           user_id: params.userId,
+          parent_account_id: params.parentAccountId ?? null,
           account_type: params.accountType,
           source_name: params.sourceName,
           identifier: params.identifier,
           provider_name: params.providerName ?? null,
           credentials: credentialsJson,
-          derived_addresses: null,
           last_cursor: null,
           last_balance_check_at: null,
           verification_metadata: null,
@@ -221,6 +248,32 @@ export class AccountRepository extends BaseRepository {
   }
 
   /**
+   * Find all child accounts for a parent account
+   */
+  async findByParent(parentAccountId: number): Promise<Result<Account[], Error>> {
+    try {
+      const rows = await this.db
+        .selectFrom('accounts')
+        .selectAll()
+        .where('parent_account_id', '=', parentAccountId)
+        .execute();
+
+      const accounts: Account[] = [];
+      for (const row of rows) {
+        const accountResult = this.toAccount(row);
+        if (accountResult.isErr()) {
+          return err(accountResult.error);
+        }
+        accounts.push(accountResult.value);
+      }
+
+      return ok(accounts);
+    } catch (error) {
+      return wrapError(error, 'Failed to find accounts by parent');
+    }
+  }
+
+  /**
    * Find all accounts with optional filtering
    */
   async findAll(filters?: {
@@ -274,6 +327,10 @@ export class AccountRepository extends BaseRepository {
         updated_at: currentTimestamp,
       };
 
+      if (updates.parentAccountId !== undefined) {
+        updateData.parent_account_id = updates.parentAccountId;
+      }
+
       if (updates.providerName !== undefined) {
         updateData.provider_name = updates.providerName;
       }
@@ -288,10 +345,6 @@ export class AccountRepository extends BaseRepository {
           }
           updateData.credentials = this.serializeToJson(validationResult.data);
         }
-      }
-
-      if (updates.derivedAddresses !== undefined) {
-        updateData.derived_addresses = updates.derivedAddresses ? this.serializeToJson(updates.derivedAddresses) : null;
       }
 
       if (updates.lastCursor !== undefined) {
@@ -370,11 +423,11 @@ export class AccountRepository extends BaseRepository {
     account_type: string;
     created_at: string;
     credentials: unknown;
-    derived_addresses: unknown;
     id: number;
     identifier: string;
     last_balance_check_at: string | null;
     last_cursor: unknown;
+    parent_account_id: number | null;
     provider_name: string | null;
     source_name: string;
     updated_at: string | null;
@@ -385,12 +438,6 @@ export class AccountRepository extends BaseRepository {
     const credentialsResult = this.parseWithSchema(row.credentials, ExchangeCredentialsSchema.optional());
     if (credentialsResult.isErr()) {
       return err(credentialsResult.error);
-    }
-
-    // Parse derived addresses
-    const derivedAddressesResult = this.parseWithSchema(row.derived_addresses, z.array(z.string()).optional());
-    if (derivedAddressesResult.isErr()) {
-      return err(derivedAddressesResult.error);
     }
 
     // Parse last cursor
@@ -412,12 +459,12 @@ export class AccountRepository extends BaseRepository {
     const parseResult = AccountSchema.safeParse({
       id: row.id,
       userId: row.user_id ?? undefined,
+      parentAccountId: row.parent_account_id ?? undefined,
       accountType: row.account_type,
       sourceName: row.source_name,
       identifier: row.identifier,
       providerName: row.provider_name ?? undefined,
       credentials: credentialsResult.value ?? undefined,
-      derivedAddresses: derivedAddressesResult.value ?? undefined,
       lastCursor: lastCursorResult.value,
       lastBalanceCheckAt: row.last_balance_check_at ? new Date(row.last_balance_check_at) : undefined,
       verificationMetadata: verificationMetadataResult.value,

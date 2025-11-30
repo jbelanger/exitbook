@@ -1,7 +1,8 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { CardanoUtils, type BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
+import type { DerivedAddress } from '../shared/blockchain-config.js';
 import { registerBlockchain } from '../shared/blockchain-config.js';
 
 import { CardanoTransactionImporter } from './importer.js';
@@ -25,6 +26,16 @@ registerBlockchain({
       return err(new Error(`Invalid Cardano address format: ${address}`));
     }
     return ok(address);
+  },
+
+  isExtendedPublicKey: (address: string) => CardanoUtils.isExtendedPublicKey(address),
+
+  deriveAddressesFromXpub: async (xpub: string, gap?: number): Promise<DerivedAddress[]> => {
+    const result = await CardanoUtils.deriveAddressesFromXpub(xpub, gap);
+    return result.map((addr) => ({
+      address: addr.address,
+      derivationPath: addr.derivationPath,
+    }));
   },
 
   createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>

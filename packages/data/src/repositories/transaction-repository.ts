@@ -186,23 +186,33 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   async getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransaction[], Error>> {
     try {
-      // Enforce that sessionStatus requires accountId for proper tenant scoping
-      if (filters?.sessionStatus !== undefined && filters.accountId === undefined) {
-        return err(
-          new Error(
-            'sessionStatus filter requires accountId to be set for proper account scoping. ' +
-              'Use { accountId: X, sessionStatus: "completed" } instead of just { sessionStatus: "completed" }.'
-          )
-        );
+      // Enforce that sessionStatus requires accountId or non-empty accountIds for proper tenant scoping
+      if (filters?.sessionStatus !== undefined) {
+        const hasAccountId = filters.accountId !== undefined;
+        const hasAccountIds = filters.accountIds !== undefined && filters.accountIds.length > 0;
+
+        if (!hasAccountId && !hasAccountIds) {
+          return err(
+            new Error(
+              'sessionStatus filter requires accountId or accountIds to be set for proper account scoping. ' +
+                'Use { accountId: X, sessionStatus: "completed" } or { accountIds: [X, Y], sessionStatus: "completed" }.'
+            )
+          );
+        }
       }
 
       // If filtering by account or session status, first get matching session IDs
       let sessionIds: number[] | undefined;
-      if (filters && (filters.accountId !== undefined || filters.sessionStatus !== undefined)) {
+      if (
+        filters &&
+        (filters.accountId !== undefined || filters.accountIds !== undefined || filters.sessionStatus !== undefined)
+      ) {
         let sessionQuery = this.db.selectFrom('import_sessions').select('id');
 
         if (filters.accountId !== undefined) {
           sessionQuery = sessionQuery.where('account_id', '=', filters.accountId);
+        } else if (filters.accountIds !== undefined && filters.accountIds.length > 0) {
+          sessionQuery = sessionQuery.where('account_id', 'in', filters.accountIds);
         }
 
         if (filters.sessionStatus !== undefined) {

@@ -414,19 +414,6 @@ describe('AccountRepository', () => {
       }
     });
 
-    it('should update derivedAddresses for xpub wallets (ADR-007 Use Case 2)', async () => {
-      const result = await repository.update(account.id, {
-        derivedAddresses: ['bc1q1...', 'bc1q2...', 'bc1q3...'],
-      });
-
-      expect(result.isOk()).toBe(true);
-
-      const updated = await repository.findById(account.id);
-      if (updated.isOk()) {
-        expect(updated.value.derivedAddresses).toEqual(['bc1q1...', 'bc1q2...', 'bc1q3...']);
-      }
-    });
-
     it('should update lastBalanceCheckAt', async () => {
       const checkTime = new Date('2025-01-15T10:30:00Z');
       const result = await repository.update(account.id, {
@@ -519,7 +506,6 @@ describe('AccountRepository', () => {
     it('should allow setting fields to null', async () => {
       const result = await repository.update(account.id, {
         providerName: undefined,
-        derivedAddresses: undefined,
       });
 
       expect(result.isOk()).toBe(true);
@@ -527,7 +513,6 @@ describe('AccountRepository', () => {
       const updated = await repository.findById(account.id);
       if (updated.isOk()) {
         expect(updated.value.providerName).toBeUndefined();
-        expect(updated.value.derivedAddresses).toBeUndefined();
       }
     });
 

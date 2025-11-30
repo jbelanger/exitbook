@@ -13,11 +13,17 @@ import type { IRawDataRepository, IDataSourceRepository } from '../../types/repo
  */
 export function createMockRawDataRepository(): Mocked<IRawDataRepository> {
   return {
-    saveBatch: vi.fn().mockResolvedValue(ok(0)),
-    save: vi.fn().mockResolvedValue(ok(1)),
     load: vi.fn().mockResolvedValue(ok([])),
     markAsProcessed: vi.fn().mockResolvedValue(ok()),
+    save: vi.fn().mockResolvedValue(ok(1)),
+    saveBatch: vi.fn().mockResolvedValue(ok(0)),
     getValidRecords: vi.fn().mockResolvedValue(ok([])),
+    resetProcessingStatusByAccount: vi.fn().mockResolvedValue(ok(0)),
+    resetProcessingStatusAll: vi.fn().mockResolvedValue(ok(0)),
+    countAll: vi.fn().mockResolvedValue(ok(0)),
+    countByAccount: vi.fn().mockResolvedValue(ok(0)),
+    deleteByAccount: vi.fn().mockResolvedValue(ok(0)),
+    deleteAll: vi.fn().mockResolvedValue(ok(0)),
   } as unknown as Mocked<IRawDataRepository>;
 }
 
@@ -31,11 +37,15 @@ export function createMockDataSourceRepository(): Mocked<IDataSourceRepository> 
     finalize: vi.fn().mockResolvedValue(ok()),
     findAll: vi.fn().mockResolvedValue(ok([])),
     findById: vi.fn().mockResolvedValue(ok()),
-    findBySource: vi.fn().mockResolvedValue(ok([])),
+    findByAccount: vi.fn().mockResolvedValue(ok([])),
+    findByAccounts: vi.fn().mockResolvedValue(ok([])),
+    getDataSourceIdsByAccounts: vi.fn().mockResolvedValue(ok([])),
+    getSessionCountsByAccount: vi.fn().mockResolvedValue(ok(new Map())),
+    findLatestIncomplete: vi.fn().mockResolvedValue(ok(undefined)),
     update: vi.fn().mockResolvedValue(ok()),
-    findCompletedWithMatchingParams: vi.fn().mockResolvedValue(ok()),
-    updateVerificationMetadata: vi.fn().mockResolvedValue(ok()),
-    deleteBySource: vi.fn().mockResolvedValue(ok()),
+    countAll: vi.fn().mockResolvedValue(ok(0)),
+    countByAccount: vi.fn().mockResolvedValue(ok(0)),
+    deleteByAccount: vi.fn().mockResolvedValue(ok()),
     deleteAll: vi.fn().mockResolvedValue(ok()),
   } as unknown as Mocked<IDataSourceRepository>;
 }

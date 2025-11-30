@@ -25,12 +25,12 @@ export interface UsersTable {
 export interface AccountsTable {
   id: Generated<number>;
   user_id: number | null; // FK to users.id, NULL for tracking-only accounts
+  parent_account_id: number | null; // FK to accounts.id, NULL for top-level accounts, set for derived address child accounts
   account_type: string; // 'blockchain' | 'exchange-api' | 'exchange-csv'
   source_name: string; // 'kraken', 'bitcoin', 'ethereum', etc.
   identifier: string; // address/xpub for blockchain, apiKey for exchange-api, comma-separated CSV dirs for exchange-csv
   provider_name: string | null; // preferred provider for blockchain imports
   credentials: JSONString | null; // JSON: ExchangeCredentials for exchange-api accounts only
-  derived_addresses: JSONString | null; // JSON array for xpub wallets, NULL otherwise
   last_cursor: JSONString | null; // JSON: Record<operationType, CursorState>
   last_balance_check_at: DateTime | null;
   verification_metadata: JSONString | null;

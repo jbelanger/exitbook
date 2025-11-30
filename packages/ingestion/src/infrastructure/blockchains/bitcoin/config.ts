@@ -1,7 +1,8 @@
-import { BITCOIN_CHAINS, getBitcoinChainConfig } from '@exitbook/blockchain-providers';
+import { BITCOIN_CHAINS, BitcoinUtils, getBitcoinChainConfig } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
+import type { DerivedAddress } from '../shared/blockchain-config.js';
 import { registerBlockchain } from '../shared/blockchain-config.js';
 
 import { BitcoinTransactionImporter } from './importer.js';
@@ -17,6 +18,17 @@ for (const chainName of Object.keys(BITCOIN_CHAINS)) {
     createImporter: (providerManager, preferredProvider) =>
       new BitcoinTransactionImporter(config, providerManager, { preferredProvider }),
     createProcessor: (_tokenMetadataService?: ITokenMetadataService) => ok(new BitcoinTransactionProcessor(config)),
+
+    isExtendedPublicKey: (address: string) => BitcoinUtils.isXpub(address),
+
+    deriveAddressesFromXpub: async (xpub: string, gap?: number): Promise<DerivedAddress[]> => {
+      const result = await BitcoinUtils.deriveAddressesFromXpub(xpub, gap);
+      return result.map((addr) => ({
+        address: addr.address,
+        derivationPath: addr.derivationPath,
+      }));
+    },
+
     normalizeAddress: (address: string) => {
       // Handle xpub/ypub/zpub formats (case-sensitive)
       if (/^[xyz]pub/i.test(address)) {

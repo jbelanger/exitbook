@@ -148,21 +148,21 @@ export async function fetchBlockchainBalance(
 }
 
 /**
- * Fetch balance from multiple derived addresses (for xpub/extended public keys).
- * Fetches balance for each address and sums them up.
+ * Fetch balance from multiple child accounts (for xpub/extended public keys).
+ * Fetches balance for each child account's address and sums them up.
  * Works for any blockchain that supports address derivation (Bitcoin, Cardano, etc.).
  */
-export async function fetchDerivedAddressesBalance(
+export async function fetchChildAccountsBalance(
   providerManager: BlockchainProviderManager,
   tokenMetadataRepository: TokenMetadataRepository,
   blockchain: string,
-  xpubAddress: string,
-  derivedAddresses: string[],
+  parentAddress: string,
+  childAccounts: { identifier: string }[],
   providerName?: string
 ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
   try {
-    if (derivedAddresses.length === 0) {
-      return err(new Error('No derived addresses provided for balance aggregation'));
+    if (childAccounts.length === 0) {
+      return err(new Error('No child accounts provided for balance aggregation'));
     }
 
     const existingProviders = providerManager.getProviders(blockchain);
@@ -172,7 +172,8 @@ export async function fetchDerivedAddressesBalance(
 
     const aggregatedBalances: Record<string, ReturnType<typeof parseDecimal>> = {};
 
-    for (const address of derivedAddresses) {
+    for (const childAccount of childAccounts) {
+      const address = childAccount.identifier;
       const balanceResult = await fetchBlockchainBalance(
         providerManager,
         tokenMetadataRepository,
@@ -193,7 +194,7 @@ export async function fetchDerivedAddressesBalance(
     }
 
     if (Object.keys(aggregatedBalances).length === 0) {
-      return err(new Error(`Failed to fetch balances for any derived addresses of ${xpubAddress}`));
+      return err(new Error(`Failed to fetch balances for any child accounts of ${parentAddress}`));
     }
 
     const balances = Object.fromEntries(
@@ -204,10 +205,10 @@ export async function fetchDerivedAddressesBalance(
       balances,
       timestamp: Date.now(),
       sourceType: 'blockchain',
-      sourceId: `${blockchain}:${xpubAddress}`,
+      sourceId: `${blockchain}:${parentAddress}`,
     });
   } catch (error) {
-    return wrapError(error, `Failed to fetch ${blockchain} xpub balance for ${xpubAddress}`);
+    return wrapError(error, `Failed to fetch ${blockchain} parent account balance for ${parentAddress}`);
   }
 }
 

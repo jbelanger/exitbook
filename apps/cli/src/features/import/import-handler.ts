@@ -36,6 +36,9 @@ export interface ImportHandlerParams {
   /** Provider Name (for blockchain imports) */
   providerName?: string | undefined;
 
+  /** Xpub gap limit (for xpub/extended public key imports) */
+  xpubGap?: number | undefined;
+
   /** API credentials (for exchange API imports) */
   credentials?:
     | {
@@ -127,7 +130,8 @@ export class ImportHandler {
         importResult = await this.importOrchestrator.importBlockchain(
           params.sourceName,
           params.address,
-          params.providerName
+          params.providerName,
+          params.xpubGap
         );
       }
 

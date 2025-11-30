@@ -125,6 +125,11 @@ export interface IDataSourceRepository {
   findByAccount(accountId: number, limit?: number): Promise<Result<DataSource[], Error>>;
 
   /**
+   * Find all import sessions for multiple accounts in one query (avoids N+1).
+   */
+  findByAccounts(accountIds: number[]): Promise<Result<DataSource[], Error>>;
+
+  /**
    * Get all data_source_ids (session IDs) for multiple accounts in one query (avoids N+1).
    * Returns an array of session IDs across all specified accounts.
    */
