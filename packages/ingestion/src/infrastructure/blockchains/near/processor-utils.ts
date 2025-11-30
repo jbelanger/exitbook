@@ -710,6 +710,7 @@ export function analyzeNearFundFlow(
   }
 
   const userAddress = sessionMetadata.address;
+  // Include derived addresses (child accounts) for multi-address fund-flow analysis
   const derivedAddresses = Array.isArray(sessionMetadata.derivedAddresses)
     ? sessionMetadata.derivedAddresses.filter((addr): addr is string => typeof addr === 'string')
     : [];
