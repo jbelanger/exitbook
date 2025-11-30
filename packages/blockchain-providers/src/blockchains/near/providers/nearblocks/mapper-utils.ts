@@ -1,4 +1,4 @@
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -260,7 +260,7 @@ export function mapNearBlocksFtTransactionToTokenTransfer(
  */
 export function mapNearBlocksTransaction(
   rawData: NearBlocksTransaction,
-  sourceContext: SourceMetadata
+  sourceContext: ImportSessionMetadata
 ): Result<NearTransaction, NormalizationError> {
   const validatedRawData = rawData;
 

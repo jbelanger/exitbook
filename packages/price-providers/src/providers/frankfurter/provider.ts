@@ -1,7 +1,7 @@
 /**
  * Frankfurter FX rate provider implementation
  *
- * Provides foreign exchange rates from Frankfurter API (ECB data source)
+ * Provides foreign exchange rates from Frankfurter API (ECB import session)
  * API Documentation: https://www.frankfurter.app/docs/
  *
  * Advantages over direct ECB API:

@@ -1,4 +1,4 @@
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.js';
@@ -21,7 +21,7 @@ import type { MoralisTransaction, MoralisTokenTransfer } from './moralis.schemas
  */
 export function mapMoralisTransaction(
   rawData: MoralisTransaction,
-  _sourceContext: SourceMetadata,
+  _sourceContext: ImportSessionMetadata,
   nativeCurrency?: string
 ): Result<EvmTransaction, NormalizationError> {
   const currency = nativeCurrency || 'UNKNOWN';
@@ -64,7 +64,7 @@ export function mapMoralisTransaction(
  */
 export function mapMoralisTokenTransfer(
   rawData: MoralisTokenTransfer,
-  _sourceContext: SourceMetadata
+  _sourceContext: ImportSessionMetadata
 ): Result<EvmTransaction, NormalizationError> {
   const timestamp = new Date(rawData.block_timestamp).getTime();
 

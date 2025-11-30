@@ -39,7 +39,7 @@ export interface ExtendedImportCommandOptions extends ImportCommandOptions {
  */
 interface ImportCommandResult {
   imported: number;
-  dataSourceId: number;
+  importSessionId: number;
   processed?: number | undefined;
   processingErrors?: string[] | undefined;
 }
@@ -172,7 +172,7 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
 function handleImportSuccess(output: OutputManager, importResult: ImportResult): string | undefined {
   // Prepare result data
   const resultData: ImportCommandResult = {
-    dataSourceId: importResult.dataSourceId,
+    importSessionId: importResult.importSessionId,
     imported: importResult.imported,
   };
 
@@ -187,7 +187,7 @@ function handleImportSuccess(output: OutputManager, importResult: ImportResult):
   let summary: string | undefined;
 
   if (output.isTextMode()) {
-    const summaryParts = [`Loaded ${importResult.imported} transactions`, `Session ${importResult.dataSourceId}`];
+    const summaryParts = [`Loaded ${importResult.imported} transactions`, `Session ${importResult.importSessionId}`];
 
     if (importResult.processed !== undefined) {
       summaryParts.push(`Processed ${importResult.processed}`);

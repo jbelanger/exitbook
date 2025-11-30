@@ -1,5 +1,5 @@
 import { isErrorWithMessage } from '@exitbook/core';
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result, err } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.ts';
@@ -26,7 +26,7 @@ import type { SolscanTransaction } from './solscan.schemas.js';
  */
 export function mapSolscanTransaction(
   rawData: SolscanTransaction,
-  _sourceContext: SourceMetadata
+  _sourceContext: ImportSessionMetadata
 ): Result<SolanaTransaction, NormalizationError> {
   try {
     const fee = lamportsToSol(rawData.fee);

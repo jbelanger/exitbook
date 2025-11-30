@@ -1,4 +1,4 @@
-import type { DataSource, ExternalTransactionData } from '@exitbook/core';
+import type { ImportSession, ExternalTransactionData } from '@exitbook/core';
 
 import type { LoadRawDataFilters } from '../types/repositories.js';
 
@@ -6,12 +6,12 @@ import type { LoadRawDataFilters } from '../types/repositories.js';
  * Session data prepared for processing
  */
 export interface SessionProcessingData {
-  session: DataSource;
+  session: ImportSession;
   rawDataItems: ExternalTransactionData[];
 }
 
 /**
- * Group raw transaction data by session (data source) ID.
+ * Group raw transaction data by session (import session) ID.
  * Creates a map where keys are session IDs and values are arrays of raw data items.
  *
  * @param rawData - Array of raw transaction data items
@@ -21,10 +21,10 @@ export function groupRawDataBySession(rawData: ExternalTransactionData[]): Map<n
   const rawDataBySessionId = new Map<number, ExternalTransactionData[]>();
 
   for (const rawDataItem of rawData) {
-    if (rawDataItem.dataSourceId) {
-      const sessionRawData = rawDataBySessionId.get(rawDataItem.dataSourceId) || [];
+    if (rawDataItem.importSessionId) {
+      const sessionRawData = rawDataBySessionId.get(rawDataItem.importSessionId) || [];
       sessionRawData.push(rawDataItem);
-      rawDataBySessionId.set(rawDataItem.dataSourceId, sessionRawData);
+      rawDataBySessionId.set(rawDataItem.importSessionId, sessionRawData);
     }
   }
 
@@ -37,11 +37,11 @@ export function groupRawDataBySession(rawData: ExternalTransactionData[]): Map<n
  *
  * @param sessions - All available sessions
  * @param rawDataBySession - Raw data grouped by session ID
- * @param filters - Optional filters to apply (e.g., specific data source ID)
+ * @param filters - Optional filters to apply (e.g., specific import session ID)
  * @returns Array of sessions with their pending raw data items
  */
 export function filterSessionsWithPendingData(
-  sessions: DataSource[],
+  sessions: ImportSession[],
   rawDataBySession: Map<number, ExternalTransactionData[]>,
   filters?: LoadRawDataFilters
 ): SessionProcessingData[] {
@@ -54,7 +54,8 @@ export function filterSessionsWithPendingData(
     .filter((sessionData) =>
       sessionData.rawDataItems.some(
         (item) =>
-          item.processingStatus === 'pending' && (!filters?.dataSourceId || item.dataSourceId === filters.dataSourceId)
+          item.processingStatus === 'pending' &&
+          (!filters?.importSessionId || item.importSessionId === filters.importSessionId)
       )
     );
 }
@@ -73,14 +74,16 @@ export function buildSessionProcessingQueue(sessions: SessionProcessingData[]): 
 }
 
 /**
- * Extract unique data source IDs from raw data items.
+ * Extract unique import session IDs from raw data items.
  * Filters out null values and returns unique IDs.
  *
  * @param rawData - Array of raw transaction data items
- * @returns Array of unique data source IDs
+ * @returns Array of unique import session IDs
  */
 export function extractUniqueDataSourceIds(rawData: ExternalTransactionData[]): number[] {
   return [
-    ...new Set(rawData.map((item) => item.dataSourceId).filter((id): id is number => id !== null && id !== undefined)),
+    ...new Set(
+      rawData.map((item) => item.importSessionId).filter((id): id is number => id !== null && id !== undefined)
+    ),
   ];
 }

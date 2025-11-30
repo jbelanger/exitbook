@@ -7,10 +7,10 @@ export type {
   BalanceVerification,
   BalanceVerificationStatus,
   DataImportParams,
-  DataSource,
-  DataSourceStatus,
-  SourceMetadata as ImportSessionMetadata,
+  ImportSession,
+  ImportSessionStatus,
+  ImportSessionMetadata,
   SourceParams,
   SourceType,
   VerificationMetadata,
-} from '../schemas/data-source.js';
+} from '../schemas/import-session.js';

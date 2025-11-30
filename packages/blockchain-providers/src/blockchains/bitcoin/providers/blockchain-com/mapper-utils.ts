@@ -1,4 +1,4 @@
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 import { validateOutput, type NormalizationError } from '../../../../core/index.js';
@@ -20,7 +20,7 @@ import type { BlockchainComTransaction } from './blockchain-com.schemas.js';
  */
 export function mapBlockchainComTransaction(
   rawData: BlockchainComTransaction,
-  _sourceContext: SourceMetadata,
+  _sourceContext: ImportSessionMetadata,
   chainConfig: BitcoinChainConfig
 ): Result<BitcoinTransaction, NormalizationError> {
   const timestamp = rawData.time * 1000;

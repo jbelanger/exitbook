@@ -52,7 +52,7 @@ export interface ImportHandlerParams {
   shouldProcess?: boolean | undefined;
 
   /** Import session ID (for processing existing data) */
-  dataSourceId?: number | undefined;
+  importSessionId?: number | undefined;
 }
 
 /**
@@ -60,7 +60,7 @@ export interface ImportHandlerParams {
  */
 export interface ImportResult {
   /** Import session ID */
-  dataSourceId: number;
+  importSessionId: number;
 
   /** Number of items imported */
   imported: number;
@@ -142,7 +142,7 @@ export class ImportHandler {
       const importData = importResult.value;
 
       const result: ImportResult = {
-        dataSourceId: importData.dataSourceId,
+        importSessionId: importData.importSessionId,
         imported: importData.transactionsImported,
       };
 
@@ -153,7 +153,7 @@ export class ImportHandler {
           params.sourceName,
           params.sourceType,
           {
-            dataSourceId: importData.dataSourceId,
+            importSessionId: importData.importSessionId,
           }
         );
 

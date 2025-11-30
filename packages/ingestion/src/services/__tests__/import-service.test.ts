@@ -8,12 +8,12 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { Account, AccountType, CursorState, DataSource } from '@exitbook/core';
+import type { Account, AccountType, CursorState, ImportSession } from '@exitbook/core';
 import type { AccountRepository } from '@exitbook/data';
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { IDataSourceRepository, IRawDataRepository } from '../../types/repositories.js';
+import type { IImportSessionRepository, IRawDataRepository } from '../../types/repositories.js';
 import { TransactionImportService } from '../import-service.js';
 
 // Helper to create mock accounts
@@ -122,7 +122,7 @@ vi.mock('../../infrastructure/exchanges/shared/exchange-importer-factory.js', ()
 describe('TransactionImportService', () => {
   let service: TransactionImportService;
   let mockRawDataRepo: IRawDataRepository;
-  let mockDataSourceRepo: IDataSourceRepository;
+  let mockDataSourceRepo: IImportSessionRepository;
   let mockAccountRepo: AccountRepository;
   let mockProviderManager: BlockchainProviderManager;
 
@@ -179,7 +179,7 @@ describe('TransactionImportService', () => {
       findCompletedWithMatchingParams: vi.fn(),
       findLatestIncomplete: vi.fn(),
       update: vi.fn(),
-    } as unknown as IDataSourceRepository;
+    } as unknown as IImportSessionRepository;
     vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
 
     mockAccountRepo = {
@@ -205,7 +205,7 @@ describe('TransactionImportService', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.transactionsImported).toBe(2);
-        expect(result.value.dataSourceId).toBe(1);
+        expect(result.value.importSessionId).toBe(1);
       }
 
       expect(mockDataSourceRepo.create).toHaveBeenCalledWith(1);
@@ -242,7 +242,7 @@ describe('TransactionImportService', () => {
       expect(mockDataSourceRepo.create).toHaveBeenCalledWith(1);
     });
 
-    it('should resume from incomplete data source with cursor', async () => {
+    it('should resume from incomplete import session with cursor', async () => {
       const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh', {
         lastCursor: {
           normal: {
@@ -253,7 +253,7 @@ describe('TransactionImportService', () => {
         },
       });
 
-      const incompleteDataSource: DataSource = {
+      const incompleteDataSource: ImportSession = {
         id: 42,
         accountId: 1,
         status: 'started' as const,
@@ -275,10 +275,10 @@ describe('TransactionImportService', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.transactionsImported).toBe(52); // 50 previous + 2 new = cumulative total
-        expect(result.value.dataSourceId).toBe(42);
+        expect(result.value.importSessionId).toBe(42);
       }
 
-      // Should NOT create new data source (resuming existing one)
+      // Should NOT create new import session (resuming existing one)
       expect(mockDataSourceRepo.create).not.toHaveBeenCalled();
       // Should update status back to 'started'
       expect(mockDataSourceRepo.update).toHaveBeenCalledWith(42, { status: 'started' });
@@ -308,7 +308,7 @@ describe('TransactionImportService', () => {
       }
     });
 
-    it('should handle database errors during data source creation', async () => {
+    it('should handle database errors during import session creation', async () => {
       const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
       vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
@@ -392,7 +392,7 @@ describe('TransactionImportService', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.transactionsImported).toBe(2);
-        expect(result.value.dataSourceId).toBe(1);
+        expect(result.value.importSessionId).toBe(1);
       }
 
       expect(mockDataSourceRepo.create).toHaveBeenCalledWith(1);
@@ -435,7 +435,7 @@ describe('TransactionImportService', () => {
         lastCursor: cursorMap,
       });
 
-      const existingDataSource: DataSource = {
+      const existingDataSource: ImportSession = {
         id: 10,
         accountId: 1,
         status: 'started' as const,
@@ -457,7 +457,7 @@ describe('TransactionImportService', () => {
 
       expect(result.isOk()).toBe(true);
 
-      // Should NOT create new data source
+      // Should NOT create new import session
       expect(mockDataSourceRepo.create).not.toHaveBeenCalled();
     });
 
@@ -538,7 +538,7 @@ describe('TransactionImportService', () => {
       // Should save successful batch before failing
       expect(mockRawDataRepo.saveBatch).toHaveBeenCalledWith(1, successfulItems);
 
-      // Should update data source as failed
+      // Should update import session as failed
       expect(mockDataSourceRepo.update).toHaveBeenCalledWith(
         1,
         expect.objectContaining({
@@ -575,7 +575,7 @@ describe('TransactionImportService', () => {
       // Should NOT attempt to save anything
       expect(mockRawDataRepo.saveBatch).not.toHaveBeenCalled();
 
-      // Should update data source as failed
+      // Should update import session as failed
       expect(mockDataSourceRepo.update).toHaveBeenCalledWith(
         1,
         expect.objectContaining({
@@ -609,7 +609,7 @@ describe('TransactionImportService', () => {
       expect(mockRawDataRepo.saveBatch).not.toHaveBeenCalled();
     });
 
-    it('should handle errors when checking for incomplete data source', async () => {
+    it('should handle errors when checking for incomplete import session', async () => {
       const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
       vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(
@@ -623,7 +623,7 @@ describe('TransactionImportService', () => {
         expect(result.error.message).toBe('Database corruption detected');
       }
 
-      // Should NOT attempt to create new data source
+      // Should NOT attempt to create new import session
       expect(mockDataSourceRepo.create).not.toHaveBeenCalled();
     });
   });

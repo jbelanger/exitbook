@@ -10,7 +10,7 @@ import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
 import { createExchangeProcessor } from '../infrastructure/exchanges/shared/exchange-processor-factory.js';
 import type { ITokenMetadataService } from '../services/token-metadata/token-metadata-service.interface.js';
 import type { ProcessResult } from '../types/processors.js';
-import type { IDataSourceRepository, IRawDataRepository, LoadRawDataFilters } from '../types/repositories.js';
+import type { IImportSessionRepository, IRawDataRepository, LoadRawDataFilters } from '../types/repositories.js';
 
 import {
   buildSessionProcessingQueue,
@@ -24,7 +24,7 @@ export class TransactionProcessService {
 
   constructor(
     private rawDataRepository: IRawDataRepository,
-    private dataSourceRepository: IDataSourceRepository,
+    private dataSourceRepository: IImportSessionRepository,
     private accountRepository: AccountRepository,
     private transactionRepository: ITransactionRepository,
     private tokenMetadataService: ITokenMetadataService
@@ -95,10 +95,10 @@ export class TransactionProcessService {
 
       this.logger.info(`Found ${pendingData.length} pending records across all sources`);
 
-      // Use pure function to extract unique data source IDs
-      const dataSourceIds = extractUniqueDataSourceIds(pendingData);
+      // Use pure function to extract unique import session IDs
+      const importSessionIds = extractUniqueDataSourceIds(pendingData);
 
-      this.logger.info(`Found ${dataSourceIds.length} data sources with pending records`);
+      this.logger.info(`Found ${importSessionIds.length} data sources with pending records`);
 
       // Load all data sources
       const dataSourcesResult = await this.dataSourceRepository.findAll();
@@ -106,17 +106,17 @@ export class TransactionProcessService {
         return err(dataSourcesResult.error);
       }
 
-      const dataSources = dataSourcesResult.value.filter((ds) => dataSourceIds.includes(ds.id));
+      const importSessions = dataSourcesResult.value.filter((ds) => importSessionIds.includes(ds.id));
 
       // Process each source
       let totalProcessed = 0;
       const allErrors: string[] = [];
 
-      for (const dataSource of dataSources) {
+      for (const importSession of importSessions) {
         // Per ADR-007: Get account to derive sourceId and sourceType
-        const accountResult = await this.accountRepository.findById(dataSource.accountId);
+        const accountResult = await this.accountRepository.findById(importSession.accountId);
         if (accountResult.isErr()) {
-          const errorMsg = `Failed to load account for session ${dataSource.id}: ${accountResult.error.message}`;
+          const errorMsg = `Failed to load account for session ${importSession.id}: ${accountResult.error.message}`;
           this.logger.error(errorMsg);
           allErrors.push(errorMsg);
           continue;
@@ -129,7 +129,7 @@ export class TransactionProcessService {
         this.logger.info(`Processing source: ${sourceId} (${sourceType})`);
 
         const result = await this.processRawDataToTransactions(sourceId, sourceType, {
-          dataSourceId: dataSource.id,
+          importSessionId: importSession.id,
         });
 
         if (result.isErr()) {
@@ -159,7 +159,7 @@ export class TransactionProcessService {
 
   /**
    * Process raw data from storage into UniversalTransaction format and save to database.
-   * Per ADR-007: filters should contain dataSourceId or accountId, not sourceId
+   * Per ADR-007: filters should contain importSessionId or accountId, not sourceId
    */
   async processRawDataToTransactions(
     sourceId: string,
@@ -188,7 +188,7 @@ export class TransactionProcessService {
 
       this.logger.info(`Found ${rawDataItems.length} raw data items to process for ${sourceId}`);
 
-      // Per ADR-007: Get sessions via accountId or dataSourceId filter
+      // Per ADR-007: Get sessions via accountId or importSessionId filter
       let allSessions;
       if (filters?.accountId) {
         const allSessionsResult = await this.dataSourceRepository.findByAccount(filters.accountId);
@@ -196,8 +196,8 @@ export class TransactionProcessService {
           return err(allSessionsResult.error);
         }
         allSessions = allSessionsResult.value;
-      } else if (filters?.dataSourceId) {
-        const sessionResult = await this.dataSourceRepository.findById(filters.dataSourceId);
+      } else if (filters?.importSessionId) {
+        const sessionResult = await this.dataSourceRepository.findById(filters.importSessionId);
         if (sessionResult.isErr()) {
           return err(sessionResult.error);
         }
@@ -337,7 +337,7 @@ export class TransactionProcessService {
           return err(
             new Error(
               `Cannot proceed: Session ${session.id} processing failed. ${sessionTransactionsResult.error}. ` +
-                `This would corrupt portfolio calculations by losing transactions from this data source.`
+                `This would corrupt portfolio calculations by losing transactions from this import session.`
             )
           );
         }

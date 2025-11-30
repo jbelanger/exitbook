@@ -33,8 +33,8 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         query = query.where('import_sessions.account_id', '=', filters.accountId);
       }
 
-      if (filters?.dataSourceId) {
-        query = query.where('data_source_id', '=', filters.dataSourceId);
+      if (filters?.importSessionId) {
+        query = query.where('data_source_id', '=', filters.importSessionId);
       }
 
       if (filters?.providerName) {
@@ -95,7 +95,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async save(dataSourceId: number, item?: ExternalTransaction): Promise<Result<number, Error>> {
+  async save(importSessionId: number, item?: ExternalTransaction): Promise<Result<number, Error>> {
     if (!item) {
       return err(new Error('Raw data cannot be null or undefined'));
     }
@@ -113,7 +113,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
           .values({
             created_at: this.getCurrentDateTimeForDB(),
             external_id: item.externalId,
-            data_source_id: dataSourceId,
+            data_source_id: importSessionId,
             normalized_data: JSON.stringify(item.normalizedData),
             processing_status: 'pending',
             provider_name: item.providerName,
@@ -132,7 +132,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async saveBatch(dataSourceId: number, items: ExternalTransaction[]): Promise<Result<number, Error>> {
+  async saveBatch(importSessionId: number, items: ExternalTransaction[]): Promise<Result<number, Error>> {
     if (items.length === 0) {
       return ok(0);
     }
@@ -161,7 +161,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             .values({
               created_at: createdAt,
               external_id: item.externalId ?? null,
-              data_source_id: dataSourceId,
+              data_source_id: importSessionId,
               normalized_data: JSON.stringify(item.normalizedData),
               processing_status: 'pending',
               provider_name: item.providerName,
@@ -185,12 +185,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async getValidRecords(dataSourceId: number): Promise<Result<ExternalTransactionData[], Error>> {
+  async getValidRecords(importSessionId: number): Promise<Result<ExternalTransactionData[], Error>> {
     try {
       const rows = await this.db
         .selectFrom('external_transaction_data')
         .selectAll()
-        .where('data_source_id', '=', dataSourceId)
+        .where('data_source_id', '=', importSessionId)
         .where('processing_status', '=', 'pending')
         .execute();
 
@@ -331,7 +331,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
     return ok({
       id: row.id,
-      dataSourceId: row.data_source_id,
+      importSessionId: row.data_source_id,
       providerName: row.provider_name,
       sourceAddress: row.source_address ?? undefined,
       transactionTypeHint: row.transaction_type_hint ?? undefined,

@@ -1,4 +1,4 @@
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 import type { NormalizationError } from './errors.js';
@@ -15,5 +15,9 @@ export interface IRawDataMapper<TRawData, TNormalizedData> {
    * - err({ type: 'skip', reason }) if transaction should be safely ignored
    * - err({ type: 'error', message }) if mapping failed due to invalid data
    */
-  map(rawData: TRawData, providerName: string, context: SourceMetadata): Result<TNormalizedData, NormalizationError>;
+  map(
+    rawData: TRawData,
+    providerName: string,
+    context: ImportSessionMetadata
+  ): Result<TNormalizedData, NormalizationError>;
 }

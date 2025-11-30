@@ -25,7 +25,7 @@ export const ExternalTransactionSchema = z.object({
  */
 export const ExternalTransactionDataSchema = ExternalTransactionSchema.extend({
   id: z.number().int().positive(),
-  dataSourceId: z.number().int().positive(),
+  importSessionId: z.number().int().positive(),
   processingStatus: ProcessingStatusSchema,
   processedAt: DateSchema.optional(),
   processingError: z.string().optional(),

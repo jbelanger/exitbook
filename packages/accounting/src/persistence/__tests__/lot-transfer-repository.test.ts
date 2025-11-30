@@ -47,7 +47,7 @@ describe('LotTransferRepository', () => {
       })
       .execute();
 
-    // Create dummy data source for foreign key constraints
+    // Create dummy import session for foreign key constraints
     await db
       .insertInto('import_sessions')
       .values({

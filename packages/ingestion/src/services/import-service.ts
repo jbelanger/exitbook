@@ -10,7 +10,7 @@ import { err, ok, okAsync } from 'neverthrow';
 import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
 import { createExchangeImporter } from '../infrastructure/exchanges/shared/exchange-importer-factory.js';
 import type { IImporter, ImportParams, ImportResult } from '../types/importers.js';
-import type { IDataSourceRepository, IRawDataRepository } from '../types/repositories.js';
+import type { IImportSessionRepository, IRawDataRepository } from '../types/repositories.js';
 
 import { normalizeBlockchainImportParams } from './import-service-utils.js';
 
@@ -19,7 +19,7 @@ export class TransactionImportService {
 
   constructor(
     private rawDataRepository: IRawDataRepository,
-    private dataSourceRepository: IDataSourceRepository,
+    private dataSourceRepository: IImportSessionRepository,
     private accountRepository: AccountRepository,
     private providerManager: BlockchainProviderManager
   ) {
@@ -158,7 +158,7 @@ export class TransactionImportService {
   ): Promise<Result<ImportResult, Error>> {
     const sourceName = account.sourceName;
 
-    // Check for existing incomplete data source to resume
+    // Check for existing incomplete import session to resume
     const incompleteDataSourceResult = await this.dataSourceRepository.findLatestIncomplete(account.id);
 
     if (incompleteDataSourceResult.isErr()) {
@@ -166,31 +166,31 @@ export class TransactionImportService {
     }
 
     const incompleteDataSource = incompleteDataSourceResult.value;
-    let dataSourceId: number;
+    let importSessionId: number;
     let totalImported = 0;
 
     if (incompleteDataSource) {
       // Resume existing import - cursor comes from account.lastCursor
-      dataSourceId = incompleteDataSource.id;
+      importSessionId = incompleteDataSource.id;
       totalImported = (incompleteDataSource.importResultMetadata?.transactionsImported as number) || 0;
 
-      this.logger.info(`Resuming import from data source #${dataSourceId} (total so far: ${totalImported})`);
+      this.logger.info(`Resuming import from import session #${importSessionId} (total so far: ${totalImported})`);
 
       // Update status back to 'started' (in case it was 'failed')
-      const updateResult = await this.dataSourceRepository.update(dataSourceId, { status: 'started' });
+      const updateResult = await this.dataSourceRepository.update(importSessionId, { status: 'started' });
       if (updateResult.isErr()) {
         return err(updateResult.error);
       }
     } else {
-      // Create new data source for this account
+      // Create new import session for this account
       const dataSourceCreateResult = await this.dataSourceRepository.create(account.id);
 
       if (dataSourceCreateResult.isErr()) {
         return err(dataSourceCreateResult.error);
       }
 
-      dataSourceId = dataSourceCreateResult.value;
-      this.logger.info(`Starting new import with data source #${dataSourceId}`);
+      importSessionId = dataSourceCreateResult.value;
+      this.logger.info(`Starting new import with import session #${importSessionId}`);
     }
 
     const startTime = Date.now();
@@ -201,8 +201,8 @@ export class TransactionImportService {
 
       for await (const batchResult of batchIterator) {
         if (batchResult.isErr()) {
-          // Update data source with error
-          await this.dataSourceRepository.update(dataSourceId, {
+          // Update import session with error
+          await this.dataSourceRepository.update(importSessionId, {
             status: 'failed',
             error_message: batchResult.error.message,
           });
@@ -213,10 +213,10 @@ export class TransactionImportService {
 
         // Save batch to database
         progress.update(`Saving ${batch.rawTransactions.length} ${batch.operationType} transactions...`);
-        const saveResult = await this.rawDataRepository.saveBatch(dataSourceId, batch.rawTransactions);
+        const saveResult = await this.rawDataRepository.saveBatch(importSessionId, batch.rawTransactions);
 
         if (saveResult.isErr()) {
-          await this.dataSourceRepository.update(dataSourceId, {
+          await this.dataSourceRepository.update(importSessionId, {
             status: 'failed',
             error_message: saveResult.error.message,
           });
@@ -257,7 +257,7 @@ export class TransactionImportService {
       }
 
       const finalizeResult = await this.dataSourceRepository.finalize(
-        dataSourceId,
+        importSessionId,
         'completed',
         startTime,
         undefined,
@@ -273,7 +273,7 @@ export class TransactionImportService {
 
       return ok({
         transactionsImported: totalImported,
-        dataSourceId,
+        importSessionId,
       });
     } catch (error) {
       const originalError = error instanceof Error ? error : new Error(String(error));
@@ -286,7 +286,7 @@ export class TransactionImportService {
       }
 
       await this.dataSourceRepository.finalize(
-        dataSourceId,
+        importSessionId,
         'failed',
         startTime,
         originalError.message,

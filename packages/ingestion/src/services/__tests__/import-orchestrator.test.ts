@@ -13,7 +13,7 @@ import type { AccountRepository, UserRepository } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { IDataSourceRepository, IRawDataRepository } from '../../types/repositories.js';
+import type { IImportSessionRepository, IRawDataRepository } from '../../types/repositories.js';
 import { ImportOrchestrator } from '../import-orchestrator.js';
 
 // Mock logger
@@ -29,7 +29,7 @@ vi.mock('@exitbook/logger', () => ({
 // Mock TransactionImportService
 vi.mock('../import-service.js', () => ({
   TransactionImportService: vi.fn().mockImplementation(() => ({
-    importFromSource: vi.fn().mockResolvedValue(ok({ transactionsImported: 10, dataSourceId: 1 })),
+    importFromSource: vi.fn().mockResolvedValue(ok({ transactionsImported: 10, importSessionId: 1 })),
   })),
 }));
 
@@ -66,7 +66,7 @@ describe('ImportOrchestrator', () => {
   let mockUserRepo: UserRepository;
   let mockAccountRepo: AccountRepository;
   let mockRawDataRepo: IRawDataRepository;
-  let mockDataSourceRepo: IDataSourceRepository;
+  let mockDataSourceRepo: IImportSessionRepository;
   let mockProviderManager: BlockchainProviderManager;
 
   const mockUser = { id: 1, createdAt: new Date() };
@@ -81,7 +81,7 @@ describe('ImportOrchestrator', () => {
     } as unknown as AccountRepository;
 
     mockRawDataRepo = {} as IRawDataRepository;
-    mockDataSourceRepo = {} as IDataSourceRepository;
+    mockDataSourceRepo = {} as IImportSessionRepository;
     mockProviderManager = {} as BlockchainProviderManager;
 
     orchestrator = new ImportOrchestrator(
@@ -114,7 +114,7 @@ describe('ImportOrchestrator', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.transactionsImported).toBe(10);
-        expect(result.value.dataSourceId).toBe(1);
+        expect(result.value.importSessionId).toBe(1);
       }
 
       expect(mockAccountRepo.findOrCreate).toHaveBeenCalledWith({
@@ -353,7 +353,7 @@ describe('ImportOrchestrator', () => {
       ).importService;
       vi.mocked(mockImportService.importFromSource)
         .mockResolvedValueOnce(err(new Error('Network timeout')))
-        .mockResolvedValueOnce(ok({ transactionsImported: 10, dataSourceId: 2 }));
+        .mockResolvedValueOnce(ok({ transactionsImported: 10, importSessionId: 2 }));
 
       const result = await orchestrator.importBlockchain('bitcoin', 'xpub6C...');
 

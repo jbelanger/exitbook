@@ -1,21 +1,21 @@
-import type { DataSource, DataSourceStatus } from '@exitbook/core';
+import type { ImportSession, ImportSessionStatus } from '@exitbook/core';
 import { ImportResultMetadataSchema, wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
-import type { StoredDataSource, ImportSessionQuery, DataSourceUpdate } from '@exitbook/data';
+import type { StoredImportSession, ImportSessionQuery, ImportSessionUpdate } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { IDataSourceRepository } from '../types/repositories.js';
+import type { IImportSessionRepository } from '../types/repositories.js';
 
 /**
  * Kysely-based repository for import session database operations.
- * Handles storage and retrieval of DataSource entities using type-safe queries.
+ * Handles storage and retrieval of ImportSession entities using type-safe queries.
  * Per ADR-007: import_sessions represents discrete import events, linked to accounts via account_id
  */
-export class DataSourceRepository extends BaseRepository implements IDataSourceRepository {
+export class ImportSessionRepository extends BaseRepository implements IImportSessionRepository {
   constructor(db: KyselyDB) {
-    super(db, 'DataSourceRepository');
+    super(db, 'ImportSessionRepository');
   }
 
   /**
@@ -51,7 +51,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
    */
   async finalize(
     sessionId: number,
-    status: Exclude<DataSourceStatus, 'started'>,
+    status: Exclude<ImportSessionStatus, 'started'>,
     startTime: number,
     errorMessage?: string,
     errorDetails?: unknown,
@@ -98,7 +98,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
   /**
    * Find all import sessions matching filters
    */
-  async findAll(filters?: ImportSessionQuery): Promise<Result<DataSource[], Error>> {
+  async findAll(filters?: ImportSessionQuery): Promise<Result<ImportSession[], Error>> {
     try {
       let query = this.db.selectFrom('import_sessions').selectAll();
 
@@ -125,16 +125,16 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
       const rows = await query.execute();
 
       // Convert rows to domain models, failing fast on any parse errors
-      const dataSources: DataSource[] = [];
+      const importSessions: ImportSession[] = [];
       for (const row of rows) {
         const result = this.toDataSource(row);
         if (result.isErr()) {
           return err(result.error);
         }
-        dataSources.push(result.value);
+        importSessions.push(result.value);
       }
 
-      return ok(dataSources);
+      return ok(importSessions);
     } catch (error) {
       return wrapError(error, 'Failed to find import sessions');
     }
@@ -143,7 +143,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
   /**
    * Find import session by ID
    */
-  async findById(sessionId: number): Promise<Result<DataSource | undefined, Error>> {
+  async findById(sessionId: number): Promise<Result<ImportSession | undefined, Error>> {
     try {
       const row = await this.db
         .selectFrom('import_sessions')
@@ -169,14 +169,14 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
   /**
    * Find all import sessions for an account
    */
-  async findByAccount(accountId: number, limit?: number): Promise<Result<DataSource[], Error>> {
+  async findByAccount(accountId: number, limit?: number): Promise<Result<ImportSession[], Error>> {
     return this.findAll({ accountId, limit });
   }
 
   /**
    * Find all import sessions for multiple accounts in one query (avoids N+1).
    */
-  async findByAccounts(accountIds: number[]): Promise<Result<DataSource[], Error>> {
+  async findByAccounts(accountIds: number[]): Promise<Result<ImportSession[], Error>> {
     try {
       if (accountIds.length === 0) {
         return ok([]);
@@ -190,16 +190,16 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
         .execute();
 
       // Convert rows to domain models
-      const dataSources: DataSource[] = [];
+      const importSessions: ImportSession[] = [];
       for (const row of rows) {
         const ds = this.toDataSource(row);
         if (ds.isErr()) {
           return err(ds.error);
         }
-        dataSources.push(ds.value);
+        importSessions.push(ds.value);
       }
 
-      return ok(dataSources);
+      return ok(importSessions);
     } catch (error) {
       return wrapError(error, 'Failed to find import sessions by accounts');
     }
@@ -258,14 +258,14 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
 
       return ok(results.map((row) => row.id));
     } catch (error) {
-      return wrapError(error, 'Failed to get data source IDs by accounts');
+      return wrapError(error, 'Failed to get import session IDs by accounts');
     }
   }
 
   /**
    * Update import session
    */
-  async update(sessionId: number, updates: DataSourceUpdate): Promise<Result<void, Error>> {
+  async update(sessionId: number, updates: ImportSessionUpdate): Promise<Result<void, Error>> {
     try {
       const currentTimestamp = this.getCurrentDateTimeForDB();
       const updateData: Record<string, unknown> = {
@@ -386,7 +386,7 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
    * Find latest incomplete import session for an account to support resume
    * Status 'started' or 'failed' indicates incomplete import
    */
-  async findLatestIncomplete(accountId: number): Promise<Result<DataSource | undefined, Error>> {
+  async findLatestIncomplete(accountId: number): Promise<Result<ImportSession | undefined, Error>> {
     try {
       const row = await this.db
         .selectFrom('import_sessions')
@@ -413,10 +413,10 @@ export class DataSourceRepository extends BaseRepository implements IDataSourceR
   }
 
   /**
-   * Convert database row to DataSource domain model
+   * Convert database row to ImportSession domain model
    * Handles JSON parsing and camelCase conversion
    */
-  private toDataSource(row: StoredDataSource): Result<DataSource, Error> {
+  private toDataSource(row: StoredImportSession): Result<ImportSession, Error> {
     // Parse and validate JSON fields using schemas
     const importResultMetadataResult = this.parseWithSchema(row.import_result_metadata, ImportResultMetadataSchema);
     if (importResultMetadataResult.isErr()) {

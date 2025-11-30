@@ -1,4 +1,4 @@
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 import type { ZodSchema } from 'zod';
 
@@ -19,7 +19,7 @@ import type { NormalizationError } from '../types/errors.js';
  * // Internal pure function (no validation, easily testable)
  * function mapBlockstreamTransactionInternal(
  *   rawData: BlockstreamTransaction,
- *   sourceContext: SourceMetadata,
+ *   sourceContext: ImportSessionMetadata,
  *   chainConfig: BitcoinChainConfig
  * ): Result<BitcoinTransaction, NormalizationError> {
  *   // ... mapping logic
@@ -39,9 +39,9 @@ export function withValidation<TInput, TOutput>(
   mapperName: string
 ) {
   return <TArgs extends unknown[]>(
-    mapFn: (input: TInput, context: SourceMetadata, ...args: TArgs) => Result<TOutput, NormalizationError>
+    mapFn: (input: TInput, context: ImportSessionMetadata, ...args: TArgs) => Result<TOutput, NormalizationError>
   ) => {
-    return (input: unknown, context: SourceMetadata, ...args: TArgs): Result<TOutput, NormalizationError> => {
+    return (input: unknown, context: ImportSessionMetadata, ...args: TArgs): Result<TOutput, NormalizationError> => {
       // Validate input
       const inputResult = inputSchema.safeParse(input);
       if (!inputResult.success) {
@@ -91,7 +91,7 @@ export function withValidation<TInput, TOutput>(
  * ```typescript
  * export function mapAlchemyTransaction(
  *   rawData: AlchemyAssetTransfer, // Already validated by HTTP client
- *   sourceContext: SourceMetadata
+ *   sourceContext: ImportSessionMetadata
  * ): Result<EvmTransaction, NormalizationError> {
  *   const transaction: EvmTransaction = { ... };
  *   return validateOutput(transaction, EvmTransactionSchema, 'AlchemyTransaction');

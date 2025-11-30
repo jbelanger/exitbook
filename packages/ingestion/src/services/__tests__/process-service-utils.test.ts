@@ -1,4 +1,4 @@
-import type { DataSource, ExternalTransactionData } from '@exitbook/core';
+import type { ImportSession, ExternalTransactionData } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -15,7 +15,7 @@ describe('process-service-utils', () => {
       const rawData: ExternalTransactionData[] = [
         {
           id: 1,
-          dataSourceId: 10,
+          importSessionId: 10,
           providerName: 'blockstream',
           externalId: 'tx1',
           rawData: {},
@@ -25,7 +25,7 @@ describe('process-service-utils', () => {
         },
         {
           id: 2,
-          dataSourceId: 10,
+          importSessionId: 10,
           providerName: 'blockstream',
           externalId: 'tx2',
           rawData: {},
@@ -35,7 +35,7 @@ describe('process-service-utils', () => {
         },
         {
           id: 3,
-          dataSourceId: 20,
+          importSessionId: 20,
           providerName: 'blockstream',
           externalId: 'tx3',
           rawData: {},
@@ -57,11 +57,11 @@ describe('process-service-utils', () => {
       expect(session20Data[0]!.externalId).toBe('tx3');
     });
 
-    it('should skip items with null dataSourceId', () => {
+    it('should skip items with null importSessionId', () => {
       const rawData: ExternalTransactionData[] = [
         {
           id: 1,
-          dataSourceId: 10,
+          importSessionId: 10,
           providerName: 'blockstream',
           externalId: 'tx1',
           rawData: {},
@@ -71,7 +71,7 @@ describe('process-service-utils', () => {
         },
         {
           id: 2,
-          dataSourceId: undefined as unknown as number,
+          importSessionId: undefined as unknown as number,
           providerName: 'blockstream',
           externalId: 'tx2',
           rawData: {},
@@ -95,11 +95,11 @@ describe('process-service-utils', () => {
   });
 
   describe('extractUniqueDataSourceIds', () => {
-    it('should extract unique data source IDs', () => {
+    it('should extract unique import session IDs', () => {
       const rawData: ExternalTransactionData[] = [
         {
           id: 1,
-          dataSourceId: 10,
+          importSessionId: 10,
           providerName: 'blockstream',
           externalId: 'tx1',
           rawData: {},
@@ -109,7 +109,7 @@ describe('process-service-utils', () => {
         },
         {
           id: 2,
-          dataSourceId: 10,
+          importSessionId: 10,
           providerName: 'blockstream',
           externalId: 'tx2',
           rawData: {},
@@ -119,7 +119,7 @@ describe('process-service-utils', () => {
         },
         {
           id: 3,
-          dataSourceId: 20,
+          importSessionId: 20,
           providerName: 'blockstream',
           externalId: 'tx3',
           rawData: {},
@@ -136,11 +136,11 @@ describe('process-service-utils', () => {
       expect(result).toContain(20);
     });
 
-    it('should filter out null data source IDs', () => {
+    it('should filter out null import session IDs', () => {
       const rawData: ExternalTransactionData[] = [
         {
           id: 1,
-          dataSourceId: 10,
+          importSessionId: 10,
           providerName: 'blockstream',
           externalId: 'tx1',
           rawData: {},
@@ -150,7 +150,7 @@ describe('process-service-utils', () => {
         },
         {
           id: 2,
-          dataSourceId: undefined as unknown as number,
+          importSessionId: undefined as unknown as number,
           providerName: 'blockstream',
           externalId: 'tx2',
           rawData: {},
@@ -175,7 +175,7 @@ describe('process-service-utils', () => {
 
   describe('filterSessionsWithPendingData', () => {
     it('should filter sessions with pending data', () => {
-      const sessions: DataSource[] = [
+      const sessions: ImportSession[] = [
         {
           id: 10,
           accountId: 1,
@@ -214,7 +214,7 @@ describe('process-service-utils', () => {
           [
             {
               id: 1,
-              dataSourceId: 10,
+              importSessionId: 10,
               providerName: 'blockstream',
               externalId: 'tx1',
               rawData: {},
@@ -229,7 +229,7 @@ describe('process-service-utils', () => {
           [
             {
               id: 2,
-              dataSourceId: 20,
+              importSessionId: 20,
               providerName: 'alchemy',
               externalId: 'tx2',
               rawData: {},
@@ -248,8 +248,8 @@ describe('process-service-utils', () => {
       expect(result[0]?.rawDataItems).toHaveLength(1);
     });
 
-    it('should filter by dataSourceId when provided', () => {
-      const sessions: DataSource[] = [
+    it('should filter by importSessionId when provided', () => {
+      const sessions: ImportSession[] = [
         {
           id: 10,
           accountId: 1,
@@ -278,7 +278,7 @@ describe('process-service-utils', () => {
           [
             {
               id: 1,
-              dataSourceId: 10,
+              importSessionId: 10,
               providerName: 'blockstream',
               externalId: 'tx1',
               rawData: {},
@@ -293,7 +293,7 @@ describe('process-service-utils', () => {
           [
             {
               id: 2,
-              dataSourceId: 20,
+              importSessionId: 20,
               providerName: 'alchemy',
               externalId: 'tx2',
               rawData: {},
@@ -305,14 +305,14 @@ describe('process-service-utils', () => {
         ],
       ]);
 
-      const result = filterSessionsWithPendingData(sessions, rawDataBySession, { dataSourceId: 20 });
+      const result = filterSessionsWithPendingData(sessions, rawDataBySession, { importSessionId: 20 });
 
       expect(result).toHaveLength(1);
       expect(result[0]?.session.id).toBe(20);
     });
 
     it('should return empty array when no sessions have pending data', () => {
-      const sessions: DataSource[] = [
+      const sessions: ImportSession[] = [
         {
           id: 10,
           accountId: 1,
@@ -331,7 +331,7 @@ describe('process-service-utils', () => {
           [
             {
               id: 1,
-              dataSourceId: 10,
+              importSessionId: 10,
               providerName: 'blockstream',
               externalId: 'tx1',
               rawData: {},
@@ -366,7 +366,7 @@ describe('process-service-utils', () => {
           rawDataItems: [
             {
               id: 1,
-              dataSourceId: 10,
+              importSessionId: 10,
               providerName: 'blockstream',
               externalId: 'tx1',
               rawData: {},

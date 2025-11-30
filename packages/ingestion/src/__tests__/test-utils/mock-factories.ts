@@ -5,7 +5,7 @@ import { errAsync, ok } from 'neverthrow';
 import { vi, type Mocked } from 'vitest';
 
 import type { ITokenMetadataService } from '../../services/token-metadata/token-metadata-service.interface.js';
-import type { IRawDataRepository, IDataSourceRepository } from '../../types/repositories.js';
+import type { IRawDataRepository, IImportSessionRepository } from '../../types/repositories.js';
 
 /**
  * Creates a mock raw data repository with default implementations.
@@ -28,10 +28,10 @@ export function createMockRawDataRepository(): Mocked<IRawDataRepository> {
 }
 
 /**
- * Creates a mock data source repository with default implementations.
+ * Creates a mock import session repository with default implementations.
  * All methods return successful Results by default. Override specific methods as needed.
  */
-export function createMockDataSourceRepository(): Mocked<IDataSourceRepository> {
+export function createMockDataSourceRepository(): Mocked<IImportSessionRepository> {
   return {
     create: vi.fn().mockResolvedValue(ok(1)),
     finalize: vi.fn().mockResolvedValue(ok()),
@@ -47,7 +47,7 @@ export function createMockDataSourceRepository(): Mocked<IDataSourceRepository> 
     countByAccount: vi.fn().mockResolvedValue(ok(0)),
     deleteByAccount: vi.fn().mockResolvedValue(ok()),
     deleteAll: vi.fn().mockResolvedValue(ok()),
-  } as unknown as Mocked<IDataSourceRepository>;
+  } as unknown as Mocked<IImportSessionRepository>;
 }
 
 /**

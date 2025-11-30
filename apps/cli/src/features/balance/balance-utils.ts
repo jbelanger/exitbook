@@ -1,4 +1,4 @@
-import { parseDecimal, type DataSource, type SourceType, type UniversalTransaction } from '@exitbook/core';
+import { parseDecimal, type ImportSession, type SourceType, type UniversalTransaction } from '@exitbook/core';
 import type { ExchangeCredentials } from '@exitbook/exchanges-providers';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -144,7 +144,7 @@ export function decimalRecordToStringRecord(record: Record<string, Decimal>): Re
  * Sort sessions by completed date in descending order.
  * Pure function for session sorting.
  */
-export function sortSessionsByCompletedDate(sessions: DataSource[]): DataSource[] {
+export function sortSessionsByCompletedDate(sessions: ImportSession[]): ImportSession[] {
   return [...sessions].sort((a, b) => {
     const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
     const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
@@ -156,7 +156,7 @@ export function sortSessionsByCompletedDate(sessions: DataSource[]): DataSource[
  * Find the most recent completed session from a list of sessions.
  * Pure function that filters to completed sessions and returns the most recent.
  */
-export function findMostRecentCompletedSession(sessions: DataSource[]): DataSource | undefined {
+export function findMostRecentCompletedSession(sessions: ImportSession[]): ImportSession | undefined {
   const completedSessions = sessions.filter((s) => s.status === 'completed');
   if (completedSessions.length === 0) {
     return undefined;

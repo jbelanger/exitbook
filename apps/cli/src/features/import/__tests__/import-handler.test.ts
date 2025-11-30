@@ -68,7 +68,7 @@ describe('ImportHandler', () => {
 
       (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
-          dataSourceId: 123,
+          importSessionId: 123,
           transactionsImported: 50,
         })
       );
@@ -77,7 +77,7 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
-        dataSourceId: 123,
+        importSessionId: 123,
         imported: 50,
       });
 
@@ -93,7 +93,7 @@ describe('ImportHandler', () => {
 
       (mockImportOrchestrator.importExchangeCsv as Mock).mockResolvedValue(
         ok({
-          dataSourceId: 456,
+          importSessionId: 456,
           transactionsImported: 100,
         })
       );
@@ -102,7 +102,7 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
-        dataSourceId: 456,
+        importSessionId: 456,
         imported: 100,
       });
 
@@ -122,7 +122,7 @@ describe('ImportHandler', () => {
 
       (mockImportOrchestrator.importExchangeApi as Mock).mockResolvedValue(
         ok({
-          dataSourceId: 789,
+          importSessionId: 789,
           transactionsImported: 75,
         })
       );
@@ -147,7 +147,7 @@ describe('ImportHandler', () => {
 
       (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
-          dataSourceId: 123,
+          importSessionId: 123,
           transactionsImported: 50,
         })
       );
@@ -163,14 +163,14 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
-        dataSourceId: 123,
+        importSessionId: 123,
         imported: 50,
         processed: 50,
         processingErrors: [],
       });
 
       expect(mockProcessService.processRawDataToTransactions).toHaveBeenCalledWith('bitcoin', 'blockchain', {
-        dataSourceId: 123,
+        importSessionId: 123,
       });
     });
 
@@ -184,7 +184,7 @@ describe('ImportHandler', () => {
 
       (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
-          dataSourceId: 123,
+          importSessionId: 123,
           transactionsImported: 50,
         })
       );
@@ -201,7 +201,7 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
-        dataSourceId: 123,
+        importSessionId: 123,
         imported: 50,
         processed: 47,
         processingErrors,
@@ -234,7 +234,7 @@ describe('ImportHandler', () => {
 
       (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
-          dataSourceId: 123,
+          importSessionId: 123,
           transactionsImported: 50,
         })
       );

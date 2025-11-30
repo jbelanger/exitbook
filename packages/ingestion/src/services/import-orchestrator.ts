@@ -8,7 +8,7 @@ import { err, ok } from 'neverthrow';
 
 import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
 import type { ImportResult } from '../types/importers.js';
-import type { IDataSourceRepository, IRawDataRepository } from '../types/repositories.js';
+import type { IImportSessionRepository, IRawDataRepository } from '../types/repositories.js';
 
 import { TransactionImportService } from './import-service.js';
 
@@ -29,7 +29,7 @@ export class ImportOrchestrator {
     private userRepository: UserRepository,
     private accountRepository: AccountRepository,
     rawDataRepository: IRawDataRepository,
-    dataSourceRepository: IDataSourceRepository,
+    dataSourceRepository: IImportSessionRepository,
     providerManager: BlockchainProviderManager
   ) {
     this.logger = getLogger('ImportOrchestrator');
@@ -283,7 +283,7 @@ export class ImportOrchestrator {
         }
 
         totalNewTransactions += importResult.value.transactionsImported;
-        lastDataSourceId = importResult.value.dataSourceId;
+        lastDataSourceId = importResult.value.importSessionId;
         successfulImports++;
       }
 
@@ -299,7 +299,7 @@ export class ImportOrchestrator {
 
       return ok({
         transactionsImported: totalNewTransactions,
-        dataSourceId: lastDataSourceId,
+        importSessionId: lastDataSourceId,
       });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));

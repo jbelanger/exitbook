@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { type Result, ok, err } from 'neverthrow';
 
@@ -124,7 +124,7 @@ function extractSmartContractTransactionDetails(data: ThetaSmartContractData): {
  */
 function mapThetaExplorerTransactionInternal(
   rawData: ThetaTransaction,
-  _sourceContext: SourceMetadata
+  _sourceContext: ImportSessionMetadata
 ): Result<EvmTransaction, NormalizationError> {
   // Extract transaction details based on type
   let from: string;

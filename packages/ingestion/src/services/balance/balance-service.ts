@@ -1,7 +1,7 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type {
   Account,
-  DataSource,
+  ImportSession,
   SourceParams,
   SourceType,
   UniversalTransaction,
@@ -14,7 +14,7 @@ import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import { getBlockchainAdapter } from '../../infrastructure/blockchains/index.js';
-import type { IDataSourceRepository } from '../../types/repositories.js';
+import type { IImportSessionRepository } from '../../types/repositories.js';
 
 import { calculateBalances } from './balance-calculator.js';
 import {
@@ -55,7 +55,7 @@ export class BalanceService {
     private userRepository: UserRepository,
     private accountRepository: AccountRepository,
     private transactionRepository: TransactionRepository,
-    private sessionRepository: IDataSourceRepository,
+    private sessionRepository: IImportSessionRepository,
     private tokenMetadataRepository: TokenMetadataRepository,
     private providerManager: BlockchainProviderManager
   ) {}
@@ -248,7 +248,7 @@ export class BalanceService {
       const accountIds = [account.id, ...childAccounts.map((child) => child.id)];
 
       // Find sessions for all accounts in one query
-      const sessionsResult: Result<DataSource[], Error> = await this.sessionRepository.findByAccounts(accountIds);
+      const sessionsResult: Result<ImportSession[], Error> = await this.sessionRepository.findByAccounts(accountIds);
 
       if (sessionsResult.isErr()) {
         logger.warn(`Failed to fetch import sessions: ${sessionsResult.error.message}`);
@@ -286,7 +286,7 @@ export class BalanceService {
       const accountIds = [account.id, ...childAccounts.map((child) => child.id)];
 
       // Find sessions for all accounts in one query (avoids N+1)
-      const sessionsResult: Result<DataSource[], Error> = await this.sessionRepository.findByAccounts(accountIds);
+      const sessionsResult: Result<ImportSession[], Error> = await this.sessionRepository.findByAccounts(accountIds);
       if (sessionsResult.isErr()) {
         return err(sessionsResult.error);
       }
@@ -431,7 +431,7 @@ export class BalanceService {
       const accountIds = [account.id, ...childAccounts.map((child) => child.id)];
 
       // Find sessions for all accounts in one query (avoids N+1)
-      const sessionsResult: Result<DataSource[], Error> = await this.sessionRepository.findByAccounts(accountIds);
+      const sessionsResult: Result<ImportSession[], Error> = await this.sessionRepository.findByAccounts(accountIds);
       if (sessionsResult.isErr()) {
         return err(sessionsResult.error);
       }
@@ -534,7 +534,7 @@ export class BalanceService {
   /**
    * Find the most recent completed session from a list of sessions.
    */
-  private findMostRecentCompletedSession(sessions: DataSource[]): DataSource | undefined {
+  private findMostRecentCompletedSession(sessions: ImportSession[]): ImportSession | undefined {
     const completedSessions = sessions.filter((s) => s.status === 'completed');
 
     if (completedSessions.length === 0) {

@@ -1,5 +1,5 @@
 import { isErrorWithMessage } from '@exitbook/core';
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result, err } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.ts';
@@ -21,7 +21,7 @@ import type { HeliusTransaction } from './helius.schemas.js';
  */
 export function mapHeliusTransaction(
   rawData: HeliusTransaction,
-  _sourceContext: SourceMetadata
+  _sourceContext: ImportSessionMetadata
 ): Result<SolanaTransaction, NormalizationError> {
   const signature = rawData.transaction.signatures?.[0] ?? rawData.signature;
   if (!signature) {

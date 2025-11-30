@@ -1,4 +1,4 @@
-import type { CursorState, DataSource } from '@exitbook/core';
+import type { CursorState, ImportSession } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -23,13 +23,13 @@ export interface NormalizedBlockchainParams extends ImportParams {
 
 /**
  * Check if an existing completed import can be reused.
- * Returns true if there's a completed data source with matching parameters.
+ * Returns true if there's a completed import session with matching parameters.
  *
- * @param existingSource - Previously completed data source with matching params, or null
+ * @param existingSource - Previously completed import session with matching params, or null
  * @param params - Current import parameters (unused in current logic, kept for future extensions)
  * @returns true if the existing import should be reused
  */
-export function shouldReuseExistingImport(existingSource: DataSource | undefined, _params: ImportParams): boolean {
+export function shouldReuseExistingImport(existingSource: ImportSession | undefined, _params: ImportParams): boolean {
   // Currently, we reuse any existing completed import with matching params
   // The repository has already verified the params match
   return existingSource !== undefined;
@@ -77,14 +77,14 @@ export function normalizeBlockchainImportParams(
  *
  * @param sourceId - Source identifier (blockchain or exchange name)
  * @param params - Import parameters
- * @param existingSource - Previously created data source, or null
+ * @param existingSource - Previously created import session, or null
  * @param latestCursor - Latest cursor map from existing source, or null
  * @returns Configuration for the import session
  */
 export function prepareImportSession(
   sourceId: string,
   params: ImportParams,
-  existingSource: DataSource | undefined,
+  existingSource: ImportSession | undefined,
   latestCursor: Record<string, CursorState> | undefined
 ): ImportSessionConfig {
   // Only resume if we have an existing source with incomplete status

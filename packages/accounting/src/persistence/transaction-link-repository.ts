@@ -303,14 +303,14 @@ export class TransactionLinkRepository extends BaseRepository {
   }
 
   /**
-   * Count transaction links by data source IDs
+   * Count transaction links by import session IDs
    *
-   * @param dataSourceIds - Import session IDs to filter by
+   * @param importSessionIds - Import session IDs to filter by
    * @returns Result with count
    */
-  async countByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+  async countByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (dataSourceIds.length === 0) {
+      if (importSessionIds.length === 0) {
         return ok(0);
       }
 
@@ -320,13 +320,13 @@ export class TransactionLinkRepository extends BaseRepository {
         .where(
           'source_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
         )
         .executeTakeFirst();
       return ok(result?.count ?? 0);
     } catch (error) {
-      this.logger.error({ error, dataSourceIds }, 'Failed to count transaction links by data source IDs');
-      return wrapError(error, 'Failed to count transaction links by data source IDs');
+      this.logger.error({ error, importSessionIds }, 'Failed to count transaction links by import session IDs');
+      return wrapError(error, 'Failed to count transaction links by import session IDs');
     }
   }
 
@@ -401,12 +401,12 @@ export class TransactionLinkRepository extends BaseRepository {
    * Delete transaction links for transactions from specific data sources (import sessions).
    * Uses data_source_id from transactions to properly scope deletions to specific accounts.
    *
-   * @param dataSourceIds - Import session IDs to match
+   * @param importSessionIds - Import session IDs to match
    * @returns Result with count of deleted links
    */
-  async deleteByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+  async deleteByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (dataSourceIds.length === 0) {
+      if (importSessionIds.length === 0) {
         return ok(0);
       }
 
@@ -415,16 +415,16 @@ export class TransactionLinkRepository extends BaseRepository {
         .where(
           'source_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
         )
         .executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.debug({ dataSourceIds, count }, 'Deleted transaction links by data source IDs');
+      this.logger.debug({ importSessionIds, count }, 'Deleted transaction links by import session IDs');
       return ok(count);
     } catch (error) {
-      this.logger.error({ error, dataSourceIds }, 'Failed to delete links by data source IDs');
-      return wrapError(error, 'Failed to delete links by data source IDs');
+      this.logger.error({ error, importSessionIds }, 'Failed to delete links by import session IDs');
+      return wrapError(error, 'Failed to delete links by import session IDs');
     }
   }
 

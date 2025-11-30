@@ -339,11 +339,11 @@ export function deduplicateTransactions<T extends { normalized: { id: string } }
  * This is a placeholder that will be implemented in Phase 2.3 when we add
  * storage integration to the provider manager.
  *
- * @param dataSourceId - Data source to load transactions from
+ * @param importSessionId - Data source to load transactions from
  * @param windowSize - Number of recent transactions to load (default: 1000)
  * @returns Promise resolving to array of transaction IDs from the last N transactions
  */
-export function loadRecentTransactionIds(dataSourceId: number, _windowSize = 1000): Promise<string[]> {
+export function loadRecentTransactionIds(importSessionId: number, _windowSize = 1000): Promise<string[]> {
   // TODO: Implement in Phase 2.3
   // This will query the repository:
   // Query: SELECT external_id FROM external_transaction_data
@@ -352,7 +352,7 @@ export function loadRecentTransactionIds(dataSourceId: number, _windowSize = 100
   //        LIMIT ?
 
   // Suppress unused parameter warning - will be used in Phase 2.3
-  void dataSourceId;
+  void importSessionId;
 
   // For now, return empty array (Phase 1-2 proof of concept only)
   return Promise.resolve([]);

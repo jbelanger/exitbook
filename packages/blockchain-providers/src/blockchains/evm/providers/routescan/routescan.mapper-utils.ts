@@ -1,4 +1,4 @@
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.js';
@@ -25,7 +25,7 @@ import type {
  */
 export function transformInternalTransaction(
   rawData: RoutescanInternalTransaction,
-  _sourceContext: SourceMetadata,
+  _sourceContext: ImportSessionMetadata,
   nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   const timestamp = rawData.timeStamp.getTime();
@@ -53,7 +53,7 @@ export function transformInternalTransaction(
  */
 export function transformNormalTransaction(
   rawData: RoutescanTransaction,
-  _sourceContext: SourceMetadata,
+  _sourceContext: ImportSessionMetadata,
   nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   const timestamp = rawData.timeStamp.getTime();
@@ -99,7 +99,7 @@ export function transformNormalTransaction(
  */
 export function transformTokenTransfer(
   rawData: RoutescanTokenTransfer,
-  _sourceContext: SourceMetadata,
+  _sourceContext: ImportSessionMetadata,
   nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   const timestamp = rawData.timeStamp.getTime();
@@ -139,7 +139,7 @@ export function transformTokenTransfer(
  */
 export function mapRoutescanTransaction(
   rawData: RoutescanTransaction | RoutescanInternalTransaction | RoutescanTokenTransfer,
-  sourceContext: SourceMetadata,
+  sourceContext: ImportSessionMetadata,
   nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   // Type discrimination: token transfers have tokenSymbol, internal transactions have traceId, normal transactions have nonce

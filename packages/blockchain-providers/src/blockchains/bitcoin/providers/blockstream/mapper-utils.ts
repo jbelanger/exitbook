@@ -1,4 +1,4 @@
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 import { validateOutput, type NormalizationError } from '../../../../core/index.js';
@@ -20,7 +20,7 @@ import type { BlockstreamTransaction } from './blockstream.schemas.js';
  */
 export function mapBlockstreamTransaction(
   rawData: BlockstreamTransaction,
-  _sourceContext: SourceMetadata,
+  _sourceContext: ImportSessionMetadata,
   chainConfig: BitcoinChainConfig
 ): Result<BitcoinTransaction, NormalizationError> {
   const timestamp =

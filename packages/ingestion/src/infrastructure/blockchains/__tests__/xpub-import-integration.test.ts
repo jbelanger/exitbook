@@ -15,7 +15,7 @@ import { AccountRepository, UserRepository } from '@exitbook/data';
 import { ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DataSourceRepository } from '../../../persistence/data-source-repository.js';
+import { ImportSessionRepository } from '../../../persistence/import-session-repository.js';
 import { RawDataRepository } from '../../../persistence/raw-data-repository.js';
 import { ImportOrchestrator } from '../../../services/import-orchestrator.js';
 
@@ -71,7 +71,7 @@ describe('xpub import integration tests', () => {
   let userRepo: UserRepository;
   let accountRepo: AccountRepository;
   let rawDataRepo: RawDataRepository;
-  let dataSourceRepo: DataSourceRepository;
+  let dataSourceRepo: ImportSessionRepository;
 
   beforeEach(async () => {
     // Create in-memory database
@@ -82,7 +82,7 @@ describe('xpub import integration tests', () => {
     userRepo = new UserRepository(db);
     accountRepo = new AccountRepository(db);
     rawDataRepo = new RawDataRepository(db);
-    dataSourceRepo = new DataSourceRepository(db);
+    dataSourceRepo = new ImportSessionRepository(db);
 
     // Create orchestrator
     orchestrator = new ImportOrchestrator(userRepo, accountRepo, rawDataRepo, dataSourceRepo, mockProviderManager);
@@ -298,18 +298,18 @@ describe('xpub import integration tests', () => {
       const updatedCursor = JSON.parse(updatedChildAccount.last_cursor as string) as Record<string, CursorState>;
       expect(updatedCursor.normal?.totalFetched).toBe(3);
 
-      // Verify transaction count in database matches cursor (via data_source)
-      const dataSources = await db
+      // Verify transaction count in database matches cursor (via import_session)
+      const importSessions = await db
         .selectFrom('import_sessions')
         .select('id')
         .where('account_id', '=', childAccount.id)
         .execute();
-      const dataSourceIds = dataSources.map((ds) => ds.id);
+      const importSessionIds = importSessions.map((ds) => ds.id);
 
       const txCount = await db
         .selectFrom('external_transaction_data')
         .select((eb) => eb.fn.count('id').as('count'))
-        .where('data_source_id', 'in', dataSourceIds)
+        .where('data_source_id', 'in', importSessionIds)
         .executeTakeFirstOrThrow();
       expect(Number(txCount.count)).toBe(3);
     });
@@ -453,18 +453,18 @@ describe('xpub import integration tests', () => {
       const cursor = JSON.parse(childAccount.last_cursor as string) as Record<string, CursorState>;
       expect(cursor.normal?.totalFetched).toBe(1);
 
-      // Verify transaction count via data_source
-      const dataSources = await db
+      // Verify transaction count via import_session
+      const importSessions = await db
         .selectFrom('import_sessions')
         .select('id')
         .where('account_id', '=', childAccount.id)
         .execute();
-      const dataSourceIds = dataSources.map((ds) => ds.id);
+      const importSessionIds = importSessions.map((ds) => ds.id);
 
       const txCount = await db
         .selectFrom('external_transaction_data')
         .select((eb) => eb.fn.count('id').as('count'))
-        .where('data_source_id', 'in', dataSourceIds)
+        .where('data_source_id', 'in', importSessionIds)
         .executeTakeFirstOrThrow();
       expect(Number(txCount.count)).toBe(1);
     });

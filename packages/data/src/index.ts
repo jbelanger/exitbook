@@ -12,7 +12,7 @@ export { TokenMetadataRepository } from './repositories/token-metadata-repositor
 export type { DatabaseSchema, TransactionLinksTable } from './schema/database-schema.js';
 export type {
   StoredRawData,
-  StoredDataSource,
-  SourceQuery as ImportSessionQuery,
-  DataSourceUpdate,
+  StoredImportSession,
+  ImportSessionQuery,
+  ImportSessionUpdate,
 } from './types/data-types.js';

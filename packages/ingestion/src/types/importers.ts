@@ -12,7 +12,7 @@ export interface ImportParams {
 
 export interface ImportResult {
   transactionsImported: number;
-  dataSourceId: number;
+  importSessionId: number;
   metadata?: Record<string, unknown> | undefined;
 }
 

@@ -1,4 +1,4 @@
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, type Result } from 'neverthrow';
 
@@ -17,7 +17,7 @@ import type { SubscanTransfer } from './subscan.schemas.js';
  */
 export function convertSubscanTransaction(
   transfer: SubscanTransfer,
-  _sourceContext: SourceMetadata,
+  _sourceContext: ImportSessionMetadata,
   relevantAddresses: Set<string>,
   chainConfig: (typeof SUBSTRATE_CHAINS)[keyof typeof SUBSTRATE_CHAINS],
   nativeCurrency: string,

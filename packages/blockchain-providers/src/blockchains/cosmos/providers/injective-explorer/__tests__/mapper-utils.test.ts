@@ -1,10 +1,10 @@
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { InjectiveTransaction } from '../injective-explorer.schemas.js';
 import { mapInjectiveExplorerTransaction } from '../mapper-utils.js';
 
-const mockSourceContext: SourceMetadata = {
+const mockSourceContext: ImportSessionMetadata = {
   address: 'inj1user123456789',
   name: 'injective-explorer',
   source: 'blockchain',
@@ -372,7 +372,7 @@ describe('injective-explorer mapper-utils', () => {
         tx_type: 'bank',
       };
 
-      const contextWithoutAddress: SourceMetadata = {
+      const contextWithoutAddress: ImportSessionMetadata = {
         name: 'injective-explorer',
         source: 'blockchain',
       };

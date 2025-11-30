@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { DataSource, UniversalTransaction } from '@exitbook/core';
+import type { ImportSession, UniversalTransaction } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -349,7 +349,7 @@ describe('decimalRecordToStringRecord', () => {
 
 describe('sortSessionsByCompletedDate', () => {
   it('should sort sessions by completed date in descending order', () => {
-    const sessions: DataSource[] = [
+    const sessions: ImportSession[] = [
       {
         id: 1,
         accountId: 1,
@@ -396,7 +396,7 @@ describe('sortSessionsByCompletedDate', () => {
   });
 
   it('should handle sessions with no completed date', () => {
-    const sessions: DataSource[] = [
+    const sessions: ImportSession[] = [
       {
         id: 1,
         accountId: 1,
@@ -429,7 +429,7 @@ describe('sortSessionsByCompletedDate', () => {
   });
 
   it('should not mutate the original array', () => {
-    const sessions: DataSource[] = [
+    const sessions: ImportSession[] = [
       {
         id: 1,
         accountId: 1,
@@ -465,7 +465,7 @@ describe('sortSessionsByCompletedDate', () => {
 
 describe('findMostRecentCompletedSession', () => {
   it('should return the most recent completed session', () => {
-    const sessions: DataSource[] = [
+    const sessions: ImportSession[] = [
       {
         id: 1,
         accountId: 1,
@@ -509,7 +509,7 @@ describe('findMostRecentCompletedSession', () => {
   });
 
   it('should return undefined when no completed sessions', () => {
-    const sessions: DataSource[] = [
+    const sessions: ImportSession[] = [
       {
         id: 1,
         accountId: 1,

@@ -1,4 +1,4 @@
-import type { DataSourceStatus, UniversalTransaction } from '@exitbook/core';
+import type { ImportSessionStatus, UniversalTransaction } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 /**
@@ -9,14 +9,14 @@ export interface TransactionFilters {
   sourceId?: string | undefined;
   /** Filter by transactions created since this Unix timestamp */
   since?: number | undefined;
-  /** Filter by data source session ID */
+  /** Filter by import session session ID */
   sessionId?: number | undefined;
   /** Filter by account ID (queries all sessions for the account) */
   accountId?: number | undefined;
   /** Filter by multiple account IDs (queries all sessions for these accounts). More efficient than multiple individual queries. */
   accountIds?: number[] | undefined;
   /** Filter by session status (e.g., 'completed'). Requires accountId or accountIds to be set. */
-  sessionStatus?: DataSourceStatus | undefined;
+  sessionStatus?: ImportSessionStatus | undefined;
   /** Include transactions excluded from accounting (scam tokens, test data, etc.). Defaults to false. */
   includeExcluded?: boolean | undefined;
 }
@@ -35,7 +35,7 @@ export interface ITransactionRepository {
    * Save a transaction to the database.
    * Returns the database ID of the saved transaction.
    */
-  save(transaction: UniversalTransaction, dataSourceId: number): Promise<Result<number, Error>>;
+  save(transaction: UniversalTransaction, importSessionId: number): Promise<Result<number, Error>>;
 
   /**
    * Find a transaction by its ID.

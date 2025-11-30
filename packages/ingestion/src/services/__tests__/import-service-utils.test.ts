@@ -1,4 +1,4 @@
-import type { CursorState, DataSource } from '@exitbook/core';
+import type { CursorState, ImportSession } from '@exitbook/core';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
@@ -13,7 +13,7 @@ import {
 describe('import-service-utils', () => {
   describe('shouldReuseExistingImport', () => {
     it('should return true when existing source is provided', () => {
-      const existingSource: DataSource = {
+      const existingSource: ImportSession = {
         id: 1,
         accountId: 1,
         status: 'completed',
@@ -150,7 +150,7 @@ describe('import-service-utils', () => {
     it('should return resume config when existing source has started status', () => {
       const sourceId = 'kraken';
       const params: ImportParams = { csvDirectories: ['./data/kraken'] };
-      const existingSource: DataSource = {
+      const existingSource: ImportSession = {
         id: 42,
         accountId: 1,
         status: 'started',
@@ -172,7 +172,7 @@ describe('import-service-utils', () => {
     it('should return resume config when existing source has failed status', () => {
       const sourceId = 'kraken';
       const params: ImportParams = { csvDirectories: ['./data/kraken'] };
-      const existingSource: DataSource = {
+      const existingSource: ImportSession = {
         id: 42,
         accountId: 1,
         status: 'failed',
@@ -194,7 +194,7 @@ describe('import-service-utils', () => {
     it('should NOT resume when existing source has completed status', () => {
       const sourceId = 'kraken';
       const params: ImportParams = { csvDirectories: ['./data/kraken'] };
-      const existingSource: DataSource = {
+      const existingSource: ImportSession = {
         id: 42,
         accountId: 1,
         status: 'completed',
@@ -216,7 +216,7 @@ describe('import-service-utils', () => {
     it('should NOT resume when existing source has cancelled status', () => {
       const sourceId = 'kraken';
       const params: ImportParams = { csvDirectories: ['./data/kraken'] };
-      const existingSource: DataSource = {
+      const existingSource: ImportSession = {
         id: 42,
         accountId: 1,
         status: 'cancelled',
@@ -238,7 +238,7 @@ describe('import-service-utils', () => {
     it('should include cursor in params when resuming', () => {
       const sourceId = 'kraken';
       const params: ImportParams = { csvDirectories: ['./data/kraken'] };
-      const existingSource: DataSource = {
+      const existingSource: ImportSession = {
         id: 42,
         accountId: 1,
         status: 'started',
@@ -271,7 +271,7 @@ describe('import-service-utils', () => {
     it('should not modify original params object', () => {
       const sourceId = 'kraken';
       const params: ImportParams = { csvDirectories: ['./data/kraken'] };
-      const existingSource: DataSource = {
+      const existingSource: ImportSession = {
         id: 42,
         accountId: 1,
         status: 'started',

@@ -1,4 +1,4 @@
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -6,7 +6,7 @@ import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
 import { mapTatumTransaction } from '../mapper-utils.js';
 import type { TatumBitcoinTransaction } from '../tatum.schemas.js';
 
-const mockSourceContext: SourceMetadata = {
+const mockSourceContext: ImportSessionMetadata = {
   name: 'test-provider',
   source: 'blockchain',
 };

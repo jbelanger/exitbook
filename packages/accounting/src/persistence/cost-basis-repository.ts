@@ -614,11 +614,11 @@ export class CostBasisRepository extends BaseRepository {
   }
 
   /**
-   * Count acquisition lots by data source IDs
+   * Count acquisition lots by import session IDs
    */
-  async countLotsByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+  async countLotsByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (dataSourceIds.length === 0) {
+      if (importSessionIds.length === 0) {
         return ok(0);
       }
 
@@ -628,13 +628,13 @@ export class CostBasisRepository extends BaseRepository {
         .where(
           'acquisition_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
         )
         .executeTakeFirst();
       return ok(result?.count ?? 0);
     } catch (error) {
-      this.logger.error({ error, dataSourceIds }, 'Failed to count lots by data source IDs');
-      return wrapError(error, 'Failed to count lots by data source IDs');
+      this.logger.error({ error, importSessionIds }, 'Failed to count lots by import session IDs');
+      return wrapError(error, 'Failed to count lots by import session IDs');
     }
   }
 
@@ -655,11 +655,11 @@ export class CostBasisRepository extends BaseRepository {
   }
 
   /**
-   * Count lot disposals by data source IDs
+   * Count lot disposals by import session IDs
    */
-  async countDisposalsByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+  async countDisposalsByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (dataSourceIds.length === 0) {
+      if (importSessionIds.length === 0) {
         return ok(0);
       }
 
@@ -675,14 +675,14 @@ export class CostBasisRepository extends BaseRepository {
             .where(
               'acquisition_transaction_id',
               'in',
-              this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+              this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
             )
         )
         .executeTakeFirst();
       return ok(result?.count ?? 0);
     } catch (error) {
-      this.logger.error({ error, dataSourceIds }, 'Failed to count disposals by data source IDs');
-      return wrapError(error, 'Failed to count disposals by data source IDs');
+      this.logger.error({ error, importSessionIds }, 'Failed to count disposals by import session IDs');
+      return wrapError(error, 'Failed to count disposals by import session IDs');
     }
   }
 
@@ -703,11 +703,11 @@ export class CostBasisRepository extends BaseRepository {
   }
 
   /**
-   * Count cost basis calculations by data source IDs
+   * Count cost basis calculations by import session IDs
    */
-  async countCalculationsByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+  async countCalculationsByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (dataSourceIds.length === 0) {
+      if (importSessionIds.length === 0) {
         return ok(0);
       }
 
@@ -719,14 +719,14 @@ export class CostBasisRepository extends BaseRepository {
         .where(
           'acquisition_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
         )
         .execute();
 
       return ok(calculationIds.length);
     } catch (error) {
-      this.logger.error({ error, dataSourceIds }, 'Failed to count calculations by data source IDs');
-      return wrapError(error, 'Failed to count calculations by data source IDs');
+      this.logger.error({ error, importSessionIds }, 'Failed to count calculations by import session IDs');
+      return wrapError(error, 'Failed to count calculations by import session IDs');
     }
   }
 
@@ -766,9 +766,9 @@ export class CostBasisRepository extends BaseRepository {
    * Delete lot disposals for transactions from specific data sources (import sessions).
    * Uses data_source_id from transactions to properly scope deletions to specific accounts.
    */
-  async deleteDisposalsByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+  async deleteDisposalsByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (dataSourceIds.length === 0) {
+      if (importSessionIds.length === 0) {
         return ok(0);
       }
 
@@ -783,17 +783,17 @@ export class CostBasisRepository extends BaseRepository {
             .where(
               'acquisition_transaction_id',
               'in',
-              this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+              this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
             )
         )
         .executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.debug({ dataSourceIds, count }, 'Deleted lot disposals by data source IDs');
+      this.logger.debug({ importSessionIds, count }, 'Deleted lot disposals by import session IDs');
       return ok(count);
     } catch (error) {
-      this.logger.error({ error, dataSourceIds }, 'Failed to delete lot disposals by data source IDs');
-      return wrapError(error, 'Failed to delete lot disposals by data source IDs');
+      this.logger.error({ error, importSessionIds }, 'Failed to delete lot disposals by import session IDs');
+      return wrapError(error, 'Failed to delete lot disposals by import session IDs');
     }
   }
 
@@ -824,9 +824,9 @@ export class CostBasisRepository extends BaseRepository {
    * Delete acquisition lots for transactions from specific data sources (import sessions).
    * Uses data_source_id from transactions to properly scope deletions to specific accounts.
    */
-  async deleteLotsByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+  async deleteLotsByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (dataSourceIds.length === 0) {
+      if (importSessionIds.length === 0) {
         return ok(0);
       }
 
@@ -835,16 +835,16 @@ export class CostBasisRepository extends BaseRepository {
         .where(
           'acquisition_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
         )
         .executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.debug({ dataSourceIds, count }, 'Deleted acquisition lots by data source IDs');
+      this.logger.debug({ importSessionIds, count }, 'Deleted acquisition lots by import session IDs');
       return ok(count);
     } catch (error) {
-      this.logger.error({ error, dataSourceIds }, 'Failed to delete acquisition lots by data source IDs');
-      return wrapError(error, 'Failed to delete acquisition lots by data source IDs');
+      this.logger.error({ error, importSessionIds }, 'Failed to delete acquisition lots by import session IDs');
+      return wrapError(error, 'Failed to delete acquisition lots by import session IDs');
     }
   }
 
@@ -900,9 +900,9 @@ export class CostBasisRepository extends BaseRepository {
    * Delete cost basis calculations for transactions from specific data sources (import sessions).
    * Finds calculations that have lots referencing transactions with the given data_source_ids.
    */
-  async deleteCalculationsByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+  async deleteCalculationsByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (dataSourceIds.length === 0) {
+      if (importSessionIds.length === 0) {
         return ok(0);
       }
 
@@ -914,7 +914,7 @@ export class CostBasisRepository extends BaseRepository {
         .where(
           'acquisition_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', dataSourceIds)
+          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
         )
         .execute();
 
@@ -928,11 +928,11 @@ export class CostBasisRepository extends BaseRepository {
       const result = await this.db.deleteFrom('cost_basis_calculations').where('id', 'in', ids).executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.debug({ dataSourceIds, count }, 'Deleted cost basis calculations by data source IDs');
+      this.logger.debug({ importSessionIds, count }, 'Deleted cost basis calculations by import session IDs');
       return ok(count);
     } catch (error) {
-      this.logger.error({ error, dataSourceIds }, 'Failed to delete calculations by data source IDs');
-      return wrapError(error, 'Failed to delete calculations by data source IDs');
+      this.logger.error({ error, importSessionIds }, 'Failed to delete calculations by import session IDs');
+      return wrapError(error, 'Failed to delete calculations by import session IDs');
     }
   }
 

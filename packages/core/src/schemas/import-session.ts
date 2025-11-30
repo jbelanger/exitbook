@@ -8,7 +8,7 @@ export const SourceTypeSchema = z.enum(['blockchain', 'exchange']);
 /**
  * Data source status schema - lifecycle states
  */
-export const DataSourceStatusSchema = z.enum(['started', 'completed', 'failed', 'cancelled']);
+export const ImportSessionStatusSchema = z.enum(['started', 'completed', 'failed', 'cancelled']);
 
 /**
  * Schema for import parameters stored in source metadata
@@ -24,7 +24,7 @@ export const DataImportParamsSchema = z.object({
  * Schema for import session metadata
  * Provides blockchain-specific address context and import details
  */
-export const SourceMetadataSchema = z
+export const ImportSessionMetadataSchema = z
   .object({
     address: z.string().optional(),
     csvDirectories: z.array(z.string()).optional(),
@@ -95,14 +95,14 @@ export const VerificationMetadataSchema = z.object({
 });
 
 /**
- * Schema for data source domain model
+ * Schema for import session domain model
  * Represents a single import session execution (import_sessions table)
  * Links to accounts table via accountId - source info lives in the account
  */
-export const DataSourceSchema = z.object({
+export const ImportSessionSchema = z.object({
   id: z.number(),
   accountId: z.number(),
-  status: DataSourceStatusSchema,
+  status: ImportSessionStatusSchema,
   startedAt: z.date(),
   completedAt: z.date().optional(),
   durationMs: z.number().optional(),
@@ -119,9 +119,9 @@ export const DataSourceSchema = z.object({
  * Type exports inferred from schemas
  */
 export type SourceType = z.infer<typeof SourceTypeSchema>;
-export type DataSourceStatus = z.infer<typeof DataSourceStatusSchema>;
+export type ImportSessionStatus = z.infer<typeof ImportSessionStatusSchema>;
 export type DataImportParams = z.infer<typeof DataImportParamsSchema>;
-export type SourceMetadata = z.infer<typeof SourceMetadataSchema>;
+export type ImportSessionMetadata = z.infer<typeof ImportSessionMetadataSchema>;
 export type ImportResultMetadata = z.infer<typeof ImportResultMetadataSchema>;
 export type SourceParams = z.infer<typeof SourceParamsSchema>;
 export type BalanceDiscrepancy = z.infer<typeof BalanceDiscrepancySchema>;
@@ -129,4 +129,4 @@ export type BalanceVerificationStatus = z.infer<typeof BalanceVerificationStatus
 export type BalanceCommandStatus = z.infer<typeof BalanceCommandStatusSchema>;
 export type BalanceVerification = z.infer<typeof BalanceVerificationSchema>;
 export type VerificationMetadata = z.infer<typeof VerificationMetadataSchema>;
-export type DataSource = z.infer<typeof DataSourceSchema>;
+export type ImportSession = z.infer<typeof ImportSessionSchema>;

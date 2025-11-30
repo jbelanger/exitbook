@@ -1,4 +1,4 @@
-import type { DataSourceStatus, ProcessingStatus, SourceType } from '@exitbook/core';
+import type { ImportSessionStatus, ProcessingStatus, SourceType } from '@exitbook/core';
 import type { Generated, ColumnType } from 'kysely';
 
 /**
@@ -42,12 +42,12 @@ export interface AccountsTable {
  * Import sessions table - tracks import execution events
  * Each session represents a single import run (manual or scheduled)
  */
-export interface DataSourcesTable {
+export interface ImportSessionsTable {
   id: Generated<number>;
   account_id: number; // FK to accounts.id
 
   // Session lifecycle
-  status: DataSourceStatus;
+  status: ImportSessionStatus;
   started_at: DateTime;
   completed_at: DateTime | null;
   duration_ms: number | null;
@@ -308,7 +308,7 @@ export interface DatabaseSchema {
   acquisition_lots: AcquisitionLotsTable;
   cost_basis_calculations: CostBasisCalculationsTable;
   external_transaction_data: ExternalTransactionDataTable;
-  import_sessions: DataSourcesTable;
+  import_sessions: ImportSessionsTable;
   lot_disposals: LotDisposalsTable;
   lot_transfers: LotTransfersTable;
   symbol_index: SymbolIndexTable;

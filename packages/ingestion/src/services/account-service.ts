@@ -3,7 +3,7 @@ import type { AccountRepository, UserRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IDataSourceRepository } from '../types/repositories.js';
+import type { IImportSessionRepository } from '../types/repositories.js';
 
 import type { AccountQueryParams, AccountQueryResult, SessionSummary } from './account-service-utils.js';
 import { formatAccount } from './account-service-utils.js';
@@ -24,7 +24,7 @@ export interface ViewAccountsParams extends AccountQueryParams {
 export class AccountService {
   constructor(
     private readonly accountRepo: AccountRepository,
-    private readonly dataSourceRepo: IDataSourceRepository,
+    private readonly dataSourceRepo: IImportSessionRepository,
     private readonly userRepo: UserRepository
   ) {}
 

@@ -4,7 +4,7 @@ import type { AccountRepository, TransactionRepository, UserRepository } from '@
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IDataSourceRepository, IRawDataRepository } from '../types/repositories.js';
+import type { IImportSessionRepository, IRawDataRepository } from '../types/repositories.js';
 
 import type { ClearServiceParams, DeletionPreview, ResolvedAccount } from './clear-service-utils.js';
 import {
@@ -36,7 +36,7 @@ export class ClearService {
     private costBasisRepo: CostBasisRepository,
     private lotTransferRepo: LotTransferRepository,
     private rawDataRepo: IRawDataRepository,
-    private dataSourceRepo: IDataSourceRepository
+    private dataSourceRepo: IImportSessionRepository
   ) {}
 
   /**
@@ -77,7 +77,7 @@ export class ClearService {
         if (dataSourceIdsResult.isErr()) {
           return err(dataSourceIdsResult.error);
         }
-        const dataSourceIds = dataSourceIdsResult.value;
+        const importSessionIds = dataSourceIdsResult.value;
 
         // Only count sessions and rawData if includeRaw is true (otherwise they won't be deleted)
         let sessionsCount = 0;
@@ -97,32 +97,32 @@ export class ClearService {
           rawDataCount = rawDataResult.value;
         }
 
-        const transactionsResult = await this.transactionRepo.countByDataSourceIds(dataSourceIds);
+        const transactionsResult = await this.transactionRepo.countByDataSourceIds(importSessionIds);
         if (transactionsResult.isErr()) {
           return err(transactionsResult.error);
         }
 
-        const linksResult = await this.transactionLinkRepo.countByDataSourceIds(dataSourceIds);
+        const linksResult = await this.transactionLinkRepo.countByDataSourceIds(importSessionIds);
         if (linksResult.isErr()) {
           return err(linksResult.error);
         }
 
-        const lotsResult = await this.costBasisRepo.countLotsByDataSourceIds(dataSourceIds);
+        const lotsResult = await this.costBasisRepo.countLotsByDataSourceIds(importSessionIds);
         if (lotsResult.isErr()) {
           return err(lotsResult.error);
         }
 
-        const disposalsResult = await this.costBasisRepo.countDisposalsByDataSourceIds(dataSourceIds);
+        const disposalsResult = await this.costBasisRepo.countDisposalsByDataSourceIds(importSessionIds);
         if (disposalsResult.isErr()) {
           return err(disposalsResult.error);
         }
 
-        const transfersResult = await this.lotTransferRepo.countByDataSourceIds(dataSourceIds);
+        const transfersResult = await this.lotTransferRepo.countByDataSourceIds(importSessionIds);
         if (transfersResult.isErr()) {
           return err(transfersResult.error);
         }
 
-        const calculationsResult = await this.costBasisRepo.countCalculationsByDataSourceIds(dataSourceIds);
+        const calculationsResult = await this.costBasisRepo.countCalculationsByDataSourceIds(importSessionIds);
         if (calculationsResult.isErr()) {
           return err(calculationsResult.error);
         }
@@ -283,36 +283,36 @@ export class ClearService {
     if (dataSourceIdsResult.isErr()) {
       return err(dataSourceIdsResult.error);
     }
-    const dataSourceIds = dataSourceIdsResult.value;
+    const importSessionIds = dataSourceIdsResult.value;
 
     // Delete cost basis and transaction data by data_source_id (NOT source_id)
     // This ensures we only delete data for the specific accounts being cleared
-    const disposalsResult = await this.costBasisRepo.deleteDisposalsByDataSourceIds(dataSourceIds);
+    const disposalsResult = await this.costBasisRepo.deleteDisposalsByDataSourceIds(importSessionIds);
     if (disposalsResult.isErr()) {
       return err(disposalsResult.error);
     }
 
-    const transfersResult = await this.lotTransferRepo.deleteByDataSourceIds(dataSourceIds);
+    const transfersResult = await this.lotTransferRepo.deleteByDataSourceIds(importSessionIds);
     if (transfersResult.isErr()) {
       return err(transfersResult.error);
     }
 
-    const lotsResult = await this.costBasisRepo.deleteLotsByDataSourceIds(dataSourceIds);
+    const lotsResult = await this.costBasisRepo.deleteLotsByDataSourceIds(importSessionIds);
     if (lotsResult.isErr()) {
       return err(lotsResult.error);
     }
 
-    const calculationsResult = await this.costBasisRepo.deleteCalculationsByDataSourceIds(dataSourceIds);
+    const calculationsResult = await this.costBasisRepo.deleteCalculationsByDataSourceIds(importSessionIds);
     if (calculationsResult.isErr()) {
       return err(calculationsResult.error);
     }
 
-    const linksResult = await this.transactionLinkRepo.deleteByDataSourceIds(dataSourceIds);
+    const linksResult = await this.transactionLinkRepo.deleteByDataSourceIds(importSessionIds);
     if (linksResult.isErr()) {
       return err(linksResult.error);
     }
 
-    const transactionsResult = await this.transactionRepo.deleteByDataSourceIds(dataSourceIds);
+    const transactionsResult = await this.transactionRepo.deleteByDataSourceIds(importSessionIds);
     if (transactionsResult.isErr()) {
       return err(transactionsResult.error);
     }

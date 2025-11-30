@@ -1,4 +1,4 @@
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -6,7 +6,7 @@ import { lovelaceToAda, mapAssetAmounts, mapBlockfrostTransaction } from './bloc
 import type { BlockfrostAssetAmount, BlockfrostTransactionWithMetadata } from './blockfrost.schemas.js';
 
 describe('blockfrost.mapper-utils', () => {
-  const sourceContext: SourceMetadata = {
+  const sourceContext: ImportSessionMetadata = {
     address: 'addr1qxy483kxdaezq6qk0ptlh7gzcmqm2q6uyz4rjz5aq92whlvje44s8rhd3eyt9q3yvdvs3dw6y80ttwspnsmg5tgxa72su3mnty',
   };
 
@@ -878,7 +878,7 @@ describe('blockfrost.mapper-utils', () => {
 
       it('should set providerName regardless of source context', () => {
         const mockTransaction = createBaseFixture();
-        const customContext: SourceMetadata = {
+        const customContext: ImportSessionMetadata = {
           address: 'different-address',
           name: 'custom-name',
         };

@@ -1,11 +1,11 @@
 import type {
-  DataSource,
-  DataSourceStatus,
+  ImportSession,
+  ImportSessionStatus,
   ExternalTransaction,
   ExternalTransactionData,
   ProcessingStatus,
 } from '@exitbook/core';
-import type { DataSourceUpdate, ImportSessionQuery } from '@exitbook/data';
+import type { ImportSessionUpdate, ImportSessionQuery } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
 /**
@@ -15,7 +15,7 @@ import type { Result } from 'neverthrow';
  */
 export interface LoadRawDataFilters {
   accountId?: number | undefined;
-  dataSourceId?: number | undefined;
+  importSessionId?: number | undefined;
   processingStatus?: ProcessingStatus | undefined;
   providerName?: string | undefined;
   since?: number | undefined;
@@ -40,18 +40,18 @@ export interface IRawDataRepository {
   /**
    * Save external data items to storage.
    */
-  save(dataSourceId: number, item: ExternalTransaction): Promise<Result<number, Error>>;
+  save(importSessionId: number, item: ExternalTransaction): Promise<Result<number, Error>>;
 
   /**
    * Save multiple external data items to storage in a single transaction.
    */
-  saveBatch(dataSourceId: number, items: ExternalTransaction[]): Promise<Result<number, Error>>;
+  saveBatch(importSessionId: number, items: ExternalTransaction[]): Promise<Result<number, Error>>;
 
   /**
    * Get records with valid normalized data (where normalized_data is not null).
    * Used during processing step.
    */
-  getValidRecords(dataSourceId: number): Promise<Result<ExternalTransactionData[], Error>>;
+  getValidRecords(importSessionId: number): Promise<Result<ExternalTransactionData[], Error>>;
 
   /**
    * Reset processing status to 'pending' for all raw data for an account.
@@ -90,7 +90,7 @@ export interface IRawDataRepository {
  * Interface for import session repository operations.
  * Per ADR-007: import_sessions represents discrete import events, linked to accounts via account_id
  */
-export interface IDataSourceRepository {
+export interface IImportSessionRepository {
   /**
    * Create a new import session for an account.
    * Per ADR-007: Each import execution creates a new session record
@@ -102,7 +102,7 @@ export interface IDataSourceRepository {
    */
   finalize(
     sessionId: number,
-    status: Exclude<DataSourceStatus, 'started'>,
+    status: Exclude<ImportSessionStatus, 'started'>,
     startTime: number,
     errorMessage?: string,
     errorDetails?: unknown,
@@ -112,22 +112,22 @@ export interface IDataSourceRepository {
   /**
    * Find all import sessions with optional filtering.
    */
-  findAll(filters?: ImportSessionQuery): Promise<Result<DataSource[], Error>>;
+  findAll(filters?: ImportSessionQuery): Promise<Result<ImportSession[], Error>>;
 
   /**
    * Find import session by ID.
    */
-  findById(sessionId: number): Promise<Result<DataSource | undefined, Error>>;
+  findById(sessionId: number): Promise<Result<ImportSession | undefined, Error>>;
 
   /**
    * Find all import sessions for an account.
    */
-  findByAccount(accountId: number, limit?: number): Promise<Result<DataSource[], Error>>;
+  findByAccount(accountId: number, limit?: number): Promise<Result<ImportSession[], Error>>;
 
   /**
    * Find all import sessions for multiple accounts in one query (avoids N+1).
    */
-  findByAccounts(accountIds: number[]): Promise<Result<DataSource[], Error>>;
+  findByAccounts(accountIds: number[]): Promise<Result<ImportSession[], Error>>;
 
   /**
    * Get all data_source_ids (session IDs) for multiple accounts in one query (avoids N+1).
@@ -146,12 +146,12 @@ export interface IDataSourceRepository {
    * Status 'started' or 'failed' indicates incomplete import.
    * Per ADR-007: Cursors are stored in accounts table, not sessions
    */
-  findLatestIncomplete(accountId: number): Promise<Result<DataSource | undefined, Error>>;
+  findLatestIncomplete(accountId: number): Promise<Result<ImportSession | undefined, Error>>;
 
   /**
    * Update an existing import session.
    */
-  update(sessionId: number, updates: DataSourceUpdate): Promise<Result<void, Error>>;
+  update(sessionId: number, updates: ImportSessionUpdate): Promise<Result<void, Error>>;
 
   /**
    * Count all import sessions.

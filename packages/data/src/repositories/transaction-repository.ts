@@ -56,11 +56,11 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     super(db, 'TransactionRepository');
   }
 
-  async save(transaction: UniversalTransaction, dataSourceId: number) {
-    return this.saveTransaction(transaction, dataSourceId);
+  async save(transaction: UniversalTransaction, importSessionId: number) {
+    return this.saveTransaction(transaction, importSessionId);
   }
 
-  async saveTransaction(transaction: UniversalTransaction, dataSourceId: number) {
+  async saveTransaction(transaction: UniversalTransaction, importSessionId: number) {
     try {
       // Validate metadata before saving
       if (transaction.metadata !== undefined) {
@@ -111,7 +111,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             transaction.externalId ||
             generateDeterministicTransactionHash(transaction)) as string,
           from_address: transaction.from,
-          data_source_id: dataSourceId,
+          data_source_id: importSessionId,
           note_message: transaction.note?.message,
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
           note_severity: transaction.note?.severity,
@@ -436,35 +436,35 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async countByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+  async countByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (dataSourceIds.length === 0) {
+      if (importSessionIds.length === 0) {
         return ok(0);
       }
 
       const result = await this.db
         .selectFrom('transactions')
         .select(({ fn }) => [fn.count<number>('id').as('count')])
-        .where('data_source_id', 'in', dataSourceIds)
+        .where('data_source_id', 'in', importSessionIds)
         .executeTakeFirst();
       return ok(result?.count ?? 0);
     } catch (error) {
-      return wrapError(error, 'Failed to count transactions by data source IDs');
+      return wrapError(error, 'Failed to count transactions by import session IDs');
     }
   }
 
-  async deleteByDataSourceIds(dataSourceIds: number[]): Promise<Result<number, Error>> {
+  async deleteByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (dataSourceIds.length === 0) {
+      if (importSessionIds.length === 0) {
         return ok(0);
       }
       const result = await this.db
         .deleteFrom('transactions')
-        .where('data_source_id', 'in', dataSourceIds)
+        .where('data_source_id', 'in', importSessionIds)
         .executeTakeFirst();
       return ok(Number(result.numDeletedRows));
     } catch (error) {
-      return wrapError(error, 'Failed to delete transactions by data source IDs');
+      return wrapError(error, 'Failed to delete transactions by import session IDs');
     }
   }
 

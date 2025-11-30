@@ -1,4 +1,4 @@
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
@@ -6,7 +6,7 @@ import { satoshisToBtcString } from '../../../utils.js';
 import { mapMempoolSpaceTransaction } from '../mapper-utils.js';
 import type { MempoolTransaction } from '../mempool-space.schemas.js';
 
-const mockSourceContext: SourceMetadata = {
+const mockSourceContext: ImportSessionMetadata = {
   name: 'test-provider',
   source: 'blockchain',
 };

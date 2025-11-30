@@ -1,4 +1,4 @@
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { type Result, err } from 'neverthrow';
 
@@ -27,7 +27,7 @@ import type { InjectiveTransaction as InjectiveApiTransaction } from './injectiv
  */
 export function mapInjectiveExplorerTransaction(
   rawData: InjectiveApiTransaction,
-  sourceContext: SourceMetadata
+  sourceContext: ImportSessionMetadata
 ): Result<CosmosTransaction, NormalizationError> {
   const logger = getLogger('InjectiveExplorerMapperUtils');
   const timestamp = rawData.block_timestamp.getTime();

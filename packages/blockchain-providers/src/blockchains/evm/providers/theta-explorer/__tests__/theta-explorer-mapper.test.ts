@@ -1,11 +1,11 @@
-import type { SourceMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { mapThetaExplorerTransaction } from '../theta-explorer.mapper-utils.js';
 import type { ThetaTransaction, ThetaSendTransactionData } from '../theta-explorer.schemas.js';
 
 describe('ThetaExplorerTransactionMapper', () => {
-  const sourceContext: SourceMetadata = {
+  const sourceContext: ImportSessionMetadata = {
     address: '0x6d882a1ae65377c12e8c1ad5a8b5cfa329edeb07',
   };
 
