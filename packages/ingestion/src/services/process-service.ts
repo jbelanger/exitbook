@@ -6,7 +6,7 @@ import { getLogger } from '@exitbook/logger';
 import { progress } from '@exitbook/ui';
 import { err, ok, Result } from 'neverthrow';
 
-import { getBlockchainConfig } from '../infrastructure/blockchains/index.js';
+import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
 import { createExchangeProcessor } from '../infrastructure/exchanges/shared/exchange-processor-factory.js';
 import type { ITokenMetadataService } from '../services/token-metadata/token-metadata-service.interface.js';
 import type { ProcessResult } from '../types/processors.js';
@@ -311,11 +311,11 @@ export class TransactionProcessService {
         if (sourceType === 'blockchain') {
           // Normalize sourceId to lowercase for config lookup (registry keys are lowercase)
           const normalizedSourceId = sourceId.toLowerCase();
-          const config = getBlockchainConfig(normalizedSourceId);
-          if (!config) {
+          const adapter = getBlockchainAdapter(normalizedSourceId);
+          if (!adapter) {
             return err(new Error(`Unknown blockchain: ${sourceId}`));
           }
-          const processorResult = config.createProcessor(this.tokenMetadataService);
+          const processorResult = adapter.createProcessor(this.tokenMetadataService);
           if (processorResult.isErr()) {
             return err(processorResult.error);
           }

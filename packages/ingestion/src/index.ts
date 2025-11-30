@@ -47,11 +47,11 @@ export { DataSourceRepository } from './persistence/data-source-repository.js';
 
 // Blockchain configuration
 export {
-  getBlockchainConfig,
+  getBlockchainAdapter,
   getAllBlockchains,
-  hasBlockchainConfig,
-  type BlockchainConfig,
-} from './infrastructure/blockchains/shared/blockchain-config.js';
+  hasBlockchainAdapter as hasBlockchainConfig,
+  type BlockchainAdapter as BlockchainConfig,
+} from './infrastructure/blockchains/shared/blockchain-adapter.js';
 
 // Exchange factories
 export { createExchangeImporter } from './infrastructure/exchanges/shared/exchange-importer-factory.js';

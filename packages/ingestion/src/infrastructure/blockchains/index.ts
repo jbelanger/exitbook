@@ -8,4 +8,4 @@ import './solana/config.js';
 import './substrate/config.js';
 
 // Export blockchain config utilities
-export * from './shared/blockchain-config.js';
+export * from './shared/blockchain-adapter.js';

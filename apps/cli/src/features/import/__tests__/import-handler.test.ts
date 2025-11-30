@@ -69,7 +69,7 @@ describe('ImportHandler', () => {
       (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
           dataSourceId: 123,
-          imported: 50,
+          transactionsImported: 50,
         })
       );
 
@@ -94,7 +94,7 @@ describe('ImportHandler', () => {
       (mockImportOrchestrator.importExchangeCsv as Mock).mockResolvedValue(
         ok({
           dataSourceId: 456,
-          imported: 100,
+          transactionsImported: 100,
         })
       );
 
@@ -123,7 +123,7 @@ describe('ImportHandler', () => {
       (mockImportOrchestrator.importExchangeApi as Mock).mockResolvedValue(
         ok({
           dataSourceId: 789,
-          imported: 75,
+          transactionsImported: 75,
         })
       );
 
@@ -148,7 +148,7 @@ describe('ImportHandler', () => {
       (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
           dataSourceId: 123,
-          imported: 50,
+          transactionsImported: 50,
         })
       );
 
@@ -185,7 +185,7 @@ describe('ImportHandler', () => {
       (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
           dataSourceId: 123,
-          imported: 50,
+          transactionsImported: 50,
         })
       );
 
@@ -235,7 +235,7 @@ describe('ImportHandler', () => {
       (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
           dataSourceId: 123,
-          imported: 50,
+          transactionsImported: 50,
         })
       );
 

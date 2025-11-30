@@ -10,7 +10,7 @@ export interface DerivedAddress {
   derivationPath: string;
 }
 
-export interface BlockchainConfig {
+export interface BlockchainAdapter {
   blockchain: string;
   normalizeAddress: (address: string) => Result<string, Error>;
   createImporter: (providerManager: BlockchainProviderManager, providerName?: string) => IImporter;
@@ -29,20 +29,20 @@ export interface BlockchainConfig {
   deriveAddressesFromXpub?: (xpub: string, gap?: number) => Promise<DerivedAddress[]>;
 }
 
-const configs = new Map<string, BlockchainConfig>();
+const adapters = new Map<string, BlockchainAdapter>();
 
-export function registerBlockchain(config: BlockchainConfig): void {
-  configs.set(config.blockchain, config);
+export function registerBlockchain(config: BlockchainAdapter): void {
+  adapters.set(config.blockchain, config);
 }
 
-export function getBlockchainConfig(blockchain: string): BlockchainConfig | undefined {
-  return configs.get(blockchain);
+export function getBlockchainAdapter(blockchain: string): BlockchainAdapter | undefined {
+  return adapters.get(blockchain);
 }
 
 export function getAllBlockchains(): string[] {
-  return Array.from(configs.keys()).sort();
+  return Array.from(adapters.keys()).sort();
 }
 
-export function hasBlockchainConfig(blockchain: string): boolean {
-  return configs.has(blockchain);
+export function hasBlockchainAdapter(blockchain: string): boolean {
+  return adapters.has(blockchain);
 }

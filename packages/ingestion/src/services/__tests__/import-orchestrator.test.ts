@@ -1,0 +1,517 @@
+/**
+ * Tests for ImportOrchestrator
+ *
+ * Tests orchestration of user/account management and delegation to TransactionImportService,
+ * with particular focus on xpub/HD wallet parent-child account creation
+ */
+
+/* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
+
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import type { Account } from '@exitbook/core';
+import type { AccountRepository, UserRepository } from '@exitbook/data';
+import { err, ok } from 'neverthrow';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { IDataSourceRepository, IRawDataRepository } from '../../types/repositories.js';
+import { ImportOrchestrator } from '../import-orchestrator.js';
+
+// Mock logger
+vi.mock('@exitbook/logger', () => ({
+  getLogger: () => ({
+    debug: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+  }),
+}));
+
+// Mock TransactionImportService
+vi.mock('../import-service.js', () => ({
+  TransactionImportService: vi.fn().mockImplementation(() => ({
+    importFromSource: vi.fn().mockResolvedValue(ok({ transactionsImported: 10, dataSourceId: 1 })),
+  })),
+}));
+
+// Mock blockchain configs
+const mockDeriveAddresses = vi.fn();
+vi.mock('../../infrastructure/blockchains/index.js', () => ({
+  getBlockchainAdapter: (id: string) => {
+    if (id === 'bitcoin') {
+      return {
+        normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
+        isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
+        deriveAddressesFromXpub: mockDeriveAddresses,
+      };
+    }
+    if (id === 'cardano') {
+      return {
+        normalizeAddress: (addr: string) => ok(addr),
+        isExtendedPublicKey: (addr: string) =>
+          addr.startsWith('stake') || addr.startsWith('xpub') || addr.startsWith('addr_xvk'),
+        deriveAddressesFromXpub: mockDeriveAddresses,
+      };
+    }
+    if (id === 'ethereum') {
+      return {
+        normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
+      };
+    }
+    return;
+  },
+}));
+
+describe('ImportOrchestrator', () => {
+  let orchestrator: ImportOrchestrator;
+  let mockUserRepo: UserRepository;
+  let mockAccountRepo: AccountRepository;
+  let mockRawDataRepo: IRawDataRepository;
+  let mockDataSourceRepo: IDataSourceRepository;
+  let mockProviderManager: BlockchainProviderManager;
+
+  const mockUser = { id: 1, createdAt: new Date() };
+
+  beforeEach(() => {
+    mockUserRepo = {
+      ensureDefaultUser: vi.fn().mockResolvedValue(ok(mockUser)),
+    } as unknown as UserRepository;
+
+    mockAccountRepo = {
+      findOrCreate: vi.fn(),
+    } as unknown as AccountRepository;
+
+    mockRawDataRepo = {} as IRawDataRepository;
+    mockDataSourceRepo = {} as IDataSourceRepository;
+    mockProviderManager = {} as BlockchainProviderManager;
+
+    orchestrator = new ImportOrchestrator(
+      mockUserRepo,
+      mockAccountRepo,
+      mockRawDataRepo,
+      mockDataSourceRepo,
+      mockProviderManager
+    );
+
+    // Reset derive addresses mock
+    mockDeriveAddresses.mockReset();
+  });
+
+  describe('importBlockchain - regular address', () => {
+    it('should create account for regular address and import', async () => {
+      const mockAccount: Account = {
+        id: 1,
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'bc1q...',
+        createdAt: new Date(),
+      };
+
+      vi.mocked(mockAccountRepo.findOrCreate).mockResolvedValue(ok(mockAccount));
+
+      const result = await orchestrator.importBlockchain('bitcoin', 'bc1q...');
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.transactionsImported).toBe(10);
+        expect(result.value.dataSourceId).toBe(1);
+      }
+
+      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledWith({
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'bc1q...',
+        providerName: undefined,
+        credentials: undefined,
+      });
+    });
+
+    it('should warn if xpubGap provided for non-xpub address', async () => {
+      const mockAccount: Account = {
+        id: 1,
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'bc1q...',
+        createdAt: new Date(),
+      };
+
+      vi.mocked(mockAccountRepo.findOrCreate).mockResolvedValue(ok(mockAccount));
+
+      // Logger is mocked, so we can't verify the warning directly,
+      // but we can verify the import still succeeds
+      const result = await orchestrator.importBlockchain('bitcoin', 'bc1q...', undefined, 20);
+
+      expect(result.isOk()).toBe(true);
+    });
+  });
+
+  describe('importBlockchain - xpub parent/child creation', () => {
+    it('should create parent account and child accounts for xpub', async () => {
+      const parentAccount: Account = {
+        id: 10,
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'xpub6C...',
+        createdAt: new Date(),
+      };
+
+      const childAccount1: Account = {
+        id: 11,
+        userId: 1,
+        parentAccountId: 10,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'bc1q1...',
+        createdAt: new Date(),
+      };
+
+      const childAccount2: Account = {
+        id: 12,
+        userId: 1,
+        parentAccountId: 10,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'bc1q2...',
+        createdAt: new Date(),
+      };
+
+      mockDeriveAddresses.mockResolvedValue([
+        { address: 'bc1q1...', derivationPath: "m/84'/0'/0'/0/0" },
+        { address: 'bc1q2...', derivationPath: "m/84'/0'/0'/0/1" },
+      ]);
+
+      vi.mocked(mockAccountRepo.findOrCreate)
+        .mockResolvedValueOnce(ok(parentAccount))
+        .mockResolvedValueOnce(ok(childAccount1))
+        .mockResolvedValueOnce(ok(childAccount2));
+
+      const result = await orchestrator.importBlockchain('bitcoin', 'xpub6C...');
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.transactionsImported).toBe(20); // 2 child accounts * 10 txs each
+      }
+
+      // Verify parent account creation
+      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledWith({
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'xpub6c...',
+        providerName: undefined,
+        credentials: undefined,
+      });
+
+      // Verify child account creation with parentAccountId
+      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledWith({
+        userId: 1,
+        parentAccountId: 10,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'bc1q1...',
+        providerName: undefined,
+        credentials: undefined,
+      });
+
+      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledWith({
+        userId: 1,
+        parentAccountId: 10,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'bc1q2...',
+        providerName: undefined,
+        credentials: undefined,
+      });
+
+      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledTimes(3); // 1 parent + 2 children
+    });
+
+    it('should respect custom xpubGap when deriving addresses', async () => {
+      const parentAccount: Account = {
+        id: 10,
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'xpub6C...',
+        createdAt: new Date(),
+      };
+
+      mockDeriveAddresses.mockResolvedValue([{ address: 'bc1q1...', derivationPath: "m/84'/0'/0'/0/0" }]);
+
+      vi.mocked(mockAccountRepo.findOrCreate).mockResolvedValue(ok(parentAccount));
+
+      await orchestrator.importBlockchain('bitcoin', 'xpub6C...', undefined, 5);
+
+      // Verify xpubGap was passed to deriveAddressesFromXpub
+      expect(mockDeriveAddresses).toHaveBeenCalledWith('xpub6c...', 5);
+    });
+
+    it('should handle Cardano xpub addresses', async () => {
+      const parentAccount: Account = {
+        id: 20,
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'cardano',
+        identifier: 'stake1u...',
+        createdAt: new Date(),
+      };
+
+      const childAccount: Account = {
+        id: 21,
+        userId: 1,
+        parentAccountId: 20,
+        accountType: 'blockchain',
+        sourceName: 'cardano',
+        identifier: 'addr1q...',
+        createdAt: new Date(),
+      };
+
+      mockDeriveAddresses.mockResolvedValue([{ address: 'addr1q...', derivationPath: "m/1852'/1815'/0'/0/0" }]);
+
+      vi.mocked(mockAccountRepo.findOrCreate)
+        .mockResolvedValueOnce(ok(parentAccount))
+        .mockResolvedValueOnce(ok(childAccount));
+
+      const result = await orchestrator.importBlockchain('cardano', 'stake1u...');
+
+      expect(result.isOk()).toBe(true);
+      expect(mockDeriveAddresses).toHaveBeenCalledWith('stake1u...', undefined);
+      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledTimes(2); // 1 parent + 1 child
+    });
+
+    it('should return error if xpub derivation produces zero addresses', async () => {
+      const parentAccount: Account = {
+        id: 10,
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'xpub6C...',
+        createdAt: new Date(),
+      };
+
+      mockDeriveAddresses.mockResolvedValue([]); // No addresses derived
+
+      vi.mocked(mockAccountRepo.findOrCreate).mockResolvedValue(ok(parentAccount));
+
+      const result = await orchestrator.importBlockchain('bitcoin', 'xpub6C...');
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Xpub derivation produced zero addresses');
+      }
+
+      // Should have created parent but not called import
+      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledTimes(1);
+    });
+
+    it('should continue importing other addresses if one child import fails', async () => {
+      const parentAccount: Account = {
+        id: 10,
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'xpub6C...',
+        createdAt: new Date(),
+      };
+
+      const childAccount1: Account = {
+        id: 11,
+        userId: 1,
+        parentAccountId: 10,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'bc1q1...',
+        createdAt: new Date(),
+      };
+
+      const childAccount2: Account = {
+        id: 12,
+        userId: 1,
+        parentAccountId: 10,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'bc1q2...',
+        createdAt: new Date(),
+      };
+
+      mockDeriveAddresses.mockResolvedValue([
+        { address: 'bc1q1...', derivationPath: "m/84'/0'/0'/0/0" },
+        { address: 'bc1q2...', derivationPath: "m/84'/0'/0'/0/1" },
+      ]);
+
+      vi.mocked(mockAccountRepo.findOrCreate)
+        .mockResolvedValueOnce(ok(parentAccount))
+        .mockResolvedValueOnce(ok(childAccount1))
+        .mockResolvedValueOnce(ok(childAccount2));
+
+      // Mock import service to fail on first child, succeed on second
+      const mockImportService = (
+        orchestrator as unknown as { importService: { importFromSource: ReturnType<typeof vi.fn> } }
+      ).importService;
+      vi.mocked(mockImportService.importFromSource)
+        .mockResolvedValueOnce(err(new Error('Network timeout')))
+        .mockResolvedValueOnce(ok({ transactionsImported: 10, dataSourceId: 2 }));
+
+      const result = await orchestrator.importBlockchain('bitcoin', 'xpub6C...');
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.transactionsImported).toBe(10); // Only second child succeeded
+      }
+    });
+
+    it('should return error if all child imports fail', async () => {
+      const parentAccount: Account = {
+        id: 10,
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'xpub6C...',
+        createdAt: new Date(),
+      };
+
+      const childAccount: Account = {
+        id: 11,
+        userId: 1,
+        parentAccountId: 10,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'bc1q1...',
+        createdAt: new Date(),
+      };
+
+      mockDeriveAddresses.mockResolvedValue([{ address: 'bc1q1...', derivationPath: "m/84'/0'/0'/0/0" }]);
+
+      vi.mocked(mockAccountRepo.findOrCreate)
+        .mockResolvedValueOnce(ok(parentAccount))
+        .mockResolvedValueOnce(ok(childAccount));
+
+      // Mock import service to fail
+      const mockImportService = (
+        orchestrator as unknown as { importService: { importFromSource: ReturnType<typeof vi.fn> } }
+      ).importService;
+      vi.mocked(mockImportService.importFromSource).mockResolvedValue(err(new Error('Provider unavailable')));
+
+      const result = await orchestrator.importBlockchain('bitcoin', 'xpub6C...');
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Xpub import failed');
+      }
+    });
+
+    it('should pass providerName to parent and child accounts', async () => {
+      const parentAccount: Account = {
+        id: 10,
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'xpub6C...',
+        providerName: 'mempool.space',
+        createdAt: new Date(),
+      };
+
+      const childAccount: Account = {
+        id: 11,
+        userId: 1,
+        parentAccountId: 10,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'bc1q1...',
+        providerName: 'mempool.space',
+        createdAt: new Date(),
+      };
+
+      mockDeriveAddresses.mockResolvedValue([{ address: 'bc1q1...', derivationPath: "m/84'/0'/0'/0/0" }]);
+
+      vi.mocked(mockAccountRepo.findOrCreate)
+        .mockResolvedValueOnce(ok(parentAccount))
+        .mockResolvedValueOnce(ok(childAccount));
+
+      await orchestrator.importBlockchain('bitcoin', 'xpub6C...', 'mempool.space');
+
+      // Verify providerName passed to parent
+      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledWith({
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'xpub6c...',
+        providerName: 'mempool.space',
+        credentials: undefined,
+      });
+
+      // Verify providerName passed to child
+      expect(mockAccountRepo.findOrCreate).toHaveBeenCalledWith({
+        userId: 1,
+        parentAccountId: 10,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'bc1q1...',
+        providerName: 'mempool.space',
+        credentials: undefined,
+      });
+    });
+  });
+
+  describe('importBlockchain - error cases', () => {
+    it('should return error for unknown blockchain', async () => {
+      const result = await orchestrator.importBlockchain('unknown-chain', 'some-address');
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Unknown blockchain: unknown-chain');
+      }
+    });
+
+    it('should handle user creation failure', async () => {
+      vi.mocked(mockUserRepo.ensureDefaultUser).mockResolvedValue(err(new Error('User creation failed')));
+
+      const result = await orchestrator.importBlockchain('bitcoin', 'bc1q...');
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toBe('User creation failed');
+      }
+    });
+
+    it('should handle parent account creation failure for xpub', async () => {
+      mockDeriveAddresses.mockResolvedValue([{ address: 'bc1q1...', derivationPath: "m/84'/0'/0'/0/0" }]);
+
+      vi.mocked(mockAccountRepo.findOrCreate).mockResolvedValue(err(new Error('Database error')));
+
+      const result = await orchestrator.importBlockchain('bitcoin', 'xpub6C...');
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toBe('Database error');
+      }
+    });
+
+    it('should handle child account creation failure for xpub', async () => {
+      const parentAccount: Account = {
+        id: 10,
+        userId: 1,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'xpub6C...',
+        createdAt: new Date(),
+      };
+
+      mockDeriveAddresses.mockResolvedValue([{ address: 'bc1q1...', derivationPath: "m/84'/0'/0'/0/0" }]);
+
+      vi.mocked(mockAccountRepo.findOrCreate)
+        .mockResolvedValueOnce(ok(parentAccount))
+        .mockResolvedValueOnce(err(new Error('Child account creation failed')));
+
+      const result = await orchestrator.importBlockchain('bitcoin', 'xpub6C...');
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toBe('Child account creation failed');
+      }
+    });
+  });
+});

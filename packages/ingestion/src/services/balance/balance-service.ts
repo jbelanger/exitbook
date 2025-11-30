@@ -13,7 +13,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import { getBlockchainConfig } from '../../infrastructure/blockchains/index.js';
+import { getBlockchainAdapter } from '../../infrastructure/blockchains/index.js';
 import type { IDataSourceRepository } from '../../types/repositories.js';
 
 import { calculateBalances } from './balance-calculator.js';
@@ -182,12 +182,12 @@ export class BalanceService {
       }
 
       // Normalize address using blockchain-specific logic (e.g., lowercase for EVM)
-      const blockchainConfig = getBlockchainConfig(params.sourceName);
-      if (!blockchainConfig) {
+      const blockchainAdapter = getBlockchainAdapter(params.sourceName);
+      if (!blockchainAdapter) {
         return err(new Error(`No configuration found for blockchain: ${params.sourceName}`));
       }
 
-      const normalizedResult = blockchainConfig.normalizeAddress(params.address);
+      const normalizedResult = blockchainAdapter.normalizeAddress(params.address);
       if (normalizedResult.isErr()) {
         return err(normalizedResult.error);
       }

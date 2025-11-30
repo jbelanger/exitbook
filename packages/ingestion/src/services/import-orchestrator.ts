@@ -6,7 +6,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { getBlockchainConfig } from '../infrastructure/blockchains/index.js';
+import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
 import type { ImportResult } from '../types/importers.js';
 import type { IDataSourceRepository, IRawDataRepository } from '../types/repositories.js';
 
@@ -46,11 +46,11 @@ export class ImportOrchestrator {
    */
   async importBlockchain(
     blockchain: string,
-    address: string,
+    addressOrXpub: string,
     providerName?: string,
     xpubGap?: number
   ): Promise<Result<ImportResult, Error>> {
-    this.logger.info(`Starting blockchain import for ${blockchain} (${address.substring(0, 20)}...)`);
+    this.logger.info(`Starting blockchain import for ${blockchain} (${addressOrXpub.substring(0, 20)}...)`);
 
     // 1. Ensure default CLI user exists (id=1)
     const userResult = await this.userRepository.ensureDefaultUser();
@@ -61,23 +61,23 @@ export class ImportOrchestrator {
 
     // 2. Normalize address using blockchain-specific logic
     const normalizedBlockchain = blockchain.toLowerCase();
-    const blockchainConfig = getBlockchainConfig(normalizedBlockchain);
-    if (!blockchainConfig) {
+    const blockchainAdapter = getBlockchainAdapter(normalizedBlockchain);
+    if (!blockchainAdapter) {
       return err(new Error(`Unknown blockchain: ${blockchain}`));
     }
 
-    const normalizedAddressResult = blockchainConfig.normalizeAddress(address);
+    const normalizedAddressResult = blockchainAdapter.normalizeAddress(addressOrXpub);
     if (normalizedAddressResult.isErr()) {
       return err(normalizedAddressResult.error);
     }
     const normalizedAddress = normalizedAddressResult.value;
 
     // 3. Check if address is an extended public key (xpub)
-    const isXpub = blockchainConfig.isExtendedPublicKey?.(normalizedAddress) ?? false;
+    const isXpub = blockchainAdapter.isExtendedPublicKey?.(normalizedAddress) ?? false;
 
-    if (isXpub && blockchainConfig.deriveAddressesFromXpub) {
+    if (isXpub && blockchainAdapter.deriveAddressesFromXpub) {
       // Handle xpub: create parent account + child accounts for derived addresses
-      return this.importFromXpub(user.id, blockchain, normalizedAddress, blockchainConfig, providerName, xpubGap);
+      return this.importFromXpub(user.id, blockchain, normalizedAddress, blockchainAdapter, providerName, xpubGap);
     }
 
     // Warn if xpubGap was provided but address is not an xpub
@@ -194,12 +194,12 @@ export class ImportOrchestrator {
     userId: number,
     blockchain: string,
     xpub: string,
-    blockchainConfig: ReturnType<typeof getBlockchainConfig>,
+    blockchainAdapter: ReturnType<typeof getBlockchainAdapter>,
     providerName?: string,
     xpubGap?: number
   ): Promise<Result<ImportResult, Error>> {
     try {
-      if (!blockchainConfig?.deriveAddressesFromXpub) {
+      if (!blockchainAdapter?.deriveAddressesFromXpub) {
         return err(new Error(`Blockchain ${blockchain} does not support xpub derivation`));
       }
 
@@ -223,7 +223,7 @@ export class ImportOrchestrator {
       this.logger.info(`Created parent account #${parentAccount.id} for xpub`);
 
       // 2. Derive child addresses
-      const derivedAddresses = await blockchainConfig.deriveAddressesFromXpub(xpub, xpubGap);
+      const derivedAddresses = await blockchainAdapter.deriveAddressesFromXpub(xpub, xpubGap);
       this.logger.info(
         `Derived ${derivedAddresses.length} addresses from xpub${xpubGap !== undefined ? ` (gap: ${xpubGap})` : ''}`
       );
@@ -262,7 +262,7 @@ export class ImportOrchestrator {
       this.logger.info(`Created ${childAccounts.length} child accounts`);
 
       // 4. Import each child account and aggregate results
-      let totalImported = 0;
+      let totalNewTransactions = 0;
       let lastDataSourceId = 0;
       let successfulImports = 0;
       const errors: string[] = [];
@@ -282,7 +282,7 @@ export class ImportOrchestrator {
           continue;
         }
 
-        totalImported += importResult.value.imported;
+        totalNewTransactions += importResult.value.transactionsImported;
         lastDataSourceId = importResult.value.dataSourceId;
         successfulImports++;
       }
@@ -294,11 +294,11 @@ export class ImportOrchestrator {
       }
 
       this.logger.info(
-        `Completed xpub import: ${totalImported} transactions from ${successfulImports}/${childAccounts.length} addresses`
+        `Completed xpub import: ${totalNewTransactions} transactions from ${successfulImports}/${childAccounts.length} addresses`
       );
 
       return ok({
-        imported: totalImported,
+        transactionsImported: totalNewTransactions,
         dataSourceId: lastDataSourceId,
       });
     } catch (error) {

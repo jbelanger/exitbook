@@ -2,7 +2,7 @@ import type { CursorState, DataSource } from '@exitbook/core';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { BlockchainConfig } from '../../infrastructure/blockchains/shared/blockchain-config.js';
+import type { BlockchainAdapter } from '../../infrastructure/blockchains/shared/blockchain-adapter.ts';
 import type { ImportParams } from '../../types/importers.js';
 import {
   normalizeBlockchainImportParams,
@@ -43,7 +43,7 @@ describe('import-service-utils', () => {
     it('should return error when address is missing', () => {
       const sourceId = 'bitcoin';
       const params: ImportParams = {};
-      const config: BlockchainConfig = {
+      const adapter: BlockchainAdapter = {
         blockchain: 'bitcoin',
         normalizeAddress: (address) => ok(address.toLowerCase()),
         createImporter: () => {
@@ -54,7 +54,7 @@ describe('import-service-utils', () => {
         },
       };
 
-      const result = normalizeBlockchainImportParams(sourceId, params, config);
+      const result = normalizeBlockchainImportParams(sourceId, params, adapter);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -65,7 +65,7 @@ describe('import-service-utils', () => {
     it('should normalize address successfully', () => {
       const sourceId = 'bitcoin';
       const params: ImportParams = { address: 'BC1Q...' };
-      const config: BlockchainConfig = {
+      const adapter: BlockchainAdapter = {
         blockchain: 'bitcoin',
         normalizeAddress: (address) => ok(address.toLowerCase()),
         createImporter: () => {
@@ -76,7 +76,7 @@ describe('import-service-utils', () => {
         },
       };
 
-      const result = normalizeBlockchainImportParams(sourceId, params, config);
+      const result = normalizeBlockchainImportParams(sourceId, params, adapter);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -87,7 +87,7 @@ describe('import-service-utils', () => {
     it('should return error when normalization fails', () => {
       const sourceId = 'bitcoin';
       const params: ImportParams = { address: 'invalid-address' };
-      const config: BlockchainConfig = {
+      const adapter: BlockchainAdapter = {
         blockchain: 'bitcoin',
         normalizeAddress: () => err(new Error('Invalid address format')),
         createImporter: () => {
@@ -98,7 +98,7 @@ describe('import-service-utils', () => {
         },
       };
 
-      const result = normalizeBlockchainImportParams(sourceId, params, config);
+      const result = normalizeBlockchainImportParams(sourceId, params, adapter);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -112,7 +112,7 @@ describe('import-service-utils', () => {
         address: 'BC1Q...',
         providerName: 'blockstream',
       };
-      const config: BlockchainConfig = {
+      const adapter: BlockchainAdapter = {
         blockchain: 'bitcoin',
         normalizeAddress: (address) => ok(address.toLowerCase()),
         createImporter: () => {
@@ -123,7 +123,7 @@ describe('import-service-utils', () => {
         },
       };
 
-      const result = normalizeBlockchainImportParams(sourceId, params, config);
+      const result = normalizeBlockchainImportParams(sourceId, params, adapter);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {

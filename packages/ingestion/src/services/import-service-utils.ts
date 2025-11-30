@@ -2,7 +2,7 @@ import type { CursorState, DataSource } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { BlockchainConfig } from '../infrastructure/blockchains/shared/blockchain-config.js';
+import type { BlockchainAdapter } from '../infrastructure/blockchains/shared/blockchain-adapter.ts';
 import type { ImportParams } from '../types/importers.js';
 
 /**
@@ -41,13 +41,13 @@ export function shouldReuseExistingImport(existingSource: DataSource | undefined
  *
  * @param sourceId - Blockchain identifier (e.g., 'bitcoin', 'ethereum')
  * @param params - Import parameters containing the address
- * @param config - Blockchain configuration with normalization logic
+ * @param adapter - Blockchain adapter with normalization logic
  * @returns Normalized parameters with validated address, or error
  */
 export function normalizeBlockchainImportParams(
   sourceId: string,
   params: ImportParams,
-  config: BlockchainConfig
+  adapter: BlockchainAdapter
 ): Result<NormalizedBlockchainParams, Error> {
   // Validate address is provided
   if (!params.address) {
@@ -55,7 +55,7 @@ export function normalizeBlockchainImportParams(
   }
 
   // Normalize address using blockchain-specific logic
-  const normalizedResult = config.normalizeAddress(params.address);
+  const normalizedResult = adapter.normalizeAddress(params.address);
   if (normalizedResult.isErr()) {
     return err(normalizedResult.error);
   }

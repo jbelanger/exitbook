@@ -7,7 +7,7 @@ import { progress } from '@exitbook/ui';
 import type { Result } from 'neverthrow';
 import { err, ok, okAsync } from 'neverthrow';
 
-import { getBlockchainConfig } from '../infrastructure/blockchains/index.js';
+import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
 import { createExchangeImporter } from '../infrastructure/exchanges/shared/exchange-importer-factory.js';
 import type { IImporter, ImportParams, ImportResult } from '../types/importers.js';
 import type { IDataSourceRepository, IRawDataRepository } from '../types/repositories.js';
@@ -67,9 +67,9 @@ export class TransactionImportService {
     // Normalize sourceId to lowercase for config lookup (registry keys are lowercase)
     const normalizedSourceId = sourceId.toLowerCase();
 
-    // Get blockchain config
-    const config = getBlockchainConfig(normalizedSourceId);
-    if (!config) {
+    // Get blockchain adapter
+    const adapter = getBlockchainAdapter(normalizedSourceId);
+    if (!adapter) {
       return err(new Error(`Unknown blockchain: ${sourceId}`));
     }
 
@@ -81,7 +81,7 @@ export class TransactionImportService {
     };
 
     // Normalize and validate params using pure function
-    const normalizedParamsResult = normalizeBlockchainImportParams(sourceId, params, config);
+    const normalizedParamsResult = normalizeBlockchainImportParams(sourceId, params, adapter);
     if (normalizedParamsResult.isErr()) {
       return err(normalizedParamsResult.error);
     }
@@ -93,7 +93,7 @@ export class TransactionImportService {
       cursor: account.lastCursor,
     };
 
-    const importer = config.createImporter(this.providerManager, normalizedParams.providerName);
+    const importer = adapter.createImporter(this.providerManager, normalizedParams.providerName);
     this.logger.info(`Importer for ${sourceId} created successfully`);
 
     // Check if importer supports streaming
@@ -272,7 +272,7 @@ export class TransactionImportService {
       this.logger.info(`Import completed for ${sourceName}: ${totalImported} items saved`);
 
       return ok({
-        imported: totalImported,
+        transactionsImported: totalImported,
         dataSourceId,
       });
     } catch (error) {

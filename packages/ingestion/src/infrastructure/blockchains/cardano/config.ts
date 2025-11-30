@@ -2,8 +2,8 @@ import { CardanoUtils, type BlockchainProviderManager } from '@exitbook/blockcha
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
-import type { DerivedAddress } from '../shared/blockchain-config.js';
-import { registerBlockchain } from '../shared/blockchain-config.js';
+import type { DerivedAddress } from '../shared/blockchain-adapter.ts';
+import { registerBlockchain } from '../shared/blockchain-adapter.ts';
 
 import { CardanoTransactionImporter } from './importer.js';
 import { CardanoTransactionProcessor } from './processor.js';

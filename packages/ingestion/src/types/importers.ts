@@ -11,7 +11,7 @@ export interface ImportParams {
 }
 
 export interface ImportResult {
-  imported: number;
+  transactionsImported: number;
   dataSourceId: number;
   metadata?: Record<string, unknown> | undefined;
 }

@@ -76,7 +76,7 @@ const mockImportFn = vi.fn().mockResolvedValue(
 
 // Mock blockchain config
 vi.mock('../../infrastructure/blockchains/index.js', () => ({
-  getBlockchainConfig: (id: string) => {
+  getBlockchainAdapter: (id: string) => {
     if (id === 'bitcoin' || id === 'ethereum') {
       return {
         normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
@@ -204,7 +204,7 @@ describe('TransactionImportService', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.imported).toBe(2);
+        expect(result.value.transactionsImported).toBe(2);
         expect(result.value.dataSourceId).toBe(1);
       }
 
@@ -274,7 +274,7 @@ describe('TransactionImportService', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.imported).toBe(52); // 50 previous + 2 new = cumulative total
+        expect(result.value.transactionsImported).toBe(52); // 50 previous + 2 new = cumulative total
         expect(result.value.dataSourceId).toBe(42);
       }
 
@@ -391,7 +391,7 @@ describe('TransactionImportService', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.imported).toBe(2);
+        expect(result.value.transactionsImported).toBe(2);
         expect(result.value.dataSourceId).toBe(1);
       }
 

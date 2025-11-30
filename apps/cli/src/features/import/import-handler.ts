@@ -143,12 +143,12 @@ export class ImportHandler {
 
       const result: ImportResult = {
         dataSourceId: importData.dataSourceId,
-        imported: importData.imported,
+        imported: importData.transactionsImported,
       };
 
       // Process data if requested
       if (params.shouldProcess) {
-        progress.update(`Processing ${importData.imported} transactions...`);
+        progress.update(`Processing ${importData.transactionsImported} transactions...`);
         const processResult = await this.processService.processRawDataToTransactions(
           params.sourceName,
           params.sourceType,
