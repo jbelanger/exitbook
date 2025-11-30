@@ -6,7 +6,7 @@ import { z } from 'zod';
 export const SourceTypeSchema = z.enum(['blockchain', 'exchange']);
 
 /**
- * Data source status schema - lifecycle states
+ * Import Session status schema - lifecycle states
  */
 export const ImportSessionStatusSchema = z.enum(['started', 'completed', 'failed', 'cancelled']);
 

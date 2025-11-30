@@ -339,7 +339,7 @@ export function deduplicateTransactions<T extends { normalized: { id: string } }
  * This is a placeholder that will be implemented in Phase 2.3 when we add
  * storage integration to the provider manager.
  *
- * @param importSessionId - Data source to load transactions from
+ * @param importSessionId - Import session to load transactions from
  * @param windowSize - Number of recent transactions to load (default: 1000)
  * @returns Promise resolving to array of transaction IDs from the last N transactions
  */
@@ -347,7 +347,7 @@ export function loadRecentTransactionIds(importSessionId: number, _windowSize = 
   // TODO: Implement in Phase 2.3
   // This will query the repository:
   // Query: SELECT external_id FROM external_transaction_data
-  //        WHERE data_source_id = ?
+  //        WHERE import_session_id = ?
   //        ORDER BY id DESC
   //        LIMIT ?
 
