@@ -222,7 +222,7 @@ describe('TransactionImportService', () => {
         expect.any(Number),
         undefined,
         undefined,
-        { transactionsImported: 2 }
+        { transactionsImported: 2, address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' }
       );
     });
 
@@ -366,7 +366,8 @@ describe('TransactionImportService', () => {
         expect.objectContaining({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- acceptable for tests
           stack: expect.any(String),
-        })
+        }),
+        { transactionsImported: 0, address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' }
       );
     });
   });

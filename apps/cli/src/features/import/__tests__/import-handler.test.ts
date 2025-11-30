@@ -81,7 +81,7 @@ describe('ImportHandler', () => {
         imported: 50,
       });
 
-      expect(mockImportOrchestrator.importBlockchain).toHaveBeenCalledWith('bitcoin', 'bc1qtest', undefined);
+      expect(mockImportOrchestrator.importBlockchain).toHaveBeenCalledWith('bitcoin', 'bc1qtest', undefined, undefined);
     });
 
     it('should successfully import exchange data from CSV', async () => {
