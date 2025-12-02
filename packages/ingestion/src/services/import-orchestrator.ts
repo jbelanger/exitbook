@@ -235,15 +235,13 @@ export class ImportOrchestrator {
         `Derived ${derivedAddresses.length} addresses from xpub${xpubGap !== undefined ? ` (gap: ${xpubGap})` : ''}`
       );
 
-      // Validate that derivation produced at least one address
+      // Handle case where no active addresses were found
       if (derivedAddresses.length === 0) {
-        return err(
-          new Error(
-            `Xpub derivation produced zero addresses. ` +
-              `This may indicate an invalid xpub or gap limit set to 0. ` +
-              `Please check the xpub format and try again${xpubGap !== undefined ? ` with a different --xpub-gap value (currently: ${xpubGap})` : ''}.`
-          )
-        );
+        this.logger.info('No active addresses found for xpub - no transactions to import');
+        return ok({
+          transactionsImported: 0,
+          importSessionId: parentAccount.id,
+        });
       }
 
       // 3. Create child account for each derived address

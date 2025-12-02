@@ -301,7 +301,7 @@ export class CardanoUtils {
 
     logger.info(`Performing intelligent gap scan for ${walletAddress.address.substring(0, 20)}...`);
 
-    let lastUsedIndex = -1;
+    const activeAddresses: string[] = []; // Track only addresses with activity
     let consecutiveUnusedCount = 0;
     const GAP_LIMIT = 10; // Reduced gap limit to minimize API calls
     let errorCount = 0;
@@ -336,12 +336,12 @@ export class CardanoUtils {
 
       const hasActivity = result.value.data as boolean;
       if (hasActivity) {
-        // Found an active address!
-        lastUsedIndex = i;
+        // Found an active address - include it
+        activeAddresses.push(address);
         consecutiveUnusedCount = 0; // Reset the counter
         logger.debug(`Found activity at index ${i}: ${address}`);
       } else {
-        // Unused address
+        // Unused address - don't include it
         consecutiveUnusedCount++;
         logger.debug(`No activity at index ${i}, consecutive unused: ${consecutiveUnusedCount}`);
 
@@ -353,27 +353,18 @@ export class CardanoUtils {
       }
 
       // If we've found at least one used address and then hit the gap limit, we can stop
-      if (lastUsedIndex > -1 && consecutiveUnusedCount >= GAP_LIMIT) {
-        logger.info(`Gap limit of ${GAP_LIMIT} reached after last used address at index ${lastUsedIndex}.`);
+      if (activeAddresses.length > 0 && consecutiveUnusedCount >= GAP_LIMIT) {
+        logger.info(`Gap limit of ${GAP_LIMIT} reached after last used address.`);
         break;
       }
     }
 
-    let finalAddressCount: number;
-    if (lastUsedIndex === -1) {
-      // No activity found at all. Just use the first 20 addresses (10 external, 10 internal).
-      finalAddressCount = Math.min(allDerived.length, 20);
-      logger.info('No activity found. Using default address set size.');
-    } else {
-      // We found activity. The set should include all addresses up to the last used one, plus the gap limit as a buffer.
-      finalAddressCount = Math.min(allDerived.length, lastUsedIndex + GAP_LIMIT + 1);
-      logger.info(`Scan complete. Using addresses up to index ${finalAddressCount - 1}.`);
-    }
+    // Only include addresses that actually have transactions
+    walletAddress.derivedAddresses = activeAddresses;
 
-    // Optimize the derived addresses list in place
-    walletAddress.derivedAddresses = allDerived.slice(0, finalAddressCount);
-
-    logger.info(`Optimized address set: ${walletAddress.derivedAddresses.length} addresses (was ${allDerived.length})`);
+    logger.info(
+      `Optimized address set: ${walletAddress.derivedAddresses.length} addresses with activity (scanned ${allDerived.length})`
+    );
 
     return ok();
   }

@@ -337,6 +337,33 @@ describe('xpub import integration tests', () => {
       // Verify custom gap was passed to derive function
       expect(mockDeriveAddresses).toHaveBeenCalledWith(xpub.toLowerCase(), mockProviderManager, 'bitcoin', customGap);
     });
+
+    it('should create only parent account when no active addresses found (0 derived addresses)', async () => {
+      // Mock derive addresses to return empty array (no activity found during gap scan)
+      mockDeriveAddresses.mockResolvedValue([]);
+
+      const result = await orchestrator.importBlockchain('bitcoin', xpub);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.transactionsImported).toBe(0);
+      }
+
+      // Verify only parent account was created, no child accounts
+      const allAccounts = await db.selectFrom('accounts').selectAll().execute();
+      expect(allAccounts).toHaveLength(1); // Only parent account
+
+      const parentAccount = allAccounts.find((a) => a.identifier === xpub.toLowerCase());
+      expect(parentAccount).toBeDefined();
+      expect(parentAccount?.parent_account_id).toBeNull();
+
+      // Verify no import sessions were created (no child imports)
+      const importSessions = await db.selectFrom('import_sessions').selectAll().execute();
+      expect(importSessions).toHaveLength(0);
+
+      // importStreaming should never be called
+      expect(mockImportStreamingFn).not.toHaveBeenCalled();
+    });
   });
 
   describe('Cardano xpub import with resume', () => {

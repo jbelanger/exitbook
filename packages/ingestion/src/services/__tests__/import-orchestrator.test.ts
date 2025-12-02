@@ -282,7 +282,7 @@ describe('ImportOrchestrator', () => {
       expect(mockAccountRepo.findOrCreate).toHaveBeenCalledTimes(2); // 1 parent + 1 child
     });
 
-    it('should return error if xpub derivation produces zero addresses', async () => {
+    it('should return success with 0 transactions if xpub derivation produces zero addresses', async () => {
       const parentAccount: Account = {
         id: 10,
         userId: 1,
@@ -292,18 +292,19 @@ describe('ImportOrchestrator', () => {
         createdAt: new Date(),
       };
 
-      mockDeriveAddresses.mockResolvedValue([]); // No addresses derived
+      mockDeriveAddresses.mockResolvedValue([]); // No addresses derived (no activity found)
 
       vi.mocked(mockAccountRepo.findOrCreate).mockResolvedValue(ok(parentAccount));
 
       const result = await orchestrator.importBlockchain('bitcoin', 'xpub6C...');
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Xpub derivation produced zero addresses');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.transactionsImported).toBe(0);
+        expect(result.value.importSessionId).toBe(parentAccount.id);
       }
 
-      // Should have created parent but not called import
+      // Should have created parent but not child accounts or called import
       expect(mockAccountRepo.findOrCreate).toHaveBeenCalledTimes(1);
     });
 
