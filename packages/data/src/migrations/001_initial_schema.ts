@@ -63,7 +63,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
   await db.schema
     .createTable('external_transaction_data')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('data_source_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
+    .addColumn('import_session_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
     .addColumn('provider_name', 'text', (col) => col.notNull())
     .addColumn('external_id', 'text', (col) => col.notNull())
     .addColumn('source_address', 'text')
@@ -76,11 +76,11 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .execute();
 
-  // Create unique index on (data_source_id, external_id) to prevent duplicates
+  // Create unique index on (import_session_id, external_id) to prevent duplicates
   await db.schema
     .createIndex('idx_external_tx_session_external_id')
     .on('external_transaction_data')
-    .columns(['data_source_id', 'external_id'])
+    .columns(['import_session_id', 'external_id'])
     .unique()
     .execute();
 
@@ -88,7 +88,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
   await db.schema
     .createTable('transactions')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('data_source_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
+    .addColumn('import_session_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
     .addColumn('source_id', 'text', (col) => col.notNull())
     .addColumn('source_type', 'text', (col) => col.notNull())
     .addColumn('external_id', 'text')
@@ -119,12 +119,12 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('updated_at', 'text')
     .execute();
 
-  // Create unique index on (data_source_id, external_id) to prevent duplicate transactions within a session
+  // Create unique index on (import_session_id, external_id) to prevent duplicate transactions within a session
   // This allows different sessions to have their own perspective of the same blockchain transaction
   await db.schema
     .createIndex('idx_transactions_source_external_id')
     .on('transactions')
-    .columns(['data_source_id', 'external_id'])
+    .columns(['import_session_id', 'external_id'])
     .unique()
     .execute();
 

@@ -320,7 +320,7 @@ export class TransactionLinkRepository extends BaseRepository {
         .where(
           'source_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
+          this.db.selectFrom('transactions').select('id').where('import_session_id', 'in', importSessionIds)
         )
         .executeTakeFirst();
       return ok(result?.count ?? 0);
@@ -398,8 +398,8 @@ export class TransactionLinkRepository extends BaseRepository {
   }
 
   /**
-   * Delete transaction links for transactions from specific data sources (import sessions).
-   * Uses data_source_id from transactions to properly scope deletions to specific accounts.
+   * Delete transaction links for transactions from specific import sessions (import sessions).
+   * Uses import_session_id from transactions to properly scope deletions to specific accounts.
    *
    * @param importSessionIds - Import session IDs to match
    * @returns Result with count of deleted links
@@ -415,7 +415,7 @@ export class TransactionLinkRepository extends BaseRepository {
         .where(
           'source_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
+          this.db.selectFrom('transactions').select('id').where('import_session_id', 'in', importSessionIds)
         )
         .executeTakeFirst();
 

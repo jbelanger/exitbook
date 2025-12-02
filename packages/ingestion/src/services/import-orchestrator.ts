@@ -24,18 +24,20 @@ import { TransactionImportService } from './import-service.js';
 export class ImportOrchestrator {
   private logger: Logger;
   private importService: TransactionImportService;
+  private providerManager: BlockchainProviderManager;
 
   constructor(
     private userRepository: UserRepository,
     private accountRepository: AccountRepository,
     rawDataRepository: IRawDataRepository,
-    dataSourceRepository: IImportSessionRepository,
+    importSessionRepository: IImportSessionRepository,
     providerManager: BlockchainProviderManager
   ) {
     this.logger = getLogger('ImportOrchestrator');
+    this.providerManager = providerManager;
     this.importService = new TransactionImportService(
       rawDataRepository,
-      dataSourceRepository,
+      importSessionRepository,
       accountRepository,
       providerManager
     );
@@ -222,8 +224,13 @@ export class ImportOrchestrator {
 
       this.logger.info(`Created parent account #${parentAccount.id} for xpub`);
 
-      // 2. Derive child addresses
-      const derivedAddresses = await blockchainAdapter.deriveAddressesFromXpub(xpub, xpubGap);
+      // 2. Derive child addresses using provider manager for smart detection and gap scanning
+      const derivedAddresses = await blockchainAdapter.deriveAddressesFromXpub(
+        xpub,
+        this.providerManager,
+        blockchain,
+        xpubGap
+      );
       this.logger.info(
         `Derived ${derivedAddresses.length} addresses from xpub${xpubGap !== undefined ? ` (gap: ${xpubGap})` : ''}`
       );

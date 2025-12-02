@@ -26,7 +26,12 @@ export interface BlockchainAdapter {
    * Derive child addresses from an extended public key
    * Optional - only implemented for blockchains that support xpub
    */
-  deriveAddressesFromXpub?: (xpub: string, gap?: number) => Promise<DerivedAddress[]>;
+  deriveAddressesFromXpub?: (
+    xpub: string,
+    providerManager: BlockchainProviderManager,
+    blockchain: string,
+    gap?: number
+  ) => Promise<DerivedAddress[]>;
 }
 
 const adapters = new Map<string, BlockchainAdapter>();

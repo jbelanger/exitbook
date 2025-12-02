@@ -9,7 +9,7 @@ import {
 import {
   TransactionProcessService,
   RawDataRepository,
-  DataSourceRepository,
+  ImportSessionRepository,
   TokenMetadataService,
 } from '@exitbook/ingestion';
 import type { Command } from 'commander';
@@ -64,7 +64,7 @@ async function executeProcessCommand(options: ProcessCommandOptions): Promise<vo
     const accountRepository = new AccountRepository(database);
     const transactionRepository = new TransactionRepository(database);
     const rawDataRepository = new RawDataRepository(database);
-    const dataSourceRepository = new DataSourceRepository(database);
+    const importSessionRepository = new ImportSessionRepository(database);
     const tokenMetadataRepository = new TokenMetadataRepository(database);
 
     // Initialize provider manager
@@ -74,7 +74,7 @@ async function executeProcessCommand(options: ProcessCommandOptions): Promise<vo
     const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, providerManager);
     const processService = new TransactionProcessService(
       rawDataRepository,
-      dataSourceRepository,
+      importSessionRepository,
       accountRepository,
       transactionRepository,
       tokenMetadataService

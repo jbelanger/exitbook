@@ -47,7 +47,7 @@ export type {
 
 // Concrete implementations
 export { RawDataRepository } from './persistence/raw-data-repository.js';
-export { ImportSessionRepository as DataSourceRepository } from './persistence/import-session-repository.js';
+export { ImportSessionRepository as ImportSessionRepository } from './persistence/import-session-repository.js';
 
 // Blockchain configuration
 export {

@@ -1,4 +1,9 @@
-import { BITCOIN_CHAINS, BitcoinUtils, getBitcoinChainConfig } from '@exitbook/blockchain-providers';
+import {
+  BITCOIN_CHAINS,
+  BitcoinUtils,
+  getBitcoinChainConfig,
+  type BitcoinWalletAddress,
+} from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
@@ -21,11 +26,29 @@ for (const chainName of Object.keys(BITCOIN_CHAINS)) {
 
     isExtendedPublicKey: (address: string) => BitcoinUtils.isXpub(address),
 
-    deriveAddressesFromXpub: async (xpub: string, gap?: number): Promise<DerivedAddress[]> => {
-      const result = await BitcoinUtils.deriveAddressesFromXpub(xpub, gap);
-      return result.map((addr) => ({
-        address: addr.address,
-        derivationPath: addr.derivationPath,
+    deriveAddressesFromXpub: async (
+      xpub: string,
+      providerManager,
+      blockchain: string,
+      gap?: number
+    ): Promise<DerivedAddress[]> => {
+      // Use the proper wallet initialization that includes provider manager for smart detection and gap scanning
+      const walletAddress: BitcoinWalletAddress = {
+        address: xpub,
+        type: 'xpub',
+      };
+
+      const initResult = await BitcoinUtils.initializeXpubWallet(walletAddress, blockchain, providerManager, gap ?? 20);
+
+      if (initResult.isErr()) {
+        throw initResult.error;
+      }
+
+      // Return the derived addresses with derivation paths
+      const derivedAddresses = walletAddress.derivedAddresses || [];
+      return derivedAddresses.map((address: string, index: number) => ({
+        address,
+        derivationPath: `m/${Math.floor(index / 2) % 2}/${Math.floor(index / 2)}`,
       }));
     },
 

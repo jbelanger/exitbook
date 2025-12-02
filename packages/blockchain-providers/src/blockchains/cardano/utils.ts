@@ -135,14 +135,15 @@ export class CardanoUtils {
       const { Cardano } = await import('@cardano-sdk/core');
 
       // Parse the extended public key from hex
-      const accountPublicKey = Bip32PublicKey.fromHex(xpub);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any -- hard to import Bip32PublicKeyHex
+      const accountPublicKey = Bip32PublicKey.fromHex(xpub as any);
 
       const derivedAddresses: DerivedCardanoAddress[] = [];
 
       // Derive the stake key at CIP-1852 path: account'/2/0
       // This single stake key is used for all addresses in the account
       const stakeKey = accountPublicKey.derive([2, 0]);
-      const stakeCredential = stakeKey.toRawKey().hash().hex() as string;
+      const stakeCredential = stakeKey.toRawKey().hash().hex();
 
       // Derive addresses for both external (role=0) and internal/change (role=1)
       for (const roleIndex of [0, 1]) {
@@ -157,7 +158,7 @@ export class CardanoUtils {
           const addressKey = roleKey.derive([addressIndex]);
 
           // Generate Shelley-era mainnet payment address following CIP-1852
-          const paymentCredential = addressKey.toRawKey().hash().hex() as string;
+          const paymentCredential = addressKey.toRawKey().hash().hex();
 
           // Create a base address with proper payment and stake credentials
           // Payment key is unique per address, stake key is shared across all addresses in account

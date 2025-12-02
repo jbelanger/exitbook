@@ -130,7 +130,7 @@ export interface IImportSessionRepository {
   findByAccounts(accountIds: number[]): Promise<Result<ImportSession[], Error>>;
 
   /**
-   * Get all data_source_ids (session IDs) for multiple accounts in one query (avoids N+1).
+   * Get all import_session_ids (session IDs) for multiple accounts in one query (avoids N+1).
    * Returns an array of session IDs across all specified accounts.
    */
   getDataSourceIdsByAccounts(accountIds: number[]): Promise<Result<number[], Error>>;

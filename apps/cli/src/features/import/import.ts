@@ -11,7 +11,7 @@ import {
   ImportOrchestrator,
   TransactionProcessService,
   RawDataRepository,
-  DataSourceRepository,
+  ImportSessionRepository,
   TokenMetadataService,
 } from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
@@ -109,7 +109,7 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
     const accountRepository = new AccountRepository(database);
     const transactionRepository = new TransactionRepository(database);
     const rawDataRepository = new RawDataRepository(database);
-    const dataSourceRepository = new DataSourceRepository(database);
+    const importSessionRepository = new ImportSessionRepository(database);
     const tokenMetadataRepository = new TokenMetadataRepository(database);
 
     // Initialize provider manager
@@ -121,12 +121,12 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
       userRepository,
       accountRepository,
       rawDataRepository,
-      dataSourceRepository,
+      importSessionRepository,
       providerManager
     );
     const processService = new TransactionProcessService(
       rawDataRepository,
-      dataSourceRepository,
+      importSessionRepository,
       accountRepository,
       transactionRepository,
       tokenMetadataService

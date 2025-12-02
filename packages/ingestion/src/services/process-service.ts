@@ -24,7 +24,7 @@ export class TransactionProcessService {
 
   constructor(
     private rawDataRepository: IRawDataRepository,
-    private dataSourceRepository: IImportSessionRepository,
+    private importSessionRepository: IImportSessionRepository,
     private accountRepository: AccountRepository,
     private transactionRepository: ITransactionRepository,
     private tokenMetadataService: ITokenMetadataService
@@ -71,10 +71,10 @@ export class TransactionProcessService {
   }
 
   /**
-   * Process all data sources that have pending raw data.
+   * Process all import sessions that have pending raw data.
    */
   async processAllPending(): Promise<Result<ProcessResult, Error>> {
-    this.logger.info('Processing all data sources with pending records');
+    this.logger.info('Processing all import sessions with pending records');
 
     try {
       // Load all pending raw data
@@ -98,10 +98,10 @@ export class TransactionProcessService {
       // Use pure function to extract unique import session IDs
       const importSessionIds = extractUniqueDataSourceIds(pendingData);
 
-      this.logger.info(`Found ${importSessionIds.length} data sources with pending records`);
+      this.logger.info(`Found ${importSessionIds.length} import sessions with pending records`);
 
-      // Load all data sources
-      const dataSourcesResult = await this.dataSourceRepository.findAll();
+      // Load all import sessions
+      const dataSourcesResult = await this.importSessionRepository.findAll();
       if (dataSourcesResult.isErr()) {
         return err(dataSourcesResult.error);
       }
@@ -191,20 +191,20 @@ export class TransactionProcessService {
       // Per ADR-007: Get sessions via accountId or importSessionId filter
       let allSessions;
       if (filters?.accountId) {
-        const allSessionsResult = await this.dataSourceRepository.findByAccount(filters.accountId);
+        const allSessionsResult = await this.importSessionRepository.findByAccount(filters.accountId);
         if (allSessionsResult.isErr()) {
           return err(allSessionsResult.error);
         }
         allSessions = allSessionsResult.value;
       } else if (filters?.importSessionId) {
-        const sessionResult = await this.dataSourceRepository.findById(filters.importSessionId);
+        const sessionResult = await this.importSessionRepository.findById(filters.importSessionId);
         if (sessionResult.isErr()) {
           return err(sessionResult.error);
         }
         allSessions = sessionResult.value ? [sessionResult.value] : [];
       } else {
         // Fallback: get all sessions (not recommended for performance)
-        const allSessionsResult = await this.dataSourceRepository.findAll();
+        const allSessionsResult = await this.importSessionRepository.findAll();
         if (allSessionsResult.isErr()) {
           return err(allSessionsResult.error);
         }

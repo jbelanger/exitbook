@@ -1,4 +1,8 @@
-import { CardanoUtils, type BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import {
+  CardanoUtils,
+  type BlockchainProviderManager,
+  type CardanoWalletAddress,
+} from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
@@ -30,12 +34,36 @@ registerBlockchain({
 
   isExtendedPublicKey: (address: string) => CardanoUtils.isExtendedPublicKey(address),
 
-  deriveAddressesFromXpub: async (xpub: string, gap?: number): Promise<DerivedAddress[]> => {
-    const result = await CardanoUtils.deriveAddressesFromXpub(xpub, gap);
-    return result.map((addr) => ({
-      address: addr.address,
-      derivationPath: addr.derivationPath,
-    }));
+  deriveAddressesFromXpub: async (
+    xpub: string,
+    providerManager: BlockchainProviderManager,
+    _blockchain: string,
+    gap?: number
+  ): Promise<DerivedAddress[]> => {
+    // Use the proper wallet initialization that includes provider manager for gap scanning
+    const walletAddress: CardanoWalletAddress = {
+      address: xpub,
+      type: 'xpub',
+    };
+
+    const initResult = await CardanoUtils.initializeXpubWallet(walletAddress, providerManager, gap ?? 10);
+
+    if (initResult.isErr()) {
+      throw initResult.error;
+    }
+
+    // Return the derived addresses - derivation paths are already stored during initialization
+    // We need to re-derive to get the paths since they aren't stored in derivedAddresses
+    const derivedWithPaths = await CardanoUtils.deriveAddressesFromXpub(xpub, gap ?? 10);
+    const optimizedAddresses = walletAddress.derivedAddresses || [];
+
+    // Filter the derived addresses to only include those that were kept after gap scanning
+    return derivedWithPaths
+      .filter((addr) => optimizedAddresses.includes(addr.address))
+      .map((addr) => ({
+        address: addr.address,
+        derivationPath: addr.derivationPath,
+      }));
   },
 
   createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>

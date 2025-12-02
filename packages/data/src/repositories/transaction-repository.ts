@@ -111,7 +111,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             transaction.externalId ||
             generateDeterministicTransactionHash(transaction)) as string,
           from_address: transaction.from,
-          data_source_id: importSessionId,
+          import_session_id: importSessionId,
           note_message: transaction.note?.message,
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
           note_severity: transaction.note?.severity,
@@ -144,7 +144,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           blockchain_is_confirmed: transaction.blockchain?.is_confirmed,
         })
         .onConflict((oc) =>
-          oc.columns(['data_source_id', 'external_id']).doUpdateSet({
+          oc.columns(['import_session_id', 'external_id']).doUpdateSet({
             from_address: (eb) => eb.ref('excluded.from_address'),
             note_message: (eb) => eb.ref('excluded.note_message'),
             note_metadata: (eb) => eb.ref('excluded.note_metadata'),
@@ -243,10 +243,10 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         }
 
         if (filters.sessionId !== undefined) {
-          query = query.where('data_source_id', '=', filters.sessionId);
+          query = query.where('import_session_id', '=', filters.sessionId);
         } else if (sessionIds !== undefined) {
           // Use the session IDs from account/status filtering
-          query = query.where('data_source_id', 'in', sessionIds);
+          query = query.where('import_session_id', 'in', sessionIds);
         }
       }
 
@@ -445,7 +445,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       const result = await this.db
         .selectFrom('transactions')
         .select(({ fn }) => [fn.count<number>('id').as('count')])
-        .where('data_source_id', 'in', importSessionIds)
+        .where('import_session_id', 'in', importSessionIds)
         .executeTakeFirst();
       return ok(result?.count ?? 0);
     } catch (error) {
@@ -460,7 +460,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       }
       const result = await this.db
         .deleteFrom('transactions')
-        .where('data_source_id', 'in', importSessionIds)
+        .where('import_session_id', 'in', importSessionIds)
         .executeTakeFirst();
       return ok(Number(result.numDeletedRows));
     } catch (error) {

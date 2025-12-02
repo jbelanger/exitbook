@@ -72,7 +72,7 @@ export class ClearService {
         // Account-scoped deletion
         const accountIds = extractAccountIds(accountsToClear);
 
-        // Get all data_source_ids for these accounts in a single query (avoids N+1)
+        // Get all import_session_ids for these accounts in a single query (avoids N+1)
         const dataSourceIdsResult = await this.dataSourceRepo.getDataSourceIdsByAccounts(accountIds);
         if (dataSourceIdsResult.isErr()) {
           return err(dataSourceIdsResult.error);
@@ -278,14 +278,14 @@ export class ClearService {
   ): Promise<Result<void, Error>> {
     const accountIds = extractAccountIds(accountsToClear);
 
-    // Get all data_source_ids (import session IDs) for these accounts in a single query (avoids N+1)
+    // Get all import_session_ids (import session IDs) for these accounts in a single query (avoids N+1)
     const dataSourceIdsResult = await this.dataSourceRepo.getDataSourceIdsByAccounts(accountIds);
     if (dataSourceIdsResult.isErr()) {
       return err(dataSourceIdsResult.error);
     }
     const importSessionIds = dataSourceIdsResult.value;
 
-    // Delete cost basis and transaction data by data_source_id (NOT source_id)
+    // Delete cost basis and transaction data by import_session_id (NOT source_id)
     // This ensures we only delete data for the specific accounts being cleared
     const disposalsResult = await this.costBasisRepo.deleteDisposalsByDataSourceIds(importSessionIds);
     if (disposalsResult.isErr()) {

@@ -628,7 +628,7 @@ export class CostBasisRepository extends BaseRepository {
         .where(
           'acquisition_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
+          this.db.selectFrom('transactions').select('id').where('import_session_id', 'in', importSessionIds)
         )
         .executeTakeFirst();
       return ok(result?.count ?? 0);
@@ -675,7 +675,7 @@ export class CostBasisRepository extends BaseRepository {
             .where(
               'acquisition_transaction_id',
               'in',
-              this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
+              this.db.selectFrom('transactions').select('id').where('import_session_id', 'in', importSessionIds)
             )
         )
         .executeTakeFirst();
@@ -711,7 +711,7 @@ export class CostBasisRepository extends BaseRepository {
         return ok(0);
       }
 
-      // Count distinct calculation IDs that have lots referencing the data sources
+      // Count distinct calculation IDs that have lots referencing the import sessions
       const calculationIds = await this.db
         .selectFrom('acquisition_lots')
         .select('calculation_id')
@@ -719,7 +719,7 @@ export class CostBasisRepository extends BaseRepository {
         .where(
           'acquisition_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
+          this.db.selectFrom('transactions').select('id').where('import_session_id', 'in', importSessionIds)
         )
         .execute();
 
@@ -763,8 +763,8 @@ export class CostBasisRepository extends BaseRepository {
   }
 
   /**
-   * Delete lot disposals for transactions from specific data sources (import sessions).
-   * Uses data_source_id from transactions to properly scope deletions to specific accounts.
+   * Delete lot disposals for transactions from specific import sessions (import sessions).
+   * Uses import_session_id from transactions to properly scope deletions to specific accounts.
    */
   async deleteDisposalsByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
     try {
@@ -783,7 +783,7 @@ export class CostBasisRepository extends BaseRepository {
             .where(
               'acquisition_transaction_id',
               'in',
-              this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
+              this.db.selectFrom('transactions').select('id').where('import_session_id', 'in', importSessionIds)
             )
         )
         .executeTakeFirst();
@@ -821,8 +821,8 @@ export class CostBasisRepository extends BaseRepository {
   }
 
   /**
-   * Delete acquisition lots for transactions from specific data sources (import sessions).
-   * Uses data_source_id from transactions to properly scope deletions to specific accounts.
+   * Delete acquisition lots for transactions from specific import sessions (import sessions).
+   * Uses import_session_id from transactions to properly scope deletions to specific accounts.
    */
   async deleteLotsByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
     try {
@@ -835,7 +835,7 @@ export class CostBasisRepository extends BaseRepository {
         .where(
           'acquisition_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
+          this.db.selectFrom('transactions').select('id').where('import_session_id', 'in', importSessionIds)
         )
         .executeTakeFirst();
 
@@ -897,8 +897,8 @@ export class CostBasisRepository extends BaseRepository {
   }
 
   /**
-   * Delete cost basis calculations for transactions from specific data sources (import sessions).
-   * Finds calculations that have lots referencing transactions with the given data_source_ids.
+   * Delete cost basis calculations for transactions from specific import sessions (import sessions).
+   * Finds calculations that have lots referencing transactions with the given importSessionIds.
    */
   async deleteCalculationsByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
     try {
@@ -906,7 +906,7 @@ export class CostBasisRepository extends BaseRepository {
         return ok(0);
       }
 
-      // Find calculation IDs that have lots referencing the data sources
+      // Find calculation IDs that have lots referencing the import sessions
       const calculationIds = await this.db
         .selectFrom('acquisition_lots')
         .select('calculation_id')
@@ -914,7 +914,7 @@ export class CostBasisRepository extends BaseRepository {
         .where(
           'acquisition_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
+          this.db.selectFrom('transactions').select('id').where('import_session_id', 'in', importSessionIds)
         )
         .execute();
 

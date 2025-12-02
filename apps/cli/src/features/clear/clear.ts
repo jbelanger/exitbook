@@ -58,7 +58,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     } = await import('@exitbook/accounting');
     const {
       RawDataRepository: RDRepo,
-      DataSourceRepository: DSRepo,
+      ImportSessionRepository: DSRepo,
       ClearService,
     } = await import('@exitbook/ingestion');
 
@@ -158,7 +158,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const { TransactionLinkRepository, CostBasisRepository, LotTransferRepository } = await import(
       '@exitbook/accounting'
     );
-    const { RawDataRepository, DataSourceRepository, ClearService: ClearSvc } = await import('@exitbook/ingestion');
+    const { RawDataRepository, ImportSessionRepository, ClearService: ClearSvc } = await import('@exitbook/ingestion');
 
     const db = await initDb();
     const userRepo = new UserRepository(db);
@@ -168,7 +168,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const costBasisRepo = new CostBasisRepository(db);
     const lotTransferRepo = new LotTransferRepository(db);
     const rawDataRepo = new RawDataRepository(db);
-    const dataSourceRepo = new DataSourceRepository(db);
+    const dataSourceRepo = new ImportSessionRepository(db);
 
     const clearSvc = new ClearSvc(
       userRepo,

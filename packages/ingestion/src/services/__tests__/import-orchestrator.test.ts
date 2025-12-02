@@ -246,7 +246,7 @@ describe('ImportOrchestrator', () => {
       await orchestrator.importBlockchain('bitcoin', 'xpub6C...', undefined, 5);
 
       // Verify xpubGap was passed to deriveAddressesFromXpub
-      expect(mockDeriveAddresses).toHaveBeenCalledWith('xpub6c...', 5);
+      expect(mockDeriveAddresses).toHaveBeenCalledWith('xpub6c...', mockProviderManager, 'bitcoin', 5);
     });
 
     it('should handle Cardano xpub addresses', async () => {
@@ -278,7 +278,7 @@ describe('ImportOrchestrator', () => {
       const result = await orchestrator.importBlockchain('cardano', 'stake1u...');
 
       expect(result.isOk()).toBe(true);
-      expect(mockDeriveAddresses).toHaveBeenCalledWith('stake1u...', undefined);
+      expect(mockDeriveAddresses).toHaveBeenCalledWith('stake1u...', mockProviderManager, 'cardano', undefined);
       expect(mockAccountRepo.findOrCreate).toHaveBeenCalledTimes(2); // 1 parent + 1 child
     });
 

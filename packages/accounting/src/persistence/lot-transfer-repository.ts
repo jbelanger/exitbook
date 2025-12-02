@@ -204,7 +204,7 @@ export class LotTransferRepository extends BaseRepository {
         .where(
           'source_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
+          this.db.selectFrom('transactions').select('id').where('import_session_id', 'in', importSessionIds)
         )
         .executeTakeFirst();
       return ok(result?.count ?? 0);
@@ -234,8 +234,8 @@ export class LotTransferRepository extends BaseRepository {
   }
 
   /**
-   * Delete lot transfers for transactions from specific data sources (import sessions).
-   * Uses data_source_id from transactions to properly scope deletions to specific accounts.
+   * Delete lot transfers for transactions from specific import sessions (import sessions).
+   * Uses import_session_id from transactions to properly scope deletions to specific accounts.
    */
   async deleteByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
     try {
@@ -248,7 +248,7 @@ export class LotTransferRepository extends BaseRepository {
         .where(
           'source_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('data_source_id', 'in', importSessionIds)
+          this.db.selectFrom('transactions').select('id').where('import_session_id', 'in', importSessionIds)
         )
         .executeTakeFirst();
 

@@ -26,7 +26,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     try {
       let query = this.db
         .selectFrom('external_transaction_data')
-        .innerJoin('import_sessions', 'external_transaction_data.data_source_id', 'import_sessions.id')
+        .innerJoin('import_sessions', 'external_transaction_data.import_session_id', 'import_sessions.id')
         .selectAll('external_transaction_data');
 
       if (filters?.accountId !== undefined) {
@@ -34,7 +34,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       }
 
       if (filters?.importSessionId) {
-        query = query.where('data_source_id', '=', filters.importSessionId);
+        query = query.where('import_session_id', '=', filters.importSessionId);
       }
 
       if (filters?.providerName) {
@@ -113,7 +113,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
           .values({
             created_at: this.getCurrentDateTimeForDB(),
             external_id: item.externalId,
-            data_source_id: importSessionId,
+            import_session_id: importSessionId,
             normalized_data: JSON.stringify(item.normalizedData),
             processing_status: 'pending',
             provider_name: item.providerName,
@@ -161,7 +161,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             .values({
               created_at: createdAt,
               external_id: item.externalId ?? null,
-              data_source_id: importSessionId,
+              import_session_id: importSessionId,
               normalized_data: JSON.stringify(item.normalizedData),
               processing_status: 'pending',
               provider_name: item.providerName,
@@ -190,7 +190,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       const rows = await this.db
         .selectFrom('external_transaction_data')
         .selectAll()
-        .where('data_source_id', '=', importSessionId)
+        .where('import_session_id', '=', importSessionId)
         .where('processing_status', '=', 'pending')
         .execute();
 
@@ -220,7 +220,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
           processing_status: 'pending',
         })
         .where(
-          'data_source_id',
+          'import_session_id',
           'in',
           this.db.selectFrom('import_sessions').select('id').where('account_id', '=', accountId)
         )
@@ -271,7 +271,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .selectFrom('external_transaction_data')
         .select(({ fn }) => [fn.count<number>('id').as('count')])
         .where(
-          'data_source_id',
+          'import_session_id',
           'in',
           this.db.selectFrom('import_sessions').select('id').where('account_id', 'in', accountIds)
         )
@@ -287,7 +287,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       const result = await this.db
         .deleteFrom('external_transaction_data')
         .where(
-          'data_source_id',
+          'import_session_id',
           'in',
           this.db.selectFrom('import_sessions').select('id').where('account_id', '=', accountId)
         )
@@ -331,7 +331,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
     return ok({
       id: row.id,
-      importSessionId: row.data_source_id,
+      importSessionId: row.import_session_id,
       providerName: row.provider_name,
       sourceAddress: row.source_address ?? undefined,
       transactionTypeHint: row.transaction_type_hint ?? undefined,

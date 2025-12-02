@@ -87,7 +87,7 @@ describe('TransactionRepository - delete methods', () => {
         .insertInto('transactions')
         .values({
           id: i,
-          data_source_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
+          import_session_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
           source_id: i <= 3 ? 'kraken' : 'ethereum',
           source_type: i <= 3 ? ('exchange' as const) : ('blockchain' as const),
           external_id: `tx-${i}`,
@@ -263,7 +263,7 @@ describe('TransactionRepository - scam token filtering', () => {
         .insertInto('transactions')
         .values({
           id: i,
-          data_source_id: 1,
+          import_session_id: 1,
           source_id: 'ethereum',
           source_type: 'blockchain' as const,
           external_id: `tx-${i}`,
@@ -284,7 +284,7 @@ describe('TransactionRepository - scam token filtering', () => {
         .insertInto('transactions')
         .values({
           id: i,
-          data_source_id: 1,
+          import_session_id: 1,
           source_id: 'ethereum',
           source_type: 'blockchain' as const,
           external_id: `scam-tx-${i}`,
@@ -342,13 +342,13 @@ describe('TransactionRepository - scam token filtering', () => {
 
   it('should exclude scam tokens from balance calculations', async () => {
     // Verify at the SQL level that the filter works
-    const allTx = await db.selectFrom('transactions').selectAll().where('data_source_id', '=', 1).execute();
+    const allTx = await db.selectFrom('transactions').selectAll().where('import_session_id', '=', 1).execute();
     expect(allTx).toHaveLength(5);
 
     const nonExcluded = await db
       .selectFrom('transactions')
       .selectAll()
-      .where('data_source_id', '=', 1)
+      .where('import_session_id', '=', 1)
       .where('excluded_from_accounting', '=', false)
       .execute();
     expect(nonExcluded).toHaveLength(3);
@@ -418,7 +418,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       .insertInto('transactions')
       .values({
         id: 1,
-        data_source_id: 1,
+        import_session_id: 1,
         source_id: 'kraken',
         source_type: 'exchange',
         external_id: 'tx-1',
@@ -616,7 +616,7 @@ describe('TransactionRepository - deduplication across sessions', () => {
         .insertInto('transactions')
         .values({
           id: i,
-          data_source_id: 1,
+          import_session_id: 1,
           source_id: 'kraken',
           source_type: 'exchange' as const,
           external_id: `tx-${i}`,
@@ -646,7 +646,7 @@ describe('TransactionRepository - deduplication across sessions', () => {
         .insertInto('transactions')
         .values({
           id,
-          data_source_id: 2,
+          import_session_id: 2,
           source_id: 'kraken',
           source_type: 'exchange' as const,
           external_id: externalId,

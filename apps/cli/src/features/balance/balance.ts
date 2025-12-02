@@ -8,7 +8,7 @@ import {
   TransactionRepository,
   UserRepository,
 } from '@exitbook/data';
-import { DataSourceRepository, BalanceService, type BalanceVerificationResult } from '@exitbook/ingestion';
+import { ImportSessionRepository, BalanceService, type BalanceVerificationResult } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
 import { unwrapResult } from '../shared/command-execution.js';
@@ -50,7 +50,7 @@ async function executeBalanceCommand(options: ExtendedBalanceCommandOptions): Pr
 
   // Initialize repositories
   const transactionRepository = new TransactionRepository(database);
-  const sessionRepository = new DataSourceRepository(database);
+  const sessionRepository = new ImportSessionRepository(database);
   const accountRepository = new AccountRepository(database);
   const tokenMetadataRepository = new TokenMetadataRepository(database);
   const userRepository = new UserRepository(database);

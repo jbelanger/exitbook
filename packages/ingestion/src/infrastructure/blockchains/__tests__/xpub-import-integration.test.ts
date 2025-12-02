@@ -309,7 +309,7 @@ describe('xpub import integration tests', () => {
       const txCount = await db
         .selectFrom('external_transaction_data')
         .select((eb) => eb.fn.count('id').as('count'))
-        .where('data_source_id', 'in', importSessionIds)
+        .where('import_session_id', 'in', importSessionIds)
         .executeTakeFirstOrThrow();
       expect(Number(txCount.count)).toBe(3);
     });
@@ -335,7 +335,7 @@ describe('xpub import integration tests', () => {
       await orchestrator.importBlockchain('bitcoin', xpub, undefined, customGap);
 
       // Verify custom gap was passed to derive function
-      expect(mockDeriveAddresses).toHaveBeenCalledWith(xpub.toLowerCase(), customGap);
+      expect(mockDeriveAddresses).toHaveBeenCalledWith(xpub.toLowerCase(), mockProviderManager, 'bitcoin', customGap);
     });
   });
 
@@ -464,7 +464,7 @@ describe('xpub import integration tests', () => {
       const txCount = await db
         .selectFrom('external_transaction_data')
         .select((eb) => eb.fn.count('id').as('count'))
-        .where('data_source_id', 'in', importSessionIds)
+        .where('import_session_id', 'in', importSessionIds)
         .executeTakeFirstOrThrow();
       expect(Number(txCount.count)).toBe(1);
     });

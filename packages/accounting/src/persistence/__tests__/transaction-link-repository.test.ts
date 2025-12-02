@@ -65,7 +65,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         .insertInto('transactions')
         .values({
           id: i,
-          data_source_id: 1,
+          import_session_id: 1,
           source_id: 'test',
           source_type: 'exchange',
           transaction_status: 'success',
