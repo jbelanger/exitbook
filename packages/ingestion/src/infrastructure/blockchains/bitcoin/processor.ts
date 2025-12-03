@@ -5,7 +5,11 @@ import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
-import { analyzeBitcoinFundFlow, determineBitcoinTransactionType } from './processor-utils.js';
+import {
+  analyzeBitcoinFundFlow,
+  deduplicateByTransactionHash,
+  determineBitcoinTransactionType,
+} from './processor-utils.js';
 
 /**
  * Bitcoin transaction processor that converts raw blockchain transaction data
@@ -34,11 +38,20 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
 
     this.logger.info(`Processing ${normalizedData.length} normalized Bitcoin transactions`);
 
+    // Deduplicate by transaction hash (handles xpub imports where the same on-chain
+    // transaction appears across multiple derived addresses)
+    const deduplicatedData = deduplicateByTransactionHash(normalizedData as BitcoinTransaction[]);
+    if (deduplicatedData.length < normalizedData.length) {
+      this.logger.info(
+        `Deduplicated ${normalizedData.length - deduplicatedData.length} transactions by hash (${normalizedData.length} → ${deduplicatedData.length})`
+      );
+    }
+
     const transactions: UniversalTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
-    for (const item of normalizedData) {
-      const normalizedTx = item as BitcoinTransaction;
+    for (const item of deduplicatedData) {
+      const normalizedTx = item;
 
       try {
         // Perform enhanced fund flow analysis with structured input/output data
@@ -167,7 +180,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
     }
 
     // Log processing summary
-    const totalInputTransactions = normalizedData.length;
+    const totalInputTransactions = deduplicatedData.length;
     const successfulTransactions = transactions.length;
     const failedTransactions = processingErrors.length;
 

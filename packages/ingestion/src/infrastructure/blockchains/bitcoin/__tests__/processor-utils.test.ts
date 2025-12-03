@@ -1,12 +1,184 @@
 import type { BitcoinTransaction } from '@exitbook/blockchain-providers';
 import { describe, expect, test } from 'vitest';
 
-import { analyzeBitcoinFundFlow, determineBitcoinTransactionType } from '../processor-utils.js';
+import {
+  analyzeBitcoinFundFlow,
+  deduplicateByTransactionHash,
+  determineBitcoinTransactionType,
+} from '../processor-utils.js';
 
 const USER_ADDRESS = 'bc1quser1111111111111111111111111111111';
 const DERIVED_ADDRESS_1 = 'bc1qderived1111111111111111111111111111';
 const DERIVED_ADDRESS_2 = 'bc1qderived2222222222222222222222222222';
 const EXTERNAL_ADDRESS = 'bc1qexternal111111111111111111111111111';
+
+describe('deduplicateByTransactionHash', () => {
+  test('removes duplicate transactions with same hash', () => {
+    const transactions: BitcoinTransaction[] = [
+      {
+        blockHeight: 850795,
+        currency: 'BTC',
+        feeAmount: '0.0000383',
+        feeCurrency: 'BTC',
+        id: 'f976ebbad12a363c826f83a9c02af63bcf1a5475dc688ee87e07d7061611b23c',
+        inputs: [
+          { address: USER_ADDRESS, txid: 'prev1', value: '100000000', vout: 0 },
+          { address: DERIVED_ADDRESS_1, txid: 'prev2', value: '200000000', vout: 1 },
+        ],
+        outputs: [{ address: EXTERNAL_ADDRESS, index: 0, value: '290000000' }],
+        providerName: 'blockstream.info',
+        status: 'success',
+        timestamp: 1720179439000,
+      },
+      {
+        blockHeight: 850795,
+        currency: 'BTC',
+        feeAmount: '0.0000383',
+        feeCurrency: 'BTC',
+        id: 'f976ebbad12a363c826f83a9c02af63bcf1a5475dc688ee87e07d7061611b23c', // Same hash
+        inputs: [
+          { address: USER_ADDRESS, txid: 'prev1', value: '100000000', vout: 0 },
+          { address: DERIVED_ADDRESS_1, txid: 'prev2', value: '200000000', vout: 1 },
+        ],
+        outputs: [{ address: EXTERNAL_ADDRESS, index: 0, value: '290000000' }],
+        providerName: 'blockstream.info',
+        status: 'success',
+        timestamp: 1720179439000,
+      },
+    ];
+
+    const result = deduplicateByTransactionHash(transactions);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe('f976ebbad12a363c826f83a9c02af63bcf1a5475dc688ee87e07d7061611b23c');
+  });
+
+  test('keeps first occurrence when multiple duplicates exist', () => {
+    const transactions: BitcoinTransaction[] = [
+      {
+        blockHeight: 850795,
+        currency: 'BTC',
+        feeAmount: '0.0001',
+        feeCurrency: 'BTC',
+        id: 'txhash1',
+        inputs: [{ address: USER_ADDRESS, txid: 'prev1', value: '100000000', vout: 0 }],
+        outputs: [{ address: EXTERNAL_ADDRESS, index: 0, value: '99990000' }],
+        providerName: 'blockstream.info',
+        status: 'success',
+        timestamp: 1720179439000,
+      },
+      {
+        blockHeight: 850795,
+        currency: 'BTC',
+        feeAmount: '0.0001',
+        feeCurrency: 'BTC',
+        id: 'txhash1', // Duplicate
+        inputs: [{ address: DERIVED_ADDRESS_1, txid: 'prev1', value: '100000000', vout: 0 }],
+        outputs: [{ address: EXTERNAL_ADDRESS, index: 0, value: '99990000' }],
+        providerName: 'blockstream.info',
+        status: 'success',
+        timestamp: 1720179439000,
+      },
+      {
+        blockHeight: 850796,
+        currency: 'BTC',
+        feeAmount: '0.0001',
+        feeCurrency: 'BTC',
+        id: 'txhash2', // Different transaction
+        inputs: [{ address: EXTERNAL_ADDRESS, txid: 'prev2', value: '50000000', vout: 0 }],
+        outputs: [{ address: USER_ADDRESS, index: 0, value: '49990000' }],
+        providerName: 'mempool.space',
+        status: 'success',
+        timestamp: 1720179500000,
+      },
+      {
+        blockHeight: 850795,
+        currency: 'BTC',
+        feeAmount: '0.0001',
+        feeCurrency: 'BTC',
+        id: 'txhash1', // Another duplicate
+        inputs: [{ address: DERIVED_ADDRESS_2, txid: 'prev1', value: '100000000', vout: 0 }],
+        outputs: [{ address: EXTERNAL_ADDRESS, index: 0, value: '99990000' }],
+        providerName: 'blockstream.info',
+        status: 'success',
+        timestamp: 1720179439000,
+      },
+    ];
+
+    const result = deduplicateByTransactionHash(transactions);
+
+    expect(result).toHaveLength(2);
+    expect(result[0]?.id).toBe('txhash1');
+    expect(result[0]?.inputs[0]?.address).toBe(USER_ADDRESS); // First occurrence
+    expect(result[1]?.id).toBe('txhash2');
+  });
+
+  test('returns empty array for empty input', () => {
+    const result = deduplicateByTransactionHash([]);
+
+    expect(result).toEqual([]);
+  });
+
+  test('preserves order of first occurrences', () => {
+    const transactions: BitcoinTransaction[] = [
+      {
+        blockHeight: 850795,
+        currency: 'BTC',
+        feeAmount: '0.0001',
+        feeCurrency: 'BTC',
+        id: 'txhash_a',
+        inputs: [{ address: USER_ADDRESS, txid: 'prev1', value: '100000000', vout: 0 }],
+        outputs: [{ address: EXTERNAL_ADDRESS, index: 0, value: '99990000' }],
+        providerName: 'blockstream.info',
+        status: 'success',
+        timestamp: 1720179439000,
+      },
+      {
+        blockHeight: 850796,
+        currency: 'BTC',
+        feeAmount: '0.0001',
+        feeCurrency: 'BTC',
+        id: 'txhash_b',
+        inputs: [{ address: USER_ADDRESS, txid: 'prev2', value: '200000000', vout: 0 }],
+        outputs: [{ address: EXTERNAL_ADDRESS, index: 0, value: '199990000' }],
+        providerName: 'mempool.space',
+        status: 'success',
+        timestamp: 1720179500000,
+      },
+      {
+        blockHeight: 850797,
+        currency: 'BTC',
+        feeAmount: '0.0001',
+        feeCurrency: 'BTC',
+        id: 'txhash_c',
+        inputs: [{ address: USER_ADDRESS, txid: 'prev3', value: '300000000', vout: 0 }],
+        outputs: [{ address: EXTERNAL_ADDRESS, index: 0, value: '299990000' }],
+        providerName: 'blockstream.info',
+        status: 'success',
+        timestamp: 1720179600000,
+      },
+      {
+        blockHeight: 850796,
+        currency: 'BTC',
+        feeAmount: '0.0001',
+        feeCurrency: 'BTC',
+        id: 'txhash_b', // Duplicate of second transaction
+        inputs: [{ address: DERIVED_ADDRESS_1, txid: 'prev2', value: '200000000', vout: 0 }],
+        outputs: [{ address: EXTERNAL_ADDRESS, index: 0, value: '199990000' }],
+        providerName: 'mempool.space',
+        status: 'success',
+        timestamp: 1720179500000,
+      },
+    ];
+
+    const result = deduplicateByTransactionHash(transactions);
+
+    expect(result).toHaveLength(3);
+    expect(result[0]?.id).toBe('txhash_a');
+    expect(result[1]?.id).toBe('txhash_b');
+    expect(result[2]?.id).toBe('txhash_c');
+  });
+});
 
 describe('analyzeBitcoinFundFlow', () => {
   test('analyzes outgoing transaction correctly', () => {

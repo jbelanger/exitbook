@@ -4,6 +4,27 @@ import { type Result, err, ok } from 'neverthrow';
 import type { BitcoinFundFlow } from './types.js';
 
 /**
+ * Deduplicates transactions by transaction hash, keeping the first occurrence.
+ *
+ * Handles xpub imports where the same on-chain transaction appears across multiple
+ * derived addresses. Each address imports the transaction separately, but they all
+ * represent the same blockchain event (identified by transaction hash).
+ */
+export function deduplicateByTransactionHash(transactions: BitcoinTransaction[]): BitcoinTransaction[] {
+  const seen = new Set<string>();
+  const deduplicated: BitcoinTransaction[] = [];
+
+  for (const tx of transactions) {
+    if (!seen.has(tx.id)) {
+      seen.add(tx.id);
+      deduplicated.push(tx);
+    }
+  }
+
+  return deduplicated;
+}
+
+/**
  * Analyze fund flow from normalized Bitcoin transaction with structured input/output data.
  */
 export function analyzeBitcoinFundFlow(
