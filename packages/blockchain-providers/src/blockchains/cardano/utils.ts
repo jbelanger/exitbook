@@ -101,15 +101,19 @@ export class CardanoUtils {
   /**
    * Derive addresses from a Cardano extended public key (xpub) following CIP-1852
    *
-   * Derivation follows CIP-1852 standard:
+   * Derivation follows CIP-1852 standard (based on BIP44):
    * - Path: m/1852'/1815'/account'/role/index
    * - The xpub is at account level (hardened derivation already complete)
    * - Only role and index use soft derivation
    * - role=0: External/receiving addresses
    * - role=1: Internal/change addresses
    *
+   * BIP44 gap limit applies to consecutive unused addresses in INTERLEAVED order:
+   * - Derives in order: 0/0, 1/0, 0/1, 1/1, 0/2, 1/2, ...
+   * - Gap limit checks happen during scanning in this interleaved sequence
+   *
    * @param xpub - The account-level extended public key (128 hex characters)
-   * @param gap - Number of addresses to derive per chain (default: 10)
+   * @param addressGap - Address gap limit for BIP44 scanning (default: 10)
    * @returns Promise resolving to array of derived addresses with metadata
    *
    * @throws Error if xpub format is invalid or derivation fails
@@ -117,14 +121,16 @@ export class CardanoUtils {
    * @example
    * ```typescript
    * const addresses = await CardanoUtils.deriveAddressesFromXpub(xpub, 10);
-   * // Returns: [
+   * // Returns in interleaved order: [
    * //   { address: 'addr1...', derivationPath: '0/0', role: 'external' },
    * //   { address: 'addr1...', derivationPath: '1/0', role: 'internal' },
+   * //   { address: 'addr1...', derivationPath: '0/1', role: 'external' },
+   * //   { address: 'addr1...', derivationPath: '1/1', role: 'internal' },
    * //   ...
    * // ]
    * ```
    */
-  static async deriveAddressesFromXpub(xpub: string, gap = 10): Promise<DerivedCardanoAddress[]> {
+  static async deriveAddressesFromXpub(xpub: string, addressGap = 10): Promise<DerivedCardanoAddress[]> {
     if (!CardanoUtils.isExtendedPublicKey(xpub)) {
       throw new Error('Invalid Cardano extended public key format');
     }
@@ -145,42 +151,47 @@ export class CardanoUtils {
       const stakeKey = accountPublicKey.derive([2, 0]);
       const stakeCredential = stakeKey.toRawKey().hash().hex();
 
-      // Derive addresses for both external (role=0) and internal/change (role=1)
-      for (const roleIndex of [0, 1]) {
-        const role: 'external' | 'internal' = roleIndex === 0 ? 'external' : 'internal';
+      // Pre-derive role keys for both external (0) and internal (1)
+      const externalRoleKey = accountPublicKey.derive([0]);
+      const internalRoleKey = accountPublicKey.derive([1]);
 
-        // Derive the role-level key (soft derivation)
-        // Note: derive() expects an array of indices, not a single index
-        const roleKey = accountPublicKey.derive([roleIndex]);
+      // Derive enough addresses to support gap scanning with buffer for sparse usage
+      // BIP44: Derive in INTERLEAVED order: external[0], internal[0], external[1], internal[1], ...
+      // This ensures proper gap limit checking across both chains
+      const maxInterleavedDepth = Math.max(addressGap * 2, 40); // 2x buffer for sparse wallets, min 40 per chain
 
-        for (let addressIndex = 0; addressIndex < gap; addressIndex++) {
-          // Derive the address-level key (soft derivation)
-          const addressKey = roleKey.derive([addressIndex]);
+      for (let i = 0; i < maxInterleavedDepth; i++) {
+        // Derive external address (role=0)
+        const externalAddressKey = externalRoleKey.derive([i]);
+        const externalPaymentCredential = externalAddressKey.toRawKey().hash().hex();
+        const externalBaseAddress = Cardano.BaseAddress.fromCredentials(
+          Cardano.NetworkId.Mainnet,
+          { hash: externalPaymentCredential, type: Cardano.CredentialType.KeyHash },
+          { hash: stakeCredential, type: Cardano.CredentialType.KeyHash }
+        );
+        derivedAddresses.push({
+          address: externalBaseAddress.toAddress().toBech32() as string,
+          derivationPath: `0/${i}`,
+          role: 'external',
+        });
 
-          // Generate Shelley-era mainnet payment address following CIP-1852
-          const paymentCredential = addressKey.toRawKey().hash().hex();
-
-          // Create a base address with proper payment and stake credentials
-          // Payment key is unique per address, stake key is shared across all addresses in account
-          const baseAddress = Cardano.BaseAddress.fromCredentials(
-            Cardano.NetworkId.Mainnet,
-            { hash: paymentCredential, type: Cardano.CredentialType.KeyHash }, // Payment credential (unique)
-            { hash: stakeCredential, type: Cardano.CredentialType.KeyHash } // Stake credential (shared at 2/0)
-          );
-
-          const bech32Address = baseAddress.toAddress().toBech32() as string;
-          const derivationPath = `${roleIndex}/${addressIndex}`;
-
-          derivedAddresses.push({
-            address: bech32Address,
-            derivationPath,
-            role,
-          });
-        }
+        // Derive internal address (role=1)
+        const internalAddressKey = internalRoleKey.derive([i]);
+        const internalPaymentCredential = internalAddressKey.toRawKey().hash().hex();
+        const internalBaseAddress = Cardano.BaseAddress.fromCredentials(
+          Cardano.NetworkId.Mainnet,
+          { hash: internalPaymentCredential, type: Cardano.CredentialType.KeyHash },
+          { hash: stakeCredential, type: Cardano.CredentialType.KeyHash }
+        );
+        derivedAddresses.push({
+          address: internalBaseAddress.toAddress().toBech32() as string,
+          derivationPath: `1/${i}`,
+          role: 'internal',
+        });
       }
 
       logger.debug(
-        `Derived ${derivedAddresses.length} addresses from xpub - Xpub: ${xpub.substring(0, 20)}..., Gap: ${gap}`
+        `Derived ${derivedAddresses.length} addresses (interleaved) from xpub - Xpub: ${xpub.substring(0, 20)}..., Gap: ${addressGap}`
       );
 
       return derivedAddresses;
@@ -266,17 +277,16 @@ export class CardanoUtils {
   }
 
   /**
-   * Perform BIP44-compliant intelligent gap scanning to optimize derived address set
+   * Perform BIP44-compliant gap scanning to determine derived address set.
    *
-   * Scans derived addresses to detect which ones have transaction history,
-   * then optimizes the address set to include only necessary addresses
-   * based on the gap limit.
+   * Creates child accounts for ALL derived addresses up to the gap limit after the last used address.
+   * This ensures that fresh change addresses are tracked, enabling accurate multi-address fund flow analysis.
    *
    * Algorithm:
-   * 1. Check each address for transaction activity
-   * 2. Track the last address with activity
+   * 1. Scan addresses in interleaved order (already arranged by derivation)
+   * 2. Track highest index with activity
    * 3. Stop scanning after finding gap limit consecutive unused addresses
-   * 4. Trim address set to last used address + gap limit buffer
+   * 4. Include ALL addresses up to highestUsedIndex + gapLimit
    *
    * @param walletAddress - The wallet address object with derived addresses
    * @param providerManager - Provider manager for blockchain queries
@@ -299,11 +309,11 @@ export class CardanoUtils {
       return ok();
     }
 
-    logger.info(`Performing intelligent gap scan for ${walletAddress.address.substring(0, 20)}...`);
+    const gapLimit = walletAddress.addressGap || 10;
+    logger.info(`Performing gap scan for ${walletAddress.address.substring(0, 20)}... (gap limit: ${gapLimit})`);
 
-    const activeAddresses: string[] = []; // Track only addresses with activity
     let consecutiveUnusedCount = 0;
-    const GAP_LIMIT = 10; // Reduced gap limit to minimize API calls
+    let highestUsedIndex = -1;
     let errorCount = 0;
     const MAX_ERRORS = 3; // Fail if we can't check multiple addresses
 
@@ -336,34 +346,37 @@ export class CardanoUtils {
 
       const hasActivity = result.value.data as boolean;
       if (hasActivity) {
-        // Found an active address - include it
-        activeAddresses.push(address);
+        // Found an active address - track highest index
+        highestUsedIndex = i;
         consecutiveUnusedCount = 0; // Reset the counter
         logger.debug(`Found activity at index ${i}: ${address}`);
       } else {
-        // Unused address - don't include it
+        // Unused address
         consecutiveUnusedCount++;
         logger.debug(`No activity at index ${i}, consecutive unused: ${consecutiveUnusedCount}`);
 
-        // Early exit if we've hit the gap limit
-        if (consecutiveUnusedCount >= GAP_LIMIT) {
-          logger.info(`Reached gap limit of ${GAP_LIMIT} unused addresses, stopping scan at index ${i}`);
+        // Stop scanning beyond the gap limit
+        if (consecutiveUnusedCount >= gapLimit) {
+          logger.info(`Reached gap limit of ${gapLimit} unused addresses, stopping scan at index ${i}`);
           break;
         }
       }
-
-      // If we've found at least one used address and then hit the gap limit, we can stop
-      if (activeAddresses.length > 0 && consecutiveUnusedCount >= GAP_LIMIT) {
-        logger.info(`Gap limit of ${GAP_LIMIT} reached after last used address.`);
-        break;
-      }
     }
 
-    // Only include addresses that actually have transactions
-    walletAddress.derivedAddresses = activeAddresses;
+    // Include ALL addresses up to highestUsedIndex + gapLimit
+    // This ensures fresh change addresses are tracked for accurate fund flow analysis
+    const lastIndex = Math.min(
+      highestUsedIndex >= 0 ? highestUsedIndex + gapLimit : gapLimit - 1,
+      allDerived.length - 1
+    );
+    walletAddress.derivedAddresses = allDerived.slice(0, lastIndex + 1);
+
+    const addressesWithActivity = highestUsedIndex + 1;
+    const addressesForFutureUse = walletAddress.derivedAddresses.length - addressesWithActivity;
 
     logger.info(
-      `Optimized address set: ${walletAddress.derivedAddresses.length} addresses with activity (scanned ${allDerived.length})`
+      `Derived address set: ${walletAddress.derivedAddresses.length} addresses ` +
+        `(${addressesWithActivity} with activity, ${addressesForFutureUse} for future use)`
     );
 
     return ok();

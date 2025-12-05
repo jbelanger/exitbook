@@ -9,6 +9,7 @@ import type {
   TransactionProcessService,
   ImportResult as ServiceImportResult,
 } from '@exitbook/ingestion';
+import { getBlockchainAdapter } from '@exitbook/ingestion';
 import { progress } from '@exitbook/ui';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -53,6 +54,9 @@ export interface ImportHandlerParams {
 
   /** Import session ID (for processing existing data) */
   importSessionId?: number | undefined;
+
+  /** Callback to warn user about single address imports (returns false to abort) */
+  onSingleAddressWarning?: (() => Promise<boolean>) | undefined;
 }
 
 /**
@@ -127,6 +131,19 @@ export class ImportHandler {
         if (!params.address) {
           return err(new Error('Address is required for blockchain imports'));
         }
+
+        // Check if this is a single address (not xpub) and warn user
+        const blockchainAdapter = getBlockchainAdapter(params.sourceName.toLowerCase());
+        if (blockchainAdapter?.isExtendedPublicKey) {
+          const isXpub = blockchainAdapter.isExtendedPublicKey(params.address);
+          if (!isXpub && params.onSingleAddressWarning) {
+            const shouldContinue = await params.onSingleAddressWarning();
+            if (!shouldContinue) {
+              return err(new Error('Import cancelled by user'));
+            }
+          }
+        }
+
         importResult = await this.importOrchestrator.importBlockchain(
           params.sourceName,
           params.address,

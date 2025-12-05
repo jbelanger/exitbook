@@ -155,11 +155,12 @@ export class BitcoinUtils {
       // Derive addresses
       const derivedAddresses: string[] = [];
 
-      // Derive both external (0) and change (1) addresses following BIP standard
-      // Interleave external and change addresses to ensure both chains are represented early
-      // Reduce initial derivation to minimize API calls during gap scanning
-      const maxPerChain = Math.min(addressGap, 10); // Limit to 10 per chain initially
-      for (let i = 0; i < maxPerChain; i++) {
+      // Derive both external (0) and change (1) addresses following BIP44 standard
+      // BIP44: gap limit applies to consecutive unused in the INTERLEAVED sequence
+      // Derive in order: external[0], change[0], external[1], change[1], external[2], change[2], ...
+      // This ensures proper gap limit checking across both chains
+      const maxInterleavedDepth = Math.max(addressGap * 2, 40); // 2x buffer for sparse wallets, min 40 per chain
+      for (let i = 0; i < maxInterleavedDepth; i++) {
         for (const change of [0, 1]) {
           const childKey = hdNode.deriveChild(change).deriveChild(i);
 
@@ -176,11 +177,11 @@ export class BitcoinUtils {
       walletAddress.derivedAddresses = derivedAddresses;
 
       logger.info(
-        `Successfully derived ${derivedAddresses.length} addresses using ${bipStandard} - Xpub: ${walletAddress.address.substring(0, 20) + '...'}, AddressType: ${addressType}, BipStandard: ${bipStandard}, DerivationPath: ${walletAddress.derivationPath}, TotalAddresses: ${derivedAddresses.length}`
+        `Derived ${derivedAddresses.length} addresses for gap scanning using ${bipStandard} - Xpub: ${walletAddress.address.substring(0, 20) + '...'}, AddressType: ${addressType}, BipStandard: ${bipStandard}, DerivationPath: ${walletAddress.derivationPath}`
       );
 
-      // Perform BIP44-compliant intelligent gap scanning
-      const scanResult = await this.performAddressGapScanning(walletAddress, blockchain, providerManager);
+      // Perform BIP44-compliant gap scanning with user's gap limit
+      const scanResult = await this.performAddressGapScanning(walletAddress, blockchain, providerManager, addressGap);
       if (scanResult.isErr()) {
         return err(scanResult.error);
       }
@@ -210,21 +211,32 @@ export class BitcoinUtils {
   }
 
   /**
-   * Perform BIP44-compliant intelligent gap scanning to optimize derived address set
+   * Perform BIP44-compliant gap scanning to determine derived address set.
+   *
+   * Creates child accounts for ALL derived addresses up to the gap limit after the last used address.
+   * This ensures that fresh change addresses are tracked, enabling accurate multi-address fund flow analysis.
+   *
+   * Algorithm:
+   * 1. Scan addresses in interleaved order (already arranged by derivation)
+   * 2. Track highest index with activity
+   * 3. Stop scanning after finding gap limit consecutive unused addresses
+   * 4. Include ALL addresses up to highestUsedIndex + gapLimit
+   *
+   * @param gapLimit - Number of consecutive unused addresses before stopping (BIP44 standard)
    */
   static async performAddressGapScanning(
     walletAddress: BitcoinWalletAddress,
     blockchain: string,
-    providerManager: BlockchainProviderManager
+    providerManager: BlockchainProviderManager,
+    gapLimit = 20
   ): Promise<Result<void, Error>> {
     const allDerived = walletAddress.derivedAddresses || [];
     if (allDerived.length === 0) return ok();
 
-    logger.info(`Performing intelligent gap scan for ${walletAddress.address.substring(0, 20)}...`);
+    logger.info(`Performing gap scan for ${walletAddress.address.substring(0, 20)}... (gap limit: ${gapLimit})`);
 
-    const activeAddresses: string[] = []; // Track only addresses with activity
     let consecutiveUnusedCount = 0;
-    const GAP_LIMIT = 10; // Reduced gap limit to minimize API calls
+    let highestUsedIndex = -1;
     let errorCount = 0;
     const MAX_ERRORS = 3; // Fail if we can't check multiple addresses
 
@@ -257,34 +269,37 @@ export class BitcoinUtils {
 
       const hasActivity = result.value.data as boolean;
       if (hasActivity) {
-        // Found an active address - include it
-        activeAddresses.push(address);
+        // Found an active address - track highest index
+        highestUsedIndex = i;
         consecutiveUnusedCount = 0; // Reset the counter
         logger.debug(`Found activity at index ${i}: ${address}`);
       } else {
-        // Unused address - don't include it
+        // Unused address
         consecutiveUnusedCount++;
         logger.debug(`No activity at index ${i}, consecutive unused: ${consecutiveUnusedCount}`);
 
-        // Early exit if we've hit the gap limit
-        if (consecutiveUnusedCount >= GAP_LIMIT) {
-          logger.info(`Reached gap limit of ${GAP_LIMIT} unused addresses, stopping scan at index ${i}`);
+        // Stop scanning beyond the gap limit
+        if (consecutiveUnusedCount >= gapLimit) {
+          logger.info(`Reached gap limit of ${gapLimit} unused addresses, stopping scan at index ${i}`);
           break;
         }
       }
-
-      // If we've found at least one used address and then hit the gap limit, we can stop
-      if (activeAddresses.length > 0 && consecutiveUnusedCount >= GAP_LIMIT) {
-        logger.info(`Gap limit of ${GAP_LIMIT} reached after last used address.`);
-        break;
-      }
     }
 
-    // Only include addresses that actually have transactions
-    walletAddress.derivedAddresses = activeAddresses;
+    // Include ALL addresses up to highestUsedIndex + gapLimit
+    // This ensures fresh change addresses are tracked for accurate fund flow analysis
+    const lastIndex = Math.min(
+      highestUsedIndex >= 0 ? highestUsedIndex + gapLimit : gapLimit - 1,
+      allDerived.length - 1
+    );
+    walletAddress.derivedAddresses = allDerived.slice(0, lastIndex + 1);
+
+    const addressesWithActivity = highestUsedIndex + 1;
+    const addressesForFutureUse = walletAddress.derivedAddresses.length - addressesWithActivity;
 
     logger.info(
-      `Optimized address set: ${walletAddress.derivedAddresses.length} addresses with activity (scanned ${allDerived.length})`
+      `Derived address set: ${walletAddress.derivedAddresses.length} addresses ` +
+        `(${addressesWithActivity} with activity, ${addressesForFutureUse} for future use)`
     );
     return ok();
   }

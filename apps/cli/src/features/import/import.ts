@@ -1,3 +1,4 @@
+import * as p from '@clack/prompts';
 import { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import {
   closeDatabase,
@@ -21,6 +22,7 @@ import type { Command } from 'commander';
 import { resolveCommandParams, unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { promptConfirm } from '../shared/prompts.js';
 
 import type { ImportResult } from './import-handler.js';
 import { ImportHandler } from './import-handler.js';
@@ -137,7 +139,32 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
 
     try {
       const result = await runWithProgress(emitter, async () => {
-        return await handler.execute(params);
+        // Add warning callback for single address imports (only in interactive mode)
+        const paramsWithCallback = {
+          ...params,
+          onSingleAddressWarning: !options.json
+            ? async () => {
+                p.log.warning('⚠️  Single address import (incomplete wallet view)');
+                p.log.message('');
+                p.log.message('Single address tracking has limitations:');
+                p.log.message('  • Cannot distinguish internal transfers from external sends');
+                p.log.message('  • Change to other addresses will appear as withdrawals');
+                p.log.message('  • Multi-address transactions may show incorrect amounts');
+                p.log.message('');
+                p.log.message('For complete wallet tracking, use xpub instead:');
+                p.log.message(
+                  `  $ exitbook import --blockchain ${params.sourceName} --address xpub... [--xpub-gap 20]`
+                );
+                p.log.message('');
+                p.log.message('Note: xpub imports reveal all wallet addresses (privacy trade-off)');
+                p.log.message('');
+
+                return await promptConfirm('Continue with single address import?', false);
+              }
+            : undefined,
+        };
+
+        return await handler.execute(paramsWithCallback);
       });
 
       // Cleanup
