@@ -53,7 +53,7 @@ export const TransactionLinkSchema = z.object({
  */
 export const TransactionCandidateSchema = z.object({
   id: z.number(),
-  sourceId: z.string(),
+  sourceName: z.string(),
   sourceType: z.enum(['exchange', 'blockchain']),
   externalId: z.string().optional(),
   timestamp: DateSchema,

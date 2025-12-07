@@ -64,7 +64,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async markAsProcessed(sourceId: string, rawTransactionIds: number[]): Promise<Result<void, Error>> {
+  async markAsProcessed(sourceName: string, rawTransactionIds: number[]): Promise<Result<void, Error>> {
     try {
       await this.withTransaction(async (trx) => {
         const processedAt = this.getCurrentDateTimeForDB();

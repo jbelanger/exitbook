@@ -61,16 +61,16 @@ export class TransactionImportService {
   private async setupBlockchainImport(
     account: Account
   ): Promise<Result<{ importer: IImporter; params: ImportParams }, Error>> {
-    const sourceId = account.sourceName;
-    this.logger.info(`Setting up blockchain import for ${sourceId}`);
+    const sourceName = account.sourceName;
+    this.logger.info(`Setting up blockchain import for ${sourceName}`);
 
-    // Normalize sourceId to lowercase for config lookup (registry keys are lowercase)
-    const normalizedSourceId = sourceId.toLowerCase();
+    // Normalize sourceName to lowercase for config lookup (registry keys are lowercase)
+    const normalizedSourceName = sourceName.toLowerCase();
 
     // Get blockchain adapter
-    const adapter = getBlockchainAdapter(normalizedSourceId);
+    const adapter = getBlockchainAdapter(normalizedSourceName);
     if (!adapter) {
-      return err(new Error(`Unknown blockchain: ${sourceId}`));
+      return err(new Error(`Unknown blockchain: ${sourceName}`));
     }
 
     // Build ImportParams from account
@@ -81,7 +81,7 @@ export class TransactionImportService {
     };
 
     // Normalize and validate params using pure function
-    const normalizedParamsResult = normalizeBlockchainImportParams(sourceId, params, adapter);
+    const normalizedParamsResult = normalizeBlockchainImportParams(sourceName, params, adapter);
     if (normalizedParamsResult.isErr()) {
       return err(normalizedParamsResult.error);
     }
@@ -94,11 +94,11 @@ export class TransactionImportService {
     };
 
     const importer = adapter.createImporter(this.providerManager, normalizedParams.providerName);
-    this.logger.info(`Importer for ${sourceId} created successfully`);
+    this.logger.info(`Importer for ${sourceName} created successfully`);
 
     // Check if importer supports streaming
     if (!importer.importStreaming) {
-      return err(new Error(`Importer for ${sourceId} does not support streaming yet`));
+      return err(new Error(`Importer for ${sourceName} does not support streaming yet`));
     }
 
     return okAsync({ importer, params: importParams });

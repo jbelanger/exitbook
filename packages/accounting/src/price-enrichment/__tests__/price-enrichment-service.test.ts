@@ -31,14 +31,14 @@ function createMockLinkRepository(): TransactionLinkRepository {
 function createMockTransaction(
   id: number,
   sourceType: SourceType,
-  sourceId: string,
+  sourceName: string,
   datetime: string,
   inflows: AssetMovement[],
   outflows: AssetMovement[]
 ): UniversalTransaction {
   return {
     id: id,
-    source: sourceId,
+    source: sourceName,
     externalId: `tx-${id}`,
     status: 'success',
     datetime: datetime,
@@ -52,7 +52,7 @@ function createMockTransaction(
     ...(sourceType === 'blockchain'
       ? {
           blockchain: {
-            name: sourceId,
+            name: sourceName,
             transaction_hash: `mock-hash-${id}`,
             is_confirmed: true,
             block_height: 123456 + id,

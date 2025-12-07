@@ -203,7 +203,7 @@ describe('schemas', () => {
     it('should validate complete transaction candidate', () => {
       const candidate = {
         id: 1,
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
@@ -216,7 +216,7 @@ describe('schemas', () => {
 
       const result = TransactionCandidateSchema.parse(candidate);
       expect(result.id).toBe(1);
-      expect(result.sourceId).toBe('kraken');
+      expect(result.sourceName).toBe('kraken');
       expect(result.sourceType).toBe('exchange');
       expect(result.externalId).toBe('W123');
       expect(result.timestamp).toBeInstanceOf(Date);
@@ -229,7 +229,7 @@ describe('schemas', () => {
     it('should validate blockchain candidate', () => {
       const candidate = {
         id: 2,
-        sourceId: 'bitcoin',
+        sourceName: 'bitcoin',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T13:00:00Z'),
         asset: 'BTC',
@@ -247,7 +247,7 @@ describe('schemas', () => {
     it('should validate neutral direction', () => {
       const candidate = {
         id: 3,
-        sourceId: 'test',
+        sourceName: 'test',
         sourceType: 'exchange',
         timestamp: new Date(),
         asset: 'ETH',
@@ -263,7 +263,7 @@ describe('schemas', () => {
       expect(() =>
         TransactionCandidateSchema.parse({
           id: 1,
-          sourceId: 'test',
+          sourceName: 'test',
           sourceType: 'exchange',
           timestamp: new Date(),
           asset: 'BTC',
@@ -277,7 +277,7 @@ describe('schemas', () => {
       expect(() =>
         TransactionCandidateSchema.parse({
           id: 1,
-          sourceId: 'test',
+          sourceName: 'test',
           sourceType: 'wallet',
           timestamp: new Date(),
           asset: 'BTC',
@@ -291,7 +291,7 @@ describe('schemas', () => {
   describe('PotentialMatchSchema', () => {
     const createMockCandidate = (overrides = {}) => ({
       id: 1,
-      sourceId: 'test',
+      sourceName: 'test',
       sourceType: 'exchange' as const,
       timestamp: new Date(),
       asset: 'BTC',
@@ -410,7 +410,7 @@ describe('schemas', () => {
   describe('LinkingResultSchema', () => {
     const createMockCandidate = (id: number) => ({
       id,
-      sourceId: 'test',
+      sourceName: 'test',
       sourceType: 'exchange' as const,
       timestamp: new Date(),
       asset: 'BTC',
@@ -418,8 +418,8 @@ describe('schemas', () => {
       direction: 'out' as const,
     });
 
-    const createMockMatch = (sourceId: number, targetId: number) => ({
-      sourceTransaction: createMockCandidate(sourceId),
+    const createMockMatch = (sourceName: number, targetId: number) => ({
+      sourceTransaction: createMockCandidate(sourceName),
       targetTransaction: createMockCandidate(targetId),
       confidenceScore: parseDecimal('0.85'),
       matchCriteria: {
@@ -431,9 +431,9 @@ describe('schemas', () => {
       linkType: 'exchange_to_blockchain' as const,
     });
 
-    const createMockLink = (id: string, sourceId: number, targetId: number) => ({
+    const createMockLink = (id: string, sourceName: number, targetId: number) => ({
       id,
-      sourceTransactionId: sourceId,
+      sourceTransactionId: sourceName,
       targetTransactionId: targetId,
       asset: 'BTC',
       sourceAmount: parseDecimal('1.0'),
@@ -563,7 +563,7 @@ describe('schemas', () => {
     it('should handle very large numbers', () => {
       const candidate = {
         id: 1,
-        sourceId: 'test',
+        sourceName: 'test',
         sourceType: 'exchange' as const,
         timestamp: new Date(),
         asset: 'SHIB',

@@ -34,7 +34,7 @@ export interface IRawDataRepository {
   /**
    * Mark multiple items as processed.
    */
-  markAsProcessed(sourceId: string, sourceTransactionIds: number[]): Promise<Result<void, Error>>;
+  markAsProcessed(sourceName: string, sourceTransactionIds: number[]): Promise<Result<void, Error>>;
 
   /**
    * Mark specific raw data items as skipped (for cross-account duplicates).
@@ -97,12 +97,10 @@ export interface IRawDataRepository {
 
 /**
  * Interface for import session repository operations.
- * Per ADR-007: import_sessions represents discrete import events, linked to accounts via account_id
  */
 export interface IImportSessionRepository {
   /**
    * Create a new import session for an account.
-   * Per ADR-007: Each import execution creates a new session record
    */
   create(accountId: number): Promise<Result<number, Error>>;
 
@@ -154,7 +152,6 @@ export interface IImportSessionRepository {
   /**
    * Find latest incomplete import session for an account to support resume.
    * Status 'started' or 'failed' indicates incomplete import.
-   * Per ADR-007: Cursors are stored in accounts table, not sessions
    */
   findLatestIncomplete(accountId: number): Promise<Result<ImportSession | undefined, Error>>;
 

@@ -137,7 +137,7 @@ export class FrankfurterProvider extends BasePriceProvider {
         );
       }
 
-      // Validate: currency must be USD (per our architecture - ADR-003)
+      // Validate: currency must be USD
       if (currency.toString() !== 'USD') {
         return err(new Error(`Frankfurter provider only supports USD as target currency, got ${currency.toString()}`));
       }

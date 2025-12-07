@@ -31,7 +31,7 @@ import {
  */
 export class KucoinCsvImporter implements IImporter {
   private readonly logger: Logger;
-  private readonly sourceId = 'kucoin';
+  private readonly sourceName = 'kucoin';
   private usedExternalIds: Map<string, number>;
 
   constructor() {
@@ -131,7 +131,7 @@ export class KucoinCsvImporter implements IImporter {
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       this.logger.error(`CSV streaming import failed: ${errorMessage}`);
-      yield err(new Error(`${this.sourceId} streaming import failed: ${errorMessage}`));
+      yield err(new Error(`${this.sourceName} streaming import failed: ${errorMessage}`));
     }
   }
 
@@ -509,7 +509,7 @@ export class KucoinCsvImporter implements IImporter {
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       this.logger.error(`Import failed in CSV file processing: ${errorMessage}`);
-      return err(new Error(`${this.sourceId} import failed: ${errorMessage}`));
+      return err(new Error(`${this.sourceName} import failed: ${errorMessage}`));
     }
   }
 

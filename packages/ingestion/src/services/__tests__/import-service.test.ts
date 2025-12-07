@@ -109,13 +109,13 @@ const mockExchangeImportStreamingFn = vi.fn().mockImplementation(async function*
 
 // Mock exchange importer factory
 vi.mock('../../infrastructure/exchanges/shared/exchange-importer-factory.js', () => ({
-  createExchangeImporter: async (sourceId: string) => {
-    if (sourceId === 'kraken') {
+  createExchangeImporter: async (sourceName: string) => {
+    if (sourceName === 'kraken') {
       return okAsync({
         importStreaming: mockExchangeImportStreamingFn,
       });
     }
-    return err(new Error(`Unknown exchange: ${sourceId}`));
+    return err(new Error(`Unknown exchange: ${sourceName}`));
   },
 }));
 

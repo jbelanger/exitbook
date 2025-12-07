@@ -6,7 +6,7 @@ import type { Result } from 'neverthrow';
  */
 export interface TransactionFilters {
   /** Filter by source (blockchain or exchange name) */
-  sourceId?: string | undefined;
+  sourceName?: string | undefined;
   /** Filter by transactions created since this Unix timestamp */
   since?: number | undefined;
   /** Filter by account ID */

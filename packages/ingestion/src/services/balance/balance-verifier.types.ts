@@ -17,7 +17,7 @@ export interface BalanceComparison {
  */
 export interface BalanceVerificationResult {
   account: Account;
-  sourceId: string;
+  sourceName: string;
   sourceType: SourceType;
   timestamp: number;
   status: BalanceCommandStatus;

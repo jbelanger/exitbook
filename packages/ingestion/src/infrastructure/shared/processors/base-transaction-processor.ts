@@ -12,8 +12,8 @@ import { detectScamFromSymbol } from '../utils/scam-detection.js';
 export abstract class BaseTransactionProcessor implements ITransactionProcessor {
   protected logger: Logger;
 
-  constructor(protected sourceId: string) {
-    this.logger = getLogger(`${sourceId}Processor`);
+  constructor(protected sourceName: string) {
+    this.logger = getLogger(`${sourceName}Processor`);
   }
 
   /**
@@ -30,19 +30,19 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
     normalizedData: unknown[],
     context?: ProcessingContext
   ): Promise<Result<UniversalTransaction[], string>> {
-    this.logger.info(`Processing ${normalizedData.length} normalized items for ${this.sourceId}`);
+    this.logger.info(`Processing ${normalizedData.length} normalized items for ${this.sourceName}`);
 
     const result = await this.processInternal(normalizedData, context || { primaryAddress: '', userAddresses: [] });
 
     if (result.isErr()) {
-      this.logger.error(`Processing failed for ${this.sourceId}: ${result.error}`);
+      this.logger.error(`Processing failed for ${this.sourceName}: ${result.error}`);
       return result;
     }
 
     const postProcessResult = this.postProcessTransactions(result.value);
 
     if (postProcessResult.isErr()) {
-      this.logger.error(`Post-processing failed for ${this.sourceId}: ${postProcessResult.error}`);
+      this.logger.error(`Post-processing failed for ${this.sourceName}: ${postProcessResult.error}`);
       return postProcessResult;
     }
 
@@ -103,7 +103,7 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
       const errorSummary = invalid.map(({ errors }) => this.formatZodErrors(errors)).join(' | ');
 
       this.logger.error(
-        `CRITICAL: ${invalid.length} invalid transactions from ${this.sourceId}Processor. ` +
+        `CRITICAL: ${invalid.length} invalid transactions from ${this.sourceName}Processor. ` +
           `Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${transactions.length}. ` +
           `Errors: ${errorSummary}`
       );
@@ -117,7 +117,7 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
     const processedTransactions = this.applyScamDetection(valid);
 
     this.logger.info(
-      `Processing completed for ${this.sourceId}: ${processedTransactions.length} transactions validated`
+      `Processing completed for ${this.sourceName}: ${processedTransactions.length} transactions validated`
     );
 
     return ok(processedTransactions);

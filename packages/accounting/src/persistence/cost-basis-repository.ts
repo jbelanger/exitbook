@@ -741,7 +741,7 @@ export class CostBasisRepository extends BaseRepository {
   /**
    * Delete all lot disposals for transactions from a specific source
    */
-  async deleteDisposalsBySource(sourceId: string): Promise<Result<number, Error>> {
+  async deleteDisposalsBySource(sourceName: string): Promise<Result<number, Error>> {
     try {
       const result = await this.db
         .deleteFrom('lot_disposals')
@@ -754,16 +754,16 @@ export class CostBasisRepository extends BaseRepository {
             .where(
               'acquisition_transaction_id',
               'in',
-              this.db.selectFrom('transactions').select('id').where('source_id', '=', sourceId)
+              this.db.selectFrom('transactions').select('id').where('source_id', '=', sourceName)
             )
         )
         .executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.debug({ sourceId, count }, 'Deleted lot disposals by source');
+      this.logger.debug({ sourceName, count }, 'Deleted lot disposals by source');
       return ok(count);
     } catch (error) {
-      this.logger.error({ error, sourceId }, 'Failed to delete lot disposals by source');
+      this.logger.error({ error, sourceName }, 'Failed to delete lot disposals by source');
       return wrapError(error, 'Failed to delete lot disposals by source');
     }
   }
@@ -807,22 +807,22 @@ export class CostBasisRepository extends BaseRepository {
   /**
    * Delete all acquisition lots for transactions from a specific source
    */
-  async deleteLotsBySource(sourceId: string): Promise<Result<number, Error>> {
+  async deleteLotsBySource(sourceName: string): Promise<Result<number, Error>> {
     try {
       const result = await this.db
         .deleteFrom('acquisition_lots')
         .where(
           'acquisition_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('source_id', '=', sourceId)
+          this.db.selectFrom('transactions').select('id').where('source_id', '=', sourceName)
         )
         .executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.debug({ sourceId, count }, 'Deleted acquisition lots by source');
+      this.logger.debug({ sourceName, count }, 'Deleted acquisition lots by source');
       return ok(count);
     } catch (error) {
-      this.logger.error({ error, sourceId }, 'Failed to delete acquisition lots by source');
+      this.logger.error({ error, sourceName }, 'Failed to delete acquisition lots by source');
       return wrapError(error, 'Failed to delete acquisition lots by source');
     }
   }

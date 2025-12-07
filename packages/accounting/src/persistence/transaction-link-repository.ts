@@ -376,25 +376,25 @@ export class TransactionLinkRepository extends BaseRepository {
   /**
    * Delete all links where source transactions match a specific source_id
    *
-   * @param sourceId - Source ID to match (e.g., 'kraken', 'ethereum')
+   * @param sourceName - Source ID to match (e.g., 'kraken', 'ethereum')
    * @returns Result with count of deleted links
    */
-  async deleteBySource(sourceId: string): Promise<Result<number, Error>> {
+  async deleteBySource(sourceName: string): Promise<Result<number, Error>> {
     try {
       const result = await this.db
         .deleteFrom('transaction_links')
         .where(
           'source_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('source_id', '=', sourceId)
+          this.db.selectFrom('transactions').select('id').where('source_id', '=', sourceName)
         )
         .executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.debug({ sourceId, count }, 'Deleted transaction links by source');
+      this.logger.debug({ sourceName, count }, 'Deleted transaction links by source');
       return ok(count);
     } catch (error) {
-      this.logger.error({ error, sourceId }, 'Failed to delete links by source');
+      this.logger.error({ error, sourceName }, 'Failed to delete links by source');
       return wrapError(error, 'Failed to delete links by source');
     }
   }

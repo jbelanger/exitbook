@@ -163,8 +163,8 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       // Add WHERE conditions if provided
       if (filters) {
-        if (filters.sourceId) {
-          query = query.where('source_id', '=', filters.sourceId);
+        if (filters.sourceName) {
+          query = query.where('source_id', '=', filters.sourceName);
         }
 
         if (filters.since) {
@@ -321,9 +321,9 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async deleteBySource(sourceId: string): Promise<Result<number, Error>> {
+  async deleteBySource(sourceName: string): Promise<Result<number, Error>> {
     try {
-      const result = await this.db.deleteFrom('transactions').where('source_id', '=', sourceId).executeTakeFirst();
+      const result = await this.db.deleteFrom('transactions').where('source_id', '=', sourceName).executeTakeFirst();
       return ok(Number(result.numDeletedRows));
     } catch (error) {
       return wrapError(error, 'Failed to delete transactions by source');

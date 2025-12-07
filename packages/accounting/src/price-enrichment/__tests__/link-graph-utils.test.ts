@@ -48,13 +48,13 @@ function createTx(
 
 // Helper to create transaction links
 function createLink(
-  sourceId: number,
+  sourceName: number,
   targetId: number,
   status: 'suggested' | 'confirmed' | 'rejected' = 'confirmed'
 ): TransactionLink {
   return {
-    id: `link-${sourceId}-${targetId}`,
-    sourceTransactionId: sourceId,
+    id: `link-${sourceName}-${targetId}`,
+    sourceTransactionId: sourceName,
     targetTransactionId: targetId,
     asset: 'BTC',
     sourceAmount: parseDecimal('1.0'),

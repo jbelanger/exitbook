@@ -110,7 +110,7 @@ function createPriceAtTxTime(amount: string, currency = 'USD'): PriceAtTxTime {
 
 function createTransactionLink(
   id: string,
-  sourceId: number,
+  sourceName: number,
   targetId: number,
   asset: string,
   sourceAmount: string,
@@ -119,7 +119,7 @@ function createTransactionLink(
 ): TransactionLink {
   return {
     id,
-    sourceTransactionId: sourceId,
+    sourceTransactionId: sourceName,
     targetTransactionId: targetId,
     asset,
     sourceAmount: new Decimal(sourceAmount),

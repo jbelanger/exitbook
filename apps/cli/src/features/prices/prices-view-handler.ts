@@ -21,7 +21,7 @@ export class ViewPricesHandler {
    */
   async execute(params: ViewPricesParams): Promise<Result<ViewPricesResult, Error>> {
     // Fetch transactions from repository
-    const txResult = await this.txRepo.getTransactions(params.source ? { sourceId: params.source } : undefined);
+    const txResult = await this.txRepo.getTransactions(params.source ? { sourceName: params.source } : undefined);
 
     if (txResult.isErr()) {
       return wrapError(txResult.error, 'Failed to fetch transactions');

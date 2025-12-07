@@ -11,7 +11,6 @@ import type { IImportSessionRepository } from '../types/repositories.js';
 /**
  * Kysely-based repository for import session database operations.
  * Handles storage and retrieval of ImportSession entities using type-safe queries.
- * Per ADR-007: import_sessions represents discrete import events, linked to accounts via account_id
  */
 export class ImportSessionRepository extends BaseRepository implements IImportSessionRepository {
   constructor(db: KyselyDB) {
@@ -20,7 +19,6 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
 
   /**
    * Create a new import session
-   * Per ADR-007: Each import execution creates a new session record
    */
   async create(accountId: number): Promise<Result<number, Error>> {
     try {

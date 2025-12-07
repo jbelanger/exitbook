@@ -9,7 +9,7 @@ import { byCorrelationId, standardAmounts } from './strategies/index.js';
  * - Uses standard amount interpretation (amount is net, fee is separate)
  */
 export class DefaultExchangeProcessor extends CorrelatingExchangeProcessor {
-  constructor(sourceId: string) {
-    super(sourceId, byCorrelationId, standardAmounts);
+  constructor(sourceName: string) {
+    super(sourceName, byCorrelationId, standardAmounts);
   }
 }

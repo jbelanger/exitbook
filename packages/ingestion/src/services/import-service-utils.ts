@@ -1,18 +1,8 @@
-import type { CursorState, ImportSession } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import type { BlockchainAdapter } from '../infrastructure/blockchains/shared/blockchain-adapter.ts';
 import type { ImportParams } from '../types/importers.js';
-
-/**
- * Configuration for an import session after preparation
- */
-export interface ImportSessionConfig {
-  params: ImportParams;
-  shouldResume: boolean;
-  existingImportSessionId?: number;
-}
 
 /**
  * Normalized parameters after address validation
@@ -22,36 +12,22 @@ export interface NormalizedBlockchainParams extends ImportParams {
 }
 
 /**
- * Check if an existing completed import can be reused.
- * Returns true if there's a completed import session with matching parameters.
- *
- * @param existingSource - Previously completed import session with matching params, or null
- * @param params - Current import parameters (unused in current logic, kept for future extensions)
- * @returns true if the existing import should be reused
- */
-export function shouldReuseExistingImport(existingSource: ImportSession | undefined, _params: ImportParams): boolean {
-  // Currently, we reuse any existing completed import with matching params
-  // The repository has already verified the params match
-  return existingSource !== undefined;
-}
-
-/**
  * Normalize and validate blockchain import parameters.
  * Validates that address is provided and normalizes it using blockchain-specific logic.
  *
- * @param sourceId - Blockchain identifier (e.g., 'bitcoin', 'ethereum')
+ * @param sourceName - Blockchain identifier (e.g., 'bitcoin', 'ethereum')
  * @param params - Import parameters containing the address
  * @param adapter - Blockchain adapter with normalization logic
  * @returns Normalized parameters with validated address, or error
  */
 export function normalizeBlockchainImportParams(
-  sourceId: string,
+  sourceName: string,
   params: ImportParams,
   adapter: BlockchainAdapter
 ): Result<NormalizedBlockchainParams, Error> {
   // Validate address is provided
   if (!params.address) {
-    return err(new Error(`Address required for blockchain ${sourceId}`));
+    return err(new Error(`Address required for blockchain ${sourceName}`));
   }
 
   // Normalize address using blockchain-specific logic
@@ -65,49 +41,4 @@ export function normalizeBlockchainImportParams(
     ...params,
     address: normalizedResult.value,
   });
-}
-
-/**
- * Prepare import session configuration based on existing source and parameters.
- * Determines whether to create a new session or resume an existing one,
- * and what parameters to use (e.g., including cursor for resumption).
- *
- * Only resumes sessions with status 'started' or 'failed' per ADR-007.
- * Completed/cancelled sessions should not be resumed.
- *
- * @param sourceId - Source identifier (blockchain or exchange name)
- * @param params - Import parameters
- * @param existingSource - Previously created import session, or null
- * @param latestCursor - Latest cursor map from existing source, or null
- * @returns Configuration for the import session
- */
-export function prepareImportSession(
-  sourceId: string,
-  params: ImportParams,
-  existingSource: ImportSession | undefined,
-  latestCursor: Record<string, CursorState> | undefined
-): ImportSessionConfig {
-  // Only resume if we have an existing source with incomplete status
-  const canResume = existingSource && (existingSource.status === 'started' || existingSource.status === 'failed');
-
-  if (canResume) {
-    const resumeParams = { ...params };
-
-    // Add cursor if available
-    if (latestCursor) {
-      resumeParams.cursor = latestCursor;
-    }
-
-    return {
-      params: resumeParams,
-      shouldResume: true,
-      existingImportSessionId: existingSource.id,
-    };
-  }
-
-  // No existing source or session is completed/cancelled - create new session with original params
-  return {
-    params,
-    shouldResume: false,
-  };
 }

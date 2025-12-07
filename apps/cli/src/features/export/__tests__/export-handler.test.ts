@@ -112,7 +112,7 @@ describe('ExportHandler', () => {
       expect(exportResult.transactionCount).toBe(1);
 
       expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith({
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         includeExcluded: true,
       });
     });
@@ -155,7 +155,7 @@ describe('ExportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(mockTransactionRepository.getTransactions).toHaveBeenCalledWith({
-        sourceId: 'bitcoin',
+        sourceName: 'bitcoin',
         since: sinceTimestamp,
         includeExcluded: true,
       });
