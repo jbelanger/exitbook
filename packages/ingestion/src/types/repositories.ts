@@ -34,13 +34,7 @@ export interface IRawDataRepository {
   /**
    * Mark multiple items as processed.
    */
-  markAsProcessed(sourceName: string, sourceTransactionIds: number[]): Promise<Result<void, Error>>;
-
-  /**
-   * Mark specific raw data items as skipped (for cross-account duplicates).
-   * Used by processor to mark duplicate blockchain transactions across different accounts.
-   */
-  markAsSkipped(rawDataIds: number[]): Promise<Result<number, Error>>;
+  markAsProcessed(rawTransactionIds: number[]): Promise<Result<void, Error>>;
 
   /**
    * Save external data item to storage.
@@ -55,12 +49,6 @@ export interface IRawDataRepository {
     accountId: number,
     items: ExternalTransaction[]
   ): Promise<Result<{ inserted: number; skipped: number }, Error>>;
-
-  /**
-   * Get records with valid normalized data (where normalized_data is not null).
-   * Used during processing step.
-   */
-  getValidRecords(accountId: number): Promise<Result<ExternalTransactionData[], Error>>;
 
   /**
    * Reset processing status to 'pending' for all raw data for an account.

@@ -91,6 +91,14 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     WHERE blockchain_transaction_hash IS NOT NULL
   `.execute(db);
 
+  // Create unique index on (account_id, external_id) to prevent duplicate exchange transactions per account
+  // Only applies when external_id is not null (exchange imports)
+  await sql`
+    CREATE UNIQUE INDEX idx_external_tx_account_external_id
+    ON external_transaction_data(account_id, external_id)
+    WHERE external_id IS NOT NULL
+  `.execute(db);
+
   // Create transactions table
   await db.schema
     .createTable('transactions')

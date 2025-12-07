@@ -17,7 +17,6 @@ export function createMockRawDataRepository(): Mocked<IRawDataRepository> {
     markAsProcessed: vi.fn().mockResolvedValue(ok()),
     save: vi.fn().mockResolvedValue(ok(1)),
     saveBatch: vi.fn().mockResolvedValue(ok(0)),
-    getValidRecords: vi.fn().mockResolvedValue(ok([])),
     resetProcessingStatusByAccount: vi.fn().mockResolvedValue(ok(0)),
     resetProcessingStatusAll: vi.fn().mockResolvedValue(ok(0)),
     countAll: vi.fn().mockResolvedValue(ok(0)),

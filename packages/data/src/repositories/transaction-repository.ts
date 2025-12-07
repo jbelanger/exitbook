@@ -149,7 +149,29 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           oc.doNothing()
         )
         .returning('id')
-        .executeTakeFirstOrThrow();
+        .executeTakeFirst();
+
+      // If no result, the insert was skipped due to a conflict (duplicate transaction)
+      // Find and return the existing transaction's ID
+      if (!result) {
+        // For blockchain transactions, look up by blockchain_transaction_hash
+        if (transaction.blockchain?.transaction_hash) {
+          const existing = await this.db
+            .selectFrom('transactions')
+            .select('id')
+            .where('account_id', '=', accountId)
+            .where('blockchain_transaction_hash', '=', transaction.blockchain.transaction_hash)
+            .executeTakeFirst();
+
+          if (existing) {
+            return ok(existing.id);
+          }
+        }
+
+        // If we couldn't find the existing transaction, return an error
+        // This should not happen in normal operation
+        return err(new Error('Transaction insert skipped due to conflict, but existing transaction not found'));
+      }
 
       return ok(result.id);
     } catch (error) {

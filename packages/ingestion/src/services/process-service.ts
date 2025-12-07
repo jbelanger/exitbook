@@ -287,7 +287,7 @@ export class TransactionProcessService {
 
       // Mark raw data items as processed
       const allRawDataIds = rawDataItems.map((item) => item.id);
-      const markAsProcessedResult = await this.rawDataRepository.markAsProcessed(sourceName, allRawDataIds);
+      const markAsProcessedResult = await this.rawDataRepository.markAsProcessed(allRawDataIds);
 
       if (markAsProcessedResult.isErr()) {
         return err(markAsProcessedResult.error);

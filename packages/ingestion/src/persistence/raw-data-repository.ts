@@ -64,7 +64,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async markAsProcessed(sourceName: string, rawTransactionIds: number[]): Promise<Result<void, Error>> {
+  async markAsProcessed(rawTransactionIds: number[]): Promise<Result<void, Error>> {
     try {
       await this.withTransaction(async (trx) => {
         const processedAt = this.getCurrentDateTimeForDB();
@@ -85,28 +85,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       return ok();
     } catch (error) {
       return wrapError(error, 'Failed to mark items as processed');
-    }
-  }
-
-  async markAsSkipped(rawDataIds: number[]): Promise<Result<number, Error>> {
-    if (rawDataIds.length === 0) {
-      return ok(0);
-    }
-
-    try {
-      const result = await this.db
-        .updateTable('external_transaction_data')
-        .set({
-          processing_status: 'skipped',
-          processed_at: this.getCurrentDateTimeForDB(),
-          processing_error: 'Cross-account duplicate - same blockchain transaction hash exists in another account',
-        })
-        .where('id', 'in', rawDataIds)
-        .executeTakeFirst();
-
-      return ok(Number(result.numUpdatedRows));
-    } catch (error) {
-      return wrapError(error, 'Failed to mark items as skipped');
     }
   }
 
@@ -142,11 +120,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
           return insertResult.length > 0 ? 1 : 0;
         } catch (error) {
-          // Check if this is a unique constraint violation (duplicate blockchain transaction)
+          // Check if this is a unique constraint violation (duplicate blockchain transaction or exchange transaction)
           const errorMessage = error instanceof Error ? error.message : String(error);
           if (
             errorMessage.includes('UNIQUE constraint failed') ||
-            errorMessage.includes('idx_external_tx_account_blockchain_hash')
+            errorMessage.includes('idx_external_tx_account_blockchain_hash') ||
+            errorMessage.includes('idx_external_tx_account_external_id')
           ) {
             // Skip duplicate - return 0 to indicate nothing was inserted
             return 0;
@@ -210,13 +189,14 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
               inserted++;
             }
           } catch (error) {
-            // Check if this is a unique constraint violation (duplicate blockchain transaction)
+            // Check if this is a unique constraint violation (duplicate blockchain transaction or exchange transaction)
             const errorMessage = error instanceof Error ? error.message : String(error);
             if (
               errorMessage.includes('UNIQUE constraint failed') ||
-              errorMessage.includes('idx_external_tx_account_blockchain_hash')
+              errorMessage.includes('idx_external_tx_account_blockchain_hash') ||
+              errorMessage.includes('idx_external_tx_account_external_id')
             ) {
-              // Skip duplicate - this is expected for blockchain transactions shared across derived addresses
+              // Skip duplicate - this is expected for blockchain transactions shared across derived addresses or re-imported exchange data
               continue;
             }
             // Re-throw other errors
@@ -231,31 +211,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       return ok(result);
     } catch (error) {
       return wrapError(error, 'Failed to save raw data batch');
-    }
-  }
-
-  async getValidRecords(accountId: number): Promise<Result<ExternalTransactionData[], Error>> {
-    try {
-      const rows = await this.db
-        .selectFrom('external_transaction_data')
-        .selectAll()
-        .where('account_id', '=', accountId)
-        .where('processing_status', '=', 'pending')
-        .execute();
-
-      // Convert rows to domain models, failing fast on any parse errors
-      const transactions: ExternalTransactionData[] = [];
-      for (const row of rows) {
-        const result = this.toExternalTransactionData(row);
-        if (result.isErr()) {
-          return err(result.error);
-        }
-        transactions.push(result.value);
-      }
-
-      return ok(transactions);
-    } catch (error) {
-      return wrapError(error, 'Failed to get valid records');
     }
   }
 
