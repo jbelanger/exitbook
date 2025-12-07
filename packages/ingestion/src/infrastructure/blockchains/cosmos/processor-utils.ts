@@ -4,6 +4,8 @@ import { parseDecimal } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
+import type { ProcessingContext } from '../../../types/processors.js';
+
 import type { CosmosFundFlow } from './types.js';
 
 const logger = getLogger('cosmos-processor-utils');
@@ -70,9 +72,10 @@ export function deduplicateByTransactionId(transactions: CosmosTransaction[]): C
  */
 export function analyzeFundFlowFromNormalized(
   transaction: CosmosTransaction,
-  userAddress: string,
+  context: ProcessingContext,
   chainConfig: CosmosChainConfig
 ): CosmosFundFlow {
+  const userAddress = context.primaryAddress;
   // Analyze transaction type context
   const hasBridgeTransfer = transaction.bridgeType === 'peggy' || transaction.bridgeType === 'ibc';
   const hasIbcTransfer = transaction.bridgeType === 'ibc';

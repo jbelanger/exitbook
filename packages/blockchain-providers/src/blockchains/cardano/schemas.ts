@@ -7,14 +7,16 @@
 import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
+import { normalizeCardanoAddress } from './utils.js';
+
 /**
- * Cardano address schema with validation but NO case transformation.
+ * Cardano address schema with normalization.
  *
  * Supports both Byron-era and Shelley-era addresses:
  *
  * Byron-era addresses (base58 encoding):
  * - Start with prefixes: Ae2, DdzFF
- * - Case-sensitive
+ * - Case-sensitive (preserved)
  * - Use base58 charset (alphanumeric excluding 0, O, I, l)
  *
  * Shelley-era addresses (Bech32 encoding):
@@ -22,21 +24,20 @@ import { z } from 'zod';
  * - Mainnet stake addresses: stake1...
  * - Testnet payment addresses: addr_test1...
  * - Testnet stake addresses: stake_test1...
- * - Case-sensitive (must be lowercase)
+ * - Normalized to lowercase (Bech32 must be lowercase)
  * - Uses charset: a-z and 0-9 (no uppercase)
  *
  * Examples:
- * - 'DdzFFzCqrht...' (Byron mainnet address)
- * - 'addr1qxy...' (Shelley mainnet payment address)
- * - 'stake1uxyz...' (Shelley mainnet stake address)
- *
- * Invalid casing will fail validation naturally through the regex pattern.
+ * - 'DdzFFzCqrht...' (Byron mainnet address - case preserved)
+ * - 'addr1qxy...' (Shelley mainnet payment address - lowercased)
+ * - 'stake1uxyz...' (Shelley mainnet stake address - lowercased)
  */
 export const CardanoAddressSchema = z
   .string()
   .min(1, 'Cardano address must not be empty')
-  .regex(
-    /^(addr1|addr_test1|stake1|stake_test1|Ae2|DdzFF)[A-Za-z0-9]+$/,
+  .transform((val) => normalizeCardanoAddress(val))
+  .refine(
+    (val) => /^(addr1|addr_test1|stake1|stake_test1|Ae2|DdzFF)[A-Za-z0-9]+$/.test(val),
     'Cardano address must be a valid Byron (Ae2..., DdzFF...) or Shelley (addr1..., stake1...) address'
   );
 

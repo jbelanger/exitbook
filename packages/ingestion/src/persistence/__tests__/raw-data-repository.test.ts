@@ -60,22 +60,20 @@ describe('RawDataRepository', () => {
           account_id: 1,
           started_at: new Date().toISOString(),
           status: 'completed',
-          import_result_metadata: '{}',
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
           transactions_imported: 0,
-          transactions_failed: 0,
+          transactions_skipped: 0,
         },
         {
           id: 2,
           account_id: 2,
           started_at: new Date().toISOString(),
           status: 'completed',
-          import_result_metadata: '{}',
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
           transactions_imported: 0,
-          transactions_failed: 0,
+          transactions_skipped: 0,
         },
       ])
       .execute();
@@ -85,9 +83,12 @@ describe('RawDataRepository', () => {
       await db
         .insertInto('external_transaction_data')
         .values({
-          import_session_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
+          account_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
           provider_name: i <= 3 ? 'kraken' : 'ethereum',
           external_id: `ext-${i}`,
+          blockchain_transaction_hash: null,
+          source_address: null,
+          transaction_type_hint: null,
           raw_data: JSON.stringify({ id: `ext-${i}`, amount: '100.00' }),
           normalized_data: '{}',
           processing_status: i % 2 === 0 ? 'processed' : 'pending',
@@ -109,7 +110,7 @@ describe('RawDataRepository', () => {
       const initialProcessed = await db
         .selectFrom('external_transaction_data')
         .where('processing_status', '=', 'processed')
-        .where('import_session_id', 'in', db.selectFrom('import_sessions').select('id').where('account_id', '=', 1))
+        .where('account_id', '=', 1)
         .selectAll()
         .execute();
       expect(initialProcessed.length).toBeGreaterThan(0);
@@ -125,7 +126,7 @@ describe('RawDataRepository', () => {
       // Verify all kraken records are now pending
       const krakenRecords = await db
         .selectFrom('external_transaction_data')
-        .where('import_session_id', 'in', db.selectFrom('import_sessions').select('id').where('account_id', '=', 1))
+        .where('account_id', '=', 1)
         .selectAll()
         .execute();
 
@@ -138,7 +139,7 @@ describe('RawDataRepository', () => {
       const ethereumProcessed = await db
         .selectFrom('external_transaction_data')
         .where('processing_status', '=', 'processed')
-        .where('import_session_id', 'in', db.selectFrom('import_sessions').select('id').where('account_id', '=', 2))
+        .where('account_id', '=', 2)
         .selectAll()
         .execute();
       expect(ethereumProcessed.length).toBeGreaterThan(0);
@@ -233,7 +234,7 @@ describe('RawDataRepository', () => {
       // Verify only ethereum records remain
       const remainingRecords = await db.selectFrom('external_transaction_data').selectAll().execute();
       expect(remainingRecords).toHaveLength(2);
-      expect(remainingRecords.every((r) => r.import_session_id === 2)).toBe(true);
+      expect(remainingRecords.every((r) => r.account_id === 2)).toBe(true);
     });
 
     it('should return 0 when no records match the account', async () => {

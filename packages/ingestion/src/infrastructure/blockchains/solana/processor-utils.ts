@@ -6,6 +6,8 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
+import type { ProcessingContext } from '../../../types/processors.js';
+
 import type { SolanaBalanceChangeAnalysis, SolanaFundFlow, SolanaMovement } from './types.js';
 
 const logger = getLogger('solana-processor-utils');
@@ -568,18 +570,10 @@ export function analyzeSolanaBalanceChanges(
  */
 export function analyzeSolanaFundFlow(
   tx: SolanaTransaction,
-  sessionMetadata: Record<string, unknown>
+  context: ProcessingContext
 ): Result<SolanaFundFlow, string> {
-  if (!sessionMetadata.address || typeof sessionMetadata.address !== 'string') {
-    return err('Missing user address in session metadata');
-  }
-
-  const userAddress = sessionMetadata.address;
-  // Include derived addresses from xpub/HD wallet sessions for multi-address fund-flow analysis
-  const derivedAddresses = Array.isArray(sessionMetadata.derivedAddresses)
-    ? sessionMetadata.derivedAddresses.filter((addr): addr is string => typeof addr === 'string')
-    : [];
-  const allWalletAddresses = new Set<string>([userAddress, ...derivedAddresses]);
+  // Use all user addresses for multi-address fund-flow analysis
+  const allWalletAddresses = new Set<string>(context.userAddresses);
 
   // Analyze instruction complexity
   const instructionCount = tx.instructions?.length || 0;

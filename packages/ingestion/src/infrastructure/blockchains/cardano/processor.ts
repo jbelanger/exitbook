@@ -3,6 +3,7 @@ import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
+import type { ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './processor-utils.js';
@@ -32,12 +33,8 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
    */
   protected async processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: Record<string, unknown>
+    context: ProcessingContext
   ): Promise<Result<UniversalTransaction[], string>> {
-    if (!sessionMetadata) {
-      return err('Missing session metadata for normalized processing');
-    }
-
     this.logger.info(`Processing ${normalizedData.length} normalized Cardano transactions`);
 
     const transactions: UniversalTransaction[] = [];
@@ -48,7 +45,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
 
       try {
         // Perform fund flow analysis with multi-asset tracking
-        const fundFlowResult = analyzeCardanoFundFlow(normalizedTx, sessionMetadata);
+        const fundFlowResult = analyzeCardanoFundFlow(normalizedTx, context);
 
         if (fundFlowResult.isErr()) {
           const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;

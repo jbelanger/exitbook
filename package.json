@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@effect/eslint-plugin": "^0.3.2",
+    "baseline-browser-mapping": "^2.9.4",
     "prettier-plugin-packagejson": "^2.5.19"
   },
   "devDependencies": {

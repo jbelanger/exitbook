@@ -5,6 +5,7 @@ import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
 import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.js';
+import type { ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import { analyzeNearFundFlow, classifyNearOperationFromFundFlow } from './processor-utils.js';
@@ -25,12 +26,8 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
    */
   protected async processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: Record<string, unknown>
+    context: ProcessingContext
   ): Promise<Result<UniversalTransaction[], string>> {
-    if (!sessionMetadata) {
-      return err('Missing session metadata for normalized processing');
-    }
-
     this.logger.info(`Processing ${normalizedData.length} normalized NEAR transactions`);
 
     // Enrich all transactions with token metadata (required)
@@ -55,7 +52,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
         }
 
         // Perform enhanced fund flow analysis
-        const fundFlowResult = analyzeNearFundFlow(normalizedTx, sessionMetadata);
+        const fundFlowResult = analyzeNearFundFlow(normalizedTx, context);
 
         if (fundFlowResult.isErr()) {
           const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;

@@ -1,11 +1,13 @@
 import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
+import { normalizeEvmAddress } from './utils.js';
+
 /**
  * EVM address schema with automatic case normalization.
  *
  * EVM addresses are case-insensitive for comparison purposes (though checksummed
- * addresses use case for validation). This schema normalizes all addresses to
+ * addresses use case for validation per EIP-55). This schema normalizes all addresses to
  * lowercase to ensure consistent comparison and deduplication across the system.
  *
  * Normalization happens at the validation boundary - when external data enters
@@ -16,7 +18,7 @@ import { z } from 'zod';
  * // Input: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
  * // Output: "0xab5801a7d398351b8be11c439e05c5b3259aec9b"
  */
-export const EvmAddressSchema = z.string().transform((val) => val.toLowerCase());
+export const EvmAddressSchema = z.string().transform((val) => normalizeEvmAddress(val));
 
 /**
  * Schema for unified EVM transaction

@@ -54,14 +54,11 @@ export interface ImportSessionsTable {
 
   // Session results
   transactions_imported: number;
-  transactions_failed: number;
+  transactions_skipped: number;
 
   // Error handling
   error_message: string | null;
   error_details: JSONString | null;
-
-  // Import metadata
-  import_result_metadata: JSONString;
 
   // Audit trail
   created_at: DateTime;
@@ -70,18 +67,20 @@ export interface ImportSessionsTable {
 
 /**
  * External transaction data table - stores unprocessed transaction data from sources
+ * Scoped by account - each account owns its raw transaction data
  */
 export interface ExternalTransactionDataTable {
   created_at: DateTime;
 
   id: Generated<number>;
   // Foreign key relationship
-  import_session_id: number; // FK to import_sessions.id
+  account_id: number; // FK to accounts.id
 
   provider_name: string;
 
   // Transaction identification
   external_id: string; // Unique transaction ID from exchange/blockchain
+  blockchain_transaction_hash: string | null; // On-chain transaction hash for deduplication (null for exchange transactions)
 
   // Source metadata
   source_address: string | null; // For blockchain transactions (wallet address)
@@ -100,11 +99,12 @@ export interface ExternalTransactionDataTable {
 /**
  * Transactions table - stores transactions from all sources with standardized structure
  * Using TEXT for decimal values to preserve precision
+ * Scoped by account - each account owns its processed transactions
  */
 export interface TransactionsTable {
   // Core identification
   id: Generated<number>;
-  import_session_id: number; // FK to import_sessions.id
+  account_id: number; // FK to accounts.id
   source_id: string;
   source_type: SourceType;
   external_id: string | null; // hash, transaction ID, etc.

@@ -3,7 +3,7 @@ import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ITransactionProcessor } from '../../../types/processors.js';
+import type { ITransactionProcessor, ProcessingContext } from '../../../types/processors.js';
 import { detectScamFromSymbol } from '../utils/scam-detection.js';
 
 /**
@@ -23,16 +23,16 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
    */
   protected abstract processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: Record<string, unknown>
+    context: ProcessingContext
   ): Promise<Result<UniversalTransaction[], string>>;
 
   async process(
     normalizedData: unknown[],
-    sessionMetadata?: Record<string, unknown>
+    context?: ProcessingContext
   ): Promise<Result<UniversalTransaction[], string>> {
     this.logger.info(`Processing ${normalizedData.length} normalized items for ${this.sourceId}`);
 
-    const result = await this.processInternal(normalizedData, sessionMetadata);
+    const result = await this.processInternal(normalizedData, context || { primaryAddress: '', userAddresses: [] });
 
     if (result.isErr()) {
       this.logger.error(`Processing failed for ${this.sourceId}: ${result.error}`);
@@ -121,22 +121,6 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
     );
 
     return ok(processedTransactions);
-  }
-
-  private logValidationResults(
-    valid: UniversalTransaction[],
-    invalid: { errors: unknown; transaction: UniversalTransaction }[],
-    total: number
-  ): void {
-    if (invalid.length === 0) return;
-
-    const errorSummary = invalid.map(({ errors }) => this.formatZodErrors(errors)).join(' | ');
-
-    this.logger.error(
-      `${invalid.length} invalid transactions from ${this.sourceId}Processor. ` +
-        `Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${total}. ` +
-        `Errors: ${errorSummary}`
-    );
   }
 
   private formatZodErrors(errors: unknown): string {

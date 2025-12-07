@@ -104,6 +104,7 @@ export class SubstrateImporter implements IImporter {
           to: txWithRaw.normalized.to,
           type: 'transfer',
         }),
+        blockchainTransactionHash: txWithRaw.normalized.id,
         normalizedData: txWithRaw.normalized,
         providerName: providerBatch.providerName,
         rawData: txWithRaw.raw,

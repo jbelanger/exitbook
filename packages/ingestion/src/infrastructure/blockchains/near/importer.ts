@@ -115,6 +115,7 @@ export class NearTransactionImporter implements IImporter {
       const externalTransactions = transactionsWithRaw.map((txWithRaw) => ({
         providerName: providerBatch.providerName,
         externalId: generateUniqueTransactionId(txWithRaw.normalized),
+        blockchainTransactionHash: txWithRaw.normalized.id,
         transactionTypeHint: operationType,
         sourceAddress: address,
         normalizedData: txWithRaw.normalized,

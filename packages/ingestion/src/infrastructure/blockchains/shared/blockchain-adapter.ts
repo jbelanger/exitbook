@@ -17,6 +17,13 @@ export interface BlockchainAdapter {
   createProcessor: (tokenMetadataService?: ITokenMetadataService) => Result<ITransactionProcessor, Error>;
 
   /**
+   * Indicates whether this blockchain uses the UTXO model (Bitcoin, Cardano).
+   * UTXO chains store one transaction record per (address, tx_hash) without deduplication.
+   * Account-based chains (Solana, NEAR, Substrate) require deduplication and use derivedAddresses.
+   */
+  isUTXOChain?: boolean;
+
+  /**
    * Check if an address is an extended public key (xpub/ypub/zpub for Bitcoin, xpub for Cardano)
    * Optional - only implemented for blockchains that support xpub
    */

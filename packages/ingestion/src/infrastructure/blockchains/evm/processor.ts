@@ -5,6 +5,7 @@ import { err, okAsync, ok, type Result } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
 import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.js';
+import type { ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import {
@@ -28,20 +29,8 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
   protected async processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: Record<string, unknown>
+    context: ProcessingContext
   ): Promise<Result<UniversalTransaction[], string>> {
-    if (!sessionMetadata) {
-      return err('Missing session metadata for normalized processing');
-    }
-
-    const userAddress = sessionMetadata.address;
-    if (!userAddress || typeof userAddress !== 'string') {
-      return err('Missing user address in session metadata');
-    }
-
-    // Normalize address to lowercase for consistency with transaction addresses
-    const normalizedUserAddress = userAddress.toLowerCase();
-
     this.logger.info(`Processing ${normalizedData.length} normalized ${this.chainConfig.chainName} transactions`);
 
     // Enrich token metadata before processing (required for proper decimal normalization)
@@ -60,9 +49,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     const processingErrors: { error: string; hash: string; txCount: number }[] = [];
 
     for (const [hash, txGroup] of transactionGroups) {
-      // Pass normalized address in metadata for consistent comparison
-      const normalizedMetadata = { ...sessionMetadata, address: normalizedUserAddress };
-      const fundFlowResult = analyzeEvmFundFlow(txGroup, normalizedMetadata, this.chainConfig);
+      const fundFlowResult = analyzeEvmFundFlow(txGroup, context, this.chainConfig);
 
       if (fundFlowResult.isErr()) {
         const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;
@@ -94,7 +81,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       // 1. They have ANY outflows (sent funds, swapped, etc.) OR
       // 2. They initiated a contract interaction with no outflows (approval, state change, etc.)
       // Addresses already normalized to lowercase via EvmAddressSchema
-      const userInitiatedTransaction = (fundFlow.fromAddress || '') === normalizedUserAddress;
+      const userInitiatedTransaction = (fundFlow.fromAddress || '') === context.primaryAddress;
       const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
       const universalTransaction: UniversalTransaction = {

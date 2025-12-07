@@ -62,8 +62,7 @@ describe('TransactionRepository - delete methods', () => {
           started_at: new Date().toISOString(),
           status: 'completed',
           transactions_imported: 0,
-          transactions_failed: 0,
-          import_result_metadata: '{}',
+          transactions_skipped: 0,
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
         },
@@ -73,8 +72,7 @@ describe('TransactionRepository - delete methods', () => {
           started_at: new Date().toISOString(),
           status: 'completed',
           transactions_imported: 0,
-          transactions_failed: 0,
-          import_result_metadata: '{}',
+          transactions_skipped: 0,
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
         },
@@ -87,7 +85,7 @@ describe('TransactionRepository - delete methods', () => {
         .insertInto('transactions')
         .values({
           id: i,
-          import_session_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
+          account_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
           source_id: i <= 3 ? 'kraken' : 'ethereum',
           source_type: i <= 3 ? ('exchange' as const) : ('blockchain' as const),
           external_id: `tx-${i}`,
@@ -250,8 +248,7 @@ describe('TransactionRepository - scam token filtering', () => {
         started_at: new Date().toISOString(),
         status: 'completed',
         transactions_imported: 0,
-        transactions_failed: 0,
-        import_result_metadata: '{}',
+        transactions_skipped: 0,
         created_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
       })
@@ -263,7 +260,7 @@ describe('TransactionRepository - scam token filtering', () => {
         .insertInto('transactions')
         .values({
           id: i,
-          import_session_id: 1,
+          account_id: 1,
           source_id: 'ethereum',
           source_type: 'blockchain' as const,
           external_id: `tx-${i}`,
@@ -284,7 +281,7 @@ describe('TransactionRepository - scam token filtering', () => {
         .insertInto('transactions')
         .values({
           id: i,
-          import_session_id: 1,
+          account_id: 1,
           source_id: 'ethereum',
           source_type: 'blockchain' as const,
           external_id: `scam-tx-${i}`,
@@ -308,7 +305,7 @@ describe('TransactionRepository - scam token filtering', () => {
   });
 
   it('should exclude scam tokens by default', async () => {
-    const result = await repository.getTransactions({ sessionId: 1 });
+    const result = await repository.getTransactions({ accountId: 1 });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -319,7 +316,7 @@ describe('TransactionRepository - scam token filtering', () => {
   });
 
   it('should exclude scam tokens when includeExcluded is false', async () => {
-    const result = await repository.getTransactions({ sessionId: 1, includeExcluded: false });
+    const result = await repository.getTransactions({ accountId: 1, includeExcluded: false });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -329,7 +326,7 @@ describe('TransactionRepository - scam token filtering', () => {
   });
 
   it('should include scam tokens when includeExcluded is true', async () => {
-    const result = await repository.getTransactions({ sessionId: 1, includeExcluded: true });
+    const result = await repository.getTransactions({ accountId: 1, includeExcluded: true });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -342,19 +339,19 @@ describe('TransactionRepository - scam token filtering', () => {
 
   it('should exclude scam tokens from balance calculations', async () => {
     // Verify at the SQL level that the filter works
-    const allTx = await db.selectFrom('transactions').selectAll().where('import_session_id', '=', 1).execute();
+    const allTx = await db.selectFrom('transactions').selectAll().where('account_id', '=', 1).execute();
     expect(allTx).toHaveLength(5);
 
     const nonExcluded = await db
       .selectFrom('transactions')
       .selectAll()
-      .where('import_session_id', '=', 1)
+      .where('account_id', '=', 1)
       .where('excluded_from_accounting', '=', false)
       .execute();
     expect(nonExcluded).toHaveLength(3);
 
     // Verify through repository
-    const result = await repository.getTransactions({ sessionId: 1 });
+    const result = await repository.getTransactions({ accountId: 1 });
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toHaveLength(3);
@@ -400,8 +397,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
         started_at: new Date().toISOString(),
         status: 'completed',
         transactions_imported: 0,
-        transactions_failed: 0,
-        import_result_metadata: '{}',
+        transactions_skipped: 0,
         created_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
       })
@@ -418,7 +414,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       .insertInto('transactions')
       .values({
         id: 1,
-        import_session_id: 1,
+        account_id: 1,
         source_id: 'kraken',
         source_type: 'exchange',
         external_id: 'tx-1',
@@ -552,7 +548,9 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
   });
 });
 
-describe('TransactionRepository - deduplication across sessions', () => {
+// Skipping tests for deprecated behavior - transactions are now scoped to accounts, not sessions
+// Deduplication happens at database level via unique constraints on (account_id, blockchain_transaction_hash)
+describe.skip('TransactionRepository - deduplication across sessions (deprecated)', () => {
   let db: KyselyDB;
   let repository: TransactionRepository;
 
@@ -591,8 +589,7 @@ describe('TransactionRepository - deduplication across sessions', () => {
           started_at: new Date('2024-01-01').toISOString(),
           status: 'completed',
           transactions_imported: 3,
-          transactions_failed: 0,
-          import_result_metadata: '{}',
+          transactions_skipped: 0,
           created_at: new Date('2024-01-01').toISOString(),
           completed_at: new Date('2024-01-01').toISOString(),
         },
@@ -602,8 +599,7 @@ describe('TransactionRepository - deduplication across sessions', () => {
           started_at: new Date('2024-01-02').toISOString(),
           status: 'completed',
           transactions_imported: 5,
-          transactions_failed: 0,
-          import_result_metadata: '{}',
+          transactions_skipped: 0,
           created_at: new Date('2024-01-02').toISOString(),
           completed_at: new Date('2024-01-02').toISOString(),
         },
@@ -616,7 +612,7 @@ describe('TransactionRepository - deduplication across sessions', () => {
         .insertInto('transactions')
         .values({
           id: i,
-          import_session_id: 1,
+          account_id: 1,
           source_id: 'kraken',
           source_type: 'exchange' as const,
           external_id: `tx-${i}`,
@@ -646,7 +642,7 @@ describe('TransactionRepository - deduplication across sessions', () => {
         .insertInto('transactions')
         .values({
           id,
-          import_session_id: 2,
+          account_id: 2,
           source_id: 'kraken',
           source_type: 'exchange' as const,
           external_id: externalId,
@@ -670,7 +666,6 @@ describe('TransactionRepository - deduplication across sessions', () => {
     // Query all completed sessions for account 1
     const result = await repository.getTransactions({
       accountId: 1,
-      sessionStatus: 'completed',
     });
 
     expect(result.isOk()).toBe(true);
@@ -699,7 +694,7 @@ describe('TransactionRepository - deduplication across sessions', () => {
   it('should not deduplicate when querying a single session', async () => {
     // Query only session 2
     const result = await repository.getTransactions({
-      sessionId: 2,
+      accountId: 2,
     });
 
     expect(result.isOk()).toBe(true);
@@ -714,7 +709,6 @@ describe('TransactionRepository - deduplication across sessions', () => {
     // The actual logging is tested by checking the behavior is correct
     const result = await repository.getTransactions({
       accountId: 1,
-      sessionStatus: 'completed',
     });
 
     expect(result.isOk()).toBe(true);

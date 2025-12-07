@@ -207,7 +207,15 @@ function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
               process.stderr.write(`\x1b[2m│  ${message}\x1b[0m\n`);
             }
           }
-          // Otherwise suppress (no output - progressive disclosure pattern)
+
+          // Always forward to underlying Pino logger for file transports
+          if (typeof msgOrObj === 'string') {
+            target.info(msgOrObj);
+          } else if (msg) {
+            target.info(msgOrObj, msg);
+          } else {
+            target.info(msgOrObj);
+          }
         };
       }
 
@@ -224,7 +232,15 @@ function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
               process.stderr.write(`\x1b[33m│  ⚠️  ${message}\x1b[0m\n`);
             }
           }
-          // Otherwise suppress
+
+          // Always forward to underlying Pino logger for file transports
+          if (typeof msgOrObj === 'string') {
+            target.warn(msgOrObj);
+          } else if (msg) {
+            target.warn(msgOrObj, msg);
+          } else {
+            target.warn(msgOrObj);
+          }
         };
       }
 
@@ -241,7 +257,15 @@ function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
               process.stderr.write(`\x1b[31m│  ❌ ${message}\x1b[0m\n`);
             }
           }
-          // Otherwise suppress
+
+          // Always forward to underlying Pino logger for file transports
+          if (typeof msgOrObj === 'string') {
+            target.error(msgOrObj);
+          } else if (msg) {
+            target.error(msgOrObj, msg);
+          } else {
+            target.error(msgOrObj);
+          }
         };
       }
 
@@ -260,7 +284,15 @@ function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
               process.stderr.write(`\x1b[2m│  [DEBUG] ${message}\x1b[0m\n`);
             }
           }
-          // Otherwise suppress (both in non-verbose and non-spinner modes)
+
+          // Always forward to underlying Pino logger for file transports
+          if (typeof msgOrObj === 'string') {
+            target.debug(msgOrObj);
+          } else if (msg) {
+            target.debug(msgOrObj, msg);
+          } else {
+            target.debug(msgOrObj);
+          }
         };
       }
 

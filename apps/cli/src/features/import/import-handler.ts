@@ -3,12 +3,8 @@ import {
   initializeProviders,
   type BlockchainExplorersConfig,
 } from '@exitbook/blockchain-providers';
-import type { SourceType } from '@exitbook/core';
-import type {
-  ImportOrchestrator,
-  TransactionProcessService,
-  ImportResult as ServiceImportResult,
-} from '@exitbook/ingestion';
+import type { ImportSession, SourceType } from '@exitbook/core';
+import type { ImportOrchestrator, TransactionProcessService } from '@exitbook/ingestion';
 import { getBlockchainAdapter } from '@exitbook/ingestion';
 import { progress } from '@exitbook/ui';
 import { err, ok, type Result } from 'neverthrow';
@@ -61,13 +57,11 @@ export interface ImportHandlerParams {
 
 /**
  * Result of the import operation.
+ * Can be single ImportSession or array of ImportSessions (for xpub imports).
  */
 export interface ImportResult {
-  /** Import session ID */
-  importSessionId: number;
-
-  /** Number of items imported */
-  imported: number;
+  /** Import sessions (array for xpub imports, single for regular imports) */
+  sessions: ImportSession[];
 
   /** Number of items processed (if shouldProcess is true) */
   processed?: number | undefined;
@@ -107,7 +101,7 @@ export class ImportHandler {
       progress.start(`Importing from ${params.sourceName}`);
 
       // Call appropriate orchestrator method based on source type and params
-      let importResult: Result<ServiceImportResult, Error>;
+      let importResult: Result<ImportSession | ImportSession[], Error>;
 
       if (params.sourceType === 'exchange') {
         if (params.csvDir) {
@@ -156,23 +150,18 @@ export class ImportHandler {
         return err(importResult.error);
       }
 
-      const importData = importResult.value;
+      // Normalize to array
+      const sessions = Array.isArray(importResult.value) ? importResult.value : [importResult.value];
 
       const result: ImportResult = {
-        importSessionId: importData.importSessionId,
-        imported: importData.transactionsImported,
+        sessions,
       };
 
       // Process data if requested
       if (params.shouldProcess) {
-        progress.update(`Processing ${importData.transactionsImported} transactions...`);
-        const processResult = await this.processService.processRawDataToTransactions(
-          params.sourceName,
-          params.sourceType,
-          {
-            importSessionId: importData.importSessionId,
-          }
-        );
+        const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
+        progress.update(`Processing ${totalImported} transactions...`);
+        const processResult = await this.processService.processAllPending();
 
         if (processResult.isErr()) {
           return err(processResult.error);

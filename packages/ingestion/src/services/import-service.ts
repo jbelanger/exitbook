@@ -1,5 +1,5 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { Account, SourceType } from '@exitbook/core';
+import type { Account, ImportSession, SourceType } from '@exitbook/core';
 import type { AccountRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -9,7 +9,7 @@ import { err, ok, okAsync } from 'neverthrow';
 
 import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
 import { createExchangeImporter } from '../infrastructure/exchanges/shared/exchange-importer-factory.js';
-import type { IImporter, ImportParams, ImportResult } from '../types/importers.js';
+import type { IImporter, ImportParams } from '../types/importers.js';
 import type { IImportSessionRepository, IRawDataRepository } from '../types/repositories.js';
 
 import { normalizeBlockchainImportParams } from './import-service-utils.js';
@@ -31,7 +31,7 @@ export class TransactionImportService {
    * Uses streaming with crash recovery for all sources (blockchain and exchange).
    * All parameters are extracted from the account object.
    */
-  async importFromSource(account: Account): Promise<Result<ImportResult, Error>> {
+  async importFromSource(account: Account): Promise<Result<ImportSession, Error>> {
     // Get importer and params based on source type
     const setupResult = await this.setupImport(account);
     if (setupResult.isErr()) return err(setupResult.error);
@@ -155,26 +155,30 @@ export class TransactionImportService {
     account: Account,
     importer: IImporter,
     params: ImportParams
-  ): Promise<Result<ImportResult, Error>> {
+  ): Promise<Result<ImportSession, Error>> {
     const sourceName = account.sourceName;
 
     // Check for existing incomplete import session to resume
-    const incompleteDataSourceResult = await this.importSessionRepository.findLatestIncomplete(account.id);
+    const incompleteImportSessionResult = await this.importSessionRepository.findLatestIncomplete(account.id);
 
-    if (incompleteDataSourceResult.isErr()) {
-      return err(incompleteDataSourceResult.error);
+    if (incompleteImportSessionResult.isErr()) {
+      return err(incompleteImportSessionResult.error);
     }
 
-    const incompleteDataSource = incompleteDataSourceResult.value;
+    const incompleteImportSession = incompleteImportSessionResult.value;
     let importSessionId: number;
     let totalImported = 0;
+    let totalSkipped = 0;
 
-    if (incompleteDataSource) {
+    if (incompleteImportSession) {
       // Resume existing import - cursor comes from account.lastCursor
-      importSessionId = incompleteDataSource.id;
-      totalImported = (incompleteDataSource.importResultMetadata?.transactionsImported as number) || 0;
+      importSessionId = incompleteImportSession.id;
+      totalImported = incompleteImportSession.transactionsImported || 0;
+      totalSkipped = incompleteImportSession.transactionsSkipped || 0;
 
-      this.logger.info(`Resuming import from import session #${importSessionId} (total so far: ${totalImported})`);
+      this.logger.info(
+        `Resuming import from import session #${importSessionId} (total so far: ${totalImported} imported, ${totalSkipped} skipped)`
+      );
 
       // Update status back to 'started' (in case it was 'failed')
       const updateResult = await this.importSessionRepository.update(importSessionId, { status: 'started' });
@@ -183,13 +187,13 @@ export class TransactionImportService {
       }
     } else {
       // Create new import session for this account
-      const dataSourceCreateResult = await this.importSessionRepository.create(account.id);
+      const importSessionCreateResult = await this.importSessionRepository.create(account.id);
 
-      if (dataSourceCreateResult.isErr()) {
-        return err(dataSourceCreateResult.error);
+      if (importSessionCreateResult.isErr()) {
+        return err(importSessionCreateResult.error);
       }
 
-      importSessionId = dataSourceCreateResult.value;
+      importSessionId = importSessionCreateResult.value;
       this.logger.info(`Starting new import with import session #${importSessionId}`);
     }
 
@@ -213,7 +217,7 @@ export class TransactionImportService {
 
         // Save batch to database
         progress.update(`Saving ${batch.rawTransactions.length} ${batch.operationType} transactions...`);
-        const saveResult = await this.rawDataRepository.saveBatch(importSessionId, batch.rawTransactions);
+        const saveResult = await this.rawDataRepository.saveBatch(account.id, batch.rawTransactions);
 
         if (saveResult.isErr()) {
           await this.importSessionRepository.update(importSessionId, {
@@ -223,7 +227,13 @@ export class TransactionImportService {
           return err(saveResult.error);
         }
 
-        totalImported += batch.rawTransactions.length;
+        const { inserted, skipped } = saveResult.value;
+        totalImported += inserted;
+        totalSkipped += skipped;
+
+        if (skipped > 0) {
+          this.logger.info(`Skipped ${skipped} duplicate transactions in batch`);
+        }
 
         // Update progress and cursor after EACH batch for crash recovery
         const cursorUpdateResult = await this.accountRepository.updateCursor(
@@ -238,7 +248,7 @@ export class TransactionImportService {
         }
 
         this.logger.info(
-          `Batch saved: ${batch.rawTransactions.length} ${batch.operationType} transactions (total: ${totalImported}, cursor progress: ${batch.cursor.totalFetched})`
+          `Batch saved: ${inserted} inserted, ${skipped} skipped of ${batch.rawTransactions.length} ${batch.operationType} transactions (total: ${totalImported}, cursor progress: ${batch.cursor.totalFetched})`
         );
 
         if (batch.isComplete) {
@@ -247,51 +257,43 @@ export class TransactionImportService {
       }
 
       // Mark complete
-      // Build import result metadata - include address for blockchain imports so processor can use it
-      const importResultMetadata: Record<string, unknown> = { transactionsImported: totalImported };
-
-      // For blockchain imports, include address in metadata
-      // This is required by blockchain processors for fund flow analysis
-      if (params.address) {
-        importResultMetadata.address = params.address;
-      }
-
       const finalizeResult = await this.importSessionRepository.finalize(
         importSessionId,
         'completed',
         startTime,
-        undefined,
-        undefined,
-        importResultMetadata
+        totalImported,
+        totalSkipped
       );
 
       if (finalizeResult.isErr()) {
         return err(finalizeResult.error);
       }
 
-      this.logger.info(`Import completed for ${sourceName}: ${totalImported} items saved`);
+      this.logger.info(
+        `Import completed for ${sourceName}: ${totalImported} items saved, ${totalSkipped} duplicates skipped`
+      );
 
-      return ok({
-        transactionsImported: totalImported,
-        importSessionId,
-      });
+      // Fetch and return the complete ImportSession
+      const sessionResult = await this.importSessionRepository.findById(importSessionId);
+      if (sessionResult.isErr()) {
+        return err(sessionResult.error);
+      }
+      if (!sessionResult.value) {
+        return err(new Error(`Import session #${importSessionId} not found after finalization`));
+      }
+
+      return ok(sessionResult.value);
     } catch (error) {
       const originalError = error instanceof Error ? error : new Error(String(error));
-
-      // Build import result metadata for error case - still include address for any partial data
-      const errorMetadata: Record<string, unknown> = { transactionsImported: totalImported };
-
-      if (params.address) {
-        errorMetadata.address = params.address;
-      }
 
       await this.importSessionRepository.finalize(
         importSessionId,
         'failed',
         startTime,
+        totalImported,
+        totalSkipped,
         originalError.message,
-        error instanceof Error ? { stack: error.stack } : { error: String(error) },
-        errorMetadata
+        error instanceof Error ? { stack: error.stack } : { error: String(error) }
       );
 
       this.logger.error(`Import failed for ${sourceName}: ${originalError.message}`);

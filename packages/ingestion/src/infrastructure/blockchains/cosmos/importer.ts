@@ -108,6 +108,7 @@ export class CosmosImporter implements IImporter {
           tokenAddress: txWithRaw.normalized.tokenAddress,
           type: txWithRaw.normalized.messageType || 'transfer',
         }),
+        blockchainTransactionHash: txWithRaw.normalized.id,
         normalizedData: txWithRaw.normalized,
         providerName: providerBatch.providerName,
         rawData: txWithRaw.raw,

@@ -43,7 +43,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -79,7 +82,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -116,7 +122,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -151,7 +160,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -190,7 +202,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -230,7 +245,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -268,7 +286,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -306,7 +327,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -341,7 +365,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -376,7 +403,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -410,7 +440,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -447,7 +480,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -482,7 +518,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -517,7 +556,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -556,8 +598,11 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    // Pass mixed-case address - processor should normalize it
-    const result = await processor.process(normalizedData, { address: mixedCaseUserInput });
+    // Pass normalized (lowercase) addresses in context - addresses are normalized before reaching processor
+    const result = await processor.process(normalizedData, {
+      primaryAddress: mixedCaseUserInput.toLowerCase(),
+      userAddresses: [mixedCaseUserInput.toLowerCase()],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -590,7 +635,10 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

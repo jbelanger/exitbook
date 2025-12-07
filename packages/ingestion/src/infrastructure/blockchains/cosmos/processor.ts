@@ -3,6 +3,7 @@ import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
+import type { ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import {
@@ -30,16 +31,8 @@ export class CosmosProcessor extends BaseTransactionProcessor {
    */
   protected async processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: Record<string, unknown>
+    context: ProcessingContext
   ): Promise<Result<UniversalTransaction[], string>> {
-    if (!sessionMetadata?.address || typeof sessionMetadata.address !== 'string') {
-      return err('Missing user address in session metadata');
-    }
-
-    // Normalize user address to lowercase for case-insensitive matching
-    // (normalized data addresses are already lowercase via CosmosAddressSchema)
-    const userAddress = sessionMetadata.address.toLowerCase();
-
     // Deduplicate by transaction ID (handles cases like Peggy deposits where multiple validators
     // submit the same deposit claim with different tx hashes but same event_nonce-based ID)
     const deduplicatedData = deduplicateByTransactionId(normalizedData as CosmosTransaction[]);
@@ -56,7 +49,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
       const normalizedTx = transaction;
       try {
         // Analyze fund flow for sophisticated transaction classification
-        const fundFlow = analyzeFundFlowFromNormalized(normalizedTx, userAddress, this.chainConfig);
+        const fundFlow = analyzeFundFlowFromNormalized(normalizedTx, context, this.chainConfig);
 
         // Determine operation classification based on fund flow
         const classification = determineOperationFromFundFlow(fundFlow);
@@ -67,7 +60,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
         // 1. They have ANY outflows (sent funds, delegated, swapped, etc.) OR
         // 2. They initiated a transaction with no outflows (governance votes, contract calls, etc.)
         // Note: Addresses are already normalized to lowercase via CosmosAddressSchema
-        const userInitiatedTransaction = normalizedTx.from === userAddress;
+        const userInitiatedTransaction = normalizedTx.from === context.primaryAddress;
         const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
         // Convert to UniversalTransaction with enhanced metadata

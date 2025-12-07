@@ -1,5 +1,5 @@
 import type { ImportSession, ImportSessionStatus } from '@exitbook/core';
-import { ImportResultMetadataSchema, wrapError } from '@exitbook/core';
+import { wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import type { StoredImportSession, ImportSessionQuery, ImportSessionUpdate } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
@@ -29,11 +29,10 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
         .values({
           account_id: accountId,
           created_at: this.getCurrentDateTimeForDB(),
-          import_result_metadata: this.serializeToJson({}) ?? '{}',
           started_at: this.getCurrentDateTimeForDB(),
           status: 'started',
           transactions_imported: 0,
-          transactions_failed: 0,
+          transactions_skipped: 0,
         })
         .returning('id')
         .executeTakeFirstOrThrow();
@@ -46,33 +45,20 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
 
   /**
    * Finalize an import session
-   * Sets final status, duration, and result metadata
-   * Extracts transactionsImported and transactionsFailed from metadata and writes to dedicated columns
+   * Sets final status, duration, and transaction results
    */
   async finalize(
     sessionId: number,
     status: Exclude<ImportSessionStatus, 'started'>,
     startTime: number,
+    transactionsImported: number,
+    transactionsSkipped: number,
     errorMessage?: string,
-    errorDetails?: unknown,
-    importResultMetadata?: Record<string, unknown>
+    errorDetails?: unknown
   ): Promise<Result<void, Error>> {
     try {
-      // Validate import result metadata before saving
-      const metadataToSave = importResultMetadata ?? {};
-      const validationResult = ImportResultMetadataSchema.safeParse(metadataToSave);
-      if (!validationResult.success) {
-        return err(new Error(`Invalid import result metadata: ${validationResult.error.message}`));
-      }
-
       const durationMs = Date.now() - startTime;
       const currentTimestamp = this.getCurrentDateTimeForDB();
-
-      // Extract transaction counts from metadata to populate dedicated columns
-      const transactionsImported =
-        typeof metadataToSave.transactionsImported === 'number' ? metadataToSave.transactionsImported : 0;
-      const transactionsFailed =
-        typeof metadataToSave.transactionsFailed === 'number' ? metadataToSave.transactionsFailed : 0;
 
       await this.db
         .updateTable('import_sessions')
@@ -81,10 +67,9 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
           duration_ms: durationMs,
           error_details: this.serializeToJson(errorDetails),
           error_message: errorMessage,
-          import_result_metadata: this.serializeToJson(validationResult.data),
           status,
           transactions_imported: transactionsImported,
-          transactions_failed: transactionsFailed,
+          transactions_skipped: transactionsSkipped,
           updated_at: currentTimestamp,
         })
         .where('id', '=', sessionId)
@@ -127,7 +112,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
       // Convert rows to domain models, failing fast on any parse errors
       const importSessions: ImportSession[] = [];
       for (const row of rows) {
-        const result = this.toDataSource(row);
+        const result = this.toImportSession(row);
         if (result.isErr()) {
           return err(result.error);
         }
@@ -155,7 +140,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
         return ok(undefined);
       }
 
-      const result = this.toDataSource(row);
+      const result = this.toImportSession(row);
       if (result.isErr()) {
         return err(result.error);
       }
@@ -192,7 +177,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
       // Convert rows to domain models
       const importSessions: ImportSession[] = [];
       for (const row of rows) {
-        const ds = this.toDataSource(row);
+        const ds = this.toImportSession(row);
         if (ds.isErr()) {
           return err(ds.error);
         }
@@ -244,7 +229,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
    * Get all import_session_ids (session IDs) for multiple accounts in one query (avoids N+1).
    * Returns an array of session IDs across all specified accounts.
    */
-  async getDataSourceIdsByAccounts(accountIds: number[]): Promise<Result<number[], Error>> {
+  async getImportSessionIdsByAccounts(accountIds: number[]): Promise<Result<number[], Error>> {
     try {
       if (accountIds.length === 0) {
         return ok([]);
@@ -288,25 +273,12 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
         updateData.error_details = this.serializeToJson(updates.error_details);
       }
 
-      if (updates.import_result_metadata !== undefined) {
-        if (typeof updates.import_result_metadata === 'string') {
-          updateData.import_result_metadata = updates.import_result_metadata;
-        } else {
-          // Validate before saving
-          const validationResult = ImportResultMetadataSchema.safeParse(updates.import_result_metadata);
-          if (!validationResult.success) {
-            return err(new Error(`Invalid import result metadata: ${validationResult.error.message}`));
-          }
-          updateData.import_result_metadata = this.serializeToJson(validationResult.data);
-        }
-      }
-
       if (updates.transactions_imported !== undefined) {
         updateData.transactions_imported = updates.transactions_imported;
       }
 
-      if (updates.transactions_failed !== undefined) {
-        updateData.transactions_failed = updates.transactions_failed;
+      if (updates.transactions_skipped !== undefined) {
+        updateData.transactions_skipped = updates.transactions_skipped;
       }
 
       // Only update if there are actual changes besides updated_at
@@ -401,7 +373,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
         return ok(undefined);
       }
 
-      const result = this.toDataSource(row);
+      const result = this.toImportSession(row);
       if (result.isErr()) {
         return err(result.error);
       }
@@ -416,13 +388,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
    * Convert database row to ImportSession domain model
    * Handles JSON parsing and camelCase conversion
    */
-  private toDataSource(row: StoredImportSession): Result<ImportSession, Error> {
-    // Parse and validate JSON fields using schemas
-    const importResultMetadataResult = this.parseWithSchema(row.import_result_metadata, ImportResultMetadataSchema);
-    if (importResultMetadataResult.isErr()) {
-      return err(importResultMetadataResult.error);
-    }
-
+  private toImportSession(row: StoredImportSession): Result<ImportSession, Error> {
     const errorDetailsResult = this.parseJson<unknown>(row.error_details);
     if (errorDetailsResult.isErr()) {
       return err(errorDetailsResult.error);
@@ -438,10 +404,9 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
       updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
       durationMs: row.duration_ms ?? undefined,
       transactionsImported: row.transactions_imported,
-      transactionsFailed: row.transactions_failed,
+      transactionsSkipped: row.transactions_skipped,
       errorMessage: row.error_message ?? undefined,
       errorDetails: errorDetailsResult.value,
-      importResultMetadata: importResultMetadataResult.value ?? {},
     });
   }
 }

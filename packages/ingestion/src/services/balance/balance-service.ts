@@ -307,7 +307,6 @@ export class BalanceService {
       const transactionsResult: Result<UniversalTransaction[], Error> =
         await this.transactionRepository.getTransactions({
           accountIds,
-          sessionStatus: 'completed',
         });
 
       if (transactionsResult.isErr()) {
@@ -321,19 +320,14 @@ export class BalanceService {
         return ok({});
       }
 
-      // Deduplicate blockchain transactions that appear across multiple child accounts
-      // A single on-chain transaction can touch multiple derived addresses, so we need to
-      // count it only once by using blockchain.transaction_hash + blockchain.name as the key
-      const dedupedTransactions = this.deduplicateBlockchainTransactions(allTransactions);
-
       const accountInfo =
         childAccounts.length > 0
           ? `${account.sourceName} (parent + ${childAccounts.length} child accounts)`
           : account.sourceName;
       logger.info(
-        `Calculating balances from ${dedupedTransactions.length} transactions (${allTransactions.length} before dedup) across all completed sessions for ${accountInfo}`
+        `Calculating balances from ${allTransactions.length} transactions across all completed sessions for ${accountInfo}`
       );
-      const calculatedBalances = calculateBalances(dedupedTransactions);
+      const calculatedBalances = calculateBalances(allTransactions);
 
       return ok(calculatedBalances);
     } catch (error) {
@@ -451,7 +445,6 @@ export class BalanceService {
       // Fetch ALL excluded transactions for all accounts in one query (avoids N+1)
       const excludedTxResult: Result<UniversalTransaction[], Error> = await this.transactionRepository.getTransactions({
         accountIds,
-        sessionStatus: 'completed',
         includeExcluded: true, // Must include to get the excluded ones
       });
 
@@ -461,12 +454,7 @@ export class BalanceService {
 
       const allExcludedTransactions = excludedTxResult.value;
 
-      // Deduplicate blockchain transactions that appear across multiple child accounts
-      // A single on-chain transaction can touch multiple derived addresses, so we need to
-      // count it only once to avoid inflating the excluded amount
-      const dedupedExcludedTransactions = this.deduplicateBlockchainTransactions(allExcludedTransactions);
-
-      const excludedAmounts = this.sumExcludedInflowAmounts(dedupedExcludedTransactions);
+      const excludedAmounts = this.sumExcludedInflowAmounts(allExcludedTransactions);
       return ok(excludedAmounts);
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
@@ -591,65 +579,6 @@ export class BalanceService {
     }
 
     return adjusted;
-  }
-
-  /**
-   * Deduplicate blockchain transactions that appear across multiple child accounts.
-   * A single on-chain transaction can touch multiple derived addresses (e.g., payment to one address,
-   * change to another). We deduplicate by blockchain transaction hash to avoid double-counting.
-   * Exchange transactions are not affected and pass through unchanged.
-   */
-  private deduplicateBlockchainTransactions(transactions: UniversalTransaction[]): UniversalTransaction[] {
-    const seen = new Map<string, UniversalTransaction>();
-    const deduplicated: UniversalTransaction[] = [];
-
-    for (const tx of transactions) {
-      // Exchange transactions don't have blockchain metadata - include them as-is
-      if (!tx.blockchain) {
-        deduplicated.push(tx);
-        continue;
-      }
-
-      // Guard against missing transaction hash - include without deduplication
-      if (!tx.blockchain.transaction_hash) {
-        logger.warn(
-          {
-            blockchain: tx.blockchain.name,
-            externalId: tx.externalId,
-          },
-          'Blockchain transaction missing transaction_hash - including without deduplication'
-        );
-        deduplicated.push(tx);
-        continue;
-      }
-
-      // For blockchain transactions, use hash + blockchain name as the unique key
-      const key = `${tx.blockchain.name}:${tx.blockchain.transaction_hash}`;
-
-      if (!seen.has(key)) {
-        seen.set(key, tx);
-        deduplicated.push(tx);
-      } else {
-        // This is a duplicate - the same on-chain tx appearing for a different derived address
-        logger.debug(
-          {
-            txHash: tx.blockchain.transaction_hash,
-            blockchain: tx.blockchain.name,
-            externalId: tx.externalId,
-          },
-          'Skipping duplicate blockchain transaction (same on-chain tx across multiple addresses)'
-        );
-      }
-    }
-
-    const duplicateCount = transactions.length - deduplicated.length;
-    if (duplicateCount > 0) {
-      logger.info(
-        `Removed ${duplicateCount} duplicate blockchain transaction(s) (same on-chain tx appearing across multiple derived addresses)`
-      );
-    }
-
-    return deduplicated;
   }
 
   /**

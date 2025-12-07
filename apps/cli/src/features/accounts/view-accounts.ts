@@ -98,10 +98,10 @@ async function executeViewAccountsCommand(options: ExtendedViewAccountsCommandOp
 
     const database = await initializeDatabase();
     const accountRepo = new AccountRepository(database);
-    const dataSourceRepo = new ImportSessionRepository(database);
+    const sessionRepo = new ImportSessionRepository(database);
     const userRepo = new UserRepository(database);
 
-    const accountService = new AccountService(accountRepo, dataSourceRepo, userRepo);
+    const accountService = new AccountService(accountRepo, sessionRepo, userRepo);
     const handler = new ViewAccountsHandler(accountService);
 
     const result = await handler.execute(params);

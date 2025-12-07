@@ -6,6 +6,8 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
+import type { ProcessingContext } from '../../../types/processors.js';
+
 import type { EvmFundFlow, EvmMovement } from './types.js';
 
 const logger = getLogger('evm-processor-utils');
@@ -286,19 +288,15 @@ export function groupEvmTransactionsByHash(transactions: EvmTransaction[]): Map<
  */
 export function analyzeEvmFundFlow(
   txGroup: EvmTransaction[],
-  sessionMetadata: Record<string, unknown>,
+  context: ProcessingContext,
   chainConfig: EvmChainConfig
 ): Result<EvmFundFlow, string> {
   if (txGroup.length === 0) {
     return err('Empty transaction group');
   }
 
-  if (!sessionMetadata.address || typeof sessionMetadata.address !== 'string') {
-    return err('Missing user address in session metadata');
-  }
-
-  // Address should already be normalized by caller
-  const userAddress = sessionMetadata.address;
+  // Address is already normalized by blockchain-specific schemas
+  const userAddress = context.primaryAddress;
 
   // Analyze transaction group complexity - essential for proper EVM classification
   const hasTokenTransfers = txGroup.some((tx) => tx.type === 'token_transfer');

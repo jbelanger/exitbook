@@ -2,6 +2,7 @@ import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 import { BITCOIN_CHAINS } from './chain-registry.js';
+import { normalizeBitcoinAddress } from './utils.js';
 
 /**
  * Dynamically derived list of supported Bitcoin-like currencies
@@ -17,13 +18,16 @@ const BitcoinCurrencySchema = z.enum(SUPPORTED_CURRENCIES);
 
 /**
  * Bitcoin address schema with normalization
- * Bitcoin addresses use Base58Check or Bech32 encoding, which are case-insensitive
- * Normalizes to lowercase for consistent storage and comparison
+ * Uses blockchain-specific normalization logic:
+ * - Bech32 (bc1/ltc1): Lowercase
+ * - CashAddr: Lowercase
+ * - Legacy Base58: Case-sensitive (preserved)
+ * - xpub/ypub/zpub: Case-sensitive (preserved)
  */
 export const BitcoinAddressSchema = z
   .string()
   .min(1, 'Address must not be empty')
-  .transform((val) => val.toLowerCase());
+  .transform((val) => normalizeBitcoinAddress(val));
 
 /**
  * Schema for Bitcoin transaction input

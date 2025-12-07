@@ -1,5 +1,5 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { ExchangeCredentials } from '@exitbook/core';
+import type { ExchangeCredentials, ImportSession } from '@exitbook/core';
 import type { AccountRepository, UserRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -7,7 +7,6 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
-import type { ImportResult } from '../types/importers.js';
 import type { IImportSessionRepository, IRawDataRepository } from '../types/repositories.js';
 
 import { TransactionImportService } from './import-service.js';
@@ -45,13 +44,14 @@ export class ImportOrchestrator {
 
   /**
    * Import transactions from a blockchain
+   * Returns single ImportSession for regular addresses, array for xpub imports
    */
   async importBlockchain(
     blockchain: string,
     addressOrXpub: string,
     providerName?: string,
     xpubGap?: number
-  ): Promise<Result<ImportResult, Error>> {
+  ): Promise<Result<ImportSession | ImportSession[], Error>> {
     this.logger.info(`Starting blockchain import for ${blockchain} (${addressOrXpub.substring(0, 20)}...)`);
 
     // 1. Ensure default CLI user exists (id=1)
@@ -113,7 +113,7 @@ export class ImportOrchestrator {
   /**
    * Import transactions from an exchange using API credentials
    */
-  async importExchangeApi(exchange: string, credentials: ExchangeCredentials): Promise<Result<ImportResult, Error>> {
+  async importExchangeApi(exchange: string, credentials: ExchangeCredentials): Promise<Result<ImportSession, Error>> {
     this.logger.info(`Starting exchange API import for ${exchange}`);
 
     if (!credentials.apiKey) {
@@ -151,7 +151,7 @@ export class ImportOrchestrator {
   /**
    * Import transactions from an exchange using CSV files
    */
-  async importExchangeCsv(exchange: string, csvDirectories: string[]): Promise<Result<ImportResult, Error>> {
+  async importExchangeCsv(exchange: string, csvDirectories: string[]): Promise<Result<ImportSession, Error>> {
     this.logger.info(`Starting exchange CSV import for ${exchange}`);
 
     if (!csvDirectories || csvDirectories.length === 0) {
@@ -191,6 +191,7 @@ export class ImportOrchestrator {
 
   /**
    * Import from xpub by creating parent + child accounts
+   * Returns array of ImportSessions (one per derived address)
    */
   private async importFromXpub(
     userId: number,
@@ -199,7 +200,7 @@ export class ImportOrchestrator {
     blockchainAdapter: ReturnType<typeof getBlockchainAdapter>,
     providerName?: string,
     xpubGap?: number
-  ): Promise<Result<ImportResult, Error>> {
+  ): Promise<Result<ImportSession[], Error>> {
     try {
       if (!blockchainAdapter?.deriveAddressesFromXpub) {
         return err(new Error(`Blockchain ${blockchain} does not support xpub derivation`));
@@ -238,21 +239,27 @@ export class ImportOrchestrator {
       // Handle case where no active addresses were found
       if (derivedAddresses.length === 0) {
         this.logger.info('No active addresses found for xpub - no transactions to import');
-        return ok({
-          transactionsImported: 0,
-          importSessionId: parentAccount.id,
-        });
+        return ok([]);
       }
 
       // 3. Create child account for each derived address
       const childAccounts = [];
       for (const derived of derivedAddresses) {
+        // Normalize derived address for consistent storage and comparison
+        const normalizedDerivedResult = blockchainAdapter.normalizeAddress(derived.address);
+        if (normalizedDerivedResult.isErr()) {
+          this.logger.warn(
+            `Skipping invalid derived address: ${derived.address} - ${normalizedDerivedResult.error.message}`
+          );
+          continue;
+        }
+
         const childAccountResult = await this.accountRepository.findOrCreate({
           userId,
           parentAccountId: parentAccount.id,
           accountType: 'blockchain',
           sourceName: blockchain,
-          identifier: derived.address,
+          identifier: normalizedDerivedResult.value,
           providerName,
           credentials: undefined,
         });
@@ -266,10 +273,8 @@ export class ImportOrchestrator {
 
       this.logger.info(`Created ${childAccounts.length} child accounts`);
 
-      // 4. Import each child account and aggregate results
-      let totalNewTransactions = 0;
-      let lastDataSourceId = 0;
-      let successfulImports = 0;
+      // 4. Import each child account and collect ImportSessions
+      const importSessions: ImportSession[] = [];
       const errors: string[] = [];
 
       for (const childAccount of childAccounts) {
@@ -287,25 +292,24 @@ export class ImportOrchestrator {
           continue;
         }
 
-        totalNewTransactions += importResult.value.transactionsImported;
-        lastDataSourceId = importResult.value.importSessionId;
-        successfulImports++;
+        importSessions.push(importResult.value);
       }
 
       // If no child imports succeeded, return an error
-      if (successfulImports === 0) {
+      if (importSessions.length === 0) {
         const errorSummary = errors.length > 0 ? errors.join('; ') : 'All child account imports failed';
         return err(new Error(`Xpub import failed: ${errorSummary}`));
       }
 
+      // Calculate totals for logging
+      const totalImported = importSessions.reduce((sum, s) => sum + s.transactionsImported, 0);
+      const totalSkipped = importSessions.reduce((sum, s) => sum + s.transactionsSkipped, 0);
+
       this.logger.info(
-        `Completed xpub import: ${totalNewTransactions} transactions from ${successfulImports}/${childAccounts.length} addresses`
+        `Completed xpub import: ${totalImported} transactions from ${importSessions.length}/${childAccounts.length} addresses (${totalSkipped} duplicates skipped)`
       );
 
-      return ok({
-        transactionsImported: totalNewTransactions,
-        importSessionId: lastDataSourceId,
-      });
+      return ok(importSessions);
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }

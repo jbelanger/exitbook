@@ -3,14 +3,10 @@ import { parseDecimal } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
+import type { ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
-import {
-  analyzeFundFlowFromNormalized,
-  determineOperationFromFundFlow,
-  didUserPayFee,
-  enrichSourceContext,
-} from './processor-utils.js';
+import { analyzeFundFlowFromNormalized, determineOperationFromFundFlow, didUserPayFee } from './processor-utils.js';
 
 /**
  * Generic Substrate transaction processor that converts raw blockchain transaction data
@@ -31,30 +27,20 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
    */
   protected async processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: Record<string, unknown>
+    context: ProcessingContext
   ): Promise<Result<UniversalTransaction[], string>> {
-    if (!sessionMetadata?.address || typeof sessionMetadata.address !== 'string') {
-      return err('Missing user address in session metadata');
-    }
-
-    const sourceContextResult = enrichSourceContext(sessionMetadata.address);
-    if (sourceContextResult.isErr()) {
-      return err(sourceContextResult.error);
-    }
-
-    const sourceContext = sourceContextResult.value;
     const transactions: UniversalTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
     this.logger.info(
-      `Enriched Substrate session context - Original address: ${sessionMetadata.address}, ` +
-        `SS58 variants generated: ${Array.isArray(sourceContext.derivedAddresses) ? sourceContext.derivedAddresses.length : 0}`
+      `Processing Substrate transactions - Primary address: ${context.primaryAddress}, ` +
+        `Total user addresses: ${context.userAddresses.length}`
     );
 
     for (const item of normalizedData) {
       const normalizedTx = item as SubstrateTransaction;
       try {
-        const fundFlowResult = analyzeFundFlowFromNormalized(normalizedTx, sourceContext, this.chainConfig);
+        const fundFlowResult = analyzeFundFlowFromNormalized(normalizedTx, context, this.chainConfig);
         if (fundFlowResult.isErr()) {
           const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;
           processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
@@ -74,8 +60,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
 
         // Only include fees if user was the signer/broadcaster (they paid the fee)
         // For incoming transactions (deposits, received transfers), the sender/protocol paid the fee
-        const userAddress = sessionMetadata.address;
-        const userPaidFee = didUserPayFee(normalizedTx, fundFlow, userAddress);
+        const userPaidFee = didUserPayFee(normalizedTx, fundFlow, context.primaryAddress);
 
         const universalTransaction: UniversalTransaction = {
           id: 0, // Will be assigned by database

@@ -190,11 +190,13 @@ export class LotTransferRepository extends BaseRepository {
   }
 
   /**
-   * Count lot transfers by import session IDs
+   * Count lot transfers by account IDs
+   * Counts transfers where source transactions belong to the specified accounts
+   * Filters WHERE source_transaction_id IN (SELECT id FROM transactions WHERE account_id IN (accountIds))
    */
-  async countByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
+  async countByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (importSessionIds.length === 0) {
+      if (accountIds.length === 0) {
         return ok(0);
       }
 
@@ -204,13 +206,13 @@ export class LotTransferRepository extends BaseRepository {
         .where(
           'source_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('import_session_id', 'in', importSessionIds)
+          this.db.selectFrom('transactions').select('id').where('account_id', 'in', accountIds)
         )
         .executeTakeFirst();
       return ok(result?.count ?? 0);
     } catch (error) {
-      this.logger.error({ error, importSessionIds }, 'Failed to count lot transfers by import session IDs');
-      return wrapError(error, 'Failed to count lot transfers by import session IDs');
+      this.logger.error({ error, accountIds }, 'Failed to count lot transfers by account IDs');
+      return wrapError(error, 'Failed to count lot transfers by account IDs');
     }
   }
 
@@ -234,12 +236,13 @@ export class LotTransferRepository extends BaseRepository {
   }
 
   /**
-   * Delete lot transfers for transactions from specific import sessions (import sessions).
-   * Uses import_session_id from transactions to properly scope deletions to specific accounts.
+   * Delete lot transfers by account IDs
+   * Deletes transfers where source transactions belong to the specified accounts
+   * Deletes WHERE source_transaction_id IN (SELECT id FROM transactions WHERE account_id IN (accountIds))
    */
-  async deleteByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
+  async deleteByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (importSessionIds.length === 0) {
+      if (accountIds.length === 0) {
         return ok(0);
       }
 
@@ -248,16 +251,16 @@ export class LotTransferRepository extends BaseRepository {
         .where(
           'source_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('import_session_id', 'in', importSessionIds)
+          this.db.selectFrom('transactions').select('id').where('account_id', 'in', accountIds)
         )
         .executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.debug({ importSessionIds, count }, 'Deleted lot transfers by import session IDs');
+      this.logger.debug({ accountIds, count }, 'Deleted lot transfers by account IDs');
       return ok(count);
     } catch (error) {
-      this.logger.error({ error, importSessionIds }, 'Failed to delete lot transfers by import session IDs');
-      return wrapError(error, 'Failed to delete lot transfers by import session IDs');
+      this.logger.error({ error, accountIds }, 'Failed to delete lot transfers by account IDs');
+      return wrapError(error, 'Failed to delete lot transfers by account IDs');
     }
   }
 

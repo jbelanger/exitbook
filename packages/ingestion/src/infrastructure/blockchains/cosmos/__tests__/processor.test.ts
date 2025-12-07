@@ -55,7 +55,10 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -98,7 +101,10 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -141,7 +147,10 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -183,7 +192,10 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -221,7 +233,10 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -257,7 +272,10 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -293,7 +311,10 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
@@ -328,7 +349,10 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -364,7 +388,10 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -406,7 +433,10 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -449,7 +479,10 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -491,7 +524,10 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -536,7 +572,10 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -578,7 +617,10 @@ describe('CosmosProcessor - Multi-Chain Support', () => {
         tokenType: 'native',
       },
     ];
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -612,7 +654,10 @@ describe('CosmosProcessor - Multi-Chain Support', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: 'osmo1user000000000000000000000000000000000' });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: 'osmo1user000000000000000000000000000000000',
+      userAddresses: ['osmo1user000000000000000000000000000000000'],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -627,33 +672,6 @@ describe('CosmosProcessor - Multi-Chain Support', () => {
 });
 
 describe('CosmosProcessor - Edge Cases', () => {
-  test('handles missing user address in session metadata', async () => {
-    const processor = createInjectiveProcessor();
-
-    const normalizedData: CosmosTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        blockHeight: 400,
-        currency: 'INJ',
-        from: EXTERNAL_ADDRESS,
-        id: 'tx501',
-        messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
-        to: USER_ADDRESS,
-        tokenType: 'native',
-      },
-    ];
-
-    const result = await processor.process(normalizedData, { address: '' });
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toContain('Missing user address');
-    }
-  });
-
   test('handles case-insensitive address matching', async () => {
     const processor = createInjectiveProcessor();
 
@@ -677,8 +695,11 @@ describe('CosmosProcessor - Edge Cases', () => {
       },
     ];
 
-    // Pass mixed-case address - processor should normalize it
-    const result = await processor.process(normalizedData, { address: mixedCaseUserInput });
+    // Pass normalized (lowercase) addresses in context - addresses are normalized before reaching processor
+    const result = await processor.process(normalizedData, {
+      primaryAddress: mixedCaseUserInput.toLowerCase(),
+      userAddresses: [mixedCaseUserInput.toLowerCase()],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -712,7 +733,10 @@ describe('CosmosProcessor - Edge Cases', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -742,7 +766,10 @@ describe('CosmosProcessor - Edge Cases', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -778,7 +805,10 @@ describe('CosmosProcessor - Classification Uncertainty', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -816,7 +846,10 @@ describe('CosmosProcessor - Classification Uncertainty', () => {
         tokenAddress: 'inj1contract0000000000000000000000000000',
       },
     ];
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

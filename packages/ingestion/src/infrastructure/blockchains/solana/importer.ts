@@ -99,6 +99,7 @@ export class SolanaTransactionImporter implements IImporter {
           traceId: txWithRaw.normalized.signature,
           type: 'transfer',
         }),
+        blockchainTransactionHash: txWithRaw.normalized.id,
         normalizedData: txWithRaw.normalized,
         providerName: providerBatch.providerName,
         rawData: txWithRaw.raw,

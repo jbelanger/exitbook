@@ -11,11 +11,10 @@ import type { Result } from 'neverthrow';
 /**
  * Filter options for loading raw data from repository
  * Ingestion-specific concern
- * Per ADR-007: Use accountId to filter by source (via import_sessions.account_id)
+ * Raw data is scoped by account - each account owns its transaction data
  */
 export interface LoadRawDataFilters {
   accountId?: number | undefined;
-  importSessionId?: number | undefined;
   processingStatus?: ProcessingStatus | undefined;
   providerName?: string | undefined;
   since?: number | undefined;
@@ -38,20 +37,30 @@ export interface IRawDataRepository {
   markAsProcessed(sourceId: string, sourceTransactionIds: number[]): Promise<Result<void, Error>>;
 
   /**
-   * Save external data items to storage.
+   * Mark specific raw data items as skipped (for cross-account duplicates).
+   * Used by processor to mark duplicate blockchain transactions across different accounts.
    */
-  save(importSessionId: number, item: ExternalTransaction): Promise<Result<number, Error>>;
+  markAsSkipped(rawDataIds: number[]): Promise<Result<number, Error>>;
+
+  /**
+   * Save external data item to storage.
+   */
+  save(accountId: number, item: ExternalTransaction): Promise<Result<number, Error>>;
 
   /**
    * Save multiple external data items to storage in a single transaction.
+   * Returns inserted and skipped counts (skipped = duplicates per unique constraint).
    */
-  saveBatch(importSessionId: number, items: ExternalTransaction[]): Promise<Result<number, Error>>;
+  saveBatch(
+    accountId: number,
+    items: ExternalTransaction[]
+  ): Promise<Result<{ inserted: number; skipped: number }, Error>>;
 
   /**
    * Get records with valid normalized data (where normalized_data is not null).
    * Used during processing step.
    */
-  getValidRecords(importSessionId: number): Promise<Result<ExternalTransactionData[], Error>>;
+  getValidRecords(accountId: number): Promise<Result<ExternalTransactionData[], Error>>;
 
   /**
    * Reset processing status to 'pending' for all raw data for an account.
@@ -104,9 +113,10 @@ export interface IImportSessionRepository {
     sessionId: number,
     status: Exclude<ImportSessionStatus, 'started'>,
     startTime: number,
+    transactionsImported: number,
+    transactionsSkipped: number,
     errorMessage?: string,
-    errorDetails?: unknown,
-    importResultMetadata?: Record<string, unknown>
+    errorDetails?: unknown
   ): Promise<Result<void, Error>>;
 
   /**
@@ -133,7 +143,7 @@ export interface IImportSessionRepository {
    * Get all import_session_ids (session IDs) for multiple accounts in one query (avoids N+1).
    * Returns an array of session IDs across all specified accounts.
    */
-  getDataSourceIdsByAccounts(accountIds: number[]): Promise<Result<number[], Error>>;
+  getImportSessionIdsByAccounts(accountIds: number[]): Promise<Result<number[], Error>>;
 
   /**
    * Get session counts for multiple accounts in one query (avoids N+1).

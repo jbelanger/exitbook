@@ -19,9 +19,8 @@ describe('import-service-utils', () => {
         status: 'completed',
         startedAt: new Date(),
         transactionsImported: 0,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
         createdAt: new Date(),
-        importResultMetadata: {},
       };
       const params: ImportParams = { address: 'bc1q...' };
 
@@ -143,7 +142,7 @@ describe('import-service-utils', () => {
       const result = prepareImportSession(sourceId, params, existingSource, latestCursor);
 
       expect(result.shouldResume).toBe(false);
-      expect(result.existingDataSourceId).toBeUndefined();
+      expect(result.existingImportSessionId).toBeUndefined();
       expect(result.params).toEqual(params);
     });
 
@@ -156,16 +155,15 @@ describe('import-service-utils', () => {
         status: 'started',
         startedAt: new Date(),
         transactionsImported: 0,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
         createdAt: new Date(),
-        importResultMetadata: {},
       };
       const latestCursor = undefined;
 
       const result = prepareImportSession(sourceId, params, existingSource, latestCursor);
 
       expect(result.shouldResume).toBe(true);
-      expect(result.existingDataSourceId).toBe(42);
+      expect(result.existingImportSessionId).toBe(42);
       expect(result.params).toEqual(params);
     });
 
@@ -179,15 +177,14 @@ describe('import-service-utils', () => {
         startedAt: new Date(),
         createdAt: new Date(),
         transactionsImported: 0,
-        transactionsFailed: 0,
-        importResultMetadata: {},
+        transactionsSkipped: 0,
       };
       const latestCursor = undefined;
 
       const result = prepareImportSession(sourceId, params, existingSource, latestCursor);
 
       expect(result.shouldResume).toBe(true);
-      expect(result.existingDataSourceId).toBe(42);
+      expect(result.existingImportSessionId).toBe(42);
       expect(result.params).toEqual(params);
     });
 
@@ -201,15 +198,14 @@ describe('import-service-utils', () => {
         startedAt: new Date(),
         createdAt: new Date(),
         transactionsImported: 10,
-        transactionsFailed: 0,
-        importResultMetadata: {},
+        transactionsSkipped: 0,
       };
       const latestCursor = undefined;
 
       const result = prepareImportSession(sourceId, params, existingSource, latestCursor);
 
       expect(result.shouldResume).toBe(false);
-      expect(result.existingDataSourceId).toBeUndefined();
+      expect(result.existingImportSessionId).toBeUndefined();
       expect(result.params).toEqual(params);
     });
 
@@ -223,15 +219,14 @@ describe('import-service-utils', () => {
         startedAt: new Date(),
         createdAt: new Date(),
         transactionsImported: 0,
-        transactionsFailed: 0,
-        importResultMetadata: {},
+        transactionsSkipped: 0,
       };
       const latestCursor = undefined;
 
       const result = prepareImportSession(sourceId, params, existingSource, latestCursor);
 
       expect(result.shouldResume).toBe(false);
-      expect(result.existingDataSourceId).toBeUndefined();
+      expect(result.existingImportSessionId).toBeUndefined();
       expect(result.params).toEqual(params);
     });
 
@@ -244,9 +239,8 @@ describe('import-service-utils', () => {
         status: 'started',
         startedAt: new Date(),
         transactionsImported: 0,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
         createdAt: new Date(),
-        importResultMetadata: {},
       };
       const latestCursor: Record<string, CursorState> = {
         ledger: {
@@ -264,7 +258,7 @@ describe('import-service-utils', () => {
       const result = prepareImportSession(sourceId, params, existingSource, latestCursor);
 
       expect(result.shouldResume).toBe(true);
-      expect(result.existingDataSourceId).toBe(42);
+      expect(result.existingImportSessionId).toBe(42);
       expect(result.params.cursor).toEqual(latestCursor);
     });
 
@@ -277,9 +271,8 @@ describe('import-service-utils', () => {
         status: 'started',
         startedAt: new Date(),
         transactionsImported: 0,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
         createdAt: new Date(),
-        importResultMetadata: {},
       };
       const latestCursor: Record<string, CursorState> = {
         ledger: {

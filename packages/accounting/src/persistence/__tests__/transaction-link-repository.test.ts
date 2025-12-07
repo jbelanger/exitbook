@@ -53,9 +53,8 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         account_id: 1,
         status: 'completed',
         started_at: new Date().toISOString(),
-        import_result_metadata: '{}',
         transactions_imported: 0,
-        transactions_failed: 0,
+        transactions_skipped: 0,
         created_at: new Date().toISOString(),
       })
       .execute();
@@ -65,7 +64,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         .insertInto('transactions')
         .values({
           id: i,
-          import_session_id: 1,
+          account_id: 1,
           source_id: 'test',
           source_type: 'exchange',
           transaction_status: 'success',

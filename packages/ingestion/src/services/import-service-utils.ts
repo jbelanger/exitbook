@@ -11,7 +11,7 @@ import type { ImportParams } from '../types/importers.js';
 export interface ImportSessionConfig {
   params: ImportParams;
   shouldResume: boolean;
-  existingDataSourceId?: number;
+  existingImportSessionId?: number;
 }
 
 /**
@@ -101,7 +101,7 @@ export function prepareImportSession(
     return {
       params: resumeParams,
       shouldResume: true,
-      existingDataSourceId: existingSource.id,
+      existingImportSessionId: existingSource.id,
     };
   }
 

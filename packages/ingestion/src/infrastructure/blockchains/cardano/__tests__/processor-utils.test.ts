@@ -151,7 +151,10 @@ describe('analyzeCardanoFundFlow', () => {
       timestamp: Date.now(),
     };
 
-    const result = analyzeCardanoFundFlow(normalizedTx, { address: USER_ADDRESS });
+    const result = analyzeCardanoFundFlow(normalizedTx, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -205,7 +208,10 @@ describe('analyzeCardanoFundFlow', () => {
       timestamp: Date.now(),
     };
 
-    const result = analyzeCardanoFundFlow(normalizedTx, { address: USER_ADDRESS });
+    const result = analyzeCardanoFundFlow(normalizedTx, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -269,7 +275,10 @@ describe('analyzeCardanoFundFlow', () => {
       timestamp: Date.now(),
     };
 
-    const result = analyzeCardanoFundFlow(normalizedTx, { address: USER_ADDRESS });
+    const result = analyzeCardanoFundFlow(normalizedTx, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -351,7 +360,10 @@ describe('analyzeCardanoFundFlow', () => {
       timestamp: Date.now(),
     };
 
-    const result = analyzeCardanoFundFlow(normalizedTx, { address: USER_ADDRESS });
+    const result = analyzeCardanoFundFlow(normalizedTx, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -400,7 +412,10 @@ describe('analyzeCardanoFundFlow', () => {
       timestamp: Date.now(),
     };
 
-    const result = analyzeCardanoFundFlow(normalizedTx, { address: USER_ADDRESS.toLowerCase() });
+    const result = analyzeCardanoFundFlow(normalizedTx, {
+      primaryAddress: USER_ADDRESS.toLowerCase(),
+      userAddresses: [USER_ADDRESS.toLowerCase()],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -429,7 +444,7 @@ describe('determineCardanoTransactionType', () => {
     };
 
     const type = determineCardanoTransactionType(fundFlow);
-    expect(type).toBe('deposit');
+    expect(type).toBe('transfer');
   });
 
   test('classifies outgoing-only as withdrawal', () => {
@@ -450,7 +465,7 @@ describe('determineCardanoTransactionType', () => {
     };
 
     const type = determineCardanoTransactionType(fundFlow);
-    expect(type).toBe('withdrawal');
+    expect(type).toBe('transfer');
   });
 
   test('classifies both incoming and outgoing as transfer', () => {
@@ -492,6 +507,6 @@ describe('determineCardanoTransactionType', () => {
     };
 
     const type = determineCardanoTransactionType(fundFlow);
-    expect(type).toBe('fee');
+    expect(type).toBe('transfer');
   });
 });

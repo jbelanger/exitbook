@@ -56,11 +56,11 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     super(db, 'TransactionRepository');
   }
 
-  async save(transaction: UniversalTransaction, importSessionId: number) {
-    return this.saveTransaction(transaction, importSessionId);
+  async save(transaction: UniversalTransaction, accountId: number) {
+    return this.saveTransaction(transaction, accountId);
   }
 
-  async saveTransaction(transaction: UniversalTransaction, importSessionId: number) {
+  async saveTransaction(transaction: UniversalTransaction, accountId: number) {
     try {
       // Validate metadata before saving
       if (transaction.metadata !== undefined) {
@@ -111,7 +111,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             transaction.externalId ||
             generateDeterministicTransactionHash(transaction)) as string,
           from_address: transaction.from,
-          import_session_id: importSessionId,
+          account_id: accountId,
           note_message: transaction.note?.message,
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
           note_severity: transaction.note?.severity,
@@ -144,36 +144,9 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           blockchain_is_confirmed: transaction.blockchain?.is_confirmed,
         })
         .onConflict((oc) =>
-          oc.columns(['import_session_id', 'external_id']).doUpdateSet({
-            from_address: (eb) => eb.ref('excluded.from_address'),
-            note_message: (eb) => eb.ref('excluded.note_message'),
-            note_metadata: (eb) => eb.ref('excluded.note_metadata'),
-            note_severity: (eb) => eb.ref('excluded.note_severity'),
-            note_type: (eb) => eb.ref('excluded.note_type'),
-            excluded_from_accounting: (eb) => eb.ref('excluded.excluded_from_accounting'),
-            raw_normalized_data: (eb) => eb.ref('excluded.raw_normalized_data'),
-            to_address: (eb) => eb.ref('excluded.to_address'),
-            transaction_datetime: (eb) => eb.ref('excluded.transaction_datetime'),
-            transaction_status: (eb) => eb.ref('excluded.transaction_status'),
-            updated_at: new Date().toISOString(),
-
-            // Structured movements
-            movements_inflows: (eb) => eb.ref('excluded.movements_inflows'),
-            movements_outflows: (eb) => eb.ref('excluded.movements_outflows'),
-
-            // Structured fees
-            fees: (eb) => eb.ref('excluded.fees'),
-
-            // Enhanced operation classification
-            operation_category: (eb) => eb.ref('excluded.operation_category'),
-            operation_type: (eb) => eb.ref('excluded.operation_type'),
-
-            // Blockchain metadata
-            blockchain_name: (eb) => eb.ref('excluded.blockchain_name'),
-            blockchain_block_height: (eb) => eb.ref('excluded.blockchain_block_height'),
-            blockchain_transaction_hash: (eb) => eb.ref('excluded.blockchain_transaction_hash'),
-            blockchain_is_confirmed: (eb) => eb.ref('excluded.blockchain_is_confirmed'),
-          })
+          // For blockchain transactions, conflict on unique index (account_id, blockchain_transaction_hash)
+          // For exchange transactions, we don't have a unique constraint, so this won't trigger
+          oc.doNothing()
         )
         .returning('id')
         .executeTakeFirstOrThrow();
@@ -186,48 +159,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   async getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransaction[], Error>> {
     try {
-      // Enforce that sessionStatus requires accountId or non-empty accountIds for proper tenant scoping
-      if (filters?.sessionStatus !== undefined) {
-        const hasAccountId = filters.accountId !== undefined;
-        const hasAccountIds = filters.accountIds !== undefined && filters.accountIds.length > 0;
-
-        if (!hasAccountId && !hasAccountIds) {
-          return err(
-            new Error(
-              'sessionStatus filter requires accountId or accountIds to be set for proper account scoping. ' +
-                'Use { accountId: X, sessionStatus: "completed" } or { accountIds: [X, Y], sessionStatus: "completed" }.'
-            )
-          );
-        }
-      }
-
-      // If filtering by account or session status, first get matching session IDs
-      let sessionIds: number[] | undefined;
-      if (
-        filters &&
-        (filters.accountId !== undefined || filters.accountIds !== undefined || filters.sessionStatus !== undefined)
-      ) {
-        let sessionQuery = this.db.selectFrom('import_sessions').select('id');
-
-        if (filters.accountId !== undefined) {
-          sessionQuery = sessionQuery.where('account_id', '=', filters.accountId);
-        } else if (filters.accountIds !== undefined && filters.accountIds.length > 0) {
-          sessionQuery = sessionQuery.where('account_id', 'in', filters.accountIds);
-        }
-
-        if (filters.sessionStatus !== undefined) {
-          sessionQuery = sessionQuery.where('status', '=', filters.sessionStatus);
-        }
-
-        const sessions = await sessionQuery.execute();
-        sessionIds = sessions.map((s) => s.id);
-
-        // If no matching sessions found, return empty array
-        if (sessionIds.length === 0) {
-          return ok([]);
-        }
-      }
-
       let query = this.db.selectFrom('transactions').selectAll();
 
       // Add WHERE conditions if provided
@@ -242,11 +173,10 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           query = query.where('created_at', '>=', sinceDate as unknown as string);
         }
 
-        if (filters.sessionId !== undefined) {
-          query = query.where('import_session_id', '=', filters.sessionId);
-        } else if (sessionIds !== undefined) {
-          // Use the session IDs from account/status filtering
-          query = query.where('import_session_id', 'in', sessionIds);
+        if (filters.accountId !== undefined) {
+          query = query.where('account_id', '=', filters.accountId);
+        } else if (filters.accountIds !== undefined && filters.accountIds.length > 0) {
+          query = query.where('account_id', 'in', filters.accountIds);
         }
       }
 
@@ -269,30 +199,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           return err(result.error);
         }
         transactions.push(result.value);
-      }
-
-      // Deduplicate by (source_id, external_id) when aggregating across multiple sessions
-      // This prevents double-counting if the same transaction appears in multiple sessions
-      if (sessionIds !== undefined && sessionIds.length > 1) {
-        const seen = new Set<string>();
-        const deduplicated: UniversalTransaction[] = [];
-
-        for (const tx of transactions) {
-          const key = `${tx.source}:${tx.externalId}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            deduplicated.push(tx);
-          }
-        }
-
-        if (deduplicated.length < transactions.length) {
-          const duplicateCount = transactions.length - deduplicated.length;
-          this.logger.warn(
-            `Deduplication removed ${duplicateCount} duplicate transaction(s) when aggregating across ${sessionIds.length} sessions`
-          );
-        }
-
-        return ok(deduplicated);
       }
 
       return ok(transactions);
@@ -436,35 +342,40 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async countByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
+  /**
+   * Count transactions by account IDs
+   * Filters transactions WHERE account_id IN (accountIds)
+   */
+  async countByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (importSessionIds.length === 0) {
+      if (accountIds.length === 0) {
         return ok(0);
       }
 
       const result = await this.db
         .selectFrom('transactions')
         .select(({ fn }) => [fn.count<number>('id').as('count')])
-        .where('import_session_id', 'in', importSessionIds)
+        .where('account_id', 'in', accountIds)
         .executeTakeFirst();
       return ok(result?.count ?? 0);
     } catch (error) {
-      return wrapError(error, 'Failed to count transactions by import session IDs');
+      return wrapError(error, 'Failed to count transactions by account IDs');
     }
   }
 
-  async deleteByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
+  /**
+   * Delete transactions by account IDs
+   * Deletes transactions WHERE account_id IN (accountIds)
+   */
+  async deleteByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (importSessionIds.length === 0) {
+      if (accountIds.length === 0) {
         return ok(0);
       }
-      const result = await this.db
-        .deleteFrom('transactions')
-        .where('import_session_id', 'in', importSessionIds)
-        .executeTakeFirst();
+      const result = await this.db.deleteFrom('transactions').where('account_id', 'in', accountIds).executeTakeFirst();
       return ok(Number(result.numDeletedRows));
     } catch (error) {
-      return wrapError(error, 'Failed to delete transactions by import session IDs');
+      return wrapError(error, 'Failed to delete transactions by account IDs');
     }
   }
 

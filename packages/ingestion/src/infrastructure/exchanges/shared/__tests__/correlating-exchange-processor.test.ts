@@ -37,7 +37,7 @@ describe('CorrelatingExchangeProcessor - Strategy Composition', () => {
       wrapEntry(createEntry({ id: 'E3', correlationId: 'DEP001', amount: '500', asset: 'EUR' })),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -63,7 +63,7 @@ describe('CorrelatingExchangeProcessor - Strategy Composition', () => {
       wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.001', asset: 'BTC' })),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -87,7 +87,7 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
       wrapEntry(createEntry({ id: 'E3', correlationId: 'MULTI001', amount: '0.002', asset: 'BTC' })),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -130,7 +130,7 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
       ),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -153,7 +153,7 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
       wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.001', asset: 'BTC' })),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -168,7 +168,7 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
 
     const entries = [wrapEntry(createEntry({ id: 'E1', correlationId: 'DEP001', amount: '700', asset: 'CAD' }))];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -183,7 +183,7 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
 
     const entries = [wrapEntry(createEntry({ id: 'E1', correlationId: 'WITH001', amount: '-385.155', asset: 'CAD' }))];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -201,7 +201,7 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
       wrapEntry(createEntry({ id: 'E2', correlationId: 'TRANS001', amount: '100', asset: 'USDT' })),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -221,7 +221,7 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
       wrapEntry(createEntry({ id: 'E4', correlationId: 'COMPLEX001', amount: '0.01', asset: 'ETH' })),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -241,7 +241,7 @@ describe('CorrelatingExchangeProcessor - Error Handling', () => {
 
     const entries: RawTransactionWithMetadata[] = [];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -262,7 +262,7 @@ describe('CorrelatingExchangeProcessor - Error Handling', () => {
 
     const entries = [validEntry, invalidEntry] as RawTransactionWithMetadata[];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -281,7 +281,7 @@ describe('CorrelatingExchangeProcessor - Metadata', () => {
       wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.001', asset: 'BTC' })),
     ];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -303,7 +303,7 @@ describe('CorrelatingExchangeProcessor - Metadata', () => {
 
     const entries = [wrapEntry(createEntry({ id: 'E1', amount: '100', asset: 'USD' }))];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -317,7 +317,7 @@ describe('CorrelatingExchangeProcessor - Metadata', () => {
 
     const entries = [wrapEntry(createEntry({ id: 'E1', timestamp, amount: '100', asset: 'USD' }))];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -331,7 +331,7 @@ describe('CorrelatingExchangeProcessor - Metadata', () => {
 
     const entries = [wrapEntry(createEntry({ id: 'E1', amount: '100', asset: 'USD', status: 'pending' }))];
 
-    const result = await processor.process(entries, {});
+    const result = await processor.process(entries);
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

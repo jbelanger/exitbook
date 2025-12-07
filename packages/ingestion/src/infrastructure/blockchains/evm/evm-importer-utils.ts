@@ -21,6 +21,7 @@ export function mapToExternalTransactions(
   return transactions.map((txWithRaw) => ({
     providerName,
     externalId: generateUniqueTransactionId(txWithRaw.normalized),
+    blockchainTransactionHash: txWithRaw.normalized.id,
     transactionTypeHint,
     sourceAddress,
     normalizedData: txWithRaw.normalized,

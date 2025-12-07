@@ -173,8 +173,8 @@ describe('analyzeFundFlowFromNormalized', () => {
     };
 
     const sessionContext = {
-      address: POLKADOT_ADDRESS,
-      derivedAddresses: [POLKADOT_ADDRESS],
+      primaryAddress: POLKADOT_ADDRESS,
+      userAddresses: [POLKADOT_ADDRESS],
     };
 
     const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
@@ -210,8 +210,8 @@ describe('analyzeFundFlowFromNormalized', () => {
     };
 
     const sessionContext = {
-      address: POLKADOT_ADDRESS,
-      derivedAddresses: [POLKADOT_ADDRESS],
+      primaryAddress: POLKADOT_ADDRESS,
+      userAddresses: [POLKADOT_ADDRESS],
     };
 
     const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
@@ -246,8 +246,8 @@ describe('analyzeFundFlowFromNormalized', () => {
     };
 
     const sessionContext = {
-      address: POLKADOT_ADDRESS,
-      derivedAddresses: [POLKADOT_ADDRESS],
+      primaryAddress: POLKADOT_ADDRESS,
+      userAddresses: [POLKADOT_ADDRESS],
     };
 
     const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
@@ -281,8 +281,8 @@ describe('analyzeFundFlowFromNormalized', () => {
     };
 
     const sessionContext = {
-      address: POLKADOT_ADDRESS,
-      derivedAddresses: [POLKADOT_ADDRESS],
+      primaryAddress: POLKADOT_ADDRESS,
+      userAddresses: [POLKADOT_ADDRESS],
     };
 
     const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
@@ -312,8 +312,8 @@ describe('analyzeFundFlowFromNormalized', () => {
     };
 
     const sessionContext = {
-      address: POLKADOT_ADDRESS,
-      derivedAddresses: [POLKADOT_ADDRESS],
+      primaryAddress: POLKADOT_ADDRESS,
+      userAddresses: [POLKADOT_ADDRESS],
     };
 
     const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
@@ -350,8 +350,8 @@ describe('analyzeFundFlowFromNormalized', () => {
     };
 
     const sessionContext = {
-      address: POLKADOT_ADDRESS,
-      derivedAddresses: [POLKADOT_ADDRESS],
+      primaryAddress: POLKADOT_ADDRESS,
+      userAddresses: [POLKADOT_ADDRESS],
     };
 
     const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
@@ -381,8 +381,8 @@ describe('analyzeFundFlowFromNormalized', () => {
     };
 
     const sessionContext = {
-      address: POLKADOT_ADDRESS,
-      derivedAddresses: [POLKADOT_ADDRESS],
+      primaryAddress: POLKADOT_ADDRESS,
+      userAddresses: [POLKADOT_ADDRESS],
     };
 
     const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
@@ -411,8 +411,8 @@ describe('analyzeFundFlowFromNormalized', () => {
     };
 
     const sessionContext = {
-      address: POLKADOT_ADDRESS,
-      derivedAddresses: [POLKADOT_ADDRESS],
+      primaryAddress: POLKADOT_ADDRESS,
+      userAddresses: [POLKADOT_ADDRESS],
     };
 
     const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
@@ -441,8 +441,8 @@ describe('analyzeFundFlowFromNormalized', () => {
     };
 
     const sessionContext = {
-      address: POLKADOT_ADDRESS,
-      derivedAddresses: [POLKADOT_ADDRESS],
+      primaryAddress: POLKADOT_ADDRESS,
+      userAddresses: [POLKADOT_ADDRESS],
     };
 
     const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
@@ -477,8 +477,8 @@ describe('analyzeFundFlowFromNormalized', () => {
     };
 
     const sessionContext = {
-      address: genericAddress,
-      derivedAddresses: [genericAddress, polkadotAddress],
+      primaryAddress: genericAddress,
+      userAddresses: [genericAddress, polkadotAddress],
     };
 
     const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();

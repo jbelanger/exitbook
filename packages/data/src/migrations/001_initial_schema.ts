@@ -48,10 +48,9 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('completed_at', 'text')
     .addColumn('duration_ms', 'integer')
     .addColumn('transactions_imported', 'integer', (col) => col.notNull().defaultTo(0))
-    .addColumn('transactions_failed', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('transactions_skipped', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('error_message', 'text')
     .addColumn('error_details', 'text')
-    .addColumn('import_result_metadata', 'text', (col) => col.notNull().defaultTo('{}'))
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
     .execute();
@@ -63,10 +62,11 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
   await db.schema
     .createTable('external_transaction_data')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('import_session_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
+    .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
     .addColumn('provider_name', 'text', (col) => col.notNull())
     .addColumn('external_id', 'text', (col) => col.notNull())
     .addColumn('source_address', 'text')
+    .addColumn('blockchain_transaction_hash', 'text')
     .addColumn('transaction_type_hint', 'text')
     .addColumn('raw_data', 'text', (col) => col.notNull())
     .addColumn('normalized_data', 'text', (col) => col.notNull())
@@ -76,19 +76,26 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .execute();
 
-  // Create unique index on (import_session_id, external_id) to prevent duplicates
+  // Create index on account_id for fast account-scoped queries
   await db.schema
-    .createIndex('idx_external_tx_session_external_id')
+    .createIndex('idx_external_tx_account_id')
     .on('external_transaction_data')
-    .columns(['import_session_id', 'external_id'])
-    .unique()
+    .column('account_id')
     .execute();
+
+  // Create unique index on (account_id, blockchain_transaction_hash) to prevent duplicate blockchain transactions per account
+  // Only applies when blockchain_transaction_hash is not null (blockchain imports, not exchange imports)
+  await sql`
+    CREATE UNIQUE INDEX idx_external_tx_account_blockchain_hash
+    ON external_transaction_data(account_id, blockchain_transaction_hash)
+    WHERE blockchain_transaction_hash IS NOT NULL
+  `.execute(db);
 
   // Create transactions table
   await db.schema
     .createTable('transactions')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('import_session_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
+    .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
     .addColumn('source_id', 'text', (col) => col.notNull())
     .addColumn('source_type', 'text', (col) => col.notNull())
     .addColumn('external_id', 'text')
@@ -119,14 +126,16 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('updated_at', 'text')
     .execute();
 
-  // Create unique index on (import_session_id, external_id) to prevent duplicate transactions within a session
-  // This allows different sessions to have their own perspective of the same blockchain transaction
-  await db.schema
-    .createIndex('idx_transactions_source_external_id')
-    .on('transactions')
-    .columns(['import_session_id', 'external_id'])
-    .unique()
-    .execute();
+  // Create index on account_id for fast account-scoped queries
+  await db.schema.createIndex('idx_transactions_account_id').on('transactions').column('account_id').execute();
+
+  // Create unique index on (account_id, blockchain_transaction_hash) to prevent duplicate blockchain transactions per account
+  // Only applies when blockchain_transaction_hash is not null (blockchain transactions, not exchange transactions)
+  await sql`
+    CREATE UNIQUE INDEX idx_transactions_account_blockchain_hash
+    ON transactions(account_id, blockchain_transaction_hash)
+    WHERE blockchain_transaction_hash IS NOT NULL
+  `.execute(db);
 
   // Create index for accounting exclusions (for fast filtering of scam tokens, test data, etc.)
   await db.schema

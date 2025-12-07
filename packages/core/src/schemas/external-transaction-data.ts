@@ -4,6 +4,7 @@ import { DateSchema } from './money.js';
 
 /**
  * Processing status schema for external transaction data lifecycle
+ * 'skipped' - used for cross-account duplicate blockchain transactions (internal transfers)
  */
 export const ProcessingStatusSchema = z.enum(['pending', 'processed', 'failed', 'skipped']);
 
@@ -15,6 +16,7 @@ export const ExternalTransactionSchema = z.object({
   sourceAddress: z.string().optional(),
   transactionTypeHint: z.string().optional(),
   externalId: z.string().min(1, 'External ID must not be empty'),
+  blockchainTransactionHash: z.string().optional(), // On-chain transaction hash for deduplication (blockchain only)
   rawData: z.unknown(),
   normalizedData: z.unknown(),
 });
@@ -25,7 +27,7 @@ export const ExternalTransactionSchema = z.object({
  */
 export const ExternalTransactionDataSchema = ExternalTransactionSchema.extend({
   id: z.number().int().positive(),
-  importSessionId: z.number().int().positive(),
+  accountId: z.number().int().positive(),
   processingStatus: ProcessingStatusSchema,
   processedAt: DateSchema.optional(),
   processingError: z.string().optional(),

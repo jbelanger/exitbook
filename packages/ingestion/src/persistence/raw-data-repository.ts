@@ -24,17 +24,10 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
   async load(filters?: LoadRawDataFilters): Promise<Result<ExternalTransactionData[], Error>> {
     try {
-      let query = this.db
-        .selectFrom('external_transaction_data')
-        .innerJoin('import_sessions', 'external_transaction_data.import_session_id', 'import_sessions.id')
-        .selectAll('external_transaction_data');
+      let query = this.db.selectFrom('external_transaction_data').selectAll();
 
       if (filters?.accountId !== undefined) {
-        query = query.where('import_sessions.account_id', '=', filters.accountId);
-      }
-
-      if (filters?.importSessionId) {
-        query = query.where('import_session_id', '=', filters.importSessionId);
+        query = query.where('account_id', '=', filters.accountId);
       }
 
       if (filters?.providerName) {
@@ -95,7 +88,29 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async save(importSessionId: number, item?: ExternalTransaction): Promise<Result<number, Error>> {
+  async markAsSkipped(rawDataIds: number[]): Promise<Result<number, Error>> {
+    if (rawDataIds.length === 0) {
+      return ok(0);
+    }
+
+    try {
+      const result = await this.db
+        .updateTable('external_transaction_data')
+        .set({
+          processing_status: 'skipped',
+          processed_at: this.getCurrentDateTimeForDB(),
+          processing_error: 'Cross-account duplicate - same blockchain transaction hash exists in another account',
+        })
+        .where('id', 'in', rawDataIds)
+        .executeTakeFirst();
+
+      return ok(Number(result.numUpdatedRows));
+    } catch (error) {
+      return wrapError(error, 'Failed to mark items as skipped');
+    }
+  }
+
+  async save(accountId: number, item?: ExternalTransaction): Promise<Result<number, Error>> {
     if (!item) {
       return err(new Error('Raw data cannot be null or undefined'));
     }
@@ -108,22 +123,37 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
     try {
       const result = await this.withTransaction(async (trx) => {
-        const insertResult = await trx
-          .insertInto('external_transaction_data')
-          .values({
-            created_at: this.getCurrentDateTimeForDB(),
-            external_id: item.externalId,
-            import_session_id: importSessionId,
-            normalized_data: JSON.stringify(item.normalizedData),
-            processing_status: 'pending',
-            provider_name: item.providerName,
-            source_address: item.sourceAddress ?? null,
-            transaction_type_hint: item.transactionTypeHint ?? null,
-            raw_data: JSON.stringify(item.rawData),
-          })
-          .execute();
+        try {
+          const insertResult = await trx
+            .insertInto('external_transaction_data')
+            .values({
+              created_at: this.getCurrentDateTimeForDB(),
+              external_id: item.externalId,
+              account_id: accountId,
+              blockchain_transaction_hash: item.blockchainTransactionHash ?? null,
+              normalized_data: JSON.stringify(item.normalizedData),
+              processing_status: 'pending',
+              provider_name: item.providerName,
+              source_address: item.sourceAddress ?? null,
+              transaction_type_hint: item.transactionTypeHint ?? null,
+              raw_data: JSON.stringify(item.rawData),
+            })
+            .execute();
 
-        return insertResult.length > 0 ? 1 : 0;
+          return insertResult.length > 0 ? 1 : 0;
+        } catch (error) {
+          // Check if this is a unique constraint violation (duplicate blockchain transaction)
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          if (
+            errorMessage.includes('UNIQUE constraint failed') ||
+            errorMessage.includes('idx_external_tx_account_blockchain_hash')
+          ) {
+            // Skip duplicate - return 0 to indicate nothing was inserted
+            return 0;
+          }
+          // Re-throw other errors
+          throw error;
+        }
       });
 
       return ok(result);
@@ -132,9 +162,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async saveBatch(importSessionId: number, items: ExternalTransaction[]): Promise<Result<number, Error>> {
+  async saveBatch(
+    accountId: number,
+    items: ExternalTransaction[]
+  ): Promise<Result<{ inserted: number; skipped: number }, Error>> {
     if (items.length === 0) {
-      return ok(0);
+      return ok({ inserted: 0, skipped: 0 });
     }
 
     // Validate all items before processing
@@ -152,31 +185,47 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
     try {
       const result = await this.withTransaction(async (trx) => {
-        let saved = 0;
+        let inserted = 0;
         const createdAt = this.getCurrentDateTimeForDB();
 
         for (const item of items) {
-          const insertResult = await trx
-            .insertInto('external_transaction_data')
-            .values({
-              created_at: createdAt,
-              external_id: item.externalId ?? null,
-              import_session_id: importSessionId,
-              normalized_data: JSON.stringify(item.normalizedData),
-              processing_status: 'pending',
-              provider_name: item.providerName,
-              source_address: item.sourceAddress ?? null,
-              transaction_type_hint: item.transactionTypeHint ?? null,
-              raw_data: JSON.stringify(item.rawData),
-            })
-            .execute();
+          try {
+            const insertResult = await trx
+              .insertInto('external_transaction_data')
+              .values({
+                created_at: createdAt,
+                external_id: item.externalId ?? null,
+                account_id: accountId,
+                blockchain_transaction_hash: item.blockchainTransactionHash ?? null,
+                normalized_data: JSON.stringify(item.normalizedData),
+                processing_status: 'pending',
+                provider_name: item.providerName,
+                source_address: item.sourceAddress ?? null,
+                transaction_type_hint: item.transactionTypeHint ?? null,
+                raw_data: JSON.stringify(item.rawData),
+              })
+              .execute();
 
-          if (insertResult.length > 0) {
-            saved++;
+            if (insertResult.length > 0) {
+              inserted++;
+            }
+          } catch (error) {
+            // Check if this is a unique constraint violation (duplicate blockchain transaction)
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (
+              errorMessage.includes('UNIQUE constraint failed') ||
+              errorMessage.includes('idx_external_tx_account_blockchain_hash')
+            ) {
+              // Skip duplicate - this is expected for blockchain transactions shared across derived addresses
+              continue;
+            }
+            // Re-throw other errors
+            throw error;
           }
         }
 
-        return saved;
+        const skipped = items.length - inserted;
+        return { inserted, skipped };
       });
 
       return ok(result);
@@ -185,12 +234,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async getValidRecords(importSessionId: number): Promise<Result<ExternalTransactionData[], Error>> {
+  async getValidRecords(accountId: number): Promise<Result<ExternalTransactionData[], Error>> {
     try {
       const rows = await this.db
         .selectFrom('external_transaction_data')
         .selectAll()
-        .where('import_session_id', '=', importSessionId)
+        .where('account_id', '=', accountId)
         .where('processing_status', '=', 'pending')
         .execute();
 
@@ -219,11 +268,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
           processing_error: null,
           processing_status: 'pending',
         })
-        .where(
-          'import_session_id',
-          'in',
-          this.db.selectFrom('import_sessions').select('id').where('account_id', '=', accountId)
-        )
+        .where('account_id', '=', accountId)
         .executeTakeFirst();
 
       return ok(Number(result.numUpdatedRows));
@@ -270,11 +315,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       const result = await this.db
         .selectFrom('external_transaction_data')
         .select(({ fn }) => [fn.count<number>('id').as('count')])
-        .where(
-          'import_session_id',
-          'in',
-          this.db.selectFrom('import_sessions').select('id').where('account_id', 'in', accountIds)
-        )
+        .where('account_id', 'in', accountIds)
         .executeTakeFirst();
       return ok(result?.count ?? 0);
     } catch (error) {
@@ -286,11 +327,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     try {
       const result = await this.db
         .deleteFrom('external_transaction_data')
-        .where(
-          'import_session_id',
-          'in',
-          this.db.selectFrom('import_sessions').select('id').where('account_id', '=', accountId)
-        )
+        .where('account_id', '=', accountId)
         .executeTakeFirst();
 
       return ok(Number(result.numDeletedRows));
@@ -331,11 +368,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
     return ok({
       id: row.id,
-      importSessionId: row.import_session_id,
+      accountId: row.account_id,
       providerName: row.provider_name,
       sourceAddress: row.source_address ?? undefined,
       transactionTypeHint: row.transaction_type_hint ?? undefined,
       externalId: row.external_id,
+      blockchainTransactionHash: row.blockchain_transaction_hash ?? undefined,
       rawData: rawDataResult.value,
       normalizedData: normalizedDataResult.value,
       processingStatus: row.processing_status,

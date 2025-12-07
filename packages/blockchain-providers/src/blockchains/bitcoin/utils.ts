@@ -12,6 +12,49 @@ import type { AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResu
 const logger = getLogger('BitcoinUtils');
 
 /**
+ * Normalize Bitcoin address based on address type.
+ *
+ * Normalization rules:
+ * - xpub/ypub/zpub: Case-sensitive, return as-is
+ * - Bech32 (bc1/ltc1): Lowercase (case-insensitive encoding)
+ * - CashAddr (bitcoincash:): Lowercase (case-insensitive encoding)
+ * - Legacy (Base58): Case-sensitive, return as-is
+ *
+ * @param address - Bitcoin address to normalize
+ * @returns Normalized address
+ */
+export function normalizeBitcoinAddress(address: string): string {
+  // Handle xpub/ypub/zpub formats (case-sensitive)
+  if (/^[xyz]pub/i.test(address)) {
+    return address;
+  }
+
+  // Handle Bech32 addresses (lowercase them - Bech32 is case-insensitive)
+  if (
+    address.toLowerCase().startsWith('bc1') ||
+    address.toLowerCase().startsWith('ltc1') ||
+    address.toLowerCase().startsWith('doge1')
+  ) {
+    return address.toLowerCase();
+  }
+
+  // Handle CashAddr format for Bitcoin Cash (case-insensitive)
+  if (address.toLowerCase().startsWith('bitcoincash:')) {
+    return address.toLowerCase();
+  }
+
+  // Handle CashAddr short format (without bitcoincash: prefix)
+  const lowerAddr = address.toLowerCase();
+  if (lowerAddr.startsWith('q') || lowerAddr.startsWith('p')) {
+    // Could be CashAddr - normalize to lowercase
+    return lowerAddr;
+  }
+
+  // Legacy addresses (Base58 encoding) - case-sensitive, return as-is
+  return address;
+}
+
+/**
  * Convert satoshis to BTC as a string
  */
 export function satoshisToBtcString(satoshis: number): string {

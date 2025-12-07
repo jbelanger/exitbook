@@ -168,7 +168,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const costBasisRepo = new CostBasisRepository(db);
     const lotTransferRepo = new LotTransferRepository(db);
     const rawDataRepo = new RawDataRepository(db);
-    const dataSourceRepo = new ImportSessionRepository(db);
+    const sessionRepo = new ImportSessionRepository(db);
 
     const clearSvc = new ClearSvc(
       userRepo,
@@ -178,7 +178,7 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
       costBasisRepo,
       lotTransferRepo,
       rawDataRepo,
-      dataSourceRepo
+      sessionRepo
     );
     const clearHandler = new ClearHandler(clearSvc);
 

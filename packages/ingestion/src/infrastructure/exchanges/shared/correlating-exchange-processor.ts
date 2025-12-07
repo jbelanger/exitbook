@@ -39,10 +39,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     super(sourceId);
   }
 
-  protected async processInternal(
-    normalizedData: unknown[],
-    _sessionMetadata?: Record<string, unknown>
-  ): Promise<Result<UniversalTransaction[], string>> {
+  protected async processInternal(normalizedData: unknown[]): Promise<Result<UniversalTransaction[], string>> {
     // Cast to RawTransactionWithMetadata (contains both raw + normalized)
     const entries = normalizedData as RawTransactionWithMetadata<TRaw>[];
 

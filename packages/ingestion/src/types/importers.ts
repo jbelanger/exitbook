@@ -10,12 +10,6 @@ export interface ImportParams {
   providerName?: string | undefined;
 }
 
-export interface ImportResult {
-  transactionsImported: number;
-  importSessionId: number;
-  metadata?: Record<string, unknown> | undefined;
-}
-
 /**
  * Single batch of imported transactions from streaming import
  */

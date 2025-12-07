@@ -1,10 +1,14 @@
 /**
  * Normalize EVM address to lowercase for consistent storage and comparison.
- * EVM addresses are case-insensitive (checksummed addresses are for validation only).
+ *
+ * EVM addresses are case-insensitive. While EIP-55 defines checksummed addresses
+ * (mixed case for validation), all comparisons and storage use lowercase.
  *
  * @param address - The EVM address (0x...)
- * @returns Lowercase address, or undefined if input is undefined/null
+ * @returns Lowercase address
  */
+export function normalizeEvmAddress(address: string): string;
+export function normalizeEvmAddress(address: string | null | undefined): string | undefined;
 export function normalizeEvmAddress(address: string | null | undefined): string | undefined {
   if (!address) {
     return undefined;

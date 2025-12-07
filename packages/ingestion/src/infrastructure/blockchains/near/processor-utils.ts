@@ -6,6 +6,8 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
+import type { ProcessingContext } from '../../../types/processors.js';
+
 import type { NearBalanceChangeAnalysis, NearFundFlow, NearMovement } from './types.js';
 
 const logger = getLogger('near-processor-utils');
@@ -701,20 +703,9 @@ export function classifyNearOperationFromFundFlow(
 /**
  * Analyze fund flow from normalized NEAR transaction data
  */
-export function analyzeNearFundFlow(
-  tx: NearTransaction,
-  sessionMetadata: Record<string, unknown>
-): Result<NearFundFlow, string> {
-  if (!sessionMetadata.address || typeof sessionMetadata.address !== 'string') {
-    return err('Missing user address in session metadata');
-  }
-
-  const userAddress = sessionMetadata.address;
-  // Include derived addresses (child accounts) for multi-address fund-flow analysis
-  const derivedAddresses = Array.isArray(sessionMetadata.derivedAddresses)
-    ? sessionMetadata.derivedAddresses.filter((addr): addr is string => typeof addr === 'string')
-    : [];
-  const allWalletAddresses = new Set<string>([userAddress, ...derivedAddresses]);
+export function analyzeNearFundFlow(tx: NearTransaction, context: ProcessingContext): Result<NearFundFlow, string> {
+  // Use all user addresses for multi-address fund-flow analysis
+  const allWalletAddresses = new Set<string>(context.userAddresses);
 
   // Analyze action complexity
   const actionCount = tx.actions?.length || 0;

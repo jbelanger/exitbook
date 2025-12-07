@@ -60,7 +60,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       new ExchangeEntryBuilder().withId('E3').withCorrelationId('REF002').withAmount('50').withAsset('USD').build(),
     ];
 
-    const transactions = expectOk(await processor.process(entries.map(wrapEntry), {}));
+    const transactions = expectOk(await processor.process(entries.map(wrapEntry)));
     expect(transactions).toHaveLength(2);
 
     const tx1Metadata = transactions[0]?.metadata as {
@@ -100,7 +100,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
         .build(),
     ];
 
-    const [transaction] = expectOk(await processor.process(entries.map(wrapEntry), {}));
+    const [transaction] = expectOk(await processor.process(entries.map(wrapEntry)));
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
@@ -123,7 +123,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
         .build(),
     ];
 
-    const [transaction] = expectOk(await processor.process(entries.map(wrapEntry), {}));
+    const [transaction] = expectOk(await processor.process(entries.map(wrapEntry)));
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
@@ -145,7 +145,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry), {});
+    const result = await processor.process(entries.map(wrapEntry));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -182,7 +182,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry), {});
+    const result = await processor.process(entries.map(wrapEntry));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -207,7 +207,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ amount: '0.001', asset: 'BTC', correlationId: 'SWAP001', id: 'E3' }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry), {});
+    const result = await processor.process(entries.map(wrapEntry));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -246,7 +246,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry), {});
+    const result = await processor.process(entries.map(wrapEntry));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -269,7 +269,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ amount: '0.01', asset: 'ETH', correlationId: 'COMPLEX001', id: 'E4' }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry), {});
+    const result = await processor.process(entries.map(wrapEntry));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -294,7 +294,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ amount: '100', asset: 'USD', correlationId: 'ZERO001', id: 'E2' }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry), {});
+    const result = await processor.process(entries.map(wrapEntry));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -316,7 +316,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ amount: '0', asset: 'USD', correlationId: 'BAD001', id: 'E2' }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry), {});
+    const result = await processor.process(entries.map(wrapEntry));
 
     expect(result.isOk()).toBe(true);
   });
@@ -328,7 +328,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       createTestEntry({ amount: '100', asset: 'USD', correlationId: 'STATUS001', id: 'E1', status: 'pending' }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry), {});
+    const result = await processor.process(entries.map(wrapEntry));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -354,7 +354,7 @@ describe('BaseExchangeProcessor - Edge Cases', () => {
       },
     ];
 
-    const result = await processor.process(entries.map(wrapEntry), {});
+    const result = await processor.process(entries.map(wrapEntry));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -372,7 +372,7 @@ describe('BaseExchangeProcessor - Edge Cases', () => {
       createTestEntry({ amount: '0.001', asset: 'BTC', correlationId: 'PRIMARY001', id: 'SECONDARY_ID' }),
     ];
 
-    const result = await processor.process(entries.map(wrapEntry), {});
+    const result = await processor.process(entries.map(wrapEntry));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

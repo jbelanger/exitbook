@@ -2,7 +2,9 @@ import type { CardanoTransaction } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, ok } from 'neverthrow';
+
+import type { ProcessingContext } from '../../../types/processors.js';
 
 import type { CardanoFundFlow, CardanoMovement } from './types.js';
 
@@ -129,21 +131,15 @@ export function isZeroDecimal(value: string): boolean {
 /**
  * Analyze fund flow from normalized Cardano transaction data
  * Handles multi-asset UTXO model
+ * Per-address UTXO model: only considers the single address being processed.
  */
 export function analyzeCardanoFundFlow(
   tx: CardanoTransaction,
-  sessionMetadata: Record<string, unknown>
+  context: ProcessingContext
 ): Result<CardanoFundFlow, string> {
-  if (!sessionMetadata.address || typeof sessionMetadata.address !== 'string') {
-    return err('Missing user address in session metadata');
-  }
-
-  const userAddress = sessionMetadata.address;
-  // Include derived addresses from xpub/HD wallet sessions for multi-address fund-flow analysis
-  const derivedAddresses = Array.isArray(sessionMetadata.derivedAddresses)
-    ? sessionMetadata.derivedAddresses.filter((addr): addr is string => typeof addr === 'string')
-    : [];
-  const allWalletAddresses = new Set<string>([userAddress, ...derivedAddresses]);
+  const userAddress = context.primaryAddress;
+  // Per-address mode: only check this single address
+  const addressSet = new Set<string>([userAddress]);
 
   const inflows: CardanoMovement[] = [];
   const outflows: CardanoMovement[] = [];
@@ -154,7 +150,7 @@ export function analyzeCardanoFundFlow(
 
   // Analyze inputs (assets being spent)
   for (const input of tx.inputs) {
-    const isUserInput = allWalletAddresses.has(input.address);
+    const isUserInput = addressSet.has(input.address);
 
     if (isUserInput) {
       userOwnsInput = true;
@@ -186,7 +182,7 @@ export function analyzeCardanoFundFlow(
 
   // Analyze outputs (assets being received)
   for (const output of tx.outputs) {
-    const isUserOutput = allWalletAddresses.has(output.address);
+    const isUserOutput = addressSet.has(output.address);
 
     if (isUserOutput) {
       userReceivesOutput = true;
@@ -236,11 +232,11 @@ export function analyzeCardanoFundFlow(
 
   // Determine primary addresses
   const fromAddress = isOutgoing
-    ? tx.inputs.find((input) => allWalletAddresses.has(input.address))?.address
+    ? tx.inputs.find((input) => addressSet.has(input.address))?.address
     : tx.inputs[0]?.address;
 
   const toAddress = isIncoming
-    ? tx.outputs.find((output) => allWalletAddresses.has(output.address))?.address
+    ? tx.outputs.find((output) => addressSet.has(output.address))?.address
     : tx.outputs[0]?.address;
 
   // Select primary asset (largest movement)
@@ -312,27 +308,17 @@ export function analyzeCardanoFundFlow(
 
 /**
  * Determine transaction type from fund flow analysis
+ * Per-address UTXO model: returns generic 'transfer' type.
+ *
+ * Without derivedAddresses, we can't reliably distinguish:
+ * - External deposit vs internal change receipt
+ * - External withdrawal vs internal send to sibling address
+ *
+ * Solution: Use generic 'transfer' type for all UTXO movements.
+ * Transaction linking can later provide semantic classification if needed.
+ *
+ * Note: operation_type is display metadata only - doesn't affect balance/cost basis calculations.
  */
-export function determineCardanoTransactionType(
-  fundFlow: CardanoFundFlow
-): 'deposit' | 'fee' | 'transfer' | 'withdrawal' {
-  const { isIncoming, isOutgoing, inflows, outflows, primary } = fundFlow;
-
-  // Fee-only transaction (no actual asset movements)
-  const primaryAmount = parseDecimal(primary.amount || '0');
-  if (primaryAmount.isZero() && inflows.length === 0 && outflows.length === 0) {
-    return 'fee';
-  }
-
-  // Determine transaction type based on flow direction
-  if (isIncoming && !isOutgoing) {
-    // Only receiving - deposit
-    return 'deposit';
-  } else if (isOutgoing && !isIncoming) {
-    // Only sending - withdrawal
-    return 'withdrawal';
-  } else {
-    // Both or neither - transfer (self-send with change)
-    return 'transfer';
-  }
+export function determineCardanoTransactionType(_fundFlow: CardanoFundFlow): 'transfer' {
+  return 'transfer';
 }

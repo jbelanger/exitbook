@@ -35,12 +35,6 @@ export const ImportSessionMetadataSchema = z
   .catchall(z.unknown());
 
 /**
- * Schema for import result metadata
- * Flexible structure for storing arbitrary import result data
- */
-export const ImportResultMetadataSchema = z.record(z.string(), z.unknown());
-
-/**
  * Schema for source parameters identifying the wallet/account
  */
 export const SourceParamsSchema = z.union([
@@ -107,10 +101,9 @@ export const ImportSessionSchema = z.object({
   completedAt: z.date().optional(),
   durationMs: z.number().optional(),
   transactionsImported: z.number(),
-  transactionsFailed: z.number(),
+  transactionsSkipped: z.number(),
   errorMessage: z.string().optional(),
   errorDetails: z.unknown().optional(),
-  importResultMetadata: ImportResultMetadataSchema,
   createdAt: z.date(),
   updatedAt: z.date().optional(),
 });
@@ -122,7 +115,6 @@ export type SourceType = z.infer<typeof SourceTypeSchema>;
 export type ImportSessionStatus = z.infer<typeof ImportSessionStatusSchema>;
 export type DataImportParams = z.infer<typeof DataImportParamsSchema>;
 export type ImportSessionMetadata = z.infer<typeof ImportSessionMetadataSchema>;
-export type ImportResultMetadata = z.infer<typeof ImportResultMetadataSchema>;
 export type SourceParams = z.infer<typeof SourceParamsSchema>;
 export type BalanceDiscrepancy = z.infer<typeof BalanceDiscrepancySchema>;
 export type BalanceVerificationStatus = z.infer<typeof BalanceVerificationStatusSchema>;

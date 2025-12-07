@@ -31,7 +31,7 @@ export function createMockRawDataRepository(): Mocked<IRawDataRepository> {
  * Creates a mock import session repository with default implementations.
  * All methods return successful Results by default. Override specific methods as needed.
  */
-export function createMockDataSourceRepository(): Mocked<IImportSessionRepository> {
+export function createMockImportSessionRepository(): Mocked<IImportSessionRepository> {
   return {
     create: vi.fn().mockResolvedValue(ok(1)),
     finalize: vi.fn().mockResolvedValue(ok()),
@@ -39,7 +39,7 @@ export function createMockDataSourceRepository(): Mocked<IImportSessionRepositor
     findById: vi.fn().mockResolvedValue(ok()),
     findByAccount: vi.fn().mockResolvedValue(ok([])),
     findByAccounts: vi.fn().mockResolvedValue(ok([])),
-    getDataSourceIdsByAccounts: vi.fn().mockResolvedValue(ok([])),
+    getImportSessionIdsByAccounts: vi.fn().mockResolvedValue(ok([])),
     getSessionCountsByAccount: vi.fn().mockResolvedValue(ok(new Map())),
     findLatestIncomplete: vi.fn().mockResolvedValue(ok(undefined)),
     update: vi.fn().mockResolvedValue(ok()),
