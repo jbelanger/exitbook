@@ -433,6 +433,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
     // Build enriched transaction (repository just persists what it's told)
     const enrichedTx: UniversalTransaction = {
       id: 1,
+      accountId: 1,
       externalId: 'tx-1',
       datetime: new Date().toISOString(),
       timestamp: Date.now(),
@@ -516,6 +517,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
   it('should return error when transaction ID does not exist', async () => {
     const enrichedTx: UniversalTransaction = {
       id: 999, // Non-existent ID
+      accountId: 1,
       externalId: 'tx-999',
       datetime: new Date().toISOString(),
       timestamp: Date.now(),

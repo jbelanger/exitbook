@@ -260,7 +260,7 @@ export interface TransactionLinksTable {
   asset: string; // Transferred asset symbol (e.g., 'BTC', 'ETH')
   source_amount: DecimalString; // Gross outflow amount (before fees deducted)
   target_amount: DecimalString; // Net received amount (after fees)
-  link_type: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange';
+  link_type: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange' | 'blockchain_internal';
   confidence_score: DecimalString; // 0-1
   match_criteria_json: JSONString; // MatchCriteria
   status: 'suggested' | 'confirmed' | 'rejected';

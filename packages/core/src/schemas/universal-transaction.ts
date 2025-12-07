@@ -173,6 +173,7 @@ export const TransactionMetadataSchema = z.record(z.string(), z.unknown());
 export const UniversalTransactionSchema = z.object({
   // Core fields
   id: z.number().int(),
+  accountId: z.number().int(), // FK to accounts table (needed for linking logic)
   externalId: z.string().min(1, 'Transaction ID must not be empty'),
   datetime: z.string().min(1, 'Datetime string must not be empty'),
   timestamp: z.number().int().positive('Timestamp must be a positive integer'),

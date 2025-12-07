@@ -446,6 +446,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     // Build UniversalTransaction
     const transaction: UniversalTransaction = {
       id: row.id,
+      accountId: row.account_id,
       externalId: row.external_id ?? `${row.source_id}-${row.id}`,
       datetime,
       timestamp,

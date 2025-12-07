@@ -4,7 +4,12 @@ import { z } from 'zod';
 /**
  * Link type schema
  */
-export const LinkTypeSchema = z.enum(['exchange_to_blockchain', 'blockchain_to_blockchain', 'exchange_to_exchange']);
+export const LinkTypeSchema = z.enum([
+  'exchange_to_blockchain',
+  'blockchain_to_blockchain',
+  'exchange_to_exchange',
+  'blockchain_internal',
+]);
 
 /**
  * Link status schema
