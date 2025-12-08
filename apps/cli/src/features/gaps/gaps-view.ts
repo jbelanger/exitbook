@@ -2,27 +2,21 @@
 
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { GapsViewCommandOptionsSchema } from '../shared/schemas.js';
 import { buildViewMeta, type ViewCommandResult } from '../shared/view-utils.js';
 
 import { GapsViewHandler } from './gaps-view-handler.js';
-import type {
-  FeeGapAnalysis,
-  GapCategory,
-  GapsViewParams,
-  GapsViewResult,
-  LinkGapAnalysis,
-} from './gaps-view-utils.js';
+import type { FeeGapAnalysis, GapsViewParams, GapsViewResult, LinkGapAnalysis } from './gaps-view-utils.js';
 import { formatGapsViewResult } from './gaps-view-utils.js';
 
 /**
- * Extended command options (adds CLI-specific flags).
+ * Command options (validated at CLI boundary).
  */
-export interface ExtendedGapsViewCommandOptions extends GapsViewParams {
-  json?: boolean | undefined;
-}
+export type CommandOptions = z.infer<typeof GapsViewCommandOptionsSchema>;
 
 /**
  * Result data for gaps view command (JSON mode).
@@ -60,22 +54,30 @@ Gap Categories:
   validation  - Schema validation errors (coming soon)
 `
     )
-    .option('--category <category>', 'Filter by gap category (fees, prices, links, validation)', (value: string) => {
-      if (!['fees', 'links', 'prices', 'validation'].includes(value)) {
-        throw new Error('Invalid category. Must be one of: fees, prices, links, validation');
-      }
-      return value as GapCategory;
-    })
+    .option('--category <category>', 'Filter by gap category (fees, prices, links, validation)')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: ExtendedGapsViewCommandOptions) => {
-      await executeGapsViewCommand(options);
+    .action(async (rawOptions: unknown) => {
+      await executeGapsViewCommand(rawOptions);
     });
 }
 
 /**
  * Execute the gaps view command.
  */
-async function executeGapsViewCommand(options: ExtendedGapsViewCommandOptions): Promise<void> {
+async function executeGapsViewCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary
+  const parseResult = GapsViewCommandOptionsSchema.safeParse(rawOptions);
+  if (!parseResult.success) {
+    const output = new OutputManager('text');
+    output.error(
+      'gaps-view',
+      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      ExitCodes.INVALID_ARGS
+    );
+    return;
+  }
+
+  const options = parseResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {

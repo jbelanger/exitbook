@@ -1,14 +1,5 @@
 import type { AccountType, BalanceCommandStatus, SourceType } from '@exitbook/core';
 
-import type { BalanceCommandOptions } from './balance-utils.js';
-
-/**
- * Extended balance command options (adds CLI-specific flags).
- */
-export interface ExtendedBalanceCommandOptions extends BalanceCommandOptions {
-  json?: boolean | undefined;
-}
-
 /**
  * Balance command result data for JSON output.
  */

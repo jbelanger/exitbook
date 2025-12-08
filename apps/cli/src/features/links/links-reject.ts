@@ -2,18 +2,18 @@
 
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { LinksRejectCommandOptionsSchema } from '../shared/schemas.js';
 
 import { LinksRejectHandler } from './links-reject-handler.js';
 
 /**
- * Command options for links reject.
+ * Command options validated by Zod at CLI boundary
  */
-export interface LinksRejectCommandOptions {
-  json?: boolean | undefined;
-}
+export type LinksRejectCommandOptions = z.infer<typeof LinksRejectCommandOptionsSchema>;
 
 /**
  * Result data for links reject command (JSON mode).
@@ -34,23 +34,38 @@ export function registerLinksRejectCommand(linksCommand: Command): void {
     .description('Reject a suggested transaction link')
     .argument('<link-id>', 'ID of the link to reject')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (linkId: string, options: LinksRejectCommandOptions) => {
-      await executeLinksRejectCommand(linkId, options);
+    .action(async (linkId: string, rawOptions: unknown) => {
+      await executeLinksRejectCommand(linkId, rawOptions);
     });
 }
 
 /**
  * Execute the links reject command.
  */
-async function executeLinksRejectCommand(linkId: string, options: LinksRejectCommandOptions): Promise<void> {
+async function executeLinksRejectCommand(linkId: string, rawOptions: unknown): Promise<void> {
+  // Validate linkId argument
+  if (!linkId || linkId.trim() === '') {
+    const output = new OutputManager('text');
+    output.error('links-reject', new Error('Link ID is required'), ExitCodes.INVALID_ARGS);
+    return;
+  }
+
+  // Validate options at CLI boundary
+  const parseResult = LinksRejectCommandOptionsSchema.safeParse(rawOptions);
+  if (!parseResult.success) {
+    const output = new OutputManager('text');
+    output.error(
+      'links-reject',
+      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      ExitCodes.INVALID_ARGS
+    );
+    return;
+  }
+
+  const options = parseResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    // Validate link ID
-    if (!linkId || linkId.trim() === '') {
-      throw new Error('Link ID is required');
-    }
-
     const spinner = output.spinner();
     spinner?.start('Rejecting link...');
 

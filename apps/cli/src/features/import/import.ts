@@ -14,23 +14,23 @@ import { ImportOrchestrator, TransactionProcessService, TokenMetadataService } f
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import { createClackEmitter, runWithProgress, type ProgressEmitter } from '@exitbook/ui';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { resolveCommandParams, unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { promptConfirm } from '../shared/prompts.js';
+import { ImportCommandOptionsSchema } from '../shared/schemas.js';
 
 import type { ImportResult } from './import-handler.js';
 import { ImportHandler } from './import-handler.js';
 import { promptForImportParams } from './import-prompts.js';
-import { buildImportParamsFromFlags, type ImportCommandOptions } from './import-utils.js';
+import { buildImportParamsFromFlags } from './import-utils.js';
 
 /**
- * Extended import command options (adds CLI-specific flags not needed by handler).
+ * Import command options validated by Zod at CLI boundary
  */
-export interface ExtendedImportCommandOptions extends ImportCommandOptions {
-  json?: boolean | undefined;
-}
+export type ImportCommandOptions = z.infer<typeof ImportCommandOptionsSchema>;
 
 /**
  * Import command result data.
@@ -72,7 +72,7 @@ export function registerImportCommand(program: Command): void {
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange API access (if required)')
     .option('--process', 'Process data after import (combined import+process pipeline)')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: ExtendedImportCommandOptions) => {
+    .action(async (options: ImportCommandOptions) => {
       await executeImportCommand(options);
     });
 }
@@ -80,7 +80,17 @@ export function registerImportCommand(program: Command): void {
 /**
  * Execute the import command.
  */
-async function executeImportCommand(options: ExtendedImportCommandOptions): Promise<void> {
+async function executeImportCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary with Zod
+  const validationResult = ImportCommandOptionsSchema.safeParse(rawOptions);
+  if (!validationResult.success) {
+    const output = new OutputManager('text');
+    const firstError = validationResult.error.issues[0];
+    output.error('import', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
+    return;
+  }
+
+  const options = validationResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {

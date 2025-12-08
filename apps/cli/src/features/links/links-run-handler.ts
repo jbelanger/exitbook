@@ -8,7 +8,6 @@ import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { LinksRunHandlerParams } from './links-run-utils.js';
-import { validateLinksRunParams } from './links-run-utils.js';
 
 // Re-export for convenience
 export type { LinksRunHandlerParams };
@@ -53,15 +52,10 @@ export class LinksRunHandler {
 
   /**
    * Execute the links run operation.
+   * Params are already validated at CLI boundary via Zod.
    */
   async execute(params: LinksRunHandlerParams): Promise<Result<LinksRunResult, Error>> {
     try {
-      // Validate parameters
-      const validation = validateLinksRunParams(params);
-      if (validation.isErr()) {
-        return err(validation.error);
-      }
-
       logger.info({ dryRun: params.dryRun }, 'Starting transaction linking process');
 
       // Fetch all transactions

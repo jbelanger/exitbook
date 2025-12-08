@@ -4,7 +4,7 @@ import type { Result } from 'neverthrow';
 import { err } from 'neverthrow';
 
 import type { BalanceHandlerParams } from './balance-utils.js';
-import { getExchangeCredentialsFromEnv, validateBalanceParams } from './balance-utils.js';
+import { getExchangeCredentialsFromEnv } from './balance-utils.js';
 
 /**
  * Balance handler - thin wrapper around BalanceService.
@@ -19,12 +19,6 @@ export class BalanceHandler {
    */
   async execute(params: BalanceHandlerParams): Promise<Result<BalanceVerificationResult, Error>> {
     try {
-      // Validate parameters
-      const validation = validateBalanceParams(params);
-      if (validation.isErr()) {
-        return err(validation.error);
-      }
-
       // For exchange balance, try to get credentials from env if not provided
       let credentials = params.credentials;
       if (params.sourceType === 'exchange' && !credentials) {

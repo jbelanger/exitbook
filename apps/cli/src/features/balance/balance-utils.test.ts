@@ -10,34 +10,12 @@ import {
   sortSessionsByCompletedDate,
   subtractExcludedAmounts,
   sumExcludedInflowAmounts,
-  validateBalanceParams,
   type BalanceCommandOptions,
-  type BalanceHandlerParams,
 } from './balance-utils.js';
 
 describe('buildBalanceParamsFromFlags', () => {
-  it('should return error when neither exchange nor blockchain is specified', () => {
-    const options: BalanceCommandOptions = {};
-    const result = buildBalanceParamsFromFlags(options);
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toBe('Either --exchange or --blockchain must be specified');
-    }
-  });
-
-  it('should return error when both exchange and blockchain are specified', () => {
-    const options: BalanceCommandOptions = {
-      exchange: 'kraken',
-      blockchain: 'bitcoin',
-    };
-    const result = buildBalanceParamsFromFlags(options);
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toBe('Cannot specify both --exchange and --blockchain');
-    }
-  });
+  // Note: Validation tests removed - validation now handled by BalanceCommandOptionsSchema at CLI boundary
+  // Tests below assume options are already validated by Zod
 
   it('should build exchange params without credentials', () => {
     const options: BalanceCommandOptions = {
@@ -99,32 +77,6 @@ describe('buildBalanceParamsFromFlags', () => {
     }
   });
 
-  it('should return error when only apiKey is provided', () => {
-    const options: BalanceCommandOptions = {
-      exchange: 'kraken',
-      apiKey: 'test-key',
-    };
-    const result = buildBalanceParamsFromFlags(options);
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toBe('Both --api-key and --api-secret must be provided together');
-    }
-  });
-
-  it('should return error when only apiSecret is provided', () => {
-    const options: BalanceCommandOptions = {
-      exchange: 'kraken',
-      apiSecret: 'test-secret',
-    };
-    const result = buildBalanceParamsFromFlags(options);
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toBe('Both --api-key and --api-secret must be provided together');
-    }
-  });
-
   it('should build blockchain params with address', () => {
     const options: BalanceCommandOptions = {
       blockchain: 'bitcoin',
@@ -139,67 +91,6 @@ describe('buildBalanceParamsFromFlags', () => {
         sourceName: 'bitcoin',
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
       });
-    }
-  });
-
-  it('should return error when blockchain is specified without address', () => {
-    const options: BalanceCommandOptions = {
-      blockchain: 'ethereum',
-    };
-    const result = buildBalanceParamsFromFlags(options);
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toBe('--address is required when using --blockchain');
-    }
-  });
-});
-
-describe('validateBalanceParams', () => {
-  it('should validate valid exchange params', () => {
-    const params: BalanceHandlerParams = {
-      sourceType: 'exchange',
-      sourceName: 'kraken',
-    };
-    const result = validateBalanceParams(params);
-
-    expect(result.isOk()).toBe(true);
-  });
-
-  it('should validate valid blockchain params', () => {
-    const params: BalanceHandlerParams = {
-      sourceType: 'blockchain',
-      sourceName: 'bitcoin',
-      address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-    };
-    const result = validateBalanceParams(params);
-
-    expect(result.isOk()).toBe(true);
-  });
-
-  it('should return error when sourceName is empty', () => {
-    const params: BalanceHandlerParams = {
-      sourceType: 'exchange',
-      sourceName: '',
-    };
-    const result = validateBalanceParams(params);
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toBe('Source name is required');
-    }
-  });
-
-  it('should return error when blockchain sourceType has no address', () => {
-    const params: BalanceHandlerParams = {
-      sourceType: 'blockchain',
-      sourceName: 'ethereum',
-    };
-    const result = validateBalanceParams(params);
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toBe('Address is required for blockchain sources');
     }
   });
 });

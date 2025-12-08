@@ -11,14 +11,21 @@ import {
 } from '@exitbook/data';
 import { BalanceService, type BalanceVerificationResult } from '@exitbook/ingestion';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { BalanceCommandOptionsSchema } from '../shared/schemas.js';
 
 import { BalanceHandler } from './balance-handler.js';
-import type { BalanceCommandResult, ExtendedBalanceCommandOptions } from './balance-types.js';
+import type { BalanceCommandResult } from './balance-types.js';
 import { buildBalanceParamsFromFlags } from './balance-utils.js';
+
+/**
+ * Balance command options validated by Zod at CLI boundary
+ */
+export type BalanceCommandOptions = z.infer<typeof BalanceCommandOptionsSchema>;
 
 /**
  * Register the balance command.
@@ -35,15 +42,25 @@ export function registerBalanceCommand(program: Command): void {
     .option('--api-secret <secret>', 'API secret for exchange (overrides .env)')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange (if required)')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: ExtendedBalanceCommandOptions) => {
-      await executeBalanceCommand(options);
+    .action(async (rawOptions: unknown) => {
+      await executeBalanceCommand(rawOptions);
     });
 }
 
 /**
  * Execute the balance command.
  */
-async function executeBalanceCommand(options: ExtendedBalanceCommandOptions): Promise<void> {
+async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary with Zod
+  const validationResult = BalanceCommandOptionsSchema.safeParse(rawOptions);
+  if (!validationResult.success) {
+    const output = new OutputManager('text');
+    const firstError = validationResult.error.issues[0];
+    output.error('balance', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
+    return;
+  }
+
+  const options = validationResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   // Initialize database

@@ -1,131 +1,198 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ImportHandlerParams } from '../import-handler.js';
-import { buildImportParamsFromFlags, validateImportParams, type ImportCommandOptions } from '../import-utils.js';
+import { ImportCommandOptionsSchema } from '../../shared/schemas.js';
+import { buildImportParamsFromFlags, type ImportCommandOptions } from '../import-utils.js';
 
-describe('validateImportParams', () => {
-  describe('exchange sources', () => {
-    it('should succeed when CSV directory is provided', () => {
-      const params: ImportHandlerParams = {
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        csvDir: '/path/to/csv',
-      };
-
-      const result = validateImportParams(params);
-
-      expect(result.isOk()).toBe(true);
-    });
-
-    it('should succeed when API credentials are provided', () => {
-      const params: ImportHandlerParams = {
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        credentials: {
-          apiKey: 'test-key',
-          secret: 'test-secret',
-        },
-      };
-
-      const result = validateImportParams(params);
-
-      expect(result.isOk()).toBe(true);
-    });
-
-    it('should fail when neither CSV directory nor credentials are provided', () => {
-      const params: ImportHandlerParams = {
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-      };
-
-      const result = validateImportParams(params);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Either CSV directory or API credentials are required');
-    });
-
-    it('should fail when both CSV directory and credentials are provided', () => {
-      const params: ImportHandlerParams = {
-        sourceName: 'kraken',
-        sourceType: 'exchange',
-        csvDir: '/path/to/csv',
-        credentials: {
-          apiKey: 'test-key',
-          secret: 'test-secret',
-        },
-      };
-
-      const result = validateImportParams(params);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Cannot specify both CSV directory and API credentials');
+describe('ImportCommandOptionsSchema', () => {
+  describe('interactive mode (no flags)', () => {
+    it('should accept empty options for interactive mode', () => {
+      const result = ImportCommandOptionsSchema.safeParse({});
+      expect(result.success).toBe(true);
     });
   });
 
-  describe('blockchain sources', () => {
-    it('should succeed when address is provided', () => {
-      const params: ImportHandlerParams = {
-        sourceName: 'bitcoin',
-        sourceType: 'blockchain',
-        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-      };
+  describe('source selection', () => {
+    it('should reject both --exchange and --blockchain', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        exchange: 'kraken',
+        blockchain: 'bitcoin',
+        address: 'bc1q...', // Provide address to avoid additional validation errors
+        csvDir: '/path/to/csv', // Provide csvDir to avoid additional validation errors
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const messages = result.error.issues.map((i) => i.message);
+        expect(messages).toContainEqual('Cannot specify both --exchange and --blockchain');
+      }
+    });
+  });
 
-      const result = validateImportParams(params);
-
-      expect(result.isOk()).toBe(true);
+  describe('blockchain validation', () => {
+    it('should reject blockchain without address', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        blockchain: 'bitcoin',
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toContain('--address is required for blockchain sources');
+      }
     });
 
-    it('should succeed when address and provider are provided', () => {
-      const params: ImportHandlerParams = {
-        sourceName: 'bitcoin',
-        sourceType: 'blockchain',
+    it('should accept blockchain with address', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        blockchain: 'bitcoin',
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-        providerName: 'blockstream',
-      };
-
-      const result = validateImportParams(params);
-
-      expect(result.isOk()).toBe(true);
+      });
+      expect(result.success).toBe(true);
     });
 
-    it('should fail when address is not provided', () => {
-      const params: ImportHandlerParams = {
-        sourceName: 'bitcoin',
-        sourceType: 'blockchain',
-      };
+    it('should accept blockchain with address and optional provider', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        blockchain: 'bitcoin',
+        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
+        provider: 'blockstream',
+      });
+      expect(result.success).toBe(true);
+    });
 
-      const result = validateImportParams(params);
+    it('should accept blockchain with xpubGap', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        blockchain: 'bitcoin',
+        address: 'xpub...',
+        xpubGap: 50,
+      });
+      expect(result.success).toBe(true);
+    });
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Wallet address is required');
+    it('should reject xpubGap less than 1', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        blockchain: 'bitcoin',
+        address: 'xpub...',
+        xpubGap: 0,
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        // The error comes from the Zod number schema's .positive() constraint
+        const messages = result.error.issues.map((i) => i.message);
+        expect(messages.some((m) => m.includes('number to be >0'))).toBe(true);
+      }
+    });
+  });
+
+  describe('exchange validation', () => {
+    it('should reject exchange without csvDir or API credentials', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        exchange: 'kraken',
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toContain(
+          'Either --csv-dir or API credentials (--api-key, --api-secret) are required'
+        );
+      }
+    });
+
+    it('should accept exchange with csvDir', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        exchange: 'kraken',
+        csvDir: '/path/to/csv',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept exchange with API credentials', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        exchange: 'kraken',
+        apiKey: 'test-key',
+        apiSecret: 'test-secret',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject exchange with both csvDir and API credentials', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        exchange: 'kraken',
+        csvDir: '/path/to/csv',
+        apiKey: 'test-key',
+        apiSecret: 'test-secret',
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toContain('Cannot specify both --csv-dir and API credentials');
+      }
+    });
+
+    it('should reject apiKey without apiSecret', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        exchange: 'kraken',
+        apiKey: 'test-key',
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        // Multiple validation errors can occur - check all messages
+        const messages = result.error.issues.map((i) => i.message);
+        expect(
+          messages.some(
+            (m) =>
+              m.includes('--api-key and --api-secret must be provided together') ||
+              m.includes('Either --csv-dir or API credentials')
+          )
+        ).toBe(true);
+      }
+    });
+
+    it('should reject apiSecret without apiKey', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        exchange: 'kraken',
+        apiSecret: 'test-secret',
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        // Multiple validation errors can occur - check all messages
+        const messages = result.error.issues.map((i) => i.message);
+        expect(
+          messages.some(
+            (m) =>
+              m.includes('--api-key and --api-secret must be provided together') ||
+              m.includes('Either --csv-dir or API credentials')
+          )
+        ).toBe(true);
+      }
+    });
+
+    it('should accept exchange with API credentials and optional passphrase', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        exchange: 'kucoin',
+        apiKey: 'test-key',
+        apiSecret: 'test-secret',
+        apiPassphrase: 'test-passphrase',
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('optional flags', () => {
+    it('should accept --process flag', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        exchange: 'kraken',
+        csvDir: '/path/to/csv',
+        process: true,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept --json flag', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        exchange: 'kraken',
+        csvDir: '/path/to/csv',
+        json: true,
+      });
+      expect(result.success).toBe(true);
     });
   });
 });
 
 describe('buildImportParamsFromFlags', () => {
-  describe('source selection', () => {
-    it('should fail when neither exchange nor blockchain is specified', () => {
-      const options: ImportCommandOptions = {};
-
-      const result = buildImportParamsFromFlags(options);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Either --exchange or --blockchain is required');
-    });
-
-    it('should fail when both exchange and blockchain are specified', () => {
-      const options: ImportCommandOptions = {
-        exchange: 'kraken',
-        blockchain: 'bitcoin',
-      };
-
-      const result = buildImportParamsFromFlags(options);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Cannot specify both --exchange and --blockchain');
-    });
-  });
-
   describe('exchange sources', () => {
     it('should build params with CSV directory', () => {
       const options: ImportCommandOptions = {
@@ -182,42 +249,6 @@ describe('buildImportParamsFromFlags', () => {
         apiPassphrase: 'test-passphrase',
       });
     });
-
-    it('should fail when neither CSV directory nor API credentials are provided', () => {
-      const options: ImportCommandOptions = {
-        exchange: 'kraken',
-      };
-
-      const result = buildImportParamsFromFlags(options);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Either --csv-dir or API credentials');
-    });
-
-    it('should fail when both CSV directory and API credentials are provided', () => {
-      const options: ImportCommandOptions = {
-        exchange: 'kraken',
-        csvDir: '/path/to/csv',
-        apiKey: 'test-key',
-      };
-
-      const result = buildImportParamsFromFlags(options);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Cannot specify both --csv-dir and API credentials');
-    });
-
-    it('should fail when API key is provided without secret', () => {
-      const options: ImportCommandOptions = {
-        exchange: 'kraken',
-        apiKey: 'test-key',
-      };
-
-      const result = buildImportParamsFromFlags(options);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('--api-secret is required when using --api-key');
-    });
   });
 
   describe('blockchain sources', () => {
@@ -251,17 +282,6 @@ describe('buildImportParamsFromFlags', () => {
       expect(params.address).toBe('bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
       expect(params.providerName).toBe('blockstream');
       expect(params.shouldProcess).toBe(true);
-    });
-
-    it('should fail when address is not provided', () => {
-      const options: ImportCommandOptions = {
-        blockchain: 'bitcoin',
-      };
-
-      const result = buildImportParamsFromFlags(options);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('--address is required for blockchain sources');
     });
   });
 });

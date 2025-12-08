@@ -9,19 +9,19 @@ import {
 } from '@exitbook/data';
 import { TransactionProcessService, TokenMetadataService } from '@exitbook/ingestion';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { ProcessCommandOptionsSchema } from '../shared/schemas.js';
 
 import type { ProcessResult } from './process-handler.js';
 import { ProcessHandler } from './process-handler.js';
 
 /**
- * Process command options.
+ * Process command options validated by Zod at CLI boundary
  */
-export interface ProcessCommandOptions {
-  json?: boolean | undefined;
-}
+export type ProcessCommandOptions = z.infer<typeof ProcessCommandOptionsSchema>;
 
 /**
  * Process command result data.
@@ -39,15 +39,25 @@ export function registerProcessCommand(program: Command): void {
     .command('process')
     .description('Process all pending raw data from all sources')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: ProcessCommandOptions) => {
-      await executeProcessCommand(options);
+    .action(async (rawOptions: unknown) => {
+      await executeProcessCommand(rawOptions);
     });
 }
 
 /**
  * Execute the process command.
  */
-async function executeProcessCommand(options: ProcessCommandOptions): Promise<void> {
+async function executeProcessCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary with Zod
+  const validationResult = ProcessCommandOptionsSchema.safeParse(rawOptions);
+  if (!validationResult.success) {
+    const output = new OutputManager('text');
+    const firstError = validationResult.error.issues[0];
+    output.error('process', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
+    return;
+  }
+
+  const options = validationResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {

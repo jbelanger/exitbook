@@ -1,19 +1,22 @@
 import { parseDecimal, type ImportSession, type SourceType, type UniversalTransactionData } from '@exitbook/core';
-import type { ExchangeCredentials } from '@exitbook/exchanges-providers';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
+import type { z } from 'zod';
+
+import type { BalanceCommandOptionsSchema } from '../shared/schemas.js';
 
 /**
- * Balance command options from CLI flags
+ * Balance command options validated by Zod at CLI boundary
  */
-export interface BalanceCommandOptions {
-  exchange?: string | undefined;
-  blockchain?: string | undefined;
-  address?: string | undefined;
-  provider?: string | undefined;
-  apiKey?: string | undefined;
-  apiSecret?: string | undefined;
-  apiPassphrase?: string | undefined;
+export type BalanceCommandOptions = z.infer<typeof BalanceCommandOptionsSchema>;
+
+/**
+ * Exchange credentials structure expected by balance service
+ */
+export interface ExchangeCredentials {
+  apiKey: string;
+  secret: string;
+  passphrase?: string | undefined;
 }
 
 /**
@@ -28,77 +31,30 @@ export interface BalanceHandlerParams {
 }
 
 /**
- * Build balance handler parameters from CLI flags.
- * Pure function that validates and transforms command line options.
+ * Build balance handler parameters from validated CLI flags.
+ * No validation needed - options are already validated by Zod schema.
  */
 export function buildBalanceParamsFromFlags(options: BalanceCommandOptions): Result<BalanceHandlerParams, Error> {
-  // Validate that either exchange or blockchain is specified
-  if (!options.exchange && !options.blockchain) {
-    return err(new Error('Either --exchange or --blockchain must be specified'));
+  const sourceName = (options.exchange || options.blockchain)!;
+  const sourceType: SourceType = options.exchange ? 'exchange' : 'blockchain';
+
+  // Build credentials if API key/secret provided
+  let credentials: ExchangeCredentials | undefined;
+  if (options.apiKey && options.apiSecret) {
+    credentials = {
+      apiKey: options.apiKey,
+      secret: options.apiSecret,
+      ...(options.apiPassphrase && { passphrase: options.apiPassphrase }),
+    };
   }
 
-  if (options.exchange && options.blockchain) {
-    return err(new Error('Cannot specify both --exchange and --blockchain'));
-  }
-
-  // Exchange path
-  if (options.exchange) {
-    // Validate that credentials are complete (both key and secret required)
-    if ((options.apiKey || options.apiSecret) && !(options.apiKey && options.apiSecret)) {
-      return err(new Error('Both --api-key and --api-secret must be provided together'));
-    }
-
-    // Build credentials if API key/secret provided (ExchangeCredentials = Record<string, string>)
-    let credentials: ExchangeCredentials | undefined;
-    if (options.apiKey && options.apiSecret) {
-      const creds: ExchangeCredentials = {
-        apiKey: options.apiKey,
-        secret: options.apiSecret,
-      };
-      if (options.apiPassphrase) {
-        creds.passphrase = options.apiPassphrase;
-      }
-      credentials = creds;
-    }
-
-    return ok({
-      sourceType: 'exchange',
-      sourceName: options.exchange,
-      credentials,
-    });
-  }
-
-  // Blockchain path
-  if (options.blockchain) {
-    if (!options.address) {
-      return err(new Error('--address is required when using --blockchain'));
-    }
-
-    return ok({
-      sourceType: 'blockchain',
-      sourceName: options.blockchain,
-      address: options.address,
-      providerName: options.provider,
-    });
-  }
-
-  return err(new Error('Invalid command options'));
-}
-
-/**
- * Validate balance handler parameters.
- * Pure function that checks parameter validity.
- */
-export function validateBalanceParams(params: BalanceHandlerParams): Result<void, Error> {
-  if (!params.sourceName) {
-    return err(new Error('Source name is required'));
-  }
-
-  if (params.sourceType === 'blockchain' && !params.address) {
-    return err(new Error('Address is required for blockchain sources'));
-  }
-
-  return ok();
+  return ok({
+    sourceType,
+    sourceName,
+    address: options.address,
+    providerName: options.provider,
+    credentials,
+  });
 }
 
 /**

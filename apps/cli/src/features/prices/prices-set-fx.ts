@@ -2,20 +2,18 @@
 // Allows bulk preparation of manual FX rates without interrupting enrichment
 
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { PricesSetFxCommandOptionsSchema } from '../shared/schemas.js';
 
 import { PricesSetFxHandler } from './prices-set-fx-handler.js';
 
-interface PricesSetFxCommandOptions {
-  date: string;
-  from: string;
-  json?: boolean | undefined;
-  rate: string;
-  source: string;
-  to: string;
-}
+/**
+ * Command options (validated at CLI boundary).
+ */
+export type CommandOptions = z.infer<typeof PricesSetFxCommandOptionsSchema>;
 
 /**
  * Register prices set-fx command
@@ -30,33 +28,49 @@ export function registerPricesSetFxCommand(pricesCommand: Command): void {
     .requiredOption('--rate <value>', 'FX rate value (e.g., 1.08 for EUR→USD)')
     .option('--source <name>', 'Source attribution', 'user-provided')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: PricesSetFxCommandOptions) => {
-      const output = new OutputManager(options.json ? 'json' : 'text');
-
-      try {
-        const handler = new PricesSetFxHandler();
-        const result = await handler.execute({
-          from: options.from,
-          to: options.to,
-          date: options.date,
-          rate: options.rate,
-          source: options.source,
-        });
-        handler.destroy();
-
-        if (result.isErr()) {
-          output.error('prices-set-fx', result.error, ExitCodes.GENERAL_ERROR);
-          return;
-        }
-
-        output.success('prices-set-fx', result.value);
-        process.exit(0);
-      } catch (error) {
-        output.error(
-          'prices-set-fx',
-          error instanceof Error ? error : new Error(String(error)),
-          ExitCodes.GENERAL_ERROR
-        );
-      }
+    .action(async (rawOptions: unknown) => {
+      await executePricesSetFxCommand(rawOptions);
     });
+}
+
+/**
+ * Execute the prices set-fx command.
+ */
+async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary
+  const parseResult = PricesSetFxCommandOptionsSchema.safeParse(rawOptions);
+  if (!parseResult.success) {
+    const output = new OutputManager('text');
+    output.error(
+      'prices-set-fx',
+      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      ExitCodes.INVALID_ARGS
+    );
+    return;
+  }
+
+  const options = parseResult.data;
+  const output = new OutputManager(options.json ? 'json' : 'text');
+
+  try {
+    const handler = new PricesSetFxHandler();
+    const result = await handler.execute({
+      from: options.from,
+      to: options.to,
+      date: options.date,
+      rate: options.rate,
+      source: options.source,
+    });
+    handler.destroy();
+
+    if (result.isErr()) {
+      output.error('prices-set-fx', result.error, ExitCodes.GENERAL_ERROR);
+      return;
+    }
+
+    output.success('prices-set-fx', result.value);
+    process.exit(0);
+  } catch (error) {
+    output.error('prices-set-fx', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
+  }
 }

@@ -2,9 +2,11 @@
 
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { LinksViewCommandOptionsSchema } from '../shared/schemas.js';
 import { buildViewMeta, type ViewCommandResult } from '../shared/view-utils.js';
 
 import { LinksViewHandler } from './links-view-handler.js';
@@ -12,11 +14,9 @@ import type { LinkInfo, LinksViewParams, LinksViewResult } from './links-view-ut
 import { formatLinksListForDisplay } from './links-view-utils.js';
 
 /**
- * Extended command options (adds CLI-specific flags).
+ * Command options validated by Zod at CLI boundary
  */
-export interface ExtendedLinksViewCommandOptions extends LinksViewParams {
-  json?: boolean | undefined;
-}
+export type LinksViewCommandOptions = z.infer<typeof LinksViewCommandOptionsSchema>;
 
 /**
  * Result data for links view command (JSON mode).
@@ -66,39 +66,32 @@ Confidence Scores:
     .option('--limit <number>', 'Maximum number of links to return', parseInt)
     .option('--verbose', 'Include full transaction details (asset, amount, addresses)')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: ExtendedLinksViewCommandOptions) => {
-      await executeLinksViewCommand(options);
+    .action(async (rawOptions: unknown) => {
+      await executeLinksViewCommand(rawOptions);
     });
 }
 
 /**
  * Execute the links view command.
  */
-async function executeLinksViewCommand(options: ExtendedLinksViewCommandOptions): Promise<void> {
+async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary
+  const parseResult = LinksViewCommandOptionsSchema.safeParse(rawOptions);
+  if (!parseResult.success) {
+    const output = new OutputManager('text');
+    output.error(
+      'links-view',
+      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      ExitCodes.INVALID_ARGS
+    );
+    return;
+  }
+
+  const options = parseResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    // Validate status option if provided
-    if (options.status && !['confirmed', 'rejected', 'suggested'].includes(options.status)) {
-      throw new Error('Invalid status. Must be one of: suggested, confirmed, rejected');
-    }
-
-    // Validate confidence ranges
-    if (options.minConfidence !== undefined && (options.minConfidence < 0 || options.minConfidence > 1)) {
-      throw new Error('min-confidence must be between 0 and 1');
-    }
-    if (options.maxConfidence !== undefined && (options.maxConfidence < 0 || options.maxConfidence > 1)) {
-      throw new Error('max-confidence must be between 0 and 1');
-    }
-    if (
-      options.minConfidence !== undefined &&
-      options.maxConfidence !== undefined &&
-      options.minConfidence > options.maxConfidence
-    ) {
-      throw new Error('min-confidence must be less than or equal to max-confidence');
-    }
-
-    // Build params from options
+    // Build params from validated options - no additional validation needed
     const params: LinksViewParams = {
       status: options.status,
       minConfidence: options.minConfidence,

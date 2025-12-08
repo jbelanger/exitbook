@@ -4,16 +4,15 @@
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import { ok } from 'neverthrow';
+import type { z } from 'zod';
+
+import type { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
 
 /**
- * CLI options structure for building links run parameters.
+ * CLI options validated by Zod at CLI boundary
  */
-export interface LinksRunCommandOptions {
-  dryRun?: boolean | undefined;
-  minConfidence?: number | undefined;
-  autoConfirmThreshold?: number | undefined;
-}
+export type LinksRunCommandOptions = z.infer<typeof LinksRunCommandOptionsSchema>;
 
 /**
  * Links run handler parameters.
@@ -30,31 +29,8 @@ export interface LinksRunHandlerParams {
 }
 
 /**
- * Validate links run parameters.
- * Returns Result<void, Error> to indicate validation success or failure.
- */
-export function validateLinksRunParams(params: LinksRunHandlerParams): Result<void, Error> {
-  // Validate min confidence score
-  if (params.minConfidenceScore.lessThan(0) || params.minConfidenceScore.greaterThan(1)) {
-    return err(new Error('minConfidenceScore must be between 0 and 1'));
-  }
-
-  // Validate auto-confirm threshold
-  if (params.autoConfirmThreshold.lessThan(0) || params.autoConfirmThreshold.greaterThan(1)) {
-    return err(new Error('autoConfirmThreshold must be between 0 and 1'));
-  }
-
-  // Auto-confirm threshold should be >= min confidence
-  if (params.autoConfirmThreshold.lessThan(params.minConfidenceScore)) {
-    return err(new Error('autoConfirmThreshold must be >= minConfidenceScore'));
-  }
-
-  return ok();
-}
-
-/**
- * Build links run parameters from CLI flags.
- * Validates inputs and constructs LinksRunHandlerParams.
+ * Build links run parameters from validated CLI options.
+ * No validation needed - options are already validated by Zod schema.
  */
 export function buildLinksRunParamsFromFlags(options: LinksRunCommandOptions): Result<LinksRunHandlerParams, Error> {
   const minConfidenceScore = parseDecimal(options.minConfidence?.toString() ?? '0.7');
@@ -65,12 +41,6 @@ export function buildLinksRunParamsFromFlags(options: LinksRunCommandOptions): R
     minConfidenceScore,
     autoConfirmThreshold,
   };
-
-  // Validate the constructed parameters
-  const validation = validateLinksRunParams(params);
-  if (validation.isErr()) {
-    return err(validation.error);
-  }
 
   return ok(params);
 }

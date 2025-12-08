@@ -1,16 +1,13 @@
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
+import type { z } from 'zod';
+
+import type { ClearCommandOptionsSchema } from '../shared/schemas.js';
 
 /**
- * Clear command options
+ * Clear command options validated by Zod at CLI boundary
  */
-export interface ClearCommandOptions {
-  accountId?: number | undefined;
-  source?: string | undefined;
-  includeRaw?: boolean | undefined;
-  confirm?: boolean | undefined;
-  json?: boolean | undefined;
-}
+export type ClearCommandOptions = z.infer<typeof ClearCommandOptionsSchema>;
 
 /**
  * Clear handler parameters
@@ -22,7 +19,8 @@ export interface ClearHandlerParams {
 }
 
 /**
- * Build handler params from command flags.
+ * Build handler params from validated command flags.
+ * No validation needed - options are already validated by Zod schema.
  */
 export function buildClearParamsFromFlags(options: ClearCommandOptions): Result<ClearHandlerParams, Error> {
   return ok({

@@ -10,21 +10,20 @@
 
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { withDatabaseAndHandler } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { PricesEnrichCommandOptionsSchema } from '../shared/schemas.js';
 
 import { PricesEnrichHandler } from './prices-enrich-handler.js';
 import type { PricesEnrichOptions, PricesEnrichResult } from './prices-enrich-handler.js';
 
 /**
- * Extended command options (adds CLI-specific flags)
+ * Command options (validated at CLI boundary).
  */
-export interface ExtendedPricesEnrichCommandOptions extends PricesEnrichOptions {
-  json?: boolean | undefined;
-  onMissing?: 'prompt' | 'fail' | undefined;
-}
+export type CommandOptions = z.infer<typeof PricesEnrichCommandOptionsSchema>;
 
 /**
  * Result data for prices enrich command (JSON mode)
@@ -84,9 +83,11 @@ export function registerPricesEnrichCommand(pricesCommand: Command): void {
     .option('--normalize-only', 'Only run normalization stage (FX conversion)')
     .option('--derive-only', 'Only run derivation stage (extract from USD trades)')
     .option('--fetch-only', 'Only run fetch stage (external providers)')
+    .option('--interactive', 'Interactive mode for fetch stage')
+    .option('--dry-run', 'Preview changes without applying them')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: ExtendedPricesEnrichCommandOptions) => {
-      await executePricesEnrichCommand(options);
+    .action(async (rawOptions: unknown) => {
+      await executePricesEnrichCommand(rawOptions);
     });
 }
 
@@ -100,32 +101,34 @@ function collect(value: string, previous: string[]): string[] {
 /**
  * Execute the prices enrich command
  */
-async function executePricesEnrichCommand(options: ExtendedPricesEnrichCommandOptions): Promise<void> {
+async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary
+  const parseResult = PricesEnrichCommandOptionsSchema.safeParse(rawOptions);
+  if (!parseResult.success) {
+    const output = new OutputManager('text');
+    output.error(
+      'prices-enrich',
+      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      ExitCodes.INVALID_ARGS
+    );
+    return;
+  }
+
+  const options = parseResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    // Validate onMissing option
-    const validBehaviors = ['prompt', 'fail'] as const;
-    const onMissing: 'prompt' | 'fail' = options.onMissing || 'fail';
-    if (!validBehaviors.includes(onMissing)) {
-      output.error(
-        'prices-enrich',
-        new Error(`Invalid --on-missing value: ${onMissing}. Must be one of: ${validBehaviors.join(', ')}`),
-        ExitCodes.GENERAL_ERROR
-      );
-      return;
-    }
-
     // Build params from options
     const params: PricesEnrichOptions = {
       asset: options.asset,
-      onMissing,
+      onMissing: options.onMissing,
       normalizeOnly: options.normalizeOnly,
       deriveOnly: options.deriveOnly,
       fetchOnly: options.fetchOnly,
     };
 
     // Don't use spinner in prompt mode (conflicts with prompts)
+    const onMissing = options.onMissing || 'fail';
     const spinner = onMissing === 'prompt' ? undefined : output.spinner();
     spinner?.start('Running price enrichment pipeline...');
 

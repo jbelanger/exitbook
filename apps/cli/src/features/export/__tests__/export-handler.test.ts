@@ -194,27 +194,8 @@ describe('ExportHandler', () => {
       expect(exportResult.content).toBe('[]');
     });
 
-    it('should return error when format is missing', async () => {
-      const params = {
-        outputPath: './data/transactions.csv',
-      } as ExportHandlerParams;
-
-      const result = await handler.execute(params);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toBe('Export format is required');
-    });
-
-    it('should return error when output path is missing', async () => {
-      const params = {
-        format: 'csv',
-      } as ExportHandlerParams;
-
-      const result = await handler.execute(params);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toBe('Output path is required');
-    });
+    // Note: Validation tests removed - validation now handled by ExportCommandOptionsSchema at CLI boundary
+    // Handler assumes params are already validated by Zod
 
     it('should return error when transaction retrieval fails', async () => {
       const params: ExportHandlerParams = {

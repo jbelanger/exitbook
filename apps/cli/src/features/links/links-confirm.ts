@@ -2,18 +2,18 @@
 
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { LinksConfirmCommandOptionsSchema } from '../shared/schemas.js';
 
 import { LinksConfirmHandler } from './links-confirm-handler.js';
 
 /**
- * Command options for links confirm.
+ * Command options validated by Zod at CLI boundary
  */
-export interface LinksConfirmCommandOptions {
-  json?: boolean | undefined;
-}
+export type LinksConfirmCommandOptions = z.infer<typeof LinksConfirmCommandOptionsSchema>;
 
 /**
  * Result data for links confirm command (JSON mode).
@@ -34,23 +34,38 @@ export function registerLinksConfirmCommand(linksCommand: Command): void {
     .description('Confirm a suggested transaction link')
     .argument('<link-id>', 'ID of the link to confirm')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (linkId: string, options: LinksConfirmCommandOptions) => {
-      await executeLinksConfirmCommand(linkId, options);
+    .action(async (linkId: string, rawOptions: unknown) => {
+      await executeLinksConfirmCommand(linkId, rawOptions);
     });
 }
 
 /**
  * Execute the links confirm command.
  */
-async function executeLinksConfirmCommand(linkId: string, options: LinksConfirmCommandOptions): Promise<void> {
+async function executeLinksConfirmCommand(linkId: string, rawOptions: unknown): Promise<void> {
+  // Validate linkId argument
+  if (!linkId || linkId.trim() === '') {
+    const output = new OutputManager('text');
+    output.error('links-confirm', new Error('Link ID is required'), ExitCodes.INVALID_ARGS);
+    return;
+  }
+
+  // Validate options at CLI boundary
+  const parseResult = LinksConfirmCommandOptionsSchema.safeParse(rawOptions);
+  if (!parseResult.success) {
+    const output = new OutputManager('text');
+    output.error(
+      'links-confirm',
+      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      ExitCodes.INVALID_ARGS
+    );
+    return;
+  }
+
+  const options = parseResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    // Validate link ID
-    if (!linkId || linkId.trim() === '') {
-      throw new Error('Link ID is required');
-    }
-
     const spinner = output.spinner();
     spinner?.start('Confirming link...');
 

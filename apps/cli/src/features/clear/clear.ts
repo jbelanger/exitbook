@@ -1,14 +1,21 @@
 import type { ClearResult, DeletionPreview } from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { handleCancellation, promptConfirm } from '../shared/prompts.js';
+import { ClearCommandOptionsSchema } from '../shared/schemas.js';
 
 import { ClearHandler } from './clear-handler.js';
-import { buildClearParamsFromFlags, type ClearCommandOptions } from './clear-utils.js';
+import { buildClearParamsFromFlags } from './clear-utils.js';
+
+/**
+ * Clear command options validated by Zod at CLI boundary
+ */
+export type ClearCommandOptions = z.infer<typeof ClearCommandOptionsSchema>;
 
 /**
  * Clear command result data.
@@ -29,15 +36,25 @@ export function registerClearCommand(program: Command): void {
     .option('--include-raw', 'Also clear raw imported data (WARNING: requires re-import)')
     .option('--confirm', 'Skip confirmation prompt')
     .option('--json', 'Output results in JSON format')
-    .action(async (options: ClearCommandOptions) => {
-      await executeClearCommand(options);
+    .action(async (rawOptions: unknown) => {
+      await executeClearCommand(rawOptions);
     });
 }
 
 /**
  * Execute the clear command.
  */
-async function executeClearCommand(options: ClearCommandOptions): Promise<void> {
+async function executeClearCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary with Zod
+  const validationResult = ClearCommandOptionsSchema.safeParse(rawOptions);
+  if (!validationResult.success) {
+    const output = new OutputManager('text');
+    const firstError = validationResult.error.issues[0];
+    output.error('clear', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
+    return;
+  }
+
+  const options = validationResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {

@@ -2,25 +2,24 @@ import type { CostBasisReport } from '@exitbook/accounting';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { Decimal } from 'decimal.js';
+import type { z } from 'zod';
 
 import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { CostBasisCommandOptionsSchema } from '../shared/schemas.js';
 
 import type { CostBasisResult } from './cost-basis-handler.js';
 import { CostBasisHandler } from './cost-basis-handler.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.js';
-import type { CostBasisCommandOptions } from './cost-basis-utils.js';
 import { buildCostBasisParamsFromFlags } from './cost-basis-utils.js';
 
 const logger = getLogger('CostBasisCommand');
 
 /**
- * Extended cost-basis command options (adds CLI-specific flags not needed by handler).
+ * Command options (validated at CLI boundary).
  */
-export interface ExtendedCostBasisCommandOptions extends CostBasisCommandOptions {
-  json?: boolean | undefined;
-}
+export type CommandOptions = z.infer<typeof CostBasisCommandOptionsSchema>;
 
 /**
  * Cost basis command result data for JSON output.
@@ -62,15 +61,28 @@ export function registerCostBasisCommand(program: Command): void {
     .option('--start-date <date>', 'Custom start date (YYYY-MM-DD, requires --end-date)')
     .option('--end-date <date>', 'Custom end date (YYYY-MM-DD, requires --start-date)')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: ExtendedCostBasisCommandOptions) => {
-      await executeCostBasisCommand(options);
+    .action(async (rawOptions: unknown) => {
+      await executeCostBasisCommand(rawOptions);
     });
 }
 
 /**
  * Execute the cost-basis command.
  */
-async function executeCostBasisCommand(options: ExtendedCostBasisCommandOptions): Promise<void> {
+async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary
+  const parseResult = CostBasisCommandOptionsSchema.safeParse(rawOptions);
+  if (!parseResult.success) {
+    const output = new OutputManager('text');
+    output.error(
+      'cost-basis',
+      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      ExitCodes.INVALID_ARGS
+    );
+    return;
+  }
+
+  const options = parseResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {

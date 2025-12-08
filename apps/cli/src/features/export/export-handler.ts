@@ -3,7 +3,7 @@ import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { ExportHandlerParams } from './export-utils.js';
-import { validateExportParams, convertToCSV, convertToJSON } from './export-utils.js';
+import { convertToCSV, convertToJSON } from './export-utils.js';
 
 // Re-export for convenience
 export type { ExportHandlerParams };
@@ -42,12 +42,6 @@ export class ExportHandler {
    */
   async execute(params: ExportHandlerParams): Promise<Result<ExportResult, Error>> {
     try {
-      // Validate parameters
-      const validation = validateExportParams(params);
-      if (validation.isErr()) {
-        return err(validation.error);
-      }
-
       logger.info({ params }, 'Starting export');
 
       // Build filter object conditionally to avoid passing undefined values

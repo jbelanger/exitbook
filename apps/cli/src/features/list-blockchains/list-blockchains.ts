@@ -1,20 +1,20 @@
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { ListBlockchainsCommandOptionsSchema } from '../shared/schemas.js';
 
 import { ListBlockchainsHandler } from './list-blockchains-handler.js';
-import type { BlockchainInfo, BlockchainListSummary, ListBlockchainsCommandOptions } from './list-blockchains-utils.js';
+import type { BlockchainInfo, BlockchainListSummary } from './list-blockchains-utils.js';
 
 const logger = getLogger('ListBlockchainsCommand');
 
 /**
- * Extended command options (adds CLI-specific flags).
+ * Command options (validated at CLI boundary).
  */
-export interface ExtendedListBlockchainsCommandOptions extends ListBlockchainsCommandOptions {
-  json?: boolean | undefined;
-}
+export type CommandOptions = z.infer<typeof ListBlockchainsCommandOptionsSchema>;
 
 /**
  * Result data for list-blockchains command (JSON mode).
@@ -40,17 +40,29 @@ export function registerListBlockchainsCommand(program: Command): void {
     .option('--category <type>', 'Filter by category (evm, substrate, cosmos, utxo, solana)')
     .option('--detailed', 'Show detailed provider information including rate limits')
     .option('--requires-api-key', 'Show only blockchains that require API key')
-    .option('--no-requires-api-key', 'Show only blockchains with providers that do not require API key')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: ExtendedListBlockchainsCommandOptions) => {
-      await executeListBlockchainsCommand(options);
+    .action(async (rawOptions: unknown) => {
+      await executeListBlockchainsCommand(rawOptions);
     });
 }
 
 /**
  * Execute the list-blockchains command.
  */
-async function executeListBlockchainsCommand(options: ExtendedListBlockchainsCommandOptions): Promise<void> {
+async function executeListBlockchainsCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary
+  const parseResult = ListBlockchainsCommandOptionsSchema.safeParse(rawOptions);
+  if (!parseResult.success) {
+    const output = new OutputManager('text');
+    output.error(
+      'list-blockchains',
+      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      ExitCodes.INVALID_ARGS
+    );
+    return;
+  }
+
+  const options = parseResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {

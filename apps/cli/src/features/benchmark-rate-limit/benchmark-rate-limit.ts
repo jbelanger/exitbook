@@ -1,19 +1,21 @@
 import { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { BenchmarkRateLimitCommandOptionsSchema } from '../shared/schemas.js';
 
 import { BenchmarkRateLimitHandler } from './benchmark-rate-limit-handler.js';
-import type { BenchmarkRateLimitCommandOptions } from './benchmark-rate-limit-utils.js';
 import { buildConfigOverride } from './benchmark-rate-limit-utils.js';
 
 const logger = getLogger('BenchmarkRateLimitCommand');
 
-interface ExtendedBenchmarkRateLimitCommandOptions extends BenchmarkRateLimitCommandOptions {
-  json?: boolean | undefined;
-}
+/**
+ * Command options (validated at CLI boundary).
+ */
+export type CommandOptions = z.infer<typeof BenchmarkRateLimitCommandOptionsSchema>;
 
 /**
  * Result data for benchmark-rate-limit command (JSON mode).
@@ -55,15 +57,28 @@ export function registerBenchmarkRateLimitCommand(program: Command): void {
     .option('--num-requests <number>', 'Number of requests to send per rate test (default: 10)', '10')
     .option('--skip-burst', 'Skip burst limit testing (only test sustained rates)', false)
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: ExtendedBenchmarkRateLimitCommandOptions) => {
-      await executeBenchmarkRateLimitCommand(options);
+    .action(async (rawOptions: unknown) => {
+      await executeBenchmarkRateLimitCommand(rawOptions);
     });
 }
 
 /**
  * Execute the benchmark-rate-limit command.
  */
-async function executeBenchmarkRateLimitCommand(options: ExtendedBenchmarkRateLimitCommandOptions): Promise<void> {
+async function executeBenchmarkRateLimitCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary
+  const parseResult = BenchmarkRateLimitCommandOptionsSchema.safeParse(rawOptions);
+  if (!parseResult.success) {
+    const output = new OutputManager('text');
+    output.error(
+      'benchmark-rate-limit',
+      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      ExitCodes.INVALID_ARGS
+    );
+    return;
+  }
+
+  const options = parseResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {

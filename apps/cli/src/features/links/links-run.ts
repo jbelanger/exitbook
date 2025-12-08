@@ -1,24 +1,23 @@
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
 
 import type { LinksRunResult } from './links-run-handler.js';
 import { LinksRunHandler } from './links-run-handler.js';
 import { promptForLinksRunParams } from './links-run-prompts.js';
-import type { LinksRunCommandOptions } from './links-run-utils.js';
 import { buildLinksRunParamsFromFlags } from './links-run-utils.js';
 
 const logger = getLogger('LinksRunCommand');
 
 /**
- * Extended link run command options (adds CLI-specific flags).
+ * Command options validated by Zod at CLI boundary
  */
-export interface ExtendedLinksRunCommandOptions extends LinksRunCommandOptions {
-  json?: boolean | undefined;
-}
+export type LinksRunCommandOptions = z.infer<typeof LinksRunCommandOptionsSchema>;
 
 /**
  * Link run command result data.
@@ -41,18 +40,31 @@ export function registerLinksRunCommand(linksCommand: Command): void {
     .command('run')
     .description('Run the linking algorithm to find matching transactions across sources')
     .option('--dry-run', 'Show matches without saving to database')
-    .option('--min-confidence <score>', 'Minimum confidence threshold (0-1, default: 0.7)')
-    .option('--auto-confirm-threshold <score>', 'Auto-confirm above this score (0-1, default: 0.95)')
+    .option('--min-confidence <score>', 'Minimum confidence threshold (0-1, default: 0.7)', parseFloat)
+    .option('--auto-confirm-threshold <score>', 'Auto-confirm above this score (0-1, default: 0.95)', parseFloat)
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: ExtendedLinksRunCommandOptions) => {
-      await executeLinksRunCommand(options);
+    .action(async (rawOptions: unknown) => {
+      await executeLinksRunCommand(rawOptions);
     });
 }
 
 /**
  * Execute the links run command.
  */
-async function executeLinksRunCommand(options: ExtendedLinksRunCommandOptions): Promise<void> {
+async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary
+  const parseResult = LinksRunCommandOptionsSchema.safeParse(rawOptions);
+  if (!parseResult.success) {
+    const output = new OutputManager('text');
+    output.error(
+      'links-run',
+      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      ExitCodes.INVALID_ARGS
+    );
+    return;
+  }
+
+  const options = parseResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {

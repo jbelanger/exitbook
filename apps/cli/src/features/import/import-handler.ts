@@ -9,8 +9,6 @@ import { getBlockchainAdapter } from '@exitbook/ingestion';
 import { progress } from '@exitbook/ui';
 import { err, ok, type Result } from 'neverthrow';
 
-import { validateImportParams } from './import-utils.js';
-
 // Initialize all providers at startup
 initializeProviders();
 
@@ -92,12 +90,6 @@ export class ImportHandler {
    */
   async execute(params: ImportHandlerParams): Promise<Result<ImportResult, Error>> {
     try {
-      // Validate parameters
-      const validation = validateImportParams(params);
-      if (validation.isErr()) {
-        return err(validation.error);
-      }
-
       progress.start(`Importing from ${params.sourceName}`);
 
       // Call appropriate orchestrator method based on source type and params

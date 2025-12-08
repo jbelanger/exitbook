@@ -2,9 +2,11 @@
 
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { PricesViewCommandOptionsSchema } from '../shared/schemas.js';
 import type { ViewCommandResult } from '../shared/view-utils.js';
 import { buildViewMeta } from '../shared/view-utils.js';
 
@@ -13,14 +15,9 @@ import type { PriceCoverageInfo, ViewPricesParams, ViewPricesResult } from './pr
 import { formatPriceCoverageListForDisplay } from './prices-view-utils.js';
 
 /**
- * Extended command options (adds CLI-specific flags).
+ * Command options (validated at CLI boundary).
  */
-export interface ExtendedViewPricesCommandOptions extends ViewPricesParams {
-  source?: string | undefined;
-  asset?: string | undefined;
-  missingOnly?: boolean | undefined;
-  json?: boolean | undefined;
-}
+export type CommandOptions = z.infer<typeof PricesViewCommandOptionsSchema>;
 
 /**
  * Result data for view prices command (JSON mode).
@@ -56,15 +53,28 @@ Common Usage:
     .option('--asset <currency>', 'Filter by specific asset (e.g., BTC, ETH)')
     .option('--missing-only', 'Show only assets with missing price data')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: ExtendedViewPricesCommandOptions) => {
-      await executeViewPricesCommand(options);
+    .action(async (rawOptions: unknown) => {
+      await executeViewPricesCommand(rawOptions);
     });
 }
 
 /**
  * Execute the view prices command.
  */
-async function executeViewPricesCommand(options: ExtendedViewPricesCommandOptions): Promise<void> {
+async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary
+  const parseResult = PricesViewCommandOptionsSchema.safeParse(rawOptions);
+  if (!parseResult.success) {
+    const output = new OutputManager('text');
+    output.error(
+      'prices-view',
+      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      ExitCodes.INVALID_ARGS
+    );
+    return;
+  }
+
+  const options = parseResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {

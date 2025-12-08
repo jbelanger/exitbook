@@ -7,38 +7,10 @@ import {
   convertToCSV,
   convertToJSON,
   parseSinceDate,
-  validateExportFormat,
-  validateExportParams,
   type ExportCommandOptions,
-  type ExportHandlerParams,
 } from '../export-utils.js';
 
 describe('export-utils', () => {
-  describe('validateExportFormat', () => {
-    it('should accept valid csv format', () => {
-      const result = validateExportFormat('csv');
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBe('csv');
-    });
-
-    it('should accept valid json format', () => {
-      const result = validateExportFormat('json');
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBe('json');
-    });
-
-    it('should reject invalid format', () => {
-      const result = validateExportFormat('xml');
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Invalid format: xml');
-    });
-
-    it('should reject empty format', () => {
-      const result = validateExportFormat('');
-      expect(result.isErr()).toBe(true);
-    });
-  });
-
   describe('parseSinceDate', () => {
     it('should parse "0" as 0 timestamp', () => {
       const result = parseSinceDate('0');
@@ -134,27 +106,6 @@ describe('export-utils', () => {
       expect(params.since).toBe(0);
     });
 
-    it('should reject both exchange and blockchain', () => {
-      const options: ExportCommandOptions = {
-        exchange: 'kraken',
-        blockchain: 'bitcoin',
-      };
-      const result = buildExportParamsFromFlags(options);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Cannot specify both --exchange and --blockchain');
-    });
-
-    it('should reject invalid format', () => {
-      const options: ExportCommandOptions = {
-        format: 'xml',
-      };
-      const result = buildExportParamsFromFlags(options);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('Invalid format');
-    });
-
     it('should reject invalid since date', () => {
       const options: ExportCommandOptions = {
         since: 'invalid-date',
@@ -163,50 +114,6 @@ describe('export-utils', () => {
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr().message).toContain('Invalid date format');
-    });
-  });
-
-  describe('validateExportParams', () => {
-    it('should validate correct params', () => {
-      const params: ExportHandlerParams = {
-        format: 'csv',
-        outputPath: './data/transactions.csv',
-      };
-      const result = validateExportParams(params);
-
-      expect(result.isOk()).toBe(true);
-    });
-
-    it('should validate params with source and since', () => {
-      const params: ExportHandlerParams = {
-        sourceName: 'kraken',
-        format: 'json',
-        outputPath: './data/kraken.json',
-        since: Date.parse('2024-01-01'),
-      };
-      const result = validateExportParams(params);
-
-      expect(result.isOk()).toBe(true);
-    });
-
-    it('should reject missing format', () => {
-      const params = {
-        outputPath: './data/transactions.csv',
-      } as ExportHandlerParams;
-      const result = validateExportParams(params);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toBe('Export format is required');
-    });
-
-    it('should reject missing output path', () => {
-      const params = {
-        format: 'csv',
-      } as ExportHandlerParams;
-      const result = validateExportParams(params);
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toBe('Output path is required');
     });
   });
 

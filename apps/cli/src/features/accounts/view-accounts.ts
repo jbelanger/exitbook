@@ -3,9 +3,11 @@
 import type { AccountType } from '@exitbook/core';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { AccountsViewCommandOptionsSchema } from '../shared/schemas.js';
 import type { ViewCommandResult } from '../shared/view-utils.js';
 import { buildViewMeta } from '../shared/view-utils.js';
 
@@ -14,12 +16,9 @@ import type { AccountInfo, SessionSummary, ViewAccountsParams, ViewAccountsResul
 import { formatAccountsListForDisplay } from './view-accounts-utils.js';
 
 /**
- * Extended command options (adds CLI-specific flags).
+ * Command options (validated at CLI boundary).
  */
-export interface ExtendedViewAccountsCommandOptions extends ViewAccountsParams {
-  json?: boolean | undefined;
-  type?: string | undefined;
-}
+export type CommandOptions = z.infer<typeof AccountsViewCommandOptionsSchema>;
 
 /**
  * Result data for view accounts command (JSON mode).
@@ -63,15 +62,28 @@ Account Types:
     .option('--type <type>', 'Filter by account type (blockchain, exchange-api, exchange-csv)')
     .option('--show-sessions', 'Include import session details for each account')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: ExtendedViewAccountsCommandOptions) => {
-      await executeViewAccountsCommand(options);
+    .action(async (rawOptions: unknown) => {
+      await executeViewAccountsCommand(rawOptions);
     });
 }
 
 /**
  * Execute the view accounts command.
  */
-async function executeViewAccountsCommand(options: ExtendedViewAccountsCommandOptions): Promise<void> {
+async function executeViewAccountsCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary
+  const parseResult = AccountsViewCommandOptionsSchema.safeParse(rawOptions);
+  if (!parseResult.success) {
+    const output = new OutputManager('text');
+    output.error(
+      'view-accounts',
+      new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
+      ExitCodes.INVALID_ARGS
+    );
+    return;
+  }
+
+  const options = parseResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {

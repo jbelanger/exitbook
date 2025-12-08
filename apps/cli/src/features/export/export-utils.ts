@@ -5,17 +5,15 @@ import type { UniversalTransactionData } from '@exitbook/core';
 import { computePrimaryMovement } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
+import type { z } from 'zod';
+
+import type { ExportCommandOptionsSchema } from '../shared/schemas.js';
 
 /**
- * CLI options structure for building export parameters.
+ * Export command options validated by Zod at CLI boundary
+ * Using z.input to get the input type (before defaults are applied)
  */
-export interface ExportCommandOptions {
-  blockchain?: string | undefined;
-  exchange?: string | undefined;
-  format?: string | undefined;
-  output?: string | undefined;
-  since?: string | undefined;
-}
+export type ExportCommandOptions = z.input<typeof ExportCommandOptionsSchema>;
 
 /**
  * Export handler parameters.
@@ -41,16 +39,6 @@ export const EXPORT_FORMATS = ['csv', 'json'] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
 /**
- * Validate export format.
- */
-export function validateExportFormat(format: string): Result<ExportFormat, Error> {
-  if (!EXPORT_FORMATS.includes(format as ExportFormat)) {
-    return err(new Error(`Invalid format: ${format}. Supported formats: ${EXPORT_FORMATS.join(', ')}`));
-  }
-  return ok(format as ExportFormat);
-}
-
-/**
  * Parse since date string to Unix timestamp (milliseconds).
  */
 export function parseSinceDate(since: string): Result<number, Error> {
@@ -68,22 +56,12 @@ export function parseSinceDate(since: string): Result<number, Error> {
 }
 
 /**
- * Build export parameters from CLI flags.
- * Validates inputs and constructs ExportHandlerParams.
+ * Build export parameters from validated CLI flags.
+ * No validation needed - options are already validated by Zod schema.
  */
 export function buildExportParamsFromFlags(options: ExportCommandOptions): Result<ExportHandlerParams, Error> {
-  // Validate format
-  const format = options.format || 'csv';
-  const formatResult = validateExportFormat(format);
-  if (formatResult.isErr()) {
-    return err(formatResult.error);
-  }
-
-  // Validate source selection (optional)
   const sourceName = options.exchange || options.blockchain;
-  if (options.exchange && options.blockchain) {
-    return err(new Error('Cannot specify both --exchange and --blockchain. Choose one or omit both to export all.'));
-  }
+  const format = options.format ?? 'csv';
 
   // Parse since date if provided
   let since: number | undefined;
@@ -96,31 +74,14 @@ export function buildExportParamsFromFlags(options: ExportCommandOptions): Resul
   }
 
   // Build output path
-  const outputPath = options.output || `data/transactions.${formatResult.value}`;
+  const outputPath = options.output || `data/transactions.${format}`;
 
   return ok({
     sourceName,
-    format: formatResult.value,
+    format,
     outputPath,
     since,
   });
-}
-
-/**
- * Validate export parameters.
- */
-export function validateExportParams(params: ExportHandlerParams): Result<void, Error> {
-  // Format is required
-  if (!params.format) {
-    return err(new Error('Export format is required'));
-  }
-
-  // Output path is required
-  if (!params.outputPath) {
-    return err(new Error('Output path is required'));
-  }
-
-  return ok();
 }
 
 /**

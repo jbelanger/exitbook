@@ -1,21 +1,20 @@
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
+import { ExportCommandOptionsSchema } from '../shared/schemas.js';
 
 import type { ExportResult } from './export-handler.js';
 import { ExportHandler } from './export-handler.js';
 import { promptForExportParams } from './export-prompts.js';
-import type { ExportCommandOptions } from './export-utils.js';
 import { buildExportParamsFromFlags } from './export-utils.js';
 
 /**
- * Extended export command options (adds CLI-specific flags not needed by handler).
+ * Export command options validated by Zod at CLI boundary
  */
-export interface ExtendedExportCommandOptions extends ExportCommandOptions {
-  json?: boolean | undefined;
-}
+export type ExportCommandOptions = z.infer<typeof ExportCommandOptionsSchema>;
 
 /**
  * Export command result data.
@@ -40,15 +39,25 @@ export function registerExportCommand(program: Command): void {
     .option('--since <date>', 'Export transactions since date (YYYY-MM-DD, timestamp, or 0 for all history)')
     .option('--output <file>', 'Output file path')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
-    .action(async (options: ExtendedExportCommandOptions) => {
-      await executeExportCommand(options);
+    .action(async (rawOptions: unknown) => {
+      await executeExportCommand(rawOptions);
     });
 }
 
 /**
  * Execute the export command.
  */
-async function executeExportCommand(options: ExtendedExportCommandOptions): Promise<void> {
+async function executeExportCommand(rawOptions: unknown): Promise<void> {
+  // Validate options at CLI boundary with Zod
+  const validationResult = ExportCommandOptionsSchema.safeParse(rawOptions);
+  if (!validationResult.success) {
+    const output = new OutputManager('text');
+    const firstError = validationResult.error.issues[0];
+    output.error('export', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
+    return;
+  }
+
+  const options = validationResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
