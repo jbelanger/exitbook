@@ -7,8 +7,6 @@ import { generateDeterministicTransactionHash } from '../transaction-id-utils.js
 describe('generateDeterministicTransactionHash', () => {
   it('should generate same hash for identical transactions', () => {
     const transaction: UniversalTransaction = {
-      id: 0,
-      accountId: 1,
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -31,8 +29,6 @@ describe('generateDeterministicTransactionHash', () => {
 
   it('should generate different hashes for different transactions', () => {
     const tx1: UniversalTransaction = {
-      id: 0,
-      accountId: 1,
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -59,8 +55,6 @@ describe('generateDeterministicTransactionHash', () => {
 
   it('should generate different hashes for different amounts', () => {
     const tx1: UniversalTransaction = {
-      id: 0,
-      accountId: 1,
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -90,8 +84,6 @@ describe('generateDeterministicTransactionHash', () => {
 
   it('should generate same hash regardless of movement order', () => {
     const tx1: UniversalTransaction = {
-      id: 0,
-      accountId: 1,
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -127,8 +119,6 @@ describe('generateDeterministicTransactionHash', () => {
 
   it('should include fees in hash calculation', () => {
     const tx1: UniversalTransaction = {
-      id: 0,
-      accountId: 1,
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -155,8 +145,6 @@ describe('generateDeterministicTransactionHash', () => {
 
   it('should include from/to addresses in hash calculation', () => {
     const tx1: UniversalTransaction = {
-      id: 0,
-      accountId: 1,
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -185,8 +173,6 @@ describe('generateDeterministicTransactionHash', () => {
 
   it('should handle transactions with no movements gracefully', () => {
     const transaction: UniversalTransaction = {
-      id: 0,
-      accountId: 1,
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -207,8 +193,6 @@ describe('generateDeterministicTransactionHash', () => {
 
   it('should include operation type in hash calculation', () => {
     const tx1: UniversalTransaction = {
-      id: 0,
-      accountId: 1,
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -235,8 +219,6 @@ describe('generateDeterministicTransactionHash', () => {
 
   it('should use netAmount when available, fallback to grossAmount', () => {
     const tx1: UniversalTransaction = {
-      id: 0,
-      accountId: 1,
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,

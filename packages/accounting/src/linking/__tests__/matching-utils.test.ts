@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
@@ -893,7 +893,7 @@ describe('matching-utils', () => {
             outflows: [{ asset: 'USD', grossAmount: parseDecimal('50000') }],
           },
         },
-      ] as UniversalTransaction[]; // Updated type assertion
+      ] as UniversalTransactionData[]; // Updated type assertion
 
       const candidates = convertToCandidates(transactions);
 
@@ -920,6 +920,7 @@ describe('matching-utils', () => {
       const transactions = [
         {
           id: 2,
+          accountId: 1,
           externalId: 'tx-2',
           source: 'bitcoin',
           blockchain: {
@@ -943,7 +944,7 @@ describe('matching-utils', () => {
             outflows: [],
           },
         },
-      ] as UniversalTransaction[];
+      ] as UniversalTransactionData[];
 
       const candidates = convertToCandidates(transactions);
 
@@ -972,7 +973,7 @@ describe('matching-utils', () => {
             outflows: [{ asset: 'USD', grossAmount: parseDecimal('60000') }],
           },
         },
-      ] as UniversalTransaction[];
+      ] as UniversalTransactionData[];
 
       const candidates = convertToCandidates(transactions);
 
@@ -994,7 +995,7 @@ describe('matching-utils', () => {
             outflows: [],
           },
         },
-      ] as unknown as UniversalTransaction[];
+      ] as unknown as UniversalTransactionData[];
 
       const candidates = convertToCandidates(transactions);
 

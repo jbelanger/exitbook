@@ -6,7 +6,7 @@
  */
 
 import { Currency, parseDecimal } from '@exitbook/core';
-import type { AssetMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
+import type { AssetMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -20,8 +20,9 @@ import {
 
 describe('extractMovementsNeedingNormalization', () => {
   it('identifies EUR prices needing normalization', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       externalId: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
@@ -60,8 +61,9 @@ describe('extractMovementsNeedingNormalization', () => {
   });
 
   it('skips USD prices (already normalized)', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       externalId: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
@@ -100,8 +102,9 @@ describe('extractMovementsNeedingNormalization', () => {
   });
 
   it('identifies crypto prices in price field (unexpected)', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       externalId: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
@@ -140,8 +143,9 @@ describe('extractMovementsNeedingNormalization', () => {
   });
 
   it('identifies multiple currencies needing normalization', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       externalId: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
@@ -183,8 +187,9 @@ describe('extractMovementsNeedingNormalization', () => {
   });
 
   it('handles movements without prices', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       externalId: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),

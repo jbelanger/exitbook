@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- acceptable for tests */
-import { Currency, parseDecimal, type UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -86,7 +87,7 @@ describe('TransactionRepository - delete methods', () => {
         .values({
           id: i,
           account_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
-          source_id: i <= 3 ? 'kraken' : 'ethereum',
+          source_name: i <= 3 ? 'kraken' : 'ethereum',
           source_type: i <= 3 ? ('exchange' as const) : ('blockchain' as const),
           external_id: `tx-${i}`,
           transaction_status: 'success' as const,
@@ -136,7 +137,7 @@ describe('TransactionRepository - delete methods', () => {
       // Verify only ethereum transactions remain
       const remainingTransactions = await db.selectFrom('transactions').selectAll().execute();
       expect(remainingTransactions).toHaveLength(2);
-      expect(remainingTransactions.every((t) => t.source_id === 'ethereum')).toBe(true);
+      expect(remainingTransactions.every((t) => t.source_name === 'ethereum')).toBe(true);
     });
 
     it('should return 0 when no transactions match the source', async () => {
@@ -261,7 +262,7 @@ describe('TransactionRepository - scam token filtering', () => {
         .values({
           id: i,
           account_id: 1,
-          source_id: 'ethereum',
+          source_name: 'ethereum',
           source_type: 'blockchain' as const,
           external_id: `tx-${i}`,
           transaction_status: 'success' as const,
@@ -282,7 +283,7 @@ describe('TransactionRepository - scam token filtering', () => {
         .values({
           id: i,
           account_id: 1,
-          source_id: 'ethereum',
+          source_name: 'ethereum',
           source_type: 'blockchain' as const,
           external_id: `scam-tx-${i}`,
           transaction_status: 'success' as const,
@@ -415,7 +416,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       .values({
         id: 1,
         account_id: 1,
-        source_id: 'kraken',
+        source_name: 'kraken',
         source_type: 'exchange',
         external_id: 'tx-1',
         transaction_status: 'success',
@@ -431,7 +432,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       .execute();
 
     // Build enriched transaction (repository just persists what it's told)
-    const enrichedTx: UniversalTransaction = {
+    const enrichedTx: UniversalTransactionData = {
       id: 1,
       accountId: 1,
       externalId: 'tx-1',
@@ -515,7 +516,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
   });
 
   it('should return error when transaction ID does not exist', async () => {
-    const enrichedTx: UniversalTransaction = {
+    const enrichedTx: UniversalTransactionData = {
       id: 999, // Non-existent ID
       accountId: 1,
       externalId: 'tx-999',
@@ -615,7 +616,7 @@ describe.skip('TransactionRepository - deduplication across sessions (deprecated
         .values({
           id: i,
           account_id: 1,
-          source_id: 'kraken',
+          source_name: 'kraken',
           source_type: 'exchange' as const,
           external_id: `tx-${i}`,
           transaction_status: 'success' as const,
@@ -645,7 +646,7 @@ describe.skip('TransactionRepository - deduplication across sessions (deprecated
         .values({
           id,
           account_id: 2,
-          source_id: 'kraken',
+          source_name: 'kraken',
           source_type: 'exchange' as const,
           external_id: externalId,
           transaction_status: 'success' as const,

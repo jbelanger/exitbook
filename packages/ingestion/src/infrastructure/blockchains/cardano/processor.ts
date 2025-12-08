@@ -67,7 +67,6 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
         // Convert to UniversalTransaction format
         // ADR-005: For UTXO chains, grossAmount includes fees, netAmount is the actual transfer amount
         const universalTransaction: UniversalTransaction = {
-          id: 0, // Will be assigned by database
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,

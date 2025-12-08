@@ -104,7 +104,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .createTable('transactions')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
-    .addColumn('source_id', 'text', (col) => col.notNull())
+    .addColumn('source_name', 'text', (col) => col.notNull())
     .addColumn('source_type', 'text', (col) => col.notNull())
     .addColumn('external_id', 'text')
     .addColumn('transaction_status', 'text', (col) => col.notNull().defaultTo('pending'))
@@ -219,7 +219,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
 
   // Create indexes for transaction_links
   await db.schema
-    .createIndex('idx_tx_links_source_id')
+    .createIndex('idx_tx_links_source_name')
     .on('transaction_links')
     .column('source_transaction_id')
     .execute();

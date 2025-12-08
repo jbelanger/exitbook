@@ -87,7 +87,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         const hasOutflow = !grossOutflowAmount.isZero();
 
         const universalTransaction: UniversalTransaction = {
-          id: 0, // Will be assigned by database
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,

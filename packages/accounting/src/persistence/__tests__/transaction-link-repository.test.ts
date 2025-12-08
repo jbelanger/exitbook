@@ -65,7 +65,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         .values({
           id: i,
           account_id: 1,
-          source_id: 'test',
+          source_name: 'test',
           source_type: 'exchange',
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),

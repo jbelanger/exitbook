@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal, wrapError } from '@exitbook/core';
 import type { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -31,7 +31,7 @@ export class TransactionLinkingService {
    * @param transactions - All transactions to analyze
    * @returns Linking result with suggested and confirmed links
    */
-  linkTransactions(transactions: UniversalTransaction[]): Result<LinkingResult, Error> {
+  linkTransactions(transactions: UniversalTransactionData[]): Result<LinkingResult, Error> {
     try {
       this.logger.info({ transactionCount: transactions.length }, 'Starting transaction linking process');
 
@@ -173,10 +173,12 @@ export class TransactionLinkingService {
    * @param transactions - All transactions to analyze
    * @returns Array of internal transfer links (always confirmed, 100% confidence)
    */
-  private detectInternalBlockchainTransfers(transactions: UniversalTransaction[]): Result<TransactionLink[], Error> {
+  private detectInternalBlockchainTransfers(
+    transactions: UniversalTransactionData[]
+  ): Result<TransactionLink[], Error> {
     try {
       // Group by blockchain_transaction_hash
-      const txHashGroups = new Map<string, UniversalTransaction[]>();
+      const txHashGroups = new Map<string, UniversalTransactionData[]>();
 
       for (const tx of transactions) {
         // Only consider blockchain transactions with a hash
@@ -276,7 +278,7 @@ export class TransactionLinkingService {
    * Extract primary asset from transaction movements
    * Prefers outflows, then inflows
    */
-  private extractPrimaryAsset(tx: UniversalTransaction): string | undefined {
+  private extractPrimaryAsset(tx: UniversalTransactionData): string | undefined {
     const outflows = tx.movements.outflows ?? [];
     const inflows = tx.movements.inflows ?? [];
 
@@ -290,7 +292,7 @@ export class TransactionLinkingService {
    * Extract primary amount from transaction movements
    * Prefers outflows (gross), then inflows (gross)
    */
-  private extractPrimaryAmount(tx: UniversalTransaction): Decimal | undefined {
+  private extractPrimaryAmount(tx: UniversalTransactionData): Decimal | undefined {
     const outflows = tx.movements.outflows ?? [];
     const inflows = tx.movements.inflows ?? [];
 

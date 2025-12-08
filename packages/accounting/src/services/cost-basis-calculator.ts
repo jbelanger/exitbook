@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
@@ -68,7 +68,7 @@ export class CostBasisCalculator {
    * @returns Result containing calculation summary
    */
   async calculate(
-    transactions: UniversalTransaction[],
+    transactions: UniversalTransactionData[],
     config: CostBasisConfig,
     rules: IJurisdictionRules
   ): Promise<Result<CostBasisSummary, Error>> {

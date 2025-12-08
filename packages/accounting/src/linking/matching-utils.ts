@@ -1,4 +1,4 @@
-import type { SourceType, UniversalTransaction } from '@exitbook/core';
+import type { SourceType, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -373,7 +373,7 @@ export function calculateVarianceMetadata(
  * @param transactions - Universal transactions to convert
  * @returns Array of transaction candidates
  */
-export function convertToCandidates(transactions: UniversalTransaction[]): TransactionCandidate[] {
+export function convertToCandidates(transactions: UniversalTransactionData[]): TransactionCandidate[] {
   const candidates: TransactionCandidate[] = [];
 
   for (const tx of transactions) {

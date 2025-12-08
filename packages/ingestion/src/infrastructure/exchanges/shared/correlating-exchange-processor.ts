@@ -79,7 +79,6 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
       }
 
       const universalTransaction: UniversalTransaction = {
-        id: 0, // Will be assigned by database
         externalId: primaryEntry.normalized.id,
         datetime: new Date(fundFlow.timestamp).toISOString(),
         timestamp: fundFlow.timestamp,

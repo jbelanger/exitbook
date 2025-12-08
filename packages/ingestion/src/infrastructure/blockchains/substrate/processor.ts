@@ -63,8 +63,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
         const userPaidFee = didUserPayFee(normalizedTx, fundFlow, context.primaryAddress);
 
         const universalTransaction: UniversalTransaction = {
-          id: 0, // Will be assigned by database
-          // NEW: Structured fields
           movements: {
             inflows: fundFlow.inflows.map((i) => {
               const amount = parseDecimal(i.amount);

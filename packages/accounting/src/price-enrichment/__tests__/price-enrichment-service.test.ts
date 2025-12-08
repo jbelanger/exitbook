@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 
-import type { SourceType, UniversalTransaction } from '@exitbook/core';
+import type { SourceType, UniversalTransactionData } from '@exitbook/core';
 import { Currency, parseDecimal, type AssetMovement } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
@@ -35,9 +35,10 @@ function createMockTransaction(
   datetime: string,
   inflows: AssetMovement[],
   outflows: AssetMovement[]
-): UniversalTransaction {
+): UniversalTransactionData {
   return {
     id: id,
+    accountId: 1,
     source: sourceName,
     externalId: `tx-${id}`,
     status: 'success',
@@ -111,10 +112,12 @@ describe('PriceEnrichmentService', () => {
       );
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
-        ok([tx1, tx2]) as Result<UniversalTransaction[], Error>
+        ok([tx1, tx2]) as Result<UniversalTransactionData[], Error>
       );
 
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]) as Result<UniversalTransaction[], Error>);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(
+        ok([tx1, tx2]) as Result<UniversalTransactionData[], Error>
+      );
 
       vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as Result<void, Error>);
 
@@ -141,9 +144,9 @@ describe('PriceEnrichmentService', () => {
       const service = new PriceEnrichmentService(mockRepo, mockLinkRepo);
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
-        ok([]) as Result<UniversalTransaction[], Error>
+        ok([]) as Result<UniversalTransactionData[], Error>
       );
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([]) as Result<UniversalTransaction[], Error>);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([]) as Result<UniversalTransactionData[], Error>);
 
       const result = await service.enrichPrices();
 
@@ -179,7 +182,7 @@ describe('PriceEnrichmentService', () => {
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
         ok([createMockTransaction(1, 'exchange', 'kraken', '2024-01-01T10:00:00Z', [], [])]) as Result<
-          UniversalTransaction[],
+          UniversalTransactionData[],
           Error
         >
       );
@@ -239,10 +242,12 @@ describe('PriceEnrichmentService', () => {
       );
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
-        ok([tx1, tx2]) as Result<UniversalTransaction[], Error>
+        ok([tx1, tx2]) as Result<UniversalTransactionData[], Error>
       );
 
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]) as Result<UniversalTransaction[], Error>);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(
+        ok([tx1, tx2]) as Result<UniversalTransactionData[], Error>
+      );
 
       // First call (kraken) succeeds, second call (kucoin) fails
       vi.mocked(mockRepo.updateMovementsWithPrices)
@@ -328,10 +333,10 @@ describe('PriceEnrichmentService', () => {
       // All transactions are processed, but only deposit needs price updates
       // (withdrawal already has a price)
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
-        ok([tx3Deposit]) as Result<UniversalTransaction[], Error>
+        ok([tx3Deposit]) as Result<UniversalTransactionData[], Error>
       );
       vi.mocked(mockRepo.getTransactions).mockResolvedValue(
-        ok([tx1Buy, tx2Withdrawal, tx3Deposit]) as Result<UniversalTransaction[], Error>
+        ok([tx1Buy, tx2Withdrawal, tx3Deposit]) as Result<UniversalTransactionData[], Error>
       );
       vi.mocked(mockLinkRepo.findAll).mockResolvedValue(ok([link]) as Result<TransactionLink[], Error>);
       vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as Result<void, Error>);
@@ -402,9 +407,11 @@ describe('PriceEnrichmentService', () => {
       };
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
-        ok([tx2]) as Result<UniversalTransaction[], Error>
+        ok([tx2]) as Result<UniversalTransactionData[], Error>
       );
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1, tx2]) as Result<UniversalTransaction[], Error>);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(
+        ok([tx1, tx2]) as Result<UniversalTransactionData[], Error>
+      );
       vi.mocked(mockLinkRepo.findAll).mockResolvedValue(ok([suggestedLink]) as Result<TransactionLink[], Error>);
       vi.mocked(mockRepo.updateMovementsWithPrices).mockResolvedValue(ok() as Result<void, Error>);
 
@@ -426,10 +433,10 @@ describe('PriceEnrichmentService', () => {
       const tx1 = createMockTransaction(1, 'exchange', 'kraken', '2024-01-01T10:00:00Z', [], []);
 
       vi.mocked(mockRepo.findTransactionsNeedingPrices).mockResolvedValue(
-        ok([tx1]) as Result<UniversalTransaction[], Error>
+        ok([tx1]) as Result<UniversalTransactionData[], Error>
       );
 
-      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1]) as Result<UniversalTransaction[], Error>);
+      vi.mocked(mockRepo.getTransactions).mockResolvedValue(ok([tx1]) as Result<UniversalTransactionData[], Error>);
 
       const result = await service.enrichPrices();
 

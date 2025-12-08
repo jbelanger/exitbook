@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
@@ -221,7 +221,7 @@ export class PriceEnrichmentService {
    * The transaction passed in already has enriched movements with correct priorities
    * applied by the multi-pass algorithm. Just persist it directly.
    */
-  private async updateTransactionPrices(tx: UniversalTransaction): Promise<Result<void, Error>> {
+  private async updateTransactionPrices(tx: UniversalTransactionData): Promise<Result<void, Error>> {
     try {
       // Persist the complete enriched transaction
       return await this.transactionRepository.updateMovementsWithPrices(tx);

@@ -7,7 +7,6 @@ import { calculateBalances } from '../balance-calculator.js';
 // Helper function to create a base test transaction with all required fields
 function createTestTransaction(overrides: Partial<UniversalTransaction>): UniversalTransaction {
   return {
-    id: 0, // Will be assigned by database
     source: 'test',
     externalId: 'test-tx',
     status: 'success',

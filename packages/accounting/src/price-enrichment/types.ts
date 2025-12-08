@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 
 import type { TransactionLink } from '../linking/types.js';
 
@@ -15,7 +15,7 @@ export interface TransactionGroup {
   /**
    * All transactions in this group (may span multiple exchanges/blockchains)
    */
-  transactions: UniversalTransaction[];
+  transactions: UniversalTransactionData[];
 
   /**
    * Set of unique source IDs in this group

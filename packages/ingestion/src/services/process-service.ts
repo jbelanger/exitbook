@@ -266,8 +266,7 @@ export class TransactionProcessService {
         const errors = combinedResult.error;
         const failed = errors.length;
         const errorMessages = errors.map((err, index) => {
-          const transaction = transactions[index];
-          const txId = transaction?.id ?? `index-${index}`;
+          const txId = `index-${index}`;
           return `Transaction ${txId}: ${err.message}`;
         });
 

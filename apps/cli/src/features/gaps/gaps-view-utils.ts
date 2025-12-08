@@ -1,7 +1,7 @@
 // Utilities and types for gaps view command
 
 import type { TransactionLink } from '@exitbook/accounting';
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
 import type { CommonViewFilters } from '../shared/view-utils.js';
@@ -117,7 +117,7 @@ export interface LinkGapAnalysis {
 /**
  * Analyze transactions for fee-related gaps.
  */
-export function analyzeFeeGaps(transactions: UniversalTransaction[]): FeeGapAnalysis {
+export function analyzeFeeGaps(transactions: UniversalTransactionData[]): FeeGapAnalysis {
   const issues: FeeGapIssue[] = [];
   const affectedTransactionIds = new Set<number>();
 
@@ -154,7 +154,7 @@ export function analyzeFeeGaps(transactions: UniversalTransaction[]): FeeGapAnal
 /**
  * Detect fee-related issues in a single transaction.
  */
-function detectFeeIssuesInTransaction(tx: UniversalTransaction): FeeGapIssue[] {
+function detectFeeIssuesInTransaction(tx: UniversalTransactionData): FeeGapIssue[] {
   const issues: FeeGapIssue[] = [];
 
   // Check if fees exist in fee fields
@@ -262,7 +262,7 @@ function isSameMovement(
  * Flags blockchain inflows with no confirmed provenance and transfer outflows
  * (blockchain or exchange) that lack a confirmed destination.
  */
-export function analyzeLinkGaps(transactions: UniversalTransaction[], links: TransactionLink[]): LinkGapAnalysis {
+export function analyzeLinkGaps(transactions: UniversalTransactionData[], links: TransactionLink[]): LinkGapAnalysis {
   const confirmedLinksByTarget = new Map<number, TransactionLink[]>();
   const confirmedLinksBySource = new Map<number, TransactionLink[]>();
   const suggestedLinksByTarget = new Map<number, TransactionLink[]>();

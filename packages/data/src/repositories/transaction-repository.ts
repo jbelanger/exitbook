@@ -1,5 +1,11 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
-import type { AssetMovement, FeeMovement, UniversalTransaction, TransactionStatus } from '@exitbook/core';
+import type {
+  AssetMovement,
+  FeeMovement,
+  UniversalTransaction,
+  TransactionStatus,
+  UniversalTransactionData,
+} from '@exitbook/core';
 import {
   AssetMovementSchema,
   FeeMovementSchema,
@@ -118,7 +124,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           note_type: transaction.note?.type,
           excluded_from_accounting: transaction.excludedFromAccounting ?? transaction.note?.type === 'SCAM_TOKEN',
           raw_normalized_data: rawDataJson,
-          source_id: transaction.source,
+          source_name: transaction.source,
           source_type: transaction.blockchain ? 'blockchain' : 'exchange',
           to_address: transaction.to,
           transaction_datetime: transaction.datetime
@@ -179,14 +185,14 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransaction[], Error>> {
+  async getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransactionData[], Error>> {
     try {
       let query = this.db.selectFrom('transactions').selectAll();
 
       // Add WHERE conditions if provided
       if (filters) {
         if (filters.sourceName) {
-          query = query.where('source_id', '=', filters.sourceName);
+          query = query.where('source_name', '=', filters.sourceName);
         }
 
         if (filters.since) {
@@ -214,7 +220,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       const rows = await query.execute();
 
       // Convert rows to domain models, failing fast on any parse errors
-      const transactions: UniversalTransaction[] = [];
+      const transactions: UniversalTransactionData[] = [];
       for (const row of rows) {
         const result = this.toUniversalTransaction(row);
         if (result.isErr()) {
@@ -229,7 +235,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async findById(id: number): Promise<Result<UniversalTransaction | null, Error>> {
+  async findById(id: number): Promise<Result<UniversalTransactionData | null, Error>> {
     try {
       const row = await this.db.selectFrom('transactions').selectAll().where('id', '=', id).executeTakeFirst();
 
@@ -252,7 +258,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
    * Find transactions with movements or fees that need price data
    * Optionally filter by specific asset(s)
    */
-  async findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransaction[], Error>> {
+  async findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransactionData[], Error>> {
     try {
       const query = this.db
         .selectFrom('transactions')
@@ -267,7 +273,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       const rows = await query.execute();
 
       // Convert rows to domain models
-      const transactions: UniversalTransaction[] = [];
+      const transactions: UniversalTransactionData[] = [];
       for (const row of rows) {
         const result = this.toUniversalTransaction(row);
         if (result.isErr()) {
@@ -310,7 +316,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
    * Update a transaction's movements and fees with enriched price data
    * @param transaction - The enriched transaction with price data
    */
-  async updateMovementsWithPrices(transaction: UniversalTransaction): Promise<Result<void, Error>> {
+  async updateMovementsWithPrices(transaction: UniversalTransactionData): Promise<Result<void, Error>> {
     try {
       const inflows = transaction.movements.inflows ?? [];
       const outflows = transaction.movements.outflows ?? [];
@@ -345,7 +351,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   async deleteBySource(sourceName: string): Promise<Result<number, Error>> {
     try {
-      const result = await this.db.deleteFrom('transactions').where('source_id', '=', sourceName).executeTakeFirst();
+      const result = await this.db.deleteFrom('transactions').where('source_name', '=', sourceName).executeTakeFirst();
       return ok(Number(result.numDeletedRows));
     } catch (error) {
       return wrapError(error, 'Failed to delete transactions by source');
@@ -413,7 +419,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   /**
    * Convert database row to UniversalTransaction domain model
    */
-  private toUniversalTransaction(row: Selectable<TransactionsTable>): Result<UniversalTransaction, Error> {
+  private toUniversalTransaction(row: Selectable<TransactionsTable>): Result<UniversalTransactionData, Error> {
     // Parse timestamp from datetime
     const datetime = row.transaction_datetime;
     const timestamp = new Date(datetime).getTime();
@@ -443,14 +449,14 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
     const status: TransactionStatus = row.transaction_status;
 
-    // Build UniversalTransaction
-    const transaction: UniversalTransaction = {
+    // Build UniversalTransactionData
+    const transaction: UniversalTransactionData = {
       id: row.id,
       accountId: row.account_id,
-      externalId: row.external_id ?? `${row.source_id}-${row.id}`,
+      externalId: row.external_id ?? `${row.source_name}-${row.id}`,
       datetime,
       timestamp,
-      source: row.source_id,
+      source: row.source_name,
       status,
       from: row.from_address ?? undefined,
       to: row.to_address ?? undefined,

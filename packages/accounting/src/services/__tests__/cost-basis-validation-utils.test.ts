@@ -1,4 +1,5 @@
-import { Currency, type UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
+import { Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -15,8 +16,9 @@ import {
 describe('cost-basis-validation-utils', () => {
   describe('collectPricedEntities', () => {
     it('should collect all inflows, outflows, and fees', () => {
-      const tx: UniversalTransaction = {
+      const tx: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'ext-1',
         datetime: '2024-01-15T10:00:00Z',
         timestamp: 1705316400000,
@@ -94,8 +96,9 @@ describe('cost-basis-validation-utils', () => {
     });
 
     it('should handle missing price data gracefully', () => {
-      const tx: UniversalTransaction = {
+      const tx: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'ext-1',
         datetime: '2024-01-15T10:00:00Z',
         timestamp: 1705316400000,
@@ -129,8 +132,9 @@ describe('cost-basis-validation-utils', () => {
     });
 
     it('should extract FX metadata when present', () => {
-      const tx: UniversalTransaction = {
+      const tx: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'ext-1',
         datetime: '2024-01-15T10:00:00Z',
         timestamp: 1705316400000,
@@ -182,6 +186,7 @@ describe('cost-basis-validation-utils', () => {
       const entities = collectPricedEntities([
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
@@ -218,6 +223,7 @@ describe('cost-basis-validation-utils', () => {
       const entities = collectPricedEntities([
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
@@ -256,6 +262,7 @@ describe('cost-basis-validation-utils', () => {
       const entities = collectPricedEntities([
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
@@ -296,6 +303,7 @@ describe('cost-basis-validation-utils', () => {
       const entities = collectPricedEntities([
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
@@ -332,6 +340,7 @@ describe('cost-basis-validation-utils', () => {
       const entities = collectPricedEntities([
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
@@ -370,6 +379,7 @@ describe('cost-basis-validation-utils', () => {
       const entities = collectPricedEntities([
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
@@ -413,6 +423,7 @@ describe('cost-basis-validation-utils', () => {
       const entities = collectPricedEntities([
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
@@ -452,6 +463,7 @@ describe('cost-basis-validation-utils', () => {
       const entities = collectPricedEntities([
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
@@ -586,9 +598,10 @@ describe('cost-basis-validation-utils', () => {
 
   describe('validateTransactionPrices', () => {
     it('should return ok for valid transactions', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
@@ -634,9 +647,10 @@ describe('cost-basis-validation-utils', () => {
     });
 
     it('should return error for missing prices', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
@@ -670,9 +684,10 @@ describe('cost-basis-validation-utils', () => {
     });
 
     it('should return error for non-USD prices', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
@@ -710,9 +725,10 @@ describe('cost-basis-validation-utils', () => {
     });
 
     it('should return error for incomplete FX metadata', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,
@@ -753,9 +769,10 @@ describe('cost-basis-validation-utils', () => {
     });
 
     it('should aggregate multiple issues', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
           timestamp: 1705316400000,

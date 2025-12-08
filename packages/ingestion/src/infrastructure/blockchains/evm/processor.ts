@@ -85,7 +85,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
       const universalTransaction: UniversalTransaction = {
-        id: 0, // Will be assigned by database
         externalId: primaryTx.id,
         datetime: new Date(primaryTx.timestamp).toISOString(),
         timestamp: primaryTx.timestamp,

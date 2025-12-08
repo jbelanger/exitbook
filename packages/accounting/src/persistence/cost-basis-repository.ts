@@ -754,7 +754,7 @@ export class CostBasisRepository extends BaseRepository {
             .where(
               'acquisition_transaction_id',
               'in',
-              this.db.selectFrom('transactions').select('id').where('source_id', '=', sourceName)
+              this.db.selectFrom('transactions').select('id').where('source_name', '=', sourceName)
             )
         )
         .executeTakeFirst();
@@ -814,7 +814,7 @@ export class CostBasisRepository extends BaseRepository {
         .where(
           'acquisition_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('source_id', '=', sourceName)
+          this.db.selectFrom('transactions').select('id').where('source_name', '=', sourceName)
         )
         .executeTakeFirst();
 

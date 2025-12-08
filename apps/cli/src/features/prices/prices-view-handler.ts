@@ -1,6 +1,6 @@
 // Handler for view prices command
 
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
@@ -59,7 +59,7 @@ export class ViewPricesHandler {
    * Extract price status for each asset in a transaction.
    * Returns a map of asset -> hasPrice, where hasPrice is true if ANY movement of that asset has price data.
    */
-  private extractAssetPriceStatus(tx: UniversalTransaction, assetFilter?: string): Map<string, boolean> {
+  private extractAssetPriceStatus(tx: UniversalTransactionData, assetFilter?: string): Map<string, boolean> {
     const assetPriceStatus = new Map<string, boolean>();
     const allMovements = getAllMovements(tx.movements);
 
@@ -90,7 +90,7 @@ export class ViewPricesHandler {
    * Builds a map of asset -> coverage info and tracks unique transaction IDs.
    */
   private aggregateCoverage(
-    transactions: UniversalTransaction[],
+    transactions: UniversalTransactionData[],
     assetFilter?: string
   ): {
     coverageMap: Map<string, PriceCoverageInfo>;
@@ -147,7 +147,7 @@ export class ViewPricesHandler {
    * Returns both the coverage map and a set of unique transaction IDs that were processed.
    */
   private calculatePriceCoverage(
-    transactions: UniversalTransaction[],
+    transactions: UniversalTransactionData[],
     assetFilter?: string
   ): {
     coverageMap: Map<string, PriceCoverageInfo>;

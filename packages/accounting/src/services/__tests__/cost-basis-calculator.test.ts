@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
@@ -32,7 +32,7 @@ describe('CostBasisCalculator', () => {
 
   describe('calculate', () => {
     it('should successfully calculate cost basis with FIFO method', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Buy 1 BTC at $30,000
         createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
         // Sell 0.5 BTC at $40,000
@@ -61,7 +61,7 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should apply Canadian 50% inclusion rate', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'ETH', amount: '10', price: '2000' }]),
         createTransaction(2, '2023-06-01T00:00:00Z', [], [{ asset: 'ETH', amount: '10', price: '2500' }]),
       ];
@@ -84,7 +84,7 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should work with LIFO method', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
         createTransaction(2, '2023-03-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '35000' }]),
         createTransaction(3, '2023-06-01T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '40000' }]),
@@ -111,7 +111,7 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should handle multiple assets', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
         createTransaction(2, '2023-01-01T00:00:00Z', [{ asset: 'ETH', amount: '10', price: '2000' }]),
         createTransaction(3, '2023-06-01T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '40000' }]),
@@ -141,8 +141,9 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should return error for crypto transactions missing prices', async () => {
-      const transactionWithoutPrice: UniversalTransaction = {
+      const transactionWithoutPrice: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'ext-1',
         datetime: '2023-01-01T00:00:00Z',
         timestamp: new Date('2023-01-01').getTime(),
@@ -182,8 +183,9 @@ describe('CostBasisCalculator', () => {
 
     it('should allow fiat movements without prices', async () => {
       // Transaction with BTC inflow (with price) and USD outflow (without price)
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'ext-1',
         datetime: '2023-01-01T00:00:00Z',
         timestamp: new Date('2023-01-01').getTime(),
@@ -234,7 +236,7 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should throw error for unimplemented methods', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
       ];
 
@@ -254,7 +256,7 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should call repository methods in correct order', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
         createTransaction(2, '2023-06-01T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '40000' }]),
       ];
@@ -286,7 +288,7 @@ describe('CostBasisCalculator', () => {
 
       const failingCalculator = new CostBasisCalculator(failingRepository, mockLotTransferRepository);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
       ];
 
@@ -322,7 +324,7 @@ describe('CostBasisCalculator', () => {
 
       const trackingCalculator = new CostBasisCalculator(trackingRepository, mockLotTransferRepository);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
         createTransaction(2, '2023-06-01T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '40000' }]),
       ];
@@ -355,7 +357,7 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should persist assetsProcessed to database (Issue #2 fix)', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
         createTransaction(2, '2023-01-01T00:00:00Z', [{ asset: 'ETH', amount: '10', price: '2000' }]),
         createTransaction(3, '2023-06-01T00:00:00Z', [], [{ asset: 'BTC', amount: '0.5', price: '40000' }]),
@@ -398,7 +400,7 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should save tax classifications to lot_disposals (Issue #3 fix)', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Buy 1 BTC
         createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
         // Sell 0.5 BTC after 180 days (short-term for US)
@@ -444,7 +446,7 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should disallow wash sale loss with fee allocation (US)', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Buy 1 BTC @ $50k (Jan 1)
         createTransactionWithFee(1, '2024-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '50000' }], []),
         // Sell 1 BTC @ $30k with $100 fee (Feb 1) - creates loss
@@ -505,7 +507,7 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should handle superficial loss with multi-asset fees (Canada)', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Buy BTC ($40k) + ETH ($20k) with $60 fee (Jan 1)
         createTransactionWithFee(
           1,
@@ -553,11 +555,12 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should reject transactions with non-USD prices (EUR)', async () => {
-      const transactionsWithEUR: UniversalTransaction[] = [
+      const transactionsWithEUR: UniversalTransactionData[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }]),
         // This transaction has EUR price instead of USD
         {
           id: 2,
+          accountId: 1,
           externalId: 'ext-2',
           datetime: '2023-06-01T00:00:00Z',
           timestamp: new Date('2023-06-01').getTime(),
@@ -605,8 +608,9 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should reject transactions with non-USD prices in fees', async () => {
-      const transactionWithEURFee: UniversalTransaction = {
+      const transactionWithEURFee: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'ext-1',
         datetime: '2023-01-01T00:00:00Z',
         timestamp: new Date('2023-01-01').getTime(),
@@ -663,9 +667,10 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should accept transactions with all USD prices', async () => {
-      const transactionsWithUSD: UniversalTransaction[] = [
+      const transactionsWithUSD: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           datetime: '2023-01-01T00:00:00Z',
           timestamp: new Date('2023-01-01').getTime(),
@@ -692,6 +697,7 @@ describe('CostBasisCalculator', () => {
         },
         {
           id: 2,
+          accountId: 1,
           externalId: 'ext-2',
           datetime: '2023-06-01T00:00:00Z',
           timestamp: new Date('2023-06-01').getTime(),
@@ -736,10 +742,11 @@ describe('CostBasisCalculator', () => {
 
     it('should list up to 5 examples of non-USD movements', async () => {
       // Create 7 transactions with non-USD prices
-      const transactionsWithMultipleEUR: UniversalTransaction[] = [];
+      const transactionsWithMultipleEUR: UniversalTransactionData[] = [];
       for (let i = 1; i <= 7; i++) {
         transactionsWithMultipleEUR.push({
           id: i,
+          accountId: 1,
           externalId: `ext-${i}`,
           datetime: '2023-01-01T00:00:00Z',
           timestamp: new Date('2023-01-01').getTime(),
@@ -788,7 +795,7 @@ describe('CostBasisCalculator', () => {
     });
 
     it('should correctly classify long-term gains with complex fee scenarios', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Buy 1 BTC @ $30k with $100 fee (Jan 1, 2023)
         createTransactionWithFee(1, '2023-01-01T00:00:00Z', [{ asset: 'BTC', amount: '1', price: '30000' }], [], {
           asset: 'USD',

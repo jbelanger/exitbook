@@ -374,7 +374,7 @@ export class TransactionLinkRepository extends BaseRepository {
   }
 
   /**
-   * Delete all links where source transactions match a specific source_id
+   * Delete all links where source transactions match a specific source_name
    *
    * @param sourceName - Source ID to match (e.g., 'kraken', 'ethereum')
    * @returns Result with count of deleted links
@@ -386,7 +386,7 @@ export class TransactionLinkRepository extends BaseRepository {
         .where(
           'source_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('source_id', '=', sourceName)
+          this.db.selectFrom('transactions').select('id').where('source_name', '=', sourceName)
         )
         .executeTakeFirst();
 

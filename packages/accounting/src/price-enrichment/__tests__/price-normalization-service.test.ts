@@ -7,7 +7,7 @@
  */
 
 import { Currency, parseDecimal } from '@exitbook/core';
-import type { FeeMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
+import type { FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { err, ok } from 'neverthrow';
@@ -60,8 +60,9 @@ describe('PriceNormalizationService', () => {
   describe('normalize()', () => {
     it('should successfully normalize EUR prices to USD', async () => {
       // Arrange
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'test-1',
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
@@ -120,8 +121,9 @@ describe('PriceNormalizationService', () => {
 
     it('should skip USD prices (already normalized)', async () => {
       // Arrange
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'test-1',
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
@@ -168,8 +170,9 @@ describe('PriceNormalizationService', () => {
 
     it('should skip crypto prices (BTC priced in ETH)', async () => {
       // Arrange
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'test-1',
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
@@ -213,8 +216,9 @@ describe('PriceNormalizationService', () => {
 
     it('should handle FX rate fetch failures gracefully', async () => {
       // Arrange
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'test-1',
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
@@ -261,8 +265,9 @@ describe('PriceNormalizationService', () => {
 
     it('should normalize multiple currencies in single transaction', async () => {
       // Arrange
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'test-1',
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
@@ -339,8 +344,9 @@ describe('PriceNormalizationService', () => {
 
     it('should normalize platform fees with non-USD fiat prices', async () => {
       // Arrange
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'test-1',
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
@@ -384,8 +390,9 @@ describe('PriceNormalizationService', () => {
 
     it('should normalize network fees with non-USD fiat prices', async () => {
       // Arrange
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'test-1',
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
@@ -429,8 +436,9 @@ describe('PriceNormalizationService', () => {
 
     it('should skip movements without prices', async () => {
       // Arrange
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'test-1',
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
@@ -483,8 +491,9 @@ describe('PriceNormalizationService', () => {
 
     it('should handle database update errors', async () => {
       // Arrange
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'test-1',
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
@@ -536,8 +545,9 @@ describe('PriceNormalizationService', () => {
 
     it('should process multiple transactions correctly', async () => {
       // Arrange
-      const tx1: UniversalTransaction = {
+      const tx1: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'test-1',
         datetime: '2023-01-15T10:00:00Z',
         timestamp: Date.parse('2023-01-15T10:00:00Z'),
@@ -562,8 +572,9 @@ describe('PriceNormalizationService', () => {
         operation: { category: 'trade', type: 'buy' },
       };
 
-      const tx2: UniversalTransaction = {
+      const tx2: UniversalTransactionData = {
         id: 2,
+        accountId: 1,
         externalId: 'test-2',
         datetime: '2023-01-16T10:00:00Z',
         timestamp: Date.parse('2023-01-16T10:00:00Z'),

@@ -1,5 +1,5 @@
 import type { FeeMovement } from '@exitbook/core';
-import { Currency, parseDecimal, type AssetMovement, type UniversalTransaction } from '@exitbook/core';
+import { Currency, parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
@@ -23,8 +23,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     inflows: AssetMovement[] = [],
     outflows: AssetMovement[] = [],
     fees: FeeMovement[] = []
-  ): UniversalTransaction => ({
+  ): UniversalTransactionData => ({
     id,
+    accountId: 1,
     externalId: `tx${id}`,
     datetime,
     timestamp: Date.parse(datetime),
@@ -115,7 +116,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     return repo as TransactionLinkRepository;
   };
 
-  let transactions: UniversalTransaction[] = [];
+  let transactions: UniversalTransactionData[] = [];
 
   describe('1. Timestamp inconsistencies - reversed deposit/withdrawal', () => {
     it('should process transfer correctly when target timestamp < source timestamp', async () => {

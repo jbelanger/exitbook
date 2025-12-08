@@ -105,7 +105,7 @@ export interface TransactionsTable {
   // Core identification
   id: Generated<number>;
   account_id: number; // FK to accounts.id
-  source_id: string;
+  source_name: string;
   source_type: SourceType;
   external_id: string | null; // hash, transaction ID, etc.
 

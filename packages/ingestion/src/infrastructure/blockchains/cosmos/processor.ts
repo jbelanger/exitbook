@@ -65,7 +65,6 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
         // Convert to UniversalTransaction with enhanced metadata
         const universalTransaction: UniversalTransaction = {
-          id: 0, // Will be assigned by database
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,

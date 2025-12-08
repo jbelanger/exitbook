@@ -1,5 +1,5 @@
 import type { TransactionLink } from '@exitbook/accounting';
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
@@ -13,8 +13,9 @@ import {
 import type { GapsViewResult } from '../gaps-view-utils.js';
 
 describe('gaps-view-utils', () => {
-  const createMockTransaction = (overrides: Partial<UniversalTransaction> = {}): UniversalTransaction => ({
+  const createMockTransaction = (overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData => ({
     id: 1,
+    accountId: 1,
     externalId: 'tx-123',
     datetime: '2024-01-01T12:00:00Z',
     timestamp: 1704110400000,
@@ -34,7 +35,7 @@ describe('gaps-view-utils', () => {
 
   describe('analyzeFeeGaps', () => {
     it('should detect fee without price', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
@@ -60,7 +61,7 @@ describe('gaps-view-utils', () => {
     });
 
     it('should detect platform fee without price', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
@@ -84,7 +85,7 @@ describe('gaps-view-utils', () => {
     });
 
     it('should detect missing fee fields when operation is fee', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
@@ -113,7 +114,7 @@ describe('gaps-view-utils', () => {
     });
 
     it('should detect fee in movements when note mentions fees', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
@@ -148,7 +149,7 @@ describe('gaps-view-utils', () => {
     });
 
     it('should not flag outflow if it matches fee field', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
@@ -188,7 +189,7 @@ describe('gaps-view-utils', () => {
     });
 
     it('should return empty analysis for transactions with no issues', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
@@ -216,7 +217,7 @@ describe('gaps-view-utils', () => {
     });
 
     it('should handle multiple issues in same transaction', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
@@ -256,7 +257,7 @@ describe('gaps-view-utils', () => {
   });
 
   describe('analyzeLinkGaps', () => {
-    const createBlockchainDeposit = (overrides: Partial<UniversalTransaction> = {}): UniversalTransaction =>
+    const createBlockchainDeposit = (overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData =>
       createMockTransaction({
         id: 11,
         externalId: 'btc-inflow',
@@ -283,7 +284,7 @@ describe('gaps-view-utils', () => {
         ...overrides,
       });
 
-    const createBlockchainWithdrawal = (overrides: Partial<UniversalTransaction> = {}): UniversalTransaction =>
+    const createBlockchainWithdrawal = (overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData =>
       createMockTransaction({
         id: 21,
         externalId: 'btc-outflow',
@@ -310,7 +311,7 @@ describe('gaps-view-utils', () => {
         ...overrides,
       });
 
-    const createExchangeWithdrawal = (overrides: Partial<UniversalTransaction> = {}): UniversalTransaction =>
+    const createExchangeWithdrawal = (overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData =>
       createMockTransaction({
         id: 31,
         externalId: 'kraken-outflow',
@@ -333,7 +334,7 @@ describe('gaps-view-utils', () => {
       });
 
     it('should flag deposits without confirmed links', () => {
-      const transactions: UniversalTransaction[] = [createBlockchainDeposit()];
+      const transactions: UniversalTransactionData[] = [createBlockchainDeposit()];
       const links: TransactionLink[] = [];
 
       const analysis = analyzeLinkGaps(transactions, links);
@@ -356,7 +357,7 @@ describe('gaps-view-utils', () => {
     });
 
     it('should treat confirmed links as coverage', () => {
-      const transactions: UniversalTransaction[] = [createBlockchainDeposit()];
+      const transactions: UniversalTransactionData[] = [createBlockchainDeposit()];
       const links: TransactionLink[] = [
         {
           id: 'link-1',
@@ -392,7 +393,7 @@ describe('gaps-view-utils', () => {
     });
 
     it('should ignore reward transactions', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createBlockchainDeposit({
           id: 20,
           operation: {
@@ -411,7 +412,7 @@ describe('gaps-view-utils', () => {
     });
 
     it('should flag withdrawals without confirmed links', () => {
-      const transactions: UniversalTransaction[] = [createBlockchainWithdrawal()];
+      const transactions: UniversalTransactionData[] = [createBlockchainWithdrawal()];
       const links: TransactionLink[] = [];
 
       const analysis = analyzeLinkGaps(transactions, links);
@@ -436,7 +437,7 @@ describe('gaps-view-utils', () => {
 
     it('should treat confirmed links as coverage for withdrawals', () => {
       const withdrawal = createBlockchainWithdrawal({ id: 22, externalId: 'btc-outflow-2' });
-      const transactions: UniversalTransaction[] = [withdrawal];
+      const transactions: UniversalTransactionData[] = [withdrawal];
       const links: TransactionLink[] = [
         {
           id: 'link-out-1',
@@ -471,7 +472,7 @@ describe('gaps-view-utils', () => {
     });
 
     it('should flag exchange withdrawals without confirmed links', () => {
-      const transactions: UniversalTransaction[] = [createExchangeWithdrawal()];
+      const transactions: UniversalTransactionData[] = [createExchangeWithdrawal()];
       const links: TransactionLink[] = [];
 
       const analysis = analyzeLinkGaps(transactions, links);
@@ -496,7 +497,7 @@ describe('gaps-view-utils', () => {
 
     it('should treat confirmed links as coverage for exchange withdrawals', () => {
       const withdrawal = createExchangeWithdrawal({ id: 32, externalId: 'kraken-outflow-2' });
-      const transactions: UniversalTransaction[] = [withdrawal];
+      const transactions: UniversalTransactionData[] = [withdrawal];
       const links: TransactionLink[] = [
         {
           id: 'link-ex-1',
@@ -533,7 +534,7 @@ describe('gaps-view-utils', () => {
 
   describe('formatFeeGapAnalysis', () => {
     it('should format analysis with issues', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
@@ -593,7 +594,7 @@ describe('gaps-view-utils', () => {
     });
 
     it('should format link category result', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createMockTransaction({
           id: 55,
           source: 'bitcoin',
@@ -660,7 +661,7 @@ describe('gaps-view-utils', () => {
 
   describe('formatLinkGapAnalysis', () => {
     it('should include actionable guidance', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createMockTransaction({
           id: 77,
           source: 'bitcoin',
@@ -697,7 +698,7 @@ describe('gaps-view-utils', () => {
     });
 
     it('should warn about unmatched outflows', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createMockTransaction({
           id: 90,
           source: 'bitcoin',
@@ -732,7 +733,7 @@ describe('gaps-view-utils', () => {
     });
 
     it('should confirm when there are no gaps', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createMockTransaction({
           id: 101,
           source: 'bitcoin',

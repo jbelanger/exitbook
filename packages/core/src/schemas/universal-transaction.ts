@@ -172,8 +172,6 @@ export const TransactionMetadataSchema = z.record(z.string(), z.unknown());
 // Universal Transaction schema (new structure)
 export const UniversalTransactionSchema = z.object({
   // Core fields
-  id: z.number().int(),
-  accountId: z.number().int(), // FK to accounts table (needed for linking logic)
   externalId: z.string().min(1, 'Transaction ID must not be empty'),
   datetime: z.string().min(1, 'Datetime string must not be empty'),
   timestamp: z.number().int().positive('Timestamp must be a positive integer'),
@@ -215,6 +213,15 @@ export const UniversalTransactionSchema = z.object({
   excludedFromAccounting: z.boolean().optional(),
 });
 
+/**
+ * Schema for external transaction data after database persistence (read-side)
+ * Extends base schema with database-specific fields
+ */
+export const UniversalTransactionDataSchema = UniversalTransactionSchema.extend({
+  id: z.number().int().positive(),
+  accountId: z.number().int().positive(),
+});
+
 // Universal Balance schema
 export const UniversalBalanceSchema = z
   .object({
@@ -229,46 +236,3 @@ export const UniversalBalanceSchema = z
     message: 'Total balance must be >= free + used',
     path: ['total'],
   });
-
-// Type exports for use in other modules
-export type ValidatedUniversalTransaction = z.infer<typeof UniversalTransactionSchema>;
-export type ValidatedUniversalBalance = z.infer<typeof UniversalBalanceSchema>;
-export type ValidatedMoney = z.infer<typeof MoneySchema>;
-
-// Validation result types for error handling
-export interface ValidationResult<T> {
-  data?: T | undefined;
-  errors?: z.ZodError | undefined;
-  success: boolean;
-}
-
-// Helper function to validate and return typed results
-export function validateUniversalTransaction(data: unknown): ValidationResult<ValidatedUniversalTransaction> {
-  const result = UniversalTransactionSchema.safeParse(data);
-
-  if (result.success) {
-    return { data: result.data, success: true };
-  }
-
-  return { errors: result.error, success: false };
-}
-
-// Batch validation helpers
-export function validateUniversalTransactions(data: unknown[]): {
-  invalid: { data: unknown; errors: z.ZodError }[];
-  valid: ValidatedUniversalTransaction[];
-} {
-  const valid: ValidatedUniversalTransaction[] = [];
-  const invalid: { data: unknown; errors: z.ZodError }[] = [];
-
-  for (const item of data) {
-    const result = validateUniversalTransaction(item);
-    if (result.success && result.data) {
-      valid.push(result.data);
-    } else if (result.errors) {
-      invalid.push({ data: item, errors: result.errors });
-    }
-  }
-
-  return { invalid, valid };
-}

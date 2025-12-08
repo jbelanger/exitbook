@@ -123,7 +123,7 @@ describe('links-view-utils', () => {
       expect(result).toEqual({
         id: 123,
         external_id: 'tx-123',
-        source_id: 'test-source',
+        source_name: 'test-source',
         timestamp: '2024-01-01T12:00:00Z',
         from_address: '0x1234567890abcdef1234567890abcdef12345678',
         to_address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
@@ -164,7 +164,7 @@ describe('links-view-utils', () => {
       expect(result).toEqual({
         id: 456,
         external_id: 'tx-456',
-        source_id: 'test-source',
+        source_name: 'test-source',
         timestamp: '2024-01-01T12:00:00Z',
         from_address: undefined,
         to_address: undefined,

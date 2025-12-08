@@ -1,7 +1,7 @@
 // Utilities and types for links view command
 
 import type { LinkStatus, MatchCriteria, TransactionLink } from '@exitbook/accounting';
-import type { AssetMovement, UniversalTransaction } from '@exitbook/core';
+import type { AssetMovement, UniversalTransactionData } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import type { CommonViewFilters } from '../shared/view-utils.js';
@@ -25,7 +25,7 @@ export interface TransactionDetails {
   id: number;
   movements_inflows: AssetMovement[];
   movements_outflows: AssetMovement[];
-  source_id: string;
+  source_name: string;
   timestamp: string;
   to_address: string | undefined;
 }
@@ -83,14 +83,14 @@ export function filterLinksByConfidence(
 /**
  * Map UniversalTransaction to TransactionDetails for display.
  */
-export function mapTransactionToDetails(tx: UniversalTransaction): TransactionDetails {
+export function mapTransactionToDetails(tx: UniversalTransactionData): TransactionDetails {
   return {
     external_id: tx.externalId ?? undefined,
     from_address: tx.from ?? undefined,
     id: tx.id ?? 0,
     movements_inflows: tx.movements?.inflows ?? [],
     movements_outflows: tx.movements?.outflows ?? [],
-    source_id: tx.source,
+    source_name: tx.source,
     timestamp: tx.datetime,
     to_address: tx.to ?? undefined,
   };
@@ -101,8 +101,8 @@ export function mapTransactionToDetails(tx: UniversalTransaction): TransactionDe
  */
 export function formatLinkInfo(
   link: TransactionLink,
-  sourceTx?: UniversalTransaction,
-  targetTx?: UniversalTransaction
+  sourceTx?: UniversalTransactionData,
+  targetTx?: UniversalTransactionData
 ): LinkInfo {
   const linkInfo: LinkInfo = {
     id: link.id,
@@ -207,7 +207,7 @@ function formatTransactionDetails(tx: TransactionDetails, label: string): string
   const lines: string[] = [];
 
   lines.push(`   ${label}:`);
-  lines.push(`      ID: #${tx.id} | Source: ${tx.source_id}`);
+  lines.push(`      ID: #${tx.id} | Source: ${tx.source_name}`);
   lines.push(`      Time: ${tx.timestamp}`);
   lines.push(`      Movement: ${formatMovements(tx.movements_inflows, tx.movements_outflows)}`);
 

@@ -37,7 +37,6 @@ export function convertKucoinAccountHistoryConvertToTransaction(
   const platformFee = { amount: totalFee, asset: sellCurrency };
 
   return {
-    id: 0, // Will be assigned by database
     externalId: `${withdrawal.UID}-${timestampMs}-convert-market-${sellCurrency}-${buyCurrency}`,
     datetime: timestamp,
     timestamp: timestampMs,
@@ -97,7 +96,6 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
   const platformFee = { amount: fee, asset: row.Coin };
 
   return {
-    id: 0, // Will be assigned by database
     externalId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-deposit-${row.Amount}`,
     datetime: row['Time(UTC)'],
     timestamp,
@@ -158,7 +156,6 @@ export function convertKucoinOrderSplittingToTransaction(row: CsvOrderSplittingR
   const uniqueId = `${row['Order ID']}-${timestamp}-${filledAmount}`;
 
   return {
-    id: 0, // Will be assigned by database
     externalId: uniqueId,
     datetime: row['Filled Time(UTC)'],
     timestamp,
@@ -225,7 +222,6 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Uni
   const uniqueId = `${row['Order ID']}-${timestamp}-${filledAmount}`;
 
   return {
-    id: 0, // Will be assigned by database
     externalId: uniqueId,
     datetime: row['Time Filled(UTC)'],
     timestamp,
@@ -288,7 +284,6 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Unive
   const isBuy = side === 'buy';
 
   return {
-    id: 0, // Will be assigned by database
     externalId: row['Order ID'],
     datetime: row['Filled Time(UTC)'],
     timestamp,
@@ -344,7 +339,6 @@ export function convertKucoinWithdrawalToTransaction(row: CsvDepositWithdrawalRo
   const platformFee = { amount: fee, asset: row.Coin };
 
   return {
-    id: 0, // Will be assigned by database
     externalId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-withdrawal-${row.Amount}`,
     datetime: row['Time(UTC)'],
     timestamp,
