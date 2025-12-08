@@ -4,7 +4,12 @@ import { z } from 'zod';
 /**
  * Link type schema
  */
-export const LinkTypeSchema = z.enum(['exchange_to_blockchain', 'blockchain_to_blockchain', 'exchange_to_exchange']);
+export const LinkTypeSchema = z.enum([
+  'exchange_to_blockchain',
+  'blockchain_to_blockchain',
+  'exchange_to_exchange',
+  'blockchain_internal',
+]);
 
 /**
  * Link status schema
@@ -53,7 +58,7 @@ export const TransactionLinkSchema = z.object({
  */
 export const TransactionCandidateSchema = z.object({
   id: z.number(),
-  sourceId: z.string(),
+  sourceName: z.string(),
   sourceType: z.enum(['exchange', 'blockchain']),
   externalId: z.string().optional(),
   timestamp: DateSchema,

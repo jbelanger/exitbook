@@ -303,14 +303,16 @@ export class TransactionLinkRepository extends BaseRepository {
   }
 
   /**
-   * Count transaction links by import session IDs
+   * Count transaction links by account IDs
+   * Counts links where source transactions belong to the specified accounts
+   * Filters WHERE source_transaction_id IN (SELECT id FROM transactions WHERE account_id IN (accountIds))
    *
-   * @param importSessionIds - Import session IDs to filter by
+   * @param accountIds - Account IDs to filter by
    * @returns Result with count
    */
-  async countByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
+  async countByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (importSessionIds.length === 0) {
+      if (accountIds.length === 0) {
         return ok(0);
       }
 
@@ -320,13 +322,13 @@ export class TransactionLinkRepository extends BaseRepository {
         .where(
           'source_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('import_session_id', 'in', importSessionIds)
+          this.db.selectFrom('transactions').select('id').where('account_id', 'in', accountIds)
         )
         .executeTakeFirst();
       return ok(result?.count ?? 0);
     } catch (error) {
-      this.logger.error({ error, importSessionIds }, 'Failed to count transaction links by import session IDs');
-      return wrapError(error, 'Failed to count transaction links by import session IDs');
+      this.logger.error({ error, accountIds }, 'Failed to count transaction links by account IDs');
+      return wrapError(error, 'Failed to count transaction links by account IDs');
     }
   }
 
@@ -372,41 +374,42 @@ export class TransactionLinkRepository extends BaseRepository {
   }
 
   /**
-   * Delete all links where source transactions match a specific source_id
+   * Delete all links where source transactions match a specific source_name
    *
-   * @param sourceId - Source ID to match (e.g., 'kraken', 'ethereum')
+   * @param sourceName - Source ID to match (e.g., 'kraken', 'ethereum')
    * @returns Result with count of deleted links
    */
-  async deleteBySource(sourceId: string): Promise<Result<number, Error>> {
+  async deleteBySource(sourceName: string): Promise<Result<number, Error>> {
     try {
       const result = await this.db
         .deleteFrom('transaction_links')
         .where(
           'source_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('source_id', '=', sourceId)
+          this.db.selectFrom('transactions').select('id').where('source_name', '=', sourceName)
         )
         .executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.debug({ sourceId, count }, 'Deleted transaction links by source');
+      this.logger.debug({ sourceName, count }, 'Deleted transaction links by source');
       return ok(count);
     } catch (error) {
-      this.logger.error({ error, sourceId }, 'Failed to delete links by source');
+      this.logger.error({ error, sourceName }, 'Failed to delete links by source');
       return wrapError(error, 'Failed to delete links by source');
     }
   }
 
   /**
-   * Delete transaction links for transactions from specific import sessions (import sessions).
-   * Uses import_session_id from transactions to properly scope deletions to specific accounts.
+   * Delete transaction links by account IDs
+   * Deletes links where source transactions belong to the specified accounts
+   * Deletes WHERE source_transaction_id IN (SELECT id FROM transactions WHERE account_id IN (accountIds))
    *
-   * @param importSessionIds - Import session IDs to match
+   * @param accountIds - Account IDs to match
    * @returns Result with count of deleted links
    */
-  async deleteByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
+  async deleteByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (importSessionIds.length === 0) {
+      if (accountIds.length === 0) {
         return ok(0);
       }
 
@@ -415,16 +418,16 @@ export class TransactionLinkRepository extends BaseRepository {
         .where(
           'source_transaction_id',
           'in',
-          this.db.selectFrom('transactions').select('id').where('import_session_id', 'in', importSessionIds)
+          this.db.selectFrom('transactions').select('id').where('account_id', 'in', accountIds)
         )
         .executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.debug({ importSessionIds, count }, 'Deleted transaction links by import session IDs');
+      this.logger.debug({ accountIds, count }, 'Deleted transaction links by account IDs');
       return ok(count);
     } catch (error) {
-      this.logger.error({ error, importSessionIds }, 'Failed to delete links by import session IDs');
-      return wrapError(error, 'Failed to delete links by import session IDs');
+      this.logger.error({ error, accountIds }, 'Failed to delete links by account IDs');
+      return wrapError(error, 'Failed to delete links by account IDs');
     }
   }
 

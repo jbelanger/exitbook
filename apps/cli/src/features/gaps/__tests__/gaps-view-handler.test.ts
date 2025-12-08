@@ -1,5 +1,5 @@
 import type { TransactionLink, TransactionLinkRepository } from '@exitbook/accounting';
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { Currency, parseDecimal } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
@@ -44,8 +44,9 @@ describe('GapsViewHandler', () => {
     );
   });
 
-  const createMockTransaction = (overrides: Partial<UniversalTransaction> = {}): UniversalTransaction => ({
+  const createMockTransaction = (overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData => ({
     id: 1,
+    accountId: 1,
     externalId: 'tx-123',
     datetime: '2024-01-01T12:00:00Z',
     timestamp: 1704110400000,
@@ -69,7 +70,7 @@ describe('GapsViewHandler', () => {
         category: 'fees',
       };
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
@@ -119,7 +120,7 @@ describe('GapsViewHandler', () => {
         category: 'fees',
       };
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createMockTransaction({
           id: 1,
           externalId: 'tx-1',
@@ -190,9 +191,10 @@ describe('GapsViewHandler', () => {
     });
 
     describe('execute - links category', () => {
-      const createBlockchainDeposit = (overrides: Partial<UniversalTransaction> = {}): UniversalTransaction =>
+      const createBlockchainDeposit = (overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData =>
         createMockTransaction({
           id: 10,
+          accountId: 1,
           externalId: 'btc-deposit',
           source: 'bitcoin',
           blockchain: {
@@ -222,7 +224,7 @@ describe('GapsViewHandler', () => {
           category: 'links',
         };
 
-        const transactions: UniversalTransaction[] = [createBlockchainDeposit()];
+        const transactions: UniversalTransactionData[] = [createBlockchainDeposit()];
 
         mockTransactionRepository.getTransactions.mockResolvedValue(ok(transactions));
         mockTransactionLinkRepository.findAll.mockResolvedValue(ok([]));
@@ -241,7 +243,7 @@ describe('GapsViewHandler', () => {
           category: 'links',
         };
 
-        const transactions: UniversalTransaction[] = [createBlockchainDeposit()];
+        const transactions: UniversalTransactionData[] = [createBlockchainDeposit()];
 
         const links: TransactionLink[] = [
           {

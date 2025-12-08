@@ -5,6 +5,8 @@ import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
+import type { ProcessingContext } from '../../../types/processors.js';
+
 import type { SubstrateFundFlow, SubstrateMovement } from './types.js';
 
 /**
@@ -56,13 +58,10 @@ export function enrichSourceContext(address: string): Result<Record<string, unkn
  */
 export function analyzeFundFlowFromNormalized(
   transaction: SubstrateTransaction,
-  sessionContext: Record<string, unknown>,
+  context: ProcessingContext,
   chainConfig: SubstrateChainConfig
 ): Result<SubstrateFundFlow, Error> {
-  const derivedAddresses = Array.isArray(sessionContext.derivedAddresses)
-    ? sessionContext.derivedAddresses
-    : [sessionContext.address];
-  const userAddresses = new Set(derivedAddresses);
+  const userAddresses = new Set(context.userAddresses);
 
   const isFromUser = userAddresses.has(transaction.from);
   const isToUser = userAddresses.has(transaction.to);

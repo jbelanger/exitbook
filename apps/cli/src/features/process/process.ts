@@ -5,13 +5,9 @@ import {
   TransactionRepository,
   TokenMetadataRepository,
   AccountRepository,
-} from '@exitbook/data';
-import {
-  TransactionProcessService,
   RawDataRepository,
-  ImportSessionRepository,
-  TokenMetadataService,
-} from '@exitbook/ingestion';
+} from '@exitbook/data';
+import { TransactionProcessService, TokenMetadataService } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
 import { ExitCodes } from '../shared/exit-codes.js';
@@ -64,7 +60,6 @@ async function executeProcessCommand(options: ProcessCommandOptions): Promise<vo
     const accountRepository = new AccountRepository(database);
     const transactionRepository = new TransactionRepository(database);
     const rawDataRepository = new RawDataRepository(database);
-    const importSessionRepository = new ImportSessionRepository(database);
     const tokenMetadataRepository = new TokenMetadataRepository(database);
 
     // Initialize provider manager
@@ -74,7 +69,6 @@ async function executeProcessCommand(options: ProcessCommandOptions): Promise<vo
     const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, providerManager);
     const processService = new TransactionProcessService(
       rawDataRepository,
-      importSessionRepository,
       accountRepository,
       transactionRepository,
       tokenMetadataService

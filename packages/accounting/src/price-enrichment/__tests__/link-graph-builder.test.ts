@@ -1,11 +1,11 @@
-import { parseDecimal, type UniversalTransaction } from '@exitbook/core';
+import { parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { TransactionLink } from '../../linking/types.js';
 import { buildLinkGraph } from '../link-graph-utils.js';
 
 /**
- * Helper to create a minimal UniversalTransaction for testing
+ * Helper to create a minimal UniversalTransactionData for testing
  */
 function createTransaction(params: {
   datetime: string;
@@ -13,9 +13,10 @@ function createTransaction(params: {
   inflows?: { amount: string; asset: string }[];
   outflows?: { amount: string; asset: string }[];
   source: string;
-}): UniversalTransaction {
+}): UniversalTransactionData {
   return {
     id: params.id,
+    accountId: 1,
     source: params.source,
     externalId: `${params.source}-${params.id}`,
     datetime: params.datetime,
@@ -90,7 +91,7 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should create single-transaction groups when no links exist (different sources)', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction({
           id: 1,
           source: 'kraken',
@@ -125,7 +126,7 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should group same-source transactions together even without links (Phase 1 backward compatibility)', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Kraken trade (buy BTC)
         createTransaction({
           id: 1,
@@ -164,7 +165,7 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should NOT group blockchain transactions from same chain (prevents price leakage across wallets)', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Bitcoin wallet A
         createTransaction({
           id: 1,
@@ -207,7 +208,7 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('HIGH SEVERITY: should prevent price leakage from linked wallet to unrelated wallet on same chain', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Kraken withdrawal (has price)
         createTransaction({
           id: 1,
@@ -271,7 +272,7 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should preserve same-exchange grouping while adding cross-platform links', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Kraken trade
         createTransaction({
           id: 1,
@@ -341,7 +342,7 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should group two transactions with a confirmed link', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction({
           id: 1,
           source: 'kraken',
@@ -379,7 +380,7 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should ignore suggested links (only use confirmed)', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction({
           id: 1,
           source: 'kraken',
@@ -416,7 +417,7 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should ignore rejected links', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction({
           id: 1,
           source: 'kraken',
@@ -453,7 +454,7 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should handle multi-hop links (transitive grouping)', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Kraken withdrawal
         createTransaction({
           id: 1,
@@ -523,7 +524,7 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should handle circular links (naturally via Union-Find)', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction({
           id: 1,
           source: 'kraken',
@@ -580,7 +581,7 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should create separate groups for disconnected link chains', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Group 1: Kraken → Bitcoin
         createTransaction({
           id: 1,
@@ -653,7 +654,7 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should ignore links to transactions not in the transaction set', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction({
           id: 1,
           source: 'kraken',
@@ -699,7 +700,7 @@ describe('LinkGraphBuilder', () => {
     });
 
     it('should handle mixed link types in same group', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Exchange 1
         createTransaction({
           id: 1,

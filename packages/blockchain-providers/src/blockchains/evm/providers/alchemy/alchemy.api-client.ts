@@ -463,7 +463,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = mapAlchemyTransaction(rawTx, {});
+      const mapResult = mapAlchemyTransaction(rawTx);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -516,7 +516,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = mapAlchemyTransaction(rawTx, {});
+      const mapResult = mapAlchemyTransaction(rawTx);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -680,7 +680,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = mapAlchemyTransaction(rawTx, {});
+      const mapResult = mapAlchemyTransaction(rawTx);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -795,7 +795,7 @@ export class AlchemyApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapAlchemyTransaction(raw, {});
+        const mapped = mapAlchemyTransaction(raw);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(
@@ -908,7 +908,7 @@ export class AlchemyApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapAlchemyTransaction(raw, {});
+        const mapped = mapAlchemyTransaction(raw);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(
@@ -1026,7 +1026,7 @@ export class AlchemyApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapAlchemyTransaction(raw, {});
+        const mapped = mapAlchemyTransaction(raw);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(

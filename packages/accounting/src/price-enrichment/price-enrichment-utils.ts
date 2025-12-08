@@ -9,7 +9,7 @@
  * All functions are pure (no side effects, no DB access, no logging).
  */
 
-import type { AssetMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
+import type { AssetMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import { Currency, parseDecimal } from '@exitbook/core';
 
 import { enrichMovementsWithPrices } from './movement-enrichment-utils.js';
@@ -21,7 +21,7 @@ import type { TransactionGroup } from './types.js';
  */
 export interface InferMultiPassResult {
   /** Enriched transactions with derived prices */
-  transactions: UniversalTransaction[];
+  transactions: UniversalTransactionData[];
   /** IDs of transactions modified by ratio recalculation (Pass N+2) */
   modifiedIds: Set<number>;
 }
@@ -41,7 +41,7 @@ interface PassResult {
  */
 export interface PropagatePricesResult {
   /** Enriched transactions with propagated prices */
-  enrichedTransactions: UniversalTransaction[];
+  enrichedTransactions: UniversalTransactionData[];
   /** IDs of transactions modified by link propagation */
   modifiedIds: Set<number>;
 }
@@ -60,7 +60,7 @@ export interface PropagatePricesResult {
  * @param transactions - Transactions to process
  * @returns PassResult with enriched movements (no modifiedIds tracking for Pass 0)
  */
-function applyExchangeExecutionPrices(transactions: UniversalTransaction[]): PassResult {
+function applyExchangeExecutionPrices(transactions: UniversalTransactionData[]): PassResult {
   const enrichedMovements = new Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>();
 
   for (const tx of transactions) {
@@ -119,7 +119,7 @@ function applyExchangeExecutionPrices(transactions: UniversalTransaction[]): Pas
  * @returns PassResult with updated movements and modification tracking
  */
 function deriveInflowPricesFromOutflows(
-  transactions: UniversalTransaction[],
+  transactions: UniversalTransactionData[],
   previousMovements: Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>
 ): PassResult {
   const enrichedMovements = new Map(previousMovements);
@@ -186,7 +186,7 @@ function deriveInflowPricesFromOutflows(
  * @returns PassResult with updated movements and modification tracking
  */
 function recalculateCryptoSwapRatios(
-  transactions: UniversalTransaction[],
+  transactions: UniversalTransactionData[],
   previousMovements: Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>
 ): PassResult {
   const enrichedMovements = new Map(previousMovements);
@@ -265,7 +265,7 @@ function recalculateCryptoSwapRatios(
  * @param transactions - Transactions to enrich (should be sorted chronologically)
  * @returns Result with enriched transactions and IDs of modified transactions
  */
-export function inferMultiPass(transactions: UniversalTransaction[]): InferMultiPassResult {
+export function inferMultiPass(transactions: UniversalTransactionData[]): InferMultiPassResult {
   // Execute each pass sequentially, building on previous results
   const pass0 = applyExchangeExecutionPrices(transactions);
   const pass1 = deriveInflowPricesFromOutflows(transactions, pass0.enrichedMovements);
@@ -315,7 +315,7 @@ export function inferMultiPass(transactions: UniversalTransaction[]): InferMulti
  */
 export function propagatePricesAcrossLinks(
   group: TransactionGroup,
-  transactions: UniversalTransaction[]
+  transactions: UniversalTransactionData[]
 ): PropagatePricesResult {
   const { linkChain } = group;
 
@@ -423,7 +423,7 @@ export function propagatePricesAcrossLinks(
  * @param transactions - Transactions to enrich
  * @returns Transactions with enriched fee prices
  */
-export function enrichFeePricesFromMovements(transactions: UniversalTransaction[]): UniversalTransaction[] {
+export function enrichFeePricesFromMovements(transactions: UniversalTransactionData[]): UniversalTransactionData[] {
   return transactions.map((tx) => {
     const timestamp = new Date(tx.datetime).getTime();
     const inflows = tx.movements.inflows ?? [];

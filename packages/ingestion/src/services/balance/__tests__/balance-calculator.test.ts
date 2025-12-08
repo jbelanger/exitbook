@@ -1,13 +1,14 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { calculateBalances } from '../balance-calculator.js';
 
 // Helper function to create a base test transaction with all required fields
-function createTestTransaction(overrides: Partial<UniversalTransaction>): UniversalTransaction {
+function createTestTransaction(overrides: Partial<UniversalTransactionData>): UniversalTransactionData {
   return {
-    id: 0, // Will be assigned by database
+    id: 1,
+    accountId: 1,
     source: 'test',
     externalId: 'test-tx',
     status: 'success',
@@ -158,7 +159,7 @@ describe('calculateBalances', () => {
   });
 
   it('should aggregate balances across multiple transactions', () => {
-    const transactions: UniversalTransaction[] = [
+    const transactions: UniversalTransactionData[] = [
       createTestTransaction({
         source: 'kraken',
         externalId: 'tx6',
@@ -323,7 +324,7 @@ describe('calculateBalances', () => {
   });
 
   it('should result in zero balance when inflows equal outflows plus fees', () => {
-    const transactions: UniversalTransaction[] = [
+    const transactions: UniversalTransactionData[] = [
       createTestTransaction({
         source: 'kraken',
         externalId: 'tx15',

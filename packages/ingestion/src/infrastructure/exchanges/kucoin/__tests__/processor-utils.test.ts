@@ -69,8 +69,6 @@ describe('convertKucoinAccountHistoryConvertToTransaction', () => {
     expect(result.fees[0]?.amount.toString()).toBe('0.05001'); // 0.00001 + 0.05
     expect(result.fees[0]?.asset).toBe('BTC');
     expect(result.fees[0]?.scope).toBe('platform');
-
-    expect(result.metadata?.type).toBe('convert_market');
   });
 
   test('handles zero fees correctly', () => {
@@ -107,7 +105,7 @@ describe('convertKucoinAccountHistoryConvertToTransaction', () => {
 });
 
 describe('convertKucoinDepositToTransaction', () => {
-  test('converts deposit row into UniversalTransaction', () => {
+  test('converts deposit row into ProcessedTransaction', () => {
     const row: CsvDepositWithdrawalRow = {
       'Account Type': 'Main',
       Amount: '1.5',
@@ -142,9 +140,6 @@ describe('convertKucoinDepositToTransaction', () => {
     expect(result.fees[0]?.asset).toBe('BTC');
     expect(result.fees[0]?.scope).toBe('platform');
     expect(result.fees[0]?.settlement).toBe('balance');
-
-    expect(result.metadata?.hash).toBe('abc123txhash');
-    expect(result.metadata?.address).toBe('bc1q...');
   });
 
   test('handles deposit with zero fee', () => {
@@ -208,7 +203,7 @@ describe('convertKucoinDepositToTransaction', () => {
 });
 
 describe('convertKucoinOrderSplittingToTransaction', () => {
-  test('converts buy order-splitting row into UniversalTransaction', () => {
+  test('converts buy order-splitting row into ProcessedTransaction', () => {
     const row: CsvOrderSplittingRow = {
       'Account Type': 'Main',
       'Avg. Filled Price': '40000',
@@ -246,12 +241,9 @@ describe('convertKucoinOrderSplittingToTransaction', () => {
     expect(result.fees).toHaveLength(1);
     expect(result.fees[0]?.amount.toString()).toBe('0.005');
     expect(result.fees[0]?.asset).toBe('BTC');
-
-    expect(result.metadata?.fillType).toBe('order-splitting');
-    expect(result.metadata?.makerTaker).toBe('Taker');
   });
 
-  test('converts sell order-splitting row into UniversalTransaction', () => {
+  test('converts sell order-splitting row into ProcessedTransaction', () => {
     const row: CsvOrderSplittingRow = {
       'Account Type': 'Main',
       'Avg. Filled Price': '2000',
@@ -311,7 +303,7 @@ describe('convertKucoinOrderSplittingToTransaction', () => {
 });
 
 describe('convertKucoinTradingBotToTransaction', () => {
-  test('converts buy trading bot row into UniversalTransaction', () => {
+  test('converts buy trading bot row into ProcessedTransaction', () => {
     const row: CsvTradingBotRow = {
       'Account Type': 'Main',
       Fee: '0.002',
@@ -341,11 +333,9 @@ describe('convertKucoinTradingBotToTransaction', () => {
 
     expect(result.movements.inflows![0]?.asset).toBe('BTC');
     expect(result.movements.inflows![0]?.grossAmount.toString()).toBe('0.05');
-
-    expect(result.metadata?.fillType).toBe('trading-bot');
   });
 
-  test('converts sell trading bot row into UniversalTransaction', () => {
+  test('converts sell trading bot row into ProcessedTransaction', () => {
     const row: CsvTradingBotRow = {
       'Account Type': 'Main',
       Fee: '5',
@@ -376,7 +366,7 @@ describe('convertKucoinTradingBotToTransaction', () => {
 });
 
 describe('convertKucoinSpotOrderToTransaction', () => {
-  test('converts buy spot order row into UniversalTransaction', () => {
+  test('converts buy spot order row into ProcessedTransaction', () => {
     const row: CsvSpotOrderRow = {
       'Account Type': 'Main',
       'Avg. Filled Price': '1.5',
@@ -411,11 +401,9 @@ describe('convertKucoinSpotOrderToTransaction', () => {
 
     expect(result.movements.inflows![0]?.asset).toBe('ADA');
     expect(result.movements.inflows![0]?.grossAmount.toString()).toBe('100');
-
-    expect(result.metadata?.orderType).toBe('Limit');
   });
 
-  test('converts sell spot order row into UniversalTransaction', () => {
+  test('converts sell spot order row into ProcessedTransaction', () => {
     const row: CsvSpotOrderRow = {
       'Account Type': 'Trading',
       'Avg. Filled Price': '25',
@@ -476,7 +464,7 @@ describe('convertKucoinSpotOrderToTransaction', () => {
 });
 
 describe('convertKucoinWithdrawalToTransaction', () => {
-  test('converts withdrawal row into UniversalTransaction', () => {
+  test('converts withdrawal row into ProcessedTransaction', () => {
     const row: CsvDepositWithdrawalRow = {
       'Account Type': 'Main',
       Amount: '-2',
@@ -510,9 +498,6 @@ describe('convertKucoinWithdrawalToTransaction', () => {
     expect(result.fees).toHaveLength(1);
     expect(result.fees[0]?.amount.toString()).toBe('0.005');
     expect(result.fees[0]?.asset).toBe('ETH');
-
-    expect(result.metadata?.hash).toBe('withdrawal-hash-abc');
-    expect(result.metadata?.address).toBe('0x123...');
   });
 
   test('handles negative amount correctly (converts to absolute)', () => {

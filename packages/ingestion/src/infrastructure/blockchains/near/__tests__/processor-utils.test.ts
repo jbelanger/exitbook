@@ -249,7 +249,7 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
       to: USER_ADDRESS,
     };
 
-    const result = analyzeNearFundFlow(tx, { address: USER_ADDRESS });
+    const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -283,7 +283,7 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
       to: EXTERNAL_ADDRESS,
     };
 
-    const result = analyzeNearFundFlow(tx, { address: USER_ADDRESS });
+    const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -310,7 +310,7 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
       type: 'transfer',
     };
 
-    const result = analyzeNearFundFlow(tx, { address: USER_ADDRESS });
+    const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -336,7 +336,7 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
       type: 'transfer',
     };
 
-    const result = analyzeNearFundFlow(tx, { address: USER_ADDRESS });
+    const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -379,7 +379,7 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
       ],
     };
 
-    const result = analyzeNearFundFlow(tx, { address: USER_ADDRESS });
+    const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -389,26 +389,6 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
     expect(fundFlow.outflows[0]?.asset).toBe('USDC');
     expect(fundFlow.outflows[0]?.amount).toBe('1');
     expect(fundFlow.hasTokenTransfers).toBe(true);
-  });
-
-  test('analyzeNearFundFlow requires user address in metadata', () => {
-    const tx: NearTransaction = {
-      amount: '0',
-      currency: 'NEAR',
-      from: USER_ADDRESS,
-      id: 'tx4',
-      providerName: 'nearblocks',
-      type: 'transfer',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-    };
-
-    const result = analyzeNearFundFlow(tx, {});
-
-    expect(result.isErr()).toBe(true);
-    if (!result.isErr()) return;
-    expect(result.error).toContain('Missing user address');
   });
 });
 
@@ -654,7 +634,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
       to: USER_ADDRESS,
     };
 
-    const result = analyzeNearFundFlow(tx, { address: USER_ADDRESS });
+    const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -703,7 +683,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
       to: EXTERNAL_ADDRESS,
     };
 
-    const result = analyzeNearFundFlow(tx, { address: USER_ADDRESS });
+    const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -773,7 +753,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
       ],
     };
 
-    const result = analyzeNearFundFlow(tx, { address: USER_ADDRESS });
+    const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -835,7 +815,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
       to: 'dex.near',
     };
 
-    const result = analyzeNearFundFlow(tx, { address: USER_ADDRESS });
+    const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -880,7 +860,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
       to: USER_ADDRESS,
     };
 
-    const result = analyzeNearFundFlow(tx, { address: USER_ADDRESS });
+    const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -915,7 +895,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
       to: EXTERNAL_ADDRESS,
     };
 
-    const result = analyzeNearFundFlow(tx, { address: USER_ADDRESS });
+    const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

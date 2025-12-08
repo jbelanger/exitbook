@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 
 /**
  * Creates a deterministic hash for transaction identification when no external ID is available.
@@ -26,7 +26,9 @@ import type { UniversalTransaction } from '@exitbook/core';
  * const hash2 = generateDeterministicTransactionHash(tx);
  * assert(hash1 === hash2);
  */
-export function generateDeterministicTransactionHash(transaction: UniversalTransaction): string {
+export function generateDeterministicTransactionHash(
+  transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>
+): string {
   // Collect all identifying characteristics in a stable order
   const parts: string[] = [
     transaction.source,

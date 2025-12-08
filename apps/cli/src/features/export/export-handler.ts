@@ -52,7 +52,7 @@ export class ExportHandler {
 
       // Build filter object conditionally to avoid passing undefined values
       const filters = {
-        ...(params.sourceName && { sourceId: params.sourceName }),
+        ...(params.sourceName && { sourceName: params.sourceName }),
         ...(params.since && { since: params.since }),
         includeExcluded: true, // Include all transactions in exports
       };

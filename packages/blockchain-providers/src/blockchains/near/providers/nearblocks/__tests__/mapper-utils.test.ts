@@ -254,7 +254,7 @@ describe('nearblocks/mapper-utils', () => {
         transaction_hash: 'AbCdEf123456',
       };
 
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(rawData);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -292,7 +292,7 @@ describe('nearblocks/mapper-utils', () => {
         transaction_hash: 'TxHash123',
       };
 
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(rawData);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -322,7 +322,7 @@ describe('nearblocks/mapper-utils', () => {
         transaction_hash: 'FailedTx',
       };
 
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(rawData);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -347,7 +347,7 @@ describe('nearblocks/mapper-utils', () => {
         transaction_hash: 'ZeroGasTx',
       };
 
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(rawData);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -384,7 +384,7 @@ describe('nearblocks/mapper-utils', () => {
         transaction_hash: 'FunctionCallTx',
       };
 
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(rawData);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -420,44 +420,12 @@ describe('nearblocks/mapper-utils', () => {
         transaction_hash: 'MultiActionTx',
       };
 
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(rawData);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.amount).toBe('3000000000000000000000000'); // Sum of deposits
         expect(result.value.actions).toHaveLength(2);
-      }
-    });
-
-    it('should use custom provider name from sourceContext', () => {
-      const rawData: NearBlocksTransaction = {
-        block_timestamp: '1640000000000000000',
-        signer_account_id: 'alice.near',
-        receiver_account_id: 'bob.near',
-        transaction_hash: 'CustomProviderTx',
-      };
-
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'custom-near-api' });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.providerName).toBe('custom-near-api');
-      }
-    });
-
-    it('should default to nearblocks when provider name not specified', () => {
-      const rawData: NearBlocksTransaction = {
-        block_timestamp: '1640000000000000000',
-        signer_account_id: 'alice.near',
-        receiver_account_id: 'bob.near',
-        transaction_hash: 'NoProviderTx',
-      };
-
-      const result = mapNearBlocksTransaction(rawData, {});
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.providerName).toBe('nearblocks');
       }
     });
   });

@@ -47,7 +47,10 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -90,7 +93,10 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -132,10 +138,15 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
+    if (!result.isOk()) {
+      throw new Error(`Expected Ok result but got Err: ${String(result.error)}`);
+    }
     expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
 
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
@@ -179,7 +190,10 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -227,7 +241,10 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -263,7 +280,10 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -320,7 +340,10 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -364,7 +387,10 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -408,7 +434,10 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -455,7 +484,10 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -501,8 +533,8 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     ];
 
     const result = await processor.process(normalizedData, {
-      address: USER_ADDRESS,
-      derivedAddresses: [derivedAddress1, derivedAddress2],
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [derivedAddress1, derivedAddress2],
     });
 
     expect(result.isOk()).toBe(true);
@@ -547,8 +579,8 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     ];
 
     const result = await processor.process(normalizedData, {
-      address: USER_ADDRESS,
-      derivedAddresses: [derivedAddress1, derivedAddress2],
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [derivedAddress1, derivedAddress2],
     });
 
     expect(result.isOk()).toBe(true);
@@ -609,7 +641,10 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -657,7 +692,10 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

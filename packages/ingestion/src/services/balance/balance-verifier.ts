@@ -68,7 +68,7 @@ export function compareBalances(
  */
 export function createVerificationResult(
   account: Account,
-  sourceId: string,
+  sourceName: string,
   sourceType: SourceType,
   comparisons: BalanceComparison[],
   lastImportTimestamp?: number,
@@ -114,7 +114,7 @@ export function createVerificationResult(
 
   return {
     account,
-    sourceId,
+    sourceName,
     sourceType,
     timestamp: Date.now(),
     status,
@@ -133,7 +133,7 @@ export function generateVerificationReport(results: BalanceVerificationResult[])
   let report = `# Balance Verification Report - ${timestamp}\n\n`;
 
   for (const result of results) {
-    report += `## ${result.sourceId} (${result.sourceType})\n`;
+    report += `## ${result.sourceName} (${result.sourceType})\n`;
     report += `- **Status**: ${result.status.toUpperCase()}\n`;
     report += `- **Total Currencies**: ${result.summary.totalCurrencies}\n`;
     report += `- **Matches**: ${result.summary.matches}\n`;

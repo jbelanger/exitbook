@@ -20,6 +20,3 @@ export interface SmartDetectionResult {
   bipStandard: BipStandard;
   hdNode: HDKey;
 }
-
-// BitcoinTransaction, BitcoinTransactionInput, and BitcoinTransactionOutput types
-// are now inferred from Zod schemas in schemas.js and exported from there

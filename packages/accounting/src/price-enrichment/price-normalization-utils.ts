@@ -9,7 +9,7 @@
  * Following "Functional Core, Imperative Shell" pattern from CLAUDE.md
  */
 
-import type { AssetMovement, FeeMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
+import type { AssetMovement, FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import { Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
@@ -38,7 +38,7 @@ export interface MovementsNeedingNormalization {
  * @param tx - Transaction to analyze
  * @returns Classified movements
  */
-export function extractMovementsNeedingNormalization(tx: UniversalTransaction): MovementsNeedingNormalization {
+export function extractMovementsNeedingNormalization(tx: UniversalTransactionData): MovementsNeedingNormalization {
   const allMovements = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? [])];
 
   const needsNormalization: AssetMovement[] = [];
@@ -211,7 +211,7 @@ export interface ItemNormalizationResult<T> {
  */
 export interface TransactionNormalizationResult {
   /** Normalized transaction (or undefined if no changes needed) */
-  transaction: UniversalTransaction | undefined;
+  transaction: UniversalTransactionData | undefined;
   /** Number of movements normalized */
   movementsNormalized: number;
   /** Number of movements skipped */
@@ -411,7 +411,7 @@ export async function normalizeFeeArray(
  * @returns Normalization result with statistics
  */
 export async function normalizeTransactionMovements(
-  tx: UniversalTransaction,
+  tx: UniversalTransactionData,
   normalizePriceFn: (price: PriceAtTxTime, date: Date) => Promise<Result<PriceAtTxTime, Error>>
 ): Promise<TransactionNormalizationResult> {
   const inflows = tx.movements.inflows ?? [];
@@ -446,7 +446,7 @@ export async function normalizeTransactionMovements(
   const errors = allResults.filter((r) => r.error).map((r) => ({ item: 'movement/fee', message: r.error! }));
 
   // Build normalized transaction
-  const normalizedTransaction: UniversalTransaction = {
+  const normalizedTransaction: UniversalTransactionData = {
     ...tx,
     movements: {
       inflows: inflowResults.map((r) => r.item),

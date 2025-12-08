@@ -86,8 +86,8 @@ export class CardanoTransactionImporter implements IImporter {
       const providerBatch = providerBatchResult.value;
       const transactionsWithRaw = providerBatch.data;
 
-      // Map to external transactions
-      const externalTransactions = transactionsWithRaw.map((txWithRaw) => ({
+      // Map to raw transactions
+      const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
         externalId: generateUniqueTransactionId({
           amount: txWithRaw.normalized.outputs[0]?.amounts[0]?.quantity || '0',
           currency: txWithRaw.normalized.currency,
@@ -97,14 +97,15 @@ export class CardanoTransactionImporter implements IImporter {
           to: txWithRaw.normalized.outputs[0]?.address,
           type: 'transfer',
         }),
+        blockchainTransactionHash: txWithRaw.normalized.id,
         normalizedData: txWithRaw.normalized,
         providerName: providerBatch.providerName,
-        rawData: txWithRaw.raw,
+        providerData: txWithRaw.raw,
         sourceAddress: address,
       }));
 
       yield ok({
-        rawTransactions: externalTransactions,
+        rawTransactions: rawTransactions,
         operationType: 'normal',
         cursor: providerBatch.cursor,
         isComplete: providerBatch.cursor.metadata?.isComplete ?? false,

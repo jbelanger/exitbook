@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { getErrorMessage, type ExternalTransaction } from '@exitbook/core';
+import { getErrorMessage, type RawTransactionInput } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -31,7 +31,7 @@ import {
  */
 export class KucoinCsvImporter implements IImporter {
   private readonly logger: Logger;
-  private readonly sourceId = 'kucoin';
+  private readonly sourceName = 'kucoin';
   private usedExternalIds: Map<string, number>;
 
   constructor() {
@@ -131,7 +131,7 @@ export class KucoinCsvImporter implements IImporter {
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       this.logger.error(`CSV streaming import failed: ${errorMessage}`);
-      yield err(new Error(`${this.sourceId} streaming import failed: ${errorMessage}`));
+      yield err(new Error(`${this.sourceName} streaming import failed: ${errorMessage}`));
     }
   }
 
@@ -148,7 +148,7 @@ export class KucoinCsvImporter implements IImporter {
 
     // Reset external ID tracking for new import
     this.usedExternalIds.clear();
-    const rawTransactions: ExternalTransaction[] = [];
+    const rawTransactions: RawTransactionInput[] = [];
 
     try {
       for (const csvDirectory of params.csvDirectories) {
@@ -195,7 +195,7 @@ export class KucoinCsvImporter implements IImporter {
                   rawTransactions.push({
                     providerName: 'kucoin',
                     transactionTypeHint: 'spot_order',
-                    rawData: { _rowType: 'spot_order', ...row },
+                    providerData: { _rowType: 'spot_order', ...row },
                     normalizedData: { _rowType: 'spot_order', ...row },
                     externalId,
                   });
@@ -233,7 +233,7 @@ export class KucoinCsvImporter implements IImporter {
                   rawTransactions.push({
                     providerName: 'kucoin',
                     transactionTypeHint: 'deposit',
-                    rawData: { _rowType: 'deposit', ...row },
+                    providerData: { _rowType: 'deposit', ...row },
                     normalizedData: { _rowType: 'deposit', ...row },
                     externalId,
                   });
@@ -273,7 +273,7 @@ export class KucoinCsvImporter implements IImporter {
                     providerName: 'kucoin',
                     transactionTypeHint: 'withdrawal',
                     normalizedData: { _rowType: 'withdrawal', ...row },
-                    rawData: { _rowType: 'withdrawal', ...row },
+                    providerData: { _rowType: 'withdrawal', ...row },
                     externalId,
                   });
                 }
@@ -311,7 +311,7 @@ export class KucoinCsvImporter implements IImporter {
                     providerName: 'kucoin',
                     transactionTypeHint: 'account_history',
                     normalizedData: { _rowType: 'account_history', ...row },
-                    rawData: { _rowType: 'account_history', ...row },
+                    providerData: { _rowType: 'account_history', ...row },
                     externalId,
                   });
                 }
@@ -360,7 +360,7 @@ export class KucoinCsvImporter implements IImporter {
                     providerName: 'kucoin',
                     transactionTypeHint: 'order_splitting',
                     normalizedData: { _rowType: 'order_splitting', ...row },
-                    rawData: { _rowType: 'order_splitting', ...row },
+                    providerData: { _rowType: 'order_splitting', ...row },
                     externalId,
                   });
                 }
@@ -398,7 +398,7 @@ export class KucoinCsvImporter implements IImporter {
                     providerName: 'kucoin',
                     transactionTypeHint: 'trading_bot',
                     normalizedData: { _rowType: 'trading_bot', ...row },
-                    rawData: { _rowType: 'trading_bot', ...row },
+                    providerData: { _rowType: 'trading_bot', ...row },
                     externalId,
                   });
                 }
@@ -493,8 +493,8 @@ export class KucoinCsvImporter implements IImporter {
 
       // Sort all transactions by timestamp
       rawTransactions.sort((a, b) => {
-        const timeA = this.extractTimestamp(a.rawData);
-        const timeB = this.extractTimestamp(b.rawData);
+        const timeA = this.extractTimestamp(a.providerData);
+        const timeB = this.extractTimestamp(b.providerData);
         return timeA - timeB;
       });
 
@@ -509,7 +509,7 @@ export class KucoinCsvImporter implements IImporter {
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       this.logger.error(`Import failed in CSV file processing: ${errorMessage}`);
-      return err(new Error(`${this.sourceId} import failed: ${errorMessage}`));
+      return err(new Error(`${this.sourceName} import failed: ${errorMessage}`));
     }
   }
 
@@ -525,7 +525,7 @@ export class KucoinCsvImporter implements IImporter {
     fileType: string,
     currentTotalFetched: number
   ): Promise<Result<ImportBatchResult, Error>> {
-    const rawTransactions: ExternalTransaction[] = [];
+    const rawTransactions: RawTransactionInput[] = [];
     const fileName = path.basename(filePath); // Extract filename for logging
 
     try {
@@ -555,7 +555,7 @@ export class KucoinCsvImporter implements IImporter {
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'spot_order',
-              rawData: { _rowType: 'spot_order', ...row },
+              providerData: { _rowType: 'spot_order', ...row },
               normalizedData: { _rowType: 'spot_order', ...row },
               externalId,
             });
@@ -589,7 +589,7 @@ export class KucoinCsvImporter implements IImporter {
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'deposit',
-              rawData: { _rowType: 'deposit', ...row },
+              providerData: { _rowType: 'deposit', ...row },
               normalizedData: { _rowType: 'deposit', ...row },
               externalId,
             });
@@ -624,7 +624,7 @@ export class KucoinCsvImporter implements IImporter {
               providerName: 'kucoin',
               transactionTypeHint: 'withdrawal',
               normalizedData: { _rowType: 'withdrawal', ...row },
-              rawData: { _rowType: 'withdrawal', ...row },
+              providerData: { _rowType: 'withdrawal', ...row },
               externalId,
             });
           }
@@ -658,7 +658,7 @@ export class KucoinCsvImporter implements IImporter {
               providerName: 'kucoin',
               transactionTypeHint: 'account_history',
               normalizedData: { _rowType: 'account_history', ...row },
-              rawData: { _rowType: 'account_history', ...row },
+              providerData: { _rowType: 'account_history', ...row },
               externalId,
             });
           }
@@ -706,7 +706,7 @@ export class KucoinCsvImporter implements IImporter {
               providerName: 'kucoin',
               transactionTypeHint: 'order_splitting',
               normalizedData: { _rowType: 'order_splitting', ...row },
-              rawData: { _rowType: 'order_splitting', ...row },
+              providerData: { _rowType: 'order_splitting', ...row },
               externalId,
             });
           }
@@ -740,7 +740,7 @@ export class KucoinCsvImporter implements IImporter {
               providerName: 'kucoin',
               transactionTypeHint: 'trading_bot',
               normalizedData: { _rowType: 'trading_bot', ...row },
-              rawData: { _rowType: 'trading_bot', ...row },
+              providerData: { _rowType: 'trading_bot', ...row },
               externalId,
             });
           }

@@ -1,7 +1,7 @@
-import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 
+import type { ProcessedTransaction } from '../../../types/processors.ts';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import {
@@ -26,34 +26,31 @@ import type { ExchangeFundFlow } from './types.js';
  * Provides infrastructure for:
  * - Grouping related ledger entries (e.g., both sides of a swap)
  * - Analyzing fund flow using interpretation strategies
- * - Creating single atomic UniversalTransaction records
+ * - Creating single atomic ProcessedTransaction records
  *
  * @template TRaw - The raw exchange-specific type (e.g., CoinbaseLedgerEntry, KrakenLedgerEntry)
  */
 export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactionProcessor {
   constructor(
-    sourceId: string,
+    sourceName: string,
     private grouping: GroupingStrategy,
     private interpretation: InterpretationStrategy<TRaw>
   ) {
-    super(sourceId);
+    super(sourceName);
   }
 
-  protected async processInternal(
-    normalizedData: unknown[],
-    _sessionMetadata?: Record<string, unknown>
-  ): Promise<Result<UniversalTransaction[], string>> {
+  protected async processInternal(normalizedData: unknown[]): Promise<Result<ProcessedTransaction[], string>> {
     // Cast to RawTransactionWithMetadata (contains both raw + normalized)
     const entries = normalizedData as RawTransactionWithMetadata<TRaw>[];
 
-    this.logger.info(`Processing ${entries.length} ledger entries for ${this.sourceId}`);
+    this.logger.info(`Processing ${entries.length} ledger entries for ${this.sourceName}`);
 
     // Group using strategy (e.g., by correlationId, timestamp, or no grouping)
     const entryGroups = this.grouping.group(entries);
 
-    this.logger.debug(`Created ${entryGroups.size} entry groups for ${this.sourceId}`);
+    this.logger.debug(`Created ${entryGroups.size} entry groups for ${this.sourceName}`);
 
-    const transactions: UniversalTransaction[] = [];
+    const transactions: ProcessedTransaction[] = [];
     const processingErrors: { correlationId: string; entryCount: number; error: string }[] = [];
 
     for (const [correlationId, entryGroup] of entryGroups) {
@@ -63,7 +60,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;
         processingErrors.push({ correlationId, entryCount: entryGroup.length, error: errorMsg });
         this.logger.error(
-          `${errorMsg} for ${this.sourceId} entry group ${correlationId} (${entryGroup.length} entries) - THIS TRANSACTION GROUP WILL BE LOST`
+          `${errorMsg} for ${this.sourceName} entry group ${correlationId} (${entryGroup.length} entries) - THIS TRANSACTION GROUP WILL BE LOST`
         );
         continue;
       }
@@ -81,12 +78,11 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         continue;
       }
 
-      const universalTransaction: UniversalTransaction = {
-        id: 0, // Will be assigned by database
+      const ProcessedTransaction: ProcessedTransaction = {
         externalId: primaryEntry.normalized.id,
         datetime: new Date(fundFlow.timestamp).toISOString(),
         timestamp: fundFlow.timestamp,
-        source: this.sourceId,
+        source: this.sourceName,
         status: primaryEntry.normalized.status,
 
         movements: {
@@ -122,17 +118,11 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
 
         operation: classification.operation,
         note: classification.note,
-
-        metadata: {
-          correlatedEntryCount: fundFlow.entryCount,
-          correlationId: fundFlow.correlationId,
-          ledgerEntries: entryGroup.map((e) => e.normalized.id),
-        },
       };
 
-      transactions.push(universalTransaction);
+      transactions.push(ProcessedTransaction);
       this.logger.debug(
-        `Successfully processed correlated entry group ${universalTransaction.externalId} (${fundFlow.entryCount} entries)`
+        `Successfully processed correlated entry group ${ProcessedTransaction.externalId} (${fundFlow.entryCount} entries)`
       );
     }
 
@@ -142,12 +132,12 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     const lostEntryCount = processingErrors.reduce((sum, e) => sum + e.entryCount, 0);
 
     this.logger.info(
-      `Processing completed for ${this.sourceId}: ${successfulGroups} groups processed, ${failedGroups} groups failed (${lostEntryCount}/${totalInputEntries} entries lost)`
+      `Processing completed for ${this.sourceName}: ${successfulGroups} groups processed, ${failedGroups} groups failed (${lostEntryCount}/${totalInputEntries} entries lost)`
     );
 
     if (processingErrors.length > 0) {
       this.logger.error(
-        `CRITICAL PROCESSING FAILURE for ${this.sourceId}:\n${processingErrors
+        `CRITICAL PROCESSING FAILURE for ${this.sourceName}:\n${processingErrors
           .map((e, i) => `  ${i + 1}. [${e.correlationId}] ${e.error} (${e.entryCount} entries)`)
           .join('\n')}`
       );

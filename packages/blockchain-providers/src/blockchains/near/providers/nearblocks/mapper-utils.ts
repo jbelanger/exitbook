@@ -1,4 +1,3 @@
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -24,7 +23,7 @@ import {
 /**
  * Parse NearBlocks timestamp to Unix timestamp (milliseconds)
  * NearBlocks timestamps are in nanoseconds (string format)
- * Returns milliseconds for compatibility with JavaScript Date constructor and UniversalTransaction schema
+ * Returns milliseconds for compatibility with JavaScript Date constructor and UniversalTransactionData schema
  */
 export function parseNearBlocksTimestamp(timestamp: string): number {
   // Convert nanoseconds to milliseconds (divide by 1,000,000)
@@ -258,10 +257,7 @@ export function mapNearBlocksFtTransactionToTokenTransfer(
  * Map NearBlocks transaction to normalized NearTransaction
  * Input data is pre-validated by HTTP client schema validation
  */
-export function mapNearBlocksTransaction(
-  rawData: NearBlocksTransaction,
-  sourceContext: ImportSessionMetadata
-): Result<NearTransaction, NormalizationError> {
+export function mapNearBlocksTransaction(rawData: NearBlocksTransaction): Result<NearTransaction, NormalizationError> {
   const validatedRawData = rawData;
 
   const timestamp = parseNearBlocksTimestamp(validatedRawData.block_timestamp);
@@ -293,7 +289,7 @@ export function mapNearBlocksTransaction(
     currency: 'NEAR',
     from: validatedRawData.signer_account_id,
     id: validatedRawData.transaction_hash,
-    providerName: (sourceContext.providerName as string | undefined) || 'nearblocks',
+    providerName: 'nearblocks',
     status,
     timestamp,
     to: validatedRawData.receiver_account_id,

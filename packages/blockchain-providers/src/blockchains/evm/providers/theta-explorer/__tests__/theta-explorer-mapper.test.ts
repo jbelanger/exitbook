@@ -1,14 +1,9 @@
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { mapThetaExplorerTransaction } from '../theta-explorer.mapper-utils.js';
 import type { ThetaTransaction, ThetaSendTransactionData } from '../theta-explorer.schemas.js';
 
 describe('ThetaExplorerTransactionMapper', () => {
-  const sourceContext: ImportSessionMetadata = {
-    address: '0x6d882a1ae65377c12e8c1ad5a8b5cfa329edeb07',
-  };
-
   describe('THETA currency detection', () => {
     it('should map THETA transfer with correct currency and type', () => {
       const rawTx: ThetaTransaction = {
@@ -32,7 +27,7 @@ describe('ThetaExplorerTransactionMapper', () => {
         type: 2,
       };
 
-      const result = mapThetaExplorerTransaction(rawTx, sourceContext);
+      const result = mapThetaExplorerTransaction(rawTx);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -68,7 +63,7 @@ describe('ThetaExplorerTransactionMapper', () => {
         type: 2,
       };
 
-      const result = mapThetaExplorerTransaction(rawTx, sourceContext);
+      const result = mapThetaExplorerTransaction(rawTx);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -104,7 +99,7 @@ describe('ThetaExplorerTransactionMapper', () => {
         type: 2,
       };
 
-      const result = mapThetaExplorerTransaction(rawTx, sourceContext);
+      const result = mapThetaExplorerTransaction(rawTx);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -135,7 +130,7 @@ describe('ThetaExplorerTransactionMapper', () => {
         type: 2,
       };
 
-      const result = mapThetaExplorerTransaction(rawTx, sourceContext);
+      const result = mapThetaExplorerTransaction(rawTx);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -165,7 +160,7 @@ describe('ThetaExplorerTransactionMapper', () => {
         type: 2,
       };
 
-      const result = mapThetaExplorerTransaction(rawTx, sourceContext);
+      const result = mapThetaExplorerTransaction(rawTx);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -190,7 +185,7 @@ describe('ThetaExplorerTransactionMapper', () => {
         type: 2,
       };
 
-      const result = mapThetaExplorerTransaction(rawTx, sourceContext);
+      const result = mapThetaExplorerTransaction(rawTx);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -223,7 +218,7 @@ describe('ThetaExplorerTransactionMapper', () => {
         type: 2,
       };
 
-      const result = mapThetaExplorerTransaction(rawTx, sourceContext);
+      const result = mapThetaExplorerTransaction(rawTx);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -249,7 +244,7 @@ describe('ThetaExplorerTransactionMapper', () => {
         type: 5, // Reserve fund transaction - not supported
       };
 
-      const result = mapThetaExplorerTransaction(rawTx, sourceContext);
+      const result = mapThetaExplorerTransaction(rawTx);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

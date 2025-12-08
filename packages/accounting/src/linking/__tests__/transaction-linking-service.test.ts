@@ -1,4 +1,5 @@
-import { parseDecimal, type UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 
@@ -8,7 +9,7 @@ import { TransactionLinkingService } from '../transaction-linking-service.js';
 const logger = getLogger('test');
 
 /**
- * Helper to create a minimal UniversalTransaction for testing.
+ * Helper to create a minimal UniversalTransactionData for testing.
  * Only requires the essential fields, rest are set to sensible defaults.
  */
 function createTransaction(params: {
@@ -20,9 +21,10 @@ function createTransaction(params: {
   outflows?: { amount: string; asset: string }[];
   source: string;
   to?: string;
-}): UniversalTransaction {
+}): UniversalTransactionData {
   return {
     id: params.id,
+    accountId: 1,
     externalId: `${params.source}-${params.id}`,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
@@ -52,7 +54,7 @@ describe('TransactionLinkingService', () => {
     it('should find exact match between exchange withdrawal and blockchain deposit', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Exchange withdrawal
         createTransaction({
           id: 1,
@@ -96,7 +98,7 @@ describe('TransactionLinkingService', () => {
     it('should suggest low-confidence matches without auto-confirming', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Exchange withdrawal - no address
         createTransaction({
           id: 1,
@@ -136,7 +138,7 @@ describe('TransactionLinkingService', () => {
     it('should deduplicate matches - one target per source', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Source 1 - closer in time (30 min before target)
         createTransaction({
           id: 1,
@@ -189,7 +191,7 @@ describe('TransactionLinkingService', () => {
     it('should skip transactions without movement data', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Transaction with no movements
         createTransaction({
           id: 1,
@@ -217,7 +219,7 @@ describe('TransactionLinkingService', () => {
     it('should handle blockchain-to-blockchain links', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Blockchain send
         createTransaction({
           id: 1,
@@ -277,7 +279,7 @@ describe('TransactionLinkingService', () => {
     it('should calculate statistics correctly', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Matched source (BTC withdrawal)
         createTransaction({
           id: 1,
@@ -334,7 +336,7 @@ describe('TransactionLinkingService', () => {
     it('should exclude filtered links from statistics (target > source)', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Source 1 - valid match
         createTransaction({
           id: 1,
@@ -398,7 +400,7 @@ describe('TransactionLinkingService', () => {
     it('should exclude filtered links from statistics (excessive variance)', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Source 1 - valid match
         createTransaction({
           id: 1,
@@ -464,7 +466,7 @@ describe('TransactionLinkingService', () => {
     it('should convert valid transactions to candidates', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction({
           id: 1,
           source: 'kraken',
@@ -487,7 +489,7 @@ describe('TransactionLinkingService', () => {
     it('should skip transactions with only inflows (no direction)', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Transaction with only inflows is a deposit (direction 'in')
         createTransaction({
           id: 1,
@@ -511,7 +513,7 @@ describe('TransactionLinkingService', () => {
     it('should skip transactions with both inflows and outflows (trades)', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Trade: BTC -> ETH
         createTransaction({
           id: 1,
@@ -539,7 +541,7 @@ describe('TransactionLinkingService', () => {
     it('should prevent one source from matching multiple targets', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Single source
         createTransaction({
           id: 1,
@@ -592,7 +594,7 @@ describe('TransactionLinkingService', () => {
     it('should keep only highest confidence match per target', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Source 1 - closer in time to target (1 hour before)
         createTransaction({
           id: 1,
@@ -649,7 +651,7 @@ describe('TransactionLinkingService', () => {
     it('should not match a transaction against itself when it has both inflows and outflows of the same asset', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // Self-transfer: BTC withdrawal with change (both in and out in same tx)
         createTransaction({
           id: 1,
@@ -677,7 +679,7 @@ describe('TransactionLinkingService', () => {
     it('should not match a swap transaction against itself', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         // BTC swap with BTC fee (both BTC in and out)
         createTransaction({
           id: 1,
@@ -712,7 +714,7 @@ describe('TransactionLinkingService', () => {
         autoConfirmThreshold: parseDecimal('0.9'),
       });
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction({
           id: 1,
           source: 'kraken',
@@ -754,7 +756,7 @@ describe('TransactionLinkingService', () => {
         autoConfirmThreshold: parseDecimal('0.99'), // Very high threshold
       });
 
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         createTransaction({
           id: 1,
           source: 'kraken',

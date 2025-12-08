@@ -190,9 +190,7 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<CosmosTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = mapInjectiveExplorerTransaction(rawTx, {
-        address,
-      });
+      const mapResult = mapInjectiveExplorerTransaction(rawTx, address);
 
       if (mapResult.isErr()) {
         const error = mapResult.error;
@@ -329,7 +327,7 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapInjectiveExplorerTransaction(raw, { address });
+        const mapped = mapInjectiveExplorerTransaction(raw, address);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(

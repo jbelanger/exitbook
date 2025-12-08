@@ -5,7 +5,7 @@
 
 import { type EvmChainConfig, type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
-import type { CursorState, ExternalTransaction, PaginationCursor } from '@exitbook/core';
+import type { CursorState, RawTransactionInput, PaginationCursor } from '@exitbook/core';
 import { err, errAsync, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
@@ -19,7 +19,7 @@ async function consumeImportStream(
   importer: EvmImporter,
   params: ImportParams
 ): Promise<Result<ImportRunResult, Error>> {
-  const allTransactions: ExternalTransaction[] = [];
+  const allTransactions: RawTransactionInput[] = [];
   const cursorUpdates: Record<string, CursorState> = {};
 
   for await (const batchResult of importer.importStreaming(params)) {
@@ -206,7 +206,7 @@ describe('EvmImporter', () => {
           providerName: 'alchemy',
           sourceAddress: address,
           transactionTypeHint: 'normal',
-          rawData: mockNormalTx,
+          providerData: mockNormalTx,
           normalizedData: { id: mockNormalTx.hash },
         });
         expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
@@ -216,7 +216,7 @@ describe('EvmImporter', () => {
           providerName: 'alchemy',
           sourceAddress: address,
           transactionTypeHint: 'internal',
-          rawData: mockInternalTx,
+          providerData: mockInternalTx,
           normalizedData: { id: mockInternalTx.hash },
         });
         expect(result.value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
@@ -226,7 +226,7 @@ describe('EvmImporter', () => {
           providerName: 'alchemy',
           sourceAddress: address,
           transactionTypeHint: 'token',
-          rawData: mockTokenTx,
+          providerData: mockTokenTx,
           normalizedData: { id: mockTokenTx.hash },
         });
         expect(result.value.rawTransactions[2]?.externalId).toMatch(/^[a-f0-9]{64}$/);
@@ -337,8 +337,8 @@ describe('EvmImporter', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(2);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual(mockNormalTx);
-        expect(result.value.rawTransactions[1]!.rawData).toEqual({ ...mockNormalTx, hash: '0x789' });
+        expect(result.value.rawTransactions[0]!.providerData).toEqual(mockNormalTx);
+        expect(result.value.rawTransactions[1]!.providerData).toEqual({ ...mockNormalTx, hash: '0x789' });
       }
     });
   });

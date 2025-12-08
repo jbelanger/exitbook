@@ -54,14 +54,11 @@ export interface ImportSessionsTable {
 
   // Session results
   transactions_imported: number;
-  transactions_failed: number;
+  transactions_skipped: number;
 
   // Error handling
   error_message: string | null;
   error_details: JSONString | null;
-
-  // Import metadata
-  import_result_metadata: JSONString;
 
   // Audit trail
   created_at: DateTime;
@@ -70,25 +67,27 @@ export interface ImportSessionsTable {
 
 /**
  * External transaction data table - stores unprocessed transaction data from sources
+ * Scoped by account - each account owns its raw transaction data
  */
-export interface ExternalTransactionDataTable {
+export interface RawTransactionTable {
   created_at: DateTime;
 
   id: Generated<number>;
   // Foreign key relationship
-  import_session_id: number; // FK to import_sessions.id
+  account_id: number; // FK to accounts.id
 
   provider_name: string;
 
   // Transaction identification
   external_id: string; // Unique transaction ID from exchange/blockchain
+  blockchain_transaction_hash: string | null; // On-chain transaction hash for deduplication (null for exchange transactions)
 
   // Source metadata
   source_address: string | null; // For blockchain transactions (wallet address)
   transaction_type_hint: string | null; // For exchange transactions (e.g., 'deposit', 'withdrawal', 'spot_order')
 
   // Data storage
-  raw_data: JSONString; // Raw data from source
+  provider_data: JSONString; // Raw data from source
   normalized_data: JSONString; // Normalized data
 
   // Processing status
@@ -100,12 +99,13 @@ export interface ExternalTransactionDataTable {
 /**
  * Transactions table - stores transactions from all sources with standardized structure
  * Using TEXT for decimal values to preserve precision
+ * Scoped by account - each account owns its processed transactions
  */
 export interface TransactionsTable {
   // Core identification
   id: Generated<number>;
-  import_session_id: number; // FK to import_sessions.id
-  source_id: string;
+  account_id: number; // FK to accounts.id
+  source_name: string;
   source_type: SourceType;
   external_id: string | null; // hash, transaction ID, etc.
 
@@ -260,7 +260,7 @@ export interface TransactionLinksTable {
   asset: string; // Transferred asset symbol (e.g., 'BTC', 'ETH')
   source_amount: DecimalString; // Gross outflow amount (before fees deducted)
   target_amount: DecimalString; // Net received amount (after fees)
-  link_type: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange';
+  link_type: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange' | 'blockchain_internal';
   confidence_score: DecimalString; // 0-1
   match_criteria_json: JSONString; // MatchCriteria
   status: 'suggested' | 'confirmed' | 'rejected';
@@ -307,7 +307,7 @@ export interface DatabaseSchema {
   accounts: AccountsTable;
   acquisition_lots: AcquisitionLotsTable;
   cost_basis_calculations: CostBasisCalculationsTable;
-  external_transaction_data: ExternalTransactionDataTable;
+  raw_transactions: RawTransactionTable;
   import_sessions: ImportSessionsTable;
   lot_disposals: LotDisposalsTable;
   lot_transfers: LotTransfersTable;

@@ -1,4 +1,4 @@
-import { Currency, type AssetMovement, type UniversalTransaction } from '@exitbook/core';
+import { Currency, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
@@ -93,7 +93,10 @@ export class LotMatcher {
    * @param config - Matching configuration
    * @returns Result containing lots and disposals grouped by asset
    */
-  async match(transactions: UniversalTransaction[], config: LotMatcherConfig): Promise<Result<LotMatchResult, Error>> {
+  async match(
+    transactions: UniversalTransactionData[],
+    config: LotMatcherConfig
+  ): Promise<Result<LotMatchResult, Error>> {
     try {
       // Validate all transactions have prices
       const missingPrices = filterTransactionsWithoutPrices(transactions);
@@ -161,7 +164,7 @@ export class LotMatcher {
    */
   private async matchAsset(
     asset: string,
-    transactions: UniversalTransaction[],
+    transactions: UniversalTransactionData[],
     config: LotMatcherConfig,
     linkIndex: LinkIndex
   ): Promise<Result<AssetLotMatchResult, Error>> {
@@ -274,15 +277,15 @@ export class LotMatcher {
   }
 
   private sortTransactionsWithLogicalOrdering(
-    transactions: UniversalTransaction[],
+    transactions: UniversalTransactionData[],
     links: TransactionLink[]
-  ): UniversalTransaction[] {
+  ): UniversalTransactionData[] {
     const dependencyGraph = buildDependencyGraph(links);
     return sortWithLogicalOrdering(transactions, dependencyGraph);
   }
 
   private handleTransferSource(
-    tx: UniversalTransaction,
+    tx: UniversalTransactionData,
     outflow: AssetMovement,
     link: TransactionLink,
     lots: AcquisitionLot[],
@@ -357,7 +360,7 @@ export class LotMatcher {
    * that inherits cost basis from the source lot transfers and adds fiat fees.
    */
   private async handleTransferTarget(
-    tx: UniversalTransaction,
+    tx: UniversalTransactionData,
     inflow: AssetMovement,
     link: TransactionLink,
     lotTransfers: LotTransfer[],

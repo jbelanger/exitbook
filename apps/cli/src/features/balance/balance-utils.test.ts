@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { ImportSession, UniversalTransaction } from '@exitbook/core';
+import type { ImportSession, UniversalTransactionData } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -354,9 +354,8 @@ describe('sortSessionsByCompletedDate', () => {
         id: 1,
         accountId: 1,
         status: 'completed',
-        importResultMetadata: {},
         transactionsImported: 10,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
         createdAt: new Date('2024-01-01T00:00:00Z'),
         startedAt: new Date('2024-01-01T00:00:00Z'),
         completedAt: new Date('2024-01-01T01:00:00Z'),
@@ -366,9 +365,8 @@ describe('sortSessionsByCompletedDate', () => {
         id: 2,
         accountId: 1,
         status: 'completed',
-        importResultMetadata: {},
         transactionsImported: 20,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
         createdAt: new Date('2024-01-02T00:00:00Z'),
         startedAt: new Date('2024-01-02T00:00:00Z'),
         completedAt: new Date('2024-01-02T01:00:00Z'),
@@ -378,9 +376,8 @@ describe('sortSessionsByCompletedDate', () => {
         id: 3,
         accountId: 1,
         status: 'completed',
-        importResultMetadata: {},
         transactionsImported: 30,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
         createdAt: new Date('2024-01-03T00:00:00Z'),
         startedAt: new Date('2024-01-03T00:00:00Z'),
         completedAt: new Date('2024-01-03T01:00:00Z'),
@@ -401,24 +398,22 @@ describe('sortSessionsByCompletedDate', () => {
         id: 1,
         accountId: 1,
         status: 'completed',
-        importResultMetadata: {},
         createdAt: new Date('2024-01-01T00:00:00Z'),
         startedAt: new Date('2024-01-01T00:00:00Z'),
         completedAt: new Date('2024-01-02T01:00:00Z'),
         durationMs: 60000,
         transactionsImported: 10,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
       },
       {
         id: 2,
         accountId: 1,
         status: 'started',
-        importResultMetadata: {},
         createdAt: new Date('2024-01-02T00:00:00Z'),
         startedAt: new Date('2024-01-02T00:00:00Z'),
         durationMs: undefined,
         transactionsImported: 20,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
       },
     ];
 
@@ -434,25 +429,23 @@ describe('sortSessionsByCompletedDate', () => {
         id: 1,
         accountId: 1,
         status: 'completed',
-        importResultMetadata: {},
         createdAt: new Date('2024-01-01T00:00:00Z'),
         startedAt: new Date('2024-01-01T00:00:00Z'),
         completedAt: new Date('2024-01-01T01:00:00Z'),
         durationMs: 60000,
         transactionsImported: 10,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
       },
       {
         id: 2,
         accountId: 1,
         status: 'completed',
-        importResultMetadata: {},
         createdAt: new Date('2024-01-02T00:00:00Z'),
         startedAt: new Date('2024-01-02T00:00:00Z'),
         completedAt: new Date('2024-01-02T01:00:00Z'),
         durationMs: 60000,
         transactionsImported: 20,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
       },
     ];
 
@@ -470,36 +463,33 @@ describe('findMostRecentCompletedSession', () => {
         id: 1,
         accountId: 1,
         status: 'completed',
-        importResultMetadata: {},
         createdAt: new Date('2024-01-01T00:00:00Z'),
         startedAt: new Date('2024-01-01T00:00:00Z'),
         completedAt: new Date('2024-01-01T01:00:00Z'),
         durationMs: 60000,
         transactionsImported: 10,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
       },
       {
         id: 2,
         accountId: 1,
         status: 'completed',
-        importResultMetadata: {},
         createdAt: new Date('2024-01-02T00:00:00Z'),
         startedAt: new Date('2024-01-02T00:00:00Z'),
         completedAt: new Date('2024-01-02T01:00:00Z'),
         durationMs: 60000,
         transactionsImported: 20,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
       },
       {
         id: 3,
         accountId: 1,
         status: 'started',
-        importResultMetadata: {},
         createdAt: new Date('2024-01-03T00:00:00Z'),
         startedAt: new Date('2024-01-03T00:00:00Z'),
         durationMs: undefined,
         transactionsImported: 30,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
       },
     ];
 
@@ -514,12 +504,11 @@ describe('findMostRecentCompletedSession', () => {
         id: 1,
         accountId: 1,
         status: 'started',
-        importResultMetadata: {},
         createdAt: new Date('2024-01-01T00:00:00Z'),
         startedAt: new Date('2024-01-01T00:00:00Z'),
         durationMs: undefined,
         transactionsImported: 10,
-        transactionsFailed: 0,
+        transactionsSkipped: 0,
       },
     ];
 
@@ -634,9 +623,10 @@ describe('subtractExcludedAmounts', () => {
 
 describe('sumExcludedInflowAmounts', () => {
   it('should sum inflow amounts from excluded transactions', () => {
-    const transactions: UniversalTransaction[] = [
+    const transactions: UniversalTransactionData[] = [
       {
         id: 1,
+        accountId: 1,
         externalId: 'tx1',
         datetime: '2024-01-01T00:00:00Z',
         timestamp: new Date('2024-01-01T00:00:00Z').getTime(),
@@ -654,6 +644,7 @@ describe('sumExcludedInflowAmounts', () => {
       },
       {
         id: 2,
+        accountId: 1,
         externalId: 'tx2',
         datetime: '2024-01-02T00:00:00Z',
         timestamp: new Date('2024-01-02T00:00:00Z').getTime(),
@@ -668,6 +659,7 @@ describe('sumExcludedInflowAmounts', () => {
       },
       {
         id: 3,
+        accountId: 1,
         externalId: 'tx3',
         datetime: '2024-01-03T00:00:00Z',
         timestamp: new Date('2024-01-03T00:00:00Z').getTime(),
@@ -690,9 +682,10 @@ describe('sumExcludedInflowAmounts', () => {
   });
 
   it('should handle transactions with no inflows', () => {
-    const transactions: UniversalTransaction[] = [
+    const transactions: UniversalTransactionData[] = [
       {
         id: 1,
+        accountId: 1,
         externalId: 'tx1',
         datetime: '2024-01-01T00:00:00Z',
         timestamp: new Date('2024-01-01T00:00:00Z').getTime(),
@@ -719,9 +712,10 @@ describe('sumExcludedInflowAmounts', () => {
   });
 
   it('should only sum excluded transactions', () => {
-    const transactions: UniversalTransaction[] = [
+    const transactions: UniversalTransactionData[] = [
       {
         id: 1,
+        accountId: 1,
         externalId: 'tx1',
         datetime: '2024-01-01T00:00:00Z',
         timestamp: new Date('2024-01-01T00:00:00Z').getTime(),
@@ -736,6 +730,7 @@ describe('sumExcludedInflowAmounts', () => {
       },
       {
         id: 2,
+        accountId: 1,
         externalId: 'tx2',
         datetime: '2024-01-02T00:00:00Z',
         timestamp: new Date('2024-01-02T00:00:00Z').getTime(),
@@ -756,9 +751,10 @@ describe('sumExcludedInflowAmounts', () => {
   });
 
   it('should handle transactions with undefined inflows', () => {
-    const transactions: UniversalTransaction[] = [
+    const transactions: UniversalTransactionData[] = [
       {
         id: 1,
+        accountId: 1,
         externalId: 'tx1',
         datetime: '2024-01-01T00:00:00Z',
         timestamp: new Date('2024-01-01T00:00:00Z').getTime(),

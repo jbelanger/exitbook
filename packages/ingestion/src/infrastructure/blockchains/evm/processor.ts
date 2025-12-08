@@ -1,10 +1,10 @@
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
-import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, okAsync, ok, type Result } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
 import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.js';
+import type { ProcessedTransaction, ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import {
@@ -28,20 +28,8 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
   protected async processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: Record<string, unknown>
-  ): Promise<Result<UniversalTransaction[], string>> {
-    if (!sessionMetadata) {
-      return err('Missing session metadata for normalized processing');
-    }
-
-    const userAddress = sessionMetadata.address;
-    if (!userAddress || typeof userAddress !== 'string') {
-      return err('Missing user address in session metadata');
-    }
-
-    // Normalize address to lowercase for consistency with transaction addresses
-    const normalizedUserAddress = userAddress.toLowerCase();
-
+    context: ProcessingContext
+  ): Promise<Result<ProcessedTransaction[], string>> {
     this.logger.info(`Processing ${normalizedData.length} normalized ${this.chainConfig.chainName} transactions`);
 
     // Enrich token metadata before processing (required for proper decimal normalization)
@@ -56,13 +44,11 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       `Created ${transactionGroups.size} transaction groups for correlation on ${this.chainConfig.chainName}`
     );
 
-    const transactions: UniversalTransaction[] = [];
+    const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; hash: string; txCount: number }[] = [];
 
     for (const [hash, txGroup] of transactionGroups) {
-      // Pass normalized address in metadata for consistent comparison
-      const normalizedMetadata = { ...sessionMetadata, address: normalizedUserAddress };
-      const fundFlowResult = analyzeEvmFundFlow(txGroup, normalizedMetadata, this.chainConfig);
+      const fundFlowResult = analyzeEvmFundFlow(txGroup, context, this.chainConfig);
 
       if (fundFlowResult.isErr()) {
         const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;
@@ -94,11 +80,10 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       // 1. They have ANY outflows (sent funds, swapped, etc.) OR
       // 2. They initiated a contract interaction with no outflows (approval, state change, etc.)
       // Addresses already normalized to lowercase via EvmAddressSchema
-      const userInitiatedTransaction = (fundFlow.fromAddress || '') === normalizedUserAddress;
+      const userInitiatedTransaction = (fundFlow.fromAddress || '') === context.primaryAddress;
       const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
-      const universalTransaction: UniversalTransaction = {
-        id: 0, // Will be assigned by database
+      const universalTransaction: ProcessedTransaction = {
         externalId: primaryTx.id,
         datetime: new Date(primaryTx.timestamp).toISOString(),
         timestamp: primaryTx.timestamp,
@@ -148,19 +133,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
           block_height: primaryTx.blockHeight,
           transaction_hash: primaryTx.id,
           is_confirmed: primaryTx.status === 'success',
-        },
-
-        // Minimal metadata - only provider-specific data
-        metadata: {
-          blockId: primaryTx.blockId,
-          chainId: this.chainConfig.chainId,
-          correlatedTxCount: fundFlow.transactionCount,
-          hasContractInteraction: fundFlow.hasContractInteraction,
-          hasInternalTransactions: fundFlow.hasInternalTransactions,
-          hasTokenTransfers: fundFlow.hasTokenTransfers,
-          providerName: primaryTx.providerName,
-          tokenAddress: fundFlow.primary.tokenAddress,
-          tokenDecimals: fundFlow.primary.tokenDecimals,
         },
       };
 

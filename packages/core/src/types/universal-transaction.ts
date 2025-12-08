@@ -8,8 +8,8 @@ import type {
   PriceAtTxTimeSchema,
   TransactionNoteSchema,
   TransactionStatusSchema,
-  UniversalTransactionSchema,
   FeeMovementSchema,
+  UniversalTransactionSchema,
 } from '../schemas/universal-transaction.js';
 
 export type MovementDirection = z.infer<typeof MovementDirectionSchema>;
@@ -39,4 +39,4 @@ export interface OperationClassification {
  * Used by processors before persistence
  * Write-side
  */
-export type UniversalTransaction = z.infer<typeof UniversalTransactionSchema>;
+export type UniversalTransactionData = z.infer<typeof UniversalTransactionSchema>;

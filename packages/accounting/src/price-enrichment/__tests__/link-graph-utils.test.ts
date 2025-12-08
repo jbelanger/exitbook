@@ -5,7 +5,7 @@
  * using the Union-Find algorithm according to the "Functional Core, Imperative Shell" pattern
  */
 
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
@@ -17,9 +17,10 @@ function createTx(
   id: number,
   source: string,
   options: { blockchain?: string; datetime?: string } = {}
-): UniversalTransaction {
-  const base: UniversalTransaction = {
+): UniversalTransactionData {
+  const base: UniversalTransactionData = {
     id,
+    accountId: 1,
     externalId: `ext-${id}`,
     source,
     datetime: options.datetime ?? '2023-01-01T00:00:00Z',
@@ -48,13 +49,13 @@ function createTx(
 
 // Helper to create transaction links
 function createLink(
-  sourceId: number,
+  sourceName: number,
   targetId: number,
   status: 'suggested' | 'confirmed' | 'rejected' = 'confirmed'
 ): TransactionLink {
   return {
-    id: `link-${sourceId}-${targetId}`,
-    sourceTransactionId: sourceId,
+    id: `link-${sourceName}-${targetId}`,
+    sourceTransactionId: sourceName,
     targetTransactionId: targetId,
     asset: 'BTC',
     sourceAmount: parseDecimal('1.0'),

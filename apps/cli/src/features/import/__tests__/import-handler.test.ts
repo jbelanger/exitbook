@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 import type { ImportOrchestrator, TransactionProcessService } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
@@ -21,6 +22,7 @@ vi.mock('@exitbook/ingestion', () => ({
   TokenMetadataService: vi.fn(),
   TransactionProcessService: vi.fn(),
   TransactionRepository: vi.fn(),
+  getBlockchainAdapter: vi.fn(),
 }));
 
 vi.mock('@exitbook/data', async (importOriginal) => {
@@ -49,7 +51,7 @@ describe('ImportHandler', () => {
     };
 
     mockProcessService = {
-      processRawDataToTransactions: vi.fn(),
+      processAllPending: vi.fn(),
     };
 
     handler = new ImportHandler(
@@ -68,8 +70,13 @@ describe('ImportHandler', () => {
 
       (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
-          importSessionId: 123,
+          id: 123,
+          accountId: 1,
+          status: 'completed',
+          startedAt: new Date(),
           transactionsImported: 50,
+          transactionsSkipped: 0,
+          createdAt: new Date(),
         })
       );
 
@@ -77,8 +84,17 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
-        importSessionId: 123,
-        imported: 50,
+        sessions: [
+          {
+            id: 123,
+            accountId: 1,
+            status: 'completed',
+            startedAt: expect.any(Date),
+            transactionsImported: 50,
+            transactionsSkipped: 0,
+            createdAt: expect.any(Date),
+          },
+        ],
       });
 
       expect(mockImportOrchestrator.importBlockchain).toHaveBeenCalledWith('bitcoin', 'bc1qtest', undefined, undefined);
@@ -93,8 +109,13 @@ describe('ImportHandler', () => {
 
       (mockImportOrchestrator.importExchangeCsv as Mock).mockResolvedValue(
         ok({
-          importSessionId: 456,
+          id: 456,
+          accountId: 2,
+          status: 'completed',
+          startedAt: new Date(),
           transactionsImported: 100,
+          transactionsSkipped: 0,
+          createdAt: new Date(),
         })
       );
 
@@ -102,8 +123,17 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
-        importSessionId: 456,
-        imported: 100,
+        sessions: [
+          {
+            id: 456,
+            accountId: 2,
+            status: 'completed',
+            startedAt: expect.any(Date),
+            transactionsImported: 100,
+            transactionsSkipped: 0,
+            createdAt: expect.any(Date),
+          },
+        ],
       });
 
       expect(mockImportOrchestrator.importExchangeCsv).toHaveBeenCalledWith('kraken', ['./data/kraken']);
@@ -147,12 +177,17 @@ describe('ImportHandler', () => {
 
       (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
-          importSessionId: 123,
+          id: 123,
+          accountId: 1,
+          status: 'completed',
+          startedAt: new Date(),
           transactionsImported: 50,
+          transactionsSkipped: 0,
+          createdAt: new Date(),
         })
       );
 
-      (mockProcessService.processRawDataToTransactions as Mock).mockResolvedValue(
+      (mockProcessService.processAllPending as Mock).mockResolvedValue(
         ok({
           processed: 50,
           errors: [],
@@ -163,15 +198,22 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
-        importSessionId: 123,
-        imported: 50,
+        sessions: [
+          {
+            id: 123,
+            accountId: 1,
+            status: 'completed',
+            startedAt: expect.any(Date),
+            transactionsImported: 50,
+            transactionsSkipped: 0,
+            createdAt: expect.any(Date),
+          },
+        ],
         processed: 50,
         processingErrors: [],
       });
 
-      expect(mockProcessService.processRawDataToTransactions).toHaveBeenCalledWith('bitcoin', 'blockchain', {
-        importSessionId: 123,
-      });
+      expect(mockProcessService.processAllPending).toHaveBeenCalled();
     });
 
     it('should return processing errors when present', async () => {
@@ -184,13 +226,18 @@ describe('ImportHandler', () => {
 
       (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
-          importSessionId: 123,
+          id: 123,
+          accountId: 1,
+          status: 'completed',
+          startedAt: new Date(),
           transactionsImported: 50,
+          transactionsSkipped: 0,
+          createdAt: new Date(),
         })
       );
 
       const processingErrors = ['Error 1', 'Error 2', 'Error 3'];
-      (mockProcessService.processRawDataToTransactions as Mock).mockResolvedValue(
+      (mockProcessService.processAllPending as Mock).mockResolvedValue(
         ok({
           processed: 47,
           errors: processingErrors,
@@ -201,8 +248,17 @@ describe('ImportHandler', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({
-        importSessionId: 123,
-        imported: 50,
+        sessions: [
+          {
+            id: 123,
+            accountId: 1,
+            status: 'completed',
+            startedAt: expect.any(Date),
+            transactionsImported: 50,
+            transactionsSkipped: 0,
+            createdAt: expect.any(Date),
+          },
+        ],
         processed: 47,
         processingErrors,
       });
@@ -240,7 +296,7 @@ describe('ImportHandler', () => {
       );
 
       const processingError = new Error('Processing failed');
-      (mockProcessService.processRawDataToTransactions as Mock).mockResolvedValue(err(processingError));
+      (mockProcessService.processAllPending as Mock).mockResolvedValue(err(processingError));
 
       const result = await handler.execute(params);
 

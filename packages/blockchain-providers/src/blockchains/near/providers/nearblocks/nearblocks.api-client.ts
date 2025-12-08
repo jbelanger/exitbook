@@ -456,7 +456,7 @@ export class NearBlocksApiClient extends BaseApiClient {
     // Map and normalize transactions with enrichment
     const transactions: TransactionWithRawData<NearTransaction>[] = [];
     for (const rawTx of allTransactions) {
-      const mapResult = mapNearBlocksTransaction(rawTx, { providerName: this.name });
+      const mapResult = mapNearBlocksTransaction(rawTx);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -997,7 +997,7 @@ export class NearBlocksApiClient extends BaseApiClient {
       fetchPage,
       mapItem: (raw) => {
         // Map the base transaction
-        const mapResult = mapNearBlocksTransaction(raw, { providerName: this.name });
+        const mapResult = mapNearBlocksTransaction(raw);
 
         if (mapResult.isErr()) {
           const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

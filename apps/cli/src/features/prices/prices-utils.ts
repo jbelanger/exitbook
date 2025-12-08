@@ -1,7 +1,7 @@
 // Pure business logic for prices command
 // All functions are pure and testable
 
-import { Currency, type UniversalTransaction } from '@exitbook/core';
+import { Currency, type UniversalTransactionData } from '@exitbook/core';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import type { PriceQuery } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
@@ -72,7 +72,7 @@ export function validateAssetFilter(asset: string | string[] | undefined): Resul
  * Filters out fiat currencies as they don't need price fetching
  * Treats 'fiat-execution-tentative' prices as still needing fetch (fallback for Stage 2 failures)
  */
-export function extractAssetsNeedingPrices(tx: UniversalTransaction): Result<string[], Error> {
+export function extractAssetsNeedingPrices(tx: UniversalTransactionData): Result<string[], Error> {
   // Check movements
   const inflows = tx.movements.inflows ?? [];
   const outflows = tx.movements.outflows ?? [];
@@ -123,7 +123,7 @@ export function extractAssetsNeedingPrices(tx: UniversalTransaction): Result<str
  * Always fetches prices in USD regardless of transaction currency
  */
 export function createPriceQuery(
-  tx: UniversalTransaction,
+  tx: UniversalTransactionData,
   asset: string,
   targetCurrency = 'USD'
 ): Result<PriceQuery, Error> {

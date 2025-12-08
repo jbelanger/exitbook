@@ -1,4 +1,4 @@
-import type { CursorState, ExternalTransaction } from '@exitbook/core';
+import type { CursorState, RawTransactionInput } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 /**
@@ -33,7 +33,7 @@ export interface BalanceSnapshot {
  * Result of fetching transaction data from exchange
  */
 export interface FetchTransactionDataResult {
-  transactions: ExternalTransaction[];
+  transactions: RawTransactionInput[];
   cursorUpdates: Record<string, CursorState>;
 }
 
@@ -42,7 +42,7 @@ export interface FetchTransactionDataResult {
  */
 export interface FetchBatchResult {
   // Transactions in this batch
-  transactions: ExternalTransaction[];
+  transactions: RawTransactionInput[];
   // Operation type (e.g., "ledger", "trade", "deposit")
   operationType: string;
   // Cursor state for this operation type

@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
-import type { AssetMovement, FeeMovement, UniversalTransaction, TransactionStatus } from '@exitbook/core';
+import type { AssetMovement, FeeMovement, TransactionStatus, UniversalTransactionData } from '@exitbook/core';
 import {
   AssetMovementSchema,
   FeeMovementSchema,
@@ -49,27 +49,18 @@ function normalizeMovement(movement: AssetMovement): Result<AssetMovement, Error
 
 /**
  * Kysely-based repository for transaction database operations.
- * Handles storage and retrieval of UniversalTransaction entities using type-safe queries.
+ * Handles storage and retrieval of UniversalTransactionData entities using type-safe queries.
  */
 export class TransactionRepository extends BaseRepository implements ITransactionRepository {
   constructor(db: KyselyDB) {
     super(db, 'TransactionRepository');
   }
 
-  async save(transaction: UniversalTransaction, importSessionId: number) {
-    return this.saveTransaction(transaction, importSessionId);
-  }
-
-  async saveTransaction(transaction: UniversalTransaction, importSessionId: number) {
+  async save(
+    transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
+    accountId: number
+  ): Promise<Result<number, Error>> {
     try {
-      // Validate metadata before saving
-      if (transaction.metadata !== undefined) {
-        const metadataValidation = TransactionMetadataSchema.safeParse(transaction.metadata);
-        if (!metadataValidation.success) {
-          return err(new Error(`Invalid transaction metadata: ${metadataValidation.error.message}`));
-        }
-      }
-
       // Validate note metadata before saving
       if (transaction.note?.metadata !== undefined) {
         const noteMetadataValidation = NoteMetadataSchema.safeParse(transaction.note.metadata);
@@ -107,18 +98,16 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         .insertInto('transactions')
         .values({
           created_at: this.getCurrentDateTimeForDB(),
-          external_id: (transaction.metadata?.hash ||
-            transaction.externalId ||
-            generateDeterministicTransactionHash(transaction)) as string,
+          external_id: transaction.externalId || generateDeterministicTransactionHash(transaction),
           from_address: transaction.from,
-          import_session_id: importSessionId,
+          account_id: accountId,
           note_message: transaction.note?.message,
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
           note_severity: transaction.note?.severity,
           note_type: transaction.note?.type,
           excluded_from_accounting: transaction.excludedFromAccounting ?? transaction.note?.type === 'SCAM_TOKEN',
           raw_normalized_data: rawDataJson,
-          source_id: transaction.source,
+          source_name: transaction.source,
           source_type: transaction.blockchain ? 'blockchain' : 'exchange',
           to_address: transaction.to,
           transaction_datetime: transaction.datetime
@@ -144,39 +133,34 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           blockchain_is_confirmed: transaction.blockchain?.is_confirmed,
         })
         .onConflict((oc) =>
-          oc.columns(['import_session_id', 'external_id']).doUpdateSet({
-            from_address: (eb) => eb.ref('excluded.from_address'),
-            note_message: (eb) => eb.ref('excluded.note_message'),
-            note_metadata: (eb) => eb.ref('excluded.note_metadata'),
-            note_severity: (eb) => eb.ref('excluded.note_severity'),
-            note_type: (eb) => eb.ref('excluded.note_type'),
-            excluded_from_accounting: (eb) => eb.ref('excluded.excluded_from_accounting'),
-            raw_normalized_data: (eb) => eb.ref('excluded.raw_normalized_data'),
-            to_address: (eb) => eb.ref('excluded.to_address'),
-            transaction_datetime: (eb) => eb.ref('excluded.transaction_datetime'),
-            transaction_status: (eb) => eb.ref('excluded.transaction_status'),
-            updated_at: new Date().toISOString(),
-
-            // Structured movements
-            movements_inflows: (eb) => eb.ref('excluded.movements_inflows'),
-            movements_outflows: (eb) => eb.ref('excluded.movements_outflows'),
-
-            // Structured fees
-            fees: (eb) => eb.ref('excluded.fees'),
-
-            // Enhanced operation classification
-            operation_category: (eb) => eb.ref('excluded.operation_category'),
-            operation_type: (eb) => eb.ref('excluded.operation_type'),
-
-            // Blockchain metadata
-            blockchain_name: (eb) => eb.ref('excluded.blockchain_name'),
-            blockchain_block_height: (eb) => eb.ref('excluded.blockchain_block_height'),
-            blockchain_transaction_hash: (eb) => eb.ref('excluded.blockchain_transaction_hash'),
-            blockchain_is_confirmed: (eb) => eb.ref('excluded.blockchain_is_confirmed'),
-          })
+          // For blockchain transactions, conflict on unique index (account_id, blockchain_transaction_hash)
+          // For exchange transactions, we don't have a unique constraint, so this won't trigger
+          oc.doNothing()
         )
         .returning('id')
-        .executeTakeFirstOrThrow();
+        .executeTakeFirst();
+
+      // If no result, the insert was skipped due to a conflict (duplicate transaction)
+      // Find and return the existing transaction's ID
+      if (!result) {
+        // For blockchain transactions, look up by blockchain_transaction_hash
+        if (transaction.blockchain?.transaction_hash) {
+          const existing = await this.db
+            .selectFrom('transactions')
+            .select('id')
+            .where('account_id', '=', accountId)
+            .where('blockchain_transaction_hash', '=', transaction.blockchain.transaction_hash)
+            .executeTakeFirst();
+
+          if (existing) {
+            return ok(existing.id);
+          }
+        }
+
+        // If we couldn't find the existing transaction, return an error
+        // This should not happen in normal operation
+        return err(new Error('Transaction insert skipped due to conflict, but existing transaction not found'));
+      }
 
       return ok(result.id);
     } catch (error) {
@@ -184,56 +168,14 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransaction[], Error>> {
+  async getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransactionData[], Error>> {
     try {
-      // Enforce that sessionStatus requires accountId or non-empty accountIds for proper tenant scoping
-      if (filters?.sessionStatus !== undefined) {
-        const hasAccountId = filters.accountId !== undefined;
-        const hasAccountIds = filters.accountIds !== undefined && filters.accountIds.length > 0;
-
-        if (!hasAccountId && !hasAccountIds) {
-          return err(
-            new Error(
-              'sessionStatus filter requires accountId or accountIds to be set for proper account scoping. ' +
-                'Use { accountId: X, sessionStatus: "completed" } or { accountIds: [X, Y], sessionStatus: "completed" }.'
-            )
-          );
-        }
-      }
-
-      // If filtering by account or session status, first get matching session IDs
-      let sessionIds: number[] | undefined;
-      if (
-        filters &&
-        (filters.accountId !== undefined || filters.accountIds !== undefined || filters.sessionStatus !== undefined)
-      ) {
-        let sessionQuery = this.db.selectFrom('import_sessions').select('id');
-
-        if (filters.accountId !== undefined) {
-          sessionQuery = sessionQuery.where('account_id', '=', filters.accountId);
-        } else if (filters.accountIds !== undefined && filters.accountIds.length > 0) {
-          sessionQuery = sessionQuery.where('account_id', 'in', filters.accountIds);
-        }
-
-        if (filters.sessionStatus !== undefined) {
-          sessionQuery = sessionQuery.where('status', '=', filters.sessionStatus);
-        }
-
-        const sessions = await sessionQuery.execute();
-        sessionIds = sessions.map((s) => s.id);
-
-        // If no matching sessions found, return empty array
-        if (sessionIds.length === 0) {
-          return ok([]);
-        }
-      }
-
       let query = this.db.selectFrom('transactions').selectAll();
 
       // Add WHERE conditions if provided
       if (filters) {
-        if (filters.sourceId) {
-          query = query.where('source_id', '=', filters.sourceId);
+        if (filters.sourceName) {
+          query = query.where('source_name', '=', filters.sourceName);
         }
 
         if (filters.since) {
@@ -242,11 +184,10 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           query = query.where('created_at', '>=', sinceDate as unknown as string);
         }
 
-        if (filters.sessionId !== undefined) {
-          query = query.where('import_session_id', '=', filters.sessionId);
-        } else if (sessionIds !== undefined) {
-          // Use the session IDs from account/status filtering
-          query = query.where('import_session_id', 'in', sessionIds);
+        if (filters.accountId !== undefined) {
+          query = query.where('account_id', '=', filters.accountId);
+        } else if (filters.accountIds !== undefined && filters.accountIds.length > 0) {
+          query = query.where('account_id', 'in', filters.accountIds);
         }
       }
 
@@ -262,7 +203,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       const rows = await query.execute();
 
       // Convert rows to domain models, failing fast on any parse errors
-      const transactions: UniversalTransaction[] = [];
+      const transactions: UniversalTransactionData[] = [];
       for (const row of rows) {
         const result = this.toUniversalTransaction(row);
         if (result.isErr()) {
@@ -271,42 +212,18 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         transactions.push(result.value);
       }
 
-      // Deduplicate by (source_id, external_id) when aggregating across multiple sessions
-      // This prevents double-counting if the same transaction appears in multiple sessions
-      if (sessionIds !== undefined && sessionIds.length > 1) {
-        const seen = new Set<string>();
-        const deduplicated: UniversalTransaction[] = [];
-
-        for (const tx of transactions) {
-          const key = `${tx.source}:${tx.externalId}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            deduplicated.push(tx);
-          }
-        }
-
-        if (deduplicated.length < transactions.length) {
-          const duplicateCount = transactions.length - deduplicated.length;
-          this.logger.warn(
-            `Deduplication removed ${duplicateCount} duplicate transaction(s) when aggregating across ${sessionIds.length} sessions`
-          );
-        }
-
-        return ok(deduplicated);
-      }
-
       return ok(transactions);
     } catch (error) {
       return wrapError(error, 'Failed to retrieve transactions');
     }
   }
 
-  async findById(id: number): Promise<Result<UniversalTransaction | null, Error>> {
+  async findById(id: number): Promise<Result<UniversalTransactionData | undefined, Error>> {
     try {
       const row = await this.db.selectFrom('transactions').selectAll().where('id', '=', id).executeTakeFirst();
 
       if (!row) {
-        return ok(null);
+        return ok(undefined);
       }
 
       const result = this.toUniversalTransaction(row);
@@ -324,7 +241,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
    * Find transactions with movements or fees that need price data
    * Optionally filter by specific asset(s)
    */
-  async findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransaction[], Error>> {
+  async findTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransactionData[], Error>> {
     try {
       const query = this.db
         .selectFrom('transactions')
@@ -339,7 +256,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       const rows = await query.execute();
 
       // Convert rows to domain models
-      const transactions: UniversalTransaction[] = [];
+      const transactions: UniversalTransactionData[] = [];
       for (const row of rows) {
         const result = this.toUniversalTransaction(row);
         if (result.isErr()) {
@@ -382,7 +299,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
    * Update a transaction's movements and fees with enriched price data
    * @param transaction - The enriched transaction with price data
    */
-  async updateMovementsWithPrices(transaction: UniversalTransaction): Promise<Result<void, Error>> {
+  async updateMovementsWithPrices(transaction: UniversalTransactionData): Promise<Result<void, Error>> {
     try {
       const inflows = transaction.movements.inflows ?? [];
       const outflows = transaction.movements.outflows ?? [];
@@ -415,9 +332,9 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async deleteBySource(sourceId: string): Promise<Result<number, Error>> {
+  async deleteBySource(sourceName: string): Promise<Result<number, Error>> {
     try {
-      const result = await this.db.deleteFrom('transactions').where('source_id', '=', sourceId).executeTakeFirst();
+      const result = await this.db.deleteFrom('transactions').where('source_name', '=', sourceName).executeTakeFirst();
       return ok(Number(result.numDeletedRows));
     } catch (error) {
       return wrapError(error, 'Failed to delete transactions by source');
@@ -436,35 +353,40 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async countByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
+  /**
+   * Count transactions by account IDs
+   * Filters transactions WHERE account_id IN (accountIds)
+   */
+  async countByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (importSessionIds.length === 0) {
+      if (accountIds.length === 0) {
         return ok(0);
       }
 
       const result = await this.db
         .selectFrom('transactions')
         .select(({ fn }) => [fn.count<number>('id').as('count')])
-        .where('import_session_id', 'in', importSessionIds)
+        .where('account_id', 'in', accountIds)
         .executeTakeFirst();
       return ok(result?.count ?? 0);
     } catch (error) {
-      return wrapError(error, 'Failed to count transactions by import session IDs');
+      return wrapError(error, 'Failed to count transactions by account IDs');
     }
   }
 
-  async deleteByDataSourceIds(importSessionIds: number[]): Promise<Result<number, Error>> {
+  /**
+   * Delete transactions by account IDs
+   * Deletes transactions WHERE account_id IN (accountIds)
+   */
+  async deleteByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
-      if (importSessionIds.length === 0) {
+      if (accountIds.length === 0) {
         return ok(0);
       }
-      const result = await this.db
-        .deleteFrom('transactions')
-        .where('import_session_id', 'in', importSessionIds)
-        .executeTakeFirst();
+      const result = await this.db.deleteFrom('transactions').where('account_id', 'in', accountIds).executeTakeFirst();
       return ok(Number(result.numDeletedRows));
     } catch (error) {
-      return wrapError(error, 'Failed to delete transactions by import session IDs');
+      return wrapError(error, 'Failed to delete transactions by account IDs');
     }
   }
 
@@ -478,9 +400,9 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   }
 
   /**
-   * Convert database row to UniversalTransaction domain model
+   * Convert database row to UniversalTransactionData domain model
    */
-  private toUniversalTransaction(row: Selectable<TransactionsTable>): Result<UniversalTransaction, Error> {
+  private toUniversalTransaction(row: Selectable<TransactionsTable>): Result<UniversalTransactionData, Error> {
     // Parse timestamp from datetime
     const datetime = row.transaction_datetime;
     const timestamp = new Date(datetime).getTime();
@@ -510,13 +432,14 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
     const status: TransactionStatus = row.transaction_status;
 
-    // Build UniversalTransaction
-    const transaction: UniversalTransaction = {
+    // Build UniversalTransactionData
+    const transaction: UniversalTransactionData = {
       id: row.id,
-      externalId: row.external_id ?? `${row.source_id}-${row.id}`,
+      accountId: row.account_id,
+      externalId: row.external_id ?? `${row.source_name}-${row.id}`,
       datetime,
       timestamp,
-      source: row.source_id,
+      source: row.source_name,
       status,
       from: row.from_address ?? undefined,
       to: row.to_address ?? undefined,
@@ -529,7 +452,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         category: row.operation_category ?? 'transfer',
         type: row.operation_type ?? 'transfer',
       },
-      metadata: metadataResult.value,
       excludedFromAccounting: row.excluded_from_accounting ? true : undefined,
     };
 

@@ -1,4 +1,3 @@
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.js';
@@ -21,7 +20,6 @@ import type { MoralisTransaction, MoralisTokenTransfer } from './moralis.schemas
  */
 export function mapMoralisTransaction(
   rawData: MoralisTransaction,
-  _sourceContext: ImportSessionMetadata,
   nativeCurrency?: string
 ): Result<EvmTransaction, NormalizationError> {
   const currency = nativeCurrency || 'UNKNOWN';
@@ -62,10 +60,7 @@ export function mapMoralisTransaction(
  * Maps Moralis token transfer event to normalized EvmTransaction
  * Input data is pre-validated by HTTP client schema validation
  */
-export function mapMoralisTokenTransfer(
-  rawData: MoralisTokenTransfer,
-  _sourceContext: ImportSessionMetadata
-): Result<EvmTransaction, NormalizationError> {
+export function mapMoralisTokenTransfer(rawData: MoralisTokenTransfer): Result<EvmTransaction, NormalizationError> {
   const timestamp = new Date(rawData.block_timestamp).getTime();
 
   // Parse token decimals

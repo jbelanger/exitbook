@@ -93,15 +93,16 @@ async function executeViewAccountsCommand(options: ExtendedViewAccountsCommandOp
     });
 
     // Initialize repositories and service
-    const { initializeDatabase, closeDatabase, AccountRepository, UserRepository } = await import('@exitbook/data');
-    const { ImportSessionRepository, AccountService } = await import('@exitbook/ingestion');
+    const { initializeDatabase, closeDatabase, AccountRepository, UserRepository, ImportSessionRepository } =
+      await import('@exitbook/data');
+    const { AccountService } = await import('@exitbook/ingestion');
 
     const database = await initializeDatabase();
     const accountRepo = new AccountRepository(database);
-    const dataSourceRepo = new ImportSessionRepository(database);
+    const sessionRepo = new ImportSessionRepository(database);
     const userRepo = new UserRepository(database);
 
-    const accountService = new AccountService(accountRepo, dataSourceRepo, userRepo);
+    const accountService = new AccountService(accountRepo, sessionRepo, userRepo);
     const handler = new ViewAccountsHandler(accountService);
 
     const result = await handler.execute(params);

@@ -1,5 +1,4 @@
 import { isErrorWithMessage } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result, err } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.ts';
@@ -24,10 +23,7 @@ import type { SolscanTransaction } from './solscan.schemas.js';
  * Map Solscan transaction to normalized SolanaTransaction
  * Input is already validated by HTTP client, output validated here
  */
-export function mapSolscanTransaction(
-  rawData: SolscanTransaction,
-  _sourceContext: ImportSessionMetadata
-): Result<SolanaTransaction, NormalizationError> {
+export function mapSolscanTransaction(rawData: SolscanTransaction): Result<SolanaTransaction, NormalizationError> {
   try {
     const fee = lamportsToSol(rawData.fee);
 

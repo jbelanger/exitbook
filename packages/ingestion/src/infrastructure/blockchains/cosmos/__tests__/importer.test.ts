@@ -6,7 +6,7 @@
 import type { CosmosTransaction } from '@exitbook/blockchain-providers';
 import { type CosmosChainConfig, type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
-import type { CursorState, ExternalTransaction, PaginationCursor } from '@exitbook/core';
+import type { CursorState, RawTransactionInput, PaginationCursor } from '@exitbook/core';
 import { err, errAsync, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
@@ -20,7 +20,7 @@ async function consumeImportStream(
   importer: CosmosImporter,
   params: ImportParams
 ): Promise<Result<ImportRunResult, Error>> {
-  const allTransactions: ExternalTransaction[] = [];
+  const allTransactions: RawTransactionInput[] = [];
   const cursorUpdates: Record<string, CursorState> = {};
 
   for await (const batchResult of importer.importStreaming(params)) {
@@ -209,7 +209,7 @@ describe('CosmosImporter', () => {
           providerName: 'injective-explorer',
           sourceAddress: address,
           normalizedData: mockCosmosTransaction,
-          rawData: { block_timestamp: mockCosmosTransaction.timestamp, id: mockCosmosTransaction.id },
+          providerData: { block_timestamp: mockCosmosTransaction.timestamp, id: mockCosmosTransaction.id },
         });
         expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
       }

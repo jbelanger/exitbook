@@ -1,51 +1,22 @@
 import type { BitcoinTransaction } from '@exitbook/blockchain-providers';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, ok } from 'neverthrow';
+
+import type { ProcessingContext } from '../../../types/processors.js';
 
 import type { BitcoinFundFlow } from './types.js';
 
 /**
- * Deduplicates transactions by transaction hash, keeping the first occurrence.
- *
- * Handles xpub imports where the same on-chain transaction appears across multiple
- * derived addresses. Each address imports the transaction separately, but they all
- * represent the same blockchain event (identified by transaction hash).
- */
-export function deduplicateByTransactionHash(transactions: BitcoinTransaction[]): BitcoinTransaction[] {
-  const seen = new Set<string>();
-  const deduplicated: BitcoinTransaction[] = [];
-
-  for (const tx of transactions) {
-    if (!seen.has(tx.id)) {
-      seen.add(tx.id);
-      deduplicated.push(tx);
-    }
-  }
-
-  return deduplicated;
-}
-
-/**
  * Analyze fund flow from normalized Bitcoin transaction with structured input/output data.
+ * Per-address UTXO model: only considers the single address being processed.
  */
 export function analyzeBitcoinFundFlow(
   normalizedTx: BitcoinTransaction,
-  sessionMetadata: Record<string, unknown>
+  context: ProcessingContext
 ): Result<BitcoinFundFlow, string> {
-  if (!sessionMetadata.address || typeof sessionMetadata.address !== 'string') {
-    return err('Missing user address in session metadata');
-  }
+  // Per-address mode: only check this single address
+  const walletAddress = context.primaryAddress;
 
-  // Convert all wallet addresses to lowercase for case-insensitive comparison
-  // Include primary address and any derived addresses from xpub/HD wallet sessions
-  const allWalletAddresses = new Set(
-    [
-      sessionMetadata.address.toLowerCase(),
-      ...(Array.isArray(sessionMetadata.derivedAddresses)
-        ? sessionMetadata.derivedAddresses.filter((addr): addr is string => typeof addr === 'string')
-        : []
-      ).map((addr) => addr.toLowerCase()),
-    ].filter(Boolean)
-  );
+  const addressSet = new Set([walletAddress]);
 
   let totalInput = 0;
   let totalOutput = 0;
@@ -58,7 +29,7 @@ export function analyzeBitcoinFundFlow(
     totalInput += value;
 
     // Address already normalized by BitcoinAddressSchema
-    if (input.address && allWalletAddresses.has(input.address)) {
+    if (input.address && addressSet.has(input.address)) {
       walletInput += value;
     }
   }
@@ -69,7 +40,7 @@ export function analyzeBitcoinFundFlow(
     totalOutput += value;
 
     // Address already normalized by BitcoinAddressSchema
-    if (output.address && allWalletAddresses.has(output.address)) {
+    if (output.address && addressSet.has(output.address)) {
       walletOutput += value;
     }
   }
@@ -81,11 +52,11 @@ export function analyzeBitcoinFundFlow(
   // Determine primary addresses for from/to fields
   // Addresses already normalized by BitcoinAddressSchema
   const fromAddress = isOutgoing
-    ? normalizedTx.inputs.find((input) => input.address && allWalletAddresses.has(input.address))?.address
+    ? normalizedTx.inputs.find((input) => input.address && addressSet.has(input.address))?.address
     : normalizedTx.inputs[0]?.address;
 
   const toAddress = isIncoming
-    ? normalizedTx.outputs.find((output) => output.address && allWalletAddresses.has(output.address))?.address
+    ? normalizedTx.outputs.find((output) => output.address && addressSet.has(output.address))?.address
     : normalizedTx.outputs[0]?.address;
 
   return ok({
@@ -103,35 +74,17 @@ export function analyzeBitcoinFundFlow(
 
 /**
  * Determine transaction type from fund flow analysis.
+ * Per-address UTXO model: returns generic 'transfer' type.
+ *
+ * Without derivedAddresses, we can't reliably distinguish:
+ * - External deposit vs internal change receipt
+ * - External withdrawal vs internal send to sibling address
+ *
+ * Solution: Use generic 'transfer' type for all UTXO movements.
+ * Transaction linking can later provide semantic classification if needed.
+ *
+ * Note: operation_type is display metadata only - doesn't affect balance/cost basis calculations.
  */
-export function determineBitcoinTransactionType(
-  fundFlow: BitcoinFundFlow,
-  _sessionMetadata: Record<string, unknown>
-): 'deposit' | 'withdrawal' | 'transfer' | 'fee' {
-  const { isIncoming, isOutgoing, walletInput, walletOutput } = fundFlow;
-
-  // Check if this is a fee-only transaction
-  const walletInputNum = parseFloat(walletInput);
-  const walletOutputNum = parseFloat(walletOutput);
-  const netAmount = Math.abs(walletOutputNum - walletInputNum);
-
-  if (netAmount < 0.00001 && walletInputNum > 0) {
-    // Very small net change with wallet involvement
-    return 'fee';
-  }
-
-  // Determine transaction type based on fund flow direction
-  if (isIncoming && isOutgoing) {
-    // Both incoming and outgoing - internal transfer or self-send with change
-    return 'transfer';
-  } else if (isIncoming && !isOutgoing) {
-    // Only incoming - deposit
-    return 'deposit';
-  } else if (!isIncoming && isOutgoing) {
-    // Only outgoing - withdrawal
-    return 'withdrawal';
-  } else {
-    // Neither incoming nor outgoing - shouldn't happen but default to transfer
-    return 'transfer';
-  }
+export function determineBitcoinTransactionType(_fundFlow: BitcoinFundFlow, _context: ProcessingContext): 'transfer' {
+  return 'transfer';
 }

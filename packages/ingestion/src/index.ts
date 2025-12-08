@@ -38,16 +38,9 @@ export {
 export type { BalanceComparison, BalanceVerificationResult } from './services/balance/balance-verifier.types.js';
 
 // Types
-export type { ImportResult, ImportParams } from './types/importers.js';
-export type {
-  IRawDataRepository,
-  IImportSessionRepository as IDataSourceRepository,
-  LoadRawDataFilters,
-} from './types/repositories.js';
+export type { ImportParams } from './types/importers.js';
 
 // Concrete implementations
-export { RawDataRepository } from './persistence/raw-data-repository.js';
-export { ImportSessionRepository as ImportSessionRepository } from './persistence/import-session-repository.js';
 
 // Blockchain configuration
 export {

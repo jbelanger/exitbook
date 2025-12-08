@@ -48,10 +48,9 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('completed_at', 'text')
     .addColumn('duration_ms', 'integer')
     .addColumn('transactions_imported', 'integer', (col) => col.notNull().defaultTo(0))
-    .addColumn('transactions_failed', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('transactions_skipped', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('error_message', 'text')
     .addColumn('error_details', 'text')
-    .addColumn('import_result_metadata', 'text', (col) => col.notNull().defaultTo('{}'))
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
     .execute();
@@ -59,16 +58,17 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
   // Create index on account_id for fast lookup
   await db.schema.createIndex('idx_import_sessions_account_id').on('import_sessions').column('account_id').execute();
 
-  // Create external_transaction_data table
+  // Create raw_transactions table
   await db.schema
-    .createTable('external_transaction_data')
+    .createTable('raw_transactions')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('import_session_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
+    .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
     .addColumn('provider_name', 'text', (col) => col.notNull())
     .addColumn('external_id', 'text', (col) => col.notNull())
     .addColumn('source_address', 'text')
+    .addColumn('blockchain_transaction_hash', 'text')
     .addColumn('transaction_type_hint', 'text')
-    .addColumn('raw_data', 'text', (col) => col.notNull())
+    .addColumn('provider_data', 'text', (col) => col.notNull())
     .addColumn('normalized_data', 'text', (col) => col.notNull())
     .addColumn('processing_status', 'text', (col) => col.notNull().defaultTo('pending'))
     .addColumn('processed_at', 'text')
@@ -76,20 +76,31 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .execute();
 
-  // Create unique index on (import_session_id, external_id) to prevent duplicates
-  await db.schema
-    .createIndex('idx_external_tx_session_external_id')
-    .on('external_transaction_data')
-    .columns(['import_session_id', 'external_id'])
-    .unique()
-    .execute();
+  // Create index on account_id for fast account-scoped queries
+  await db.schema.createIndex('idx_raw_tx_account_id').on('raw_transactions').column('account_id').execute();
+
+  // Create unique index on (account_id, blockchain_transaction_hash) to prevent duplicate blockchain transactions per account
+  // Only applies when blockchain_transaction_hash is not null (blockchain imports, not exchange imports)
+  await sql`
+    CREATE UNIQUE INDEX idx_raw_tx_account_blockchain_hash
+    ON raw_transactions(account_id, blockchain_transaction_hash)
+    WHERE blockchain_transaction_hash IS NOT NULL
+  `.execute(db);
+
+  // Create unique index on (account_id, external_id) to prevent duplicate exchange transactions per account
+  // Only applies when external_id is not null (exchange imports)
+  await sql`
+    CREATE UNIQUE INDEX idx_raw_tx_account_external_id
+    ON raw_transactions(account_id, external_id)
+    WHERE external_id IS NOT NULL
+  `.execute(db);
 
   // Create transactions table
   await db.schema
     .createTable('transactions')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('import_session_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
-    .addColumn('source_id', 'text', (col) => col.notNull())
+    .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
+    .addColumn('source_name', 'text', (col) => col.notNull())
     .addColumn('source_type', 'text', (col) => col.notNull())
     .addColumn('external_id', 'text')
     .addColumn('transaction_status', 'text', (col) => col.notNull().defaultTo('pending'))
@@ -119,14 +130,16 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('updated_at', 'text')
     .execute();
 
-  // Create unique index on (import_session_id, external_id) to prevent duplicate transactions within a session
-  // This allows different sessions to have their own perspective of the same blockchain transaction
-  await db.schema
-    .createIndex('idx_transactions_source_external_id')
-    .on('transactions')
-    .columns(['import_session_id', 'external_id'])
-    .unique()
-    .execute();
+  // Create index on account_id for fast account-scoped queries
+  await db.schema.createIndex('idx_transactions_account_id').on('transactions').column('account_id').execute();
+
+  // Create unique index on (account_id, blockchain_transaction_hash) to prevent duplicate blockchain transactions per account
+  // Only applies when blockchain_transaction_hash is not null (blockchain transactions, not exchange transactions)
+  await sql`
+    CREATE UNIQUE INDEX idx_transactions_account_blockchain_hash
+    ON transactions(account_id, blockchain_transaction_hash)
+    WHERE blockchain_transaction_hash IS NOT NULL
+  `.execute(db);
 
   // Create index for accounting exclusions (for fast filtering of scam tokens, test data, etc.)
   await db.schema
@@ -202,7 +215,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
 
   // Create indexes for transaction_links
   await db.schema
-    .createIndex('idx_tx_links_source_id')
+    .createIndex('idx_tx_links_source_name')
     .on('transaction_links')
     .column('source_transaction_id')
     .execute();
@@ -345,7 +358,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('token_metadata').execute();
   // Drop transaction-related tables
   await db.schema.dropTable('transactions').execute();
-  await db.schema.dropTable('external_transaction_data').execute();
+  await db.schema.dropTable('raw_transactions').execute();
   await db.schema.dropTable('import_sessions').execute();
   // Drop accounts and users tables
   await db.schema.dropIndex('idx_accounts_parent_account_id').execute();

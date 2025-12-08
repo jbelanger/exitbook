@@ -366,7 +366,7 @@ export class BlockCypherApiClient extends BaseApiClient {
       const rawTx = txResult.value;
 
       // Normalize transaction immediately using mapper
-      const mapResult = mapBlockCypherTransaction(rawTx, {}, this.chainConfig);
+      const mapResult = mapBlockCypherTransaction(rawTx, this.chainConfig);
 
       if (mapResult.isErr()) {
         // Fail fast - provider returned invalid data
@@ -482,7 +482,7 @@ export class BlockCypherApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapBlockCypherTransaction(raw, {}, this.chainConfig);
+        const mapped = mapBlockCypherTransaction(raw, this.chainConfig);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(

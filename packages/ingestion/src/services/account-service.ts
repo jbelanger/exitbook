@@ -1,9 +1,7 @@
 import type { Account } from '@exitbook/core';
-import type { AccountRepository, UserRepository } from '@exitbook/data';
+import type { AccountRepository, IImportSessionRepository, UserRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
-
-import type { IImportSessionRepository } from '../types/repositories.js';
 
 import type { AccountQueryParams, AccountQueryResult, SessionSummary } from './account-service-utils.js';
 import { formatAccount } from './account-service-utils.js';
@@ -24,7 +22,7 @@ export interface ViewAccountsParams extends AccountQueryParams {
 export class AccountService {
   constructor(
     private readonly accountRepo: AccountRepository,
-    private readonly dataSourceRepo: IImportSessionRepository,
+    private readonly sessionRepo: IImportSessionRepository,
     private readonly userRepo: UserRepository
   ) {}
 
@@ -130,7 +128,7 @@ export class AccountService {
    */
   private async fetchSessionCounts(accounts: Account[]): Promise<Result<Map<number, number>, Error>> {
     const accountIds = accounts.map((a) => a.id);
-    return this.dataSourceRepo.getSessionCountsByAccount(accountIds);
+    return this.sessionRepo.getSessionCountsByAccount(accountIds);
   }
 
   /**
@@ -140,7 +138,7 @@ export class AccountService {
     const accountIds = accounts.map((a) => a.id);
 
     // Fetch all sessions for all accounts in one query
-    const sessionsResult = await this.dataSourceRepo.findByAccounts(accountIds);
+    const sessionsResult = await this.sessionRepo.findByAccounts(accountIds);
     if (sessionsResult.isErr()) {
       return err(sessionsResult.error);
     }

@@ -1,11 +1,11 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { PaginationCursor } from '@exitbook/core';
+import type { IImportSessionRepository, IRawDataRepository } from '@exitbook/data';
 import type { IExchangeClient, BalanceSnapshot } from '@exitbook/exchanges-providers';
 import { errAsync, ok } from 'neverthrow';
 import { vi, type Mocked } from 'vitest';
 
 import type { ITokenMetadataService } from '../../services/token-metadata/token-metadata-service.interface.js';
-import type { IRawDataRepository, IImportSessionRepository } from '../../types/repositories.js';
 
 /**
  * Creates a mock raw data repository with default implementations.
@@ -17,7 +17,6 @@ export function createMockRawDataRepository(): Mocked<IRawDataRepository> {
     markAsProcessed: vi.fn().mockResolvedValue(ok()),
     save: vi.fn().mockResolvedValue(ok(1)),
     saveBatch: vi.fn().mockResolvedValue(ok(0)),
-    getValidRecords: vi.fn().mockResolvedValue(ok([])),
     resetProcessingStatusByAccount: vi.fn().mockResolvedValue(ok(0)),
     resetProcessingStatusAll: vi.fn().mockResolvedValue(ok(0)),
     countAll: vi.fn().mockResolvedValue(ok(0)),
@@ -31,7 +30,7 @@ export function createMockRawDataRepository(): Mocked<IRawDataRepository> {
  * Creates a mock import session repository with default implementations.
  * All methods return successful Results by default. Override specific methods as needed.
  */
-export function createMockDataSourceRepository(): Mocked<IImportSessionRepository> {
+export function createMockImportSessionRepository(): Mocked<IImportSessionRepository> {
   return {
     create: vi.fn().mockResolvedValue(ok(1)),
     finalize: vi.fn().mockResolvedValue(ok()),
@@ -39,7 +38,7 @@ export function createMockDataSourceRepository(): Mocked<IImportSessionRepositor
     findById: vi.fn().mockResolvedValue(ok()),
     findByAccount: vi.fn().mockResolvedValue(ok([])),
     findByAccounts: vi.fn().mockResolvedValue(ok([])),
-    getDataSourceIdsByAccounts: vi.fn().mockResolvedValue(ok([])),
+    getImportSessionIdsByAccounts: vi.fn().mockResolvedValue(ok([])),
     getSessionCountsByAccount: vi.fn().mockResolvedValue(ok(new Map())),
     findLatestIncomplete: vi.fn().mockResolvedValue(ok(undefined)),
     update: vi.fn().mockResolvedValue(ok()),

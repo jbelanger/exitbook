@@ -372,7 +372,7 @@ export class HeliusApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
     for (const rawTx of uniqueTransactions.values()) {
-      const mapResult = mapHeliusTransaction(rawTx, {});
+      const mapResult = mapHeliusTransaction(rawTx);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -414,7 +414,7 @@ export class HeliusApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
     for (const rawTx of tokenResult.value) {
-      const mapResult = mapHeliusTransaction(rawTx, {});
+      const mapResult = mapHeliusTransaction(rawTx);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -704,7 +704,7 @@ export class HeliusApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapHeliusTransaction(raw, {});
+        const mapped = mapHeliusTransaction(raw);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(
@@ -860,7 +860,7 @@ export class HeliusApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapHeliusTransaction(raw, {});
+        const mapped = mapHeliusTransaction(raw);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(

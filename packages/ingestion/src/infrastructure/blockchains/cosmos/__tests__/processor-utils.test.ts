@@ -176,7 +176,11 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'native',
       };
 
-      const fundFlow = analyzeFundFlowFromNormalized(transaction, USER_ADDRESS, INJECTIVE_CONFIG);
+      const fundFlow = analyzeFundFlowFromNormalized(
+        transaction,
+        { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
+        INJECTIVE_CONFIG
+      );
 
       expect(fundFlow.fromAddress).toBe(EXTERNAL_ADDRESS);
       expect(fundFlow.toAddress).toBe(USER_ADDRESS);
@@ -210,7 +214,11 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'native',
       };
 
-      const fundFlow = analyzeFundFlowFromNormalized(transaction, USER_ADDRESS, INJECTIVE_CONFIG);
+      const fundFlow = analyzeFundFlowFromNormalized(
+        transaction,
+        { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
+        INJECTIVE_CONFIG
+      );
 
       expect(fundFlow.fromAddress).toBe(USER_ADDRESS);
       expect(fundFlow.toAddress).toBe(EXTERNAL_ADDRESS);
@@ -237,7 +245,11 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'native',
       };
 
-      const fundFlow = analyzeFundFlowFromNormalized(transaction, USER_ADDRESS, INJECTIVE_CONFIG);
+      const fundFlow = analyzeFundFlowFromNormalized(
+        transaction,
+        { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
+        INJECTIVE_CONFIG
+      );
 
       expect(fundFlow.fromAddress).toBe(USER_ADDRESS);
       expect(fundFlow.toAddress).toBe(USER_ADDRESS);
@@ -267,7 +279,11 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'cw20',
       };
 
-      const fundFlow = analyzeFundFlowFromNormalized(transaction, USER_ADDRESS, INJECTIVE_CONFIG);
+      const fundFlow = analyzeFundFlowFromNormalized(
+        transaction,
+        { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
+        INJECTIVE_CONFIG
+      );
 
       expect(fundFlow.inflows).toHaveLength(1);
       expect(fundFlow.inflows[0]?.asset).toBe('USDT');
@@ -297,7 +313,11 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'native',
       };
 
-      const fundFlow = analyzeFundFlowFromNormalized(transaction, USER_ADDRESS, INJECTIVE_CONFIG);
+      const fundFlow = analyzeFundFlowFromNormalized(
+        transaction,
+        { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
+        INJECTIVE_CONFIG
+      );
 
       expect(fundFlow.hasBridgeTransfer).toBe(true);
       expect(fundFlow.hasIbcTransfer).toBe(false);
@@ -324,7 +344,11 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'ibc',
       };
 
-      const fundFlow = analyzeFundFlowFromNormalized(transaction, USER_ADDRESS, INJECTIVE_CONFIG);
+      const fundFlow = analyzeFundFlowFromNormalized(
+        transaction,
+        { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
+        INJECTIVE_CONFIG
+      );
 
       expect(fundFlow.hasBridgeTransfer).toBe(true);
       expect(fundFlow.hasIbcTransfer).toBe(true);
@@ -350,7 +374,11 @@ describe('Cosmos Processor Utils', () => {
         tokenType: 'native',
       };
 
-      const fundFlow = analyzeFundFlowFromNormalized(transaction, USER_ADDRESS, INJECTIVE_CONFIG);
+      const fundFlow = analyzeFundFlowFromNormalized(
+        transaction,
+        { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
+        INJECTIVE_CONFIG
+      );
 
       expect(fundFlow.inflows).toHaveLength(0);
       expect(fundFlow.outflows).toHaveLength(0);
@@ -376,7 +404,10 @@ describe('Cosmos Processor Utils', () => {
 
       const fundFlow = analyzeFundFlowFromNormalized(
         transaction,
-        'osmo1user000000000000000000000000000000000',
+        {
+          primaryAddress: 'osmo1user000000000000000000000000000000000',
+          userAddresses: ['osmo1user000000000000000000000000000000000'],
+        },
         OSMOSIS_CONFIG
       );
 
@@ -401,7 +432,11 @@ describe('Cosmos Processor Utils', () => {
         tokenAddress: 'inj1contract0000000000000000000000000000',
       };
 
-      const fundFlow = analyzeFundFlowFromNormalized(transaction, USER_ADDRESS, INJECTIVE_CONFIG);
+      const fundFlow = analyzeFundFlowFromNormalized(
+        transaction,
+        { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
+        INJECTIVE_CONFIG
+      );
 
       expect(fundFlow.hasContractInteraction).toBe(true);
     });
@@ -422,7 +457,11 @@ describe('Cosmos Processor Utils', () => {
         // No feeAmount field
       };
 
-      const fundFlow = analyzeFundFlowFromNormalized(transaction, USER_ADDRESS, INJECTIVE_CONFIG);
+      const fundFlow = analyzeFundFlowFromNormalized(
+        transaction,
+        { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] },
+        INJECTIVE_CONFIG
+      );
 
       expect(fundFlow.feeAmount).toBe('0');
       expect(fundFlow.feeCurrency).toBe('INJ');

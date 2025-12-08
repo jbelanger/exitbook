@@ -1,5 +1,4 @@
 import { parseDecimal } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { type Result } from 'neverthrow';
 
@@ -197,10 +196,7 @@ function enrichWithGasFees(transaction: EvmTransaction, rawData: AlchemyAssetTra
  * Maps Alchemy asset transfer to normalized EvmTransaction
  * Input data is pre-validated by HTTP client schema validation
  */
-export function mapAlchemyTransaction(
-  rawData: AlchemyAssetTransfer,
-  _sourceContext: ImportSessionMetadata
-): Result<EvmTransaction, NormalizationError> {
+export function mapAlchemyTransaction(rawData: AlchemyAssetTransfer): Result<EvmTransaction, NormalizationError> {
   const { amount, currency, tokenType } = extractAmountAndCurrency(rawData);
   const timestamp = rawData.metadata.blockTimestamp.getTime();
   const transactionType = determineTransactionType(rawData.category);

@@ -39,7 +39,10 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -82,7 +85,10 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -122,7 +128,10 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -166,7 +175,10 @@ describe('SubstrateProcessor - Staking Operations', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -179,8 +191,6 @@ describe('SubstrateProcessor - Staking Operations', () => {
     expect(transaction.operation.type).toBe('stake');
     expect(transaction.movements.outflows?.length).toBe(1);
     expect(transaction.movements.inflows?.length).toBe(0);
-    expect(transaction.metadata?.module).toBe('staking');
-    expect(transaction.metadata?.call).toBe('bond');
   });
 
   test('classifies unbond operation as staking_withdrawal', async () => {
@@ -204,7 +214,10 @@ describe('SubstrateProcessor - Staking Operations', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -217,7 +230,6 @@ describe('SubstrateProcessor - Staking Operations', () => {
     expect(transaction.operation.type).toBe('unstake');
     expect(transaction.movements.inflows?.length).toBe(1);
     expect(transaction.movements.outflows?.length).toBe(0);
-    expect(transaction.metadata?.call).toBe('unbond');
   });
 
   test('classifies withdraw_unbonded as staking_withdrawal', async () => {
@@ -241,7 +253,10 @@ describe('SubstrateProcessor - Staking Operations', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
@@ -274,7 +289,10 @@ describe('SubstrateProcessor - Staking Operations', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -290,7 +308,6 @@ describe('SubstrateProcessor - Staking Operations', () => {
     expect(transaction.movements.outflows?.length).toBe(0);
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('staking_operation');
-    expect(transaction.metadata?.call).toBe('nominate');
   });
 
   test('classifies incoming staking reward as staking_reward', async () => {
@@ -312,7 +329,10 @@ describe('SubstrateProcessor - Staking Operations', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -350,7 +370,10 @@ describe('SubstrateProcessor - Governance Operations', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -363,8 +386,6 @@ describe('SubstrateProcessor - Governance Operations', () => {
     expect(transaction.operation.type).toBe('proposal');
     expect(transaction.movements.outflows?.length).toBe(1);
     expect(transaction.movements.inflows?.length).toBe(0);
-    expect(transaction.metadata?.module).toBe('democracy');
-    expect(transaction.metadata?.call).toBe('propose');
   });
 
   test('classifies incoming treasury payout as governance_refund', async () => {
@@ -386,7 +407,10 @@ describe('SubstrateProcessor - Governance Operations', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -399,7 +423,6 @@ describe('SubstrateProcessor - Governance Operations', () => {
     expect(transaction.operation.type).toBe('refund');
     expect(transaction.movements.inflows?.length).toBe(1);
     expect(transaction.movements.outflows?.length).toBe(0);
-    expect(transaction.metadata?.module).toBe('treasury');
   });
 
   test('detects council module as governance', async () => {
@@ -423,7 +446,10 @@ describe('SubstrateProcessor - Governance Operations', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -436,8 +462,6 @@ describe('SubstrateProcessor - Governance Operations', () => {
     expect(transaction.operation.type).toBe('vote');
     expect(transaction.movements.outflows?.length).toBe(1);
     expect(transaction.movements.inflows?.length).toBe(0);
-    expect(transaction.metadata?.module).toBe('council');
-    expect(transaction.metadata?.call).toBe('vote');
   });
 });
 
@@ -463,7 +487,10 @@ describe('SubstrateProcessor - Utility Operations', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -481,8 +508,6 @@ describe('SubstrateProcessor - Utility Operations', () => {
     expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed() ?? '0').toBe('0.0256');
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('batch_operation');
-    expect(transaction.metadata?.module).toBe('utility');
-    expect(transaction.metadata?.call).toBe('batch');
   });
 
   test('detects batch_all as utility batch', async () => {
@@ -506,7 +531,10 @@ describe('SubstrateProcessor - Utility Operations', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -520,7 +548,6 @@ describe('SubstrateProcessor - Utility Operations', () => {
     expect(transaction.operation.type).toBe('transfer');
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('batch_operation');
-    expect(transaction.metadata?.call).toBe('batch_all');
   });
 });
 
@@ -545,7 +572,10 @@ describe('SubstrateProcessor - Proxy Operations', () => {
         to: EXTERNAL_ADDRESS,
       },
     ];
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -562,8 +592,6 @@ describe('SubstrateProcessor - Proxy Operations', () => {
     expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('proxy_operation');
-    expect(transaction.metadata?.module).toBe('proxy');
-    expect(transaction.metadata?.call).toBe('proxy');
   });
 });
 
@@ -589,7 +617,10 @@ describe('SubstrateProcessor - Multisig Operations', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -606,8 +637,6 @@ describe('SubstrateProcessor - Multisig Operations', () => {
     expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('multisig_operation');
-    expect(transaction.metadata?.module).toBe('multisig');
-    expect(transaction.metadata?.call).toBe('approve_as_multi');
   });
 });
 
@@ -633,7 +662,10 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -646,7 +678,6 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     // User received, sender paid fee - no fee entry created when user didn't pay
     expect(transaction.fees.find((f) => f.scope === 'network')).toBeUndefined();
     expect(transaction.blockchain?.name).toBe('polkadot');
-    expect(transaction.metadata?.chainName).toBe('polkadot');
   });
 
   test('uses chain-specific native currency for Bittensor', async () => {
@@ -670,7 +701,10 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -683,7 +717,6 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     // User received, sender paid fee - no fee entry created when user didn't pay
     expect(transaction.fees.find((f) => f.scope === 'network')).toBeUndefined();
     expect(transaction.blockchain?.name).toBe('bittensor');
-    expect(transaction.metadata?.chainName).toBe('bittensor');
   });
 
   test('normalizes amounts using chain-specific decimals', async () => {
@@ -707,7 +740,10 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -742,7 +778,10 @@ describe('SubstrateProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -780,7 +819,10 @@ describe('SubstrateProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -822,7 +864,10 @@ describe('SubstrateProcessor - Event Tracking', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -834,40 +879,10 @@ describe('SubstrateProcessor - Event Tracking', () => {
     // Structured fields - verify basic operation
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    // Events are stored in metadata for tracking
-    expect(transaction.metadata?.events).toBeDefined();
-    expect(transaction.metadata?.events).toHaveLength(2);
   });
 });
 
 describe('SubstrateProcessor - Edge Cases', () => {
-  test('handles missing user address in session metadata', async () => {
-    const processor = createPolkadotProcessor();
-
-    const normalizedData: SubstrateTransaction[] = [
-      {
-        amount: '10000000000',
-        call: 'transfer',
-        chainName: 'polkadot',
-        currency: 'DOT',
-        from: EXTERNAL_ADDRESS,
-        id: 'extrinsic-121-1',
-        module: 'balances',
-        providerName: 'subscan',
-        status: 'success',
-        timestamp: Date.now(),
-        to: USER_ADDRESS,
-      },
-    ];
-
-    const result = await processor.process(normalizedData, { address: '' });
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toContain('Missing user address');
-    }
-  });
-
   test('handles missing fee data gracefully', async () => {
     const processor = createPolkadotProcessor();
 
@@ -888,7 +903,10 @@ describe('SubstrateProcessor - Edge Cases', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -918,7 +936,10 @@ describe('SubstrateProcessor - Edge Cases', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -930,9 +951,6 @@ describe('SubstrateProcessor - Edge Cases', () => {
     // Structured fields - missing fields get defaults
     expect(result.value[0].operation.category).toBe('transfer');
     expect(result.value[0].operation.type).toBe('deposit');
-    expect(result.value[0].metadata?.module).toBe('unknown');
-    expect(result.value[0].metadata?.call).toBe('unknown');
-    expect(result.value[0].metadata?.chainName).toBe('unknown');
   });
 
   test('processes multiple transactions independently', async () => {
@@ -983,7 +1001,10 @@ describe('SubstrateProcessor - Edge Cases', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1064,7 +1085,10 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1074,7 +1098,6 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
     // First transaction: bond (stake)
     expect(result.value[0]?.operation.category).toBe('staking');
     expect(result.value[0]?.operation.type).toBe('stake');
-    expect(result.value[0]?.metadata?.events).toHaveLength(2);
 
     // Second transaction: nominate (stake with no amount)
     expect(result.value[1]?.operation.category).toBe('staking');
@@ -1085,7 +1108,6 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
     // Third transaction: reward
     expect(result.value[2]?.operation.category).toBe('staking');
     expect(result.value[2]?.operation.type).toBe('reward');
-    expect(result.value[2]?.metadata?.events).toHaveLength(2);
   });
 
   test('handles utility batch with mixed operations', async () => {
@@ -1115,7 +1137,10 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1131,8 +1156,5 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
     expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('batch_operation');
-    expect(transaction.metadata?.module).toBe('utility');
-    expect(transaction.metadata?.call).toBe('batch');
-    expect(transaction.metadata?.events).toHaveLength(4);
   });
 });

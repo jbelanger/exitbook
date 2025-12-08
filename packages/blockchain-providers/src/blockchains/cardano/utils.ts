@@ -10,6 +10,37 @@ import type { CardanoAddressEra, CardanoWalletAddress, DerivedCardanoAddress } f
 const logger = getLogger('CardanoUtils');
 
 /**
+ * Normalize Cardano address based on address era and encoding.
+ *
+ * Normalization rules:
+ * - Extended public keys (128 hex chars): Case-sensitive, return as-is
+ * - Shelley Bech32 (addr1*, stake1*): Lowercase (Bech32 must be lowercase)
+ * - Byron Base58 (Ae2*, DdzFF*): Case-sensitive, return as-is
+ *
+ * @param address - Cardano address to normalize
+ * @returns Normalized address
+ */
+export function normalizeCardanoAddress(address: string): string {
+  // Handle extended public keys (128 hex characters)
+  if (/^[0-9a-fA-F]{128}$/.test(address)) {
+    return address;
+  }
+
+  // Handle Shelley-era Bech32 addresses (must be lowercase)
+  if (
+    address.toLowerCase().startsWith('addr1') ||
+    address.toLowerCase().startsWith('addr_test1') ||
+    address.toLowerCase().startsWith('stake1') ||
+    address.toLowerCase().startsWith('stake_test1')
+  ) {
+    return address.toLowerCase();
+  }
+
+  // Byron-era addresses (Base58) - case-sensitive, return as-is
+  return address;
+}
+
+/**
  * Convert lovelace (smallest unit) to ADA
  * 1 ADA = 1,000,000 lovelace
  */
@@ -141,7 +172,7 @@ export class CardanoUtils {
       const { Cardano } = await import('@cardano-sdk/core');
 
       // Parse the extended public key from hex
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any -- hard to import Bip32PublicKeyHex
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- hard to import Bip32PublicKeyHex
       const accountPublicKey = Bip32PublicKey.fromHex(xpub as any);
 
       const derivedAddresses: DerivedCardanoAddress[] = [];
@@ -149,26 +180,26 @@ export class CardanoUtils {
       // Derive the stake key at CIP-1852 path: account'/2/0
       // This single stake key is used for all addresses in the account
       const stakeKey = accountPublicKey.derive([2, 0]);
-      const stakeCredential = stakeKey.toRawKey().hash().hex();
+      const stakeCredential = stakeKey.toRawKey().hash().hex() as string;
 
       // Pre-derive role keys for both external (0) and internal (1)
       const externalRoleKey = accountPublicKey.derive([0]);
       const internalRoleKey = accountPublicKey.derive([1]);
 
-      // Derive enough addresses to support gap scanning with buffer for sparse usage
-      // BIP44: Derive in INTERLEAVED order: external[0], internal[0], external[1], internal[1], ...
-      // This ensures proper gap limit checking across both chains
-      const maxInterleavedDepth = Math.max(addressGap * 2, 40); // 2x buffer for sparse wallets, min 40 per chain
-
-      for (let i = 0; i < maxInterleavedDepth; i++) {
+      // Derive addresses in INTERLEAVED order: external[0], internal[0], external[1], internal[1], ...
+      // This ensures proper gap limit checking across both chains per BIP44 standard
+      // Derive exactly addressGap addresses per chain (external + internal)
+      for (let i = 0; i < addressGap; i++) {
         // Derive external address (role=0)
         const externalAddressKey = externalRoleKey.derive([i]);
-        const externalPaymentCredential = externalAddressKey.toRawKey().hash().hex();
+        const externalPaymentCredential = externalAddressKey.toRawKey().hash().hex() as string;
+        /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- Cardano SDK credential types */
         const externalBaseAddress = Cardano.BaseAddress.fromCredentials(
           Cardano.NetworkId.Mainnet,
-          { hash: externalPaymentCredential, type: Cardano.CredentialType.KeyHash },
-          { hash: stakeCredential, type: Cardano.CredentialType.KeyHash }
+          { hash: externalPaymentCredential as any, type: Cardano.CredentialType.KeyHash },
+          { hash: stakeCredential as any, type: Cardano.CredentialType.KeyHash }
         );
+        /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- Cardano SDK credential types */
         derivedAddresses.push({
           address: externalBaseAddress.toAddress().toBech32() as string,
           derivationPath: `0/${i}`,
@@ -177,12 +208,14 @@ export class CardanoUtils {
 
         // Derive internal address (role=1)
         const internalAddressKey = internalRoleKey.derive([i]);
-        const internalPaymentCredential = internalAddressKey.toRawKey().hash().hex();
+        const internalPaymentCredential = internalAddressKey.toRawKey().hash().hex() as string;
+        /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- Cardano SDK credential types */
         const internalBaseAddress = Cardano.BaseAddress.fromCredentials(
           Cardano.NetworkId.Mainnet,
-          { hash: internalPaymentCredential, type: Cardano.CredentialType.KeyHash },
-          { hash: stakeCredential, type: Cardano.CredentialType.KeyHash }
+          { hash: internalPaymentCredential as any, type: Cardano.CredentialType.KeyHash },
+          { hash: stakeCredential as any, type: Cardano.CredentialType.KeyHash }
         );
+        /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- Cardano SDK credential types */
         derivedAddresses.push({
           address: internalBaseAddress.toAddress().toBech32() as string,
           derivationPath: `1/${i}`,
@@ -248,8 +281,10 @@ export class CardanoUtils {
       walletAddress.derivationPath = "m/1852'/1815'/0'"; // CIP-1852 account level
       walletAddress.addressGap = addressGap;
 
-      // Derive addresses from xpub
-      const derivedAddressData = await CardanoUtils.deriveAddressesFromXpub(walletAddress.address, addressGap);
+      // Derive addresses from xpub with buffer for gap scanning
+      // Use 2x buffer for sparse wallets, minimum 40 addresses per chain
+      const scanDepth = Math.max(addressGap * 2, 40);
+      const derivedAddressData = await CardanoUtils.deriveAddressesFromXpub(walletAddress.address, scanDepth);
 
       // Extract just the address strings for storage
       const derivedAddresses = derivedAddressData.map((d) => d.address);

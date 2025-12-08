@@ -1,5 +1,5 @@
 import type { FeeMovement } from '@exitbook/core';
-import { Currency, type AssetMovement, type PriceAtTxTime, type UniversalTransaction } from '@exitbook/core';
+import { Currency, type AssetMovement, type PriceAtTxTime, type UniversalTransactionData } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -31,9 +31,10 @@ function createMockTransaction(
   datetime: string,
   movements: { inflows?: AssetMovement[]; outflows?: AssetMovement[] },
   fees: FeeMovement[] = []
-): UniversalTransaction {
+): UniversalTransactionData {
   return {
     id,
+    accountId: 1,
     externalId: `ext-${id}`,
     source: 'test',
     datetime,
@@ -110,7 +111,7 @@ function createPriceAtTxTime(amount: string, currency = 'USD'): PriceAtTxTime {
 
 function createTransactionLink(
   id: string,
-  sourceId: number,
+  sourceName: number,
   targetId: number,
   asset: string,
   sourceAmount: string,
@@ -119,7 +120,7 @@ function createTransactionLink(
 ): TransactionLink {
   return {
     id,
-    sourceTransactionId: sourceId,
+    sourceTransactionId: sourceName,
     targetTransactionId: targetId,
     asset,
     sourceAmount: new Decimal(sourceAmount),

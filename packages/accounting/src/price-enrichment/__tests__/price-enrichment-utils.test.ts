@@ -8,7 +8,7 @@
  */
 
 import { Currency, parseDecimal } from '@exitbook/core';
-import type { AssetMovement, FeeMovement, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
+import type { AssetMovement, FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { enrichFeePricesFromMovements, inferMultiPass, propagatePricesAcrossLinks } from '../price-enrichment-utils.js';
@@ -20,8 +20,9 @@ describe('inferMultiPass', () => {
     inflows: AssetMovement[],
     outflows: AssetMovement[],
     datetime = '2024-01-15T10:00:00Z'
-  ): UniversalTransaction => ({
+  ): UniversalTransactionData => ({
     id,
+    accountId: 1,
     externalId: `tx-${id}`,
     source: 'kraken',
     datetime,
@@ -30,7 +31,6 @@ describe('inferMultiPass', () => {
     operation: { category: 'transfer', type: 'transfer' },
     movements: { inflows, outflows },
     fees: [],
-    metadata: {},
   });
 
   const createPrice = (source: string, amount: string): PriceAtTxTime => ({
@@ -230,8 +230,9 @@ describe('propagatePricesAcrossLinks', () => {
     id: number,
     inflows: AssetMovement[],
     outflows: AssetMovement[]
-  ): UniversalTransaction => ({
+  ): UniversalTransactionData => ({
     id,
+    accountId: 1,
     externalId: `tx-${id}`,
     source: 'kraken',
     datetime: '2024-01-15T10:00:00Z',
@@ -240,7 +241,6 @@ describe('propagatePricesAcrossLinks', () => {
     operation: { category: 'transfer', type: 'withdrawal' },
     movements: { inflows, outflows },
     fees: [],
-    metadata: {},
   });
 
   const createPrice = (source: string, amount: string): PriceAtTxTime => ({
@@ -539,8 +539,9 @@ describe('enrichFeePricesFromMovements', () => {
     outflows: AssetMovement[],
     platformFee?: AssetMovement,
     networkFee?: FeeMovement
-  ): UniversalTransaction => ({
+  ): UniversalTransactionData => ({
     id,
+    accountId: 1,
     externalId: `tx-${id}`,
     source: 'kraken',
     datetime: '2024-01-15T10:00:00Z',
@@ -549,7 +550,6 @@ describe('enrichFeePricesFromMovements', () => {
     operation: { category: 'transfer', type: 'swap' },
     movements: { inflows, outflows },
     fees: [platformFee ?? undefined, networkFee ?? undefined].filter(Boolean) as FeeMovement[],
-    metadata: {},
   });
 
   const createPrice = (source: string, amount: string): PriceAtTxTime => ({

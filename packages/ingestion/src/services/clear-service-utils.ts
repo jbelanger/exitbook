@@ -28,7 +28,7 @@ export interface DeletionPreview {
  */
 export interface ResolvedAccount {
   account: Account;
-  sourceId: string;
+  sourceName: string;
 }
 
 /**
@@ -41,11 +41,11 @@ export function resolveAccountsForClear(
   accountsBySource: Account[]
 ): ResolvedAccount[] {
   if (params.accountId && accountById) {
-    return [{ account: accountById, sourceId: accountById.sourceName }];
+    return [{ account: accountById, sourceName: accountById.sourceName }];
   }
 
   if (params.source && accountsBySource.length > 0) {
-    return accountsBySource.map((account) => ({ account, sourceId: account.sourceName }));
+    return accountsBySource.map((account) => ({ account, sourceName: account.sourceName }));
   }
 
   return [];

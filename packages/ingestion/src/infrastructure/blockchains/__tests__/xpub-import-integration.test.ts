@@ -10,13 +10,17 @@
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
-import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
+import {
+  createDatabase,
+  ImportSessionRepository,
+  RawDataRepository,
+  runMigrations,
+  type KyselyDB,
+} from '@exitbook/data';
 import { AccountRepository, UserRepository } from '@exitbook/data';
 import { ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ImportSessionRepository } from '../../../persistence/import-session-repository.js';
-import { RawDataRepository } from '../../../persistence/raw-data-repository.js';
 import { ImportOrchestrator } from '../../../services/import-orchestrator.js';
 
 // Mock logger
@@ -71,7 +75,7 @@ describe('xpub import integration tests', () => {
   let userRepo: UserRepository;
   let accountRepo: AccountRepository;
   let rawDataRepo: RawDataRepository;
-  let dataSourceRepo: ImportSessionRepository;
+  let sessionRepo: ImportSessionRepository;
 
   beforeEach(async () => {
     // Create in-memory database
@@ -82,10 +86,10 @@ describe('xpub import integration tests', () => {
     userRepo = new UserRepository(db);
     accountRepo = new AccountRepository(db);
     rawDataRepo = new RawDataRepository(db);
-    dataSourceRepo = new ImportSessionRepository(db);
+    sessionRepo = new ImportSessionRepository(db);
 
     // Create orchestrator
-    orchestrator = new ImportOrchestrator(userRepo, accountRepo, rawDataRepo, dataSourceRepo, mockProviderManager);
+    orchestrator = new ImportOrchestrator(userRepo, accountRepo, rawDataRepo, sessionRepo, mockProviderManager);
 
     // Reset mocks
     mockDeriveAddresses.mockReset();
@@ -116,13 +120,15 @@ describe('xpub import integration tests', () => {
             {
               providerName: 'test-provider',
               externalId: 'tx1',
-              rawData: { txid: 'tx1', blockHeight: 100 },
+              blockchainTransactionHash: 'tx1',
+              providerData: { txid: 'tx1', blockHeight: 100 },
               normalizedData: { id: 'tx1', blockHeight: 100 },
             },
             {
               providerName: 'test-provider',
               externalId: 'tx2',
-              rawData: { txid: 'tx2', blockHeight: 101 },
+              blockchainTransactionHash: 'tx2',
+              providerData: { txid: 'tx2', blockHeight: 101 },
               normalizedData: { id: 'tx2', blockHeight: 101 },
             },
           ],
@@ -145,7 +151,11 @@ describe('xpub import integration tests', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.transactionsImported).toBe(4); // 2 addresses * 2 txs each
+        // Xpub returns array of ImportSessions
+        expect(Array.isArray(result.value)).toBe(true);
+        const sessions = result.value as { transactionsImported: number }[];
+        const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
+        expect(totalImported).toBe(4); // 2 addresses * 2 txs each
       }
 
       // Verify parent account was created
@@ -182,7 +192,8 @@ describe('xpub import integration tests', () => {
           rawTransactions: Array.from({ length: txCount }, (_, i) => ({
             providerName: 'test-provider',
             externalId: `tx-child${callCount}-${i}`,
-            rawData: { txid: `tx-child${callCount}-${i}`, blockHeight: 100 + i },
+            blockchainTransactionHash: `tx-child${callCount}-${i}`,
+            providerData: { txid: `tx-child${callCount}-${i}`, blockHeight: 100 + i },
             normalizedData: { id: `tx-child${callCount}-${i}`, blockHeight: 100 + i },
           })),
           operationType: 'normal',
@@ -225,19 +236,22 @@ describe('xpub import integration tests', () => {
             {
               providerName: 'test-provider',
               externalId: 'tx1',
-              rawData: { txid: 'tx1', blockHeight: 100 },
+              blockchainTransactionHash: 'tx1',
+              providerData: { txid: 'tx1', blockHeight: 100 },
               normalizedData: { id: 'tx1', blockHeight: 100 },
             },
             {
               providerName: 'test-provider',
               externalId: 'tx2',
-              rawData: { txid: 'tx2', blockHeight: 101 },
+              blockchainTransactionHash: 'tx2',
+              providerData: { txid: 'tx2', blockHeight: 101 },
               normalizedData: { id: 'tx2', blockHeight: 101 },
             },
             {
               providerName: 'test-provider',
               externalId: 'tx3',
-              rawData: { txid: 'tx3', blockHeight: 102 },
+              blockchainTransactionHash: 'tx3',
+              providerData: { txid: 'tx3', blockHeight: 102 },
               normalizedData: { id: 'tx3', blockHeight: 102 },
             },
           ],
@@ -255,7 +269,10 @@ describe('xpub import integration tests', () => {
 
       expect(firstResult.isOk()).toBe(true);
       if (firstResult.isOk()) {
-        expect(firstResult.value.transactionsImported).toBe(3);
+        expect(Array.isArray(firstResult.value)).toBe(true);
+        const sessions = firstResult.value as { transactionsImported: number }[];
+        const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
+        expect(totalImported).toBe(3);
       }
 
       // Verify cursor was stored
@@ -286,7 +303,10 @@ describe('xpub import integration tests', () => {
 
       expect(secondResult.isOk()).toBe(true);
       if (secondResult.isOk()) {
-        expect(secondResult.value.transactionsImported).toBe(0); // 0 new transactions on resume
+        expect(Array.isArray(secondResult.value)).toBe(true);
+        const sessions = secondResult.value as { transactionsImported: number }[];
+        const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
+        expect(totalImported).toBe(0); // 0 new transactions on resume
       }
 
       // Verify cursor totalFetched matches actual transactions
@@ -298,18 +318,11 @@ describe('xpub import integration tests', () => {
       const updatedCursor = JSON.parse(updatedChildAccount.last_cursor as string) as Record<string, CursorState>;
       expect(updatedCursor.normal?.totalFetched).toBe(3);
 
-      // Verify transaction count in database matches cursor (via import_session)
-      const importSessions = await db
-        .selectFrom('import_sessions')
-        .select('id')
-        .where('account_id', '=', childAccount.id)
-        .execute();
-      const importSessionIds = importSessions.map((ds) => ds.id);
-
+      // Verify transaction count in database matches cursor (via account)
       const txCount = await db
-        .selectFrom('external_transaction_data')
+        .selectFrom('raw_transactions')
         .select((eb) => eb.fn.count('id').as('count'))
-        .where('import_session_id', 'in', importSessionIds)
+        .where('account_id', '=', childAccount.id)
         .executeTakeFirstOrThrow();
       expect(Number(txCount.count)).toBe(3);
     });
@@ -346,7 +359,10 @@ describe('xpub import integration tests', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.transactionsImported).toBe(0);
+        // No addresses derived means empty array
+        expect(Array.isArray(result.value)).toBe(true);
+        const sessions = result.value as { transactionsImported: number }[];
+        expect(sessions).toHaveLength(0);
       }
 
       // Verify only parent account was created, no child accounts
@@ -364,6 +380,87 @@ describe('xpub import integration tests', () => {
       // importStreaming should never be called
       expect(mockImportStreamingFn).not.toHaveBeenCalled();
     });
+
+    it('should store same blockchain transaction separately for each derived address', async () => {
+      // When the same on-chain transaction touches multiple derived addresses,
+      // it should be stored separately for each account to preserve UTXO change detection.
+      // Each account's perspective of the transaction is needed for proper fund-flow analysis.
+      mockDeriveAddresses.mockResolvedValue([
+        { address: derivedAddress1, derivationPath: "m/84'/0'/0'/0/0" },
+        { address: derivedAddress2, derivationPath: "m/84'/0'/0'/0/1" },
+      ]);
+
+      // Shared transaction hash - same transaction touches both addresses
+      const sharedTxHash = 'abc123def456shared';
+
+      mockImportStreamingFn.mockImplementation(async function* () {
+        // Both derived addresses return the SAME transaction
+        // This simulates a real scenario where one on-chain tx has:
+        //   inputs: [derivedAddress1]
+        //   outputs: [derivedAddress2, external_address]
+        yield okAsync({
+          rawTransactions: [
+            {
+              providerName: 'test-provider',
+              externalId: sharedTxHash,
+              blockchainTransactionHash: sharedTxHash, // Same hash for both!
+              providerData: { txid: sharedTxHash, inputs: [derivedAddress1], outputs: [derivedAddress2] },
+              normalizedData: { id: sharedTxHash, blockHeight: 100 },
+            },
+          ],
+          operationType: 'normal',
+          cursor: {
+            primary: { type: 'blockNumber', value: 100 },
+            lastTransactionId: sharedTxHash,
+            totalFetched: 1,
+          } as CursorState,
+          isComplete: true,
+        });
+      });
+
+      const result = await orchestrator.importBlockchain('bitcoin', xpub);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        // Both child accounts will import the transaction (different account_ids)
+        // Each account's perspective is preserved for UTXO change detection
+        expect(Array.isArray(result.value)).toBe(true);
+        const sessions = result.value as { transactionsImported: number }[];
+        const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
+        expect(totalImported).toBe(2);
+      }
+
+      // Verify 2 rows exist in raw_transactions (one per child account)
+      const allTransactions = await db.selectFrom('raw_transactions').selectAll().execute();
+      expect(allTransactions).toHaveLength(2);
+
+      // Both should have the same blockchain hash
+      expect(allTransactions[0]?.blockchain_transaction_hash).toBe(sharedTxHash);
+      expect(allTransactions[1]?.blockchain_transaction_hash).toBe(sharedTxHash);
+
+      // But different account IDs
+      expect(allTransactions[0]?.account_id).not.toBe(allTransactions[1]?.account_id);
+
+      // Verify both are linked to child accounts
+      const allAccounts = await db.selectFrom('accounts').selectAll().execute();
+      const childAccounts = allAccounts.filter((a) => a.parent_account_id !== null);
+      expect(childAccounts).toHaveLength(2);
+
+      // Both transactions should be linked to child accounts
+      const accountIds = allTransactions.map((tx) => tx.account_id);
+      expect(childAccounts.some((a) => a.id === accountIds[0])).toBe(true);
+      expect(childAccounts.some((a) => a.id === accountIds[1])).toBe(true);
+
+      // Verify both transactions remain pending (no cross-account deduplication)
+      const pendingTxs = await db
+        .selectFrom('raw_transactions')
+        .selectAll()
+        .where('processing_status', '=', 'pending')
+        .execute();
+      expect(pendingTxs).toHaveLength(2);
+      expect(pendingTxs[0]?.blockchain_transaction_hash).toBe(sharedTxHash);
+      expect(pendingTxs[1]?.blockchain_transaction_hash).toBe(sharedTxHash);
+    });
   });
 
   describe('Cardano xpub import with resume', () => {
@@ -379,13 +476,15 @@ describe('xpub import integration tests', () => {
             {
               providerName: 'test-provider',
               externalId: 'cardano-tx1',
-              rawData: { txHash: 'cardano-tx1' },
+              blockchainTransactionHash: 'cardano-tx1',
+              providerData: { txHash: 'cardano-tx1' },
               normalizedData: { id: 'cardano-tx1' },
             },
             {
               providerName: 'test-provider',
               externalId: 'cardano-tx2',
-              rawData: { txHash: 'cardano-tx2' },
+              blockchainTransactionHash: 'cardano-tx2',
+              providerData: { txHash: 'cardano-tx2' },
               normalizedData: { id: 'cardano-tx2' },
             },
           ],
@@ -403,7 +502,10 @@ describe('xpub import integration tests', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.transactionsImported).toBe(2);
+        expect(Array.isArray(result.value)).toBe(true);
+        const sessions = result.value as { transactionsImported: number }[];
+        const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
+        expect(totalImported).toBe(2);
       }
 
       // Verify parent account was created
@@ -428,7 +530,8 @@ describe('xpub import integration tests', () => {
             {
               providerName: 'test-provider',
               externalId: 'cardano-tx1',
-              rawData: { txHash: 'cardano-tx1' },
+              blockchainTransactionHash: 'cardano-tx1',
+              providerData: { txHash: 'cardano-tx1' },
               normalizedData: { id: 'cardano-tx1' },
             },
           ],
@@ -446,7 +549,10 @@ describe('xpub import integration tests', () => {
 
       expect(firstResult.isOk()).toBe(true);
       if (firstResult.isOk()) {
-        expect(firstResult.value.transactionsImported).toBe(1);
+        expect(Array.isArray(firstResult.value)).toBe(true);
+        const sessions = firstResult.value as { transactionsImported: number }[];
+        const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
+        expect(totalImported).toBe(1);
       }
 
       // Second import - no new transactions
@@ -467,7 +573,10 @@ describe('xpub import integration tests', () => {
 
       expect(secondResult.isOk()).toBe(true);
       if (secondResult.isOk()) {
-        expect(secondResult.value.transactionsImported).toBe(0); // 0 new transactions on resume
+        expect(Array.isArray(secondResult.value)).toBe(true);
+        const sessions = secondResult.value as { transactionsImported: number }[];
+        const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
+        expect(totalImported).toBe(0); // 0 new transactions on resume
       }
 
       // Verify cursor matches transaction count
@@ -480,18 +589,11 @@ describe('xpub import integration tests', () => {
       const cursor = JSON.parse(childAccount.last_cursor as string) as Record<string, CursorState>;
       expect(cursor.normal?.totalFetched).toBe(1);
 
-      // Verify transaction count via import_session
-      const importSessions = await db
-        .selectFrom('import_sessions')
-        .select('id')
-        .where('account_id', '=', childAccount.id)
-        .execute();
-      const importSessionIds = importSessions.map((ds) => ds.id);
-
+      // Verify transaction count via account
       const txCount = await db
-        .selectFrom('external_transaction_data')
+        .selectFrom('raw_transactions')
         .select((eb) => eb.fn.count('id').as('count'))
-        .where('import_session_id', 'in', importSessionIds)
+        .where('account_id', '=', childAccount.id)
         .executeTakeFirstOrThrow();
       expect(Number(txCount.count)).toBe(1);
     });

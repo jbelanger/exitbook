@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -6,7 +6,7 @@ import type { Decimal } from 'decimal.js';
  * Calculate balances for all currencies from a set of transactions.
  * Returns all currencies that have transactions, including zero balances.
  */
-export function calculateBalances(transactions: UniversalTransaction[]): Record<string, Decimal> {
+export function calculateBalances(transactions: UniversalTransactionData[]): Record<string, Decimal> {
   const balances: Record<string, Decimal> = {};
 
   for (const transaction of transactions) {
@@ -20,7 +20,7 @@ export function calculateBalances(transactions: UniversalTransaction[]): Record<
  * Process a single transaction's movements and fees to update balances.
  * Handles inflows, outflows, and fees from the transaction's structured data.
  */
-function processTransactionForBalance(transaction: UniversalTransaction, balances: Record<string, Decimal>): void {
+function processTransactionForBalance(transaction: UniversalTransactionData, balances: Record<string, Decimal>): void {
   // Initialize balance for any assets we encounter
   const ensureBalance = (asset: string) => {
     if (!balances[asset]) {

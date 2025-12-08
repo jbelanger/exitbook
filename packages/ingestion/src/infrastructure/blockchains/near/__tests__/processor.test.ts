@@ -49,7 +49,10 @@ describe('NearTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -95,7 +98,10 @@ describe('NearTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -149,7 +155,10 @@ describe('NearTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -202,7 +211,10 @@ describe('NearTransactionProcessor - Staking Operations', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -249,7 +261,10 @@ describe('NearTransactionProcessor - Staking Operations', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -310,7 +325,10 @@ describe('NearTransactionProcessor - Token Transfers', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) {
@@ -381,7 +399,10 @@ describe('NearTransactionProcessor - Token Transfers', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -396,56 +417,6 @@ describe('NearTransactionProcessor - Token Transfers', () => {
     expect(transaction.movements.outflows![0]?.asset).toBe('wNEAR');
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows![0]?.asset).toBe('USDC');
-  });
-});
-
-describe('NearTransactionProcessor - Error Handling', () => {
-  test('fails when missing session metadata', async () => {
-    const processor = createProcessor();
-
-    const normalizedData: NearTransaction[] = [
-      {
-        amount: nearToYocto('1'),
-        currency: 'NEAR',
-        from: USER_ADDRESS,
-        id: 'tx8',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
-        to: EXTERNAL_ADDRESS,
-      },
-    ];
-
-    const result = await processor.process(normalizedData);
-
-    expect(result.isErr()).toBe(true);
-    if (!result.isErr()) return;
-    expect(result.error).toContain('Missing session metadata');
-  });
-
-  test('fails when user address not in metadata', async () => {
-    const processor = createProcessor();
-
-    const normalizedData: NearTransaction[] = [
-      {
-        amount: nearToYocto('1'),
-        currency: 'NEAR',
-        from: USER_ADDRESS,
-        id: 'tx9',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
-        to: EXTERNAL_ADDRESS,
-      },
-    ];
-
-    const result = await processor.process(normalizedData, {});
-
-    expect(result.isErr()).toBe(true);
-    if (!result.isErr()) return;
-    expect(result.error).toContain('Missing user address');
   });
 });
 
@@ -487,7 +458,10 @@ describe('NearTransactionProcessor - Multiple Actions', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -498,6 +472,5 @@ describe('NearTransactionProcessor - Multiple Actions', () => {
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.asset).toBe('NEAR');
-    expect(transaction.metadata?.actionCount).toBe(2);
   });
 });

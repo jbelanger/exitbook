@@ -39,7 +39,7 @@ export interface PriceData {
   /**
    * Currency denomination of the price
    *
-   * Always USD (per ADR-003)
+   * Always USD
    *
    * BasePriceProvider automatically converts stablecoin-denominated prices
    * (USDT, USDC, etc.) to USD to capture de-peg events. Providers may fetch
@@ -106,7 +106,7 @@ export interface ProviderCapabilities {
    * If undefined/empty: Provider supports ALL assets of the declared supportedAssetTypes
    * If specified: Provider only supports these specific assets
    *
-   * Note: All providers return prices denominated in USD (per ADR-003)
+   * Note: All providers return prices denominated in USD
    *
    * Examples:
    * - AlphaVantage: undefined = supports all fiat currencies

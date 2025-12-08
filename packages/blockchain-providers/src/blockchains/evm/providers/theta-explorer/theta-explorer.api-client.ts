@@ -133,7 +133,7 @@ export class ThetaExplorerApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = mapThetaExplorerTransaction(rawTx, {});
+      const mapResult = mapThetaExplorerTransaction(rawTx);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -258,7 +258,7 @@ export class ThetaExplorerApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapThetaExplorerTransaction(raw, {});
+        const mapped = mapThetaExplorerTransaction(raw);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(

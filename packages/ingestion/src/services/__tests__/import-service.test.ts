@@ -9,11 +9,10 @@
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, AccountType, CursorState, ImportSession } from '@exitbook/core';
-import type { AccountRepository } from '@exitbook/data';
+import type { AccountRepository, IImportSessionRepository, IRawDataRepository } from '@exitbook/data';
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { IImportSessionRepository, IRawDataRepository } from '../../types/repositories.js';
 import { TransactionImportService } from '../import-service.js';
 
 // Helper to create mock accounts
@@ -109,20 +108,20 @@ const mockExchangeImportStreamingFn = vi.fn().mockImplementation(async function*
 
 // Mock exchange importer factory
 vi.mock('../../infrastructure/exchanges/shared/exchange-importer-factory.js', () => ({
-  createExchangeImporter: async (sourceId: string) => {
-    if (sourceId === 'kraken') {
+  createExchangeImporter: async (sourceName: string) => {
+    if (sourceName === 'kraken') {
       return okAsync({
         importStreaming: mockExchangeImportStreamingFn,
       });
     }
-    return err(new Error(`Unknown exchange: ${sourceId}`));
+    return err(new Error(`Unknown exchange: ${sourceName}`));
   },
 }));
 
 describe('TransactionImportService', () => {
   let service: TransactionImportService;
   let mockRawDataRepo: IRawDataRepository;
-  let mockDataSourceRepo: IImportSessionRepository;
+  let mockImportSessionRepo: IImportSessionRepository;
   let mockAccountRepo: AccountRepository;
   let mockProviderManager: BlockchainProviderManager;
 
@@ -172,15 +171,16 @@ describe('TransactionImportService', () => {
       load: vi.fn(),
     } as unknown as IRawDataRepository;
 
-    mockDataSourceRepo = {
+    mockImportSessionRepo = {
       create: vi.fn(),
       finalize: vi.fn(),
       findByAccount: vi.fn(),
+      findById: vi.fn(),
       findCompletedWithMatchingParams: vi.fn(),
       findLatestIncomplete: vi.fn(),
       update: vi.fn(),
     } as unknown as IImportSessionRepository;
-    vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+    vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
 
     mockAccountRepo = {
       updateCursor: vi.fn().mockResolvedValue(ok()),
@@ -188,27 +188,44 @@ describe('TransactionImportService', () => {
 
     mockProviderManager = {} as BlockchainProviderManager;
 
-    service = new TransactionImportService(mockRawDataRepo, mockDataSourceRepo, mockAccountRepo, mockProviderManager);
+    service = new TransactionImportService(
+      mockRawDataRepo,
+      mockImportSessionRepo,
+      mockAccountRepo,
+      mockProviderManager
+    );
   });
 
   describe('importFromSource - blockchain', () => {
     it('should successfully import from blockchain', async () => {
       const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
-      vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
-      vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
+      const mockSession: ImportSession = {
+        id: 1,
+        accountId: 1,
+        status: 'completed',
+        startedAt: new Date(),
+        completedAt: new Date(),
+        transactionsImported: 2,
+        transactionsSkipped: 0,
+        createdAt: new Date(),
+      };
+
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
+      vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
+      vi.mocked(mockImportSessionRepo.findById).mockResolvedValue(ok(mockSession));
 
       const result = await service.importFromSource(account);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.transactionsImported).toBe(2);
-        expect(result.value.importSessionId).toBe(1);
+        expect(result.value.id).toBe(1);
       }
 
-      expect(mockDataSourceRepo.create).toHaveBeenCalledWith(1);
+      expect(mockImportSessionRepo.create).toHaveBeenCalledWith(1);
       expect(mockRawDataRepo.saveBatch).toHaveBeenCalledWith(
         1,
         expect.arrayContaining([
@@ -216,30 +233,41 @@ describe('TransactionImportService', () => {
           expect.objectContaining({ transactionHash: 'tx2' }),
         ])
       );
-      expect(mockDataSourceRepo.finalize).toHaveBeenCalledWith(
+      expect(mockImportSessionRepo.finalize).toHaveBeenCalledWith(
         1,
         'completed',
         expect.any(Number),
-        undefined,
-        undefined,
-        { transactionsImported: 2, address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' }
+        2, // transactionsImported
+        0 // transactionsSkipped
       );
     });
 
     it('should normalize blockchain address before import', async () => {
       const account = createMockAccount('blockchain', 'bitcoin', 'BC1QXY2KGDYGJRSQTZQ2N0YRF2493P83KKFJHX0WLH'); // Uppercase
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
-      vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
-      vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
+      const mockSession: ImportSession = {
+        id: 1,
+        accountId: 1,
+        status: 'completed',
+        startedAt: new Date(),
+        completedAt: new Date(),
+        transactionsImported: 2,
+        transactionsSkipped: 0,
+        createdAt: new Date(),
+      };
+
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
+      vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
+      vi.mocked(mockImportSessionRepo.findById).mockResolvedValue(ok(mockSession));
 
       const result = await service.importFromSource(account);
 
       expect(result.isOk()).toBe(true);
 
       // Verify normalized address was used - create is called with accountId only
-      expect(mockDataSourceRepo.create).toHaveBeenCalledWith(1);
+      expect(mockImportSessionRepo.create).toHaveBeenCalledWith(1);
     });
 
     it('should resume from incomplete import session with cursor', async () => {
@@ -253,7 +281,7 @@ describe('TransactionImportService', () => {
         },
       });
 
-      const incompleteDataSource: ImportSession = {
+      const incompleteImportSession: ImportSession = {
         id: 42,
         accountId: 1,
         status: 'started' as const,
@@ -261,33 +289,40 @@ describe('TransactionImportService', () => {
         updatedAt: new Date(),
         startedAt: new Date(),
         transactionsImported: 50,
-        transactionsFailed: 0,
-        importResultMetadata: { transactionsImported: 50 },
+        transactionsSkipped: 0,
       };
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(incompleteDataSource));
-      vi.mocked(mockDataSourceRepo.update).mockResolvedValue(ok());
-      vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
-      vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
+      const completedSession: ImportSession = {
+        ...incompleteImportSession,
+        status: 'completed',
+        completedAt: new Date(),
+        transactionsImported: 52,
+      };
+
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(incompleteImportSession));
+      vi.mocked(mockImportSessionRepo.update).mockResolvedValue(ok());
+      vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
+      vi.mocked(mockImportSessionRepo.findById).mockResolvedValue(ok(completedSession));
 
       const result = await service.importFromSource(account);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.transactionsImported).toBe(52); // 50 previous + 2 new = cumulative total
-        expect(result.value.importSessionId).toBe(42);
+        expect(result.value.id).toBe(42);
       }
 
       // Should NOT create new import session (resuming existing one)
-      expect(mockDataSourceRepo.create).not.toHaveBeenCalled();
+      expect(mockImportSessionRepo.create).not.toHaveBeenCalled();
       // Should update status back to 'started'
-      expect(mockDataSourceRepo.update).toHaveBeenCalledWith(42, { status: 'started' });
+      expect(mockImportSessionRepo.update).toHaveBeenCalledWith(42, { status: 'started' });
     });
 
     it('should return error for unknown blockchain', async () => {
       const account = createMockAccount('blockchain', 'unknown-chain', 'some-address');
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
 
       const result = await service.importFromSource(account);
 
@@ -311,8 +346,8 @@ describe('TransactionImportService', () => {
     it('should handle database errors during import session creation', async () => {
       const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
-      vi.mocked(mockDataSourceRepo.create).mockResolvedValue(err(new Error('Database connection failed')));
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionRepo.create).mockResolvedValue(err(new Error('Database connection failed')));
 
       const result = await service.importFromSource(account);
 
@@ -325,8 +360,8 @@ describe('TransactionImportService', () => {
     it('should finalize as failed if saveBatch fails', async () => {
       const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
-      vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
       vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(err(new Error('Disk full')));
 
       const result = await service.importFromSource(account);
@@ -340,9 +375,9 @@ describe('TransactionImportService', () => {
     it('should finalize as failed if importer throws error', async () => {
       const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
-      vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
+      vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
 
       // Configure the mock streaming function to throw an error
       // eslint-disable-next-line @typescript-eslint/require-await, require-yield -- acceptable for tests
@@ -358,16 +393,17 @@ describe('TransactionImportService', () => {
       }
 
       // Should have attempted to finalize as failed
-      expect(mockDataSourceRepo.finalize).toHaveBeenCalledWith(
+      expect(mockImportSessionRepo.finalize).toHaveBeenCalledWith(
         1,
         'failed',
         expect.any(Number),
+        0, // transactionsImported
+        0, // transactionsSkipped
         expect.stringContaining('Network timeout'),
         expect.objectContaining({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- acceptable for tests
           stack: expect.any(String),
-        }),
-        { transactionsImported: 0, address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' }
+        })
       );
     });
   });
@@ -381,10 +417,22 @@ describe('TransactionImportService', () => {
         },
       });
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
-      vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
-      vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
+      const mockSession: ImportSession = {
+        id: 1,
+        accountId: 1,
+        status: 'completed',
+        startedAt: new Date(),
+        completedAt: new Date(),
+        transactionsImported: 2,
+        transactionsSkipped: 0,
+        createdAt: new Date(),
+      };
+
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
+      vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
+      vi.mocked(mockImportSessionRepo.findById).mockResolvedValue(ok(mockSession));
       vi.mocked(mockAccountRepo.updateCursor).mockResolvedValue(ok());
 
       const result = await service.importFromSource(account);
@@ -392,10 +440,10 @@ describe('TransactionImportService', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.transactionsImported).toBe(2);
-        expect(result.value.importSessionId).toBe(1);
+        expect(result.value.id).toBe(1);
       }
 
-      expect(mockDataSourceRepo.create).toHaveBeenCalledWith(1);
+      expect(mockImportSessionRepo.create).toHaveBeenCalledWith(1);
       expect(mockRawDataRepo.saveBatch).toHaveBeenCalledWith(
         1,
         expect.arrayContaining([
@@ -403,13 +451,12 @@ describe('TransactionImportService', () => {
           expect.objectContaining({ refid: 'kraken-2' }),
         ])
       );
-      expect(mockDataSourceRepo.finalize).toHaveBeenCalledWith(
+      expect(mockImportSessionRepo.finalize).toHaveBeenCalledWith(
         1,
         'completed',
         expect.any(Number),
-        undefined,
-        undefined,
-        expect.objectContaining({ transactionsImported: 2 })
+        2, // transactionsImported
+        0 // transactionsSkipped
       );
     });
 
@@ -435,7 +482,7 @@ describe('TransactionImportService', () => {
         lastCursor: cursorMap,
       });
 
-      const existingDataSource: ImportSession = {
+      const existingImportSession: ImportSession = {
         id: 10,
         accountId: 1,
         status: 'started' as const,
@@ -443,14 +490,22 @@ describe('TransactionImportService', () => {
         updatedAt: new Date(),
         startedAt: new Date(),
         transactionsImported: 0,
-        transactionsFailed: 0,
-        importResultMetadata: {},
+        transactionsSkipped: 0,
       };
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(existingDataSource));
-      vi.mocked(mockDataSourceRepo.update).mockResolvedValue(ok());
-      vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
-      vi.mocked(mockDataSourceRepo.finalize).mockResolvedValue(ok());
+      const completedSession: ImportSession = {
+        ...existingImportSession,
+        id: 10,
+        status: 'completed',
+        completedAt: new Date(),
+        transactionsImported: 2,
+      };
+
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(existingImportSession));
+      vi.mocked(mockImportSessionRepo.update).mockResolvedValue(ok());
+      vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockImportSessionRepo.finalize).mockResolvedValue(ok());
+      vi.mocked(mockImportSessionRepo.findById).mockResolvedValue(ok(completedSession));
       vi.mocked(mockAccountRepo.updateCursor).mockResolvedValue(ok());
 
       const result = await service.importFromSource(account);
@@ -458,7 +513,7 @@ describe('TransactionImportService', () => {
       expect(result.isOk()).toBe(true);
 
       // Should NOT create new import session
-      expect(mockDataSourceRepo.create).not.toHaveBeenCalled();
+      expect(mockImportSessionRepo.create).not.toHaveBeenCalled();
     });
 
     it('should return error for unknown exchange', async () => {
@@ -468,8 +523,8 @@ describe('TransactionImportService', () => {
         },
       });
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
-      vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
 
       const result = await service.importFromSource(account);
 
@@ -486,7 +541,7 @@ describe('TransactionImportService', () => {
         },
       });
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(err(new Error('Database unavailable')));
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(err(new Error('Database unavailable')));
 
       const result = await service.importFromSource(account);
 
@@ -509,10 +564,10 @@ describe('TransactionImportService', () => {
         { refid: 'kraken-2', type: 'deposit' },
       ];
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
-      vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok(2));
-      vi.mocked(mockDataSourceRepo.update).mockResolvedValue(ok());
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
+      vi.mocked(mockRawDataRepo.saveBatch).mockResolvedValue(ok({ inserted: 2, skipped: 0 }));
+      vi.mocked(mockImportSessionRepo.update).mockResolvedValue(ok());
       vi.mocked(mockAccountRepo.updateCursor).mockResolvedValue(ok());
 
       // Configure the mock to yield a successful batch, then an error
@@ -539,7 +594,7 @@ describe('TransactionImportService', () => {
       expect(mockRawDataRepo.saveBatch).toHaveBeenCalledWith(1, successfulItems);
 
       // Should update import session as failed
-      expect(mockDataSourceRepo.update).toHaveBeenCalledWith(
+      expect(mockImportSessionRepo.update).toHaveBeenCalledWith(
         1,
         expect.objectContaining({
           status: 'failed',
@@ -556,9 +611,9 @@ describe('TransactionImportService', () => {
         },
       });
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
-      vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
-      vi.mocked(mockDataSourceRepo.update).mockResolvedValue(ok());
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
+      vi.mocked(mockImportSessionRepo.update).mockResolvedValue(ok());
 
       // Importer yields an Error wrapped in err() immediately
       mockExchangeImportStreamingFn.mockImplementationOnce(async function* () {
@@ -576,7 +631,7 @@ describe('TransactionImportService', () => {
       expect(mockRawDataRepo.saveBatch).not.toHaveBeenCalled();
 
       // Should update import session as failed
-      expect(mockDataSourceRepo.update).toHaveBeenCalledWith(
+      expect(mockImportSessionRepo.update).toHaveBeenCalledWith(
         1,
         expect.objectContaining({
           status: 'failed',
@@ -590,8 +645,8 @@ describe('TransactionImportService', () => {
     it('should handle importer returning err() instead of throwing', async () => {
       const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
-      vi.mocked(mockDataSourceRepo.create).mockResolvedValue(ok(1));
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(ok(undefined));
+      vi.mocked(mockImportSessionRepo.create).mockResolvedValue(ok(1));
 
       // Importer yields err() (not throwing)
       mockImportStreamingFn.mockImplementationOnce(async function* () {
@@ -612,7 +667,7 @@ describe('TransactionImportService', () => {
     it('should handle errors when checking for incomplete import session', async () => {
       const account = createMockAccount('blockchain', 'bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
 
-      vi.mocked(mockDataSourceRepo.findLatestIncomplete).mockResolvedValue(
+      vi.mocked(mockImportSessionRepo.findLatestIncomplete).mockResolvedValue(
         err(new Error('Database corruption detected'))
       );
 
@@ -624,7 +679,7 @@ describe('TransactionImportService', () => {
       }
 
       // Should NOT attempt to create new import session
-      expect(mockDataSourceRepo.create).not.toHaveBeenCalled();
+      expect(mockImportSessionRepo.create).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,19 +1,15 @@
 import type { BitcoinChainConfig, BitcoinTransaction } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
+import type { ProcessedTransaction, ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
-import {
-  analyzeBitcoinFundFlow,
-  deduplicateByTransactionHash,
-  determineBitcoinTransactionType,
-} from './processor-utils.js';
+import { analyzeBitcoinFundFlow } from './processor-utils.js';
 
 /**
  * Bitcoin transaction processor that converts raw blockchain transaction data
- * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
+ * into ProcessedTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance. Optimized for multi-address processing using session context.
  */
 export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
@@ -30,32 +26,19 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
    */
   protected async processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: Record<string, unknown>
-  ): Promise<Result<UniversalTransaction[], string>> {
-    if (!sessionMetadata) {
-      return err('Missing session metadata for normalized processing');
-    }
-
+    context: ProcessingContext
+  ): Promise<Result<ProcessedTransaction[], string>> {
     this.logger.info(`Processing ${normalizedData.length} normalized Bitcoin transactions`);
 
-    // Deduplicate by transaction hash (handles xpub imports where the same on-chain
-    // transaction appears across multiple derived addresses)
-    const deduplicatedData = deduplicateByTransactionHash(normalizedData as BitcoinTransaction[]);
-    if (deduplicatedData.length < normalizedData.length) {
-      this.logger.info(
-        `Deduplicated ${normalizedData.length - deduplicatedData.length} transactions by hash (${normalizedData.length} → ${deduplicatedData.length})`
-      );
-    }
-
-    const transactions: UniversalTransaction[] = [];
+    const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
-    for (const item of deduplicatedData) {
-      const normalizedTx = item;
+    for (const item of normalizedData) {
+      const normalizedTx = item as BitcoinTransaction;
 
       try {
         // Perform enhanced fund flow analysis with structured input/output data
-        const fundFlowResult = analyzeBitcoinFundFlow(normalizedTx, sessionMetadata);
+        const fundFlowResult = analyzeBitcoinFundFlow(normalizedTx, context);
 
         if (fundFlowResult.isErr()) {
           const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;
@@ -65,9 +48,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         }
 
         const fundFlow = fundFlowResult.value;
-
-        // Determine transaction type based on fund flow
-        const transactionType = determineBitcoinTransactionType(fundFlow, sessionMetadata);
 
         // Store actual network fees for reporting
         // For consistency with account-based blockchains, we record fees separately
@@ -101,11 +81,11 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
           }
         }
 
-        const includeWalletOutputAsInflow = transactionType !== 'withdrawal' && !walletOutputAmount.isZero();
+        // Per-address model: include outputs to this address as inflows
+        const includeWalletOutputAsInflow = !walletOutputAmount.isZero();
         const hasOutflow = !grossOutflowAmount.isZero();
 
-        const universalTransaction: UniversalTransaction = {
-          id: 0, // Will be assigned by database
+        const universalTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
@@ -154,7 +134,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
 
           operation: {
             category: 'transfer',
-            type: transactionType,
+            type: 'transfer',
           },
 
           blockchain: {
@@ -163,14 +143,9 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             transaction_hash: normalizedTx.id,
             is_confirmed: normalizedTx.status === 'success',
           },
-
-          metadata: {
-            providerName: normalizedTx.providerName,
-          },
         };
 
         transactions.push(universalTransaction);
-        this.logger.debug(`Successfully processed normalized transaction ${universalTransaction.externalId}`);
       } catch (error) {
         const errorMsg = `Error processing normalized transaction: ${String(error)}`;
         processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
@@ -180,7 +155,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
     }
 
     // Log processing summary
-    const totalInputTransactions = deduplicatedData.length;
+    const totalInputTransactions = normalizedData.length;
     const successfulTransactions = transactions.length;
     const failedTransactions = processingErrors.length;
 

@@ -129,7 +129,7 @@ user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    const rawData = result.value.rawTransactions[0]?.rawData as Record<string, unknown>;
+    const rawData = result.value.rawTransactions[0]?.providerData as Record<string, unknown>;
     expect(rawData._rowType).toBe('spot_order');
   });
 });

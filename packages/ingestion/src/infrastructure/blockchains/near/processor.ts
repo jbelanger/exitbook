@@ -1,17 +1,17 @@
 import type { NearTransaction } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
 import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.js';
+import type { ProcessedTransaction, ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import { analyzeNearFundFlow, classifyNearOperationFromFundFlow } from './processor-utils.js';
 
 /**
  * NEAR transaction processor that converts raw blockchain transaction data
- * into UniversalTransaction format. Features sophisticated fund flow analysis
+ * into ProcessedTransaction format. Features sophisticated fund flow analysis
  * and historical context for accurate transaction classification.
  */
 export class NearTransactionProcessor extends BaseTransactionProcessor {
@@ -25,12 +25,8 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
    */
   protected async processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: Record<string, unknown>
-  ): Promise<Result<UniversalTransaction[], string>> {
-    if (!sessionMetadata) {
-      return err('Missing session metadata for normalized processing');
-    }
-
+    context: ProcessingContext
+  ): Promise<Result<ProcessedTransaction[], string>> {
     this.logger.info(`Processing ${normalizedData.length} normalized NEAR transactions`);
 
     // Enrich all transactions with token metadata (required)
@@ -39,7 +35,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
       return err(`Token metadata enrichment failed: ${enrichResult.error.message}`);
     }
 
-    const transactions: UniversalTransaction[] = [];
+    const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
     for (const item of normalizedData) {
@@ -55,7 +51,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
         }
 
         // Perform enhanced fund flow analysis
-        const fundFlowResult = analyzeNearFundFlow(normalizedTx, sessionMetadata);
+        const fundFlowResult = analyzeNearFundFlow(normalizedTx, context);
 
         if (fundFlowResult.isErr()) {
           const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;
@@ -78,9 +74,8 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
 
         const userPaidFee = fundFlow.feePaidByUser && !feeAccountedInMovements;
 
-        // Convert to UniversalTransaction with structured fields
-        const universalTransaction: UniversalTransaction = {
-          id: 0, // Will be assigned by database
+        // Convert to ProcessedTransaction with structured fields
+        const universalTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
@@ -132,19 +127,6 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
             block_height: normalizedTx.blockHeight,
             transaction_hash: normalizedTx.id,
             is_confirmed: normalizedTx.status === 'success',
-          },
-
-          // Minimal metadata - only NEAR-specific data
-          metadata: {
-            blockId: normalizedTx.blockId,
-            hasStaking: fundFlow.hasStaking,
-            hasContractCall: fundFlow.hasContractCall,
-            hasTokenTransfers: fundFlow.hasTokenTransfers,
-            actionCount: fundFlow.actionCount,
-            actionTypes: fundFlow.actionTypes,
-            providerName: normalizedTx.providerName,
-            tokenAddress: fundFlow.primary.tokenAddress,
-            tokenDecimals: fundFlow.primary.decimals,
           },
         };
 

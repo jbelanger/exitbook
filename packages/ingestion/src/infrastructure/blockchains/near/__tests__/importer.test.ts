@@ -4,7 +4,7 @@
  */
 import { ProviderError, type BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
-import type { CursorState, ExternalTransaction, PaginationCursor } from '@exitbook/core';
+import type { CursorState, RawTransactionInput, PaginationCursor } from '@exitbook/core';
 import { err, errAsync, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
@@ -18,7 +18,7 @@ async function consumeImportStream(
   importer: NearTransactionImporter,
   params: ImportParams
 ): Promise<Result<ImportRunResult, Error>> {
-  const allTransactions: ExternalTransaction[] = [];
+  const allTransactions: RawTransactionInput[] = [];
   const cursorUpdates: Record<string, CursorState> = {};
 
   for await (const batchResult of importer.importStreaming(params)) {
@@ -211,7 +211,7 @@ describe('NearTransactionImporter', () => {
           providerName: 'nearblocks',
           sourceAddress: address,
           normalizedData: mockNormalizedTransfer,
-          rawData: { transaction_hash: 'AbCdEf123456' },
+          providerData: { transaction_hash: 'AbCdEf123456' },
           transactionTypeHint: 'normal',
         });
         expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
@@ -220,7 +220,7 @@ describe('NearTransactionImporter', () => {
           providerName: 'nearblocks',
           sourceAddress: address,
           normalizedData: mockNormalizedFunctionCall,
-          rawData: { transaction_hash: 'FunctionCallTx456' },
+          providerData: { transaction_hash: 'FunctionCallTx456' },
           transactionTypeHint: 'normal',
         });
         expect(result.value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
@@ -275,9 +275,9 @@ describe('NearTransactionImporter', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(3);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual({ transaction_hash: 'AbCdEf123456' });
-        expect(result.value.rawTransactions[1]!.rawData).toEqual({ transaction_hash: 'Tx789' });
-        expect(result.value.rawTransactions[2]!.rawData).toEqual({ transaction_hash: 'Tx012' });
+        expect(result.value.rawTransactions[0]!.providerData).toEqual({ transaction_hash: 'AbCdEf123456' });
+        expect(result.value.rawTransactions[1]!.providerData).toEqual({ transaction_hash: 'Tx789' });
+        expect(result.value.rawTransactions[2]!.providerData).toEqual({ transaction_hash: 'Tx012' });
       }
     });
     test('should handle implicit account addresses', async () => {

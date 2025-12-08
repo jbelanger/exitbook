@@ -1,4 +1,10 @@
-import type { AssetMovement, FeeMovement, OperationType, PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
+import type {
+  AssetMovement,
+  FeeMovement,
+  OperationType,
+  PriceAtTxTime,
+  UniversalTransactionData,
+} from '@exitbook/core';
 import { Currency, parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { ok } from 'neverthrow';
@@ -67,7 +73,7 @@ export function createFee(
 }
 
 /**
- * Creates a UniversalTransaction with common defaults
+ * Creates a UniversalTransactionData with common defaults
  */
 export function createTransaction(
   id: number,
@@ -80,11 +86,12 @@ export function createTransaction(
     source?: string;
     type?: OperationType;
   }
-): UniversalTransaction {
+): UniversalTransactionData {
   const fees: FeeMovement[] = options?.fees ?? [];
 
   return {
     id,
+    accountId: 1,
     externalId: `ext-${id}`,
     datetime,
     timestamp: new Date(datetime).getTime(),
@@ -99,12 +106,11 @@ export function createTransaction(
       type: options?.type ?? (inflows.length > 0 ? 'buy' : 'sell'),
     },
     fees,
-    metadata: {},
   };
 }
 
 /**
- * Creates a UniversalTransaction with fees
+ * Creates a UniversalTransactionData with fees
  */
 export function createTransactionWithFee(
   id: number,
@@ -112,7 +118,7 @@ export function createTransactionWithFee(
   inflows: { amount: string; asset: string; price: string }[],
   outflows: { amount: string; asset: string; price: string }[],
   platformFee?: { amount: string; asset: string; price: string }
-): UniversalTransaction {
+): UniversalTransactionData {
   const fees: FeeMovement[] = platformFee
     ? [
         createFee(platformFee.asset, platformFee.amount, {

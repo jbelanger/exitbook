@@ -2,11 +2,7 @@
 import type { ImportSessionStatus } from '@exitbook/core';
 import type { Selectable, Insertable, Updateable } from 'kysely';
 
-import type {
-  ExternalTransactionDataTable,
-  ImportSessionsTable,
-  TransactionsTable,
-} from '../schema/database-schema.js';
+import type { ImportSessionsTable, TransactionsTable } from '../schema/database-schema.js';
 
 export type NewTransaction = Insertable<TransactionsTable>;
 export type TransactionUpdate = Updateable<TransactionsTable>;
@@ -17,9 +13,9 @@ export type NewImportSession = Insertable<ImportSessionsTable>;
 export type ImportSessionUpdate = Updateable<ImportSessionsTable>;
 
 // Internal DB types for raw data repository use
-export type StoredRawData = Selectable<ExternalTransactionDataTable>;
-export type NewRawData = Insertable<ExternalTransactionDataTable>;
-export type RawDataUpdate = Updateable<ExternalTransactionDataTable>;
+// export type StoredRawData = Selectable<RawTransactionDataTable>;
+// export type NewRawData = Insertable<RawTransactionDataTable>;
+// export type RawDataUpdate = Updateable<RawTransactionDataTable>;
 
 /**
  * Query filters for import sessions

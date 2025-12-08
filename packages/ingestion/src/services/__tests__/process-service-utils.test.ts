@@ -1,426 +1,53 @@
-import type { ImportSession, ExternalTransactionData } from '@exitbook/core';
+import type { RawTransaction } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import {
-  buildSessionProcessingQueue,
-  extractUniqueDataSourceIds,
-  filterSessionsWithPendingData,
-  groupRawDataBySession,
-  type SessionProcessingData,
-} from '../process-service-utils.js';
+import { extractUniqueAccountIds } from '../process-service-utils.js';
 
 describe('process-service-utils', () => {
-  describe('groupRawDataBySession', () => {
-    it('should group raw data by session ID', () => {
-      const rawData: ExternalTransactionData[] = [
+  describe('extractUniqueAccountIds', () => {
+    it('should extract unique account IDs', () => {
+      const rawData: RawTransaction[] = [
         {
           id: 1,
-          importSessionId: 10,
+          accountId: 1,
           providerName: 'blockstream',
           externalId: 'tx1',
-          rawData: {},
+          providerData: {},
           normalizedData: {},
           processingStatus: 'pending',
           createdAt: new Date(),
         },
         {
           id: 2,
-          importSessionId: 10,
+          accountId: 1,
           providerName: 'blockstream',
           externalId: 'tx2',
-          rawData: {},
+          providerData: {},
           normalizedData: {},
           processingStatus: 'pending',
           createdAt: new Date(),
         },
         {
           id: 3,
-          importSessionId: 20,
+          accountId: 2,
           providerName: 'blockstream',
           externalId: 'tx3',
-          rawData: {},
+          providerData: {},
           normalizedData: {},
           processingStatus: 'pending',
           createdAt: new Date(),
         },
       ];
 
-      const result = groupRawDataBySession(rawData);
-
-      expect(result.size).toBe(2);
-      const session10Data = result.get(10)!;
-      const session20Data = result.get(20)!;
-      expect(session10Data).toHaveLength(2);
-      expect(session20Data).toHaveLength(1);
-      expect(session10Data[0]!.externalId).toBe('tx1');
-      expect(session10Data[1]!.externalId).toBe('tx2');
-      expect(session20Data[0]!.externalId).toBe('tx3');
-    });
-
-    it('should skip items with null importSessionId', () => {
-      const rawData: ExternalTransactionData[] = [
-        {
-          id: 1,
-          importSessionId: 10,
-          providerName: 'blockstream',
-          externalId: 'tx1',
-          rawData: {},
-          normalizedData: {},
-          processingStatus: 'pending',
-          createdAt: new Date(),
-        },
-        {
-          id: 2,
-          importSessionId: undefined as unknown as number,
-          providerName: 'blockstream',
-          externalId: 'tx2',
-          rawData: {},
-          normalizedData: {},
-          processingStatus: 'pending',
-          createdAt: new Date(),
-        },
-      ];
-
-      const result = groupRawDataBySession(rawData);
-
-      expect(result.size).toBe(1);
-      expect(result.get(10)).toHaveLength(1);
-    });
-
-    it('should return empty map for empty input', () => {
-      const result = groupRawDataBySession([]);
-
-      expect(result.size).toBe(0);
-    });
-  });
-
-  describe('extractUniqueDataSourceIds', () => {
-    it('should extract unique import session IDs', () => {
-      const rawData: ExternalTransactionData[] = [
-        {
-          id: 1,
-          importSessionId: 10,
-          providerName: 'blockstream',
-          externalId: 'tx1',
-          rawData: {},
-          normalizedData: {},
-          processingStatus: 'pending',
-          createdAt: new Date(),
-        },
-        {
-          id: 2,
-          importSessionId: 10,
-          providerName: 'blockstream',
-          externalId: 'tx2',
-          rawData: {},
-          normalizedData: {},
-          processingStatus: 'pending',
-          createdAt: new Date(),
-        },
-        {
-          id: 3,
-          importSessionId: 20,
-          providerName: 'blockstream',
-          externalId: 'tx3',
-          rawData: {},
-          normalizedData: {},
-          processingStatus: 'pending',
-          createdAt: new Date(),
-        },
-      ];
-
-      const result = extractUniqueDataSourceIds(rawData);
+      const result = extractUniqueAccountIds(rawData);
 
       expect(result).toHaveLength(2);
-      expect(result).toContain(10);
-      expect(result).toContain(20);
-    });
-
-    it('should filter out null import session IDs', () => {
-      const rawData: ExternalTransactionData[] = [
-        {
-          id: 1,
-          importSessionId: 10,
-          providerName: 'blockstream',
-          externalId: 'tx1',
-          rawData: {},
-          normalizedData: {},
-          processingStatus: 'pending',
-          createdAt: new Date(),
-        },
-        {
-          id: 2,
-          importSessionId: undefined as unknown as number,
-          providerName: 'blockstream',
-          externalId: 'tx2',
-          rawData: {},
-          normalizedData: {},
-          processingStatus: 'pending',
-          createdAt: new Date(),
-        },
-      ];
-
-      const result = extractUniqueDataSourceIds(rawData);
-
-      expect(result).toHaveLength(1);
-      expect(result).toContain(10);
+      expect(result).toContain(1);
+      expect(result).toContain(2);
     });
 
     it('should return empty array for empty input', () => {
-      const result = extractUniqueDataSourceIds([]);
-
-      expect(result).toHaveLength(0);
-    });
-  });
-
-  describe('filterSessionsWithPendingData', () => {
-    it('should filter sessions with pending data', () => {
-      const sessions: ImportSession[] = [
-        {
-          id: 10,
-          accountId: 1,
-          status: 'completed',
-          startedAt: new Date(),
-          transactionsImported: 0,
-          transactionsFailed: 0,
-          createdAt: new Date(),
-          importResultMetadata: {},
-        },
-        {
-          id: 20,
-          accountId: 2,
-          status: 'completed',
-          startedAt: new Date(),
-          transactionsImported: 0,
-          transactionsFailed: 0,
-          createdAt: new Date(),
-          importResultMetadata: {},
-        },
-        {
-          id: 30,
-          accountId: 3,
-          status: 'completed',
-          startedAt: new Date(),
-          transactionsImported: 0,
-          transactionsFailed: 0,
-          createdAt: new Date(),
-          importResultMetadata: {},
-        },
-      ];
-
-      const rawDataBySession = new Map<number, ExternalTransactionData[]>([
-        [
-          10,
-          [
-            {
-              id: 1,
-              importSessionId: 10,
-              providerName: 'blockstream',
-              externalId: 'tx1',
-              rawData: {},
-              normalizedData: {},
-              processingStatus: 'pending',
-              createdAt: new Date(),
-            },
-          ],
-        ],
-        [
-          20,
-          [
-            {
-              id: 2,
-              importSessionId: 20,
-              providerName: 'alchemy',
-              externalId: 'tx2',
-              rawData: {},
-              normalizedData: {},
-              processingStatus: 'processed',
-              createdAt: new Date(),
-            },
-          ],
-        ],
-      ]);
-
-      const result = filterSessionsWithPendingData(sessions, rawDataBySession);
-
-      expect(result).toHaveLength(1);
-      expect(result[0]?.session.id).toBe(10);
-      expect(result[0]?.rawDataItems).toHaveLength(1);
-    });
-
-    it('should filter by importSessionId when provided', () => {
-      const sessions: ImportSession[] = [
-        {
-          id: 10,
-          accountId: 1,
-          status: 'completed',
-          startedAt: new Date(),
-          transactionsImported: 0,
-          transactionsFailed: 0,
-          createdAt: new Date(),
-          importResultMetadata: {},
-        },
-        {
-          id: 20,
-          accountId: 2,
-          status: 'completed',
-          startedAt: new Date(),
-          transactionsImported: 0,
-          transactionsFailed: 0,
-          createdAt: new Date(),
-          importResultMetadata: {},
-        },
-      ];
-
-      const rawDataBySession = new Map<number, ExternalTransactionData[]>([
-        [
-          10,
-          [
-            {
-              id: 1,
-              importSessionId: 10,
-              providerName: 'blockstream',
-              externalId: 'tx1',
-              rawData: {},
-              normalizedData: {},
-              processingStatus: 'pending',
-              createdAt: new Date(),
-            },
-          ],
-        ],
-        [
-          20,
-          [
-            {
-              id: 2,
-              importSessionId: 20,
-              providerName: 'alchemy',
-              externalId: 'tx2',
-              rawData: {},
-              normalizedData: {},
-              processingStatus: 'pending',
-              createdAt: new Date(),
-            },
-          ],
-        ],
-      ]);
-
-      const result = filterSessionsWithPendingData(sessions, rawDataBySession, { importSessionId: 20 });
-
-      expect(result).toHaveLength(1);
-      expect(result[0]?.session.id).toBe(20);
-    });
-
-    it('should return empty array when no sessions have pending data', () => {
-      const sessions: ImportSession[] = [
-        {
-          id: 10,
-          accountId: 1,
-          status: 'completed',
-          startedAt: new Date(),
-          transactionsImported: 0,
-          transactionsFailed: 0,
-          createdAt: new Date(),
-          importResultMetadata: {},
-        },
-      ];
-
-      const rawDataBySession = new Map<number, ExternalTransactionData[]>([
-        [
-          10,
-          [
-            {
-              id: 1,
-              importSessionId: 10,
-              providerName: 'blockstream',
-              externalId: 'tx1',
-              rawData: {},
-              normalizedData: {},
-              processingStatus: 'processed',
-              createdAt: new Date(),
-            },
-          ],
-        ],
-      ]);
-
-      const result = filterSessionsWithPendingData(sessions, rawDataBySession);
-
-      expect(result).toHaveLength(0);
-    });
-  });
-
-  describe('buildSessionProcessingQueue', () => {
-    it('should return sessions with raw data items', () => {
-      const sessions: SessionProcessingData[] = [
-        {
-          session: {
-            id: 10,
-            accountId: 1,
-            status: 'completed',
-            startedAt: new Date(),
-            transactionsImported: 0,
-            transactionsFailed: 0,
-            createdAt: new Date(),
-            importResultMetadata: {},
-          },
-          rawDataItems: [
-            {
-              id: 1,
-              importSessionId: 10,
-              providerName: 'blockstream',
-              externalId: 'tx1',
-              rawData: {},
-              normalizedData: {},
-              processingStatus: 'pending',
-              createdAt: new Date(),
-            },
-          ],
-        },
-        {
-          session: {
-            id: 20,
-            accountId: 2,
-            status: 'completed',
-            startedAt: new Date(),
-            transactionsImported: 0,
-            transactionsFailed: 0,
-            createdAt: new Date(),
-            importResultMetadata: {},
-          },
-          rawDataItems: [],
-        },
-      ];
-
-      const result = buildSessionProcessingQueue(sessions);
-
-      expect(result).toHaveLength(1);
-      expect(result[0]?.session.id).toBe(10);
-    });
-
-    it('should filter out sessions with no raw data items', () => {
-      const sessions: SessionProcessingData[] = [
-        {
-          session: {
-            id: 10,
-            accountId: 1,
-            status: 'completed',
-            startedAt: new Date(),
-            transactionsImported: 0,
-            transactionsFailed: 0,
-            createdAt: new Date(),
-            importResultMetadata: {},
-          },
-          rawDataItems: [],
-        },
-      ];
-
-      const result = buildSessionProcessingQueue(sessions);
-
-      expect(result).toHaveLength(0);
-    });
-
-    it('should return empty array for empty input', () => {
-      const result = buildSessionProcessingQueue([]);
+      const result = extractUniqueAccountIds([]);
 
       expect(result).toHaveLength(0);
     });

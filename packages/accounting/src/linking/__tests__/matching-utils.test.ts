@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
@@ -128,7 +128,7 @@ describe('matching-utils', () => {
     it('should return true when addresses match', () => {
       const source: TransactionCandidate = {
         id: 1,
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date(),
@@ -141,7 +141,7 @@ describe('matching-utils', () => {
 
       const target: TransactionCandidate = {
         id: 2,
-        sourceId: 'bitcoin',
+        sourceName: 'bitcoin',
         sourceType: 'blockchain',
         externalId: 'txabc',
         timestamp: new Date(),
@@ -159,7 +159,7 @@ describe('matching-utils', () => {
     it('should return false when addresses do not match', () => {
       const source: TransactionCandidate = {
         id: 1,
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date(),
@@ -172,7 +172,7 @@ describe('matching-utils', () => {
 
       const target: TransactionCandidate = {
         id: 2,
-        sourceId: 'bitcoin',
+        sourceName: 'bitcoin',
         sourceType: 'blockchain',
         externalId: 'txabc',
         timestamp: new Date(),
@@ -190,7 +190,7 @@ describe('matching-utils', () => {
     it('should return undefined when addresses are not available', () => {
       const source: TransactionCandidate = {
         id: 1,
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date(),
@@ -203,7 +203,7 @@ describe('matching-utils', () => {
 
       const target: TransactionCandidate = {
         id: 2,
-        sourceId: 'bitcoin',
+        sourceName: 'bitcoin',
         sourceType: 'blockchain',
         externalId: 'txabc',
         timestamp: new Date(),
@@ -221,7 +221,7 @@ describe('matching-utils', () => {
     it('should be case-insensitive', () => {
       const source: TransactionCandidate = {
         id: 1,
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date(),
@@ -234,7 +234,7 @@ describe('matching-utils', () => {
 
       const target: TransactionCandidate = {
         id: 2,
-        sourceId: 'bitcoin',
+        sourceName: 'bitcoin',
         sourceType: 'blockchain',
         externalId: 'txabc',
         timestamp: new Date(),
@@ -327,7 +327,7 @@ describe('matching-utils', () => {
     it('should build complete match criteria', () => {
       const source: TransactionCandidate = {
         id: 1,
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
@@ -340,7 +340,7 @@ describe('matching-utils', () => {
 
       const target: TransactionCandidate = {
         id: 2,
-        sourceId: 'bitcoin',
+        sourceName: 'bitcoin',
         sourceType: 'blockchain',
         externalId: 'txabc',
         timestamp: new Date('2024-01-01T13:00:00Z'),
@@ -365,7 +365,7 @@ describe('matching-utils', () => {
     it('should find matching transactions', () => {
       const source: TransactionCandidate = {
         id: 1,
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
@@ -379,7 +379,7 @@ describe('matching-utils', () => {
       const targets: TransactionCandidate[] = [
         {
           id: 2,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
@@ -391,7 +391,7 @@ describe('matching-utils', () => {
         },
         {
           id: 3,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txdef',
           timestamp: new Date('2024-01-01T14:00:00Z'),
@@ -413,7 +413,7 @@ describe('matching-utils', () => {
     it('should filter by minimum confidence', () => {
       const source: TransactionCandidate = {
         id: 1,
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
@@ -427,7 +427,7 @@ describe('matching-utils', () => {
       const targets: TransactionCandidate[] = [
         {
           id: 2,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
@@ -448,7 +448,7 @@ describe('matching-utils', () => {
     it('should sort by confidence descending', () => {
       const source: TransactionCandidate = {
         id: 1,
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
@@ -462,7 +462,7 @@ describe('matching-utils', () => {
       const targets: TransactionCandidate[] = [
         {
           id: 2,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T20:00:00Z'),
@@ -474,7 +474,7 @@ describe('matching-utils', () => {
         },
         {
           id: 3,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txdef',
           timestamp: new Date('2024-01-01T13:00:00Z'),
@@ -537,7 +537,7 @@ describe('matching-utils', () => {
     it('should reject matches where deposit comes before withdrawal', () => {
       const source: TransactionCandidate = {
         id: 1,
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T14:00:00Z'), // Withdrawal at 14:00
@@ -551,7 +551,7 @@ describe('matching-utils', () => {
       const targets: TransactionCandidate[] = [
         {
           id: 2,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T12:00:00Z'), // Deposit at 12:00 (BEFORE withdrawal)
@@ -572,7 +572,7 @@ describe('matching-utils', () => {
     it('should reject matches outside the time window', () => {
       const source: TransactionCandidate = {
         id: 1,
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
@@ -586,7 +586,7 @@ describe('matching-utils', () => {
       const targets: TransactionCandidate[] = [
         {
           id: 2,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-04T12:00:00Z'), // 72 hours later (outside 48h window)
@@ -609,7 +609,7 @@ describe('matching-utils', () => {
     it('should reject matches below minAmountSimilarity threshold', () => {
       const source: TransactionCandidate = {
         id: 1,
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
@@ -623,7 +623,7 @@ describe('matching-utils', () => {
       const targets: TransactionCandidate[] = [
         {
           id: 2,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
@@ -644,7 +644,7 @@ describe('matching-utils', () => {
     it('should accept matches at or above minAmountSimilarity threshold', () => {
       const source: TransactionCandidate = {
         id: 1,
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
@@ -658,7 +658,7 @@ describe('matching-utils', () => {
       const targets: TransactionCandidate[] = [
         {
           id: 2,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
@@ -893,7 +893,7 @@ describe('matching-utils', () => {
             outflows: [{ asset: 'USD', grossAmount: parseDecimal('50000') }],
           },
         },
-      ] as UniversalTransaction[]; // Updated type assertion
+      ] as UniversalTransactionData[]; // Updated type assertion
 
       const candidates = convertToCandidates(transactions);
 
@@ -901,7 +901,7 @@ describe('matching-utils', () => {
       expect(candidates[0]).toMatchObject({
         id: 1,
         externalId: 'tx-1',
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         asset: 'BTC',
         direction: 'in',
@@ -909,7 +909,7 @@ describe('matching-utils', () => {
       expect(candidates[1]).toMatchObject({
         id: 1,
         externalId: 'tx-1',
-        sourceId: 'kraken',
+        sourceName: 'kraken',
         sourceType: 'exchange',
         asset: 'USD',
         direction: 'out',
@@ -920,6 +920,7 @@ describe('matching-utils', () => {
       const transactions = [
         {
           id: 2,
+          accountId: 1,
           externalId: 'tx-2',
           source: 'bitcoin',
           blockchain: {
@@ -943,7 +944,7 @@ describe('matching-utils', () => {
             outflows: [],
           },
         },
-      ] as UniversalTransaction[];
+      ] as UniversalTransactionData[];
 
       const candidates = convertToCandidates(transactions);
 
@@ -972,7 +973,7 @@ describe('matching-utils', () => {
             outflows: [{ asset: 'USD', grossAmount: parseDecimal('60000') }],
           },
         },
-      ] as UniversalTransaction[];
+      ] as UniversalTransactionData[];
 
       const candidates = convertToCandidates(transactions);
 
@@ -994,7 +995,7 @@ describe('matching-utils', () => {
             outflows: [],
           },
         },
-      ] as unknown as UniversalTransaction[];
+      ] as unknown as UniversalTransactionData[];
 
       const candidates = convertToCandidates(transactions);
 
@@ -1007,7 +1008,7 @@ describe('matching-utils', () => {
       const candidates: TransactionCandidate[] = [
         {
           id: 1,
-          sourceId: 'kraken',
+          sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           asset: 'BTC',
@@ -1016,7 +1017,7 @@ describe('matching-utils', () => {
         },
         {
           id: 2,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           asset: 'BTC',
@@ -1025,7 +1026,7 @@ describe('matching-utils', () => {
         },
         {
           id: 3,
-          sourceId: 'kraken',
+          sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-02T12:00:00Z'),
           asset: 'ETH',
@@ -1046,7 +1047,7 @@ describe('matching-utils', () => {
       const candidates: TransactionCandidate[] = [
         {
           id: 1,
-          sourceId: 'kraken',
+          sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           asset: 'BTC',
@@ -1055,7 +1056,7 @@ describe('matching-utils', () => {
         },
         {
           id: 2,
-          sourceId: 'kraken',
+          sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           asset: 'BTC',
@@ -1204,7 +1205,7 @@ describe('matching-utils', () => {
       const match: PotentialMatch = {
         sourceTransaction: {
           id: 1,
-          sourceId: 'kraken',
+          sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           asset: 'BTC',
@@ -1213,7 +1214,7 @@ describe('matching-utils', () => {
         },
         targetTransaction: {
           id: 2,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           asset: 'BTC',
@@ -1257,7 +1258,7 @@ describe('matching-utils', () => {
       const match: PotentialMatch = {
         sourceTransaction: {
           id: 1,
-          sourceId: 'kraken',
+          sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           asset: 'BTC',
@@ -1266,7 +1267,7 @@ describe('matching-utils', () => {
         },
         targetTransaction: {
           id: 2,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           asset: 'BTC',
@@ -1298,7 +1299,7 @@ describe('matching-utils', () => {
       const match: PotentialMatch = {
         sourceTransaction: {
           id: 1,
-          sourceId: 'kraken',
+          sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           asset: 'BTC',
@@ -1307,7 +1308,7 @@ describe('matching-utils', () => {
         },
         targetTransaction: {
           id: 2,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           asset: 'BTC',
@@ -1336,7 +1337,7 @@ describe('matching-utils', () => {
       const match: PotentialMatch = {
         sourceTransaction: {
           id: 1,
-          sourceId: 'kraken',
+          sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           asset: 'BTC',
@@ -1345,7 +1346,7 @@ describe('matching-utils', () => {
         },
         targetTransaction: {
           id: 2,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           asset: 'BTC',
@@ -1374,7 +1375,7 @@ describe('matching-utils', () => {
       const match: PotentialMatch = {
         sourceTransaction: {
           id: 1,
-          sourceId: 'kraken',
+          sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
           asset: 'BTC',
@@ -1383,7 +1384,7 @@ describe('matching-utils', () => {
         },
         targetTransaction: {
           id: 2,
-          sourceId: 'bitcoin',
+          sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           asset: 'BTC',

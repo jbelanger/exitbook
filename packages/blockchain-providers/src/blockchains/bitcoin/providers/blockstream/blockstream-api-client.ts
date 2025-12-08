@@ -279,7 +279,7 @@ export class BlockstreamApiClient extends BaseApiClient {
 
       const validRawTransactions = rawTransactions.filter((tx): tx is BlockstreamTransaction => tx !== null);
       for (const rawTx of validRawTransactions) {
-        const mapResult = mapBlockstreamTransaction(rawTx, {}, this.chainConfig);
+        const mapResult = mapBlockstreamTransaction(rawTx, this.chainConfig);
 
         if (mapResult.isErr()) {
           const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -360,7 +360,7 @@ export class BlockstreamApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapBlockstreamTransaction(raw, {}, this.chainConfig);
+        const mapped = mapBlockstreamTransaction(raw, this.chainConfig);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(

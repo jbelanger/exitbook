@@ -1,4 +1,4 @@
-import type { SourceType, UniversalTransaction } from '@exitbook/core';
+import type { SourceType, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -373,7 +373,7 @@ export function calculateVarianceMetadata(
  * @param transactions - Universal transactions to convert
  * @returns Array of transaction candidates
  */
-export function convertToCandidates(transactions: UniversalTransaction[]): TransactionCandidate[] {
+export function convertToCandidates(transactions: UniversalTransactionData[]): TransactionCandidate[] {
   const candidates: TransactionCandidate[] = [];
 
   for (const tx of transactions) {
@@ -382,7 +382,7 @@ export function convertToCandidates(transactions: UniversalTransaction[]): Trans
       const candidate: TransactionCandidate = {
         id: tx.id,
         externalId: tx.externalId,
-        sourceId: tx.source,
+        sourceName: tx.source,
         sourceType: tx.blockchain ? 'blockchain' : 'exchange',
         timestamp: new Date(tx.datetime),
         asset: inflow.asset,
@@ -399,7 +399,7 @@ export function convertToCandidates(transactions: UniversalTransaction[]): Trans
       const candidate: TransactionCandidate = {
         id: tx.id,
         externalId: tx.externalId,
-        sourceId: tx.source,
+        sourceName: tx.source,
         sourceType: tx.blockchain ? 'blockchain' : 'exchange',
         timestamp: new Date(tx.datetime),
         asset: outflow.asset,
@@ -465,17 +465,17 @@ export function deduplicateAndConfirm(
 
   // Greedily select matches, ensuring each source and target is used at most once
   for (const match of sortedMatches) {
-    const sourceId = match.sourceTransaction.id;
+    const sourceName = match.sourceTransaction.id;
     const targetId = match.targetTransaction.id;
 
     // Skip if either source or target is already used
-    if (usedSources.has(sourceId) || usedTargets.has(targetId)) {
+    if (usedSources.has(sourceName) || usedTargets.has(targetId)) {
       continue;
     }
 
     // Accept this match
     deduplicatedMatches.push(match);
-    usedSources.add(sourceId);
+    usedSources.add(sourceName);
     usedTargets.add(targetId);
   }
 

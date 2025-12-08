@@ -107,7 +107,7 @@ export async function clearDatabase(db: Kysely<DatabaseSchema>): Promise<void> {
       'cost_basis_calculations',
       'transaction_links',
       'transactions',
-      'external_transaction_data',
+      'raw_transactions',
       'import_sessions',
       'accounts',
       'users',

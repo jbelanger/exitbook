@@ -7,10 +7,12 @@ import {
   VerificationMetadataSchema,
   wrapError,
 } from '@exitbook/core';
+import type { Selectable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { z } from 'zod';
 
+import type { AccountsTable } from '../schema/database-schema.ts';
 import type { KyselyDB } from '../storage/database.js';
 
 import { BaseRepository } from './base-repository.js';
@@ -54,6 +56,14 @@ export class AccountRepository extends BaseRepository {
    */
   async findOrCreate(params: FindOrCreateAccountParams): Promise<Result<Account, Error>> {
     try {
+      // Validate required fields to prevent bad data at source
+      if (!params.identifier || params.identifier.trim() === '') {
+        return err(new Error('Account identifier must not be empty'));
+      }
+      if (!params.sourceName || params.sourceName.trim() === '') {
+        return err(new Error('Account source name must not be empty'));
+      }
+
       // First, try to find existing account
       const existingResult = await this.findByUniqueConstraint(
         params.accountType,
@@ -419,21 +429,7 @@ export class AccountRepository extends BaseRepository {
   /**
    * Convert database row to Account domain model
    */
-  private toAccount(row: {
-    account_type: string;
-    created_at: string;
-    credentials: unknown;
-    id: number;
-    identifier: string;
-    last_balance_check_at: string | null;
-    last_cursor: unknown;
-    parent_account_id: number | null;
-    provider_name: string | null;
-    source_name: string;
-    updated_at: string | null;
-    user_id: number | null;
-    verification_metadata: unknown;
-  }): Result<Account, Error> {
+  private toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
     // Parse credentials
     const credentialsResult = this.parseWithSchema(row.credentials, ExchangeCredentialsSchema.optional());
     if (credentialsResult.isErr()) {

@@ -1,6 +1,7 @@
 import { parseDecimal } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
+
+import type { ProcessedTransaction } from '../../../types/processors.ts';
 
 import type {
   CsvAccountHistoryRow,
@@ -12,7 +13,7 @@ import type {
 
 /**
  * Pure business logic functions for processing KuCoin CSV data.
- * These functions extract and transform KuCoin transaction data into UniversalTransaction format.
+ * These functions extract and transform KuCoin transaction data into ProcessedTransaction format.
  */
 
 /**
@@ -22,7 +23,7 @@ export function convertKucoinAccountHistoryConvertToTransaction(
   deposit: CsvAccountHistoryRow,
   withdrawal: CsvAccountHistoryRow,
   timestamp: string
-): UniversalTransaction {
+): ProcessedTransaction {
   const timestampMs = new Date(timestamp).getTime();
 
   const sellCurrency = withdrawal.Currency;
@@ -37,7 +38,6 @@ export function convertKucoinAccountHistoryConvertToTransaction(
   const platformFee = { amount: totalFee, asset: sellCurrency };
 
   return {
-    id: 0, // Will be assigned by database
     externalId: `${withdrawal.UID}-${timestampMs}-convert-market-${sellCurrency}-${buyCurrency}`,
     datetime: timestamp,
     timestamp: timestampMs,
@@ -70,21 +70,13 @@ export function convertKucoinAccountHistoryConvertToTransaction(
       category: 'trade',
       type: 'swap',
     },
-
-    metadata: {
-      type: 'convert_market',
-      depositFee,
-      withdrawalFee,
-      depositRow: deposit,
-      withdrawalRow: withdrawal,
-    },
   };
 }
 
 /**
- * Convert KuCoin deposit row into UniversalTransaction
+ * Convert KuCoin deposit row into ProcessedTransaction
  */
-export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow): UniversalTransaction {
+export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow): ProcessedTransaction {
   const timestamp = new Date(row['Time(UTC)']).getTime();
   const grossAmount = parseDecimal(row.Amount);
   const fee = row.Fee ? parseDecimal(row.Fee) : parseDecimal('0');
@@ -97,7 +89,6 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
   const platformFee = { amount: fee, asset: row.Coin };
 
   return {
-    id: 0, // Will be assigned by database
     externalId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-deposit-${row.Amount}`,
     datetime: row['Time(UTC)'],
     timestamp,
@@ -126,21 +117,13 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
       category: 'transfer',
       type: 'deposit',
     },
-
-    metadata: {
-      address: row['Deposit Address'],
-      hash: row.Hash,
-      remarks: row.Remarks,
-      transferNetwork: row['Transfer Network'],
-      originalRow: row,
-    },
   };
 }
 
 /**
- * Convert KuCoin order-splitting row (individual fill) into UniversalTransaction
+ * Convert KuCoin order-splitting row (individual fill) into ProcessedTransaction
  */
-export function convertKucoinOrderSplittingToTransaction(row: CsvOrderSplittingRow): UniversalTransaction {
+export function convertKucoinOrderSplittingToTransaction(row: CsvOrderSplittingRow): ProcessedTransaction {
   const timestamp = new Date(row['Filled Time(UTC)']).getTime();
   const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
   const filledAmount = row['Filled Amount'];
@@ -158,7 +141,6 @@ export function convertKucoinOrderSplittingToTransaction(row: CsvOrderSplittingR
   const uniqueId = `${row['Order ID']}-${timestamp}-${filledAmount}`;
 
   return {
-    id: 0, // Will be assigned by database
     externalId: uniqueId,
     datetime: row['Filled Time(UTC)'],
     timestamp,
@@ -191,23 +173,13 @@ export function convertKucoinOrderSplittingToTransaction(row: CsvOrderSplittingR
       category: 'trade',
       type: side, // 'buy' or 'sell'
     },
-
-    metadata: {
-      side,
-      orderType: row['Order Type'],
-      makerTaker: row['Maker/Taker'],
-      filledVolumeUSDT: parseDecimal(row['Filled Volume (USDT)']).toNumber(),
-      orderId: row['Order ID'],
-      fillType: 'order-splitting',
-      originalRow: row,
-    },
   };
 }
 
 /**
- * Convert KuCoin trading bot row into UniversalTransaction
+ * Convert KuCoin trading bot row into ProcessedTransaction
  */
-export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): UniversalTransaction {
+export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): ProcessedTransaction {
   const timestamp = new Date(row['Time Filled(UTC)']).getTime();
   const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
   const filledAmount = row['Filled Amount'];
@@ -225,7 +197,6 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Uni
   const uniqueId = `${row['Order ID']}-${timestamp}-${filledAmount}`;
 
   return {
-    id: 0, // Will be assigned by database
     externalId: uniqueId,
     datetime: row['Time Filled(UTC)'],
     timestamp,
@@ -258,22 +229,13 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Uni
       category: 'trade',
       type: side, // 'buy' or 'sell'
     },
-
-    metadata: {
-      side,
-      orderType: row['Order Type'],
-      filledVolumeUSDT: parseDecimal(row['Filled Volume (USDT)']).toNumber(),
-      orderId: row['Order ID'],
-      fillType: 'trading-bot',
-      originalRow: row,
-    },
   };
 }
 
 /**
- * Convert KuCoin spot order row into UniversalTransaction
+ * Convert KuCoin spot order row into ProcessedTransaction
  */
-export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): UniversalTransaction {
+export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): ProcessedTransaction {
   const timestamp = new Date(row['Filled Time(UTC)']).getTime();
   const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
   const filledAmount = row['Filled Amount'];
@@ -288,7 +250,6 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Unive
   const isBuy = side === 'buy';
 
   return {
-    id: 0, // Will be assigned by database
     externalId: row['Order ID'],
     datetime: row['Filled Time(UTC)'],
     timestamp,
@@ -321,30 +282,19 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Unive
       category: 'trade',
       type: side, // 'buy' or 'sell'
     },
-
-    metadata: {
-      side,
-      orderType: row['Order Type'],
-      orderTime: row['Order Time(UTC)'],
-      orderAmount: parseDecimal(row['Order Amount']).toNumber(),
-      orderPrice: parseDecimal(row['Order Price']).toNumber(),
-      filledVolumeUSDT: parseDecimal(row['Filled Volume (USDT)']).toNumber(),
-      originalRow: row,
-    },
   };
 }
 
 /**
- * Convert KuCoin withdrawal row into UniversalTransaction
+ * Convert KuCoin withdrawal row into ProcessedTransaction
  */
-export function convertKucoinWithdrawalToTransaction(row: CsvDepositWithdrawalRow): UniversalTransaction {
+export function convertKucoinWithdrawalToTransaction(row: CsvDepositWithdrawalRow): ProcessedTransaction {
   const timestamp = new Date(row['Time(UTC)']).getTime();
   const absAmount = Math.abs(parseDecimal(row.Amount).toNumber());
   const fee = parseDecimal(row.Fee ?? '0');
   const platformFee = { amount: fee, asset: row.Coin };
 
   return {
-    id: 0, // Will be assigned by database
     externalId: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-withdrawal-${row.Amount}`,
     datetime: row['Time(UTC)'],
     timestamp,
@@ -373,19 +323,11 @@ export function convertKucoinWithdrawalToTransaction(row: CsvDepositWithdrawalRo
       category: 'transfer',
       type: 'withdrawal',
     },
-
-    metadata: {
-      address: row['Withdrawal Address/Account'],
-      hash: row.Hash,
-      remarks: row.Remarks,
-      transferNetwork: row['Transfer Network'],
-      originalRow: row,
-    },
   };
 }
 
 /**
- * Map KuCoin status values to UniversalTransaction status
+ * Map KuCoin status values to ProcessedTransaction status
  */
 export function mapKucoinStatus(
   status: string,
@@ -430,8 +372,8 @@ export function mapKucoinStatus(
 export function processKucoinAccountHistory(
   filteredRows: CsvAccountHistoryRow[],
   logger: Logger
-): UniversalTransaction[] {
-  const convertTransactions: UniversalTransaction[] = [];
+): ProcessedTransaction[] {
+  const convertTransactions: ProcessedTransaction[] = [];
   const convertMarketRows = filteredRows.filter((row) => row.Type === 'Convert Market');
 
   // Group convert market entries by timestamp

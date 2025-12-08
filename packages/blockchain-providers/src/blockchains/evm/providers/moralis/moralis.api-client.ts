@@ -336,7 +336,7 @@ export class MoralisApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = mapMoralisTransaction(rawTx, {}, this.chainConfig.nativeCurrency);
+      const mapResult = mapMoralisTransaction(rawTx, this.chainConfig.nativeCurrency);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -466,7 +466,7 @@ export class MoralisApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransfers) {
-      const mapResult = mapMoralisTokenTransfer(rawTx, {});
+      const mapResult = mapMoralisTokenTransfer(rawTx);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -531,7 +531,7 @@ export class MoralisApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapMoralisTransaction(raw, {}, this.chainConfig.nativeCurrency);
+        const mapped = mapMoralisTransaction(raw, this.chainConfig.nativeCurrency);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(
@@ -601,7 +601,7 @@ export class MoralisApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapMoralisTokenTransfer(raw, {});
+        const mapped = mapMoralisTokenTransfer(raw);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(

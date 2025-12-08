@@ -1,4 +1,3 @@
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { ok, type Result } from 'neverthrow';
 
@@ -88,8 +87,7 @@ export function mapAssetAmounts(amounts: BlockfrostAssetAmount[]): CardanoAssetA
  * @returns Result containing normalized CardanoTransaction or NormalizationError
  */
 function mapBlockfrostTransactionInternal(
-  rawData: BlockfrostTransactionWithMetadata,
-  _sourceContext: ImportSessionMetadata
+  rawData: BlockfrostTransactionWithMetadata
 ): Result<CardanoTransaction, NormalizationError> {
   // Map inputs from Blockfrost format to normalized format
   const inputs: CardanoTransactionInput[] = rawData.inputs.map((input: BlockfrostUtxoInput) => ({

@@ -1,5 +1,5 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import { EVM_CHAINS, getEvmChainConfig } from '@exitbook/blockchain-providers';
+import { EVM_CHAINS, getEvmChainConfig, normalizeEvmAddress } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
@@ -17,7 +17,8 @@ for (const chainName of Object.keys(EVM_CHAINS)) {
     blockchain: chainName,
 
     normalizeAddress: (address: string) => {
-      const normalized = address.toLowerCase();
+      // Use centralized normalization logic
+      const normalized = normalizeEvmAddress(address);
       if (!/^0x[0-9a-f]{40}$/.test(normalized)) {
         return err(new Error(`Invalid EVM address format for ${chainName}: ${address}`));
       }

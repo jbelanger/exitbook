@@ -92,7 +92,10 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -102,9 +105,6 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
     expect(transaction.externalId).toBe('0xhash1');
-    expect(transaction.metadata).toBeDefined();
-    if (!transaction.metadata) return;
-    expect(transaction.metadata.correlatedTxCount).toBe(3);
 
     // Should track ALL assets (ETH and USDC), consolidated
     expect(transaction.movements.inflows).toHaveLength(2);
@@ -119,9 +119,6 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.blockchain?.name).toBe('ethereum');
     expect(transaction.blockchain?.is_confirmed).toBe(true);
-    expect(transaction.metadata.hasTokenTransfers).toBe(true);
-    expect(transaction.metadata.hasInternalTransactions).toBe(true);
-    expect(transaction.metadata.hasContractInteraction).toBe(false);
   });
 
   test('processes multiple transaction groups independently', async () => {
@@ -156,7 +153,10 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -202,7 +202,10 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -234,7 +237,10 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -267,7 +273,10 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -300,7 +309,10 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -334,7 +346,10 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -369,7 +384,10 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -402,7 +420,10 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -450,7 +471,10 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -486,7 +510,10 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -520,7 +547,10 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -561,7 +591,10 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -601,7 +634,10 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
         type: 'transfer',
       },
     ];
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -640,7 +676,10 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -651,7 +690,6 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.metadata?.tokenAddress).toBe('0xusdc000000000000000000000000000000000000');
   });
 
   test('classifies outgoing token transfer as withdrawal', async () => {
@@ -675,7 +713,10 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -709,7 +750,10 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -721,7 +765,6 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     // Check structured fields
     expect(transaction.operation.category).toBe('fee');
     expect(transaction.operation.type).toBe('fee');
-    expect(transaction.metadata?.hasContractInteraction).toBe(false);
   });
 
   test('classifies small deposit correctly (affects balance)', async () => {
@@ -743,7 +786,10 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -778,7 +824,10 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -788,7 +837,6 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     if (!transaction) return;
 
     // Check structured fields - zero amount + contract interaction → 'transfer'
-    expect(transaction.metadata?.hasContractInteraction).toBe(true);
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
   });
@@ -812,7 +860,10 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -847,7 +898,10 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -855,7 +909,6 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
     const transaction = result.value[0];
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.metadata?.hasContractInteraction).toBe(true);
   });
 
   test('detects contract interaction via methodId', async () => {
@@ -877,7 +930,10 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -885,7 +941,6 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
     const transaction = result.value[0];
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.metadata?.hasContractInteraction).toBe(true);
   });
 
   test('detects contract interaction via functionName', async () => {
@@ -906,7 +961,10 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
         type: 'transfer',
       },
     ];
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -914,7 +972,6 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
     const transaction = result.value[0];
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.metadata?.hasContractInteraction).toBe(true);
   });
 });
 
@@ -938,7 +995,10 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -972,7 +1032,10 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -983,7 +1046,6 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
 
     // Check structured fields
     expect(transaction.blockchain?.name).toBe('avalanche');
-    expect(transaction.metadata?.chainId).toBe(43114);
     // User received, sender paid fee - no fee entry created when user didn't pay
     expect(transaction.fees.find((f) => f.scope === 'network')).toBeUndefined();
   });
@@ -1006,7 +1068,10 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1018,32 +1083,6 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
 });
 
 describe('EvmTransactionProcessor - Edge Cases', () => {
-  test('handles missing user address in session metadata', async () => {
-    const processor = createEthereumProcessor();
-
-    const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        currency: 'ETH',
-        from: EXTERNAL_ADDRESS,
-        id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
-        timestamp: Date.now(),
-        to: USER_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
-    ];
-
-    const result = await processor.process(normalizedData, { address: '' });
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toContain('Missing user address');
-    }
-  });
-
   test('handles case-insensitive address matching', async () => {
     const processor = createEthereumProcessor();
 
@@ -1065,7 +1104,10 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1098,7 +1140,10 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1129,7 +1174,10 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1159,7 +1207,10 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1201,7 +1252,10 @@ describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
         type: 'token_transfer',
       },
     ];
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1241,7 +1295,10 @@ describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1252,7 +1309,6 @@ describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
 
     // Check structured fields - should use internal transaction for fund flow
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.metadata?.hasInternalTransactions).toBe(true);
   });
 });
 
@@ -1291,7 +1347,10 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
@@ -1351,7 +1410,10 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1415,7 +1477,10 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1459,7 +1524,10 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
         type: 'contract_call',
       },
     ];
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1535,7 +1603,10 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1583,7 +1654,10 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
 
@@ -1612,7 +1686,10 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1626,7 +1703,6 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
 
     // Verify enriched metadata is used
     expect(transaction.movements.inflows?.[0]?.asset).toBe('TOKEN');
-    expect(transaction.metadata?.tokenDecimals).toBe(18);
   });
 
   test('handles multiple token transfers with enrichment', async () => {
@@ -1665,7 +1741,10 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
       },
     ];
 
-    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

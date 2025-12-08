@@ -1,10 +1,5 @@
-import {
-  Currency,
-  type AssetMovement,
-  type FeeMovement,
-  type PriceAtTxTime,
-  type UniversalTransaction,
-} from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
+import { Currency, type AssetMovement, type FeeMovement, type PriceAtTxTime } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
@@ -48,9 +43,9 @@ export function buildDependencyGraph(links: TransactionLink[]): Map<number, Set<
  * @returns Sorted transaction array
  */
 export function sortWithLogicalOrdering(
-  transactions: UniversalTransaction[],
+  transactions: UniversalTransactionData[],
   dependencyGraph: Map<number, Set<number>>
-): UniversalTransaction[] {
+): UniversalTransactionData[] {
   return [...transactions].sort((a, b) => {
     const aAfterB = dependencyGraph.get(a.id)?.has(b.id);
     const bAfterA = dependencyGraph.get(b.id)?.has(a.id);
@@ -85,7 +80,7 @@ export function getVarianceTolerance(
 }
 
 export function extractCryptoFee(
-  tx: UniversalTransaction,
+  tx: UniversalTransactionData,
   asset: string
 ): Result<{ amount: Decimal; feeType: string; priceAtTxTime?: PriceAtTxTime | undefined }, Error> {
   try {
@@ -138,7 +133,7 @@ export function extractCryptoFee(
  * @param asset - Asset to filter fees by
  * @returns Total on-chain fee amount for the asset
  */
-export function extractOnChainFees(tx: UniversalTransaction, asset: string): Decimal {
+export function extractOnChainFees(tx: UniversalTransactionData, asset: string): Decimal {
   let totalOnChainFees = new Decimal(0);
 
   for (const fee of tx.fees) {
@@ -166,7 +161,7 @@ export function extractOnChainFees(tx: UniversalTransaction, asset: string): Dec
  */
 export function validateOutflowFees(
   outflow: AssetMovement,
-  tx: UniversalTransaction,
+  tx: UniversalTransactionData,
   source: string,
   txId: number,
   configOverride?: { error: number; warn: number }
@@ -215,8 +210,8 @@ export function validateOutflowFees(
 }
 
 export function collectFiatFees(
-  sourceTx: UniversalTransaction,
-  targetTx: UniversalTransaction
+  sourceTx: UniversalTransactionData,
+  targetTx: UniversalTransactionData
 ): Result<
   {
     amount: Decimal;
@@ -258,7 +253,7 @@ export function collectFiatFees(
  *
  * Fiat currencies are excluded from validation since we don't track cost basis for them.
  */
-export function filterTransactionsWithoutPrices(transactions: UniversalTransaction[]): UniversalTransaction[] {
+export function filterTransactionsWithoutPrices(transactions: UniversalTransactionData[]): UniversalTransactionData[] {
   return transactions.filter((tx) => {
     const inflows = tx.movements.inflows || [];
     const outflows = tx.movements.outflows || [];
@@ -345,7 +340,7 @@ function calculateTotalFeeValueInFiat(
  * Uses grossAmount for inflows and netAmount (defaulting to grossAmount) for outflows.
  */
 function calculateMovementValues(
-  transaction: UniversalTransaction,
+  transaction: UniversalTransactionData,
   targetMovement: AssetMovement,
   isInflow: boolean
 ): {
@@ -464,7 +459,7 @@ function allocateFeesProportionally(
  * @returns Fee amount in fiat attributable to this movement
  */
 export function calculateFeesInFiat(
-  transaction: UniversalTransaction,
+  transaction: UniversalTransactionData,
   targetMovement: AssetMovement,
   isInflow: boolean
 ): Result<Decimal, Error> {
@@ -505,7 +500,9 @@ export function calculateFeesInFiat(
 /**
  * Group transactions by asset (from both inflows and outflows)
  */
-export function groupTransactionsByAsset(transactions: UniversalTransaction[]): Map<string, UniversalTransaction[]> {
+export function groupTransactionsByAsset(
+  transactions: UniversalTransactionData[]
+): Map<string, UniversalTransactionData[]> {
   const assetMap = new Map<string, Set<number>>();
 
   // Collect unique assets
@@ -528,7 +525,7 @@ export function groupTransactionsByAsset(transactions: UniversalTransaction[]): 
   }
 
   // Build map of asset -> transactions
-  const result = new Map<string, UniversalTransaction[]>();
+  const result = new Map<string, UniversalTransactionData[]>();
   for (const [asset, txIds] of assetMap) {
     const txsForAsset = transactions.filter((tx) => txIds.has(tx.id));
     result.set(asset, txsForAsset);
@@ -541,7 +538,7 @@ export function groupTransactionsByAsset(transactions: UniversalTransaction[]): 
  * Create an acquisition lot from an inflow movement
  */
 export function buildAcquisitionLotFromInflow(
-  transaction: UniversalTransaction,
+  transaction: UniversalTransactionData,
   inflow: AssetMovement,
   calculationId: string,
   strategyName: 'fifo' | 'lifo' | 'specific-id' | 'average-cost'
@@ -586,7 +583,7 @@ export function buildAcquisitionLotFromInflow(
  * @returns Object with proceedsPerUnit and totalFeeAmount
  */
 export function calculateNetProceeds(
-  transaction: UniversalTransaction,
+  transaction: UniversalTransactionData,
   outflow: AssetMovement
 ): Result<{ proceedsPerUnit: Decimal; totalFeeAmount: Decimal }, Error> {
   if (!outflow.priceAtTxTime) {
@@ -744,7 +741,7 @@ export function calculateTargetCostBasis(
  * Pure function that returns updated lots without mutation.
  */
 export function matchOutflowDisposal(
-  transaction: UniversalTransaction,
+  transaction: UniversalTransactionData,
   outflow: AssetMovement,
   allLots: AcquisitionLot[],
   strategy: ICostBasisStrategy
@@ -817,7 +814,7 @@ export function matchOutflowDisposal(
  * and returns updated lots without mutation. Returns warnings for logging.
  */
 export function processTransferSource(
-  tx: UniversalTransaction,
+  tx: UniversalTransactionData,
   outflow: AssetMovement,
   link: TransactionLink,
   lots: AcquisitionLot[],
@@ -1036,10 +1033,10 @@ export function processTransferSource(
  * Source transaction must be provided (fetched by caller).
  */
 export function processTransferTarget(
-  tx: UniversalTransaction,
+  tx: UniversalTransactionData,
   inflow: AssetMovement,
   link: TransactionLink,
-  sourceTx: UniversalTransaction,
+  sourceTx: UniversalTransactionData,
   lotTransfers: LotTransfer[],
   calculationId: string,
   strategyName: 'fifo' | 'lifo' | 'specific-id' | 'average-cost',

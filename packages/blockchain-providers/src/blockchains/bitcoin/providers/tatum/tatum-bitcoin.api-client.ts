@@ -248,7 +248,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
     // Normalize transactions immediately using mapper
     const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = mapTatumTransaction(rawTx, {}, this.chainConfig);
+      const mapResult = mapTatumTransaction(rawTx, this.chainConfig);
 
       if (mapResult.isErr()) {
         // Fail fast - provider returned invalid data
@@ -331,7 +331,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapTatumTransaction(raw, {}, this.chainConfig);
+        const mapped = mapTatumTransaction(raw, this.chainConfig);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(

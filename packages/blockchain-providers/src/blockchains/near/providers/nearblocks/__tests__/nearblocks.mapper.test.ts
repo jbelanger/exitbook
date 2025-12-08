@@ -34,7 +34,7 @@ describe('NearBlocksTransactionMapper', () => {
         transaction_hash: 'AbCdEf123456',
       };
 
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(rawData);
 
       if (result.isErr()) {
         console.error('Test 1 failed - Mapper error:', JSON.stringify(result.error, undefined, 2));
@@ -66,7 +66,7 @@ describe('NearBlocksTransactionMapper', () => {
         transaction_hash: 'InvalidTx',
       };
 
-      const result = mapNearBlocksTransaction(invalidRawData as NearBlocksTransaction, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(invalidRawData as NearBlocksTransaction);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -82,7 +82,7 @@ describe('NearBlocksTransactionMapper', () => {
         transaction_hash: 'ValidTx',
       };
 
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(rawData);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -104,7 +104,7 @@ describe('NearBlocksTransactionMapper', () => {
         transaction_hash: 'MinimalTx',
       };
 
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(rawData);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -130,7 +130,7 @@ describe('NearBlocksTransactionMapper', () => {
         transaction_hash: 'FailedTx',
       };
 
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(rawData);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -166,7 +166,7 @@ describe('NearBlocksTransactionMapper', () => {
         transaction_hash: 'FunctionCallTx',
       };
 
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(rawData);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -188,7 +188,7 @@ describe('NearBlocksTransactionMapper', () => {
         transaction_hash: '', // Invalid: empty
       };
 
-      const result = mapNearBlocksTransaction(invalidRawData as NearBlocksTransaction, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(invalidRawData as NearBlocksTransaction);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -204,7 +204,7 @@ describe('NearBlocksTransactionMapper', () => {
         transaction_hash: 'ValidTx',
       };
 
-      const result = mapNearBlocksTransaction(invalidRawData as NearBlocksTransaction, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(invalidRawData as NearBlocksTransaction);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -220,7 +220,7 @@ describe('NearBlocksTransactionMapper', () => {
         transaction_hash: 'ValidTx',
       };
 
-      const result = mapNearBlocksTransaction(invalidRawData as NearBlocksTransaction, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(invalidRawData as NearBlocksTransaction);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -259,7 +259,7 @@ describe('NearBlocksTransactionMapper', () => {
         transaction_hash: 'MultiActionTx',
       };
 
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(rawData);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -280,28 +280,12 @@ describe('NearBlocksTransactionMapper', () => {
         transaction_hash: 'ImplicitTx',
       };
 
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'nearblocks' });
+      const result = mapNearBlocksTransaction(rawData);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.from).toBe(implicitSigner);
         expect(result.value.to).toBe(implicitReceiver);
-      }
-    });
-
-    it('should preserve provider name from source context', () => {
-      const rawData: NearBlocksTransaction = {
-        block_timestamp: '1640000000000000000',
-        signer_account_id: 'alice.near',
-        receiver_account_id: 'bob.near',
-        transaction_hash: 'CustomProviderTx',
-      };
-
-      const result = mapNearBlocksTransaction(rawData, { providerName: 'custom-near-provider' });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.providerName).toBe('custom-near-provider');
       }
     });
 
@@ -313,7 +297,7 @@ describe('NearBlocksTransactionMapper', () => {
         transaction_hash: 'NoProviderTx',
       };
 
-      const result = mapNearBlocksTransaction(rawData, {});
+      const result = mapNearBlocksTransaction(rawData);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {

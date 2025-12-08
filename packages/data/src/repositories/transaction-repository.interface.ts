@@ -1,4 +1,4 @@
-import type { ImportSessionStatus, UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 /**
@@ -6,17 +6,13 @@ import type { Result } from 'neverthrow';
  */
 export interface TransactionFilters {
   /** Filter by source (blockchain or exchange name) */
-  sourceId?: string | undefined;
+  sourceName?: string | undefined;
   /** Filter by transactions created since this Unix timestamp */
   since?: number | undefined;
-  /** Filter by import session session ID */
-  sessionId?: number | undefined;
-  /** Filter by account ID (queries all sessions for the account) */
+  /** Filter by account ID */
   accountId?: number | undefined;
-  /** Filter by multiple account IDs (queries all sessions for these accounts). More efficient than multiple individual queries. */
+  /** Filter by multiple account IDs. More efficient than multiple individual queries. */
   accountIds?: number[] | undefined;
-  /** Filter by session status (e.g., 'completed'). Requires accountId or accountIds to be set. */
-  sessionStatus?: ImportSessionStatus | undefined;
   /** Include transactions excluded from accounting (scam tokens, test data, etc.). Defaults to false. */
   includeExcluded?: boolean | undefined;
 }
@@ -29,16 +25,19 @@ export interface ITransactionRepository {
   /**
    * Retrieve transactions with optional filtering.
    */
-  getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransaction[], Error>>;
+  getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransactionData[], Error>>;
 
   /**
    * Save a transaction to the database.
    * Returns the database ID of the saved transaction.
    */
-  save(transaction: UniversalTransaction, importSessionId: number): Promise<Result<number, Error>>;
+  save(
+    transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
+    accountId: number
+  ): Promise<Result<number, Error>>;
 
   /**
    * Find a transaction by its ID.
    */
-  findById(id: number): Promise<Result<UniversalTransaction | null, Error>>;
+  findById(id: number): Promise<Result<UniversalTransactionData | undefined, Error>>;
 }

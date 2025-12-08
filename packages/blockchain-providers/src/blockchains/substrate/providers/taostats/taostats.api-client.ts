@@ -244,7 +244,7 @@ export class TaostatsApiClient extends BaseApiClient {
         continue;
       }
 
-      const mapResult = convertTaostatsTransaction(rawTx, {}, this.chainConfig.nativeCurrency);
+      const mapResult = convertTaostatsTransaction(rawTx, this.chainConfig.nativeCurrency);
 
       if (mapResult.isErr()) {
         const error = mapResult.error;
@@ -321,7 +321,7 @@ export class TaostatsApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = convertTaostatsTransaction(raw, {}, this.chainConfig.nativeCurrency);
+        const mapped = convertTaostatsTransaction(raw, this.chainConfig.nativeCurrency);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(

@@ -1,6 +1,6 @@
 // Utilities and types for view transactions command
 
-import type { SourceType, UniversalTransaction } from '@exitbook/core';
+import type { SourceType, UniversalTransactionData } from '@exitbook/core';
 import { computePrimaryMovement } from '@exitbook/core';
 
 import { parseDate } from '../shared/view-utils.js';
@@ -20,7 +20,7 @@ export interface ViewTransactionsParams extends CommonViewFilters {
  */
 export interface TransactionInfo {
   id: number;
-  source_id: string;
+  source_name: string;
   source_type: SourceType;
   external_id: string | null | undefined;
   transaction_datetime: string;
@@ -75,9 +75,9 @@ export function formatOperationLabel(category: string | null | undefined, type: 
  * Apply filters to transactions based on provided parameters.
  */
 export function applyTransactionFilters(
-  transactions: UniversalTransaction[],
+  transactions: UniversalTransactionData[],
   params: ViewTransactionsParams
-): UniversalTransaction[] {
+): UniversalTransactionData[] {
   let filtered = transactions;
 
   // Filter by until date
@@ -109,15 +109,16 @@ export function applyTransactionFilters(
 }
 
 /**
- * Format a UniversalTransaction for display.
+ * Format a UniversalTransactionData for display.
  */
-export function formatTransactionForDisplay(tx: UniversalTransaction): FormattedTransaction {
+export function formatTransactionForDisplay(tx: UniversalTransactionData): FormattedTransaction {
   const primary = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);
 
   return {
     id: tx.id,
+
     external_id: tx.externalId,
-    source_id: tx.source,
+    source_name: tx.source,
     source_type: tx.blockchain ? ('blockchain' as const) : ('exchange' as const),
     transaction_datetime: tx.datetime,
     operation_category: tx.operation.category,
@@ -139,7 +140,7 @@ export function renderTransactionInfo(tx: TransactionInfo): string {
   const operationLabel = formatOperationLabel(tx.operation_category, tx.operation_type);
 
   lines.push(`Transaction #${tx.id}`);
-  lines.push(`   Source: ${tx.source_id} (${tx.source_type})`);
+  lines.push(`   Source: ${tx.source_name} (${tx.source_type})`);
   lines.push(`   Date: ${tx.transaction_datetime}`);
   lines.push(`   Operation: ${operationLabel}`);
 

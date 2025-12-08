@@ -1,5 +1,4 @@
 import { isErrorWithMessage } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result, err } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.ts';
@@ -19,10 +18,7 @@ import type { HeliusTransaction } from './helius.schemas.js';
  * Map Helius transaction to normalized SolanaTransaction
  * Input is already validated by HTTP client, output validated here
  */
-export function mapHeliusTransaction(
-  rawData: HeliusTransaction,
-  _sourceContext: ImportSessionMetadata
-): Result<SolanaTransaction, NormalizationError> {
+export function mapHeliusTransaction(rawData: HeliusTransaction): Result<SolanaTransaction, NormalizationError> {
   const signature = rawData.transaction.signatures?.[0] ?? rawData.signature;
   if (!signature) {
     return err({ message: 'Transaction signature is required for normalization', type: 'error' });

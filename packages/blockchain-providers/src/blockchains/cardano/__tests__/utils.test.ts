@@ -531,13 +531,13 @@ describe('CardanoUtils', () => {
 
       const result = await CardanoUtils.deriveAddressesFromXpub(validXpub, 2);
 
-      // Should have pattern: external (0/0), external (0/1), then internal (1/0), internal (1/1)
+      // Should have interleaved pattern: external (0/0), internal (1/0), external (0/1), internal (1/1)
       expect(result[0]?.role).toBe('external');
       expect(result[0]?.derivationPath).toBe('0/0');
-      expect(result[1]?.role).toBe('external');
-      expect(result[1]?.derivationPath).toBe('0/1');
-      expect(result[2]?.role).toBe('internal');
-      expect(result[2]?.derivationPath).toBe('1/0');
+      expect(result[1]?.role).toBe('internal');
+      expect(result[1]?.derivationPath).toBe('1/0');
+      expect(result[2]?.role).toBe('external');
+      expect(result[2]?.derivationPath).toBe('0/1');
       expect(result[3]?.role).toBe('internal');
       expect(result[3]?.derivationPath).toBe('1/1');
     });

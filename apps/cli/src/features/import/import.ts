@@ -7,14 +7,10 @@ import {
   TokenMetadataRepository,
   UserRepository,
   AccountRepository,
-} from '@exitbook/data';
-import {
-  ImportOrchestrator,
-  TransactionProcessService,
-  RawDataRepository,
   ImportSessionRepository,
-  TokenMetadataService,
-} from '@exitbook/ingestion';
+  RawDataRepository,
+} from '@exitbook/data';
+import { ImportOrchestrator, TransactionProcessService, TokenMetadataService } from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import { createClackEmitter, runWithProgress, type ProgressEmitter } from '@exitbook/ui';
 import type { Command } from 'commander';
@@ -41,7 +37,9 @@ export interface ExtendedImportCommandOptions extends ImportCommandOptions {
  */
 interface ImportCommandResult {
   imported: number;
-  importSessionId: number;
+  skipped: number;
+  sessions: number;
+  importSessionIds: number[];
   processed?: number | undefined;
   processingErrors?: string[] | undefined;
 }
@@ -128,7 +126,6 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
     );
     const processService = new TransactionProcessService(
       rawDataRepository,
-      importSessionRepository,
       accountRepository,
       transactionRepository,
       tokenMetadataService
@@ -197,10 +194,17 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
  * Handle successful import.
  */
 function handleImportSuccess(output: OutputManager, importResult: ImportResult): string | undefined {
+  // Calculate totals from sessions
+  const totalImported = importResult.sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
+  const totalSkipped = importResult.sessions.reduce((sum, s) => sum + s.transactionsSkipped, 0);
+  const importSessionIds = importResult.sessions.map((s) => s.id);
+
   // Prepare result data
   const resultData: ImportCommandResult = {
-    importSessionId: importResult.importSessionId,
-    imported: importResult.imported,
+    imported: totalImported,
+    skipped: totalSkipped,
+    sessions: importResult.sessions.length,
+    importSessionIds,
   };
 
   if (importResult.processed !== undefined) {
@@ -214,7 +218,22 @@ function handleImportSuccess(output: OutputManager, importResult: ImportResult):
   let summary: string | undefined;
 
   if (output.isTextMode()) {
-    const summaryParts = [`Loaded ${importResult.imported} transactions`, `Session ${importResult.importSessionId}`];
+    const summaryParts: string[] = [];
+
+    // Show imported count
+    summaryParts.push(`Loaded ${totalImported} transactions`);
+
+    // Show skipped if any
+    if (totalSkipped > 0) {
+      summaryParts.push(`${totalSkipped} skipped (duplicates)`);
+    }
+
+    // Show session info (single session ID or count for multiple)
+    if (importResult.sessions.length === 1) {
+      summaryParts.push(`Session ${importResult.sessions[0]?.id}`);
+    } else {
+      summaryParts.push(`${importResult.sessions.length} sessions`);
+    }
 
     if (importResult.processed !== undefined) {
       summaryParts.push(`Processed ${importResult.processed}`);

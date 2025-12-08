@@ -1,7 +1,7 @@
 // Pure utility functions for export command
 // All functions are pure - no side effects
 
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { computePrimaryMovement } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -126,7 +126,7 @@ export function validateExportParams(params: ExportHandlerParams): Result<void, 
 /**
  * Convert transactions to CSV format.
  */
-export function convertToCSV(transactions: UniversalTransaction[]): string {
+export function convertToCSV(transactions: UniversalTransactionData[]): string {
   if (transactions.length === 0) return '';
 
   const headers = [
@@ -195,7 +195,7 @@ export function convertToCSV(transactions: UniversalTransaction[]): string {
 /**
  * Convert transactions to JSON format.
  */
-export function convertToJSON(transactions: UniversalTransaction[]): string {
+export function convertToJSON(transactions: UniversalTransactionData[]): string {
   if (transactions.length === 0) return '[]';
   return JSON.stringify(transactions, undefined, 2);
 }

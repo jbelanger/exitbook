@@ -23,7 +23,7 @@ export interface UnifiedBalanceSnapshot {
   /** Source type */
   sourceType: SourceType;
   /** Source identifier (exchange name or blockchain + address) */
-  sourceId: string;
+  sourceName: string;
 }
 
 /**
@@ -46,7 +46,7 @@ export async function fetchExchangeBalance(
       balances,
       timestamp,
       sourceType: 'exchange',
-      sourceId: exchangeId,
+      sourceName: exchangeId,
     });
   } catch (error) {
     return wrapError(error, `Failed to fetch exchange balance for ${exchangeId}`);
@@ -140,7 +140,7 @@ export async function fetchBlockchainBalance(
       balances,
       timestamp: Date.now(),
       sourceType: 'blockchain',
-      sourceId: `${blockchain}:${address}`,
+      sourceName: `${blockchain}:${address}`,
     });
   } catch (error) {
     return wrapError(error, `Failed to fetch blockchain balance for ${blockchain}:${address}`);
@@ -205,7 +205,7 @@ export async function fetchChildAccountsBalance(
       balances,
       timestamp: Date.now(),
       sourceType: 'blockchain',
-      sourceId: `${blockchain}:${parentAddress}`,
+      sourceName: `${blockchain}:${parentAddress}`,
     });
   } catch (error) {
     return wrapError(error, `Failed to fetch ${blockchain} parent account balance for ${parentAddress}`);

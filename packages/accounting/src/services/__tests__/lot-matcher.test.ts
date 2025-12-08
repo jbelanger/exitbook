@@ -1,4 +1,4 @@
-import { Currency, parseDecimal, type UniversalTransaction } from '@exitbook/core';
+import { Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { LotMatcher } from '../lot-matcher.js';
@@ -18,9 +18,10 @@ describe('LotMatcher - Fee Handling', () => {
     it('should include platform fee in cost basis for acquisitions', async () => {
       // Buy 1 BTC for $50,000 with $100 platform fee
       // Expected: cost basis = $50,100, or $50,100 per BTC
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -83,9 +84,10 @@ describe('LotMatcher - Fee Handling', () => {
     it('should include network fee in cost basis for acquisitions', async () => {
       // Buy 1 ETH for $3,000 with 0.001 ETH network fee worth $3
       // Expected: cost basis = $3,003 total, or $3,003 per ETH
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -143,9 +145,10 @@ describe('LotMatcher - Fee Handling', () => {
     });
 
     it('should include both platform and network fees in cost basis', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -215,9 +218,10 @@ describe('LotMatcher - Fee Handling', () => {
       // Then sell 1 BTC for $60,000 with $150 platform fee
       // Expected proceeds: $60,000 - $150 = $59,850
       // Expected gain: $59,850 - $50,000 = $9,850
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -247,6 +251,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
         {
           id: 2,
+          accountId: 1,
           externalId: 'tx2',
           datetime: '2024-02-01T00:00:00Z',
           timestamp: Date.parse('2024-02-01T00:00:00Z'),
@@ -309,9 +314,10 @@ describe('LotMatcher - Fee Handling', () => {
     });
 
     it('should subtract on-chain fees from disposal proceeds (ADR-005)', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -341,6 +347,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
         {
           id: 2,
+          accountId: 1,
           externalId: 'tx2',
           datetime: '2024-02-01T00:00:00Z',
           timestamp: Date.parse('2024-02-01T00:00:00Z'),
@@ -405,9 +412,10 @@ describe('LotMatcher - Fee Handling', () => {
     it('should allocate fees proportionally when multiple assets are involved', async () => {
       // Buy both BTC ($50k) and ETH ($25k) in one transaction with $75 total fee
       // BTC should get 2/3 of fee ($50), ETH should get 1/3 of fee ($25)
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -485,9 +493,10 @@ describe('LotMatcher - Fee Handling', () => {
       // Inflow 2: 0.5 BTC @ $50,000 = $25,000 value
       // Total fee: $20
       // Each inflow should get $10 (50% of total fee based on equal value)
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -567,9 +576,10 @@ describe('LotMatcher - Fee Handling', () => {
       // Outflow 1: 0.6 BTC @ $60,000 = $36,000 gross proceeds
       // Outflow 2: 0.4 BTC @ $60,000 = $24,000 gross proceeds
       // Fee allocation: 0.6 should get $18 (60%), 0.4 should get $12 (40%)
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -601,6 +611,7 @@ describe('LotMatcher - Fee Handling', () => {
         },
         {
           id: 2,
+          accountId: 1,
           externalId: 'tx2',
           datetime: '2024-02-01T00:00:00Z',
           timestamp: Date.parse('2024-02-01T00:00:00Z'),
@@ -678,9 +689,10 @@ describe('LotMatcher - Fee Handling', () => {
 
   describe('Fee handling edge cases', () => {
     it('should fail when crypto fee is missing price', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -725,9 +737,10 @@ describe('LotMatcher - Fee Handling', () => {
     });
 
     it('should use 1:1 fallback for fiat fee in same currency as target movement', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -777,9 +790,10 @@ describe('LotMatcher - Fee Handling', () => {
     });
 
     it('should fail when fiat fee currency differs from target movement price currency', async () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -828,9 +842,10 @@ describe('LotMatcher - Fee Handling', () => {
     it('should split fees evenly when all crypto movements have zero value (airdrop)', async () => {
       // Airdrop: Receive 100 XYZ tokens with $0 value, $5 network fee
       // Fee should be split evenly among zero-value crypto movements
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -884,9 +899,10 @@ describe('LotMatcher - Fee Handling', () => {
     it('should split fees evenly among multiple zero-value crypto movements', async () => {
       // Receive 2 different airdrops in one transaction, both with $0 value
       // $10 fee should be split evenly: $5 each
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -953,9 +969,10 @@ describe('LotMatcher - Fee Handling', () => {
     it('should NOT allocate fee to fiat movements when all movements are zero-value', async () => {
       // Edge case: Zero-value crypto + fiat movement with $0 fee
       // Fiat should not receive fee allocation (we don't track cost basis for fiat)
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -1018,9 +1035,10 @@ describe('LotMatcher - Fee Handling', () => {
 
     it('should return zero fee allocation when no crypto movements exist (fiat-only)', async () => {
       // All movements are fiat - no fee allocation needed
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),
@@ -1091,9 +1109,10 @@ describe('LotMatcher - Fee Handling', () => {
       // XYZ: $0 value
       // Fee: $100
       // BTC should get all the fee (100% of non-zero value)
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
           timestamp: Date.parse('2024-01-01T00:00:00Z'),

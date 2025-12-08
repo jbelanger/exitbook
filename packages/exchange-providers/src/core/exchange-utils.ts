@@ -1,7 +1,7 @@
 // Pure exchange utility functions
 // All functions are pure - no side effects
 
-import { wrapError, type CursorState, type ExternalTransaction } from '@exitbook/core';
+import { wrapError, type CursorState, type RawTransactionInput } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { type ZodSchema } from 'zod';
@@ -66,8 +66,8 @@ export function processItems<TRaw, TValidated>(
     normalizedData: ExchangeLedgerEntry;
   },
   exchangeId: string
-): Result<{ cursorUpdates: Record<string, CursorState>; transactions: ExternalTransaction[] }, PartialImportError> {
-  const transactions: ExternalTransaction[] = [];
+): Result<{ cursorUpdates: Record<string, CursorState>; transactions: RawTransactionInput[] }, PartialImportError> {
+  const transactions: RawTransactionInput[] = [];
   const lastSuccessfulCursorUpdates: Record<string, CursorState> = {};
 
   for (const item of items) {
@@ -104,7 +104,7 @@ export function processItems<TRaw, TValidated>(
     transactions.push({
       externalId,
       providerName: exchangeId,
-      rawData: validatedData as unknown,
+      providerData: validatedData as unknown,
       normalizedData: normalizedValidation.data as unknown,
     });
 

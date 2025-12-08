@@ -5,7 +5,7 @@
 
 import { ProviderError, type BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
-import type { CursorState, ExternalTransaction, PaginationCursor } from '@exitbook/core';
+import type { CursorState, RawTransactionInput, PaginationCursor } from '@exitbook/core';
 import { err, errAsync, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
@@ -19,7 +19,7 @@ async function consumeImportStream(
   importer: CardanoTransactionImporter,
   params: ImportParams
 ): Promise<Result<ImportRunResult, Error>> {
-  const allTransactions: ExternalTransaction[] = [];
+  const allTransactions: RawTransactionInput[] = [];
   const cursorUpdates: Record<string, CursorState> = {};
 
   for await (const batchResult of importer.importStreaming(params)) {
@@ -188,7 +188,7 @@ describe('CardanoTransactionImporter', () => {
           providerName: 'blockfrost',
           sourceAddress: USER_ADDRESS,
           normalizedData: mockNormalized,
-          rawData: mockCardanoTx,
+          providerData: mockCardanoTx,
         });
         expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
       }
@@ -270,9 +270,9 @@ describe('CardanoTransactionImporter', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(3);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual(mockCardanoTx);
-        expect(result.value.rawTransactions[1]!.rawData).toEqual({ ...mockCardanoTx, id: 'tx2def' });
-        expect(result.value.rawTransactions[2]!.rawData).toEqual({ ...mockCardanoTx, id: 'tx3ghi' });
+        expect(result.value.rawTransactions[0]!.providerData).toEqual(mockCardanoTx);
+        expect(result.value.rawTransactions[1]!.providerData).toEqual({ ...mockCardanoTx, id: 'tx2def' });
+        expect(result.value.rawTransactions[2]!.providerData).toEqual({ ...mockCardanoTx, id: 'tx3ghi' });
       }
     });
   });

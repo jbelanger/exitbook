@@ -1,5 +1,4 @@
 import { isErrorWithMessage } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result, err } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.ts';
@@ -19,10 +18,7 @@ import type { SolanaRPCTransaction } from './solana-rpc.schemas.js';
  * Map Solana RPC transaction to normalized SolanaTransaction
  * Input is already validated by HTTP client, output validated here
  */
-export function mapSolanaRPCTransaction(
-  rawData: SolanaRPCTransaction,
-  _sourceContext: ImportSessionMetadata
-): Result<SolanaTransaction, NormalizationError> {
+export function mapSolanaRPCTransaction(rawData: SolanaRPCTransaction): Result<SolanaTransaction, NormalizationError> {
   try {
     const accountKeys = rawData.transaction.message.accountKeys;
     const signature = rawData.transaction.signatures?.[0] || '';

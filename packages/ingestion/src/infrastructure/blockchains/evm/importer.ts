@@ -11,7 +11,7 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { IImporter, ImportBatchResult, ImportParams } from '../../../types/importers.js';
 
-import { mapToExternalTransactions } from './evm-importer-utils.js';
+import { mapToRawTransactions } from './evm-importer-utils.js';
 
 /**
  * Generic EVM transaction importer that fetches raw transaction data from blockchain APIs.
@@ -146,7 +146,7 @@ export class EvmImporter implements IImporter {
       const transactionsWithRaw = providerBatch.data;
 
       // Use pure function for mapping
-      const externalTransactions = mapToExternalTransactions(
+      const rawTransactions = mapToRawTransactions(
         transactionsWithRaw,
         providerBatch.providerName,
         address,
@@ -154,7 +154,7 @@ export class EvmImporter implements IImporter {
       );
 
       yield ok({
-        rawTransactions: externalTransactions,
+        rawTransactions: rawTransactions,
         operationType,
         cursor: providerBatch.cursor,
         isComplete: providerBatch.cursor.metadata?.isComplete ?? false,

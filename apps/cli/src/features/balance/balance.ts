@@ -3,12 +3,13 @@ import type { SourceType } from '@exitbook/core';
 import {
   AccountRepository,
   closeDatabase,
+  ImportSessionRepository,
   initializeDatabase,
   TokenMetadataRepository,
   TransactionRepository,
   UserRepository,
 } from '@exitbook/data';
-import { ImportSessionRepository, BalanceService, type BalanceVerificationResult } from '@exitbook/ingestion';
+import { BalanceService, type BalanceVerificationResult } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
 import { unwrapResult } from '../shared/command-execution.js';

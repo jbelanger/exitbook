@@ -96,8 +96,8 @@ export class CosmosImporter implements IImporter {
       const providerBatch = providerBatchResult.value;
       const transactionsWithRaw = providerBatch.data;
 
-      // Map to external transactions
-      const externalTransactions = transactionsWithRaw.map((txWithRaw) => ({
+      // Map to raw transactions
+      const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
         externalId: generateUniqueTransactionId({
           amount: txWithRaw.normalized.amount,
           currency: txWithRaw.normalized.currency,
@@ -108,14 +108,15 @@ export class CosmosImporter implements IImporter {
           tokenAddress: txWithRaw.normalized.tokenAddress,
           type: txWithRaw.normalized.messageType || 'transfer',
         }),
+        blockchainTransactionHash: txWithRaw.normalized.id,
         normalizedData: txWithRaw.normalized,
         providerName: providerBatch.providerName,
-        rawData: txWithRaw.raw,
+        providerData: txWithRaw.raw,
         sourceAddress: address,
       }));
 
       yield ok({
-        rawTransactions: externalTransactions,
+        rawTransactions: rawTransactions,
         operationType: 'normal',
         cursor: providerBatch.cursor,
         isComplete: providerBatch.cursor.metadata?.isComplete ?? false,

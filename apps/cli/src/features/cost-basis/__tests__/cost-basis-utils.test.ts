@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -419,11 +419,11 @@ describe('Cost Basis Utils', () => {
 
   describe('filterTransactionsByDateRange', () => {
     it('should filter transactions within date range', () => {
-      const transactions: UniversalTransaction[] = [
-        { timestamp: '2024-01-01T00:00:00Z' } as unknown as UniversalTransaction,
-        { timestamp: '2024-06-01T00:00:00Z' } as unknown as UniversalTransaction,
-        { timestamp: '2024-12-31T23:59:59Z' } as unknown as UniversalTransaction,
-        { timestamp: '2025-01-01T00:00:00Z' } as unknown as UniversalTransaction,
+      const transactions: UniversalTransactionData[] = [
+        { timestamp: '2024-01-01T00:00:00Z' } as unknown as UniversalTransactionData,
+        { timestamp: '2024-06-01T00:00:00Z' } as unknown as UniversalTransactionData,
+        { timestamp: '2024-12-31T23:59:59Z' } as unknown as UniversalTransactionData,
+        { timestamp: '2025-01-01T00:00:00Z' } as unknown as UniversalTransactionData,
       ];
 
       const result = filterTransactionsByDateRange(
@@ -438,9 +438,9 @@ describe('Cost Basis Utils', () => {
     });
 
     it('should return empty array when no transactions in range', () => {
-      const transactions: UniversalTransaction[] = [
-        { timestamp: '2023-01-01T00:00:00Z' } as unknown as UniversalTransaction,
-        { timestamp: '2023-12-31T00:00:00Z' } as unknown as UniversalTransaction,
+      const transactions: UniversalTransactionData[] = [
+        { timestamp: '2023-01-01T00:00:00Z' } as unknown as UniversalTransactionData,
+        { timestamp: '2023-12-31T00:00:00Z' } as unknown as UniversalTransactionData,
       ];
 
       const result = filterTransactionsByDateRange(
@@ -453,9 +453,9 @@ describe('Cost Basis Utils', () => {
     });
 
     it('should include transactions on boundary dates', () => {
-      const transactions: UniversalTransaction[] = [
-        { timestamp: '2024-01-01T00:00:00Z' } as unknown as UniversalTransaction,
-        { timestamp: '2024-12-31T23:59:59Z' } as unknown as UniversalTransaction,
+      const transactions: UniversalTransactionData[] = [
+        { timestamp: '2024-01-01T00:00:00Z' } as unknown as UniversalTransactionData,
+        { timestamp: '2024-12-31T23:59:59Z' } as unknown as UniversalTransactionData,
       ];
 
       const result = filterTransactionsByDateRange(
@@ -470,51 +470,51 @@ describe('Cost Basis Utils', () => {
 
   describe('transactionHasAllPrices', () => {
     it('should return true when all crypto movements have prices', () => {
-      const tx: UniversalTransaction = {
+      const tx: UniversalTransactionData = {
         movements: {
           inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' }],
           outflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: '3000.00' }],
         },
-      } as unknown as UniversalTransaction;
+      } as unknown as UniversalTransactionData;
 
       expect(transactionHasAllPrices(tx, 'USD')).toBe(true);
     });
 
     it('should return false when crypto inflow is missing price', () => {
-      const tx: UniversalTransaction = {
+      const tx: UniversalTransactionData = {
         movements: {
           inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: undefined }],
           outflows: [],
         },
-      } as unknown as UniversalTransaction;
+      } as unknown as UniversalTransactionData;
 
       expect(transactionHasAllPrices(tx, 'USD')).toBe(false);
     });
 
     it('should return false when crypto outflow is missing price', () => {
-      const tx: UniversalTransaction = {
+      const tx: UniversalTransactionData = {
         movements: {
           inflows: [],
           outflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: undefined }],
         },
-      } as unknown as UniversalTransaction;
+      } as unknown as UniversalTransactionData;
 
       expect(transactionHasAllPrices(tx, 'USD')).toBe(false);
     });
 
     it('should return true when only fiat movements (no price needed)', () => {
-      const tx: UniversalTransaction = {
+      const tx: UniversalTransactionData = {
         movements: {
           inflows: [{ asset: 'USD', amount: '1000.0', priceAtTxTime: undefined }],
           outflows: [{ asset: 'CAD', amount: '1300.0', priceAtTxTime: undefined }],
         },
-      } as unknown as UniversalTransaction;
+      } as unknown as UniversalTransactionData;
 
       expect(transactionHasAllPrices(tx, 'USD')).toBe(true);
     });
 
     it('should return true when fiat and crypto both present, crypto has price', () => {
-      const tx: UniversalTransaction = {
+      const tx: UniversalTransactionData = {
         movements: {
           inflows: [
             { asset: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' },
@@ -522,13 +522,13 @@ describe('Cost Basis Utils', () => {
           ],
           outflows: [],
         },
-      } as unknown as UniversalTransaction;
+      } as unknown as UniversalTransactionData;
 
       expect(transactionHasAllPrices(tx, 'USD')).toBe(true);
     });
 
     it('should return false when fiat and crypto both present, crypto missing price', () => {
-      const tx: UniversalTransaction = {
+      const tx: UniversalTransactionData = {
         movements: {
           inflows: [
             { asset: 'BTC', amount: '1.0', priceAtTxTime: undefined },
@@ -536,18 +536,18 @@ describe('Cost Basis Utils', () => {
           ],
           outflows: [],
         },
-      } as unknown as UniversalTransaction;
+      } as unknown as UniversalTransactionData;
 
       expect(transactionHasAllPrices(tx, 'USD')).toBe(false);
     });
 
     it('should handle empty inflows and outflows', () => {
-      const tx: UniversalTransaction = {
+      const tx: UniversalTransactionData = {
         movements: {
           inflows: [],
           outflows: [],
         },
-      } as unknown as UniversalTransaction;
+      } as unknown as UniversalTransactionData;
 
       expect(transactionHasAllPrices(tx, 'USD')).toBe(true);
     });
@@ -555,19 +555,19 @@ describe('Cost Basis Utils', () => {
 
   describe('validateTransactionPrices', () => {
     it('should return all valid transactions when all have prices', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           movements: {
             inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' }],
             outflows: [],
           },
-        } as unknown as UniversalTransaction,
+        } as unknown as UniversalTransactionData,
         {
           movements: {
             inflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: '3000.00' }],
             outflows: [],
           },
-        } as unknown as UniversalTransaction,
+        } as unknown as UniversalTransactionData,
       ];
 
       const result = validateTransactionPrices(transactions, 'USD');
@@ -580,25 +580,25 @@ describe('Cost Basis Utils', () => {
     });
 
     it('should filter out transactions missing prices', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           movements: {
             inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' }],
             outflows: [],
           },
-        } as unknown as UniversalTransaction,
+        } as unknown as UniversalTransactionData,
         {
           movements: {
             inflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: undefined }],
             outflows: [],
           },
-        } as unknown as UniversalTransaction,
+        } as unknown as UniversalTransactionData,
         {
           movements: {
             inflows: [{ asset: 'SOL', amount: '100.0', priceAtTxTime: '150.00' }],
             outflows: [],
           },
-        } as unknown as UniversalTransaction,
+        } as unknown as UniversalTransactionData,
       ];
 
       const result = validateTransactionPrices(transactions, 'USD');
@@ -611,19 +611,19 @@ describe('Cost Basis Utils', () => {
     });
 
     it('should return error when ALL transactions missing prices', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           movements: {
             inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: undefined }],
             outflows: [],
           },
-        } as unknown as UniversalTransaction,
+        } as unknown as UniversalTransactionData,
         {
           movements: {
             inflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: undefined }],
             outflows: [],
           },
-        } as unknown as UniversalTransaction,
+        } as unknown as UniversalTransactionData,
       ];
 
       const result = validateTransactionPrices(transactions, 'USD');
@@ -636,19 +636,19 @@ describe('Cost Basis Utils', () => {
     });
 
     it('should count fiat-only transactions as valid (no prices needed)', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           movements: {
             inflows: [{ asset: 'USD', amount: '1000.0', priceAtTxTime: undefined }],
             outflows: [],
           },
-        } as unknown as UniversalTransaction,
+        } as unknown as UniversalTransactionData,
         {
           movements: {
             inflows: [{ asset: 'CAD', amount: '1300.0', priceAtTxTime: undefined }],
             outflows: [],
           },
-        } as unknown as UniversalTransaction,
+        } as unknown as UniversalTransactionData,
       ];
 
       const result = validateTransactionPrices(transactions, 'USD');

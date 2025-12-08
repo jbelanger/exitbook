@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
@@ -204,7 +204,7 @@ describe('buildViewMeta', () => {
 
 describe('getAllMovements', () => {
   it('should return empty array when no movements', () => {
-    const movements: UniversalTransaction['movements'] = {
+    const movements: UniversalTransactionData['movements'] = {
       inflows: [],
       outflows: [],
     };
@@ -215,7 +215,7 @@ describe('getAllMovements', () => {
   });
 
   it('should return only inflows when no outflows', () => {
-    const movements: UniversalTransaction['movements'] = {
+    const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
           asset: 'BTC',
@@ -233,7 +233,7 @@ describe('getAllMovements', () => {
   });
 
   it('should return only outflows when no inflows', () => {
-    const movements: UniversalTransaction['movements'] = {
+    const movements: UniversalTransactionData['movements'] = {
       inflows: [],
       outflows: [
         {
@@ -251,7 +251,7 @@ describe('getAllMovements', () => {
   });
 
   it('should combine inflows and outflows', () => {
-    const movements: UniversalTransaction['movements'] = {
+    const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
           asset: 'BTC',
@@ -276,7 +276,7 @@ describe('getAllMovements', () => {
   });
 
   it('should handle multiple inflows and outflows', () => {
-    const movements: UniversalTransaction['movements'] = {
+    const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
           asset: 'BTC',
@@ -309,7 +309,7 @@ describe('getAllMovements', () => {
   });
 
   it('should handle undefined inflows', () => {
-    const movements: UniversalTransaction['movements'] = {
+    const movements: UniversalTransactionData['movements'] = {
       inflows: undefined,
       outflows: [
         {
@@ -326,7 +326,7 @@ describe('getAllMovements', () => {
   });
 
   it('should handle undefined outflows', () => {
-    const movements: UniversalTransaction['movements'] = {
+    const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
           asset: 'BTC',
@@ -343,7 +343,7 @@ describe('getAllMovements', () => {
   });
 
   it('should handle both inflows and outflows undefined', () => {
-    const movements: UniversalTransaction['movements'] = {
+    const movements: UniversalTransactionData['movements'] = {
       inflows: undefined,
       outflows: undefined,
     };
@@ -354,7 +354,7 @@ describe('getAllMovements', () => {
   });
 
   it('should preserve movement properties', () => {
-    const movements: UniversalTransaction['movements'] = {
+    const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
           asset: 'BTC',
@@ -388,7 +388,7 @@ describe('getAllMovements', () => {
         grossAmount: new Decimal('1'),
       },
     ];
-    const movements: UniversalTransaction['movements'] = {
+    const movements: UniversalTransactionData['movements'] = {
       inflows,
       outflows: [],
     };

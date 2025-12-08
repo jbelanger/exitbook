@@ -29,7 +29,7 @@ export class ViewTransactionsHandler {
 
     // Build filter object conditionally to avoid passing undefined values
     const filters = {
-      ...(params.source && { sourceId: params.source }),
+      ...(params.source && { sourceName: params.source }),
       ...(since && { since }),
       includeExcluded: true, // Show all transactions including scam tokens in view
     };

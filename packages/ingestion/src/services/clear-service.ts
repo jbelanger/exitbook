@@ -1,10 +1,14 @@
 import type { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import type { Account } from '@exitbook/core';
-import type { AccountRepository, TransactionRepository, UserRepository } from '@exitbook/data';
+import type {
+  AccountRepository,
+  IImportSessionRepository,
+  IRawDataRepository,
+  TransactionRepository,
+  UserRepository,
+} from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
-
-import type { IImportSessionRepository, IRawDataRepository } from '../types/repositories.js';
 
 import type { ClearServiceParams, DeletionPreview, ResolvedAccount } from './clear-service-utils.js';
 import {
@@ -36,7 +40,7 @@ export class ClearService {
     private costBasisRepo: CostBasisRepository,
     private lotTransferRepo: LotTransferRepository,
     private rawDataRepo: IRawDataRepository,
-    private dataSourceRepo: IImportSessionRepository
+    private sessionRepo: IImportSessionRepository
   ) {}
 
   /**
@@ -72,19 +76,12 @@ export class ClearService {
         // Account-scoped deletion
         const accountIds = extractAccountIds(accountsToClear);
 
-        // Get all import_session_ids for these accounts in a single query (avoids N+1)
-        const dataSourceIdsResult = await this.dataSourceRepo.getDataSourceIdsByAccounts(accountIds);
-        if (dataSourceIdsResult.isErr()) {
-          return err(dataSourceIdsResult.error);
-        }
-        const importSessionIds = dataSourceIdsResult.value;
-
         // Only count sessions and rawData if includeRaw is true (otherwise they won't be deleted)
         let sessionsCount = 0;
         let rawDataCount = 0;
 
         if (params.includeRaw) {
-          const sessionsResult = await this.dataSourceRepo.countByAccount(accountIds);
+          const sessionsResult = await this.sessionRepo.countByAccount(accountIds);
           if (sessionsResult.isErr()) {
             return err(sessionsResult.error);
           }
@@ -97,32 +94,32 @@ export class ClearService {
           rawDataCount = rawDataResult.value;
         }
 
-        const transactionsResult = await this.transactionRepo.countByDataSourceIds(importSessionIds);
+        const transactionsResult = await this.transactionRepo.countByAccountIds(accountIds);
         if (transactionsResult.isErr()) {
           return err(transactionsResult.error);
         }
 
-        const linksResult = await this.transactionLinkRepo.countByDataSourceIds(importSessionIds);
+        const linksResult = await this.transactionLinkRepo.countByAccountIds(accountIds);
         if (linksResult.isErr()) {
           return err(linksResult.error);
         }
 
-        const lotsResult = await this.costBasisRepo.countLotsByDataSourceIds(importSessionIds);
+        const lotsResult = await this.costBasisRepo.countLotsByAccountIds(accountIds);
         if (lotsResult.isErr()) {
           return err(lotsResult.error);
         }
 
-        const disposalsResult = await this.costBasisRepo.countDisposalsByDataSourceIds(importSessionIds);
+        const disposalsResult = await this.costBasisRepo.countDisposalsByAccountIds(accountIds);
         if (disposalsResult.isErr()) {
           return err(disposalsResult.error);
         }
 
-        const transfersResult = await this.lotTransferRepo.countByDataSourceIds(importSessionIds);
+        const transfersResult = await this.lotTransferRepo.countByAccountIds(accountIds);
         if (transfersResult.isErr()) {
           return err(transfersResult.error);
         }
 
-        const calculationsResult = await this.costBasisRepo.countCalculationsByDataSourceIds(importSessionIds);
+        const calculationsResult = await this.costBasisRepo.countCalculationsByAccountIds(accountIds);
         if (calculationsResult.isErr()) {
           return err(calculationsResult.error);
         }
@@ -144,7 +141,7 @@ export class ClearService {
         let rawDataCount = 0;
 
         if (params.includeRaw) {
-          const sessionsResult = await this.dataSourceRepo.countAll();
+          const sessionsResult = await this.sessionRepo.countAll();
           if (sessionsResult.isErr()) {
             return err(sessionsResult.error);
           }
@@ -278,41 +275,34 @@ export class ClearService {
   ): Promise<Result<void, Error>> {
     const accountIds = extractAccountIds(accountsToClear);
 
-    // Get all import_session_ids (import session IDs) for these accounts in a single query (avoids N+1)
-    const dataSourceIdsResult = await this.dataSourceRepo.getDataSourceIdsByAccounts(accountIds);
-    if (dataSourceIdsResult.isErr()) {
-      return err(dataSourceIdsResult.error);
-    }
-    const importSessionIds = dataSourceIdsResult.value;
-
-    // Delete cost basis and transaction data by import_session_id (NOT source_id)
+    // Delete cost basis and transaction data by account_id
     // This ensures we only delete data for the specific accounts being cleared
-    const disposalsResult = await this.costBasisRepo.deleteDisposalsByDataSourceIds(importSessionIds);
+    const disposalsResult = await this.costBasisRepo.deleteDisposalsByAccountIds(accountIds);
     if (disposalsResult.isErr()) {
       return err(disposalsResult.error);
     }
 
-    const transfersResult = await this.lotTransferRepo.deleteByDataSourceIds(importSessionIds);
+    const transfersResult = await this.lotTransferRepo.deleteByAccountIds(accountIds);
     if (transfersResult.isErr()) {
       return err(transfersResult.error);
     }
 
-    const lotsResult = await this.costBasisRepo.deleteLotsByDataSourceIds(importSessionIds);
+    const lotsResult = await this.costBasisRepo.deleteLotsByAccountIds(accountIds);
     if (lotsResult.isErr()) {
       return err(lotsResult.error);
     }
 
-    const calculationsResult = await this.costBasisRepo.deleteCalculationsByDataSourceIds(importSessionIds);
+    const calculationsResult = await this.costBasisRepo.deleteCalculationsByAccountIds(accountIds);
     if (calculationsResult.isErr()) {
       return err(calculationsResult.error);
     }
 
-    const linksResult = await this.transactionLinkRepo.deleteByDataSourceIds(importSessionIds);
+    const linksResult = await this.transactionLinkRepo.deleteByAccountIds(accountIds);
     if (linksResult.isErr()) {
       return err(linksResult.error);
     }
 
-    const transactionsResult = await this.transactionRepo.deleteByDataSourceIds(importSessionIds);
+    const transactionsResult = await this.transactionRepo.deleteByAccountIds(accountIds);
     if (transactionsResult.isErr()) {
       return err(transactionsResult.error);
     }
@@ -325,9 +315,9 @@ export class ClearService {
           return err(rawDataResult.error);
         }
 
-        const dataSourceResult = await this.dataSourceRepo.deleteByAccount(account.id);
-        if (dataSourceResult.isErr()) {
-          return err(dataSourceResult.error);
+        const importSessionResult = await this.sessionRepo.deleteByAccount(account.id);
+        if (importSessionResult.isErr()) {
+          return err(importSessionResult.error);
         }
       } else {
         // Reset raw data processing_status to 'pending' for reprocessing
@@ -381,9 +371,9 @@ export class ClearService {
         return err(rawDataResult.error);
       }
 
-      const dataSourceResult = await this.dataSourceRepo.deleteAll();
-      if (dataSourceResult.isErr()) {
-        return err(dataSourceResult.error);
+      const importSessionResult = await this.sessionRepo.deleteAll();
+      if (importSessionResult.isErr()) {
+        return err(importSessionResult.error);
       }
     } else {
       // Reset raw data processing_status to 'pending' for reprocessing

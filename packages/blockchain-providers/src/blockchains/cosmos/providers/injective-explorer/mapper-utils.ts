@@ -1,4 +1,3 @@
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { type Result, err } from 'neverthrow';
 
@@ -27,16 +26,19 @@ import type { InjectiveTransaction as InjectiveApiTransaction } from './injectiv
  */
 export function mapInjectiveExplorerTransaction(
   rawData: InjectiveApiTransaction,
-  sourceContext: ImportSessionMetadata
+  relevantAddress: string
 ): Result<CosmosTransaction, NormalizationError> {
   const logger = getLogger('InjectiveExplorerMapperUtils');
-  const timestamp = rawData.block_timestamp.getTime();
 
-  if (!sourceContext.address) {
-    return err({ message: 'Invalid address', type: 'error' });
+  // Validate relevantAddress is provided
+  if (!relevantAddress || relevantAddress.trim() === '') {
+    return err({
+      message: 'Invalid address',
+      type: 'error',
+    });
   }
 
-  const relevantAddress = sourceContext.address;
+  const timestamp = rawData.block_timestamp.getTime();
 
   // Calculate fee using pure function
   const feeResult = calculateFee(rawData.gas_fee);

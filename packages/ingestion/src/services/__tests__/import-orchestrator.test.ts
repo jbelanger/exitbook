@@ -8,12 +8,11 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { Account } from '@exitbook/core';
-import type { AccountRepository, UserRepository } from '@exitbook/data';
+import type { Account, ImportSession } from '@exitbook/core';
+import type { AccountRepository, IImportSessionRepository, IRawDataRepository, UserRepository } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { IImportSessionRepository, IRawDataRepository } from '../../types/repositories.js';
 import { ImportOrchestrator } from '../import-orchestrator.js';
 
 // Mock logger
@@ -27,9 +26,20 @@ vi.mock('@exitbook/logger', () => ({
 }));
 
 // Mock TransactionImportService
+const mockImportSession: ImportSession = {
+  id: 1,
+  accountId: 1,
+  status: 'completed',
+  startedAt: new Date(),
+  completedAt: new Date(),
+  transactionsImported: 10,
+  transactionsSkipped: 0,
+  createdAt: new Date(),
+};
+
 vi.mock('../import-service.js', () => ({
   TransactionImportService: vi.fn().mockImplementation(() => ({
-    importFromSource: vi.fn().mockResolvedValue(ok({ transactionsImported: 10, importSessionId: 1 })),
+    importFromSource: vi.fn().mockResolvedValue(ok(mockImportSession)),
   })),
 }));
 
@@ -66,7 +76,7 @@ describe('ImportOrchestrator', () => {
   let mockUserRepo: UserRepository;
   let mockAccountRepo: AccountRepository;
   let mockRawDataRepo: IRawDataRepository;
-  let mockDataSourceRepo: IImportSessionRepository;
+  let mockImportSessionRepo: IImportSessionRepository;
   let mockProviderManager: BlockchainProviderManager;
 
   const mockUser = { id: 1, createdAt: new Date() };
@@ -81,14 +91,14 @@ describe('ImportOrchestrator', () => {
     } as unknown as AccountRepository;
 
     mockRawDataRepo = {} as IRawDataRepository;
-    mockDataSourceRepo = {} as IImportSessionRepository;
+    mockImportSessionRepo = {} as IImportSessionRepository;
     mockProviderManager = {} as BlockchainProviderManager;
 
     orchestrator = new ImportOrchestrator(
       mockUserRepo,
       mockAccountRepo,
       mockRawDataRepo,
-      mockDataSourceRepo,
+      mockImportSessionRepo,
       mockProviderManager
     );
 
@@ -113,8 +123,11 @@ describe('ImportOrchestrator', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.transactionsImported).toBe(10);
-        expect(result.value.importSessionId).toBe(1);
+        // Regular address returns single ImportSession
+        expect(Array.isArray(result.value)).toBe(false);
+        const session = result.value as ImportSession;
+        expect(session.transactionsImported).toBe(10);
+        expect(session.id).toBe(1);
       }
 
       expect(mockAccountRepo.findOrCreate).toHaveBeenCalledWith({
@@ -192,7 +205,12 @@ describe('ImportOrchestrator', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.transactionsImported).toBe(20); // 2 child accounts * 10 txs each
+        // Xpub returns array of ImportSessions
+        expect(Array.isArray(result.value)).toBe(true);
+        const sessions = result.value as ImportSession[];
+        expect(sessions).toHaveLength(2); // 2 child accounts
+        const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
+        expect(totalImported).toBe(20); // 2 child accounts * 10 txs each
       }
 
       // Verify parent account creation
@@ -300,8 +318,10 @@ describe('ImportOrchestrator', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.transactionsImported).toBe(0);
-        expect(result.value.importSessionId).toBe(parentAccount.id);
+        // No addresses derived means empty array
+        expect(Array.isArray(result.value)).toBe(true);
+        const sessions = result.value as ImportSession[];
+        expect(sessions).toHaveLength(0);
       }
 
       // Should have created parent but not child accounts or called import
@@ -352,15 +372,31 @@ describe('ImportOrchestrator', () => {
       const mockImportService = (
         orchestrator as unknown as { importService: { importFromSource: ReturnType<typeof vi.fn> } }
       ).importService;
+
+      const successSession: ImportSession = {
+        id: 2,
+        accountId: 12,
+        status: 'completed',
+        startedAt: new Date(),
+        completedAt: new Date(),
+        transactionsImported: 10,
+        transactionsSkipped: 0,
+        createdAt: new Date(),
+      };
+
       vi.mocked(mockImportService.importFromSource)
         .mockResolvedValueOnce(err(new Error('Network timeout')))
-        .mockResolvedValueOnce(ok({ transactionsImported: 10, importSessionId: 2 }));
+        .mockResolvedValueOnce(ok(successSession));
 
       const result = await orchestrator.importBlockchain('bitcoin', 'xpub6C...');
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.transactionsImported).toBe(10); // Only second child succeeded
+        // Only second child succeeded, so array has 1 session
+        expect(Array.isArray(result.value)).toBe(true);
+        const sessions = result.value as ImportSession[];
+        expect(sessions).toHaveLength(1);
+        expect(sessions[0]?.transactionsImported).toBe(10);
       }
     });
 

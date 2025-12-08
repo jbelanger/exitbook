@@ -18,7 +18,7 @@
  *         }
  */
 
-import type { PriceAtTxTime, UniversalTransaction } from '@exitbook/core';
+import type { PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
@@ -97,7 +97,7 @@ export class PriceNormalizationService {
       };
 
       // Track which transactions need updates
-      const transactionsToUpdate = new Map<number, UniversalTransaction>();
+      const transactionsToUpdate = new Map<number, UniversalTransactionData>();
 
       // Process each transaction using pure utility function
       for (const tx of transactions) {
@@ -172,7 +172,7 @@ export class PriceNormalizationService {
    * Normalize a single transaction using pure utility function
    * Delegates business logic to normalizeTransactionMovements, handles logging
    */
-  private async normalizeTransaction(tx: UniversalTransaction): Promise<TransactionNormalizationResult> {
+  private async normalizeTransaction(tx: UniversalTransactionData): Promise<TransactionNormalizationResult> {
     // Create a bound version of normalizePriceToUSD that captures this service's context
     const normalizePriceFn = async (price: PriceAtTxTime, date: Date) => {
       const result = await normalizePriceToUSDUtil(price, date, (currency, timestamp) =>
@@ -204,7 +204,7 @@ export class PriceNormalizationService {
   /**
    * Update transaction in database with normalized price data
    */
-  private async updateTransactionPrices(tx: UniversalTransaction): Promise<Result<void, Error>> {
+  private async updateTransactionPrices(tx: UniversalTransactionData): Promise<Result<void, Error>> {
     try {
       // Pass the complete enriched transaction to the repository
       return await this.transactionRepository.updateMovementsWithPrices(tx);

@@ -6,7 +6,7 @@
 import { ProviderError, type BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getBitcoinChainConfig } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
-import type { CursorState, ExternalTransaction, PaginationCursor } from '@exitbook/core';
+import type { CursorState, RawTransactionInput, PaginationCursor } from '@exitbook/core';
 import { err, errAsync, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
@@ -20,7 +20,7 @@ async function consumeImportStream(
   importer: BitcoinTransactionImporter,
   params: ImportParams
 ): Promise<Result<ImportRunResult, Error>> {
-  const allTransactions: ExternalTransaction[] = [];
+  const allTransactions: RawTransactionInput[] = [];
   const cursorUpdates: Record<string, CursorState> = {};
 
   for await (const batchResult of importer.importStreaming(params)) {
@@ -192,7 +192,7 @@ describe('BitcoinTransactionImporter', () => {
           providerName: 'blockstream.info',
           sourceAddress: USER_ADDRESS,
           normalizedData: mockNormalized,
-          rawData: mockBitcoinTx,
+          providerData: mockBitcoinTx,
         });
         expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
       }
@@ -274,9 +274,9 @@ describe('BitcoinTransactionImporter', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(3);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual(mockBitcoinTx);
-        expect(result.value.rawTransactions[1]!.rawData).toEqual({ ...mockBitcoinTx, id: 'tx2def' });
-        expect(result.value.rawTransactions[2]!.rawData).toEqual({ ...mockBitcoinTx, id: 'tx3ghi' });
+        expect(result.value.rawTransactions[0]!.providerData).toEqual(mockBitcoinTx);
+        expect(result.value.rawTransactions[1]!.providerData).toEqual({ ...mockBitcoinTx, id: 'tx2def' });
+        expect(result.value.rawTransactions[2]!.providerData).toEqual({ ...mockBitcoinTx, id: 'tx3ghi' });
       }
     });
   });

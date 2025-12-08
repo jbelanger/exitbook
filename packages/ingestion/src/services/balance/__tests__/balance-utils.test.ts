@@ -50,7 +50,7 @@ describe('fetchExchangeBalance', () => {
         },
         timestamp: 1234567890000,
         sourceType: 'exchange',
-        sourceId: 'kraken',
+        sourceName: 'kraken',
       });
     }
     // eslint-disable-next-line @typescript-eslint/unbound-method -- vitest mock assertion
@@ -151,7 +151,7 @@ describe('fetchBlockchainBalance', () => {
         BTC: '2.5',
       });
       expect(result.value.sourceType).toBe('blockchain');
-      expect(result.value.sourceId).toBe('bitcoin:bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
+      expect(result.value.sourceName).toBe('bitcoin:bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
       expect(result.value.timestamp).toBeGreaterThan(0);
     }
 

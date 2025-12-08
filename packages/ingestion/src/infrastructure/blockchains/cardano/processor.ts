@@ -1,15 +1,15 @@
 import type { CardanoTransaction } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
+import type { ProcessedTransaction, ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './processor-utils.js';
 
 /**
  * Cardano transaction processor that converts normalized blockchain transaction data
- * into UniversalTransaction format.
+ * into ProcessedTransaction format.
  *
  * Cardano is a UTXO-based blockchain with native multi-asset support:
  * - Each transaction has inputs (UTXOs being spent) and outputs (new UTXOs created)
@@ -32,15 +32,11 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
    */
   protected async processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: Record<string, unknown>
-  ): Promise<Result<UniversalTransaction[], string>> {
-    if (!sessionMetadata) {
-      return err('Missing session metadata for normalized processing');
-    }
-
+    context: ProcessingContext
+  ): Promise<Result<ProcessedTransaction[], string>> {
     this.logger.info(`Processing ${normalizedData.length} normalized Cardano transactions`);
 
-    const transactions: UniversalTransaction[] = [];
+    const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txHash: string }[] = [];
 
     for (const item of normalizedData) {
@@ -48,7 +44,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
 
       try {
         // Perform fund flow analysis with multi-asset tracking
-        const fundFlowResult = analyzeCardanoFundFlow(normalizedTx, sessionMetadata);
+        const fundFlowResult = analyzeCardanoFundFlow(normalizedTx, context);
 
         if (fundFlowResult.isErr()) {
           const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;
@@ -67,10 +63,9 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
         const userPaidFee = fundFlow.feePaidByUser && !feeAmount.isZero();
 
         // Build movements from fund flow
-        // Convert to UniversalTransaction format
+        // Convert to ProcessedTransaction format
         // ADR-005: For UTXO chains, grossAmount includes fees, netAmount is the actual transfer amount
-        const universalTransaction: UniversalTransaction = {
-          id: 0, // Will be assigned by database
+        const universalTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
@@ -124,14 +119,6 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
             block_height: normalizedTx.blockHeight,
             transaction_hash: normalizedTx.id,
             is_confirmed: normalizedTx.status === 'success',
-          },
-
-          // Metadata - store Cardano-specific data
-          metadata: {
-            blockId: normalizedTx.blockId,
-            inputCount: fundFlow.inputCount,
-            outputCount: fundFlow.outputCount,
-            providerName: normalizedTx.providerName,
           },
 
           // Add note if there's classification uncertainty

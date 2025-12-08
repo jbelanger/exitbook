@@ -28,7 +28,6 @@ describe('subscan.mapper-utils', () => {
 
       const result = convertSubscanTransaction(
         transfer,
-        {},
         relevantAddresses,
         chainConfig,
         nativeCurrency,
@@ -66,7 +65,6 @@ describe('subscan.mapper-utils', () => {
 
       const result = convertSubscanTransaction(
         transfer,
-        {},
         relevantAddresses,
         chainConfig,
         nativeCurrency,
@@ -97,7 +95,6 @@ describe('subscan.mapper-utils', () => {
 
       const result = convertSubscanTransaction(
         transfer,
-        {},
         relevantAddresses,
         chainConfig,
         nativeCurrency,

@@ -21,6 +21,7 @@ import type {
  * - exchange_to_blockchain: Exchange withdrawal → Blockchain deposit
  * - blockchain_to_blockchain: Blockchain send → Blockchain receive
  * - exchange_to_exchange: Exchange withdrawal → Exchange deposit
+ * - blockchain_internal: Same tx_hash, different addresses in one wallet (UTXO model)
  */
 export type LinkType = z.infer<typeof LinkTypeSchema>;
 

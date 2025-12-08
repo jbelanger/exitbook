@@ -341,7 +341,7 @@ export class BlockfrostApiClient extends BaseApiClient {
       };
 
       // Map and validate the combined data
-      const mapResult = mapBlockfrostTransaction(combinedData, {});
+      const mapResult = mapBlockfrostTransaction(combinedData);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -574,7 +574,7 @@ export class BlockfrostApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapBlockfrostTransaction(raw, {});
+        const mapped = mapBlockfrostTransaction(raw);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(
