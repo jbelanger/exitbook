@@ -1,3 +1,4 @@
+import type { ExchangeCredentials } from '@exitbook/core';
 import { parseDecimal, type ImportSession, type SourceType, type UniversalTransactionData } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -9,15 +10,6 @@ import type { BalanceCommandOptionsSchema } from '../shared/schemas.js';
  * Balance command options validated by Zod at CLI boundary
  */
 export type BalanceCommandOptions = z.infer<typeof BalanceCommandOptionsSchema>;
-
-/**
- * Exchange credentials structure expected by balance service
- */
-export interface ExchangeCredentials {
-  apiKey: string;
-  secret: string;
-  passphrase?: string | undefined;
-}
 
 /**
  * Parameters for balance handler
@@ -43,8 +35,8 @@ export function buildBalanceParamsFromFlags(options: BalanceCommandOptions): Res
   if (options.apiKey && options.apiSecret) {
     credentials = {
       apiKey: options.apiKey,
-      secret: options.apiSecret,
-      ...(options.apiPassphrase && { passphrase: options.apiPassphrase }),
+      apiSecret: options.apiSecret,
+      ...(options.apiPassphrase && { apiPassphrase: options.apiPassphrase }),
     };
   }
 
@@ -73,11 +65,11 @@ export function getExchangeCredentialsFromEnv(exchangeName: string): Result<Exch
 
   const credentials: ExchangeCredentials = {
     apiKey,
-    secret: apiSecret,
+    apiSecret: apiSecret,
   };
 
   if (apiPassphrase) {
-    credentials.passphrase = apiPassphrase;
+    credentials.apiPassphrase = apiPassphrase;
   }
 
   return ok(credentials);

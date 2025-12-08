@@ -1,13 +1,40 @@
-import type { CursorState, RawTransactionInput } from '@exitbook/core';
-import type { ExchangeCredentials } from '@exitbook/exchanges-providers';
+import type { AccountType, CursorState, ExchangeCredentials, RawTransactionInput } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
+/**
+ * Canonical import parameters - single source of truth for all import operations.
+ * Built once at CLI boundary, passed through all layers, stored in Account.
+ */
 export interface ImportParams {
+  /** Source name (exchange or blockchain identifier) */
+  sourceName: string;
+
+  /** Source type (blockchain, exchange-api, or exchange-csv) */
+  sourceType: AccountType;
+
+  /** Wallet address (for blockchain imports) */
   address?: string | undefined;
-  credentials?: ExchangeCredentials | undefined;
-  csvDirectories?: string[] | undefined;
-  cursor?: Record<string, CursorState> | undefined;
+
+  /** Provider name (for blockchain imports - which API provider to use) */
   providerName?: string | undefined;
+
+  /** Xpub gap limit (for xpub/extended public key imports) */
+  xpubGap?: number | undefined;
+
+  /** API credentials (for exchange-api imports) */
+  credentials?: ExchangeCredentials | undefined;
+
+  /** CSV directory paths (for exchange-csv imports) */
+  csvDirectories?: string[] | undefined;
+
+  /** Resume cursors per operation type (for crash recovery) */
+  cursor?: Record<string, CursorState> | undefined;
+
+  /** Whether to process data after import */
+  shouldProcess?: boolean | undefined;
+
+  /** Callback to warn user about single address imports (returns false to abort) */
+  onSingleAddressWarning?: (() => Promise<boolean>) | undefined;
 }
 
 /**

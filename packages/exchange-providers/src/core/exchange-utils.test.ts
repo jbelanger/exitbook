@@ -10,11 +10,11 @@ import type { ExchangeLedgerEntry } from './schemas.js';
 describe('validateCredentials', () => {
   const TestCredentialsSchema = z.object({
     apiKey: z.string().min(1),
-    secret: z.string().min(1),
+    apiSecret: z.string().min(1),
   });
 
   it('should succeed with valid credentials', () => {
-    const credentials = { apiKey: 'test-key', secret: 'test-secret' };
+    const credentials = { apiKey: 'test-key', apiSecret: 'test-secret' };
 
     const result = validateCredentials(TestCredentialsSchema, credentials, 'kraken');
 
@@ -25,7 +25,7 @@ describe('validateCredentials', () => {
   });
 
   it('should fail with missing apiKey', () => {
-    const credentials = { secret: 'test-secret' };
+    const credentials = { apiSecret: 'test-secret' };
 
     const result = validateCredentials(TestCredentialsSchema, credentials, 'kraken');
 
@@ -43,7 +43,7 @@ describe('validateCredentials', () => {
   });
 
   it('should fail with empty apiKey', () => {
-    const credentials = { apiKey: '', secret: 'test-secret' };
+    const credentials = { apiKey: '', apiSecret: 'test-secret' };
 
     const result = validateCredentials(TestCredentialsSchema, credentials, 'kraken');
 
@@ -52,7 +52,7 @@ describe('validateCredentials', () => {
   });
 
   it('should fail with empty secret', () => {
-    const credentials = { apiKey: 'test-key', secret: '' };
+    const credentials = { apiKey: 'test-key', apiSecret: '' };
 
     const result = validateCredentials(TestCredentialsSchema, credentials, 'kraken');
 
@@ -77,11 +77,11 @@ describe('validateCredentials', () => {
   it('should succeed with optional fields', () => {
     const schema = z.object({
       apiKey: z.string(),
-      secret: z.string(),
-      passphrase: z.string().optional(),
+      apiSecret: z.string(),
+      apiPassphrase: z.string().optional(),
     });
 
-    const credentials = { apiKey: 'test-key', secret: 'test-secret', passphrase: 'test-pass' };
+    const credentials = { apiKey: 'test-key', apiSecret: 'test-secret', apiPassphrase: 'test-pass' };
 
     const result = validateCredentials(schema, credentials, 'kucoin');
 
@@ -94,11 +94,11 @@ describe('validateCredentials', () => {
   it('should succeed with optional fields omitted', () => {
     const schema = z.object({
       apiKey: z.string(),
-      secret: z.string(),
-      passphrase: z.string().optional(),
+      apiSecret: z.string(),
+      apiPassphrase: z.string().optional(),
     });
 
-    const credentials = { apiKey: 'test-key', secret: 'test-secret' };
+    const credentials = { apiKey: 'test-key', apiSecret: 'test-secret' };
 
     const result = validateCredentials(schema, credentials, 'kucoin');
 

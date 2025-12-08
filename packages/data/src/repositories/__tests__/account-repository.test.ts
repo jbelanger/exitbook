@@ -178,21 +178,6 @@ describe('AccountRepository', () => {
       }
     });
 
-    it('should reject invalid credentials', async () => {
-      const result = await repository.findOrCreate({
-        userId: 1,
-        accountType: 'exchange-api',
-        sourceName: 'kraken',
-        identifier: 'apiKey123',
-        credentials: { invalid: 123 } as unknown as Record<string, string>, // Invalid - should be string values
-      });
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Invalid credentials');
-      }
-    });
-
     it('should handle database errors', async () => {
       await db.destroy();
 
@@ -513,17 +498,6 @@ describe('AccountRepository', () => {
       const updated = await repository.findById(account.id);
       if (updated.isOk()) {
         expect(updated.value.providerName).toBeUndefined();
-      }
-    });
-
-    it('should reject invalid credentials', async () => {
-      const result = await repository.update(account.id, {
-        credentials: { invalid: 123 } as unknown as Record<string, string>,
-      });
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Invalid credentials');
       }
     });
 

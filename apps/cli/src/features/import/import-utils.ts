@@ -1,14 +1,13 @@
 // Pure utility functions for import command
 // All functions are pure - no side effects
 
-import type { SourceType } from '@exitbook/core';
-import type { Result } from 'neverthrow';
-import { ok } from 'neverthrow';
+import type { AccountType, ExchangeCredentials } from '@exitbook/core';
+import { getBlockchainAdapter } from '@exitbook/ingestion';
+import type { ImportParams } from '@exitbook/ingestion';
+import { err, ok, type Result } from 'neverthrow';
 import type { z } from 'zod';
 
 import type { ImportCommandOptionsSchema } from '../shared/schemas.js';
-
-import type { ImportHandlerParams } from './import-handler.js';
 
 /**
  * CLI options validated by Zod at CLI boundary
@@ -16,31 +15,83 @@ import type { ImportHandlerParams } from './import-handler.js';
 export type ImportCommandOptions = z.infer<typeof ImportCommandOptionsSchema>;
 
 /**
- * Build import parameters from validated CLI flags.
- * No validation needed - options are already validated by Zod schema.
+ * Build canonical ImportParams from validated CLI flags.
+ * Performs normalization (e.g., address normalization for blockchains).
+ * This is the single transformation point - all downstream code uses ImportParams as-is.
  */
-export function buildImportParamsFromFlags(options: ImportCommandOptions): Result<ImportHandlerParams, Error> {
+export function buildImportParams(options: ImportCommandOptions): Result<ImportParams, Error> {
   const sourceName = (options.exchange || options.blockchain)!;
-  const sourceType: SourceType = options.exchange ? 'exchange' : 'blockchain';
+  const isBlockchain = !!options.blockchain;
 
-  // Build credentials if API keys provided
-  let credentials: { apiKey: string; apiPassphrase?: string | undefined; secret: string } | undefined;
-  if (options.apiKey && options.apiSecret) {
-    credentials = {
-      apiKey: options.apiKey,
-      secret: options.apiSecret,
-      apiPassphrase: options.apiPassphrase,
-    };
+  // Determine account type
+  let accountType: AccountType;
+  if (isBlockchain) {
+    accountType = 'blockchain';
+  } else if (options.csvDir) {
+    accountType = 'exchange-csv';
+  } else {
+    accountType = 'exchange-api';
+  }
+
+  // Build params based on source type
+  if (isBlockchain) {
+    // Blockchain import - normalize address
+    if (!options.address) {
+      return err(new Error('Address is required for blockchain imports'));
+    }
+
+    const blockchainAdapter = getBlockchainAdapter(sourceName.toLowerCase());
+    if (!blockchainAdapter) {
+      return err(new Error(`Unknown blockchain: ${sourceName}`));
+    }
+
+    const normalizedAddressResult = blockchainAdapter.normalizeAddress(options.address);
+    if (normalizedAddressResult.isErr()) {
+      return err(normalizedAddressResult.error);
+    }
+
+    return ok({
+      sourceName,
+      sourceType: accountType,
+      address: normalizedAddressResult.value,
+      providerName: options.provider,
+      xpubGap: options.xpubGap,
+      shouldProcess: options.process,
+    });
+  }
+
+  // Exchange import
+  if (accountType === 'exchange-csv') {
+    // CSV import
+    if (!options.csvDir) {
+      return err(new Error('CSV directory is required for CSV imports'));
+    }
+
+    return ok({
+      sourceName,
+      sourceType: accountType,
+      csvDirectories: [options.csvDir],
+      shouldProcess: options.process,
+    });
+  }
+
+  // API import
+  if (!options.apiKey || !options.apiSecret) {
+    return err(new Error('API credentials are required for API imports'));
+  }
+
+  const credentials: ExchangeCredentials = {
+    apiKey: options.apiKey,
+    apiSecret: options.apiSecret,
+  };
+  if (options.apiPassphrase) {
+    credentials.apiPassphrase = options.apiPassphrase;
   }
 
   return ok({
     sourceName,
-    sourceType,
-    address: options.address,
-    providerName: options.provider,
-    csvDir: options.csvDir,
+    sourceType: accountType,
     credentials,
     shouldProcess: options.process,
-    xpubGap: options.xpubGap,
   });
 }

@@ -1,4 +1,4 @@
-import type { TransactionStatus } from '@exitbook/core';
+import type { ExchangeCredentials, TransactionStatus } from '@exitbook/core';
 import { getErrorMessage, parseDecimal, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { progress } from '@exitbook/ui';
@@ -8,13 +8,7 @@ import { err, ok } from 'neverthrow';
 
 import * as ExchangeUtils from '../../core/exchange-utils.js';
 import type { ExchangeLedgerEntry } from '../../core/schemas.js';
-import type {
-  BalanceSnapshot,
-  ExchangeCredentials,
-  FetchBatchResult,
-  FetchParams,
-  IExchangeClient,
-} from '../../core/types.js';
+import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../core/types.js';
 
 import {
   CoinbaseCredentialsSchema,
@@ -109,15 +103,15 @@ function mapCoinbaseStatus(status: string | undefined): TransactionStatus {
 export function createCoinbaseClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
   // Validate credentials
   return ExchangeUtils.validateCredentials(CoinbaseCredentialsSchema, credentials, 'coinbase').andThen(
-    ({ apiKey, secret }) => {
+    ({ apiKey, apiSecret }) => {
       // Additional Coinbase-specific validation
-      const validationResult = validateCoinbaseCredentials(apiKey, secret);
+      const validationResult = validateCoinbaseCredentials(apiKey, apiSecret);
       if (validationResult.isErr()) {
         return err(validationResult.error);
       }
 
       // Normalize PEM-formatted private key by replacing literal \n with actual newlines
-      const normalizedSecret = normalizePemKey(secret);
+      const normalizedSecret = normalizePemKey(apiSecret);
 
       // Create ccxt instance - side effect captured in closure
       const exchange = new ccxt.coinbaseadvanced({

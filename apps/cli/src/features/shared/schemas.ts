@@ -49,15 +49,6 @@ export const BlockchainFieldsSchema = z.object({
 });
 
 /**
- * Exchange API credentials (all optional at CLI level, validated later)
- */
-export const ExchangeCredentialsSchema = z.object({
-  apiKey: z.string().optional(),
-  apiSecret: z.string().optional(),
-  apiPassphrase: z.string().optional(),
-});
-
-/**
  * CSV import field
  */
 export const CsvImportSchema = z.object({
@@ -73,27 +64,33 @@ export const ImportCommandOptionsSchema = z
     exchange: z.string().optional(),
     blockchain: z.string().optional(),
   })
-  .merge(BlockchainFieldsSchema)
-  .merge(ExchangeCredentialsSchema)
-  .merge(CsvImportSchema)
-  .merge(
+  .extend(BlockchainFieldsSchema.shape)
+  .extend(
+    z.object({
+      apiKey: z.string().min(1).optional(),
+      apiSecret: z.string().min(1).optional(),
+      apiPassphrase: z.string().optional(),
+    }).shape
+  )
+  .extend(CsvImportSchema.shape)
+  .extend(
     z.object({
       process: z.boolean().optional(),
       json: z.boolean().optional(),
-    })
+    }).shape
   )
   .superRefine((data, ctx) => {
     // Cannot specify both exchange and blockchain
     if (data.exchange && data.blockchain) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Cannot specify both --exchange and --blockchain',
       });
     }
     // For blockchain: address is required
     if (data.blockchain && !data.address) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: '--address is required for blockchain sources',
       });
     }
@@ -103,13 +100,13 @@ export const ImportCommandOptionsSchema = z
       const hasApi = !!(data.apiKey && data.apiSecret);
       if (!hasCsv && !hasApi) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: 'Either --csv-dir or API credentials (--api-key, --api-secret) are required for exchange sources',
         });
       }
       if (hasCsv && hasApi) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: 'Cannot specify both --csv-dir and API credentials',
         });
       }
@@ -151,9 +148,15 @@ export const ImportCommandOptionsSchema = z
 /**
  * Balance command options
  */
-export const BalanceCommandOptionsSchema = SourceSelectionSchema.merge(BlockchainFieldsSchema)
-  .merge(ExchangeCredentialsSchema)
-  .merge(JsonFlagSchema)
+export const BalanceCommandOptionsSchema = SourceSelectionSchema.safeExtend(BlockchainFieldsSchema.shape)
+  .safeExtend(
+    z.object({
+      apiKey: z.string().min(1).optional(),
+      apiSecret: z.string().min(1).optional(),
+      apiPassphrase: z.string().optional(),
+    }).shape
+  )
+  .safeExtend(JsonFlagSchema.shape)
   .refine(
     (data) => {
       // For blockchain: address is required

@@ -1,14 +1,10 @@
-import { DecimalStringSchema } from '@exitbook/core';
+import { DecimalStringSchema, ExchangeCredentialsSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
  * Coinbase API credentials schema
  */
-export const CoinbaseCredentialsSchema = z.object({
-  apiKey: z.string().min(1, 'API key is required'),
-  secret: z.string().min(1, 'Secret is required'),
-});
-
+export const CoinbaseCredentialsSchema = ExchangeCredentialsSchema.omit({ apiPassphrase: true });
 export type CoinbaseCredentials = z.infer<typeof CoinbaseCredentialsSchema>;
 
 /**

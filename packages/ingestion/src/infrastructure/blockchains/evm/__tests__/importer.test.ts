@@ -195,7 +195,11 @@ describe('EvmImporter', () => {
         [{ raw: mockTokenTx, normalized: { id: mockTokenTx.hash } }]
       );
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'evm',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -269,7 +273,11 @@ describe('EvmImporter', () => {
         );
       });
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'evm',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -280,7 +288,7 @@ describe('EvmImporter', () => {
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
 
-      const result = await consumeImportStream(importer, {});
+      const result = await consumeImportStream(importer, { sourceName: 'evm', sourceType: 'blockchain' as const });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -296,7 +304,11 @@ describe('EvmImporter', () => {
 
       setupDefaultMocks([{ raw: mockNormalTx, normalized: { id: mockNormalTx.hash } }], [], []);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'evm',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
 
@@ -332,7 +344,11 @@ describe('EvmImporter', () => {
 
       setupDefaultMocks(multipleNormalTxs, [], []);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'evm',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -350,7 +366,7 @@ describe('EvmImporter', () => {
 
       setupDefaultMocks([], [], []);
 
-      await consumeImportStream(importer, { address });
+      await consumeImportStream(importer, { sourceName: 'evm', sourceType: 'blockchain' as const, address });
 
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;

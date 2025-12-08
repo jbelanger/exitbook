@@ -177,7 +177,11 @@ describe('CardanoTransactionImporter', () => {
         });
       });
 
-      const result = await consumeImportStream(importer, { address: USER_ADDRESS });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'cardano',
+        sourceType: 'blockchain' as const,
+        address: USER_ADDRESS,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -226,7 +230,11 @@ describe('CardanoTransactionImporter', () => {
         });
       });
 
-      const result = await consumeImportStream(importer, { address: USER_ADDRESS });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'cardano',
+        sourceType: 'blockchain' as const,
+        address: USER_ADDRESS,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -265,7 +273,11 @@ describe('CardanoTransactionImporter', () => {
         });
       });
 
-      const result = await consumeImportStream(importer, { address: USER_ADDRESS });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'cardano',
+        sourceType: 'blockchain' as const,
+        address: USER_ADDRESS,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -290,7 +302,11 @@ describe('CardanoTransactionImporter', () => {
         );
       });
 
-      const result = await consumeImportStream(importer, { address: USER_ADDRESS });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'cardano',
+        sourceType: 'blockchain' as const,
+        address: USER_ADDRESS,
+      });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -301,7 +317,7 @@ describe('CardanoTransactionImporter', () => {
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
 
-      const result = await consumeImportStream(importer, {});
+      const result = await consumeImportStream(importer, { sourceName: 'cardano', sourceType: 'blockchain' as const });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -332,7 +348,11 @@ describe('CardanoTransactionImporter', () => {
         });
       });
 
-      await consumeImportStream(importer, { address: USER_ADDRESS });
+      await consumeImportStream(importer, {
+        sourceName: 'cardano',
+        sourceType: 'blockchain' as const,
+        address: USER_ADDRESS,
+      });
 
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;

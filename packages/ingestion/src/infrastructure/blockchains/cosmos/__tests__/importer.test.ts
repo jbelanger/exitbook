@@ -198,7 +198,11 @@ describe('CosmosImporter', () => {
         },
       ]);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'cosmos',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -240,7 +244,11 @@ describe('CosmosImporter', () => {
         'mintscan'
       );
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'cosmos',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -271,7 +279,11 @@ describe('CosmosImporter', () => {
 
       setupMockData(multipleTransactions);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'cosmos',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -288,7 +300,11 @@ describe('CosmosImporter', () => {
 
       setupMockData([]);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'cosmos',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -310,7 +326,11 @@ describe('CosmosImporter', () => {
         );
       });
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'cosmos',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -321,7 +341,7 @@ describe('CosmosImporter', () => {
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
 
-      const result = await consumeImportStream(importer, {});
+      const result = await consumeImportStream(importer, { sourceName: 'cosmos', sourceType: 'blockchain' as const });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -332,7 +352,11 @@ describe('CosmosImporter', () => {
     test('should return error if address is empty string', async () => {
       const importer = createImporter();
 
-      const result = await consumeImportStream(importer, { address: '' });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'cosmos',
+        sourceType: 'blockchain' as const,
+        address: '',
+      });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -356,7 +380,11 @@ describe('CosmosImporter', () => {
         'mintscan'
       );
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'cosmos',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
 
@@ -374,7 +402,10 @@ describe('CosmosImporter', () => {
     test('should generate correct error messages for different chains', async () => {
       const osmosisImporter = createImporter(OSMOSIS_CONFIG);
 
-      const result = await consumeImportStream(osmosisImporter, {});
+      const result = await consumeImportStream(osmosisImporter, {
+        sourceName: 'cosmos',
+        sourceType: 'blockchain' as const,
+      });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -390,7 +421,7 @@ describe('CosmosImporter', () => {
 
       setupMockData([]);
 
-      await consumeImportStream(importer, { address });
+      await consumeImportStream(importer, { sourceName: 'cosmos', sourceType: 'blockchain' as const, address });
 
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;

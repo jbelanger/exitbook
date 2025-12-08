@@ -16,7 +16,7 @@ describe('createKrakenClient - Factory', () => {
   test('creates client with valid credentials', () => {
     const credentials = {
       apiKey: 'test-api-key',
-      secret: 'test-secret',
+      apiSecret: 'test-secret',
     };
 
     const result = createKrakenClient(credentials);
@@ -25,7 +25,8 @@ describe('createKrakenClient - Factory', () => {
 
   test('returns error with missing apiKey', () => {
     const credentials = {
-      secret: 'test-secret',
+      apiSecret: 'test-secret',
+      apiKey: '',
     };
 
     const result = createKrakenClient(credentials);
@@ -38,6 +39,7 @@ describe('createKrakenClient - Factory', () => {
   test('returns error with missing secret', () => {
     const credentials = {
       apiKey: 'test-api-key',
+      apiSecret: '',
     };
 
     const result = createKrakenClient(credentials);
@@ -50,7 +52,7 @@ describe('createKrakenClient - Factory', () => {
   test('returns error with empty apiKey', () => {
     const credentials = {
       apiKey: '',
-      secret: 'test-secret',
+      apiSecret: 'test-secret',
     };
 
     const result = createKrakenClient(credentials);
@@ -74,7 +76,7 @@ describe('createKrakenClient - fetchTransactionDataStreaming', () => {
 
     const result = createKrakenClient({
       apiKey: 'test-api-key',
-      secret: 'test-secret',
+      apiSecret: 'test-secret',
     });
 
     if (result.isErr()) {
@@ -737,7 +739,7 @@ describe('createKrakenClient - fetchBalance', () => {
 
     const result = createKrakenClient({
       apiKey: 'test-api-key',
-      secret: 'test-secret',
+      apiSecret: 'test-secret',
     });
 
     if (result.isErr()) {

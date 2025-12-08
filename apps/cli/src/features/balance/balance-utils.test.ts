@@ -49,8 +49,8 @@ describe('buildBalanceParamsFromFlags', () => {
         sourceName: 'kucoin',
         credentials: {
           apiKey: 'test-key',
-          secret: 'test-secret',
-          passphrase: 'test-passphrase',
+          apiSecret: 'test-secret',
+          apiPassphrase: 'test-passphrase',
         },
       });
     }
@@ -71,7 +71,7 @@ describe('buildBalanceParamsFromFlags', () => {
         sourceName: 'kraken',
         credentials: {
           apiKey: 'test-key',
-          secret: 'test-secret',
+          apiSecret: 'test-secret',
         },
       });
     }
@@ -116,7 +116,7 @@ describe('getExchangeCredentialsFromEnv', () => {
     if (result.isOk()) {
       expect(result.value).toEqual({
         apiKey: 'env-key',
-        secret: 'env-secret',
+        apiSecret: 'env-secret',
       });
     }
   });
@@ -132,8 +132,8 @@ describe('getExchangeCredentialsFromEnv', () => {
     if (result.isOk()) {
       expect(result.value).toEqual({
         apiKey: 'env-key',
-        secret: 'env-secret',
-        passphrase: 'env-passphrase',
+        apiSecret: 'env-secret',
+        apiPassphrase: 'env-passphrase',
       });
     }
   });
@@ -169,7 +169,7 @@ describe('getExchangeCredentialsFromEnv', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.apiKey).toBe('env-key');
-      expect(result.value.secret).toBe('env-secret');
+      expect(result.value.apiSecret).toBe('env-secret');
     }
   });
 });

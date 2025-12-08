@@ -11,7 +11,13 @@ export const AccountTypeSchema = z.enum(['blockchain', 'exchange-api', 'exchange
 /**
  * Exchange credentials schema - generic key-value pairs validated per exchange
  */
-export const ExchangeCredentialsSchema = z.record(z.string(), z.string());
+export const ExchangeCredentialsSchema = z
+  .object({
+    apiKey: z.string().min(1),
+    apiSecret: z.string().min(1),
+    apiPassphrase: z.string().optional(),
+  })
+  .strict();
 
 /**
  * Account schema - persistent account metadata for exchanges and blockchains

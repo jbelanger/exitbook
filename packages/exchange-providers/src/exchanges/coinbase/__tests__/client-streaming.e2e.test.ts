@@ -8,11 +8,11 @@ describe('Coinbase Client Streaming E2E', () => {
   // Requires COINBASE_API_KEY and COINBASE_SECRET in .env
   const credentials = {
     apiKey: process.env['COINBASE_API_KEY'] || '',
-    secret: process.env['COINBASE_SECRET'] || '',
+    apiSecret: process.env['COINBASE_SECRET'] || '',
   };
 
   // Skip tests if credentials not available
-  const shouldSkip = !credentials.apiKey || !credentials.secret;
+  const shouldSkip = !credentials.apiKey || !credentials.apiSecret;
 
   describe('fetchTransactionDataStreaming', () => {
     it.skipIf(shouldSkip)(

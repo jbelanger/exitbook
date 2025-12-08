@@ -3,55 +3,14 @@ import {
   initializeProviders,
   type BlockchainExplorersConfig,
 } from '@exitbook/blockchain-providers';
-import type { ImportSession, SourceType } from '@exitbook/core';
-import type { ImportOrchestrator, TransactionProcessService } from '@exitbook/ingestion';
+import type { ImportSession } from '@exitbook/core';
+import type { ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
 import { getBlockchainAdapter } from '@exitbook/ingestion';
 import { progress } from '@exitbook/ui';
 import { err, ok, type Result } from 'neverthrow';
 
 // Initialize all providers at startup
 initializeProviders();
-
-/**
- * Parameters for the import handler.
- */
-export interface ImportHandlerParams {
-  /** Source name (exchange or blockchain) */
-  sourceName: string;
-
-  /** Source type */
-  sourceType: SourceType;
-
-  /** CSV directory path (for exchange CSV imports) */
-  csvDir?: string | undefined;
-
-  /** Wallet address (for blockchain imports) */
-  address?: string | undefined;
-
-  /** Provider Name (for blockchain imports) */
-  providerName?: string | undefined;
-
-  /** Xpub gap limit (for xpub/extended public key imports) */
-  xpubGap?: number | undefined;
-
-  /** API credentials (for exchange API imports) */
-  credentials?:
-    | {
-        apiKey: string;
-        apiPassphrase?: string | undefined;
-        secret: string;
-      }
-    | undefined;
-
-  /** Whether to process data after import */
-  shouldProcess?: boolean | undefined;
-
-  /** Import session ID (for processing existing data) */
-  importSessionId?: number | undefined;
-
-  /** Callback to warn user about single address imports (returns false to abort) */
-  onSingleAddressWarning?: (() => Promise<boolean>) | undefined;
-}
 
 /**
  * Result of the import operation.
@@ -88,30 +47,25 @@ export class ImportHandler {
   /**
    * Execute the import operation.
    */
-  async execute(params: ImportHandlerParams): Promise<Result<ImportResult, Error>> {
+  async execute(params: ImportParams): Promise<Result<ImportResult, Error>> {
     try {
       progress.start(`Importing from ${params.sourceName}`);
 
-      // Call appropriate orchestrator method based on source type and params
+      // Call appropriate orchestrator method based on source type
       let importResult: Result<ImportSession | ImportSession[], Error>;
 
-      if (params.sourceType === 'exchange') {
-        if (params.csvDir) {
-          // Exchange CSV import
-          importResult = await this.importOrchestrator.importExchangeCsv(params.sourceName, [params.csvDir]);
-        } else if (params.credentials) {
-          // Exchange API import
-          const credentials: Record<string, string> = {
-            apiKey: params.credentials.apiKey,
-            secret: params.credentials.secret,
-          };
-          if (params.credentials.apiPassphrase) {
-            credentials.passphrase = params.credentials.apiPassphrase;
-          }
-          importResult = await this.importOrchestrator.importExchangeApi(params.sourceName, credentials);
-        } else {
-          return err(new Error('Either csvDir or credentials must be provided for exchange imports'));
+      if (params.sourceType === 'exchange-csv') {
+        // Exchange CSV import
+        if (!params.csvDirectories || params.csvDirectories.length === 0) {
+          return err(new Error('CSV directories are required for CSV imports'));
         }
+        importResult = await this.importOrchestrator.importExchangeCsv(params.sourceName, params.csvDirectories);
+      } else if (params.sourceType === 'exchange-api') {
+        // Exchange API import
+        if (!params.credentials) {
+          return err(new Error('Credentials are required for API imports'));
+        }
+        importResult = await this.importOrchestrator.importExchangeApi(params.sourceName, params.credentials);
       } else {
         // Blockchain import
         if (!params.address) {

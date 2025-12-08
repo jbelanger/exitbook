@@ -14,7 +14,6 @@ import { ImportOrchestrator, TransactionProcessService, TokenMetadataService } f
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import { createClackEmitter, runWithProgress, type ProgressEmitter } from '@exitbook/ui';
 import type { Command } from 'commander';
-import type { z } from 'zod';
 
 import { resolveCommandParams, unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
@@ -25,12 +24,8 @@ import { ImportCommandOptionsSchema } from '../shared/schemas.js';
 import type { ImportResult } from './import-handler.js';
 import { ImportHandler } from './import-handler.js';
 import { promptForImportParams } from './import-prompts.js';
-import { buildImportParamsFromFlags } from './import-utils.js';
-
-/**
- * Import command options validated by Zod at CLI boundary
- */
-export type ImportCommandOptions = z.infer<typeof ImportCommandOptionsSchema>;
+import type { ImportCommandOptions } from './import-utils.js';
+import { buildImportParams } from './import-utils.js';
 
 /**
  * Import command result data.
@@ -95,7 +90,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 
   try {
     const params = await resolveCommandParams({
-      buildFromFlags: () => unwrapResult(buildImportParamsFromFlags(options)),
+      buildFromFlags: () => unwrapResult(buildImportParams(options)),
       cancelMessage: 'Import cancelled',
       commandName: 'import',
       confirmMessage: 'Start import?',

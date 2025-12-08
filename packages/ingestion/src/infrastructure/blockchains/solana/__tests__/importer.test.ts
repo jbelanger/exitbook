@@ -156,7 +156,11 @@ describe('SolanaTransactionImporter', () => {
         { normalized: mockNormalizedToken, raw: mockTokenTx },
       ]);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'solana',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -199,7 +203,11 @@ describe('SolanaTransactionImporter', () => {
 
       setupMockData([]);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'solana',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -223,7 +231,11 @@ describe('SolanaTransactionImporter', () => {
 
       setupMockData(multipleTxs);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'solana',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -248,7 +260,11 @@ describe('SolanaTransactionImporter', () => {
         );
       });
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'solana',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -259,7 +275,7 @@ describe('SolanaTransactionImporter', () => {
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
 
-      const result = await consumeImportStream(importer, {});
+      const result = await consumeImportStream(importer, { sourceName: 'solana', sourceType: 'blockchain' as const });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -275,7 +291,7 @@ describe('SolanaTransactionImporter', () => {
 
       setupMockData([]);
 
-      await consumeImportStream(importer, { address });
+      await consumeImportStream(importer, { sourceName: 'solana', sourceType: 'blockchain' as const, address });
 
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;

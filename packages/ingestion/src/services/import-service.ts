@@ -1,17 +1,15 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { Account, ImportSession, SourceType } from '@exitbook/core';
+import type { Account, ImportSession } from '@exitbook/core';
 import type { AccountRepository, IImportSessionRepository, IRawDataRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import { progress } from '@exitbook/ui';
 import type { Result } from 'neverthrow';
-import { err, ok, okAsync } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 
 import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
 import { createExchangeImporter } from '../infrastructure/exchanges/shared/exchange-importer-factory.js';
 import type { IImporter, ImportParams } from '../types/importers.js';
-
-import { normalizeBlockchainImportParams } from './import-service-utils.js';
 
 export class TransactionImportService {
   private logger: Logger;
@@ -42,106 +40,56 @@ export class TransactionImportService {
   }
 
   /**
-   * Setup import by creating importer and normalizing params based on source type
+   * Setup import by creating importer and extracting params from account.
+   * No rebuilding or normalization needed - Account stores canonical params.
    */
   private async setupImport(account: Account): Promise<Result<{ importer: IImporter; params: ImportParams }, Error>> {
-    const sourceType = deriveSourceType(account.accountType);
-
-    if (sourceType === 'blockchain') {
-      return this.setupBlockchainImport(account);
-    } else {
-      return this.setupExchangeImport(account);
-    }
-  }
-
-  /**
-   * Setup blockchain import - normalize address and create importer
-   */
-  private async setupBlockchainImport(
-    account: Account
-  ): Promise<Result<{ importer: IImporter; params: ImportParams }, Error>> {
     const sourceName = account.sourceName;
-    this.logger.info(`Setting up blockchain import for ${sourceName}`);
+    const sourceType = account.accountType;
 
-    // Normalize sourceName to lowercase for config lookup (registry keys are lowercase)
-    const normalizedSourceName = sourceName.toLowerCase();
+    this.logger.info(`Setting up ${sourceType} import for ${sourceName}`);
 
-    // Get blockchain adapter
-    const adapter = getBlockchainAdapter(normalizedSourceName);
-    if (!adapter) {
-      return err(new Error(`Unknown blockchain: ${sourceName}`));
-    }
-
-    // Build ImportParams from account
+    // Extract params directly from account - no normalization needed
     const params: ImportParams = {
-      address: account.identifier,
-      providerName: account.providerName ?? undefined,
+      sourceName,
+      sourceType,
       cursor: account.lastCursor,
     };
 
-    // Normalize and validate params using pure function
-    const normalizedParamsResult = normalizeBlockchainImportParams(sourceName, params, adapter);
-    if (normalizedParamsResult.isErr()) {
-      return err(normalizedParamsResult.error);
-    }
-    const normalizedParams = normalizedParamsResult.value;
+    // Add source-specific fields based on account type
+    if (sourceType === 'blockchain') {
+      params.address = account.identifier;
+      params.providerName = account.providerName ?? undefined;
 
-    // Create importer with resume cursor from account (single source of truth)
-    const importParams: ImportParams = {
-      ...normalizedParams,
-      cursor: account.lastCursor,
-    };
-
-    const importer = adapter.createImporter(this.providerManager, normalizedParams.providerName);
-    this.logger.info(`Importer for ${sourceName} created successfully`);
-
-    // Check if importer supports streaming
-    if (!importer.importStreaming) {
-      return err(new Error(`Importer for ${sourceName} does not support streaming yet`));
-    }
-
-    return okAsync({ importer, params: importParams });
-  }
-
-  /**
-   * Setup exchange import - handle credentials/CSV and create importer
-   */
-  private async setupExchangeImport(
-    account: Account
-  ): Promise<Result<{ importer: IImporter; params: ImportParams }, Error>> {
-    const sourceName = account.sourceName;
-    this.logger.info(`Setting up exchange import for ${sourceName}`);
-
-    // Build ImportParams from account
-    const params: ImportParams = {};
-
-    if (account.accountType === 'exchange-api') {
-      // For API accounts, use credentials
+      // Validate address is provided
+      if (!params.address) {
+        return err(new Error(`Address required for ${sourceName} import`));
+      }
+    } else if (sourceType === 'exchange-api') {
       params.credentials = account.credentials ?? undefined;
-    } else if (account.accountType === 'exchange-csv') {
-      // For CSV accounts, parse identifier as comma-separated directories
+    } else if (sourceType === 'exchange-csv') {
       params.csvDirectories = account.identifier.split(',');
     }
 
-    // Add cursor if available
-    if (account.lastCursor) {
-      params.cursor = account.lastCursor;
+    // Create importer based on source type
+    let importer: IImporter;
+
+    if (sourceType === 'blockchain') {
+      const normalizedSourceName = sourceName.toLowerCase();
+      const adapter = getBlockchainAdapter(normalizedSourceName);
+      if (!adapter) {
+        return err(new Error(`Unknown blockchain: ${sourceName}`));
+      }
+      importer = adapter.createImporter(this.providerManager, params.providerName);
+    } else {
+      const importerResult = await createExchangeImporter(sourceName);
+      if (importerResult.isErr()) {
+        return err(importerResult.error);
+      }
+      importer = importerResult.value;
     }
 
-    // Create importer
-    const importerResult = await createExchangeImporter(sourceName);
-
-    if (importerResult.isErr()) {
-      return err(importerResult.error);
-    }
-
-    const importer = importerResult.value;
     this.logger.info(`Importer for ${sourceName} created successfully`);
-
-    // Check if importer supports streaming
-    if (!importer.importStreaming) {
-      return err(new Error(`Importer for ${sourceName} does not support streaming`));
-    }
 
     return ok({ importer, params });
   }
@@ -299,15 +247,4 @@ export class TransactionImportService {
       return err(originalError);
     }
   }
-}
-
-/**
- * Derive SourceType from AccountType
- */
-function deriveSourceType(accountType: Account['accountType']): SourceType {
-  if (accountType === 'blockchain') {
-    return 'blockchain';
-  }
-  // Both exchange-api and exchange-csv map to 'exchange' source type
-  return 'exchange';
 }

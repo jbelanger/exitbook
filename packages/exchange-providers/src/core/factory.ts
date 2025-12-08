@@ -1,10 +1,11 @@
+import type { ExchangeCredentials } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err } from 'neverthrow';
 
 import { createCoinbaseClient } from '../exchanges/coinbase/client.js';
 import { createKrakenClient } from '../exchanges/kraken/client.js';
 
-import type { ExchangeCredentials, IExchangeClient } from './types.js';
+import type { IExchangeClient } from './types.js';
 
 /**
  * Create an exchange client for the specified exchange.

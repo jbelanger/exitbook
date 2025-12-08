@@ -227,7 +227,11 @@ describe('SubstrateImporter', () => {
         { raw: { original: 'data2' }, normalized: mockSubstrateTx2 },
       ]);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -271,7 +275,11 @@ describe('SubstrateImporter', () => {
 
       setupMockData([]);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -285,7 +293,11 @@ describe('SubstrateImporter', () => {
 
       setupMockData([{ raw: { original: 'data' }, normalized: mockSubstrateTx1 }]);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -301,7 +313,11 @@ describe('SubstrateImporter', () => {
 
       setupMockData([]);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -315,7 +331,11 @@ describe('SubstrateImporter', () => {
 
       setupMockData([]);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -339,7 +359,11 @@ describe('SubstrateImporter', () => {
 
       setupMockData(largeBatch);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -363,7 +387,11 @@ describe('SubstrateImporter', () => {
         );
       });
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -374,7 +402,10 @@ describe('SubstrateImporter', () => {
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
 
-      const result = await consumeImportStream(importer, {});
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+      });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -385,7 +416,11 @@ describe('SubstrateImporter', () => {
     test('should return error if address is empty string', async () => {
       const importer = createImporter();
 
-      const result = await consumeImportStream(importer, { address: '' });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address: '',
+      });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -405,7 +440,11 @@ describe('SubstrateImporter', () => {
         );
       });
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -425,7 +464,11 @@ describe('SubstrateImporter', () => {
         yield errAsync(providerError);
       });
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -449,7 +492,11 @@ describe('SubstrateImporter', () => {
 
       setupMockData([{ raw: { original: 'tao-data' }, normalized: bittensorTx }], 'taostats');
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
 
@@ -483,7 +530,11 @@ describe('SubstrateImporter', () => {
 
       setupMockData([{ raw: { original: 'ksm-data' }, normalized: kusamaTx }]);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
 
@@ -537,8 +588,16 @@ describe('SubstrateImporter', () => {
           });
         });
 
-      const polkadotResult = await consumeImportStream(polkadotImporter, { address: polkadotAddress });
-      const bittensorResult = await consumeImportStream(bittensorImporter, { address: bittensorAddress });
+      const polkadotResult = await consumeImportStream(polkadotImporter, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address: polkadotAddress,
+      });
+      const bittensorResult = await consumeImportStream(bittensorImporter, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address: bittensorAddress,
+      });
 
       expect(polkadotResult.isOk()).toBe(true);
       expect(bittensorResult.isOk()).toBe(true);
@@ -557,7 +616,7 @@ describe('SubstrateImporter', () => {
 
       setupMockData([]);
 
-      await consumeImportStream(importer, { address });
+      await consumeImportStream(importer, { sourceName: 'substrate', sourceType: 'blockchain' as const, address });
 
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
@@ -575,8 +634,16 @@ describe('SubstrateImporter', () => {
 
       setupMockData([]);
 
-      await consumeImportStream(polkadotImporter, { address });
-      await consumeImportStream(bittensorImporter, { address });
+      await consumeImportStream(polkadotImporter, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
+      await consumeImportStream(bittensorImporter, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
@@ -598,7 +665,7 @@ describe('SubstrateImporter', () => {
 
       setupMockData([]);
 
-      await consumeImportStream(importer, { address });
+      await consumeImportStream(importer, { sourceName: 'substrate', sourceType: 'blockchain' as const, address });
 
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
@@ -640,7 +707,11 @@ describe('SubstrateImporter', () => {
 
       setupMockData([{ raw: { original: 'data' }, normalized: mockSubstrateTx1 }], 'custom-provider');
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -657,7 +728,11 @@ describe('SubstrateImporter', () => {
 
       setupMockData([]);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
 
@@ -675,7 +750,11 @@ describe('SubstrateImporter', () => {
 
       setupMockData([]);
 
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'substrate',
+        sourceType: 'blockchain' as const,
+        address,
+      });
 
       expect(result.isOk()).toBe(true);
     });

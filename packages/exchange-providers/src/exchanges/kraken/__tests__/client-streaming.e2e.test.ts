@@ -8,11 +8,11 @@ describe('Kraken Client Streaming E2E', () => {
   // Requires KRAKEN_API_KEY and KRAKEN_SECRET in .env
   const credentials = {
     apiKey: process.env['KRAKEN_API_KEY'] || '',
-    secret: process.env['KRAKEN_SECRET'] || '',
+    apiSecret: process.env['KRAKEN_SECRET'] || '',
   };
 
   // Skip tests if credentials not available
-  const shouldSkip = !credentials.apiKey || !credentials.secret;
+  const shouldSkip = !credentials.apiKey || !credentials.apiSecret;
 
   describe('fetchTransactionDataStreaming', () => {
     it.skipIf(shouldSkip)(

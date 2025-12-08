@@ -202,7 +202,11 @@ describe('NearTransactionImporter', () => {
           },
         });
       });
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'near',
+        sourceType: 'blockchain' as const,
+        address,
+      });
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(2);
@@ -242,7 +246,11 @@ describe('NearTransactionImporter', () => {
       const importer = createImporter();
       const address = 'alice.near';
       setupDefaultMocks([], []);
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'near',
+        sourceType: 'blockchain' as const,
+        address,
+      });
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(0);
@@ -271,7 +279,11 @@ describe('NearTransactionImporter', () => {
           },
         });
       });
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'near',
+        sourceType: 'blockchain' as const,
+        address,
+      });
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(3);
@@ -296,7 +308,11 @@ describe('NearTransactionImporter', () => {
           },
         });
       });
-      const result = await consumeImportStream(importer, { address: implicitAddress });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'near',
+        sourceType: 'blockchain' as const,
+        address: implicitAddress,
+      });
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(1);
@@ -319,7 +335,11 @@ describe('NearTransactionImporter', () => {
           },
         });
       });
-      const result = await consumeImportStream(importer, { address: subAccount });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'near',
+        sourceType: 'blockchain' as const,
+        address: subAccount,
+      });
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(1);
@@ -338,7 +358,11 @@ describe('NearTransactionImporter', () => {
           })
         );
       });
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'near',
+        sourceType: 'blockchain' as const,
+        address,
+      });
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toBe('Failed to fetch transactions');
@@ -368,7 +392,11 @@ describe('NearTransactionImporter', () => {
           })
         );
       });
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'near',
+        sourceType: 'blockchain' as const,
+        address,
+      });
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toBe('Failed to fetch token transactions');
@@ -376,7 +404,7 @@ describe('NearTransactionImporter', () => {
     });
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
-      const result = await consumeImportStream(importer, {});
+      const result = await consumeImportStream(importer, { sourceName: 'near', sourceType: 'blockchain' as const });
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toBe('Address required for NEAR transaction import');
@@ -393,7 +421,11 @@ describe('NearTransactionImporter', () => {
           })
         );
       });
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'near',
+        sourceType: 'blockchain' as const,
+        address,
+      });
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toBe('Network timeout');
@@ -410,7 +442,11 @@ describe('NearTransactionImporter', () => {
           })
         );
       });
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'near',
+        sourceType: 'blockchain' as const,
+        address,
+      });
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toBe('Rate limit exceeded');
@@ -421,7 +457,7 @@ describe('NearTransactionImporter', () => {
     test('should generate correct cache keys for named accounts', async () => {
       const importer = createImporter();
       const address = 'alice.near';
-      await consumeImportStream(importer, { address });
+      await consumeImportStream(importer, { sourceName: 'near', sourceType: 'blockchain' as const, address });
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
       // First call is for normal transactions
@@ -436,7 +472,7 @@ describe('NearTransactionImporter', () => {
     test('should generate correct cache keys for implicit accounts', async () => {
       const importer = createImporter();
       const address = '98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de';
-      await consumeImportStream(importer, { address });
+      await consumeImportStream(importer, { sourceName: 'near', sourceType: 'blockchain' as const, address });
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
       const normalCall = calls[0]![1];
@@ -449,7 +485,7 @@ describe('NearTransactionImporter', () => {
     test('should generate correct cache keys for sub-accounts', async () => {
       const importer = createImporter();
       const address = 'token.sub.alice.near';
-      await consumeImportStream(importer, { address });
+      await consumeImportStream(importer, { sourceName: 'near', sourceType: 'blockchain' as const, address });
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
       const normalCall = calls[0]![1];
@@ -481,7 +517,11 @@ describe('NearTransactionImporter', () => {
           },
         });
       });
-      const result = await consumeImportStream(importer, { address });
+      const result = await consumeImportStream(importer, {
+        sourceName: 'near',
+        sourceType: 'blockchain' as const,
+        address,
+      });
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const id1 = result.value.rawTransactions[0]?.externalId;
@@ -508,8 +548,16 @@ describe('NearTransactionImporter', () => {
           },
         });
       });
-      const result1 = await consumeImportStream(importer, { address });
-      const result2 = await consumeImportStream(importer, { address });
+      const result1 = await consumeImportStream(importer, {
+        sourceName: 'near',
+        sourceType: 'blockchain' as const,
+        address,
+      });
+      const result2 = await consumeImportStream(importer, {
+        sourceName: 'near',
+        sourceType: 'blockchain' as const,
+        address,
+      });
       expect(result1.isOk()).toBe(true);
       expect(result2.isOk()).toBe(true);
       if (result1.isOk() && result2.isOk()) {

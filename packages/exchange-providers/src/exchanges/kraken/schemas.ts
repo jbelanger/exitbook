@@ -1,13 +1,10 @@
+import { ExchangeCredentialsSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
  * Kraken API credentials schema
  */
-export const KrakenCredentialsSchema = z.object({
-  apiKey: z.string().min(1, 'API key is required'),
-  secret: z.string().min(1, 'Secret is required'),
-});
-
+export const KrakenCredentialsSchema = ExchangeCredentialsSchema.omit({ apiPassphrase: true });
 export type KrakenCredentials = z.infer<typeof KrakenCredentialsSchema>;
 
 /**

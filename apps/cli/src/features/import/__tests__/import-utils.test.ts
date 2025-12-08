@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ImportCommandOptionsSchema } from '../../shared/schemas.js';
-import { buildImportParamsFromFlags, type ImportCommandOptions } from '../import-utils.js';
+import { buildImportParams, type ImportCommandOptions } from '../import-utils.js';
 
 describe('ImportCommandOptionsSchema', () => {
   describe('interactive mode (no flags)', () => {
@@ -192,7 +192,7 @@ describe('ImportCommandOptionsSchema', () => {
   });
 });
 
-describe('buildImportParamsFromFlags', () => {
+describe('buildImportParams', () => {
   describe('exchange sources', () => {
     it('should build params with CSV directory', () => {
       const options: ImportCommandOptions = {
@@ -201,13 +201,13 @@ describe('buildImportParamsFromFlags', () => {
         process: true,
       };
 
-      const result = buildImportParamsFromFlags(options);
+      const result = buildImportParams(options);
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
       expect(params.sourceName).toBe('kraken');
-      expect(params.sourceType).toBe('exchange');
-      expect(params.csvDir).toBe('/path/to/csv');
+      expect(params.sourceType).toBe('exchange-csv');
+      expect(params.csvDirectories).toEqual(['/path/to/csv']);
       expect(params.shouldProcess).toBe(true);
     });
 
@@ -218,16 +218,15 @@ describe('buildImportParamsFromFlags', () => {
         apiSecret: 'test-secret',
       };
 
-      const result = buildImportParamsFromFlags(options);
+      const result = buildImportParams(options);
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
       expect(params.sourceName).toBe('kraken');
-      expect(params.sourceType).toBe('exchange');
+      expect(params.sourceType).toBe('exchange-api');
       expect(params.credentials).toEqual({
         apiKey: 'test-key',
-        secret: 'test-secret',
-        apiPassphrase: undefined,
+        apiSecret: 'test-secret',
       });
     });
 
@@ -239,13 +238,13 @@ describe('buildImportParamsFromFlags', () => {
         apiPassphrase: 'test-passphrase',
       };
 
-      const result = buildImportParamsFromFlags(options);
+      const result = buildImportParams(options);
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
       expect(params.credentials).toEqual({
         apiKey: 'test-key',
-        secret: 'test-secret',
+        apiSecret: 'test-secret',
         apiPassphrase: 'test-passphrase',
       });
     });
@@ -258,7 +257,7 @@ describe('buildImportParamsFromFlags', () => {
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
       };
 
-      const result = buildImportParamsFromFlags(options);
+      const result = buildImportParams(options);
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();
@@ -275,7 +274,7 @@ describe('buildImportParamsFromFlags', () => {
         process: true,
       };
 
-      const result = buildImportParamsFromFlags(options);
+      const result = buildImportParams(options);
 
       expect(result.isOk()).toBe(true);
       const params = result._unsafeUnwrap();

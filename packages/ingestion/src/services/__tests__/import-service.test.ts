@@ -8,7 +8,7 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { Account, AccountType, CursorState, ImportSession } from '@exitbook/core';
+import type { Account, AccountType, CursorState, ExchangeCredentials, ImportSession } from '@exitbook/core';
 import type { AccountRepository, IImportSessionRepository, IRawDataRepository } from '@exitbook/data';
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -21,7 +21,7 @@ function createMockAccount(
   sourceName: string,
   identifier: string,
   options?: {
-    credentials?: Record<string, string>;
+    credentials?: ExchangeCredentials;
     lastCursor?: Record<string, CursorState>;
     providerName?: string;
   }
@@ -520,6 +520,7 @@ describe('TransactionImportService', () => {
       const account = createMockAccount('exchange-api', 'unknown-exchange', 'test-api-key', {
         credentials: {
           apiKey: 'test-key',
+          apiSecret: '',
         },
       });
 
@@ -538,6 +539,7 @@ describe('TransactionImportService', () => {
       const account = createMockAccount('exchange-api', 'kraken', 'test-api-key', {
         credentials: {
           apiKey: 'test-key',
+          apiSecret: '',
         },
       });
 

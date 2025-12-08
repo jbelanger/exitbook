@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
-import type { ImportOrchestrator, TransactionProcessService } from '@exitbook/ingestion';
+import type { ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
-import type { ImportHandlerParams } from '../import-handler.js';
 import { ImportHandler } from '../import-handler.js';
 
 // Mock dependencies
@@ -62,7 +61,7 @@ describe('ImportHandler', () => {
 
   describe('execute', () => {
     it('should successfully import blockchain data', async () => {
-      const params: ImportHandlerParams = {
+      const params: ImportParams = {
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         address: 'bc1qtest',
@@ -101,10 +100,10 @@ describe('ImportHandler', () => {
     });
 
     it('should successfully import exchange data from CSV', async () => {
-      const params: ImportHandlerParams = {
+      const params: ImportParams = {
         sourceName: 'kraken',
-        sourceType: 'exchange',
-        csvDir: './data/kraken',
+        sourceType: 'exchange-csv',
+        csvDirectories: ['./data/kraken'],
       };
 
       (mockImportOrchestrator.importExchangeCsv as Mock).mockResolvedValue(
@@ -140,12 +139,12 @@ describe('ImportHandler', () => {
     });
 
     it('should successfully import exchange data from API', async () => {
-      const params: ImportHandlerParams = {
+      const params: ImportParams = {
         sourceName: 'kucoin',
-        sourceType: 'exchange',
+        sourceType: 'exchange-api',
         credentials: {
           apiKey: 'test-key',
-          secret: 'test-secret',
+          apiSecret: 'test-secret',
           apiPassphrase: 'test-passphrase',
         },
       };
@@ -162,13 +161,13 @@ describe('ImportHandler', () => {
       expect(result.isOk()).toBe(true);
       expect(mockImportOrchestrator.importExchangeApi).toHaveBeenCalledWith('kucoin', {
         apiKey: 'test-key',
-        secret: 'test-secret',
-        passphrase: 'test-passphrase',
+        apiSecret: 'test-secret',
+        apiPassphrase: 'test-passphrase',
       });
     });
 
     it('should process data when shouldProcess is true', async () => {
-      const params: ImportHandlerParams = {
+      const params: ImportParams = {
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         address: 'bc1qtest',
@@ -217,7 +216,7 @@ describe('ImportHandler', () => {
     });
 
     it('should return processing errors when present', async () => {
-      const params: ImportHandlerParams = {
+      const params: ImportParams = {
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         address: 'bc1qtest',
@@ -265,7 +264,7 @@ describe('ImportHandler', () => {
     });
 
     it('should return error when import fails', async () => {
-      const params: ImportHandlerParams = {
+      const params: ImportParams = {
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         address: 'bc1qtest',
@@ -281,7 +280,7 @@ describe('ImportHandler', () => {
     });
 
     it('should return error when processing fails', async () => {
-      const params: ImportHandlerParams = {
+      const params: ImportParams = {
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         address: 'bc1qtest',

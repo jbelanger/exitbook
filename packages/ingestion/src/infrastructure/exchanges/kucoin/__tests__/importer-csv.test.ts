@@ -29,6 +29,8 @@ user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00
     mockReadFile.mockResolvedValue(csvContent);
 
     const params = {
+      sourceName: 'kucoin',
+      sourceType: 'exchange-csv' as const,
       csvDirectories: ['/test/csv'],
     };
 
@@ -51,6 +53,8 @@ user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00
     mockReadFile.mockResolvedValue(csvContent);
 
     const params = {
+      sourceName: 'kucoin',
+      sourceType: 'exchange-csv' as const,
       csvDirectories: ['/test/csv'],
     };
 
@@ -90,7 +94,11 @@ user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00
 
     mockReadFile.mockResolvedValue(csvContent);
 
-    const result = await importer.import({ csvDirectories: ['/test/csv'] });
+    const result = await importer.import({
+      sourceName: 'kucoin',
+      sourceType: 'exchange-csv' as const,
+      csvDirectories: ['/test/csv'],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -124,7 +132,11 @@ user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00
 
     mockReadFile.mockResolvedValue(csvContent);
 
-    const result = await importer.import({ csvDirectories: ['/test/csv'] });
+    const result = await importer.import({
+      sourceName: 'kucoin',
+      sourceType: 'exchange-csv' as const,
+      csvDirectories: ['/test/csv'],
+    });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

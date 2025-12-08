@@ -16,7 +16,7 @@ describe('createCoinbaseClient - Factory', () => {
   test('creates client with valid credentials', () => {
     const credentials = {
       apiKey: 'organizations/test-org/apiKeys/test-key',
-      secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEITest123\n-----END EC PRIVATE KEY-----',
+      apiSecret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEITest123\n-----END EC PRIVATE KEY-----',
     };
 
     const result = createCoinbaseClient(credentials);
@@ -25,7 +25,8 @@ describe('createCoinbaseClient - Factory', () => {
 
   test('returns error with missing apiKey', () => {
     const credentials = {
-      secret: 'test-secret',
+      apiSecret: 'test-secret',
+      apiKey: '',
     };
 
     const result = createCoinbaseClient(credentials);
@@ -38,6 +39,7 @@ describe('createCoinbaseClient - Factory', () => {
   test('returns error with missing secret', () => {
     const credentials = {
       apiKey: 'test-api-key',
+      apiSecret: '',
     };
 
     const result = createCoinbaseClient(credentials);
@@ -50,7 +52,7 @@ describe('createCoinbaseClient - Factory', () => {
   test('returns error with empty apiKey', () => {
     const credentials = {
       apiKey: '',
-      secret: 'test-secret',
+      apiSecret: 'test-secret',
     };
 
     const result = createCoinbaseClient(credentials);
@@ -63,7 +65,7 @@ describe('createCoinbaseClient - Factory', () => {
   test('returns error with malformed apiKey (missing /apiKeys/ path)', () => {
     const credentials = {
       apiKey: 'test-api-key', // Missing organizations/{org_id}/apiKeys/{key_id} format
-      secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEITest123\n-----END EC PRIVATE KEY-----',
+      apiSecret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEITest123\n-----END EC PRIVATE KEY-----',
     };
 
     const result = createCoinbaseClient(credentials);
@@ -77,7 +79,7 @@ describe('createCoinbaseClient - Factory', () => {
   test('returns error with non-ECDSA private key', () => {
     const credentials = {
       apiKey: 'organizations/test-org/apiKeys/test-key',
-      secret: '-----BEGIN PRIVATE KEY-----\nMHcCAQEEITest123\n-----END PRIVATE KEY-----', // Not EC PRIVATE KEY
+      apiSecret: '-----BEGIN PRIVATE KEY-----\nMHcCAQEEITest123\n-----END PRIVATE KEY-----', // Not EC PRIVATE KEY
     };
 
     const result = createCoinbaseClient(credentials);
@@ -91,7 +93,7 @@ describe('createCoinbaseClient - Factory', () => {
   test('normalizes PEM key with escaped newlines', () => {
     const credentials = {
       apiKey: 'organizations/test-org/apiKeys/test-key',
-      secret: '-----BEGIN EC PRIVATE KEY-----\\nMHcCAQEEITest123\\n-----END EC PRIVATE KEY-----', // Escaped newlines
+      apiSecret: '-----BEGIN EC PRIVATE KEY-----\\nMHcCAQEEITest123\\n-----END EC PRIVATE KEY-----', // Escaped newlines
     };
 
     const result = createCoinbaseClient(credentials);
@@ -113,7 +115,7 @@ describe('createCoinbaseClient - fetchBalance', () => {
 
     const result = createCoinbaseClient({
       apiKey: 'organizations/test-org/apiKeys/test-key',
-      secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEE...test...==\n-----END EC PRIVATE KEY-----',
+      apiSecret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEE...test...==\n-----END EC PRIVATE KEY-----',
     });
 
     if (result.isErr()) {
@@ -214,7 +216,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
 
     const result = createCoinbaseClient({
       apiKey: 'organizations/test-org/apiKeys/test-key',
-      secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEITest123\n-----END EC PRIVATE KEY-----',
+      apiSecret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEITest123\n-----END EC PRIVATE KEY-----',
     });
 
     if (result.isErr()) {

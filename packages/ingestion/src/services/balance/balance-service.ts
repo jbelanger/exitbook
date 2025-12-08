@@ -1,6 +1,7 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type {
   Account,
+  ExchangeCredentials,
   ImportSession,
   SourceParams,
   SourceType,
@@ -41,13 +42,7 @@ export interface BalanceServiceParams {
   sourceName: string;
   sourceType: SourceType;
   address?: string | undefined;
-  credentials?:
-    | {
-        apiKey: string;
-        passphrase?: string | undefined;
-        secret: string;
-      }
-    | undefined;
+  credentials?: ExchangeCredentials | undefined;
   providerName?: string | undefined;
 }
 
@@ -352,16 +347,7 @@ export class BalanceService {
       );
     }
 
-    // Build credentials (ExchangeCredentials = Record<string, string>)
-    const credentials: Record<string, string> = {
-      apiKey: params.credentials.apiKey,
-      secret: params.credentials.secret,
-    };
-    if (params.credentials.passphrase) {
-      credentials.passphrase = params.credentials.passphrase;
-    }
-
-    const clientResult = createExchangeClient(params.sourceName, credentials);
+    const clientResult = createExchangeClient(params.sourceName, params.credentials);
     if (clientResult.isErr()) {
       return err(clientResult.error);
     }

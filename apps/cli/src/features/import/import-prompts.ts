@@ -1,6 +1,9 @@
 // Import prompt orchestration
 // Separates interactive prompt flow from command logic
 
+import type { ExchangeCredentials } from '@exitbook/core';
+import { getBlockchainAdapter, type ImportParams } from '@exitbook/ingestion';
+
 import {
   promptSourceType,
   promptExchange,
@@ -14,13 +17,12 @@ import {
   handleCancellation,
 } from '../shared/prompts.js';
 
-import type { ImportHandlerParams } from './import-handler.js';
-
 /**
  * Interactive prompt flow for import parameters.
  * Orchestrates the full prompt sequence based on source type.
+ * Returns normalized ImportParams (same as buildImportParams).
  */
-export async function promptForImportParams(): Promise<ImportHandlerParams> {
+export async function promptForImportParams(): Promise<ImportParams> {
   // Step 1: Source type
   const sourceType = await promptSourceType();
 
@@ -35,43 +37,55 @@ export async function promptForImportParams(): Promise<ImportHandlerParams> {
 /**
  * Exchange-specific prompt flow.
  */
-async function promptExchangeParams(): Promise<ImportHandlerParams> {
+async function promptExchangeParams(): Promise<ImportParams> {
   // Select exchange
   const sourceName = await promptExchange();
 
   // Step 3: Import method (CSV or API)
   const importMethod = await promptImportMethod();
 
-  let csvDir: string | undefined;
-  let credentials: { apiKey: string; apiPassphrase?: string | undefined; secret: string } | undefined;
-
-  if (importMethod === 'csv') {
-    csvDir = await promptCsvDirectory();
-  } else {
-    credentials = await promptApiCredentials();
-  }
-
   // Step 5: Process after import?
   const shouldProcess = await promptConfirm('Process data after import?', true);
 
-  return {
-    sourceName,
-    sourceType: 'exchange',
-    csvDir,
-    credentials,
-    shouldProcess,
-  };
+  if (importMethod === 'csv') {
+    const csvDir = await promptCsvDirectory();
+    return {
+      sourceName,
+      sourceType: 'exchange-csv',
+      csvDirectories: [csvDir],
+      shouldProcess,
+    };
+  } else {
+    const credentials = await promptApiCredentials();
+    return {
+      sourceName,
+      sourceType: 'exchange-api',
+      credentials,
+      shouldProcess,
+    };
+  }
 }
 
 /**
  * Blockchain-specific prompt flow.
  */
-async function promptBlockchainParams(): Promise<ImportHandlerParams> {
+async function promptBlockchainParams(): Promise<ImportParams> {
   // Select blockchain
   const sourceName = await promptBlockchain();
 
   // Step 3: Wallet address
   const address = await promptWalletAddress(sourceName);
+
+  // Normalize address
+  const blockchainAdapter = getBlockchainAdapter(sourceName.toLowerCase());
+  if (!blockchainAdapter) {
+    throw new Error(`Unknown blockchain: ${sourceName}`);
+  }
+
+  const normalizedAddressResult = blockchainAdapter.normalizeAddress(address);
+  if (normalizedAddressResult.isErr()) {
+    throw normalizedAddressResult.error;
+  }
 
   // Step 4: Provider (optional)
   const providerName = await promptProvider(sourceName);
@@ -82,7 +96,7 @@ async function promptBlockchainParams(): Promise<ImportHandlerParams> {
   return {
     sourceName,
     sourceType: 'blockchain',
-    address,
+    address: normalizedAddressResult.value,
     providerName,
     shouldProcess,
   };
@@ -91,11 +105,7 @@ async function promptBlockchainParams(): Promise<ImportHandlerParams> {
 /**
  * Prompt for API credentials.
  */
-async function promptApiCredentials(): Promise<{
-  apiKey: string;
-  apiPassphrase?: string | undefined;
-  secret: string;
-}> {
+async function promptApiCredentials(): Promise<ExchangeCredentials> {
   const apiKey = await import('@clack/prompts').then((p) =>
     p.text({
       message: 'API Key:',
@@ -121,7 +131,11 @@ async function promptApiCredentials(): Promise<{
   // Some exchanges need passphrase
   const needsPassphrase = await promptConfirm('Does this exchange require an API passphrase?', false);
 
-  let apiPassphrase: string | undefined;
+  const credentials: ExchangeCredentials = {
+    apiKey,
+    apiSecret: apiSecret,
+  };
+
   if (needsPassphrase) {
     const passphrase = await import('@clack/prompts').then((p) =>
       p.password({
@@ -134,12 +148,8 @@ async function promptApiCredentials(): Promise<{
       handleCancellation();
     }
 
-    apiPassphrase = passphrase;
+    credentials.apiPassphrase = passphrase;
   }
 
-  return {
-    apiKey,
-    secret: apiSecret,
-    apiPassphrase,
-  };
+  return credentials;
 }
