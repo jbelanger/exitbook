@@ -192,7 +192,7 @@ describe('BitcoinTransactionImporter', () => {
           providerName: 'blockstream.info',
           sourceAddress: USER_ADDRESS,
           normalizedData: mockNormalized,
-          rawData: mockBitcoinTx,
+          providerData: mockBitcoinTx,
         });
         expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
       }
@@ -274,9 +274,9 @@ describe('BitcoinTransactionImporter', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(3);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual(mockBitcoinTx);
-        expect(result.value.rawTransactions[1]!.rawData).toEqual({ ...mockBitcoinTx, id: 'tx2def' });
-        expect(result.value.rawTransactions[2]!.rawData).toEqual({ ...mockBitcoinTx, id: 'tx3ghi' });
+        expect(result.value.rawTransactions[0]!.providerData).toEqual(mockBitcoinTx);
+        expect(result.value.rawTransactions[1]!.providerData).toEqual({ ...mockBitcoinTx, id: 'tx2def' });
+        expect(result.value.rawTransactions[2]!.providerData).toEqual({ ...mockBitcoinTx, id: 'tx3ghi' });
       }
     });
   });

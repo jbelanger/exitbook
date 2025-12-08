@@ -1,4 +1,3 @@
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { type Result } from 'neverthrow';
 
@@ -17,7 +16,6 @@ import type { TaostatsTransaction } from './taostats.schemas.js';
  */
 export function convertTaostatsTransaction(
   rawData: TaostatsTransaction,
-  _sourceContext: ImportSessionMetadata,
   nativeCurrency: string
 ): Result<SubstrateTransaction, NormalizationError> {
   // Extract SS58 addresses from address objects

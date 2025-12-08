@@ -365,7 +365,6 @@ export class SubscanApiClient extends BaseApiClient {
     for (const rawTx of transfers) {
       const mapResult = convertSubscanTransaction(
         rawTx,
-        {},
         relevantAddresses,
         this.chainConfig,
         this.chainConfig.nativeCurrency,
@@ -476,7 +475,6 @@ export class SubscanApiClient extends BaseApiClient {
         const relevantAddresses = new Set([address]);
         const mapResult = convertSubscanTransaction(
           raw,
-          {},
           relevantAddresses,
           this.chainConfig,
           this.chainConfig.nativeCurrency,

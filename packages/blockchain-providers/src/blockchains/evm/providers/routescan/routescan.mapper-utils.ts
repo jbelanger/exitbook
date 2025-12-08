@@ -1,4 +1,3 @@
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.js';
@@ -25,7 +24,6 @@ import type {
  */
 export function transformInternalTransaction(
   rawData: RoutescanInternalTransaction,
-  _sourceContext: ImportSessionMetadata,
   nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   const timestamp = rawData.timeStamp.getTime();
@@ -53,7 +51,6 @@ export function transformInternalTransaction(
  */
 export function transformNormalTransaction(
   rawData: RoutescanTransaction,
-  _sourceContext: ImportSessionMetadata,
   nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   const timestamp = rawData.timeStamp.getTime();
@@ -99,7 +96,6 @@ export function transformNormalTransaction(
  */
 export function transformTokenTransfer(
   rawData: RoutescanTokenTransfer,
-  _sourceContext: ImportSessionMetadata,
   nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   const timestamp = rawData.timeStamp.getTime();
@@ -139,18 +135,17 @@ export function transformTokenTransfer(
  */
 export function mapRoutescanTransaction(
   rawData: RoutescanTransaction | RoutescanInternalTransaction | RoutescanTokenTransfer,
-  sourceContext: ImportSessionMetadata,
   nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   // Type discrimination: token transfers have tokenSymbol, internal transactions have traceId, normal transactions have nonce
 
   if ('tokenSymbol' in rawData) {
-    return transformTokenTransfer(rawData, sourceContext, nativeCurrency);
+    return transformTokenTransfer(rawData, nativeCurrency);
   }
 
   if ('traceId' in rawData) {
-    return transformInternalTransaction(rawData, sourceContext, nativeCurrency);
+    return transformInternalTransaction(rawData, nativeCurrency);
   }
 
-  return transformNormalTransaction(rawData, sourceContext, nativeCurrency);
+  return transformNormalTransaction(rawData, nativeCurrency);
 }

@@ -1,15 +1,9 @@
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
 import { satoshisToBtcString } from '../../../utils.js';
 import type { BlockstreamTransaction } from '../blockstream.schemas.js';
 import { mapBlockstreamTransaction } from '../mapper-utils.js';
-
-const mockSourceContext: ImportSessionMetadata = {
-  name: 'test-provider',
-  source: 'blockchain',
-};
 
 const mockBitcoinChainConfig: BitcoinChainConfig = {
   chainName: 'bitcoin',
@@ -61,7 +55,7 @@ describe('mapBlockstreamTransaction', () => {
       ],
     };
 
-    const result = mapBlockstreamTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
+    const result = mapBlockstreamTransaction(rawData, mockBitcoinChainConfig);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -132,7 +126,7 @@ describe('mapBlockstreamTransaction', () => {
       ],
     };
 
-    const result = mapBlockstreamTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
+    const result = mapBlockstreamTransaction(rawData, mockBitcoinChainConfig);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -183,7 +177,7 @@ describe('mapBlockstreamTransaction', () => {
       ],
     };
 
-    const result = mapBlockstreamTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
+    const result = mapBlockstreamTransaction(rawData, mockBitcoinChainConfig);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -257,7 +251,7 @@ describe('mapBlockstreamTransaction', () => {
       ],
     };
 
-    const result = mapBlockstreamTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
+    const result = mapBlockstreamTransaction(rawData, mockBitcoinChainConfig);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {

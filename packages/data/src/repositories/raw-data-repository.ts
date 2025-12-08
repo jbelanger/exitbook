@@ -95,7 +95,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
   async load(filters?: LoadRawDataFilters): Promise<Result<RawTransaction[], Error>> {
     try {
-      let query = this.db.selectFrom('external_transaction_data').selectAll();
+      let query = this.db.selectFrom('raw_transactions').selectAll();
 
       if (filters?.accountId !== undefined) {
         query = query.where('account_id', '=', filters.accountId);
@@ -142,7 +142,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
         for (const id of rawTransactionIds) {
           await trx
-            .updateTable('external_transaction_data')
+            .updateTable('raw_transactions')
             .set({
               processed_at: processedAt,
               processing_error: null,
@@ -174,7 +174,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       const result = await this.withTransaction(async (trx) => {
         try {
           const insertResult = await trx
-            .insertInto('external_transaction_data')
+            .insertInto('raw_transactions')
             .values({
               created_at: this.getCurrentDateTimeForDB(),
               external_id: item.externalId,
@@ -185,7 +185,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
               provider_name: item.providerName,
               source_address: item.sourceAddress ?? null,
               transaction_type_hint: item.transactionTypeHint ?? null,
-              raw_data: JSON.stringify(item.rawData),
+              provider_data: JSON.stringify(item.providerData),
             })
             .execute();
 
@@ -195,8 +195,8 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
           const errorMessage = error instanceof Error ? error.message : String(error);
           if (
             errorMessage.includes('UNIQUE constraint failed') ||
-            errorMessage.includes('idx_external_tx_account_blockchain_hash') ||
-            errorMessage.includes('idx_external_tx_account_external_id')
+            errorMessage.includes('idx_raw_tx_account_blockchain_hash') ||
+            errorMessage.includes('idx_raw_tx_account_external_id')
           ) {
             // Skip duplicate - return 0 to indicate nothing was inserted
             return 0;
@@ -222,7 +222,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
     // Validate all items before processing
     for (const item of items) {
-      if (!item.rawData) {
+      if (!item.providerData) {
         return err(new Error('Raw data cannot be null or undefined in batch items'));
       }
 
@@ -241,7 +241,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         for (const item of items) {
           try {
             const insertResult = await trx
-              .insertInto('external_transaction_data')
+              .insertInto('raw_transactions')
               .values({
                 created_at: createdAt,
                 external_id: item.externalId ?? null,
@@ -252,7 +252,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
                 provider_name: item.providerName,
                 source_address: item.sourceAddress ?? null,
                 transaction_type_hint: item.transactionTypeHint ?? null,
-                raw_data: JSON.stringify(item.rawData),
+                provider_data: JSON.stringify(item.providerData),
               })
               .execute();
 
@@ -264,8 +264,8 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             const errorMessage = error instanceof Error ? error.message : String(error);
             if (
               errorMessage.includes('UNIQUE constraint failed') ||
-              errorMessage.includes('idx_external_tx_account_blockchain_hash') ||
-              errorMessage.includes('idx_external_tx_account_external_id')
+              errorMessage.includes('idx_raw_tx_account_blockchain_hash') ||
+              errorMessage.includes('idx_raw_tx_account_external_id')
             ) {
               // Skip duplicate - this is expected for blockchain transactions shared across derived addresses or re-imported exchange data
               continue;
@@ -288,7 +288,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
   async resetProcessingStatusByAccount(accountId: number): Promise<Result<number, Error>> {
     try {
       const result = await this.db
-        .updateTable('external_transaction_data')
+        .updateTable('raw_transactions')
         .set({
           processed_at: null,
           processing_error: null,
@@ -306,7 +306,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
   async resetProcessingStatusAll(): Promise<Result<number, Error>> {
     try {
       const result = await this.db
-        .updateTable('external_transaction_data')
+        .updateTable('raw_transactions')
         .set({
           processed_at: null,
           processing_error: null,
@@ -323,7 +323,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
   async countAll(): Promise<Result<number, Error>> {
     try {
       const result = await this.db
-        .selectFrom('external_transaction_data')
+        .selectFrom('raw_transactions')
         .select(({ fn }) => [fn.count<number>('id').as('count')])
         .executeTakeFirst();
       return ok(result?.count ?? 0);
@@ -339,7 +339,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       }
 
       const result = await this.db
-        .selectFrom('external_transaction_data')
+        .selectFrom('raw_transactions')
         .select(({ fn }) => [fn.count<number>('id').as('count')])
         .where('account_id', 'in', accountIds)
         .executeTakeFirst();
@@ -352,7 +352,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
   async deleteByAccount(accountId: number): Promise<Result<number, Error>> {
     try {
       const result = await this.db
-        .deleteFrom('external_transaction_data')
+        .deleteFrom('raw_transactions')
         .where('account_id', '=', accountId)
         .executeTakeFirst();
 
@@ -364,7 +364,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
   async deleteAll(): Promise<Result<number, Error>> {
     try {
-      const result = await this.db.deleteFrom('external_transaction_data').executeTakeFirst();
+      const result = await this.db.deleteFrom('raw_transactions').executeTakeFirst();
       return ok(Number(result.numDeletedRows));
     } catch (error) {
       return wrapError(error, 'Failed to delete all raw data');
@@ -376,7 +376,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
    * Handles JSON parsing and camelCase conversion
    */
   private toRawTransaction(row: Selectable<RawTransactionTable>): Result<RawTransaction, Error> {
-    const rawDataResult = this.parseJson<unknown>(row.raw_data);
+    const rawDataResult = this.parseJson<unknown>(row.provider_data);
     const normalizedDataResult = this.parseJson<unknown>(row.normalized_data);
 
     // Fail fast on any parse errors
@@ -400,7 +400,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       transactionTypeHint: row.transaction_type_hint ?? undefined,
       externalId: row.external_id,
       blockchainTransactionHash: row.blockchain_transaction_hash ?? undefined,
-      rawData: rawDataResult.value,
+      providerData: rawDataResult.value,
       normalizedData: normalizedDataResult.value,
       processingStatus: row.processing_status,
       processedAt: row.processed_at ? new Date(row.processed_at) : undefined,

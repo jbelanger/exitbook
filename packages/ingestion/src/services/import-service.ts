@@ -26,7 +26,7 @@ export class TransactionImportService {
   }
 
   /**
-   * Import raw data from source and store it in external_transaction_data table.
+   * Import raw data from source and store it in raw_transactions table.
    * Uses streaming with crash recovery for all sources (blockchain and exchange).
    * All parameters are extracted from the account object.
    */

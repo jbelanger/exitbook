@@ -200,12 +200,12 @@ export class TransactionProcessService {
         let normalizedData: unknown = item.normalizedData;
 
         if (!normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0) {
-          normalizedData = item.rawData;
+          normalizedData = item.providerData;
         }
 
         if (sourceType === 'exchange-api' || sourceType === 'exchange-csv') {
           const dataPackage = {
-            raw: item.rawData,
+            raw: item.providerData,
             normalized: normalizedData,
             externalId: item.externalId || '',
           };

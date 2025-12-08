@@ -19,7 +19,7 @@ describe('taostats.mapper-utils', () => {
         id: 'txid123',
       };
 
-      const result = convertTaostatsTransaction(rawData, {}, 'TAO');
+      const result = convertTaostatsTransaction(rawData, 'TAO');
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -48,7 +48,7 @@ describe('taostats.mapper-utils', () => {
         id: 'txid123',
       };
 
-      const result = convertTaostatsTransaction(rawData, {}, 'TAO');
+      const result = convertTaostatsTransaction(rawData, 'TAO');
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {

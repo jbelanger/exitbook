@@ -386,7 +386,7 @@ describe('processItems', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.transactions[0]!.rawData).toEqual({ id: 'tx-1', time: 1704067200000, amount: '100' });
+      expect(result.value.transactions[0]!.providerData).toEqual({ id: 'tx-1', time: 1704067200000, amount: '100' });
     }
   });
 

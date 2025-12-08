@@ -238,7 +238,7 @@ export class BlockchainComApiClient extends BaseApiClient {
     // Normalize transactions immediately using mapper
     const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
     for (const rawTx of filteredRawTransactions) {
-      const mapResult = mapBlockchainComTransaction(rawTx, {}, this.chainConfig);
+      const mapResult = mapBlockchainComTransaction(rawTx, this.chainConfig);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -308,7 +308,7 @@ export class BlockchainComApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapBlockchainComTransaction(raw, {}, this.chainConfig);
+        const mapped = mapBlockchainComTransaction(raw, this.chainConfig);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(

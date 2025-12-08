@@ -1,4 +1,3 @@
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -6,10 +5,6 @@ import { lovelaceToAda, mapAssetAmounts, mapBlockfrostTransaction } from './bloc
 import type { BlockfrostAssetAmount, BlockfrostTransactionWithMetadata } from './blockfrost.schemas.js';
 
 describe('blockfrost.mapper-utils', () => {
-  const sourceContext: ImportSessionMetadata = {
-    address: 'addr1qxy483kxdaezq6qk0ptlh7gzcmqm2q6uyz4rjz5aq92whlvje44s8rhd3eyt9q3yvdvs3dw6y80ttwspnsmg5tgxa72su3mnty',
-  };
-
   describe('lovelaceToAda', () => {
     it('should convert lovelace to ADA with correct precision', () => {
       expect(lovelaceToAda('1000000')).toBe('1');
@@ -204,7 +199,7 @@ describe('blockfrost.mapper-utils', () => {
     describe('Basic transaction mapping', () => {
       it('should map simple ADA transfer with all metadata fields', () => {
         const mockTransaction = createBaseFixture();
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -231,7 +226,7 @@ describe('blockfrost.mapper-utils', () => {
 
       it('should map inputs with correct structure', () => {
         const mockTransaction = createBaseFixture();
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -256,7 +251,7 @@ describe('blockfrost.mapper-utils', () => {
 
       it('should map outputs with correct structure', () => {
         const mockTransaction = createBaseFixture();
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -296,7 +291,7 @@ describe('blockfrost.mapper-utils', () => {
             fees: lovelace,
           };
 
-          const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+          const result = mapBlockfrostTransaction(mockTransaction);
 
           expect(result.isOk()).toBe(true);
           if (result.isOk()) {
@@ -311,7 +306,7 @@ describe('blockfrost.mapper-utils', () => {
           fees: '0',
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -325,7 +320,7 @@ describe('blockfrost.mapper-utils', () => {
           fees: '10000000000', // 10,000 ADA (unrealistic but tests precision)
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -341,7 +336,7 @@ describe('blockfrost.mapper-utils', () => {
           fees: feeInLovelace,
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -360,7 +355,7 @@ describe('blockfrost.mapper-utils', () => {
           block_time: blockTime,
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -383,7 +378,7 @@ describe('blockfrost.mapper-utils', () => {
             block_time: new Date(date),
           };
 
-          const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+          const result = mapBlockfrostTransaction(mockTransaction);
 
           expect(result.isOk()).toBe(true);
           if (result.isOk()) {
@@ -399,7 +394,7 @@ describe('blockfrost.mapper-utils', () => {
           block_time: blockTime,
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -416,7 +411,7 @@ describe('blockfrost.mapper-utils', () => {
           valid_contract: true,
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -430,7 +425,7 @@ describe('blockfrost.mapper-utils', () => {
           valid_contract: false,
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -449,7 +444,7 @@ describe('blockfrost.mapper-utils', () => {
             block_height: blockHeight,
           };
 
-          const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+          const result = mapBlockfrostTransaction(mockTransaction);
 
           expect(result.isOk()).toBe(true);
           if (result.isOk()) {
@@ -471,7 +466,7 @@ describe('blockfrost.mapper-utils', () => {
             block_hash: blockHash,
           };
 
-          const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+          const result = mapBlockfrostTransaction(mockTransaction);
 
           expect(result.isOk()).toBe(true);
           if (result.isOk()) {
@@ -516,7 +511,7 @@ describe('blockfrost.mapper-utils', () => {
           ],
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -568,7 +563,7 @@ describe('blockfrost.mapper-utils', () => {
           ],
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -618,7 +613,7 @@ describe('blockfrost.mapper-utils', () => {
           ],
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -667,7 +662,7 @@ describe('blockfrost.mapper-utils', () => {
           ],
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -697,7 +692,7 @@ describe('blockfrost.mapper-utils', () => {
           ],
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -757,7 +752,7 @@ describe('blockfrost.mapper-utils', () => {
           valid_contract: true,
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -804,7 +799,7 @@ describe('blockfrost.mapper-utils', () => {
           block_height: 0,
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -815,7 +810,7 @@ describe('blockfrost.mapper-utils', () => {
       it('should handle single input and single output', () => {
         const mockTransaction = createBaseFixture();
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -846,7 +841,7 @@ describe('blockfrost.mapper-utils', () => {
           ],
         };
 
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -857,7 +852,7 @@ describe('blockfrost.mapper-utils', () => {
 
       it('should always return ok result (never errors)', () => {
         const mockTransaction = createBaseFixture();
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         // The mapper never returns errors currently
         expect(result.isOk()).toBe(true);
@@ -868,22 +863,7 @@ describe('blockfrost.mapper-utils', () => {
     describe('Provider name', () => {
       it('should always set providerName to blockfrost', () => {
         const mockTransaction = createBaseFixture();
-        const result = mapBlockfrostTransaction(mockTransaction, sourceContext);
-
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          expect(result.value.providerName).toBe('blockfrost');
-        }
-      });
-
-      it('should set providerName regardless of source context', () => {
-        const mockTransaction = createBaseFixture();
-        const customContext: ImportSessionMetadata = {
-          address: 'different-address',
-          name: 'custom-name',
-        };
-
-        const result = mapBlockfrostTransaction(mockTransaction, customContext);
+        const result = mapBlockfrostTransaction(mockTransaction);
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {

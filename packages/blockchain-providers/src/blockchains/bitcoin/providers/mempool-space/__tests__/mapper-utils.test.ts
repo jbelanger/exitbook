@@ -1,15 +1,9 @@
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
 import { satoshisToBtcString } from '../../../utils.js';
 import { mapMempoolSpaceTransaction } from '../mapper-utils.js';
 import type { MempoolTransaction } from '../mempool-space.schemas.js';
-
-const mockSourceContext: ImportSessionMetadata = {
-  name: 'test-provider',
-  source: 'blockchain',
-};
 
 const mockBitcoinChainConfig: BitcoinChainConfig = {
   chainName: 'bitcoin',
@@ -60,7 +54,7 @@ describe('mapMempoolSpaceTransaction', () => {
       ],
     };
 
-    const result = mapMempoolSpaceTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
+    const result = mapMempoolSpaceTransaction(rawData, mockBitcoinChainConfig);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -118,7 +112,7 @@ describe('mapMempoolSpaceTransaction', () => {
       ],
     };
 
-    const result = mapMempoolSpaceTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
+    const result = mapMempoolSpaceTransaction(rawData, mockBitcoinChainConfig);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -159,7 +153,7 @@ describe('mapMempoolSpaceTransaction', () => {
       ],
     };
 
-    const result = mapMempoolSpaceTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
+    const result = mapMempoolSpaceTransaction(rawData, mockBitcoinChainConfig);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {

@@ -79,7 +79,7 @@ describe('RawDataRepository', () => {
     // Create test raw data records
     for (let i = 1; i <= 5; i++) {
       await db
-        .insertInto('external_transaction_data')
+        .insertInto('raw_transactions')
         .values({
           account_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
           provider_name: i <= 3 ? 'kraken' : 'ethereum',
@@ -87,7 +87,7 @@ describe('RawDataRepository', () => {
           blockchain_transaction_hash: null,
           source_address: null,
           transaction_type_hint: null,
-          raw_data: JSON.stringify({ id: `ext-${i}`, amount: '100.00' }),
+          provider_data: JSON.stringify({ id: `ext-${i}`, amount: '100.00' }),
           normalized_data: '{}',
           processing_status: i % 2 === 0 ? 'processed' : 'pending',
           processed_at: i % 2 === 0 ? new Date().toISOString() : undefined,
@@ -106,7 +106,7 @@ describe('RawDataRepository', () => {
     it('should reset processing status for records from a specific account', async () => {
       // Verify initial state - some records are processed
       const initialProcessed = await db
-        .selectFrom('external_transaction_data')
+        .selectFrom('raw_transactions')
         .where('processing_status', '=', 'processed')
         .where('account_id', '=', 1)
         .selectAll()
@@ -122,11 +122,7 @@ describe('RawDataRepository', () => {
       }
 
       // Verify all kraken records are now pending
-      const krakenRecords = await db
-        .selectFrom('external_transaction_data')
-        .where('account_id', '=', 1)
-        .selectAll()
-        .execute();
+      const krakenRecords = await db.selectFrom('raw_transactions').where('account_id', '=', 1).selectAll().execute();
 
       expect(krakenRecords).toHaveLength(3);
       expect(krakenRecords.every((r) => r.processing_status === 'pending')).toBe(true);
@@ -135,7 +131,7 @@ describe('RawDataRepository', () => {
 
       // Verify ethereum records unchanged
       const ethereumProcessed = await db
-        .selectFrom('external_transaction_data')
+        .selectFrom('raw_transactions')
         .where('processing_status', '=', 'processed')
         .where('account_id', '=', 2)
         .selectAll()
@@ -169,7 +165,7 @@ describe('RawDataRepository', () => {
     it('should reset processing status for all records', async () => {
       // Verify initial state
       const initialProcessed = await db
-        .selectFrom('external_transaction_data')
+        .selectFrom('raw_transactions')
         .where('processing_status', '=', 'processed')
         .selectAll()
         .execute();
@@ -183,7 +179,7 @@ describe('RawDataRepository', () => {
       }
 
       // Verify all records are now pending
-      const allRecords = await db.selectFrom('external_transaction_data').selectAll().execute();
+      const allRecords = await db.selectFrom('raw_transactions').selectAll().execute();
       expect(allRecords).toHaveLength(5);
       expect(allRecords.every((r) => r.processing_status === 'pending')).toBe(true);
       expect(allRecords.every((r) => r.processed_at === null)).toBe(true);
@@ -192,7 +188,7 @@ describe('RawDataRepository', () => {
 
     it('should return 0 when no records exist', async () => {
       // Delete all records
-      await db.deleteFrom('external_transaction_data').execute();
+      await db.deleteFrom('raw_transactions').execute();
 
       const result = await repository.resetProcessingStatusAll();
 
@@ -218,7 +214,7 @@ describe('RawDataRepository', () => {
   describe('deleteByAccount', () => {
     it('should delete raw data records from a specific account', async () => {
       // Verify initial state
-      const initialRecords = await db.selectFrom('external_transaction_data').selectAll().execute();
+      const initialRecords = await db.selectFrom('raw_transactions').selectAll().execute();
       expect(initialRecords).toHaveLength(5);
 
       // Delete kraken records (account_id = 1)
@@ -230,7 +226,7 @@ describe('RawDataRepository', () => {
       }
 
       // Verify only ethereum records remain
-      const remainingRecords = await db.selectFrom('external_transaction_data').selectAll().execute();
+      const remainingRecords = await db.selectFrom('raw_transactions').selectAll().execute();
       expect(remainingRecords).toHaveLength(2);
       expect(remainingRecords.every((r) => r.account_id === 2)).toBe(true);
     });
@@ -244,7 +240,7 @@ describe('RawDataRepository', () => {
       }
 
       // Verify all records remain
-      const allRecords = await db.selectFrom('external_transaction_data').selectAll().execute();
+      const allRecords = await db.selectFrom('raw_transactions').selectAll().execute();
       expect(allRecords).toHaveLength(5);
     });
 
@@ -264,7 +260,7 @@ describe('RawDataRepository', () => {
   describe('deleteAll', () => {
     it('should delete all raw data records', async () => {
       // Verify initial state
-      const initialRecords = await db.selectFrom('external_transaction_data').selectAll().execute();
+      const initialRecords = await db.selectFrom('raw_transactions').selectAll().execute();
       expect(initialRecords).toHaveLength(5);
 
       // Delete all records
@@ -276,13 +272,13 @@ describe('RawDataRepository', () => {
       }
 
       // Verify no records remain
-      const remainingRecords = await db.selectFrom('external_transaction_data').selectAll().execute();
+      const remainingRecords = await db.selectFrom('raw_transactions').selectAll().execute();
       expect(remainingRecords).toHaveLength(0);
     });
 
     it('should return 0 when no records exist', async () => {
       // Delete all records first
-      await db.deleteFrom('external_transaction_data').execute();
+      await db.deleteFrom('raw_transactions').execute();
 
       const result = await repository.deleteAll();
 

@@ -320,7 +320,7 @@ describe('xpub import integration tests', () => {
 
       // Verify transaction count in database matches cursor (via account)
       const txCount = await db
-        .selectFrom('external_transaction_data')
+        .selectFrom('raw_transactions')
         .select((eb) => eb.fn.count('id').as('count'))
         .where('account_id', '=', childAccount.id)
         .executeTakeFirstOrThrow();
@@ -430,8 +430,8 @@ describe('xpub import integration tests', () => {
         expect(totalImported).toBe(2);
       }
 
-      // Verify 2 rows exist in external_transaction_data (one per child account)
-      const allTransactions = await db.selectFrom('external_transaction_data').selectAll().execute();
+      // Verify 2 rows exist in raw_transactions (one per child account)
+      const allTransactions = await db.selectFrom('raw_transactions').selectAll().execute();
       expect(allTransactions).toHaveLength(2);
 
       // Both should have the same blockchain hash
@@ -453,7 +453,7 @@ describe('xpub import integration tests', () => {
 
       // Verify both transactions remain pending (no cross-account deduplication)
       const pendingTxs = await db
-        .selectFrom('external_transaction_data')
+        .selectFrom('raw_transactions')
         .selectAll()
         .where('processing_status', '=', 'pending')
         .execute();
@@ -591,7 +591,7 @@ describe('xpub import integration tests', () => {
 
       // Verify transaction count via account
       const txCount = await db
-        .selectFrom('external_transaction_data')
+        .selectFrom('raw_transactions')
         .select((eb) => eb.fn.count('id').as('count'))
         .where('account_id', '=', childAccount.id)
         .executeTakeFirstOrThrow();

@@ -21,20 +21,6 @@ export const DataImportParamsSchema = z.object({
 });
 
 /**
- * Schema for import session metadata
- * Provides blockchain-specific address context and import details
- */
-export const ImportSessionMetadataSchema = z
-  .object({
-    address: z.string().optional(),
-    csvDirectories: z.array(z.string()).optional(),
-    derivedAddresses: z.array(z.string()).optional(),
-    importedAt: z.number().optional(),
-    importParams: DataImportParamsSchema.optional(),
-  })
-  .catchall(z.unknown());
-
-/**
  * Schema for source parameters identifying the wallet/account
  */
 export const SourceParamsSchema = z.union([
@@ -114,7 +100,6 @@ export const ImportSessionSchema = z.object({
 export type SourceType = z.infer<typeof SourceTypeSchema>;
 export type ImportSessionStatus = z.infer<typeof ImportSessionStatusSchema>;
 export type DataImportParams = z.infer<typeof DataImportParamsSchema>;
-export type ImportSessionMetadata = z.infer<typeof ImportSessionMetadataSchema>;
 export type SourceParams = z.infer<typeof SourceParamsSchema>;
 export type BalanceDiscrepancy = z.infer<typeof BalanceDiscrepancySchema>;
 export type BalanceVerificationStatus = z.infer<typeof BalanceVerificationStatusSchema>;

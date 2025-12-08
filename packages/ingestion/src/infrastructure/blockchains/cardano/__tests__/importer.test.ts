@@ -188,7 +188,7 @@ describe('CardanoTransactionImporter', () => {
           providerName: 'blockfrost',
           sourceAddress: USER_ADDRESS,
           normalizedData: mockNormalized,
-          rawData: mockCardanoTx,
+          providerData: mockCardanoTx,
         });
         expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
       }
@@ -270,9 +270,9 @@ describe('CardanoTransactionImporter', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(3);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual(mockCardanoTx);
-        expect(result.value.rawTransactions[1]!.rawData).toEqual({ ...mockCardanoTx, id: 'tx2def' });
-        expect(result.value.rawTransactions[2]!.rawData).toEqual({ ...mockCardanoTx, id: 'tx3ghi' });
+        expect(result.value.rawTransactions[0]!.providerData).toEqual(mockCardanoTx);
+        expect(result.value.rawTransactions[1]!.providerData).toEqual({ ...mockCardanoTx, id: 'tx2def' });
+        expect(result.value.rawTransactions[2]!.providerData).toEqual({ ...mockCardanoTx, id: 'tx3ghi' });
       }
     });
   });

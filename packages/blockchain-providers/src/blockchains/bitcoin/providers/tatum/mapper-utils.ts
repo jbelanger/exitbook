@@ -1,5 +1,4 @@
 import { parseDecimal } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 import { validateOutput, type NormalizationError } from '../../../../core/index.js';
@@ -23,7 +22,6 @@ import type { TatumBitcoinTransaction } from './tatum.schemas.js';
  */
 export function mapTatumTransaction(
   rawData: TatumBitcoinTransaction,
-  _sourceContext: ImportSessionMetadata,
   chainConfig: BitcoinChainConfig
 ): Result<BitcoinTransaction, NormalizationError> {
   const timestamp = rawData.time * 1000;
@@ -74,7 +72,6 @@ export function mapTatumTransaction(
  */
 export function mapTatumBCashTransaction(
   rawData: TatumBCashTransaction,
-  _sourceContext: ImportSessionMetadata,
   chainConfig: BitcoinChainConfig
 ): Result<BitcoinTransaction, NormalizationError> {
   const timestamp = rawData.blocktime ? rawData.blocktime * 1000 : rawData.time ? rawData.time * 1000 : Date.now();
@@ -126,7 +123,6 @@ export function mapTatumBCashTransaction(
  */
 export function mapTatumDogecoinTransaction(
   rawData: TatumDogecoinTransaction,
-  _sourceContext: ImportSessionMetadata,
   chainConfig: BitcoinChainConfig
 ): Result<BitcoinTransaction, NormalizationError> {
   const timestamp = rawData.time * 1000;
@@ -176,7 +172,6 @@ export function mapTatumDogecoinTransaction(
  */
 export function mapTatumLitecoinTransaction(
   rawData: TatumLitecoinTransaction,
-  _sourceContext: ImportSessionMetadata,
   chainConfig: BitcoinChainConfig
 ): Result<BitcoinTransaction, NormalizationError> {
   const timestamp = rawData.time * 1000;

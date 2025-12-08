@@ -1,14 +1,9 @@
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { InjectiveTransaction } from '../injective-explorer.schemas.js';
 import { mapInjectiveExplorerTransaction } from '../mapper-utils.js';
 
-const mockSourceContext: ImportSessionMetadata = {
-  address: 'inj1user123456789',
-  name: 'injective-explorer',
-  source: 'blockchain',
-};
+const userAddress = 'inj1user123456789';
 
 describe('injective-explorer mapper-utils', () => {
   describe('mapInjectiveExplorerTransaction', () => {
@@ -38,7 +33,7 @@ describe('injective-explorer mapper-utils', () => {
         tx_type: 'bank',
       };
 
-      const result = mapInjectiveExplorerTransaction(rawData, mockSourceContext);
+      const result = mapInjectiveExplorerTransaction(rawData, userAddress);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -93,7 +88,7 @@ describe('injective-explorer mapper-utils', () => {
         tx_type: 'ibc',
       };
 
-      const result = mapInjectiveExplorerTransaction(rawData, mockSourceContext);
+      const result = mapInjectiveExplorerTransaction(rawData, userAddress);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -142,7 +137,7 @@ describe('injective-explorer mapper-utils', () => {
         tx_type: 'peggy',
       };
 
-      const result = mapInjectiveExplorerTransaction(rawData, mockSourceContext);
+      const result = mapInjectiveExplorerTransaction(rawData, userAddress);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -190,7 +185,7 @@ describe('injective-explorer mapper-utils', () => {
         tx_type: 'peggy',
       };
 
-      const result = mapInjectiveExplorerTransaction(rawData, mockSourceContext);
+      const result = mapInjectiveExplorerTransaction(rawData, userAddress);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -226,7 +221,7 @@ describe('injective-explorer mapper-utils', () => {
         tx_type: 'peggy',
       };
 
-      const result = mapInjectiveExplorerTransaction(rawData, mockSourceContext);
+      const result = mapInjectiveExplorerTransaction(rawData, userAddress);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -268,7 +263,7 @@ describe('injective-explorer mapper-utils', () => {
         tx_type: 'bank',
       };
 
-      const result = mapInjectiveExplorerTransaction(rawData, mockSourceContext);
+      const result = mapInjectiveExplorerTransaction(rawData, userAddress);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -305,7 +300,7 @@ describe('injective-explorer mapper-utils', () => {
         tx_type: 'bank',
       };
 
-      const result = mapInjectiveExplorerTransaction(rawData, mockSourceContext);
+      const result = mapInjectiveExplorerTransaction(rawData, userAddress);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -335,7 +330,7 @@ describe('injective-explorer mapper-utils', () => {
         tx_type: 'staking',
       };
 
-      const result = mapInjectiveExplorerTransaction(rawData, mockSourceContext);
+      const result = mapInjectiveExplorerTransaction(rawData, userAddress);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -372,12 +367,7 @@ describe('injective-explorer mapper-utils', () => {
         tx_type: 'bank',
       };
 
-      const contextWithoutAddress: ImportSessionMetadata = {
-        name: 'injective-explorer',
-        source: 'blockchain',
-      };
-
-      const result = mapInjectiveExplorerTransaction(rawData, contextWithoutAddress);
+      const result = mapInjectiveExplorerTransaction(rawData, '');
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -414,7 +404,7 @@ describe('injective-explorer mapper-utils', () => {
         tx_type: 'bank',
       };
 
-      const result = mapInjectiveExplorerTransaction(rawData, mockSourceContext);
+      const result = mapInjectiveExplorerTransaction(rawData, userAddress);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -449,7 +439,7 @@ describe('injective-explorer mapper-utils', () => {
         tx_type: 'bank',
       };
 
-      const result = mapInjectiveExplorerTransaction(rawData, mockSourceContext);
+      const result = mapInjectiveExplorerTransaction(rawData, userAddress);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -484,7 +474,7 @@ describe('injective-explorer mapper-utils', () => {
         tx_type: 'contract',
       };
 
-      const result = mapInjectiveExplorerTransaction(rawData, mockSourceContext);
+      const result = mapInjectiveExplorerTransaction(rawData, userAddress);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -521,7 +511,7 @@ describe('injective-explorer mapper-utils', () => {
         tx_type: 'bank',
       };
 
-      const result = mapInjectiveExplorerTransaction(rawData, mockSourceContext);
+      const result = mapInjectiveExplorerTransaction(rawData, userAddress);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {

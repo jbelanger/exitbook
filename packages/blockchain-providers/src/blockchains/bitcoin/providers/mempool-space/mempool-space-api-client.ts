@@ -234,7 +234,7 @@ export class MempoolSpaceApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = mapMempoolSpaceTransaction(rawTx, {}, this.chainConfig);
+      const mapResult = mapMempoolSpaceTransaction(rawTx, this.chainConfig);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -305,7 +305,7 @@ export class MempoolSpaceApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapMempoolSpaceTransaction(raw, {}, this.chainConfig);
+        const mapped = mapMempoolSpaceTransaction(raw, this.chainConfig);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(

@@ -1,15 +1,9 @@
-import type { ImportSessionMetadata } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
 import { satoshisToBtcString } from '../../../utils.js';
 import type { BlockCypherTransaction } from '../blockcypher.schemas.js';
 import { mapBlockCypherTransaction } from '../mapper-utils.js';
-
-const mockSourceContext: ImportSessionMetadata = {
-  name: 'test-provider',
-  source: 'blockchain',
-};
 
 const mockBitcoinChainConfig: BitcoinChainConfig = {
   chainName: 'bitcoin',
@@ -57,7 +51,7 @@ describe('mapBlockCypherTransaction', () => {
       ],
     };
 
-    const result = mapBlockCypherTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
+    const result = mapBlockCypherTransaction(rawData, mockBitcoinChainConfig);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -124,7 +118,7 @@ describe('mapBlockCypherTransaction', () => {
       ],
     };
 
-    const result = mapBlockCypherTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
+    const result = mapBlockCypherTransaction(rawData, mockBitcoinChainConfig);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -172,7 +166,7 @@ describe('mapBlockCypherTransaction', () => {
       ],
     };
 
-    const result = mapBlockCypherTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
+    const result = mapBlockCypherTransaction(rawData, mockBitcoinChainConfig);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -219,7 +213,7 @@ describe('mapBlockCypherTransaction', () => {
       ],
     };
 
-    const result = mapBlockCypherTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
+    const result = mapBlockCypherTransaction(rawData, mockBitcoinChainConfig);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -264,7 +258,7 @@ describe('mapBlockCypherTransaction', () => {
       ],
     };
 
-    const result = mapBlockCypherTransaction(rawData, mockSourceContext, mockBitcoinChainConfig);
+    const result = mapBlockCypherTransaction(rawData, mockBitcoinChainConfig);
     const afterTime = Date.now();
 
     expect(result.isOk()).toBe(true);

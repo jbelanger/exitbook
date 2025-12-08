@@ -87,7 +87,7 @@ export interface RawTransactionTable {
   transaction_type_hint: string | null; // For exchange transactions (e.g., 'deposit', 'withdrawal', 'spot_order')
 
   // Data storage
-  raw_data: JSONString; // Raw data from source
+  provider_data: JSONString; // Raw data from source
   normalized_data: JSONString; // Normalized data
 
   // Processing status
@@ -307,7 +307,7 @@ export interface DatabaseSchema {
   accounts: AccountsTable;
   acquisition_lots: AcquisitionLotsTable;
   cost_basis_calculations: CostBasisCalculationsTable;
-  external_transaction_data: RawTransactionTable;
+  raw_transactions: RawTransactionTable;
   import_sessions: ImportSessionsTable;
   lot_disposals: LotDisposalsTable;
   lot_transfers: LotTransfersTable;

@@ -63,7 +63,7 @@ describe('ClearHandler', () => {
       });
     });
 
-    it('should use subquery for external_transaction_data when filtering by account', async () => {
+    it('should use subquery for raw_transactions when filtering by account', async () => {
       const params: ClearHandlerParams = {
         accountId: 1,
         includeRaw: false,

@@ -4,7 +4,7 @@ import { z } from 'zod';
 /**
  * Zod schema for validating normalized exchange ledger entries.
  * This ensures all exchanges conform to the same strict contract after mapping.
- * Additional exchange-specific data should remain in raw_data, not in normalized data.
+ * Additional exchange-specific data should remain in provider_data, not in normalized data.
  */
 export const ExchangeLedgerEntrySchema = z
   .object({

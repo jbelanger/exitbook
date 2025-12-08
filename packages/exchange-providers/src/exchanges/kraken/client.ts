@@ -169,7 +169,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
               transactions.push({
                 externalId: validatedData.id,
                 providerName: 'kraken',
-                rawData: validatedData,
+                providerData: validatedData,
                 normalizedData: normalizedValidation.data,
               });
 

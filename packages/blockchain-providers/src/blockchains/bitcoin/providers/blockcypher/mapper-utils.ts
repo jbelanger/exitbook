@@ -1,4 +1,3 @@
-import type { ImportSessionMetadata } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 import { validateOutput, type NormalizationError } from '../../../../core/index.js';
@@ -20,7 +19,6 @@ import type { BlockCypherTransaction } from './blockcypher.schemas.js';
  */
 export function mapBlockCypherTransaction(
   rawData: BlockCypherTransaction,
-  _sourceContext: ImportSessionMetadata,
   chainConfig: BitcoinChainConfig
 ): Result<BitcoinTransaction, NormalizationError> {
   const timestamp = rawData.confirmed ? new Date(rawData.confirmed).getTime() : Date.now();

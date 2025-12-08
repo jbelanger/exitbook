@@ -1,4 +1,3 @@
-import type { ImportSessionMetadata } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 import { validateOutput, type NormalizationError } from '../../../../core/index.js';
@@ -20,7 +19,6 @@ import type { MempoolTransaction } from './mempool-space.schemas.js';
  */
 export function mapMempoolSpaceTransaction(
   rawData: MempoolTransaction,
-  _sourceContext: ImportSessionMetadata,
   chainConfig: BitcoinChainConfig
 ): Result<BitcoinTransaction, NormalizationError> {
   const timestamp =

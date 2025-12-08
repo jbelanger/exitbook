@@ -119,7 +119,7 @@ export class NearTransactionImporter implements IImporter {
         transactionTypeHint: operationType,
         sourceAddress: address,
         normalizedData: txWithRaw.normalized,
-        rawData: txWithRaw.raw,
+        providerData: txWithRaw.raw,
       }));
 
       yield ok({

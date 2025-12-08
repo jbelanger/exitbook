@@ -238,7 +238,7 @@ describe('SubstrateImporter', () => {
           providerName: 'subscan',
           sourceAddress: address,
           normalizedData: mockSubstrateTx1,
-          rawData: { original: 'data1' },
+          providerData: { original: 'data1' },
         });
         expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
 
@@ -247,7 +247,7 @@ describe('SubstrateImporter', () => {
           providerName: 'subscan',
           sourceAddress: address,
           normalizedData: mockSubstrateTx2,
-          rawData: { original: 'data2' },
+          providerData: { original: 'data2' },
         });
         expect(result.value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
       }
@@ -291,7 +291,7 @@ describe('SubstrateImporter', () => {
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(1);
         expect(result.value.rawTransactions[0]!.normalizedData).toEqual(mockSubstrateTx1);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual({ original: 'data' });
+        expect(result.value.rawTransactions[0]!.providerData).toEqual({ original: 'data' });
       }
     });
 
@@ -466,7 +466,7 @@ describe('SubstrateImporter', () => {
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(1);
         expect(result.value.rawTransactions[0]!.normalizedData).toEqual(bittensorTx);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual({ original: 'tao-data' });
+        expect(result.value.rawTransactions[0]!.providerData).toEqual({ original: 'tao-data' });
       }
     });
 
@@ -495,7 +495,7 @@ describe('SubstrateImporter', () => {
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(1);
         expect(result.value.rawTransactions[0]!.normalizedData).toEqual(kusamaTx);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual({ original: 'ksm-data' });
+        expect(result.value.rawTransactions[0]!.providerData).toEqual({ original: 'ksm-data' });
       }
     });
 

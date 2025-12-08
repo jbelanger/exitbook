@@ -102,7 +102,7 @@ export class SolanaTransactionImporter implements IImporter {
         blockchainTransactionHash: txWithRaw.normalized.id,
         normalizedData: txWithRaw.normalized,
         providerName: providerBatch.providerName,
-        rawData: txWithRaw.raw,
+        providerData: txWithRaw.raw,
         sourceAddress: address,
       }));
 

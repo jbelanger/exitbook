@@ -58,9 +58,9 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
   // Create index on account_id for fast lookup
   await db.schema.createIndex('idx_import_sessions_account_id').on('import_sessions').column('account_id').execute();
 
-  // Create external_transaction_data table
+  // Create raw_transactions table
   await db.schema
-    .createTable('external_transaction_data')
+    .createTable('raw_transactions')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
     .addColumn('provider_name', 'text', (col) => col.notNull())
@@ -68,7 +68,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('source_address', 'text')
     .addColumn('blockchain_transaction_hash', 'text')
     .addColumn('transaction_type_hint', 'text')
-    .addColumn('raw_data', 'text', (col) => col.notNull())
+    .addColumn('provider_data', 'text', (col) => col.notNull())
     .addColumn('normalized_data', 'text', (col) => col.notNull())
     .addColumn('processing_status', 'text', (col) => col.notNull().defaultTo('pending'))
     .addColumn('processed_at', 'text')
@@ -77,25 +77,21 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .execute();
 
   // Create index on account_id for fast account-scoped queries
-  await db.schema
-    .createIndex('idx_external_tx_account_id')
-    .on('external_transaction_data')
-    .column('account_id')
-    .execute();
+  await db.schema.createIndex('idx_raw_tx_account_id').on('raw_transactions').column('account_id').execute();
 
   // Create unique index on (account_id, blockchain_transaction_hash) to prevent duplicate blockchain transactions per account
   // Only applies when blockchain_transaction_hash is not null (blockchain imports, not exchange imports)
   await sql`
-    CREATE UNIQUE INDEX idx_external_tx_account_blockchain_hash
-    ON external_transaction_data(account_id, blockchain_transaction_hash)
+    CREATE UNIQUE INDEX idx_raw_tx_account_blockchain_hash
+    ON raw_transactions(account_id, blockchain_transaction_hash)
     WHERE blockchain_transaction_hash IS NOT NULL
   `.execute(db);
 
   // Create unique index on (account_id, external_id) to prevent duplicate exchange transactions per account
   // Only applies when external_id is not null (exchange imports)
   await sql`
-    CREATE UNIQUE INDEX idx_external_tx_account_external_id
-    ON external_transaction_data(account_id, external_id)
+    CREATE UNIQUE INDEX idx_raw_tx_account_external_id
+    ON raw_transactions(account_id, external_id)
     WHERE external_id IS NOT NULL
   `.execute(db);
 
@@ -362,7 +358,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('token_metadata').execute();
   // Drop transaction-related tables
   await db.schema.dropTable('transactions').execute();
-  await db.schema.dropTable('external_transaction_data').execute();
+  await db.schema.dropTable('raw_transactions').execute();
   await db.schema.dropTable('import_sessions').execute();
   // Drop accounts and users tables
   await db.schema.dropIndex('idx_accounts_parent_account_id').execute();

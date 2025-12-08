@@ -9,7 +9,6 @@ export type {
   DataImportParams,
   ImportSession,
   ImportSessionStatus,
-  ImportSessionMetadata,
   SourceParams,
   SourceType,
   VerificationMetadata,

@@ -346,7 +346,7 @@ export function deduplicateTransactions<T extends { normalized: { id: string } }
 export function loadRecentTransactionIds(importSessionId: number, _windowSize = 1000): Promise<string[]> {
   // TODO: Implement in Phase 2.3
   // This will query the repository:
-  // Query: SELECT external_id FROM external_transaction_data
+  // Query: SELECT external_id FROM raw_transactions
   //        WHERE import_session_id = ?
   //        ORDER BY id DESC
   //        LIMIT ?

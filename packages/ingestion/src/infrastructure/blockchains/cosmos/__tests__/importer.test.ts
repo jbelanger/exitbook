@@ -209,7 +209,7 @@ describe('CosmosImporter', () => {
           providerName: 'injective-explorer',
           sourceAddress: address,
           normalizedData: mockCosmosTransaction,
-          rawData: { block_timestamp: mockCosmosTransaction.timestamp, id: mockCosmosTransaction.id },
+          providerData: { block_timestamp: mockCosmosTransaction.timestamp, id: mockCosmosTransaction.id },
         });
         expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
       }

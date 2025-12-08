@@ -167,7 +167,7 @@ describe('SolanaTransactionImporter', () => {
           providerName: 'helius',
           sourceAddress: address,
           normalizedData: mockNormalizedSol,
-          rawData: mockSolTx,
+          providerData: mockSolTx,
         });
         expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
 
@@ -176,7 +176,7 @@ describe('SolanaTransactionImporter', () => {
           providerName: 'helius',
           sourceAddress: address,
           normalizedData: mockNormalizedToken,
-          rawData: mockTokenTx,
+          providerData: mockTokenTx,
         });
         expect(result.value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
       }
@@ -228,9 +228,9 @@ describe('SolanaTransactionImporter', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(3);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual(mockSolTx);
-        expect(result.value.rawTransactions[1]!.rawData).toEqual({ ...mockSolTx, signature: 'sig789' });
-        expect(result.value.rawTransactions[2]!.rawData).toEqual({ ...mockSolTx, signature: 'sig012' });
+        expect(result.value.rawTransactions[0]!.providerData).toEqual(mockSolTx);
+        expect(result.value.rawTransactions[1]!.providerData).toEqual({ ...mockSolTx, signature: 'sig789' });
+        expect(result.value.rawTransactions[2]!.providerData).toEqual({ ...mockSolTx, signature: 'sig012' });
       }
     });
   });

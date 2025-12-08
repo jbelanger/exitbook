@@ -37,7 +37,7 @@ describe('evm-importer-utils', () => {
         sourceAddress: '0xsource',
         transactionTypeHint: 'normal',
         normalizedData: transactions[0]!.normalized,
-        rawData: transactions[0]!.raw,
+        providerData: transactions[0]!.raw,
       });
       expect(result[0]!.externalId).toBeDefined();
       expect(typeof result[0]!.externalId).toBe('string');
@@ -70,7 +70,7 @@ describe('evm-importer-utils', () => {
         sourceAddress: '0xsource',
         transactionTypeHint: 'internal',
         normalizedData: transactions[0]!.normalized,
-        rawData: transactions[0]!.raw,
+        providerData: transactions[0]!.raw,
       });
     });
 
@@ -102,7 +102,7 @@ describe('evm-importer-utils', () => {
         sourceAddress: '0xsource',
         transactionTypeHint: 'token',
         normalizedData: transactions[0]!.normalized,
-        rawData: transactions[0]!.raw,
+        providerData: transactions[0]!.raw,
       });
     });
 
@@ -245,7 +245,7 @@ describe('evm-importer-utils', () => {
 
       const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'normal');
 
-      expect(result[0]!.rawData).toEqual(rawData);
+      expect(result[0]!.providerData).toEqual(rawData);
     });
   });
 });

@@ -275,7 +275,7 @@ export class SolscanApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
     for (const rawTx of filteredRawTransactions) {
-      const mapResult = mapSolscanTransaction(rawTx, {});
+      const mapResult = mapSolscanTransaction(rawTx);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
@@ -399,7 +399,7 @@ export class SolscanApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const mapped = mapSolscanTransaction(raw, {});
+        const mapped = mapSolscanTransaction(raw);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
           this.logger.error(

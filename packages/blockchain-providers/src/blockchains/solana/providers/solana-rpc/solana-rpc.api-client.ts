@@ -211,7 +211,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = mapSolanaRPCTransaction(rawTx, {});
+      const mapResult = mapSolanaRPCTransaction(rawTx);
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

@@ -25,6 +25,6 @@ export function mapToRawTransactions(
     transactionTypeHint,
     sourceAddress,
     normalizedData: txWithRaw.normalized,
-    rawData: txWithRaw.raw,
+    providerData: txWithRaw.raw,
   }));
 }
