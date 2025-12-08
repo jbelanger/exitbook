@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 /**
@@ -25,16 +25,19 @@ export interface ITransactionRepository {
   /**
    * Retrieve transactions with optional filtering.
    */
-  getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransaction[], Error>>;
+  getTransactions(filters?: TransactionFilters): Promise<Result<UniversalTransactionData[], Error>>;
 
   /**
    * Save a transaction to the database.
    * Returns the database ID of the saved transaction.
    */
-  save(transaction: UniversalTransaction, accountId: number): Promise<Result<number, Error>>;
+  save(
+    transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
+    accountId: number
+  ): Promise<Result<number, Error>>;
 
   /**
    * Find a transaction by its ID.
    */
-  findById(id: number): Promise<Result<UniversalTransaction | null, Error>>;
+  findById(id: number): Promise<Result<UniversalTransactionData | undefined, Error>>;
 }

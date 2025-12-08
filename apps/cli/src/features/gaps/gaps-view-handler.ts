@@ -1,7 +1,7 @@
 // Handler for gaps view command
 
 import type { TransactionLinkRepository } from '@exitbook/accounting';
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -60,7 +60,7 @@ export class GapsViewHandler {
   /**
    * Analyze fee-related gaps.
    */
-  private analyzeFees(transactions: UniversalTransaction[]): Result<GapsViewResult, Error> {
+  private analyzeFees(transactions: UniversalTransactionData[]): Result<GapsViewResult, Error> {
     const analysis = analyzeFeeGaps(transactions);
 
     const result: GapsViewResult = {
@@ -71,7 +71,7 @@ export class GapsViewHandler {
     return ok(result);
   }
 
-  private async analyzeLinks(transactions: UniversalTransaction[]): Promise<Result<GapsViewResult, Error>> {
+  private async analyzeLinks(transactions: UniversalTransactionData[]): Promise<Result<GapsViewResult, Error>> {
     const linksResult = await this.linkRepo.findAll();
 
     if (linksResult.isErr()) {

@@ -24,7 +24,7 @@ import {
 /**
  * Parse NearBlocks timestamp to Unix timestamp (milliseconds)
  * NearBlocks timestamps are in nanoseconds (string format)
- * Returns milliseconds for compatibility with JavaScript Date constructor and UniversalTransaction schema
+ * Returns milliseconds for compatibility with JavaScript Date constructor and UniversalTransactionData schema
  */
 export function parseNearBlocksTimestamp(timestamp: string): number {
   // Convert nanoseconds to milliseconds (divide by 1,000,000)

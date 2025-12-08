@@ -1,16 +1,15 @@
 import type { CardanoTransaction } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
-import type { ProcessingContext } from '../../../types/processors.js';
+import type { ProcessedTransaction, ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './processor-utils.js';
 
 /**
  * Cardano transaction processor that converts normalized blockchain transaction data
- * into UniversalTransaction format.
+ * into ProcessedTransaction format.
  *
  * Cardano is a UTXO-based blockchain with native multi-asset support:
  * - Each transaction has inputs (UTXOs being spent) and outputs (new UTXOs created)
@@ -34,10 +33,10 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
   protected async processInternal(
     normalizedData: unknown[],
     context: ProcessingContext
-  ): Promise<Result<UniversalTransaction[], string>> {
+  ): Promise<Result<ProcessedTransaction[], string>> {
     this.logger.info(`Processing ${normalizedData.length} normalized Cardano transactions`);
 
-    const transactions: UniversalTransaction[] = [];
+    const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txHash: string }[] = [];
 
     for (const item of normalizedData) {
@@ -64,9 +63,9 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
         const userPaidFee = fundFlow.feePaidByUser && !feeAmount.isZero();
 
         // Build movements from fund flow
-        // Convert to UniversalTransaction format
+        // Convert to ProcessedTransaction format
         // ADR-005: For UTXO chains, grossAmount includes fees, netAmount is the actual transfer amount
-        const universalTransaction: UniversalTransaction = {
+        const universalTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,

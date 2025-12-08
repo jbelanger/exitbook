@@ -1,5 +1,5 @@
 import type { TransactionLink } from '@exitbook/accounting';
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
@@ -34,8 +34,9 @@ describe('links-view-utils', () => {
     metadata: undefined,
   });
 
-  const createMockTransaction = (id: number): UniversalTransaction => ({
+  const createMockTransaction = (id: number): UniversalTransactionData => ({
     id,
+    accountId: 1,
     externalId: `tx-${id}`,
     source: 'test-source',
     datetime: '2024-01-01T12:00:00Z',
@@ -115,7 +116,7 @@ describe('links-view-utils', () => {
   });
 
   describe('mapTransactionToDetails', () => {
-    it('should map UniversalTransaction to TransactionDetails', () => {
+    it('should map UniversalTransactionData to TransactionDetails', () => {
       const tx = createMockTransaction(123);
 
       const result = mapTransactionToDetails(tx);
@@ -139,8 +140,9 @@ describe('links-view-utils', () => {
     });
 
     it('should handle transactions with empty movements', () => {
-      const tx: UniversalTransaction = {
+      const tx: UniversalTransactionData = {
         id: 456,
+        accountId: 1,
         externalId: 'tx-456',
         source: 'test-source',
         datetime: '2024-01-01T12:00:00Z',
@@ -174,8 +176,9 @@ describe('links-view-utils', () => {
     });
 
     it('should handle transactions with undefined movements arrays', () => {
-      const tx: UniversalTransaction = {
+      const tx: UniversalTransactionData = {
         id: 789,
+        accountId: 1,
         externalId: 'tx-789',
         source: 'test-source',
         datetime: '2024-01-01T12:00:00Z',

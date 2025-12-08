@@ -4,7 +4,7 @@ import type {
   ImportSession,
   SourceParams,
   SourceType,
-  UniversalTransaction,
+  UniversalTransactionData,
   VerificationMetadata,
 } from '@exitbook/core';
 import type { AccountRepository, TokenMetadataRepository, TransactionRepository, UserRepository } from '@exitbook/data';
@@ -304,7 +304,7 @@ export class BalanceService {
       }
 
       // Fetch ALL transactions for all accounts in one query (avoids N+1)
-      const transactionsResult: Result<UniversalTransaction[], Error> =
+      const transactionsResult: Result<UniversalTransactionData[], Error> =
         await this.transactionRepository.getTransactions({
           accountIds,
         });
@@ -443,10 +443,11 @@ export class BalanceService {
       }
 
       // Fetch ALL excluded transactions for all accounts in one query (avoids N+1)
-      const excludedTxResult: Result<UniversalTransaction[], Error> = await this.transactionRepository.getTransactions({
-        accountIds,
-        includeExcluded: true, // Must include to get the excluded ones
-      });
+      const excludedTxResult: Result<UniversalTransactionData[], Error> =
+        await this.transactionRepository.getTransactions({
+          accountIds,
+          includeExcluded: true, // Must include to get the excluded ones
+        });
 
       if (excludedTxResult.isErr()) {
         return err(excludedTxResult.error);
@@ -539,7 +540,7 @@ export class BalanceService {
   /**
    * Sum up amounts from excluded transactions (inflows only - scams are airdrops).
    */
-  private sumExcludedInflowAmounts(transactions: UniversalTransaction[]): Record<string, Decimal> {
+  private sumExcludedInflowAmounts(transactions: UniversalTransactionData[]): Record<string, Decimal> {
     const excludedTransactions = transactions.filter((tx) => tx.excludedFromAccounting === true);
     const amounts: Record<string, Decimal> = {};
 

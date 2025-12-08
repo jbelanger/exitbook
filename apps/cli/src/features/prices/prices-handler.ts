@@ -1,7 +1,7 @@
 // Imperative shell for prices command
 // Manages resources (database, price providers) and orchestrates business logic
 
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { Currency } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
@@ -303,7 +303,7 @@ export class PricesFetchHandler {
    */
   private buildAbortReport(
     asset: string,
-    tx: UniversalTransaction,
+    tx: UniversalTransactionData,
     stats: PriceFetchStats
   ): Result<PricesFetchResult, Error> {
     const errorMessage = [

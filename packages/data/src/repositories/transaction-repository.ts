@@ -1,11 +1,5 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
-import type {
-  AssetMovement,
-  FeeMovement,
-  UniversalTransaction,
-  TransactionStatus,
-  UniversalTransactionData,
-} from '@exitbook/core';
+import type { AssetMovement, FeeMovement, TransactionStatus, UniversalTransactionData } from '@exitbook/core';
 import {
   AssetMovementSchema,
   FeeMovementSchema,
@@ -55,18 +49,17 @@ function normalizeMovement(movement: AssetMovement): Result<AssetMovement, Error
 
 /**
  * Kysely-based repository for transaction database operations.
- * Handles storage and retrieval of UniversalTransaction entities using type-safe queries.
+ * Handles storage and retrieval of UniversalTransactionData entities using type-safe queries.
  */
 export class TransactionRepository extends BaseRepository implements ITransactionRepository {
   constructor(db: KyselyDB) {
     super(db, 'TransactionRepository');
   }
 
-  async save(transaction: UniversalTransaction, accountId: number) {
-    return this.saveTransaction(transaction, accountId);
-  }
-
-  async saveTransaction(transaction: UniversalTransaction, accountId: number) {
+  async save(
+    transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
+    accountId: number
+  ): Promise<Result<number, Error>> {
     try {
       // Validate metadata before saving
       if (transaction.metadata !== undefined) {
@@ -235,12 +228,12 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async findById(id: number): Promise<Result<UniversalTransactionData | null, Error>> {
+  async findById(id: number): Promise<Result<UniversalTransactionData | undefined, Error>> {
     try {
       const row = await this.db.selectFrom('transactions').selectAll().where('id', '=', id).executeTakeFirst();
 
       if (!row) {
-        return ok(null);
+        return ok(undefined);
       }
 
       const result = this.toUniversalTransaction(row);
@@ -417,7 +410,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   }
 
   /**
-   * Convert database row to UniversalTransaction domain model
+   * Convert database row to UniversalTransactionData domain model
    */
   private toUniversalTransaction(row: Selectable<TransactionsTable>): Result<UniversalTransactionData, Error> {
     // Parse timestamp from datetime

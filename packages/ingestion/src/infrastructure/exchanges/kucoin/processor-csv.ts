@@ -1,7 +1,7 @@
 import { getErrorMessage } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, okAsync } from 'neverthrow';
 
+import type { ProcessedTransaction } from '../../../types/processors.ts';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import {
@@ -32,8 +32,8 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     super('kucoin');
   }
 
-  protected async processInternal(rawDataItems: unknown[]): Promise<Result<UniversalTransaction[], string>> {
-    const allTransactions: UniversalTransaction[] = [];
+  protected async processInternal(rawDataItems: unknown[]): Promise<Result<ProcessedTransaction[], string>> {
+    const allTransactions: ProcessedTransaction[] = [];
     const accountHistoryRows: CsvAccountHistoryRow[] = [];
 
     for (const rawDataItem of rawDataItems) {

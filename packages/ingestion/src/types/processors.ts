@@ -1,5 +1,6 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import { UniversalTransactionSchema } from '@exitbook/core';
 import type { Result } from 'neverthrow';
+import type z from 'zod';
 
 export interface ProcessResult {
   errors: string[];
@@ -21,14 +22,20 @@ export interface ProcessingContext {
   userAddresses: string[];
 }
 
+export const ProcessedTransactionSchema = UniversalTransactionSchema.omit({
+  id: true,
+  accountId: true,
+});
+export type ProcessedTransaction = z.infer<typeof ProcessedTransactionSchema>;
+
 /**
- * Interface for processing raw data into UniversalTransaction format.
+ * Interface for processing raw data into ProcessedTransaction format.
  * Each processor is responsible for converting source-specific raw data
- * into the standardized UniversalTransaction format.
+ * into the standardized ProcessedTransaction format.
  */
 export interface ITransactionProcessor {
   /**
-   * Process normalized data with explicit typed context into UniversalTransaction objects.
+   * Process normalized data with explicit typed context into ProcessedTransaction objects.
    */
-  process(normalizedData: unknown[], context: ProcessingContext): Promise<Result<UniversalTransaction[], string>>;
+  process(normalizedData: unknown[], context: ProcessingContext): Promise<Result<ProcessedTransaction[], string>>;
 }

@@ -107,7 +107,7 @@ describe('convertKucoinAccountHistoryConvertToTransaction', () => {
 });
 
 describe('convertKucoinDepositToTransaction', () => {
-  test('converts deposit row into UniversalTransaction', () => {
+  test('converts deposit row into ProcessedTransaction', () => {
     const row: CsvDepositWithdrawalRow = {
       'Account Type': 'Main',
       Amount: '1.5',
@@ -208,7 +208,7 @@ describe('convertKucoinDepositToTransaction', () => {
 });
 
 describe('convertKucoinOrderSplittingToTransaction', () => {
-  test('converts buy order-splitting row into UniversalTransaction', () => {
+  test('converts buy order-splitting row into ProcessedTransaction', () => {
     const row: CsvOrderSplittingRow = {
       'Account Type': 'Main',
       'Avg. Filled Price': '40000',
@@ -251,7 +251,7 @@ describe('convertKucoinOrderSplittingToTransaction', () => {
     expect(result.metadata?.makerTaker).toBe('Taker');
   });
 
-  test('converts sell order-splitting row into UniversalTransaction', () => {
+  test('converts sell order-splitting row into ProcessedTransaction', () => {
     const row: CsvOrderSplittingRow = {
       'Account Type': 'Main',
       'Avg. Filled Price': '2000',
@@ -311,7 +311,7 @@ describe('convertKucoinOrderSplittingToTransaction', () => {
 });
 
 describe('convertKucoinTradingBotToTransaction', () => {
-  test('converts buy trading bot row into UniversalTransaction', () => {
+  test('converts buy trading bot row into ProcessedTransaction', () => {
     const row: CsvTradingBotRow = {
       'Account Type': 'Main',
       Fee: '0.002',
@@ -345,7 +345,7 @@ describe('convertKucoinTradingBotToTransaction', () => {
     expect(result.metadata?.fillType).toBe('trading-bot');
   });
 
-  test('converts sell trading bot row into UniversalTransaction', () => {
+  test('converts sell trading bot row into ProcessedTransaction', () => {
     const row: CsvTradingBotRow = {
       'Account Type': 'Main',
       Fee: '5',
@@ -376,7 +376,7 @@ describe('convertKucoinTradingBotToTransaction', () => {
 });
 
 describe('convertKucoinSpotOrderToTransaction', () => {
-  test('converts buy spot order row into UniversalTransaction', () => {
+  test('converts buy spot order row into ProcessedTransaction', () => {
     const row: CsvSpotOrderRow = {
       'Account Type': 'Main',
       'Avg. Filled Price': '1.5',
@@ -415,7 +415,7 @@ describe('convertKucoinSpotOrderToTransaction', () => {
     expect(result.metadata?.orderType).toBe('Limit');
   });
 
-  test('converts sell spot order row into UniversalTransaction', () => {
+  test('converts sell spot order row into ProcessedTransaction', () => {
     const row: CsvSpotOrderRow = {
       'Account Type': 'Trading',
       'Avg. Filled Price': '25',
@@ -476,7 +476,7 @@ describe('convertKucoinSpotOrderToTransaction', () => {
 });
 
 describe('convertKucoinWithdrawalToTransaction', () => {
-  test('converts withdrawal row into UniversalTransaction', () => {
+  test('converts withdrawal row into ProcessedTransaction', () => {
     const row: CsvDepositWithdrawalRow = {
       'Account Type': 'Main',
       Amount: '-2',

@@ -1,6 +1,6 @@
 // Shared types and utilities for view commands
 
-import type { AssetMovement, UniversalTransaction } from '@exitbook/core';
+import type { AssetMovement, UniversalTransactionData } from '@exitbook/core';
 
 /**
  * Common filter options across view subcommands.
@@ -61,6 +61,6 @@ export function buildViewMeta(
  * Get all movements (inflows and outflows) from a transaction's movements.
  * Handles optional arrays with null coalescing.
  */
-export function getAllMovements(movements: UniversalTransaction['movements']): AssetMovement[] {
+export function getAllMovements(movements: UniversalTransactionData['movements']): AssetMovement[] {
   return [...(movements.inflows ?? []), ...(movements.outflows ?? [])];
 }

@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
@@ -32,8 +32,9 @@ describe('ExportHandler', () => {
     handler = new ExportHandler(mockTransactionRepository as unknown);
   });
 
-  const createMockTransaction = (id: number, source: string, asset: string): UniversalTransaction => ({
+  const createMockTransaction = (id: number, source: string, asset: string): UniversalTransactionData => ({
     id: id,
+    accountId: 1,
     externalId: `ext-${id}`,
     source: source,
     operation: { category: 'trade', type: 'buy' },
@@ -87,7 +88,7 @@ describe('ExportHandler', () => {
       expect(exportResult.format).toBe('json');
       expect(exportResult.outputPath).toBe('./data/transactions.json');
 
-      const parsedContent = JSON.parse(exportResult.content) as UniversalTransaction[];
+      const parsedContent = JSON.parse(exportResult.content) as UniversalTransactionData[];
       expect(parsedContent).toHaveLength(1);
       expect(parsedContent[0]?.id).toBe(1);
       expect(parsedContent[0]?.source).toBe('kraken');

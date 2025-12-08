@@ -1,11 +1,10 @@
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
-import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, okAsync, ok, type Result } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
 import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.js';
-import type { ProcessingContext } from '../../../types/processors.js';
+import type { ProcessedTransaction, ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import {
@@ -30,7 +29,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
   protected async processInternal(
     normalizedData: unknown[],
     context: ProcessingContext
-  ): Promise<Result<UniversalTransaction[], string>> {
+  ): Promise<Result<ProcessedTransaction[], string>> {
     this.logger.info(`Processing ${normalizedData.length} normalized ${this.chainConfig.chainName} transactions`);
 
     // Enrich token metadata before processing (required for proper decimal normalization)
@@ -45,7 +44,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       `Created ${transactionGroups.size} transaction groups for correlation on ${this.chainConfig.chainName}`
     );
 
-    const transactions: UniversalTransaction[] = [];
+    const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; hash: string; txCount: number }[] = [];
 
     for (const [hash, txGroup] of transactionGroups) {
@@ -84,7 +83,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       const userInitiatedTransaction = (fundFlow.fromAddress || '') === context.primaryAddress;
       const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
-      const universalTransaction: UniversalTransaction = {
+      const universalTransaction: ProcessedTransaction = {
         externalId: primaryTx.id,
         datetime: new Date(primaryTx.timestamp).toISOString(),
         timestamp: primaryTx.timestamp,

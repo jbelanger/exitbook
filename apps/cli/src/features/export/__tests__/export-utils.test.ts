@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, it, expect } from 'vitest';
 
@@ -217,8 +217,9 @@ describe('export-utils', () => {
     });
 
     it('should convert single transaction to CSV', () => {
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'ext-1',
         source: 'kraken',
         datetime: '2024-01-01T12:00:00Z',
@@ -243,9 +244,10 @@ describe('export-utils', () => {
     });
 
     it('should convert multiple transactions to CSV', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           source: 'kraken',
           datetime: '2024-01-01T12:00:00Z',
@@ -263,6 +265,7 @@ describe('export-utils', () => {
         },
         {
           id: 2,
+          accountId: 1,
           externalId: 'ext-2',
           source: 'kraken',
           datetime: '2024-01-02T12:00:00Z',
@@ -290,8 +293,9 @@ describe('export-utils', () => {
     });
 
     it('should escape values with commas', () => {
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'ext-1',
         source: 'test,source',
         datetime: '2024-01-01T12:00:00Z',
@@ -321,8 +325,9 @@ describe('export-utils', () => {
     });
 
     it('should convert single transaction to JSON', () => {
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'ext-1',
         source: 'kraken',
         datetime: '2024-01-01T12:00:00Z',
@@ -358,9 +363,10 @@ describe('export-utils', () => {
     });
 
     it('should convert multiple transactions to JSON', () => {
-      const transactions: UniversalTransaction[] = [
+      const transactions: UniversalTransactionData[] = [
         {
           id: 1,
+          accountId: 1,
           externalId: 'ext-1',
           source: 'kraken',
           datetime: '2024-01-01T12:00:00Z',
@@ -378,6 +384,7 @@ describe('export-utils', () => {
         },
         {
           id: 2,
+          accountId: 1,
           externalId: 'ext-2',
           source: 'kraken',
           datetime: '2024-01-02T12:00:00Z',
@@ -404,8 +411,9 @@ describe('export-utils', () => {
     });
 
     it('should include blockchain information when present', () => {
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'ext-1',
         source: 'bitcoin',
         datetime: '2024-01-01T12:00:00Z',
@@ -447,8 +455,9 @@ describe('export-utils', () => {
     });
 
     it('should format JSON with proper indentation', () => {
-      const transaction: UniversalTransaction = {
+      const transaction: UniversalTransactionData = {
         id: 1,
+        accountId: 1,
         externalId: 'ext-1',
         source: 'kraken',
         datetime: '2024-01-01T12:00:00Z',

@@ -1,4 +1,4 @@
-import { Currency, parseDecimal, type UniversalTransaction } from '@exitbook/core';
+import { Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -117,8 +117,9 @@ describe('validateAssetFilter', () => {
 
 describe('extractAssetsNeedingPrices', () => {
   it('should extract unique assets from movements and filter out fiat currencies', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
       timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
       source: 'test',
@@ -143,8 +144,9 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should return only assets without prices', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
       timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
       source: 'test',
@@ -179,8 +181,9 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should reject transaction with no movements', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
       timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
       source: 'test',
@@ -203,8 +206,9 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should deduplicate assets across inflows and outflows', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
       timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
       source: 'test',
@@ -228,8 +232,9 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should filter out all common fiat currencies', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
       timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
       source: 'test',
@@ -266,8 +271,9 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should return empty array when only fiat currencies need prices', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
       timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
       source: 'test',
@@ -292,8 +298,9 @@ describe('extractAssetsNeedingPrices', () => {
 
 describe('createPriceQuery', () => {
   it('should create price query for asset', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
       timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
       source: 'test',
@@ -318,8 +325,9 @@ describe('createPriceQuery', () => {
   });
 
   it('should use default USD currency', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
       timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
       source: 'test',
@@ -342,8 +350,9 @@ describe('createPriceQuery', () => {
   });
 
   it('should accept custom target currency', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
       timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
       source: 'test',
@@ -366,8 +375,9 @@ describe('createPriceQuery', () => {
   });
 
   it('should reject transaction without datetime', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       datetime: '',
       timestamp: 0,
       source: 'test',
@@ -390,8 +400,9 @@ describe('createPriceQuery', () => {
   });
 
   it('should reject transaction with invalid datetime', () => {
-    const tx: UniversalTransaction = {
+    const tx: UniversalTransactionData = {
       id: 1,
+      accountId: 1,
       datetime: 'invalid-date',
       timestamp: 0,
       source: 'test',

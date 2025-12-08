@@ -1,16 +1,15 @@
 import type { BitcoinChainConfig, BitcoinTransaction } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
-import type { ProcessingContext } from '../../../types/processors.js';
+import type { ProcessedTransaction, ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import { analyzeBitcoinFundFlow } from './processor-utils.js';
 
 /**
  * Bitcoin transaction processor that converts raw blockchain transaction data
- * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
+ * into ProcessedTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance. Optimized for multi-address processing using session context.
  */
 export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
@@ -28,10 +27,10 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
   protected async processInternal(
     normalizedData: unknown[],
     context: ProcessingContext
-  ): Promise<Result<UniversalTransaction[], string>> {
+  ): Promise<Result<ProcessedTransaction[], string>> {
     this.logger.info(`Processing ${normalizedData.length} normalized Bitcoin transactions`);
 
-    const transactions: UniversalTransaction[] = [];
+    const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
     for (const item of normalizedData) {
@@ -86,7 +85,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         const includeWalletOutputAsInflow = !walletOutputAmount.isZero();
         const hasOutflow = !grossOutflowAmount.isZero();
 
-        const universalTransaction: UniversalTransaction = {
+        const universalTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,

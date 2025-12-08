@@ -1,16 +1,15 @@
 import type { SubstrateTransaction, SubstrateChainConfig } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
-import type { ProcessingContext } from '../../../types/processors.js';
+import type { ProcessedTransaction, ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import { analyzeFundFlowFromNormalized, determineOperationFromFundFlow, didUserPayFee } from './processor-utils.js';
 
 /**
  * Generic Substrate transaction processor that converts raw blockchain transaction data
- * into UniversalTransaction format. Supports Polkadot, Kusama, Bittensor, and other
+ * into ProcessedTransaction format. Supports Polkadot, Kusama, Bittensor, and other
  * Substrate-based chains. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance.
  */
@@ -28,8 +27,8 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
   protected async processInternal(
     normalizedData: unknown[],
     context: ProcessingContext
-  ): Promise<Result<UniversalTransaction[], string>> {
-    const transactions: UniversalTransaction[] = [];
+  ): Promise<Result<ProcessedTransaction[], string>> {
+    const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
     this.logger.info(
@@ -62,7 +61,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
         // For incoming transactions (deposits, received transfers), the sender/protocol paid the fee
         const userPaidFee = didUserPayFee(normalizedTx, fundFlow, context.primaryAddress);
 
-        const universalTransaction: UniversalTransaction = {
+        const universalTransaction: ProcessedTransaction = {
           movements: {
             inflows: fundFlow.inflows.map((i) => {
               const amount = parseDecimal(i.amount);

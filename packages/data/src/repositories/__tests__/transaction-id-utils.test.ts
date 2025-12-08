@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransactionData } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -6,7 +6,7 @@ import { generateDeterministicTransactionHash } from '../transaction-id-utils.js
 
 describe('generateDeterministicTransactionHash', () => {
   it('should generate same hash for identical transactions', () => {
-    const transaction: UniversalTransaction = {
+    const transaction: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -28,7 +28,7 @@ describe('generateDeterministicTransactionHash', () => {
   });
 
   it('should generate different hashes for different transactions', () => {
-    const tx1: UniversalTransaction = {
+    const tx1: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -42,7 +42,7 @@ describe('generateDeterministicTransactionHash', () => {
       operation: { category: 'trade', type: 'buy' },
     };
 
-    const tx2: UniversalTransaction = {
+    const tx2: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       ...tx1,
       timestamp: 1705318300000, // Different timestamp
     };
@@ -54,7 +54,7 @@ describe('generateDeterministicTransactionHash', () => {
   });
 
   it('should generate different hashes for different amounts', () => {
-    const tx1: UniversalTransaction = {
+    const tx1: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -68,7 +68,7 @@ describe('generateDeterministicTransactionHash', () => {
       operation: { category: 'transfer', type: 'deposit' },
     };
 
-    const tx2: UniversalTransaction = {
+    const tx2: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       ...tx1,
       movements: {
         inflows: [{ asset: 'BTC', grossAmount: new Decimal('0.6'), netAmount: new Decimal('0.6') }],
@@ -83,7 +83,7 @@ describe('generateDeterministicTransactionHash', () => {
   });
 
   it('should generate same hash regardless of movement order', () => {
-    const tx1: UniversalTransaction = {
+    const tx1: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -100,7 +100,7 @@ describe('generateDeterministicTransactionHash', () => {
       operation: { category: 'transfer', type: 'deposit' },
     };
 
-    const tx2: UniversalTransaction = {
+    const tx2: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       ...tx1,
       movements: {
         inflows: [
@@ -118,7 +118,7 @@ describe('generateDeterministicTransactionHash', () => {
   });
 
   it('should include fees in hash calculation', () => {
-    const tx1: UniversalTransaction = {
+    const tx1: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -132,7 +132,7 @@ describe('generateDeterministicTransactionHash', () => {
       operation: { category: 'transfer', type: 'deposit' },
     };
 
-    const tx2: UniversalTransaction = {
+    const tx2: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       ...tx1,
       fees: [{ asset: 'BTC', amount: new Decimal('0.001'), scope: 'network', settlement: 'balance' }],
     };
@@ -144,7 +144,7 @@ describe('generateDeterministicTransactionHash', () => {
   });
 
   it('should include from/to addresses in hash calculation', () => {
-    const tx1: UniversalTransaction = {
+    const tx1: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -160,7 +160,7 @@ describe('generateDeterministicTransactionHash', () => {
       operation: { category: 'transfer', type: 'deposit' },
     };
 
-    const tx2: UniversalTransaction = {
+    const tx2: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       ...tx1,
       from: 'bc1qaddress3', // Different from address
     };
@@ -172,7 +172,7 @@ describe('generateDeterministicTransactionHash', () => {
   });
 
   it('should handle transactions with no movements gracefully', () => {
-    const transaction: UniversalTransaction = {
+    const transaction: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -192,7 +192,7 @@ describe('generateDeterministicTransactionHash', () => {
   });
 
   it('should include operation type in hash calculation', () => {
-    const tx1: UniversalTransaction = {
+    const tx1: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -206,7 +206,7 @@ describe('generateDeterministicTransactionHash', () => {
       operation: { category: 'transfer', type: 'deposit' },
     };
 
-    const tx2: UniversalTransaction = {
+    const tx2: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       ...tx1,
       operation: { category: 'transfer', type: 'withdrawal' }, // Different operation type
     };
@@ -218,7 +218,7 @@ describe('generateDeterministicTransactionHash', () => {
   });
 
   it('should use netAmount when available, fallback to grossAmount', () => {
-    const tx1: UniversalTransaction = {
+    const tx1: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       externalId: '',
       datetime: '2024-01-15T10:30:00Z',
       timestamp: 1705318200000,
@@ -232,7 +232,7 @@ describe('generateDeterministicTransactionHash', () => {
       operation: { category: 'transfer', type: 'withdrawal' },
     };
 
-    const tx2: UniversalTransaction = {
+    const tx2: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       ...tx1,
       movements: {
         inflows: [],

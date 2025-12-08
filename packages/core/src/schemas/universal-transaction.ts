@@ -172,6 +172,8 @@ export const TransactionMetadataSchema = z.record(z.string(), z.unknown());
 // Universal Transaction schema (new structure)
 export const UniversalTransactionSchema = z.object({
   // Core fields
+  id: z.number().int().positive(),
+  accountId: z.number().int().positive(),
   externalId: z.string().min(1, 'Transaction ID must not be empty'),
   datetime: z.string().min(1, 'Datetime string must not be empty'),
   timestamp: z.number().int().positive('Timestamp must be a positive integer'),
@@ -211,15 +213,6 @@ export const UniversalTransactionSchema = z.object({
 
   // Accounting exclusion
   excludedFromAccounting: z.boolean().optional(),
-});
-
-/**
- * Schema for external transaction data after database persistence (read-side)
- * Extends base schema with database-specific fields
- */
-export const UniversalTransactionDataSchema = UniversalTransactionSchema.extend({
-  id: z.number().int().positive(),
-  accountId: z.number().int().positive(),
 });
 
 // Universal Balance schema

@@ -109,7 +109,7 @@ export function applyTransactionFilters(
 }
 
 /**
- * Format a UniversalTransaction for display.
+ * Format a UniversalTransactionData for display.
  */
 export function formatTransactionForDisplay(tx: UniversalTransactionData): FormattedTransaction {
   const primary = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);

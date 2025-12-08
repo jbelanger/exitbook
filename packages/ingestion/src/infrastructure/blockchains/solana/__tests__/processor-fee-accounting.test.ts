@@ -143,8 +143,10 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
       userAddresses: [USER_ADDRESS],
     });
 
+    if (!result.isOk()) {
+      throw new Error(`Expected Ok result but got Err: ${String(result.error)}`);
+    }
     expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
 
     const [transaction] = result.value;
     expect(transaction).toBeDefined();

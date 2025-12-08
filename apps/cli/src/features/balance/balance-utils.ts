@@ -1,4 +1,4 @@
-import { parseDecimal, type ImportSession, type SourceType, type UniversalTransaction } from '@exitbook/core';
+import { parseDecimal, type ImportSession, type SourceType, type UniversalTransactionData } from '@exitbook/core';
 import type { ExchangeCredentials } from '@exitbook/exchanges-providers';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
@@ -198,7 +198,7 @@ export function subtractExcludedAmounts(
  * Scam tokens are typically received via airdrops (inflows only).
  * Pure function for excluded amount calculation.
  */
-export function sumExcludedInflowAmounts(transactions: UniversalTransaction[]): Record<string, Decimal> {
+export function sumExcludedInflowAmounts(transactions: UniversalTransactionData[]): Record<string, Decimal> {
   const excludedAmounts: Record<string, Decimal> = {};
 
   for (const tx of transactions) {

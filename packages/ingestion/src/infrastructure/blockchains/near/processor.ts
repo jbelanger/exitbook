@@ -1,18 +1,17 @@
 import type { NearTransaction } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../services/token-metadata/token-metadata-service.interface.js';
 import { looksLikeContractAddress, isMissingMetadata } from '../../../services/token-metadata/token-metadata-utils.js';
-import type { ProcessingContext } from '../../../types/processors.js';
+import type { ProcessedTransaction, ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import { analyzeNearFundFlow, classifyNearOperationFromFundFlow } from './processor-utils.js';
 
 /**
  * NEAR transaction processor that converts raw blockchain transaction data
- * into UniversalTransaction format. Features sophisticated fund flow analysis
+ * into ProcessedTransaction format. Features sophisticated fund flow analysis
  * and historical context for accurate transaction classification.
  */
 export class NearTransactionProcessor extends BaseTransactionProcessor {
@@ -27,7 +26,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
   protected async processInternal(
     normalizedData: unknown[],
     context: ProcessingContext
-  ): Promise<Result<UniversalTransaction[], string>> {
+  ): Promise<Result<ProcessedTransaction[], string>> {
     this.logger.info(`Processing ${normalizedData.length} normalized NEAR transactions`);
 
     // Enrich all transactions with token metadata (required)
@@ -36,7 +35,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
       return err(`Token metadata enrichment failed: ${enrichResult.error.message}`);
     }
 
-    const transactions: UniversalTransaction[] = [];
+    const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
     for (const item of normalizedData) {
@@ -75,8 +74,8 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
 
         const userPaidFee = fundFlow.feePaidByUser && !feeAccountedInMovements;
 
-        // Convert to UniversalTransaction with structured fields
-        const universalTransaction: UniversalTransaction = {
+        // Convert to ProcessedTransaction with structured fields
+        const universalTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,

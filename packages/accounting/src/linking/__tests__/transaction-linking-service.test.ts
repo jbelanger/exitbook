@@ -9,7 +9,7 @@ import { TransactionLinkingService } from '../transaction-linking-service.js';
 const logger = getLogger('test');
 
 /**
- * Helper to create a minimal UniversalTransaction for testing.
+ * Helper to create a minimal UniversalTransactionData for testing.
  * Only requires the essential fields, rest are set to sensible defaults.
  */
 function createTransaction(params: {

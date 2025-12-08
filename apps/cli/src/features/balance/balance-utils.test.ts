@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import type { ImportSession, UniversalTransaction } from '@exitbook/core';
+import type { ImportSession, UniversalTransactionData } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -623,9 +623,10 @@ describe('subtractExcludedAmounts', () => {
 
 describe('sumExcludedInflowAmounts', () => {
   it('should sum inflow amounts from excluded transactions', () => {
-    const transactions: UniversalTransaction[] = [
+    const transactions: UniversalTransactionData[] = [
       {
         id: 1,
+        accountId: 1,
         externalId: 'tx1',
         datetime: '2024-01-01T00:00:00Z',
         timestamp: new Date('2024-01-01T00:00:00Z').getTime(),
@@ -643,6 +644,7 @@ describe('sumExcludedInflowAmounts', () => {
       },
       {
         id: 2,
+        accountId: 1,
         externalId: 'tx2',
         datetime: '2024-01-02T00:00:00Z',
         timestamp: new Date('2024-01-02T00:00:00Z').getTime(),
@@ -657,6 +659,7 @@ describe('sumExcludedInflowAmounts', () => {
       },
       {
         id: 3,
+        accountId: 1,
         externalId: 'tx3',
         datetime: '2024-01-03T00:00:00Z',
         timestamp: new Date('2024-01-03T00:00:00Z').getTime(),
@@ -679,9 +682,10 @@ describe('sumExcludedInflowAmounts', () => {
   });
 
   it('should handle transactions with no inflows', () => {
-    const transactions: UniversalTransaction[] = [
+    const transactions: UniversalTransactionData[] = [
       {
         id: 1,
+        accountId: 1,
         externalId: 'tx1',
         datetime: '2024-01-01T00:00:00Z',
         timestamp: new Date('2024-01-01T00:00:00Z').getTime(),
@@ -708,9 +712,10 @@ describe('sumExcludedInflowAmounts', () => {
   });
 
   it('should only sum excluded transactions', () => {
-    const transactions: UniversalTransaction[] = [
+    const transactions: UniversalTransactionData[] = [
       {
         id: 1,
+        accountId: 1,
         externalId: 'tx1',
         datetime: '2024-01-01T00:00:00Z',
         timestamp: new Date('2024-01-01T00:00:00Z').getTime(),
@@ -725,6 +730,7 @@ describe('sumExcludedInflowAmounts', () => {
       },
       {
         id: 2,
+        accountId: 1,
         externalId: 'tx2',
         datetime: '2024-01-02T00:00:00Z',
         timestamp: new Date('2024-01-02T00:00:00Z').getTime(),
@@ -745,9 +751,10 @@ describe('sumExcludedInflowAmounts', () => {
   });
 
   it('should handle transactions with undefined inflows', () => {
-    const transactions: UniversalTransaction[] = [
+    const transactions: UniversalTransactionData[] = [
       {
         id: 1,
+        accountId: 1,
         externalId: 'tx1',
         datetime: '2024-01-01T00:00:00Z',
         timestamp: new Date('2024-01-01T00:00:00Z').getTime(),

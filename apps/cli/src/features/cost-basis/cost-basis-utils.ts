@@ -1,6 +1,6 @@
 import type { CostBasisConfig, FiatCurrency, IJurisdictionRules } from '@exitbook/accounting';
 import { CanadaRules, getDefaultDateRange, USRules } from '@exitbook/accounting';
-import { Currency, type UniversalTransaction } from '@exitbook/core';
+import { Currency, type UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 /**
@@ -223,10 +223,10 @@ export function validateCostBasisParams(params: CostBasisHandlerParams): Result<
  * Filter transactions by date range
  */
 export function filterTransactionsByDateRange(
-  transactions: UniversalTransaction[],
+  transactions: UniversalTransactionData[],
   startDate: Date,
   endDate: Date
-): UniversalTransaction[] {
+): UniversalTransactionData[] {
   return transactions.filter((tx) => {
     const txDate = new Date(tx.timestamp);
     return txDate >= startDate && txDate <= endDate;
@@ -239,7 +239,7 @@ export function filterTransactionsByDateRange(
  * Only non-fiat crypto movements need prices. Fiat movements don't need prices
  * since we don't track cost basis for fiat currencies.
  */
-export function transactionHasAllPrices(tx: UniversalTransaction, _requiredCurrency: string): boolean {
+export function transactionHasAllPrices(tx: UniversalTransactionData, _requiredCurrency: string): boolean {
   // Check all non-fiat inflows
   const inflows = tx.movements.inflows || [];
   for (const inflow of inflows) {
@@ -279,10 +279,10 @@ export function transactionHasAllPrices(tx: UniversalTransaction, _requiredCurre
  * Validate that transactions have prices in the required currency
  */
 export function validateTransactionPrices(
-  transactions: UniversalTransaction[],
+  transactions: UniversalTransactionData[],
   requiredCurrency: string
-): Result<{ missingPricesCount: number; validTransactions: UniversalTransaction[] }, Error> {
-  const validTransactions: UniversalTransaction[] = [];
+): Result<{ missingPricesCount: number; validTransactions: UniversalTransactionData[] }, Error> {
+  const validTransactions: UniversalTransactionData[] = [];
   let missingPricesCount = 0;
 
   for (const tx of transactions) {

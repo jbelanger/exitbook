@@ -73,7 +73,7 @@ export function createFee(
 }
 
 /**
- * Creates a UniversalTransaction with common defaults
+ * Creates a UniversalTransactionData with common defaults
  */
 export function createTransaction(
   id: number,
@@ -111,7 +111,7 @@ export function createTransaction(
 }
 
 /**
- * Creates a UniversalTransaction with fees
+ * Creates a UniversalTransactionData with fees
  */
 export function createTransactionWithFee(
   id: number,

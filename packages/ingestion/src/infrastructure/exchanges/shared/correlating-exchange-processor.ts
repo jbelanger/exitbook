@@ -1,7 +1,7 @@
-import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 
+import type { ProcessedTransaction } from '../../../types/processors.ts';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import {
@@ -26,7 +26,7 @@ import type { ExchangeFundFlow } from './types.js';
  * Provides infrastructure for:
  * - Grouping related ledger entries (e.g., both sides of a swap)
  * - Analyzing fund flow using interpretation strategies
- * - Creating single atomic UniversalTransaction records
+ * - Creating single atomic ProcessedTransaction records
  *
  * @template TRaw - The raw exchange-specific type (e.g., CoinbaseLedgerEntry, KrakenLedgerEntry)
  */
@@ -39,7 +39,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     super(sourceName);
   }
 
-  protected async processInternal(normalizedData: unknown[]): Promise<Result<UniversalTransaction[], string>> {
+  protected async processInternal(normalizedData: unknown[]): Promise<Result<ProcessedTransaction[], string>> {
     // Cast to RawTransactionWithMetadata (contains both raw + normalized)
     const entries = normalizedData as RawTransactionWithMetadata<TRaw>[];
 
@@ -50,7 +50,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
 
     this.logger.debug(`Created ${entryGroups.size} entry groups for ${this.sourceName}`);
 
-    const transactions: UniversalTransaction[] = [];
+    const transactions: ProcessedTransaction[] = [];
     const processingErrors: { correlationId: string; entryCount: number; error: string }[] = [];
 
     for (const [correlationId, entryGroup] of entryGroups) {
@@ -78,7 +78,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         continue;
       }
 
-      const universalTransaction: UniversalTransaction = {
+      const ProcessedTransaction: ProcessedTransaction = {
         externalId: primaryEntry.normalized.id,
         datetime: new Date(fundFlow.timestamp).toISOString(),
         timestamp: fundFlow.timestamp,
@@ -126,9 +126,9 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         },
       };
 
-      transactions.push(universalTransaction);
+      transactions.push(ProcessedTransaction);
       this.logger.debug(
-        `Successfully processed correlated entry group ${universalTransaction.externalId} (${fundFlow.entryCount} entries)`
+        `Successfully processed correlated entry group ${ProcessedTransaction.externalId} (${fundFlow.entryCount} entries)`
       );
     }
 

@@ -1,9 +1,8 @@
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/blockchain-providers';
-import type { UniversalTransaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
-import type { ProcessingContext } from '../../../types/processors.js';
+import type { ProcessedTransaction, ProcessingContext } from '../../../types/processors.js';
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import {
@@ -14,7 +13,7 @@ import {
 
 /**
  * Generic Cosmos SDK transaction processor that converts raw blockchain transaction data
- * into UniversalTransaction format. Works with any Cosmos SDK-based chain (Injective, Osmosis, etc.)
+ * into ProcessedTransaction format. Works with any Cosmos SDK-based chain (Injective, Osmosis, etc.)
  * Uses ProcessorFactory to dispatch to provider-specific processors based on data provenance.
  * Enhanced with sophisticated fund flow analysis.
  */
@@ -32,7 +31,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
   protected async processInternal(
     normalizedData: unknown[],
     context: ProcessingContext
-  ): Promise<Result<UniversalTransaction[], string>> {
+  ): Promise<Result<ProcessedTransaction[], string>> {
     // Deduplicate by transaction ID (handles cases like Peggy deposits where multiple validators
     // submit the same deposit claim with different tx hashes but same event_nonce-based ID)
     const deduplicatedData = deduplicateByTransactionId(normalizedData as CosmosTransaction[]);
@@ -42,7 +41,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
       );
     }
 
-    const universalTransactions: UniversalTransaction[] = [];
+    const universalTransactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
     for (const transaction of deduplicatedData) {
@@ -63,8 +62,8 @@ export class CosmosProcessor extends BaseTransactionProcessor {
         const userInitiatedTransaction = normalizedTx.from === context.primaryAddress;
         const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
-        // Convert to UniversalTransaction with enhanced metadata
-        const universalTransaction: UniversalTransaction = {
+        // Convert to ProcessedTransaction with enhanced metadata
+        const universalTransaction: ProcessedTransaction = {
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,

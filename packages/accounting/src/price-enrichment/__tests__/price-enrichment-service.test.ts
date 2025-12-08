@@ -27,7 +27,7 @@ function createMockLinkRepository(): TransactionLinkRepository {
   } as unknown as TransactionLinkRepository;
 }
 
-// Helper to create a mock UniversalTransaction with typed movements
+// Helper to create a mock UniversalTransactionData with typed movements
 function createMockTransaction(
   id: number,
   sourceType: SourceType,

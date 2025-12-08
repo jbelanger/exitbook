@@ -81,7 +81,7 @@ export function filterLinksByConfidence(
 }
 
 /**
- * Map UniversalTransaction to TransactionDetails for display.
+ * Map UniversalTransactionData to TransactionDetails for display.
  */
 export function mapTransactionToDetails(tx: UniversalTransactionData): TransactionDetails {
   return {

@@ -1,6 +1,8 @@
-import type { UniversalTransaction, AssetMovement, FeeMovement } from '@exitbook/core';
+import type { UniversalTransactionData, AssetMovement, FeeMovement } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { expect } from 'vitest';
+
+import type { ProcessedTransaction } from '../../types/processors.ts';
 
 /**
  * Unwraps an Ok Result and asserts it succeeded, throwing if it failed.
@@ -32,7 +34,7 @@ export function expectErr<T, E>(result: Result<T, E>): E {
  * Fluent assertion builder for transaction movements
  */
 export class MovementAssertion {
-  constructor(private transaction: UniversalTransaction) {}
+  constructor(private transaction: UniversalTransactionData | ProcessedTransaction) {}
 
   hasInflows(count: number): this {
     expect(this.transaction.movements.inflows).toBeDefined();
@@ -116,7 +118,7 @@ class OutflowAssertion {
 /**
  * Creates a fluent assertion builder for movements
  */
-export function expectMovement(transaction: UniversalTransaction): MovementAssertion {
+export function expectMovement(transaction: UniversalTransactionData | ProcessedTransaction): MovementAssertion {
   return new MovementAssertion(transaction);
 }
 
@@ -156,7 +158,7 @@ export class FeeAssertion {
  * Finds and asserts on a fee by scope
  */
 export function expectFee(
-  transaction: UniversalTransaction,
+  transaction: UniversalTransactionData | ProcessedTransaction,
   scope: 'network' | 'platform' | 'spread' | 'tax' | 'other'
 ): FeeAssertion {
   const fee = transaction.fees.find((f) => f.scope === scope);
@@ -167,7 +169,7 @@ export function expectFee(
  * Fluent assertion builder for operations
  */
 export class OperationAssertion {
-  constructor(private transaction: UniversalTransaction) {}
+  constructor(private transaction: UniversalTransactionData | ProcessedTransaction) {}
 
   hasCategory(category: string): this {
     expect(this.transaction.operation.category).toBe(category);
@@ -183,7 +185,7 @@ export class OperationAssertion {
 /**
  * Creates a fluent assertion builder for operations
  */
-export function expectOperation(transaction: UniversalTransaction): OperationAssertion {
+export function expectOperation(transaction: UniversalTransactionData | ProcessedTransaction): OperationAssertion {
   return new OperationAssertion(transaction);
 }
 
@@ -191,7 +193,7 @@ export function expectOperation(transaction: UniversalTransaction): OperationAss
  * Simple assertion for transaction addresses
  */
 export function expectAddresses(
-  transaction: UniversalTransaction,
+  transaction: UniversalTransactionData | ProcessedTransaction,
   from: string | undefined,
   to: string | undefined
 ): void {
