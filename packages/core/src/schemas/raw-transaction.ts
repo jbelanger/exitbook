@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { DateSchema } from './money.js';
+import { DateSchema } from './money.ts';
 
 /**
  * Processing status schema for external transaction data lifecycle
