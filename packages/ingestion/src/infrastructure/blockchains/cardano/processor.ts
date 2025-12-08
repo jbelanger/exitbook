@@ -121,14 +121,6 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
             is_confirmed: normalizedTx.status === 'success',
           },
 
-          // Metadata - store Cardano-specific data
-          metadata: {
-            blockId: normalizedTx.blockId,
-            inputCount: fundFlow.inputCount,
-            outputCount: fundFlow.outputCount,
-            providerName: normalizedTx.providerName,
-          },
-
           // Add note if there's classification uncertainty
           note: fundFlow.classificationUncertainty
             ? {

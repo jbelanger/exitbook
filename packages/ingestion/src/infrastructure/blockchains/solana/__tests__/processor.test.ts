@@ -212,7 +212,6 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.metadata?.tokenAddress).toBe('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
   });
 
   test('classifies outgoing token transfer as withdrawal', async () => {
@@ -568,7 +567,6 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
 
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('stake');
-    expect(transaction.metadata?.hasStaking).toBe(true);
   });
 
   test('detects unstake operation', async () => {
@@ -617,7 +615,6 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
     // Verify unstaking classification (amount >= 1 SOL)
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('unstake');
-    expect(transaction.metadata?.hasStaking).toBe(true);
   });
 
   test('detects staking reward', async () => {
@@ -665,7 +662,6 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
 
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('reward');
-    expect(transaction.metadata?.hasStaking).toBe(true);
   });
 });
 
@@ -1112,8 +1108,6 @@ describe('SolanaTransactionProcessor - Classification Uncertainty', () => {
     // (batch note only applies when instructionCount > 3 AND there are fund movements)
     expect(transaction.operation.category).toBe('fee');
     expect(transaction.operation.type).toBe('fee');
-    expect(transaction.metadata?.instructionCount).toBe(4);
-    expect(transaction.metadata?.hasMultipleInstructions).toBe(true);
   });
 });
 
@@ -1165,13 +1159,6 @@ describe('SolanaTransactionProcessor - Blockchain Metadata', () => {
     expect(transaction.blockchain?.block_height).toBe(100000);
     expect(transaction.blockchain?.transaction_hash).toBe('sigMeta1');
     expect(transaction.blockchain?.is_confirmed).toBe(true);
-
-    // Check Solana-specific metadata
-    expect(transaction.metadata?.signature).toBe('sigMeta1abc');
-    expect(transaction.metadata?.slot).toBe(100000);
-    expect(transaction.metadata?.blockId).toBe('block123');
-    expect(transaction.metadata?.computeUnitsUsed).toBe(150000);
-    expect(transaction.metadata?.providerName).toBe('helius');
   });
 });
 

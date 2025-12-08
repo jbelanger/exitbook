@@ -472,6 +472,5 @@ describe('NearTransactionProcessor - Multiple Actions', () => {
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.asset).toBe('NEAR');
-    expect(transaction.metadata?.actionCount).toBe(2);
   });
 });

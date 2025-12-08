@@ -118,22 +118,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
             transaction_hash: normalizedTx.id,
             is_confirmed: normalizedTx.status === 'success',
           },
-
-          // Minimal metadata - only Solana-specific data
-          metadata: {
-            blockId: normalizedTx.blockId,
-            computeUnitsUsed: fundFlow.computeUnitsUsed,
-            hasMultipleInstructions: fundFlow.hasMultipleInstructions,
-            hasStaking: fundFlow.hasStaking,
-            hasSwaps: fundFlow.hasSwaps,
-            hasTokenTransfers: fundFlow.hasTokenTransfers,
-            instructionCount: fundFlow.instructionCount,
-            providerName: normalizedTx.providerName,
-            signature: normalizedTx.signature,
-            slot: normalizedTx.slot,
-            tokenAddress: fundFlow.primary.tokenAddress,
-            tokenDecimals: fundFlow.primary.decimals,
-          },
         };
 
         transactions.push(universalTransaction);

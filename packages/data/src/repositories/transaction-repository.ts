@@ -61,14 +61,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     accountId: number
   ): Promise<Result<number, Error>> {
     try {
-      // Validate metadata before saving
-      if (transaction.metadata !== undefined) {
-        const metadataValidation = TransactionMetadataSchema.safeParse(transaction.metadata);
-        if (!metadataValidation.success) {
-          return err(new Error(`Invalid transaction metadata: ${metadataValidation.error.message}`));
-        }
-      }
-
       // Validate note metadata before saving
       if (transaction.note?.metadata !== undefined) {
         const noteMetadataValidation = NoteMetadataSchema.safeParse(transaction.note.metadata);
@@ -106,9 +98,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         .insertInto('transactions')
         .values({
           created_at: this.getCurrentDateTimeForDB(),
-          external_id: (transaction.metadata?.hash ||
-            transaction.externalId ||
-            generateDeterministicTransactionHash(transaction)) as string,
+          external_id: transaction.externalId || generateDeterministicTransactionHash(transaction),
           from_address: transaction.from,
           account_id: accountId,
           note_message: transaction.note?.message,
@@ -462,7 +452,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         category: row.operation_category ?? 'transfer',
         type: row.operation_type ?? 'transfer',
       },
-      metadata: metadataResult.value,
       excludedFromAccounting: row.excluded_from_accounting ? true : undefined,
     };
 

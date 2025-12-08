@@ -147,10 +147,6 @@ describe('KucoinProcessor (CSV) - Order Splitting Handling', () => {
 
     expect(transaction.operation.category).toBe('trade');
     expect(transaction.operation.type).toBe('buy');
-
-    // Verify metadata includes maker/taker
-    expect(transaction.metadata?.makerTaker).toBe('taker');
-    expect(transaction.metadata?.fillType).toBe('order-splitting');
   });
 });
 
@@ -197,10 +193,6 @@ describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
     expect(platformFee?.amount.toFixed()).toBe('0.0005');
     expect(platformFee?.asset).toBe('BTC');
     expect(platformFee?.settlement).toBe('balance');
-
-    expect(transaction.metadata?.hash).toBe('txhash123');
-    expect(transaction.metadata?.address).toBe('bc1q...');
-    expect(transaction.metadata?.transferNetwork).toBe('BTC');
   });
 
   test('processes withdrawal', async () => {
@@ -291,8 +283,6 @@ describe('KucoinProcessor (CSV) - Account History Handling', () => {
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
     expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('0.1');
-
-    expect(transaction.metadata?.type).toBe('convert_market');
   });
 
   test('skips non-convert account history entries', async () => {
@@ -353,8 +343,6 @@ describe('KucoinProcessor (CSV) - Trading Bot Handling', () => {
 
     expect(transaction.operation.category).toBe('trade');
     expect(transaction.operation.type).toBe('buy');
-
-    expect(transaction.metadata?.fillType).toBe('trading-bot');
   });
 });
 

@@ -50,9 +50,6 @@ describe('CorrelatingExchangeProcessor - Strategy Composition', () => {
 
     expect(swap).toBeDefined();
     expect(deposit).toBeDefined();
-
-    expect(swap?.metadata?.correlatedEntryCount).toBe(2);
-    expect(deposit?.metadata?.correlatedEntryCount).toBe(1);
   });
 
   test('noGrouping strategy creates individual transactions', async () => {
@@ -70,10 +67,6 @@ describe('CorrelatingExchangeProcessor - Strategy Composition', () => {
 
     const transactions = result.value;
     expect(transactions).toHaveLength(2);
-
-    transactions.forEach((t) => {
-      expect(t.metadata?.correlatedEntryCount).toBe(1);
-    });
   });
 });
 
@@ -273,31 +266,6 @@ describe('CorrelatingExchangeProcessor - Error Handling', () => {
 });
 
 describe('CorrelatingExchangeProcessor - Metadata', () => {
-  test('includes correlation metadata in transaction', async () => {
-    const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
-
-    const entries = [
-      wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-100', asset: 'USD' })),
-      wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.001', asset: 'BTC' })),
-    ];
-
-    const result = await processor.process(entries);
-
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-
-    const [transaction] = result.value;
-    const metadata = transaction?.metadata as {
-      correlatedEntryCount?: number;
-      correlationId?: string;
-      ledgerEntries?: string[];
-    };
-
-    expect(metadata?.correlatedEntryCount).toBe(2);
-    expect(metadata?.correlationId).toBe('SWAP001');
-    expect(metadata?.ledgerEntries).toEqual(['E1', 'E2']);
-  });
-
   test('sets source correctly', async () => {
     const processor = new CorrelatingExchangeProcessor('kraken', byCorrelationId, standardAmounts);
 

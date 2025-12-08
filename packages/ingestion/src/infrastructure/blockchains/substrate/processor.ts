@@ -107,17 +107,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
           status: normalizedTx.status,
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,
-
-          metadata: {
-            blockchain: 'substrate',
-            blockHeight: normalizedTx.blockHeight,
-            blockId: normalizedTx.blockId,
-            call: fundFlow.call,
-            chainName: fundFlow.chainName,
-            module: fundFlow.module,
-            providerName: normalizedTx.providerName,
-            events: normalizedTx.events ?? [],
-          },
         };
 
         transactions.push(universalTransaction);

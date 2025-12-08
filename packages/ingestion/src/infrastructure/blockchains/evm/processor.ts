@@ -134,19 +134,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
           transaction_hash: primaryTx.id,
           is_confirmed: primaryTx.status === 'success',
         },
-
-        // Minimal metadata - only provider-specific data
-        metadata: {
-          blockId: primaryTx.blockId,
-          chainId: this.chainConfig.chainId,
-          correlatedTxCount: fundFlow.transactionCount,
-          hasContractInteraction: fundFlow.hasContractInteraction,
-          hasInternalTransactions: fundFlow.hasInternalTransactions,
-          hasTokenTransfers: fundFlow.hasTokenTransfers,
-          providerName: primaryTx.providerName,
-          tokenAddress: fundFlow.primary.tokenAddress,
-          tokenDecimals: fundFlow.primary.tokenDecimals,
-        },
       };
 
       transactions.push(universalTransaction);

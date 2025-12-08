@@ -105,9 +105,6 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
     expect(transaction.externalId).toBe('0xhash1');
-    expect(transaction.metadata).toBeDefined();
-    if (!transaction.metadata) return;
-    expect(transaction.metadata.correlatedTxCount).toBe(3);
 
     // Should track ALL assets (ETH and USDC), consolidated
     expect(transaction.movements.inflows).toHaveLength(2);
@@ -122,9 +119,6 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.blockchain?.name).toBe('ethereum');
     expect(transaction.blockchain?.is_confirmed).toBe(true);
-    expect(transaction.metadata.hasTokenTransfers).toBe(true);
-    expect(transaction.metadata.hasInternalTransactions).toBe(true);
-    expect(transaction.metadata.hasContractInteraction).toBe(false);
   });
 
   test('processes multiple transaction groups independently', async () => {
@@ -696,7 +690,6 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
 
     // Check structured fields
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.metadata?.tokenAddress).toBe('0xusdc000000000000000000000000000000000000');
   });
 
   test('classifies outgoing token transfer as withdrawal', async () => {
@@ -772,7 +765,6 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     // Check structured fields
     expect(transaction.operation.category).toBe('fee');
     expect(transaction.operation.type).toBe('fee');
-    expect(transaction.metadata?.hasContractInteraction).toBe(false);
   });
 
   test('classifies small deposit correctly (affects balance)', async () => {
@@ -845,7 +837,6 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     if (!transaction) return;
 
     // Check structured fields - zero amount + contract interaction → 'transfer'
-    expect(transaction.metadata?.hasContractInteraction).toBe(true);
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
   });
@@ -918,7 +909,6 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
     const transaction = result.value[0];
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.metadata?.hasContractInteraction).toBe(true);
   });
 
   test('detects contract interaction via methodId', async () => {
@@ -951,7 +941,6 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
     const transaction = result.value[0];
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.metadata?.hasContractInteraction).toBe(true);
   });
 
   test('detects contract interaction via functionName', async () => {
@@ -983,7 +972,6 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
     const transaction = result.value[0];
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.metadata?.hasContractInteraction).toBe(true);
   });
 });
 
@@ -1058,7 +1046,6 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
 
     // Check structured fields
     expect(transaction.blockchain?.name).toBe('avalanche');
-    expect(transaction.metadata?.chainId).toBe(43114);
     // User received, sender paid fee - no fee entry created when user didn't pay
     expect(transaction.fees.find((f) => f.scope === 'network')).toBeUndefined();
   });
@@ -1322,7 +1309,6 @@ describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
 
     // Check structured fields - should use internal transaction for fund flow
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.metadata?.hasInternalTransactions).toBe(true);
   });
 });
 
@@ -1717,7 +1703,6 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
 
     // Verify enriched metadata is used
     expect(transaction.movements.inflows?.[0]?.asset).toBe('TOKEN');
-    expect(transaction.metadata?.tokenDecimals).toBe(18);
   });
 
   test('handles multiple token transfers with enrichment', async () => {

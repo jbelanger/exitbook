@@ -143,10 +143,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             transaction_hash: normalizedTx.id,
             is_confirmed: normalizedTx.status === 'success',
           },
-
-          metadata: {
-            providerName: normalizedTx.providerName,
-          },
         };
 
         transactions.push(universalTransaction);

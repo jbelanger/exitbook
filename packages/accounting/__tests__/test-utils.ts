@@ -106,7 +106,6 @@ export function createTransaction(
       type: options?.type ?? (inflows.length > 0 ? 'buy' : 'sell'),
     },
     fees,
-    metadata: {},
   };
 }
 

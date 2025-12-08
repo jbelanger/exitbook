@@ -161,7 +161,6 @@ describe('CostBasisCalculator', () => {
         },
         operation: { category: 'transfer', type: 'deposit' },
         fees: [],
-        metadata: {},
       };
 
       const config: CostBasisConfig = {
@@ -214,7 +213,6 @@ describe('CostBasisCalculator', () => {
         },
         operation: { category: 'trade', type: 'buy' },
         fees: [],
-        metadata: {},
       };
 
       const config: CostBasisConfig = {
@@ -583,7 +581,6 @@ describe('CostBasisCalculator', () => {
           },
           operation: { category: 'trade', type: 'sell' },
           fees: [],
-          metadata: {},
         },
       ];
 
@@ -646,7 +643,6 @@ describe('CostBasisCalculator', () => {
             },
           },
         ],
-        metadata: {},
       };
 
       const config: CostBasisConfig = {
@@ -693,7 +689,6 @@ describe('CostBasisCalculator', () => {
           },
           operation: { category: 'trade', type: 'buy' },
           fees: [],
-          metadata: {},
         },
         {
           id: 2,
@@ -720,7 +715,6 @@ describe('CostBasisCalculator', () => {
           },
           operation: { category: 'trade', type: 'sell' },
           fees: [],
-          metadata: {},
         },
       ];
 
@@ -769,7 +763,6 @@ describe('CostBasisCalculator', () => {
           },
           operation: { category: 'trade', type: 'buy' },
           fees: [],
-          metadata: {},
         });
       }
 

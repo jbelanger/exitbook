@@ -118,12 +118,6 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
 
         operation: classification.operation,
         note: classification.note,
-
-        metadata: {
-          correlatedEntryCount: fundFlow.entryCount,
-          correlationId: fundFlow.correlationId,
-          ledgerEntries: entryGroup.map((e) => e.normalized.id),
-        },
       };
 
       transactions.push(ProcessedTransaction);

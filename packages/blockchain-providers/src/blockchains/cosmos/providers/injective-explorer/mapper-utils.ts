@@ -29,6 +29,15 @@ export function mapInjectiveExplorerTransaction(
   relevantAddress: string
 ): Result<CosmosTransaction, NormalizationError> {
   const logger = getLogger('InjectiveExplorerMapperUtils');
+
+  // Validate relevantAddress is provided
+  if (!relevantAddress || relevantAddress.trim() === '') {
+    return err({
+      message: 'Invalid address',
+      type: 'error',
+    });
+  }
+
   const timestamp = rawData.block_timestamp.getTime();
 
   // Calculate fee using pure function

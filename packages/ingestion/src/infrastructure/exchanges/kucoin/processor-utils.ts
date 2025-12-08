@@ -70,14 +70,6 @@ export function convertKucoinAccountHistoryConvertToTransaction(
       category: 'trade',
       type: 'swap',
     },
-
-    metadata: {
-      type: 'convert_market',
-      depositFee,
-      withdrawalFee,
-      depositRow: deposit,
-      withdrawalRow: withdrawal,
-    },
   };
 }
 
@@ -124,14 +116,6 @@ export function convertKucoinDepositToTransaction(row: CsvDepositWithdrawalRow):
     operation: {
       category: 'transfer',
       type: 'deposit',
-    },
-
-    metadata: {
-      address: row['Deposit Address'],
-      hash: row.Hash,
-      remarks: row.Remarks,
-      transferNetwork: row['Transfer Network'],
-      originalRow: row,
     },
   };
 }
@@ -189,16 +173,6 @@ export function convertKucoinOrderSplittingToTransaction(row: CsvOrderSplittingR
       category: 'trade',
       type: side, // 'buy' or 'sell'
     },
-
-    metadata: {
-      side,
-      orderType: row['Order Type'],
-      makerTaker: row['Maker/Taker'],
-      filledVolumeUSDT: parseDecimal(row['Filled Volume (USDT)']).toNumber(),
-      orderId: row['Order ID'],
-      fillType: 'order-splitting',
-      originalRow: row,
-    },
   };
 }
 
@@ -255,15 +229,6 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Pro
       category: 'trade',
       type: side, // 'buy' or 'sell'
     },
-
-    metadata: {
-      side,
-      orderType: row['Order Type'],
-      filledVolumeUSDT: parseDecimal(row['Filled Volume (USDT)']).toNumber(),
-      orderId: row['Order ID'],
-      fillType: 'trading-bot',
-      originalRow: row,
-    },
   };
 }
 
@@ -317,16 +282,6 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Proce
       category: 'trade',
       type: side, // 'buy' or 'sell'
     },
-
-    metadata: {
-      side,
-      orderType: row['Order Type'],
-      orderTime: row['Order Time(UTC)'],
-      orderAmount: parseDecimal(row['Order Amount']).toNumber(),
-      orderPrice: parseDecimal(row['Order Price']).toNumber(),
-      filledVolumeUSDT: parseDecimal(row['Filled Volume (USDT)']).toNumber(),
-      originalRow: row,
-    },
   };
 }
 
@@ -367,14 +322,6 @@ export function convertKucoinWithdrawalToTransaction(row: CsvDepositWithdrawalRo
     operation: {
       category: 'transfer',
       type: 'withdrawal',
-    },
-
-    metadata: {
-      address: row['Withdrawal Address/Account'],
-      hash: row.Hash,
-      remarks: row.Remarks,
-      transferNetwork: row['Transfer Network'],
-      originalRow: row,
     },
   };
 }

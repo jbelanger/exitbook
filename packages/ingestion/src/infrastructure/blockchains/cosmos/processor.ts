@@ -115,24 +115,6 @@ export class CosmosProcessor extends BaseTransactionProcessor {
             transaction_hash: normalizedTx.id,
             is_confirmed: normalizedTx.status === 'success',
           },
-
-          // Minimal metadata - only Cosmos-specific data
-          metadata: {
-            providerName: normalizedTx.providerName,
-            blockId: normalizedTx.blockId,
-            bridgeType: fundFlow.bridgeType,
-            messageType: normalizedTx.messageType,
-            ethereumSender: normalizedTx.ethereumSender,
-            ethereumReceiver: normalizedTx.ethereumReceiver,
-            eventNonce: normalizedTx.eventNonce,
-            sourceChannel: normalizedTx.sourceChannel,
-            sourcePort: normalizedTx.sourcePort,
-            tokenAddress: fundFlow.primary.tokenAddress,
-            tokenType: normalizedTx.tokenType,
-            hasBridgeTransfer: fundFlow.hasBridgeTransfer,
-            hasIbcTransfer: fundFlow.hasIbcTransfer,
-            hasContractInteraction: fundFlow.hasContractInteraction,
-          },
         };
 
         universalTransactions.push(universalTransaction);

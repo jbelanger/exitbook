@@ -217,7 +217,6 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
     // Validator paid fee, user receives full amount
     expect(transaction.fees.find((f) => f.scope === 'network')?.amount.toFixed() ?? '0').toBe('0');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.metadata?.bridgeType).toBe('peggy');
   });
 
   test('deducts fee when user sends Peggy bridge withdrawal (user signs)', async () => {

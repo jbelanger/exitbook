@@ -31,7 +31,6 @@ describe('inferMultiPass', () => {
     operation: { category: 'transfer', type: 'transfer' },
     movements: { inflows, outflows },
     fees: [],
-    metadata: {},
   });
 
   const createPrice = (source: string, amount: string): PriceAtTxTime => ({
@@ -242,7 +241,6 @@ describe('propagatePricesAcrossLinks', () => {
     operation: { category: 'transfer', type: 'withdrawal' },
     movements: { inflows, outflows },
     fees: [],
-    metadata: {},
   });
 
   const createPrice = (source: string, amount: string): PriceAtTxTime => ({
@@ -552,7 +550,6 @@ describe('enrichFeePricesFromMovements', () => {
     operation: { category: 'transfer', type: 'swap' },
     movements: { inflows, outflows },
     fees: [platformFee ?? undefined, networkFee ?? undefined].filter(Boolean) as FeeMovement[],
-    metadata: {},
   });
 
   const createPrice = (source: string, amount: string): PriceAtTxTime => ({

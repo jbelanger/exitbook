@@ -209,7 +209,6 @@ export const UniversalTransactionSchema = z.object({
 
   // Optional fields
   note: TransactionNoteSchema.optional(),
-  metadata: z.record(z.string(), z.any()).optional(),
 
   // Accounting exclusion
   excludedFromAccounting: z.boolean().optional(),

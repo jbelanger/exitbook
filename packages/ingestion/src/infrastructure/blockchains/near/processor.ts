@@ -128,19 +128,6 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
             transaction_hash: normalizedTx.id,
             is_confirmed: normalizedTx.status === 'success',
           },
-
-          // Minimal metadata - only NEAR-specific data
-          metadata: {
-            blockId: normalizedTx.blockId,
-            hasStaking: fundFlow.hasStaking,
-            hasContractCall: fundFlow.hasContractCall,
-            hasTokenTransfers: fundFlow.hasTokenTransfers,
-            actionCount: fundFlow.actionCount,
-            actionTypes: fundFlow.actionTypes,
-            providerName: normalizedTx.providerName,
-            tokenAddress: fundFlow.primary.tokenAddress,
-            tokenDecimals: fundFlow.primary.decimals,
-          },
         };
 
         transactions.push(universalTransaction);

@@ -206,7 +206,6 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
 
     // Check structured fields
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.metadata?.tokenAddress).toBe('inj1usdt000000000000000000000000000000000');
   });
 
   test('classifies outgoing token transfer as withdrawal', async () => {
@@ -287,7 +286,6 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
     // Check structured fields
     expect(transaction.operation.category).toBe('fee');
     expect(transaction.operation.type).toBe('fee');
-    expect(transaction.metadata?.hasContractInteraction).toBe(false);
   });
 
   test('classifies small deposit correctly (affects balance)', async () => {
@@ -362,7 +360,6 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
     if (!transaction) return;
 
     // Check structured fields - zero amount + contract interaction → 'transfer'
-    expect(transaction.metadata?.hasContractInteraction).toBe(true);
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
   });
@@ -447,8 +444,6 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
 
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.metadata?.hasBridgeTransfer).toBe(true);
-    expect(transaction.metadata?.bridgeType).toBe('peggy');
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('bridge_transfer');
     expect(transaction.note?.message).toContain('Peggy bridge from Ethereum');
@@ -493,8 +488,6 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
 
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
-    expect(transaction.metadata?.hasBridgeTransfer).toBe(true);
-    expect(transaction.metadata?.bridgeType).toBe('peggy');
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('bridge_transfer');
     expect(transaction.note?.message).toContain('Peggy bridge to Ethereum');
@@ -539,10 +532,6 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     // Verify IBC classification
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.metadata?.hasIbcTransfer).toBe(true);
-    expect(transaction.metadata?.hasBridgeTransfer).toBe(true);
-    expect(transaction.metadata?.bridgeType).toBe('ibc');
-    expect(transaction.metadata?.sourceChannel).toBe('channel-8');
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('bridge_transfer');
     expect(transaction.note?.message).toContain('IBC transfer from another chain');
@@ -587,9 +576,6 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     // Verify IBC classification
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
-    expect(transaction.metadata?.hasIbcTransfer).toBe(true);
-    expect(transaction.metadata?.hasBridgeTransfer).toBe(true);
-    expect(transaction.metadata?.bridgeType).toBe('ibc');
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('bridge_transfer');
     expect(transaction.note?.message).toContain('IBC transfer to another chain');

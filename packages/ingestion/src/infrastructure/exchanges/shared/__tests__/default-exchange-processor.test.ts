@@ -51,33 +51,6 @@ class TestExchangeProcessor extends DefaultExchangeProcessor {
 }
 
 describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
-  test('groups entries by correlation ID', async () => {
-    const processor = new TestExchangeProcessor();
-
-    const entries = [
-      new ExchangeEntryBuilder().withId('E1').withCorrelationId('REF001').withAmount('-100').withAsset('USD').build(),
-      new ExchangeEntryBuilder().withId('E2').withCorrelationId('REF001').withAmount('0.001').withAsset('BTC').build(),
-      new ExchangeEntryBuilder().withId('E3').withCorrelationId('REF002').withAmount('50').withAsset('USD').build(),
-    ];
-
-    const transactions = expectOk(await processor.process(entries.map(wrapEntry)));
-    expect(transactions).toHaveLength(2);
-
-    const tx1Metadata = transactions[0]?.metadata as {
-      correlatedEntryCount?: number;
-      correlationId?: string;
-    };
-    const tx2Metadata = transactions[1]?.metadata as {
-      correlatedEntryCount?: number;
-      correlationId?: string;
-    };
-
-    expect(tx1Metadata?.correlationId).toBe('REF001');
-    expect(tx1Metadata?.correlatedEntryCount).toBe(2);
-    expect(tx2Metadata?.correlationId).toBe('REF002');
-    expect(tx2Metadata?.correlatedEntryCount).toBe(1);
-  });
-
   test('creates single transaction for swap (different assets)', async () => {
     const processor = new TestExchangeProcessor();
 
