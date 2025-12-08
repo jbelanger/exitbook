@@ -10,13 +10,17 @@
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
-import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
+import {
+  createDatabase,
+  ImportSessionRepository,
+  RawDataRepository,
+  runMigrations,
+  type KyselyDB,
+} from '@exitbook/data';
 import { AccountRepository, UserRepository } from '@exitbook/data';
 import { ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ImportSessionRepository } from '../../../persistence/import-session-repository.js';
-import { RawDataRepository } from '../../../persistence/raw-data-repository.js';
 import { ImportOrchestrator } from '../../../services/import-orchestrator.js';
 
 // Mock logger

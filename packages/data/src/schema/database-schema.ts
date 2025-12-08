@@ -69,7 +69,7 @@ export interface ImportSessionsTable {
  * External transaction data table - stores unprocessed transaction data from sources
  * Scoped by account - each account owns its raw transaction data
  */
-export interface ExternalTransactionDataTable {
+export interface RawTransactionTable {
   created_at: DateTime;
 
   id: Generated<number>;
@@ -307,7 +307,7 @@ export interface DatabaseSchema {
   accounts: AccountsTable;
   acquisition_lots: AcquisitionLotsTable;
   cost_basis_calculations: CostBasisCalculationsTable;
-  external_transaction_data: ExternalTransactionDataTable;
+  external_transaction_data: RawTransactionTable;
   import_sessions: ImportSessionsTable;
   lot_disposals: LotDisposalsTable;
   lot_transfers: LotTransfersTable;

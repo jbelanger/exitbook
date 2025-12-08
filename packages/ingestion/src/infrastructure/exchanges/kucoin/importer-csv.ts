@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { getErrorMessage, type ExternalTransaction } from '@exitbook/core';
+import { getErrorMessage, type RawTransactionInput } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -148,7 +148,7 @@ export class KucoinCsvImporter implements IImporter {
 
     // Reset external ID tracking for new import
     this.usedExternalIds.clear();
-    const rawTransactions: ExternalTransaction[] = [];
+    const rawTransactions: RawTransactionInput[] = [];
 
     try {
       for (const csvDirectory of params.csvDirectories) {
@@ -525,7 +525,7 @@ export class KucoinCsvImporter implements IImporter {
     fileType: string,
     currentTotalFetched: number
   ): Promise<Result<ImportBatchResult, Error>> {
-    const rawTransactions: ExternalTransaction[] = [];
+    const rawTransactions: RawTransactionInput[] = [];
     const fileName = path.basename(filePath); // Extract filename for logging
 
     try {

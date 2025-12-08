@@ -7,14 +7,10 @@ import {
   TokenMetadataRepository,
   UserRepository,
   AccountRepository,
-} from '@exitbook/data';
-import {
-  ImportOrchestrator,
-  TransactionProcessService,
-  RawDataRepository,
   ImportSessionRepository,
-  TokenMetadataService,
-} from '@exitbook/ingestion';
+  RawDataRepository,
+} from '@exitbook/data';
+import { ImportOrchestrator, TransactionProcessService, TokenMetadataService } from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import { createClackEmitter, runWithProgress, type ProgressEmitter } from '@exitbook/ui';
 import type { Command } from 'commander';
@@ -234,7 +230,7 @@ function handleImportSuccess(output: OutputManager, importResult: ImportResult):
 
     // Show session info (single session ID or count for multiple)
     if (importResult.sessions.length === 1) {
-      summaryParts.push(`Session ${importResult.sessions[0].id}`);
+      summaryParts.push(`Session ${importResult.sessions[0]?.id}`);
     } else {
       summaryParts.push(`${importResult.sessions.length} sessions`);
     }

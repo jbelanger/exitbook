@@ -10,9 +10,19 @@ export type { ITransactionRepository, TransactionFilters } from './repositories/
 export { generateDeterministicTransactionHash } from './repositories/transaction-id-utils.js';
 export { TokenMetadataRepository } from './repositories/token-metadata-repository.js';
 export type { DatabaseSchema, TransactionLinksTable } from './schema/database-schema.js';
+export {
+  RawDataRepository,
+  type IRawDataRepository,
+  type LoadRawDataFilters,
+} from '../../data/src/repositories/raw-data-repository.ts';
+export {
+  ImportSessionRepository,
+  type IImportSessionRepository,
+} from '../../data/src/repositories/import-session-repository.ts';
 export type {
-  StoredRawData,
+  //StoredRawData,
   StoredImportSession,
   ImportSessionQuery,
   ImportSessionUpdate,
 } from './types/data-types.js';
+export type {} from './types/repositories.js';

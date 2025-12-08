@@ -90,8 +90,8 @@ export class BitcoinTransactionImporter implements IImporter {
       const providerBatch = providerBatchResult.value;
       const transactionsWithRaw = providerBatch.data;
 
-      // Map to external transactions
-      const externalTransactions = transactionsWithRaw.map((txWithRaw) => ({
+      // Map to raw transactions
+      const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
         externalId: generateUniqueTransactionId({
           amount: txWithRaw.normalized.outputs[0]?.value || '0',
           currency: txWithRaw.normalized.currency,
@@ -109,7 +109,7 @@ export class BitcoinTransactionImporter implements IImporter {
       }));
 
       yield ok({
-        rawTransactions: externalTransactions,
+        rawTransactions: rawTransactions,
         operationType: 'normal',
         cursor: providerBatch.cursor,
         isComplete: providerBatch.cursor.metadata?.isComplete ?? false,

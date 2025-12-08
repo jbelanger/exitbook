@@ -1,9 +1,7 @@
 import type { Account } from '@exitbook/core';
-import type { AccountRepository, UserRepository } from '@exitbook/data';
+import type { AccountRepository, IImportSessionRepository, UserRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
-
-import type { IImportSessionRepository } from '../types/repositories.js';
 
 import type { AccountQueryParams, AccountQueryResult, SessionSummary } from './account-service-utils.js';
 import { formatAccount } from './account-service-utils.js';

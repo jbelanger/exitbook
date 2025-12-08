@@ -11,7 +11,7 @@ export const ProcessingStatusSchema = z.enum(['pending', 'processed', 'failed', 
 /**
  * Schema for input DTO used by importers before persistence (write-side)
  */
-export const ExternalTransactionSchema = z.object({
+export const RawTransactionInputSchema = z.object({
   providerName: z.string().min(1, 'Provider Name must not be empty'),
   sourceAddress: z.string().optional(),
   transactionTypeHint: z.string().optional(),
@@ -25,7 +25,7 @@ export const ExternalTransactionSchema = z.object({
  * Schema for external transaction data after database persistence (read-side)
  * Extends base schema with database-specific fields
  */
-export const ExternalTransactionDataSchema = ExternalTransactionSchema.extend({
+export const RawTransactionSchema = RawTransactionInputSchema.extend({
   id: z.number().int().positive(),
   accountId: z.number().int().positive(),
   processingStatus: ProcessingStatusSchema,
@@ -35,5 +35,5 @@ export const ExternalTransactionDataSchema = ExternalTransactionSchema.extend({
 });
 
 export type ProcessingStatus = z.infer<typeof ProcessingStatusSchema>;
-export type ExternalTransaction = z.infer<typeof ExternalTransactionSchema>;
-export type ExternalTransactionData = z.infer<typeof ExternalTransactionDataSchema>;
+export type RawTransactionInput = z.infer<typeof RawTransactionInputSchema>;
+export type RawTransaction = z.infer<typeof RawTransactionSchema>;

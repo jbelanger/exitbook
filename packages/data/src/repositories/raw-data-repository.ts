@@ -1,16 +1,87 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
-import {
-  ExternalTransactionSchema,
-  wrapError,
-  type ExternalTransaction,
-  type ExternalTransactionData,
-} from '@exitbook/core';
+import type { ProcessingStatus } from '@exitbook/core';
+import { RawTransactionInputSchema, wrapError, type RawTransactionInput, type RawTransaction } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
-import type { StoredRawData } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
+import type { Selectable } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IRawDataRepository, LoadRawDataFilters } from '../types/repositories.js';
+import type { RawTransactionTable } from '../schema/database-schema.ts';
+
+/**
+ * Filter options for loading raw data from repository
+ * Ingestion-specific concern
+ * Raw data is scoped by account - each account owns its transaction data
+ */
+export interface LoadRawDataFilters {
+  accountId?: number | undefined;
+  processingStatus?: ProcessingStatus | undefined;
+  providerName?: string | undefined;
+  since?: number | undefined;
+}
+
+/**
+ * Interface for raw data repository operations.
+ * Abstracts the database operations for external transaction storage.
+ * All operations return Result types for proper error handling.
+ */
+export interface IRawDataRepository {
+  /**
+   * Load external data from storage with optional filtering.
+   */
+  load(filters?: LoadRawDataFilters): Promise<Result<RawTransaction[], Error>>;
+
+  /**
+   * Mark multiple items as processed.
+   */
+  markAsProcessed(rawTransactionIds: number[]): Promise<Result<void, Error>>;
+
+  /**
+   * Save external data item to storage.
+   */
+  save(accountId: number, item: RawTransactionInput): Promise<Result<number, Error>>;
+
+  /**
+   * Save multiple external data items to storage in a single transaction.
+   * Returns inserted and skipped counts (skipped = duplicates per unique constraint).
+   */
+  saveBatch(
+    accountId: number,
+    items: RawTransactionInput[]
+  ): Promise<Result<{ inserted: number; skipped: number }, Error>>;
+
+  /**
+   * Reset processing status to 'pending' for all raw data for an account.
+   * Used when clearing processed data but keeping raw data for reprocessing.
+   */
+  resetProcessingStatusByAccount(accountId: number): Promise<Result<number, Error>>;
+
+  /**
+   * Reset processing status to 'pending' for all raw data.
+   * Used when clearing all processed data but keeping raw data for reprocessing.
+   */
+  resetProcessingStatusAll(): Promise<Result<number, Error>>;
+
+  /**
+   * Count all raw data.
+   */
+  countAll(): Promise<Result<number, Error>>;
+
+  /**
+   * Count raw data by account IDs.
+   */
+  countByAccount(accountIds: number[]): Promise<Result<number, Error>>;
+
+  /**
+   * Delete all raw data for an account.
+   */
+  deleteByAccount(accountId: number): Promise<Result<number, Error>>;
+
+  /**
+   * Delete all raw data.
+   */
+  deleteAll(): Promise<Result<number, Error>>;
+}
 
 /**
  * Kysely-based repository for raw data database operations.
@@ -22,7 +93,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     super(db, 'RawDataRepository');
   }
 
-  async load(filters?: LoadRawDataFilters): Promise<Result<ExternalTransactionData[], Error>> {
+  async load(filters?: LoadRawDataFilters): Promise<Result<RawTransaction[], Error>> {
     try {
       let query = this.db.selectFrom('external_transaction_data').selectAll();
 
@@ -49,9 +120,9 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       const rows = await query.execute();
 
       // Convert rows to domain models, failing fast on any parse errors
-      const transactions: ExternalTransactionData[] = [];
+      const transactions: RawTransaction[] = [];
       for (const row of rows) {
-        const result = this.toExternalTransactionData(row);
+        const result = this.toRawTransaction(row);
         if (result.isErr()) {
           return err(result.error);
         }
@@ -88,13 +159,13 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async save(accountId: number, item?: ExternalTransaction): Promise<Result<number, Error>> {
+  async save(accountId: number, item?: RawTransactionInput): Promise<Result<number, Error>> {
     if (!item) {
       return err(new Error('Raw data cannot be null or undefined'));
     }
 
     // Validate external transaction before saving
-    const validationResult = ExternalTransactionSchema.safeParse(item);
+    const validationResult = RawTransactionInputSchema.safeParse(item);
     if (!validationResult.success) {
       return err(new Error(`Invalid external transaction: ${validationResult.error.message}`));
     }
@@ -143,7 +214,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
   async saveBatch(
     accountId: number,
-    items: ExternalTransaction[]
+    items: RawTransactionInput[]
   ): Promise<Result<{ inserted: number; skipped: number }, Error>> {
     if (items.length === 0) {
       return ok({ inserted: 0, skipped: 0 });
@@ -156,7 +227,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       }
 
       // Validate external transaction structure
-      const validationResult = ExternalTransactionSchema.safeParse(item);
+      const validationResult = RawTransactionInputSchema.safeParse(item);
       if (!validationResult.success) {
         return err(new Error(`Invalid external transaction in batch: ${validationResult.error.message}`));
       }
@@ -301,10 +372,10 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
   }
 
   /**
-   * Convert database row to ExternalTransactionData domain model
+   * Convert database row to RawTransaction domain model
    * Handles JSON parsing and camelCase conversion
    */
-  private toExternalTransactionData(row: StoredRawData): Result<ExternalTransactionData, Error> {
+  private toRawTransaction(row: Selectable<RawTransactionTable>): Result<RawTransaction, Error> {
     const rawDataResult = this.parseJson<unknown>(row.raw_data);
     const normalizedDataResult = this.parseJson<unknown>(row.normalized_data);
 

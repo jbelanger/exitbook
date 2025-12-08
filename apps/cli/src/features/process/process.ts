@@ -5,8 +5,9 @@ import {
   TransactionRepository,
   TokenMetadataRepository,
   AccountRepository,
+  RawDataRepository,
 } from '@exitbook/data';
-import { TransactionProcessService, RawDataRepository, TokenMetadataService } from '@exitbook/ingestion';
+import { TransactionProcessService, TokenMetadataService } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
 import { ExitCodes } from '../shared/exit-codes.js';

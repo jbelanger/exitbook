@@ -9,11 +9,10 @@
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ImportSession } from '@exitbook/core';
-import type { AccountRepository, UserRepository } from '@exitbook/data';
+import type { AccountRepository, IImportSessionRepository, IRawDataRepository, UserRepository } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { IImportSessionRepository, IRawDataRepository } from '../../types/repositories.js';
 import { ImportOrchestrator } from '../import-orchestrator.js';
 
 // Mock logger

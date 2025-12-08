@@ -1,10 +1,14 @@
 import type { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import type { Account } from '@exitbook/core';
-import type { AccountRepository, TransactionRepository, UserRepository } from '@exitbook/data';
+import type {
+  AccountRepository,
+  IImportSessionRepository,
+  IRawDataRepository,
+  TransactionRepository,
+  UserRepository,
+} from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
-
-import type { IImportSessionRepository, IRawDataRepository } from '../types/repositories.js';
 
 import type { ClearServiceParams, DeletionPreview, ResolvedAccount } from './clear-service-utils.js';
 import {

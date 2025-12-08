@@ -7,14 +7,19 @@ import type {
   UniversalTransactionData,
   VerificationMetadata,
 } from '@exitbook/core';
-import type { AccountRepository, TokenMetadataRepository, TransactionRepository, UserRepository } from '@exitbook/data';
+import type {
+  AccountRepository,
+  IImportSessionRepository,
+  TokenMetadataRepository,
+  TransactionRepository,
+  UserRepository,
+} from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchanges-providers';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import { getBlockchainAdapter } from '../../infrastructure/blockchains/index.js';
-import type { IImportSessionRepository } from '../../types/repositories.js';
 
 import { calculateBalances } from './balance-calculator.js';
 import {

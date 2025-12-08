@@ -1,13 +1,12 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { ExchangeCredentials, ImportSession } from '@exitbook/core';
-import type { AccountRepository, UserRepository } from '@exitbook/data';
+import type { AccountRepository, IImportSessionRepository, IRawDataRepository, UserRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
-import type { IImportSessionRepository, IRawDataRepository } from '../types/repositories.js';
 
 import { TransactionImportService } from './import-service.js';
 

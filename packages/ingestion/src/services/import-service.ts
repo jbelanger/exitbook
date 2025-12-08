@@ -1,6 +1,6 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ImportSession, SourceType } from '@exitbook/core';
-import type { AccountRepository } from '@exitbook/data';
+import type { AccountRepository, IImportSessionRepository, IRawDataRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import { progress } from '@exitbook/ui';
@@ -10,7 +10,6 @@ import { err, ok, okAsync } from 'neverthrow';
 import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
 import { createExchangeImporter } from '../infrastructure/exchanges/shared/exchange-importer-factory.js';
 import type { IImporter, ImportParams } from '../types/importers.js';
-import type { IImportSessionRepository, IRawDataRepository } from '../types/repositories.js';
 
 import { normalizeBlockchainImportParams } from './import-service-utils.js';
 

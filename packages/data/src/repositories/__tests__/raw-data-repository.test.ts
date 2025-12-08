@@ -1,8 +1,6 @@
 /* eslint-disable unicorn/no-null -- needed for db */
-import { createDatabase, runMigrations, type KyselyDB } from '@exitbook/data';
+import { createDatabase, RawDataRepository, runMigrations, type KyselyDB } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import { RawDataRepository } from '../raw-data-repository.js';
 
 describe('RawDataRepository', () => {
   let db: KyselyDB;

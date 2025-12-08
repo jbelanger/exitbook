@@ -1,11 +1,11 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { PaginationCursor } from '@exitbook/core';
+import type { IImportSessionRepository, IRawDataRepository } from '@exitbook/data';
 import type { IExchangeClient, BalanceSnapshot } from '@exitbook/exchanges-providers';
 import { errAsync, ok } from 'neverthrow';
 import { vi, type Mocked } from 'vitest';
 
 import type { ITokenMetadataService } from '../../services/token-metadata/token-metadata-service.interface.js';
-import type { IRawDataRepository, IImportSessionRepository } from '../../types/repositories.js';
 
 /**
  * Creates a mock raw data repository with default implementations.

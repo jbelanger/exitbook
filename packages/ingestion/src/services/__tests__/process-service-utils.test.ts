@@ -1,4 +1,4 @@
-import type { ExternalTransactionData } from '@exitbook/core';
+import type { RawTransaction } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { extractUniqueAccountIds } from '../process-service-utils.js';
@@ -6,7 +6,7 @@ import { extractUniqueAccountIds } from '../process-service-utils.js';
 describe('process-service-utils', () => {
   describe('extractUniqueAccountIds', () => {
     it('should extract unique account IDs', () => {
-      const rawData: ExternalTransactionData[] = [
+      const rawData: RawTransaction[] = [
         {
           id: 1,
           accountId: 1,

@@ -120,7 +120,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
             }
 
             // Process items inline - validate and transform each ledger entry
-            const transactions: import('@exitbook/core').ExternalTransaction[] = [];
+            const transactions: import('@exitbook/core').RawTransactionInput[] = [];
             let lastCursorState: import('@exitbook/core').CursorState | undefined;
             let validationError: Error | undefined;
 

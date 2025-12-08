@@ -1,5 +1,5 @@
 import { getErrorMessage } from '@exitbook/core';
-import type { AccountRepository, ITransactionRepository } from '@exitbook/data';
+import type { AccountRepository, IRawDataRepository, ITransactionRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import { progress } from '@exitbook/ui';
@@ -9,7 +9,6 @@ import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
 import { createExchangeProcessor } from '../infrastructure/exchanges/shared/exchange-processor-factory.js';
 import type { ITokenMetadataService } from '../services/token-metadata/token-metadata-service.interface.js';
 import type { ProcessingContext, ProcessResult } from '../types/processors.js';
-import type { IRawDataRepository } from '../types/repositories.js';
 
 import { extractUniqueAccountIds } from './process-service-utils.js';
 

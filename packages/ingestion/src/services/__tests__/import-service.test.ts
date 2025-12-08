@@ -9,11 +9,10 @@
 
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, AccountType, CursorState, ImportSession } from '@exitbook/core';
-import type { AccountRepository } from '@exitbook/data';
+import type { AccountRepository, IImportSessionRepository, IRawDataRepository } from '@exitbook/data';
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { IImportSessionRepository, IRawDataRepository } from '../../types/repositories.js';
 import { TransactionImportService } from '../import-service.js';
 
 // Helper to create mock accounts

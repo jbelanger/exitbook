@@ -81,7 +81,7 @@ async function main() {
         // TODO: Implement proper Kysely stats queries
         const stats = {
           totalSources: 0,
-          totalExternalTransactions: 0,
+          totalRawTransactions: 0,
           totalImportSessions: 0,
           totalTransactions: 0,
           transactionsBySource: [],

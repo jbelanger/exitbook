@@ -6,10 +6,10 @@
 import type { EvmTransaction, TransactionWithRawData } from '@exitbook/blockchain-providers';
 import { describe, expect, test } from 'vitest';
 
-import { mapToExternalTransactions } from '../evm-importer-utils.js';
+import { mapToRawTransactions } from '../evm-importer-utils.js';
 
 describe('evm-importer-utils', () => {
-  describe('mapToExternalTransactions', () => {
+  describe('mapToRawTransactions', () => {
     test('should map normal transactions correctly', () => {
       const transactions: TransactionWithRawData<EvmTransaction>[] = [
         {
@@ -29,7 +29,7 @@ describe('evm-importer-utils', () => {
         },
       ];
 
-      const result = mapToExternalTransactions(transactions, 'alchemy', '0xsource', 'normal');
+      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'normal');
 
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
@@ -62,7 +62,7 @@ describe('evm-importer-utils', () => {
         },
       ];
 
-      const result = mapToExternalTransactions(transactions, 'moralis', '0xsource', 'internal');
+      const result = mapToRawTransactions(transactions, 'moralis', '0xsource', 'internal');
 
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
@@ -94,7 +94,7 @@ describe('evm-importer-utils', () => {
         },
       ];
 
-      const result = mapToExternalTransactions(transactions, 'alchemy', '0xsource', 'token');
+      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'token');
 
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
@@ -107,7 +107,7 @@ describe('evm-importer-utils', () => {
     });
 
     test('should handle empty array', () => {
-      const result = mapToExternalTransactions([], 'alchemy', '0xsource', 'normal');
+      const result = mapToRawTransactions([], 'alchemy', '0xsource', 'normal');
 
       expect(result).toHaveLength(0);
     });
@@ -161,7 +161,7 @@ describe('evm-importer-utils', () => {
         },
       ];
 
-      const result = mapToExternalTransactions(transactions, 'alchemy', '0xsource', 'normal');
+      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'normal');
 
       expect(result).toHaveLength(3);
       expect((result[0]!.normalizedData as EvmTransaction).id).toBe('0x111');
@@ -206,7 +206,7 @@ describe('evm-importer-utils', () => {
         },
       ];
 
-      const result = mapToExternalTransactions(transactions, 'alchemy', '0xsource', 'normal');
+      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'normal');
 
       expect(result[0]!.externalId).toBeDefined();
       expect(result[1]!.externalId).toBeDefined();
@@ -243,7 +243,7 @@ describe('evm-importer-utils', () => {
         },
       ];
 
-      const result = mapToExternalTransactions(transactions, 'alchemy', '0xsource', 'normal');
+      const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'normal');
 
       expect(result[0]!.rawData).toEqual(rawData);
     });

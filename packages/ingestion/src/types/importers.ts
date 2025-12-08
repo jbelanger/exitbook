@@ -1,4 +1,4 @@
-import type { CursorState, ExternalTransaction } from '@exitbook/core';
+import type { CursorState, RawTransactionInput } from '@exitbook/core';
 import type { ExchangeCredentials } from '@exitbook/exchanges-providers';
 import type { Result } from 'neverthrow';
 
@@ -15,7 +15,7 @@ export interface ImportParams {
  */
 export interface ImportBatchResult {
   // Successfully fetched and validated transactions in this batch
-  rawTransactions: ExternalTransaction[];
+  rawTransactions: RawTransactionInput[];
   // Operation type (e.g., "normal", "internal", "token" for blockchains, "ledger", "trade" for exchanges)
   operationType: string;
   // Cursor state for this specific operation type
@@ -26,7 +26,7 @@ export interface ImportBatchResult {
 
 export interface ImportRunResult {
   // Successfully fetched and validated transactions
-  rawTransactions: ExternalTransaction[];
+  rawTransactions: RawTransactionInput[];
   // Map of cursor states per operation type for resumption
   // e.g., { "ledger": {...}, "trade": {...} } for exchanges
   // e.g., { "normal": {...}, "internal": {...}, "token": {...} } for blockchains

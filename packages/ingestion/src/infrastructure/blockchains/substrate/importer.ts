@@ -94,7 +94,7 @@ export class SubstrateImporter implements IImporter {
       const transactionsWithRaw = providerBatch.data;
 
       // Map to external transactions
-      const externalTransactions = transactionsWithRaw.map((txWithRaw) => ({
+      const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
         externalId: generateUniqueTransactionId({
           amount: txWithRaw.normalized.amount,
           currency: txWithRaw.normalized.currency,
@@ -112,7 +112,7 @@ export class SubstrateImporter implements IImporter {
       }));
 
       yield ok({
-        rawTransactions: externalTransactions,
+        rawTransactions: rawTransactions,
         operationType: 'normal',
         cursor: providerBatch.cursor,
         isComplete: providerBatch.cursor.metadata?.isComplete ?? false,
