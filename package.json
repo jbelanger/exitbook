@@ -65,10 +65,5 @@
   "engines": {
     "node": ">=23.0.0",
     "pnpm": ">=10.6.2"
-  },
-  "pnpm": {
-    "overrides": {
-      "@exitbook/ui": "link:packages/ui"
-    }
   }
 }

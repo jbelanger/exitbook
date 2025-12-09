@@ -1,4 +1,3 @@
-import * as p from '@clack/prompts';
 import { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import {
   closeDatabase,
@@ -12,7 +11,6 @@ import {
 } from '@exitbook/data';
 import { ImportOrchestrator, TransactionProcessService, TokenMetadataService } from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
-import { createClackEmitter, runWithProgress, type ProgressEmitter } from '@exitbook/ui';
 import type { Command } from 'commander';
 
 import { resolveCommandParams, unwrapResult } from '../shared/command-execution.js';
@@ -38,12 +36,6 @@ interface ImportCommandResult {
   processed?: number | undefined;
   processingErrors?: string[] | undefined;
 }
-
-const silentProgressEmitter: ProgressEmitter = {
-  emit: () => {
-    // Intentionally noop for JSON output mode
-  },
-};
 
 /**
  * Register the import command.
@@ -87,6 +79,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 
   const options = validationResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
+  const spinner = output.spinner();
 
   try {
     const params = await resolveCommandParams({
@@ -99,14 +92,15 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       promptFn: promptForImportParams,
     });
 
-    // Configure logger
-    configureLogger({
-      mode: options.json ? 'json' : 'text',
-      verbose: false, // TODO: Add --verbose flag support
-    });
+    if (spinner) {
+      spinner.start(`Importing from ${params.sourceName}...`);
+    } else {
+      configureLogger({
+        mode: options.json ? 'json' : 'text',
+        verbose: false, // TODO: Add --verbose flag support
+      });
+    }
 
-    // Create UI emitter and run with progress context
-    const emitter = options.json ? silentProgressEmitter : createClackEmitter();
     const database = await initializeDatabase();
 
     // Initialize repositories
@@ -140,34 +134,30 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
     const handler = new ImportHandler(importOrchestrator, processService, providerManager);
 
     try {
-      const result = await runWithProgress(emitter, async () => {
-        // Add warning callback for single address imports (only in interactive mode)
-        const paramsWithCallback = {
-          ...params,
-          onSingleAddressWarning: !options.json
-            ? async () => {
-                p.log.warning('⚠️  Single address import (incomplete wallet view)');
-                p.log.message('');
-                p.log.message('Single address tracking has limitations:');
-                p.log.message('  • Cannot distinguish internal transfers from external sends');
-                p.log.message('  • Change to other addresses will appear as withdrawals');
-                p.log.message('  • Multi-address transactions may show incorrect amounts');
-                p.log.message('');
-                p.log.message('For complete wallet tracking, use xpub instead:');
-                p.log.message(
-                  `  $ exitbook import --blockchain ${params.sourceName} --address xpub... [--xpub-gap 20]`
-                );
-                p.log.message('');
-                p.log.message('Note: xpub imports reveal all wallet addresses (privacy trade-off)');
-                p.log.message('');
+      // Add warning callback for single address imports (only in interactive mode)
+      const paramsWithCallback = {
+        ...params,
+        onSingleAddressWarning: !options.json
+          ? async () => {
+              output.warn('⚠️  Single address import (incomplete wallet view)');
+              output.log('');
+              output.log('Single address tracking has limitations:');
+              output.log('  • Cannot distinguish internal transfers from external sends');
+              output.log('  • Change to other addresses will appear as withdrawals');
+              output.log('  • Multi-address transactions may show incorrect amounts');
+              output.log('');
+              output.log('For complete wallet tracking, use xpub instead:');
+              output.log(`  $ exitbook import --blockchain ${params.sourceName} --address xpub... [--xpub-gap 20]`);
+              output.log('');
+              output.log('Note: xpub imports reveal all wallet addresses (privacy trade-off)');
+              output.log('');
 
-                return await promptConfirm('Continue with single address import?', false);
-              }
-            : undefined,
-        };
+              return await promptConfirm('Continue with single address import?', false);
+            }
+          : undefined,
+      };
 
-        return await handler.execute(paramsWithCallback);
-      });
+      const result = await handler.execute(paramsWithCallback);
 
       // Cleanup
       handler.destroy();
@@ -175,11 +165,13 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       resetLoggerContext();
 
       if (result.isErr()) {
+        spinner?.stop('Import failed');
         output.error('import', result.error, ExitCodes.GENERAL_ERROR);
         return;
       }
 
       const summary = handleImportSuccess(output, result.value);
+      spinner?.stop('Import complete');
       if (output.isTextMode() && summary) {
         output.outro(summary);
       }
@@ -187,10 +179,12 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       handler.destroy();
       await closeDatabase(database);
       resetLoggerContext();
+      spinner?.stop('Import failed');
       output.error('import', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
     }
   } catch (error) {
     resetLoggerContext();
+    spinner?.stop('Import failed');
     output.error('import', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }

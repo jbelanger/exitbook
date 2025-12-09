@@ -32,7 +32,6 @@
     "@exitbook/ingestion": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/price-providers": "workspace:*",
-    "@exitbook/ui": "workspace:*",
     "commander": "^14.0.0",
     "neverthrow": "^8.2.0",
     "picocolors": "^1.1.1",

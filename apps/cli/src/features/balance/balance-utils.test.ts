@@ -3,97 +3,13 @@ import type { ImportSession, UniversalTransactionData } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  buildBalanceParamsFromFlags,
   decimalRecordToStringRecord,
   findMostRecentCompletedSession,
   getExchangeCredentialsFromEnv,
   sortSessionsByCompletedDate,
   subtractExcludedAmounts,
   sumExcludedInflowAmounts,
-  type BalanceCommandOptions,
 } from './balance-utils.js';
-
-describe('buildBalanceParamsFromFlags', () => {
-  // Note: Validation tests removed - validation now handled by BalanceCommandOptionsSchema at CLI boundary
-  // Tests below assume options are already validated by Zod
-
-  it('should build exchange params without credentials', () => {
-    const options: BalanceCommandOptions = {
-      exchange: 'kraken',
-    };
-    const result = buildBalanceParamsFromFlags(options);
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value).toEqual({
-        sourceType: 'exchange',
-        sourceName: 'kraken',
-        credentials: undefined,
-      });
-    }
-  });
-
-  it('should build exchange params with credentials', () => {
-    const options: BalanceCommandOptions = {
-      exchange: 'kucoin',
-      apiKey: 'test-key',
-      apiSecret: 'test-secret',
-      apiPassphrase: 'test-passphrase',
-    };
-    const result = buildBalanceParamsFromFlags(options);
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value).toEqual({
-        sourceType: 'exchange',
-        sourceName: 'kucoin',
-        credentials: {
-          apiKey: 'test-key',
-          apiSecret: 'test-secret',
-          apiPassphrase: 'test-passphrase',
-        },
-      });
-    }
-  });
-
-  it('should build exchange params with credentials without passphrase', () => {
-    const options: BalanceCommandOptions = {
-      exchange: 'kraken',
-      apiKey: 'test-key',
-      apiSecret: 'test-secret',
-    };
-    const result = buildBalanceParamsFromFlags(options);
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value).toEqual({
-        sourceType: 'exchange',
-        sourceName: 'kraken',
-        credentials: {
-          apiKey: 'test-key',
-          apiSecret: 'test-secret',
-        },
-      });
-    }
-  });
-
-  it('should build blockchain params with address', () => {
-    const options: BalanceCommandOptions = {
-      blockchain: 'bitcoin',
-      address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-    };
-    const result = buildBalanceParamsFromFlags(options);
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value).toEqual({
-        sourceType: 'blockchain',
-        sourceName: 'bitcoin',
-        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-      });
-    }
-  });
-});
 
 describe('getExchangeCredentialsFromEnv', () => {
   const originalEnv = process.env;

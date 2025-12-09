@@ -43,7 +43,6 @@
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
     "@exitbook/exchanges-providers": "workspace:*",
-    "@exitbook/logger": "workspace:*",
-    "@exitbook/ui": "workspace:*"
+    "@exitbook/logger": "workspace:*"
   }
 }

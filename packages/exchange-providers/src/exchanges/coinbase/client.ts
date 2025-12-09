@@ -1,7 +1,6 @@
 import type { ExchangeCredentials, TransactionStatus } from '@exitbook/core';
 import { getErrorMessage, parseDecimal, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { progress } from '@exitbook/ui';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -160,7 +159,6 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
 
               if (!accountId) {
                 logger.warn({ account }, 'Skipping Coinbase account without ID');
-                progress.warn('Skipping Coinbase account without ID');
                 accountIndex++;
                 continue;
               }
@@ -425,9 +423,8 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                 pageCount++;
 
                 // Report progress
-                progress.update(
-                  `Account ${accountIndex + 1}/${accounts.length} (${accountId}): page ${pageCount}`,
-                  cumulativeFetched
+                logger.info(
+                  `Account ${accountIndex + 1}/${accounts.length} (${accountId}): page ${pageCount} - ${cumulativeFetched} transactions`
                 );
 
                 // Update cursor with cumulative totalFetched

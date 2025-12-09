@@ -290,7 +290,7 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Proce
  */
 export function convertKucoinWithdrawalToTransaction(row: CsvDepositWithdrawalRow): ProcessedTransaction {
   const timestamp = new Date(row['Time(UTC)']).getTime();
-  const grossAmount = parseDecimal(row.Amount);
+  const grossAmount = parseDecimal(row.Amount).abs();
   const fee = parseDecimal(row.Fee ?? '0');
   const platformFee = { amount: fee, asset: row.Coin };
 

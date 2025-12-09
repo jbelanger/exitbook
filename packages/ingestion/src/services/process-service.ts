@@ -2,7 +2,6 @@ import { getErrorMessage } from '@exitbook/core';
 import type { AccountRepository, IRawDataRepository, ITransactionRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
-import { progress } from '@exitbook/ui';
 import { err, ok, Result } from 'neverthrow';
 
 import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
@@ -229,7 +228,7 @@ export class TransactionProcessService {
         processor = processorResult.value;
       }
 
-      progress.update('Transforming transactions...');
+      this.logger.info('Transforming transactions...');
 
       // Process raw data into universal transactions
       const transactionsResult = await processor.process(normalizedRawDataItems, processingContext);
@@ -249,7 +248,7 @@ export class TransactionProcessService {
       this.logger.debug(`Processed ${transactions.length} transactions for account ${accountId}`);
 
       // Save transactions to database
-      progress.update(`Saving ${transactions.length} processed transactions...`);
+      this.logger.info(`Saving ${transactions.length} processed transactions...`);
       const saveResults = await Promise.all(
         transactions.map((transaction) => this.transactionRepository.save(transaction, accountId))
       );

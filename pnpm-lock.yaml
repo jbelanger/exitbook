@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@exitbook/ui': link:packages/ui
-
 importers:
 
   .:
@@ -102,9 +99,6 @@ importers:
       '@exitbook/price-providers':
         specifier: workspace:*
         version: link:../../packages/price-providers
-      '@exitbook/ui':
-        specifier: link:../../packages/ui
-        version: link:../../packages/ui
       commander:
         specifier: ^14.0.0
         version: 14.0.1
@@ -200,9 +194,6 @@ importers:
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
-      '@exitbook/ui':
-        specifier: link:../ui
-        version: link:../ui
       '@polkadot/util':
         specifier: ^13.5.7
         version: 13.5.7
@@ -345,9 +336,6 @@ importers:
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
-      '@exitbook/ui':
-        specifier: link:../ui
-        version: link:../ui
       ccxt:
         specifier: ^4.5.10
         version: 4.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10)
@@ -407,9 +395,6 @@ importers:
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
-      '@exitbook/ui':
-        specifier: link:../ui
-        version: link:../ui
       csv-parse:
         specifier: ^6.1.0
         version: 6.1.0

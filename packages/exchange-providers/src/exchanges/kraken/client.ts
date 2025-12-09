@@ -1,6 +1,6 @@
 import type { ExchangeCredentials } from '@exitbook/core';
 import { getErrorMessage, wrapError } from '@exitbook/core';
-import { progress } from '@exitbook/ui';
+import { getLogger } from '@exitbook/logger';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -10,6 +10,8 @@ import { ExchangeLedgerEntrySchema, type ExchangeLedgerEntry } from '../../core/
 import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../core/types.js';
 
 import { KrakenCredentialsSchema, KrakenLedgerEntrySchema } from './schemas.js';
+
+const logger = getLogger('KrakenClient');
 
 /**
  * Normalize Kraken asset symbols by removing X/Z prefixes.
@@ -215,13 +217,13 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
               pageCount++;
 
               // Log every page for debugging
-              progress.log(
+              logger.info(
                 `Fetched Kraken page ${pageCount}: ${transactions.length} transactions (${cumulativeFetched} total)`
               );
 
               // Report progress every 10 pages
               if (pageCount % 10 === 0) {
-                progress.update(`Processed ${pageCount} pages`, cumulativeFetched);
+                logger.info(`Processed ${pageCount} pages (${cumulativeFetched} transactions so far)`);
               }
 
               // Check if this is the last page

@@ -24,7 +24,7 @@ describe('KucoinCsvImporter - Metadata', () => {
     mockReaddir.mockResolvedValue(['Spot Orders_Filled Orders.csv'] as unknown as Dirent<Buffer<ArrayBufferLike>>[]);
 
     const csvContent = `UID,Account Type,Order ID,Order Time(UTC),Symbol,Side,Order Type,Order Price,Order Amount,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Fee Currency,Tax,Status
-user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1,42000.00,0.1,4200.00,4200.00,2024-01-01 10:01:00,0.42,USDT,,deal`;
+user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1,42000.00,0.1,4200.00,4200.00,2024-01-01 10:01:00,0.42,USDT,,deal`;
 
     mockReadFile.mockResolvedValue(csvContent);
 
@@ -48,7 +48,7 @@ user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00
     mockReaddir.mockResolvedValue(['Spot Orders_Filled Orders.csv'] as unknown as Dirent<Buffer<ArrayBufferLike>>[]);
 
     const csvContent = `UID,Account Type,Order ID,Order Time(UTC),Symbol,Side,Order Type,Order Price,Order Amount,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Fee Currency,Tax,Status
-user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1,42000.00,0.1,4200.00,4200.00,2024-01-01 10:01:00,0.42,USDT,,deal`;
+user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1,42000.00,0.1,4200.00,4200.00,2024-01-01 10:01:00,0.42,USDT,,deal`;
 
     mockReadFile.mockResolvedValue(csvContent);
 
@@ -90,7 +90,7 @@ describe('KucoinCsvImporter - Transaction Type Metadata', () => {
     mockReaddir.mockResolvedValue(['Spot Orders_Filled Orders.csv'] as unknown as Dirent<Buffer<ArrayBufferLike>>[]);
 
     const csvContent = `UID,Account Type,Order ID,Order Time(UTC),Symbol,Side,Order Type,Order Price,Order Amount,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Fee Currency,Tax,Status
-user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1,42000.00,0.1,4200.00,4200.00,2024-01-01 10:01:00,0.42,USDT,,deal`;
+user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1,42000.00,0.1,4200.00,4200.00,2024-01-01 10:01:00,0.42,USDT,,deal`;
 
     mockReadFile.mockResolvedValue(csvContent);
 
@@ -128,7 +128,7 @@ describe('KucoinCsvImporter - Row Type Marking', () => {
     mockReaddir.mockResolvedValue(['Spot Orders_Filled Orders.csv'] as unknown as Dirent<Buffer<ArrayBufferLike>>[]);
 
     const csvContent = `UID,Account Type,Order ID,Order Time(UTC),Symbol,Side,Order Type,Order Price,Order Amount,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Fee Currency,Tax,Status
-user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1,42000.00,0.1,4200.00,4200.00,2024-01-01 10:01:00,0.42,USDT,,deal`;
+user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1,42000.00,0.1,4200.00,4200.00,2024-01-01 10:01:00,0.42,USDT,,deal`;
 
     mockReadFile.mockResolvedValue(csvContent);
 
@@ -141,7 +141,8 @@ user123,Trading Account,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    const rawData = result.value.rawTransactions[0]?.providerData as Record<string, unknown>;
-    expect(rawData._rowType).toBe('spot_order');
+    expect(result.value.rawTransactions).toHaveLength(1);
+    const rawData = result.value.rawTransactions[0]?.providerData as Record<string, unknown> | undefined;
+    expect(rawData?._rowType).toBe('spot_order');
   });
 });

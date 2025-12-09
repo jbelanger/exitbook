@@ -6,7 +6,7 @@ import {
 import type { ImportSession } from '@exitbook/core';
 import type { ImportOrchestrator, ImportParams, TransactionProcessService } from '@exitbook/ingestion';
 import { getBlockchainAdapter } from '@exitbook/ingestion';
-import { progress } from '@exitbook/ui';
+import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
 // Initialize all providers at startup
@@ -32,6 +32,7 @@ export interface ImportResult {
  * Reusable by both CLI command and other contexts.
  */
 export class ImportHandler {
+  private readonly logger = getLogger('ImportHandler');
   private providerManager: BlockchainProviderManager;
 
   constructor(
@@ -49,7 +50,7 @@ export class ImportHandler {
    */
   async execute(params: ImportParams): Promise<Result<ImportResult, Error>> {
     try {
-      progress.start(`Importing from ${params.sourceName}`);
+      this.logger.info(`Importing from ${params.sourceName}`);
 
       // Call appropriate orchestrator method based on source type
       let importResult: Result<ImportSession | ImportSession[], Error>;
@@ -106,7 +107,7 @@ export class ImportHandler {
       // Process data if requested
       if (params.shouldProcess) {
         const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
-        progress.update(`Processing ${totalImported} transactions...`);
+        this.logger.info(`Processing ${totalImported} transactions...`);
         const processResult = await this.processService.processAllPending();
 
         if (processResult.isErr()) {

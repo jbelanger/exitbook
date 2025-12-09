@@ -3,7 +3,6 @@ import type { Account, ImportSession } from '@exitbook/core';
 import type { AccountRepository, IImportSessionRepository, IRawDataRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
-import { progress } from '@exitbook/ui';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -171,7 +170,7 @@ export class TransactionImportService {
         const legacyData = legacyResult.value;
 
         // Save all transactions in one batch
-        progress.update(`Saving ${legacyData.rawTransactions.length} transactions...`);
+        this.logger.info(`Saving ${legacyData.rawTransactions.length} transactions...`);
         const saveResult = await this.rawDataRepository.saveBatch(account.id, legacyData.rawTransactions);
 
         if (saveResult.isErr()) {
@@ -231,7 +230,7 @@ export class TransactionImportService {
         const batch = batchResult.value;
 
         // Save batch to database
-        progress.update(`Saving ${batch.rawTransactions.length} ${batch.operationType} transactions...`);
+        this.logger.info(`Saving ${batch.rawTransactions.length} ${batch.operationType} transactions...`);
         const saveResult = await this.rawDataRepository.saveBatch(account.id, batch.rawTransactions);
 
         if (saveResult.isErr()) {

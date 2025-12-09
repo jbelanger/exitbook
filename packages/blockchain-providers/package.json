@@ -59,7 +59,6 @@
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
     "@exitbook/http": "workspace:*",
-    "@exitbook/logger": "workspace:*",
-    "@exitbook/ui": "workspace:*"
+    "@exitbook/logger": "workspace:*"
   }
 }

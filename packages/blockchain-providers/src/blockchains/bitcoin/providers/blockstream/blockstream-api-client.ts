@@ -1,6 +1,5 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
-import { progress } from '@exitbook/ui';
 import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
@@ -219,7 +218,7 @@ export class BlockstreamApiClient extends BaseApiClient {
     const { address } = params;
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-    progress.log(`Fetching transactions for ${maskAddress(address)}`, 'BlockstreamAPI');
+    this.logger.info(`Fetching transactions for ${maskAddress(address)}`);
 
     const addressInfoResult = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`, {
       schema: BlockstreamAddressInfoSchema,
@@ -236,7 +235,7 @@ export class BlockstreamApiClient extends BaseApiClient {
 
     if (addressInfo.chain_stats.tx_count === 0 && addressInfo.mempool_stats.tx_count === 0) {
       this.logger.debug(`No raw transactions found for address - Address: ${maskAddress(address)}`);
-      progress.log('No transactions found', 'BlockstreamAPI');
+      this.logger.info('No transactions found');
       return ok([]);
     }
 
@@ -270,11 +269,8 @@ export class BlockstreamApiClient extends BaseApiClient {
       this.logger.debug(
         `Retrieved raw transaction batch - Address: ${maskAddress(address)}, BatchSize: ${rawTransactions.length}, Batch: ${batchCount + 1}`
       );
-      progress.update(
-        `Retrieved batch ${batchCount + 1}`,
-        allTransactions.length + rawTransactions.length,
-        undefined,
-        'BlockstreamAPI'
+      this.logger.info(
+        `Retrieved batch ${batchCount + 1}: ${allTransactions.length + rawTransactions.length} total transactions`
       );
 
       const validRawTransactions = rawTransactions.filter((tx): tx is BlockstreamTransaction => tx !== null);
@@ -303,7 +299,7 @@ export class BlockstreamApiClient extends BaseApiClient {
     this.logger.debug(
       `Successfully retrieved and normalized address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${allTransactions.length}, BatchesProcessed: ${batchCount}`
     );
-    progress.log(`Retrieved ${allTransactions.length} transactions in ${batchCount} batches`, 'BlockstreamAPI');
+    this.logger.info(`Retrieved ${allTransactions.length} transactions in ${batchCount} batches`);
 
     return ok(allTransactions);
   }
