@@ -105,7 +105,7 @@ ccxt-based architecture:
 
 Kysely + SQLite (`apps/cli/data/transactions.db`). Auto-migrations via `initializeDatabase()`.
 
-**Tables:** `import_sessions` (imports), `external_transaction_data` (raw + `processing_status`), `transactions` (universal)
+**Tables:** `import_sessions` (imports), `raw_transactions` (raw + `processing_status`), `transactions` (universal)
 
 **Repositories:** `DataSourceRepository`, `RawDataRepository`, `TransactionRepository`
 

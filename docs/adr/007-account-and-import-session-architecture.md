@@ -49,11 +49,12 @@ The system needs to import cryptocurrency transaction data from multiple sources
 
 ## Decision
 
-Design a three-table architecture that separates user identity, account identity, and import execution:
+Design a multi-table architecture that separates user identity, account identity, and import execution:
 
 1. **`users`**: Who is using the system
-2. **`accounts`**: What accounts are being tracked (persistent identity and state)
+2. **`accounts`**: What accounts are being tracked (persistent identity and state). Supports hierarchical accounts (parent xpub -> child addresses).
 3. **`import_sessions`**: Import execution history (temporal events)
+4. **`raw_transactions`**: Unprocessed transaction data from sources, scoped by account
 
 ### Core Principles
 
@@ -61,20 +62,24 @@ Design a three-table architecture that separates user identity, account identity
    - Accounts = persistent entities ("I have a Kraken account")
    - Import sessions = temporal events ("I ran an import on Jan 15 at 3pm")
 
-2. **One session per import run**:
+2. **Hierarchical Accounts for xpubs**:
+   - Parent account represents the xpub itself
+   - Child accounts represent derived addresses linked via `parent_account_id`
+   - Each child account has its own cursors and import sessions
+
+3. **One session per import run**:
    - Every import creates a new session record
    - Full audit trail of all attempts (success and failure)
 
-3. **Account-level state**:
+4. **Account-level state**:
    - Resume cursors stored on account (survive crashes)
    - Balance verification stored on account (current state)
-   - Derived addresses stored on account (xpub discovery)
 
-4. **Explicit account types**:
+5. **Explicit account types**:
    - Distinguish blockchain vs exchange
    - Distinguish exchange API vs CSV (different identifier semantics)
 
-5. **Tracking vs ownership**:
+6. **Tracking vs ownership**:
    - User's accounts: `user_id` NOT NULL
    - External tracking: `user_id` NULL (investigation use case)
 
@@ -103,22 +108,26 @@ CREATE TABLE users (
 CREATE TABLE accounts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NULLABLE REFERENCES users(id),  -- NULL = tracking only
+  parent_account_id INTEGER NULLABLE REFERENCES accounts(id), -- For derived addresses (xpub child accounts)
+
   account_type TEXT NOT NULL,  -- 'blockchain' | 'exchange-api' | 'exchange-csv'
   source_name TEXT NOT NULL,   -- 'kraken', 'bitcoin', 'ethereum', etc.
-  identifier TEXT NULLABLE,    -- address/xpub for blockchain, apiKey for api, NULL for csv
+  identifier TEXT NOT NULL,    -- address/xpub/apiKey or stable string logic
   provider_name TEXT,          -- preferred provider for blockchain imports
-  derived_addresses TEXT,      -- JSON array for xpub wallets, NULL otherwise
+
+  credentials TEXT,            -- JSON: ExchangeCredentials (apiKey, apiSecret, etc.) - for exchange-api
   last_cursor TEXT,            -- JSON: Record<operationType, CursorState>
   last_balance_check_at TEXT,
   verification_metadata TEXT,  -- JSON
+
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT,
 
-  -- One account per (type, source, identifier, user) combination
+  -- Constraint: One account per (type, source, identifier, user) combination
   CONSTRAINT idx_accounts_unique UNIQUE (
     account_type,
     source_name,
-    COALESCE(identifier, ''),
+    identifier,
     COALESCE(user_id, 0)
   )
 );
@@ -131,36 +140,21 @@ CREATE TABLE accounts (
 - **`blockchain`**: Cryptocurrency blockchain address or xpub
   - Examples: Bitcoin bc1q..., Ethereum 0x..., xpub6D4BDPc...
   - Identifier: the address or xpub
-  - One account per address/xpub
+  - **Hierarchy**: If xpub, creates a parent account. Derived addresses become child accounts with `parent_account_id` pointing to the xpub account.
 
 - **`exchange-api`**: Exchange account accessed via API
   - Examples: Kraken API, KuCoin API, Coinbase API
   - Identifier: API key (uniquely identifies the account)
-  - Multiple accounts per exchange (different API keys = different accounts)
+  - Credentials: API Key, Secret, Passphrase stored in `credentials` JSON column
 
 - **`exchange-csv`**: Exchange account accessed via CSV files
   - Examples: Kraken CSV export, KuCoin CSV export
-  - Identifier: NULL (no unique identifier available)
-  - One CSV account per (exchange, user) pair
-
-**Identifier Semantics:**
-
-| Account Type | Identifier      | Example              | Uniqueness            |
-| ------------ | --------------- | -------------------- | --------------------- |
-| blockchain   | address or xpub | "bc1q...", "xpub..." | One per address/xpub  |
-| exchange-api | API key         | "apiKey123..."       | One per API key       |
-| exchange-csv | NULL            | NULL                 | One per exchange+user |
+  - Identifier: Sorted, comma-separated list of CSV directory paths (stable identifier)
 
 **State Fields:**
 
-- **`derived_addresses`**: For xpub imports, stores discovered addresses as JSON array
-  - Example: `["bc1q1...", "bc1q2...", "bc1q3..."]`
-  - Updated when gap check discovers new addresses
-  - NULL for regular (non-xpub) addresses
-
 - **`last_cursor`**: Resume state for streaming imports
   - Format: `Record<operationType, CursorState>` as JSON
-  - Example: `{"normal": {"page": 5, "totalFetched": 500}, "internal": {"page": 2, "totalFetched": 150}}`
   - Updated after each batch during import
   - Enables crash recovery and resumption
 
@@ -189,10 +183,11 @@ CREATE TABLE import_sessions (
 
   -- Session results
   transactions_imported INTEGER NOT NULL DEFAULT 0,
-  transactions_failed INTEGER NOT NULL DEFAULT 0,
+  transactions_skipped INTEGER NOT NULL DEFAULT 0, -- Deduplicated transactions
+
+  -- Error handling
   error_message TEXT,
   error_details TEXT,  -- JSON
-  import_result_metadata TEXT NOT NULL DEFAULT '{}',  -- JSON
 
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT
@@ -201,282 +196,130 @@ CREATE TABLE import_sessions (
 CREATE INDEX idx_import_sessions_account_id ON import_sessions(account_id);
 ```
 
-**Purpose**: Track each import execution as a discrete event
-
-**One Session Per Import:**
-
-- User runs `import --exchange kraken` → creates new session
-- System runs scheduled import → creates new session
-- Resume failed import → creates new session (cursor from account)
-
-**Session States:**
-
-- `started`: Import in progress
-- `completed`: Import finished successfully
-- `failed`: Import encountered an error
-- `cancelled`: User cancelled import
+**Purpose**: Track each import execution as a discrete event. For xpub imports, individual sessions are created for each child account import.
 
 **Result Tracking:**
 
-- `transactions_imported`: How many transactions this session imported
-- `transactions_failed`: How many failed validation
+- `transactions_imported`: How many new transactions this session imported
+- `transactions_skipped`: How many were found but skipped (duplicates)
 - `duration_ms`: How long the import took
 
-**Metadata:**
+### Raw Transactions Table
 
-- `import_result_metadata`: Arbitrary per-run data (provider failovers, warnings, etc.)
-- `error_details`: Stack traces, API responses, debugging context
+```sql
+CREATE TABLE raw_transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+
+  provider_name TEXT NOT NULL,
+
+  -- Transaction identification
+  external_id TEXT NOT NULL,           -- Unique ID from source
+  blockchain_transaction_hash TEXT,    -- On-chain hash (for blockchain)
+
+  source_address TEXT,                 -- For blockchain (wallet address)
+  transaction_type_hint TEXT,          -- For exchange (e.g., 'deposit', 'trade')
+
+  -- Data storage
+  provider_data TEXT NOT NULL,         -- JSON: Raw API response
+  normalized_data TEXT NOT NULL,       -- JSON: Normalized structure
+
+  -- Processing status
+  processing_status TEXT NOT NULL,     -- 'pending' | 'processed' | 'failed' | 'ignored'
+  processed_at TEXT,
+  processing_error TEXT,
+
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+```
+
+**Purpose**: Store unprocessed transaction data from sources. Scoped by account.
 
 ### Data Relationships
 
 ```
-users (1) ──────< accounts (N)
+users (1) ──────< accounts (N) ───────< accounts (N, children)
                       │
                       │ (1)
                       │
                       ├───< import_sessions (N)
-                      │           │
-                      │           │ (1)
-                      │           │
-                      │           └───< external_transaction_data (N)
-                      │                       │
-                      │                       │ (1)
-                      │                       │
-                      └───────────────────────└───< transactions (N)
+                      │
+                      │ (1)
+                      │
+                      └───< raw_transactions (N) ───> processed transactions
 ```
-
-**Query patterns:**
-
-- "Show all my accounts": `SELECT * FROM accounts WHERE user_id = 1`
-- "Show import history for account": `SELECT * FROM import_sessions WHERE account_id = 5`
-- "Which session created this transaction": `JOIN transactions → import_sessions → accounts`
 
 ---
 
 ## Import Flow
 
-### Initial Import
+### Regular Import (API/Single Address)
 
 ```typescript
 // 1. User runs import command
-pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET
+// import --exchange kraken --api-key KEY ...
 
 // 2. System lookups/creates account
 const account = await accountRepo.findOrCreate({
   accountType: 'exchange-api',
   sourceName: 'kraken',
-  identifier: hashApiKey(KEY), // or store API key directly
-  userId: 1 // default CLI user
+  identifier: 'KEY',
+  credentials: { apiKey: 'KEY', apiSecret: '...' },
 });
-// Result: account.id = 5
 
-// 3. System creates import session
-const session = await sessionRepo.create({
-  accountId: account.id,
-  status: 'started'
-});
-// Result: session.id = 10
-
-// 4. System imports data
-const importer = createKrakenImporter(KEY, SECRET);
-for await (const batch of importer.stream()) {
-  // Save transactions to external_transaction_data (session.id = 10)
-  await rawDataRepo.saveBatch(session.id, batch.transactions);
-
-  // Update cursor on account (for crash recovery)
-  await accountRepo.updateCursor(account.id, batch.operationType, batch.cursor);
-}
-
-// 5. System finalizes session
-await sessionRepo.finalize(session.id, {
-  status: 'completed',
-  transactionsImported: 1000,
-  durationMs: 45000
-});
+// 3. System creates a single import session (via ImportService)
+const session = await importService.importFromSource(account);
+// - Creates session (status='started')
+// - Fetches and saves raw_transactions
+// - Updates account.last_cursor
+// - Finalizes session (status='completed')
 ```
 
-**Result:**
-
-- Account #5 created: exchange-api, kraken, apiKey=KEY
-- Session #10 created: account_id=5, imported=1000, status=completed
-- 1000 external_transaction_data records: data_source_id=10
-
-### Incremental Import (Same Account)
+### Xpub Import (Hierarchical)
 
 ```typescript
-// 1. User runs same import command next week
-pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET
+// 1. User runs import command for xpub
+// import --blockchain bitcoin --address xpub...
 
-// 2. System finds existing account
-const account = await accountRepo.findByIdentifier({
-  accountType: 'exchange-api',
-  sourceName: 'kraken',
-  identifier: hashApiKey(KEY)
+// 2. System creates Parent Account
+const parentAccount = await accountRepo.findOrCreate({
+  identifier: 'xpub...',
+  accountType: 'blockchain',
+  ...
 });
-// Result: account.id = 5 (same account!)
 
-// 3. System creates NEW session
-const session = await sessionRepo.create({
-  accountId: account.id,  // Same account
-  status: 'started'
-});
-// Result: session.id = 11 (new session!)
-
-// 4. System imports data (using cursor from account.last_cursor)
-const resumeCursor = account.lastCursor;
-const importer = createKrakenImporter(KEY, SECRET);
-for await (const batch of importer.stream({ cursor: resumeCursor })) {
-  // ... import new data
+// 3. System derives addresses & creates Child Accounts
+const addresses = await provider.deriveAddresses(xpub...);
+const childAccounts = [];
+for (const addr of addresses) {
+  const child = await accountRepo.findOrCreate({
+    parentAccountId: parentAccount.id,
+    identifier: addr,
+    accountType: 'blockchain',
+    ...
+  });
+  childAccounts.push(child);
 }
 
-// 5. System finalizes session
-await sessionRepo.finalize(session.id, {
-  status: 'completed',
-  transactionsImported: 50,  // Only 50 new transactions
-  durationMs: 10000
-});
-```
-
-**Result:**
-
-- Account #5 (unchanged): existing account reused
-- Session #11 created: account_id=5, imported=50, status=completed
-- 50 new external_transaction_data records: data_source_id=11
-
-**History:**
-
-```sql
-SELECT * FROM import_sessions WHERE account_id = 5 ORDER BY started_at;
--- Session #10: Jan 1, imported=1000, completed
--- Session #11: Jan 8, imported=50, completed
-```
-
-### Failed Import with Retry
-
-**Principle**: One session = one user action. Auto-retries and crash recovery reuse the same session.
-
-```typescript
-// 1. User runs import
-pnpm run dev import --exchange kraken --api-key KEY
-
-// 2. Check for incomplete session (crash recovery)
-let session = await sessionRepo.findIncomplete(accountId: 5);
-
-if (!session) {
-  // No incomplete session, create new
-  session = await sessionRepo.create({ accountId: 5 });
-  // Session #12 created
+// 4. System imports each child account individually
+const sessions = [];
+for (const child of childAccounts) {
+  // Delegate to standard import service
+  const session = await importService.importFromSource(child);
+  sessions.push(session);
 }
 
-// 3. Import with automatic retries
-const MAX_RETRIES = 3;
-let retries = 0;
-
-while (retries < MAX_RETRIES) {
-  try {
-    // Import 500 transactions...
-    await importBatch();
-
-    // Update cursor on account after each batch (crash recovery)
-    await accountRepo.updateCursor(5, 'trade', { page: 5, totalFetched: 500 });
-
-    // Success! Continue to next batch...
-
-  } catch (err) {
-    retries++;
-
-    // Track retry in session metadata (not new session)
-    await sessionRepo.updateMetadata(session.id, {
-      retryAttempts: [
-        ...(session.metadata.retryAttempts || []),
-        {
-          attempt: retries,
-          error: err.message,
-          timestamp: new Date().toISOString(),
-          txsImported: 500
-        }
-      ]
-    });
-
-    if (retries >= MAX_RETRIES) {
-      // Max retries exceeded, mark session as failed
-      await sessionRepo.finalize(session.id, {
-        status: 'failed',
-        transactionsImported: 500,
-        errorMessage: `Failed after ${retries} retries: ${err.message}`
-      });
-      throw err;
-    }
-
-    // Wait and retry (same session)
-    await sleep(exponentialBackoff(retries));
-  }
-}
-
-// 4. All batches complete
-await sessionRepo.finalize(session.id, {
-  status: 'completed',
-  transactionsImported: 1000,
-  durationMs: 45000
-});
+// Returns array of sessions
 ```
 
-**Scenarios:**
+### Incremental Import
 
-**Scenario A: Transient network error (auto-retry succeeds)**
+Same flow:
 
-```javascript
-// Session #12 metadata:
-{
-  retryAttempts: [
-    { attempt: 1, error: 'timeout', timestamp: '2025-01-15T10:30:00Z', txsImported: 500 },
-    { attempt: 2, success: true, timestamp: '2025-01-15T10:30:05Z' },
-  ];
-}
-// Session #12 status: completed, imported=1000
-```
-
-Result: One session, retry details in metadata
-
-**Scenario B: Crash mid-import (user restarts)**
-
-```typescript
-// First run: System crashes after 500 transactions
-// Session #12: status='started', imported=500, cursor saved to account
-
-// User restarts import command
-const session = await sessionRepo.findIncomplete(accountId: 5);
-// Found session #12 (incomplete)
-
-// Resume from cursor
-const cursor = await accountRepo.getCursor(5);
-// cursor = { trade: { page: 5, totalFetched: 500 } }
-
-// Continue importing from page 6...
-// Finalize session #12 when done
-```
-
-Result: Same session #12 resumed, no orphaned sessions
-
-**Scenario C: Persistent failure (max retries exceeded)**
-
-```javascript
-// Session #12 metadata:
-{
-  retryAttempts: [
-    { attempt: 1, error: 'API rate limit', timestamp: '...', txsImported: 500 },
-    { attempt: 2, error: 'API rate limit', timestamp: '...', txsImported: 500 },
-    { attempt: 3, error: 'API rate limit', timestamp: '...', txsImported: 500 },
-  ];
-}
-// Session #12 status: failed, error="Failed after 3 retries: API rate limit"
-
-// User manually retries later (new user action = new session)
-const newSession = await sessionRepo.create({ accountId: 5 });
-// Session #13 created
-```
-
-Result: Session #12 failed with retry history, session #13 created for new attempt
+1. Lookup existing account (parent or child).
+2. Create NEW session.
+3. Use `account.last_cursor` to resume fetching.
+4. Save only new transactions to `raw_transactions`.
 
 ---
 
@@ -486,117 +329,31 @@ Result: Session #12 failed with retry history, session #13 created for new attem
 
 **Scenario**: User has personal and business Kraken accounts
 
-```sql
--- Personal account (API)
-INSERT INTO accounts (user_id, account_type, source_name, identifier)
-VALUES (1, 'exchange-api', 'kraken', 'apiKey_personal');
--- account.id = 1
+- Account 1: `identifier`='API_KEY_1', `credentials`={...key1...}
+- Account 2: `identifier`='API_KEY_2', `credentials`={...key2...}
+- Account 3: `identifier`='path/to/csv', `account_type`='exchange-csv'
 
--- Business account (API, different key)
-INSERT INTO accounts (user_id, account_type, source_name, identifier)
-VALUES (1, 'exchange-api', 'kraken', 'apiKey_business');
--- account.id = 2
-
--- Business account (CSV, same exchange)
-INSERT INTO accounts (user_id, account_type, source_name, identifier)
-VALUES (1, 'exchange-csv', 'kraken', NULL);
--- account.id = 3
-
--- Query: Show all Kraken accounts
-SELECT * FROM accounts WHERE source_name = 'kraken' AND user_id = 1;
--- Returns: 3 accounts (2 API, 1 CSV)
-
--- Query: Show balances for business API account only
-SELECT t.* FROM transactions t
-JOIN import_sessions s ON t.data_source_id = s.id
-WHERE s.account_id = 2;
-```
+All coexist for `user_id=1`.
 
 ### Use Case 2: xpub Import with Address Discovery
 
-**Scenario**: User imports Bitcoin xpub, gap check discovers more addresses
+**Scenario**: User imports Bitcoin xpub.
 
-```sql
--- First import
-INSERT INTO accounts (account_type, source_name, identifier, derived_addresses)
-VALUES ('blockchain', 'bitcoin', 'xpub6D4BDPc...',
-        '["bc1q1...", "bc1q2...", ..., "bc1q20..."]');
--- account.id = 10
+1. **Parent Account** created for `xpub...`.
+2. **Derivation**: Provider finds used addresses `bc1qA...`, `bc1qB...`.
+3. **Child Accounts** created for `bc1qA...` and `bc1qB...` with `parent_account_id` mapped to Parent Account.
+4. **Import**: Loop runs for `bc1qA...` (Session #101), then `bc1qB...` (Session #102).
+5. **Cursors**: `bc1qA...` stores its own cursor; `bc1qB...` stores its own cursor.
 
--- Session created
-INSERT INTO import_sessions (account_id, transactions_imported, status)
-VALUES (10, 50, 'completed');
--- session.id = 20
+This allows granular tracking and distinct cursors per address, which is robust for blockchains like Cardano where addresses are distinct entities.
 
--- Second import: gap check discovers 5 more addresses
-UPDATE accounts SET
-  derived_addresses = '["bc1q1...", ..., "bc1q25..."]'
-WHERE id = 10;
+### Use Case 3: Investigation
 
--- New session created
-INSERT INTO import_sessions (account_id, transactions_imported, status)
-VALUES (10, 10, 'completed');
--- session.id = 21
+**Scenario**: User tracks scammer wallet.
 
--- Query: Which addresses are being tracked for this xpub?
-SELECT derived_addresses FROM accounts WHERE id = 10;
--- Returns: ["bc1q1...", "bc1q2...", ..., "bc1q25..."]
-```
-
-### Use Case 3: Investigation (Tracking External Wallet)
-
-**Scenario**: User tracks scammer wallet for analysis
-
-```sql
--- Create account with user_id=NULL (not owned)
-INSERT INTO accounts (user_id, account_type, source_name, identifier)
-VALUES (NULL, 'blockchain', 'bitcoin', 'bc1qscammer...');
--- account.id = 15
-
--- Import session
-INSERT INTO import_sessions (account_id, transactions_imported, status)
-VALUES (15, 200, 'completed');
-
--- Query: Show only my accounts
-SELECT * FROM accounts WHERE user_id = 1;
--- Does NOT include account #15
-
--- Query: Show all tracked accounts (mine + external)
-SELECT * FROM accounts;
--- Includes account #15
-```
-
-### Use Case 4: Import History and Debugging
-
-**Scenario**: Troubleshoot balance discrepancy
-
-```sql
--- View all imports for account
-SELECT
-  s.id,
-  s.started_at,
-  s.status,
-  s.transactions_imported,
-  s.error_message
-FROM import_sessions s
-WHERE s.account_id = 5
-ORDER BY s.started_at DESC;
-
--- Results:
--- Session 30: Jan 16, completed, 30 txs
--- Session 29: Jan 16, failed, 0 txs, "API timeout"
--- Session 28: Jan 15, completed, 0 txs
--- Session 27: Jan 8, completed, 50 txs
--- Session 26: Jan 1, completed, 1000 txs
-
--- Find which session created problematic transaction
-SELECT s.* FROM import_sessions s
-JOIN external_transaction_data e ON e.data_source_id = s.id
-JOIN transactions t ON t.external_id = e.external_id
-WHERE t.id = 12345;
-
--- Result: Session 27 on Jan 8
-```
+- Account created with `user_id`=NULL.
+- Import sessions run normally.
+- Data isolated from user's main portfolio views.
 
 ---
 
@@ -604,82 +361,17 @@ WHERE t.id = 12345;
 
 ### Benefits
 
-1. **Full audit trail**: Every import recorded, can debug issues retroactively
-2. **Multi-account support**: Same exchange/blockchain, multiple accounts
-3. **Investigation use case**: Track external wallets (user_id=NULL)
-4. **Incremental tracking**: See exactly how data grew over time
-5. **Crash recovery**: Cursors on account survive failures
-6. **Future-proof**: Ready for multi-user web app
+1. **Granularity**: xpub hierarchy allows tracking status per address.
+2. **Robustness**: Parent/Child model handles address gap limits and individual address failures gracefully.
+3. **Auditability**: `transactions_skipped` tracks duplicates explicitly.
+4. **Consistency**: Same `importService` logic used for single addresses and xpub children.
 
 ### Costs
 
-1. **More records**: N sessions per account vs 1 record per account
-2. **Slightly complex queries**: Need JOINs for account+session queries
-3. **Migration needed**: If refactoring existing system
+1. **More Account Records**: One record per derived address instead of just one per xpub.
+2. **Import Overhead**: Multiple sessions created for a single "logical" xpub import.
 
 ### Design Patterns
 
-1. **Event sourcing lite**: Sessions are immutable events
-2. **Entity-state separation**: Account (entity) vs session (event)
-3. **Resume tokens**: Cursor state persisted on entity, not event
-4. **One session per user action**: Auto-retries reuse session, manual retries create new session
-
-### Session Lifecycle Management
-
-**Normal flow:**
-
-1. `started` → import in progress
-2. `completed` or `failed` → import finished
-
-**Incomplete session handling:**
-
-- On import start: check for incomplete session (status='started')
-- If found: resume it (don't create new)
-- If not found: create new
-
-**Stale session cleanup (optional):**
-
-```typescript
-// On app startup or scheduled job
-const STALE_THRESHOLD = 24 * 60 * 60 * 1000; // 24 hours
-
-// Find sessions stuck in 'started' state for >24 hours
-const staleSessions = await sessionRepo.findStale({
-  status: 'started',
-  updatedBefore: Date.now() - STALE_THRESHOLD,
-});
-
-// Mark as failed (these were likely abandoned)
-for (const session of staleSessions) {
-  await sessionRepo.finalize(session.id, {
-    status: 'failed',
-    errorMessage: 'Session abandoned (stale)',
-  });
-}
-```
-
-**Why this works:**
-
-- Normal crash/restart: resume within 24 hours
-- Abandoned sessions: cleaned up after 24 hours
-- No orphaned 'started' sessions polluting the table
-
----
-
-## Implementation Notes
-
-- Auto-create default user (id=1) on first CLI run
-- Account lookup: exact match on (type, source, identifier, user_id)
-- Session creation: always create new record (never update existing)
-- Cursor updates: update account.last_cursor after each batch
-- Foreign keys: external_transaction_data.data_source_id → import_sessions.id
-
----
-
-## Future Extensions
-
-- Account nicknames: `accounts.nickname` ("Personal Kraken", "Cold Storage")
-- Account tags: Many-to-many table for categorization
-- Session metadata: Provider failover details, rate limit info
-- Balance caching: Materialized view of current balance per account
-- Multi-user: Add users.email, authentication, account sharing
+1. **Composite Pattern**: xpub account acts as a composite of child address accounts.
+2. **Event Sourcing Lite**: Sessions and raw transactions provide a history of what happened.

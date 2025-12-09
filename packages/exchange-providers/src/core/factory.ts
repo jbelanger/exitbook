@@ -4,6 +4,7 @@ import { err } from 'neverthrow';
 
 import { createCoinbaseClient } from '../exchanges/coinbase/client.js';
 import { createKrakenClient } from '../exchanges/kraken/client.js';
+import { createKuCoinClient } from '../exchanges/kucoin/client.js';
 
 import type { IExchangeClient } from './types.js';
 
@@ -15,6 +16,7 @@ import type { IExchangeClient } from './types.js';
 const exchangeFactories: Record<string, (credentials: ExchangeCredentials) => Result<IExchangeClient, Error>> = {
   kraken: createKrakenClient,
   coinbase: createCoinbaseClient,
+  kucoin: createKuCoinClient,
   // KuCoin: API integration was removed due to severe API limitations that made reliable data import impossible.
   // The KuCoin API enforces a 1-day maximum query time range and only allows retrieving data from the past 365 days.
   // This required complex backward pagination through each 24-hour period individually, making historical imports
@@ -32,14 +34,14 @@ export function createExchangeClient(
 
   // KuCoin API integration was removed due to severe limitations (1-day query window, 365-day lookback)
   // that made reliable historical data import impossible. Only CSV import is supported.
-  if (normalizedName === 'kucoin') {
-    return err(
-      new Error(
-        'KuCoin API import is not supported due to API limitations (1-day query window, 365-day max lookback). ' +
-          'Use CSV export from KuCoin instead.'
-      )
-    );
-  }
+  // if (normalizedName === 'kucoin') {
+  //   return err(
+  //     new Error(
+  //       'KuCoin API import is not supported due to API limitations (1-day query window, 365-day max lookback). ' +
+  //         'Use CSV export from KuCoin instead.'
+  //     )
+  //   );
+  // }
 
   const factory = exchangeFactories[normalizedName];
   if (factory) {

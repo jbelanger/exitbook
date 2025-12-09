@@ -77,7 +77,7 @@ const importParams: ImportParams = {
 
 **Gap:**
 
-- Schema has no `dedup_key` column in `external_transaction_data` table
+- Schema has no `dedup_key` column in `raw_transactions` table
 - No unique index on canonical identifier: `${providerName}:${txHash}:${index}`
 - Re-imports or provider switches may create silent duplicates
 
@@ -114,7 +114,6 @@ if (!normalizedData || Object.keys(normalizedData as Record<string, never>).leng
 
 - Processing service has fallback normalization logic (should be import-only)
 - No `skipReason` field to distinguish skips from errors
-- No explicit marking of skipped items vs failed items
 
 **Proposed Solution:**
 

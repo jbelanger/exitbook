@@ -4,7 +4,6 @@ import type {
   ExchangeCredentials,
   ImportSession,
   SourceParams,
-  SourceType,
   UniversalTransactionData,
   VerificationMetadata,
 } from '@exitbook/core';
@@ -13,14 +12,11 @@ import type {
   IImportSessionRepository,
   TokenMetadataRepository,
   TransactionRepository,
-  UserRepository,
 } from '@exitbook/data';
 import { createExchangeClient } from '@exitbook/exchanges-providers';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
-
-import { getBlockchainAdapter } from '../../infrastructure/blockchains/index.js';
 
 import { calculateBalances } from './balance-calculator.js';
 import {
@@ -36,14 +32,11 @@ import type { BalanceComparison, BalanceVerificationResult } from './balance-ver
 const logger = getLogger('BalanceService');
 
 /**
- * Parameters for balance verification
+ * Parameters for balance verification - now account-centric
  */
 export interface BalanceServiceParams {
-  sourceName: string;
-  sourceType: SourceType;
-  address?: string | undefined;
+  accountId: number;
   credentials?: ExchangeCredentials | undefined;
-  providerName?: string | undefined;
 }
 
 /**
@@ -52,7 +45,6 @@ export interface BalanceServiceParams {
  */
 export class BalanceService {
   constructor(
-    private userRepository: UserRepository,
     private accountRepository: AccountRepository,
     private transactionRepository: TransactionRepository,
     private sessionRepository: IImportSessionRepository,
@@ -66,20 +58,24 @@ export class BalanceService {
    */
   async verifyBalance(params: BalanceServiceParams): Promise<Result<BalanceVerificationResult, Error>> {
     try {
-      logger.info(`Verifying balance for ${params.sourceName} (${params.sourceType})`);
-
-      // 1. Find the account
-      const accountResult = await this.findAccount(params);
+      // 1. Fetch the account by ID
+      const accountResult = await this.accountRepository.findById(params.accountId);
       if (accountResult.isErr()) {
         return err(accountResult.error);
       }
+
+      if (!accountResult.value) {
+        return err(new Error(`No account found with ID ${params.accountId}`));
+      }
+
       const account = accountResult.value;
+      logger.info(`Verifying balance for account ${account.id}: ${account.sourceName} (${account.accountType})`);
 
       // 2. Fetch live balance from source
-      const liveBalanceResult =
-        params.sourceType === 'exchange'
-          ? await this.fetchExchangeBalance(params)
-          : await this.fetchBlockchainBalance(account, params);
+      const isExchange = account.accountType === 'exchange-api' || account.accountType === 'exchange-csv';
+      const liveBalanceResult = isExchange
+        ? await this.fetchExchangeBalance(account, params.credentials)
+        : await this.fetchBlockchainBalance(account);
 
       if (liveBalanceResult.isErr()) {
         return err(liveBalanceResult.error);
@@ -119,21 +115,13 @@ export class BalanceService {
 
       // 7. Create verification result
       const hasTransactions = Object.keys(calculatedBalances).length > 0;
-      const verificationResult = createVerificationResult(
-        account,
-        params.sourceName,
-        params.sourceType,
-        comparisons,
-        lastImportTimestamp,
-        hasTransactions
-      );
+      const verificationResult = createVerificationResult(account, comparisons, lastImportTimestamp, hasTransactions);
 
       // 8. Persist verification results to the account with adjusted live balances
       // Convert adjusted liveBalances (after scam token subtraction) to strings for storage
       const adjustedLiveBalancesStr = this.decimalRecordToStringRecord(liveBalances);
       const persistResult = await this.persistVerificationResults(
         account,
-        params.sourceType,
         calculatedBalances,
         adjustedLiveBalancesStr,
         comparisons,
@@ -157,78 +145,6 @@ export class BalanceService {
    */
   destroy(): void {
     this.providerManager.destroy();
-  }
-
-  /**
-   * Helper method to find an account based on balance params.
-   */
-  private async findAccount(params: BalanceServiceParams): Promise<Result<Account, Error>> {
-    // 1. Get the default user
-    const userResult = await this.userRepository.ensureDefaultUser();
-    if (userResult.isErr()) {
-      return err(userResult.error);
-    }
-    const user = userResult.value;
-
-    // 2. Map sourceType to accountType
-    const accountType = params.sourceType === 'exchange' ? 'exchange-api' : 'blockchain';
-
-    // 3. Determine identifier based on source type
-    let identifier: string;
-    if (params.sourceType === 'blockchain') {
-      // For blockchain: identifier is the address
-      if (!params.address) {
-        return err(new Error('Address is required for blockchain balance'));
-      }
-
-      // Normalize address using blockchain-specific logic (e.g., lowercase for EVM)
-      const blockchainAdapter = getBlockchainAdapter(params.sourceName);
-      if (!blockchainAdapter) {
-        return err(new Error(`No configuration found for blockchain: ${params.sourceName}`));
-      }
-
-      const normalizedResult = blockchainAdapter.normalizeAddress(params.address);
-      if (normalizedResult.isErr()) {
-        return err(normalizedResult.error);
-      }
-
-      identifier = normalizedResult.value;
-    } else {
-      // For exchange: identifier is the API key
-      if (!params.credentials) {
-        return err(
-          new Error(
-            `No credentials provided. Either use --api-key and --api-secret flags, or set ${params.sourceName.toUpperCase()}_API_KEY and ${params.sourceName.toUpperCase()}_SECRET in .env`
-          )
-        );
-      }
-      if (!params.credentials.apiKey) {
-        return err(new Error('API key is required for exchange balance'));
-      }
-      identifier = params.credentials.apiKey;
-    }
-
-    // 4. Find account
-    const accountResult: Result<Account | undefined, Error> = await this.accountRepository.findByUniqueConstraint(
-      accountType,
-      params.sourceName,
-      identifier,
-      user.id
-    );
-
-    if (accountResult.isErr()) {
-      return err(accountResult.error);
-    }
-
-    if (!accountResult.value) {
-      return err(
-        new Error(
-          `No account found for ${params.sourceName}. Please run import first to create the account. (Looking for: accountType=${accountType}, identifier=${identifier}, userId=${user.id})`
-        )
-      );
-    }
-
-    return ok(accountResult.value);
   }
 
   /**
@@ -338,36 +254,33 @@ export class BalanceService {
   /**
    * Fetch balance from an exchange.
    */
-  private async fetchExchangeBalance(params: BalanceServiceParams): Promise<Result<UnifiedBalanceSnapshot, Error>> {
-    if (!params.credentials) {
+  private async fetchExchangeBalance(
+    account: Account,
+    credentials?: ExchangeCredentials
+  ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
+    if (!credentials && !account.credentials) {
       return err(
-        new Error(
-          `No credentials provided. Either use --api-key and --api-secret flags, or set ${params.sourceName.toUpperCase()}_API_KEY and ${params.sourceName.toUpperCase()}_SECRET in .env`
-        )
+        new Error(`No credentials found for account ${account.id}. This should not happen for exchange-api accounts.`)
       );
     }
-
-    const clientResult = createExchangeClient(params.sourceName, params.credentials);
+    console.log(credentials ?? account.credentials ?? { apiKey: '', apiSecret: '' });
+    const clientResult = createExchangeClient(
+      account.sourceName,
+      credentials ?? account.credentials ?? { apiKey: '', apiSecret: '' }
+    );
     if (clientResult.isErr()) {
       return err(clientResult.error);
     }
 
     const client = clientResult.value;
-    return fetchExchangeBalance(client, params.sourceName);
+    return fetchExchangeBalance(client, account.sourceName);
   }
 
   /**
    * Fetch balance from a blockchain.
    * For accounts with child accounts (e.g., xpub with derived addresses), fetches balances from all child accounts and sums them.
    */
-  private async fetchBlockchainBalance(
-    account: Account,
-    params: BalanceServiceParams
-  ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
-    if (!params.address) {
-      return err(new Error('Address is required for blockchain balance fetch'));
-    }
-
+  private async fetchBlockchainBalance(account: Account): Promise<Result<UnifiedBalanceSnapshot, Error>> {
     // Check if this account has child accounts (e.g., from xpub import)
     const childAccountsResult = await this.accountRepository.findByParent(account.id);
     if (childAccountsResult.isErr()) {
@@ -382,10 +295,10 @@ export class BalanceService {
       return fetchChildAccountsBalance(
         this.providerManager,
         this.tokenMetadataRepository,
-        params.sourceName,
-        params.address,
+        account.sourceName,
+        account.identifier,
         childAccounts,
-        params.providerName
+        account.providerName
       );
     }
 
@@ -393,9 +306,9 @@ export class BalanceService {
     return fetchBlockchainBalance(
       this.providerManager,
       this.tokenMetadataRepository,
-      params.sourceName,
-      params.address,
-      params.providerName
+      account.sourceName,
+      account.identifier,
+      account.providerName
     );
   }
 
@@ -458,7 +371,6 @@ export class BalanceService {
    */
   private async persistVerificationResults(
     account: Account,
-    sourceType: 'blockchain' | 'exchange',
     calculatedBalances: Record<string, Decimal>,
     liveBalances: Record<string, string>,
     comparisons: BalanceComparison[],
@@ -468,10 +380,11 @@ export class BalanceService {
     try {
       const calculatedBalancesStr = this.decimalRecordToStringRecord(calculatedBalances);
 
-      const sourceParams: SourceParams =
-        sourceType === 'exchange'
-          ? { exchange: account.sourceName }
-          : { blockchain: account.sourceName, address: account.identifier };
+      // Derive sourceParams from account type
+      const isExchange = account.accountType === 'exchange-api' || account.accountType === 'exchange-csv';
+      const sourceParams: SourceParams = isExchange
+        ? { exchange: account.sourceName }
+        : { blockchain: account.sourceName, address: account.identifier };
 
       const discrepancies = comparisons
         .filter((c) => c.status !== 'match')

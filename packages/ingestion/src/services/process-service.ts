@@ -30,7 +30,6 @@ export class TransactionProcessService {
   async getProcessingStatus(accountId: number): Promise<
     Result<
       {
-        failed: number;
         pending: number;
         processed: number;
         total: number;
@@ -47,17 +46,12 @@ export class TransactionProcessService {
         processingStatus: 'processed',
         accountId: accountId,
       }),
-      this.rawDataRepository.load({
-        processingStatus: 'failed',
-        accountId: accountId,
-      }),
     ]);
 
-    return Result.combine(results).map(([pending, processedItems, failedItems]) => ({
-      failed: failedItems.length,
+    return Result.combine(results).map(([pending, processedItems]) => ({
       pending: pending.length,
       processed: processedItems.length,
-      total: pending.length + processedItems.length + failedItems.length,
+      total: pending.length + processedItems.length,
     }));
   }
 

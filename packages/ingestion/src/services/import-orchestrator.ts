@@ -6,6 +6,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import type { BlockchainAdapter } from '../infrastructure/blockchains/index.js';
 import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
 
 import { TransactionImportService } from './import-service.js';
@@ -164,27 +165,81 @@ export class ImportOrchestrator {
     }
     const user = userResult.value;
 
-    // 2. Create stable identifier from sorted directories
-    const identifier = [...csvDirectories].sort().join(',');
-
-    // 3. Find or create account
-    const accountResult = await this.accountRepository.findOrCreate({
-      userId: user.id,
+    // 2. Find existing exchange-csv account for this exchange
+    const existingAccountsResult = await this.accountRepository.findAll({
       accountType: 'exchange-csv',
       sourceName: exchange,
-      identifier,
-      providerName: undefined,
-      credentials: undefined,
+      userId: user.id,
     });
 
-    if (accountResult.isErr()) {
-      return err(accountResult.error);
+    if (existingAccountsResult.isErr()) {
+      return err(existingAccountsResult.error);
     }
-    const account = accountResult.value;
 
-    this.logger.info(`Using account #${account.id} (exchange-csv) for import`);
+    const existingAccounts = existingAccountsResult.value;
+    const existingAccount = existingAccounts.length > 0 ? existingAccounts[0] : undefined;
 
-    // 4. Delegate to import service with account
+    let account;
+
+    if (existingAccount) {
+      // 3. Merge new directories with existing ones
+      const existingDirs = existingAccount.identifier.split(',').filter((d) => d.length > 0);
+      const dirSet = new Set([...existingDirs, ...csvDirectories]);
+      const allDirectories = [...dirSet].sort();
+      const mergedIdentifier = allDirectories.join(',');
+
+      // Check if identifier needs updating (new directories were added)
+      if (mergedIdentifier !== existingAccount.identifier) {
+        this.logger.info(
+          `Found existing account #${existingAccount.id}, adding ${csvDirectories.length} new directory(ies) to ${existingDirs.length} existing`
+        );
+
+        // Update the existing account's identifier directly
+        // We can't use findOrCreate because the unique constraint on identifier would create a new account
+        const updateResult = await this.accountRepository.updateIdentifier(existingAccount.id, mergedIdentifier);
+        if (updateResult.isErr()) {
+          return err(updateResult.error);
+        }
+
+        // Fetch the updated account
+        const refreshedAccountResult = await this.accountRepository.findById(existingAccount.id);
+        if (refreshedAccountResult.isErr()) {
+          return err(refreshedAccountResult.error);
+        }
+        account = refreshedAccountResult.value;
+
+        this.logger.info(
+          `Updated account #${account.id} identifier with ${allDirectories.length} total directory(ies)`
+        );
+      } else {
+        this.logger.info(
+          `Found existing account #${existingAccount.id}, no new directories to add (already has ${existingDirs.length})`
+        );
+        account = existingAccount;
+      }
+    } else {
+      // 4. Create new account
+      const identifier = [...csvDirectories].sort().join(',');
+      this.logger.info(`Creating new account for ${csvDirectories.length} CSV directory(ies)`);
+
+      const accountResult = await this.accountRepository.findOrCreate({
+        userId: user.id,
+        accountType: 'exchange-csv',
+        sourceName: exchange,
+        identifier,
+        providerName: undefined,
+        credentials: undefined,
+      });
+
+      if (accountResult.isErr()) {
+        return err(accountResult.error);
+      }
+      account = accountResult.value;
+    }
+
+    this.logger.info(`Using account #${account.id} (exchange-csv)`);
+
+    // 5. Delegate to import service with account
     return this.importService.importFromSource(account);
   }
 
@@ -196,7 +251,7 @@ export class ImportOrchestrator {
     userId: number,
     blockchain: string,
     xpub: string,
-    blockchainAdapter: ReturnType<typeof getBlockchainAdapter>,
+    blockchainAdapter: BlockchainAdapter | undefined,
     providerName?: string,
     xpubGap?: number
   ): Promise<Result<ImportSession[], Error>> {

@@ -128,8 +128,8 @@ export function convertKucoinOrderSplittingToTransaction(row: CsvOrderSplittingR
   const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
   const filledAmount = row['Filled Amount'];
   const filledVolume = row['Filled Volume'];
-  const fee = parseDecimal(row.Fee).toNumber();
-  const platformFee = { amount: parseDecimal(fee.toString()), asset: row['Fee Currency'] };
+  const fee = parseDecimal(row.Fee);
+  const platformFee = { amount: fee, asset: row['Fee Currency'] };
   const side = row.Side.toLowerCase() as 'buy' | 'sell';
 
   // For order-splitting (individual fills):
@@ -184,8 +184,8 @@ export function convertKucoinTradingBotToTransaction(row: CsvTradingBotRow): Pro
   const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
   const filledAmount = row['Filled Amount'];
   const filledVolume = row['Filled Volume'];
-  const fee = parseDecimal(row.Fee).toNumber();
-  const platformFee = { amount: parseDecimal(fee.toString()), asset: row['Fee Currency'] };
+  const fee = parseDecimal(row.Fee);
+  const platformFee = { amount: fee, asset: row['Fee Currency'] };
   const side = row.Side.toLowerCase() as 'buy' | 'sell';
 
   // For trading bot fills (similar to order-splitting):
@@ -240,8 +240,8 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Proce
   const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
   const filledAmount = row['Filled Amount'];
   const filledVolume = row['Filled Volume'];
-  const fee = parseDecimal(row.Fee).toNumber();
-  const platformFee = { amount: parseDecimal(fee.toString()), asset: row['Fee Currency'] };
+  const fee = parseDecimal(row.Fee);
+  const platformFee = { amount: fee, asset: row['Fee Currency'] };
   const side = row.Side.toLowerCase() as 'buy' | 'sell';
 
   // For spot orders:
@@ -290,7 +290,7 @@ export function convertKucoinSpotOrderToTransaction(row: CsvSpotOrderRow): Proce
  */
 export function convertKucoinWithdrawalToTransaction(row: CsvDepositWithdrawalRow): ProcessedTransaction {
   const timestamp = new Date(row['Time(UTC)']).getTime();
-  const absAmount = Math.abs(parseDecimal(row.Amount).toNumber());
+  const grossAmount = parseDecimal(row.Amount);
   const fee = parseDecimal(row.Fee ?? '0');
   const platformFee = { amount: fee, asset: row.Coin };
 
@@ -307,8 +307,8 @@ export function convertKucoinWithdrawalToTransaction(row: CsvDepositWithdrawalRo
       outflows: [
         {
           asset: row.Coin,
-          grossAmount: parseDecimal(absAmount.toFixed()),
-          netAmount: parseDecimal(absAmount.toFixed()),
+          grossAmount: grossAmount,
+          netAmount: grossAmount,
         },
       ],
     },

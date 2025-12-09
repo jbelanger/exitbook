@@ -1,5 +1,7 @@
-import type { ExchangeCredentials } from '@exitbook/core';
-import { parseDecimal, type ImportSession, type SourceType, type UniversalTransactionData } from '@exitbook/core';
+import * as prompts from '@clack/prompts';
+import type { Account, ExchangeCredentials } from '@exitbook/core';
+import { parseDecimal, type ImportSession, type UniversalTransactionData } from '@exitbook/core';
+import type { AccountRepository, UserRepository } from '@exitbook/data';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 import type { z } from 'zod';
@@ -12,41 +14,102 @@ import type { BalanceCommandOptionsSchema } from '../shared/schemas.js';
 export type BalanceCommandOptions = z.infer<typeof BalanceCommandOptionsSchema>;
 
 /**
- * Parameters for balance handler
+ * Find and select account based on CLI options.
+ * Handles account lookup, credential validation, and user prompts for multiple accounts.
  */
-export interface BalanceHandlerParams {
-  sourceType: SourceType;
-  sourceName: string;
-  address?: string | undefined;
-  providerName?: string | undefined;
-  credentials?: ExchangeCredentials | undefined;
-}
+export async function findAccountForBalance(
+  options: BalanceCommandOptions,
+  accountRepository: AccountRepository,
+  userRepository: UserRepository
+): Promise<Result<Account, Error>> {
+  try {
+    // Get default user
+    const userResult = await userRepository.ensureDefaultUser();
+    if (userResult.isErr()) {
+      return err(userResult.error);
+    }
+    const user = userResult.value;
 
-/**
- * Build balance handler parameters from validated CLI flags.
- * No validation needed - options are already validated by Zod schema.
- */
-export function buildBalanceParamsFromFlags(options: BalanceCommandOptions): Result<BalanceHandlerParams, Error> {
-  const sourceName = (options.exchange || options.blockchain)!;
-  const sourceType: SourceType = options.exchange ? 'exchange' : 'blockchain';
+    const sourceName = (options.exchange || options.blockchain)!;
+    const isExchange = !!options.exchange;
 
-  // Build credentials if API key/secret provided
-  let credentials: ExchangeCredentials | undefined;
-  if (options.apiKey && options.apiSecret) {
-    credentials = {
-      apiKey: options.apiKey,
-      apiSecret: options.apiSecret,
-      ...(options.apiPassphrase && { apiPassphrase: options.apiPassphrase }),
-    };
+    // Build credentials if provided
+    let credentials: ExchangeCredentials | undefined;
+    if (options.apiKey && options.apiSecret) {
+      credentials = {
+        apiKey: options.apiKey,
+        apiSecret: options.apiSecret,
+        ...(options.apiPassphrase && { apiPassphrase: options.apiPassphrase }),
+      };
+    }
+
+    // For exchanges, try to get credentials from env if not provided
+    if (isExchange && !credentials) {
+      const envCredentials = getExchangeCredentialsFromEnv(sourceName);
+      if (envCredentials.isOk()) {
+        credentials = envCredentials.value;
+      }
+    }
+
+    // Find accounts matching the source
+    const accountsResult = await accountRepository.findBySourceName(sourceName, user.id);
+    if (accountsResult.isErr()) {
+      return err(accountsResult.error);
+    }
+
+    let matchingAccounts = accountsResult.value;
+
+    // Filter by address if specified (blockchain only)
+    if (options.address) {
+      matchingAccounts = matchingAccounts.filter((a) => a.identifier === options.address);
+    }
+
+    // Filter by credentials if specified (exchange only)
+    // if (credentials) {
+    //   matchingAccounts = matchingAccounts.filter((a) => a.credentials?.apiKey === credentials.apiKey);
+    // }
+
+    if (matchingAccounts.length === 0) {
+      if (isExchange) {
+        return err(new Error(`No account found for ${sourceName}. Please run import first to create the account.`));
+      } else {
+        return err(
+          new Error(
+            `No account found for ${sourceName}${options.address ? ` with address ${options.address}` : ''}. Please run import first to create the account.`
+          )
+        );
+      }
+    }
+
+    // If single account, use it
+    if (matchingAccounts.length === 1) {
+      return ok(matchingAccounts[0]!);
+    }
+
+    // Multiple accounts - prompt user to select
+    const choices = matchingAccounts.map((account) => ({
+      value: account.id,
+      label: `${account.accountType} - ${account.identifier || 'N/A'} (ID: ${account.id})`,
+    }));
+
+    const selectedId = await prompts.select({
+      message: `Multiple ${sourceName} accounts found. Select one:`,
+      options: choices,
+    });
+
+    if (prompts.isCancel(selectedId)) {
+      return err(new Error('Account selection cancelled'));
+    }
+
+    const selectedAccount = matchingAccounts.find((a) => a.id === selectedId);
+    if (!selectedAccount) {
+      return err(new Error(`Account with ID ${selectedId} not found`));
+    }
+
+    return ok(selectedAccount);
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
   }
-
-  return ok({
-    sourceType,
-    sourceName,
-    address: options.address,
-    providerName: options.provider,
-    credentials,
-  });
 }
 
 /**

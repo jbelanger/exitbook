@@ -38,7 +38,7 @@ export interface ImportParams {
  * Single batch of imported transactions
  */
 export interface ImportBatchResult {
-  rawTransactions: ExternalTransaction[];
+  rawTransactions: RawTransaction[];
   cursor: CursorState;
   isComplete: boolean;
 }
@@ -47,7 +47,7 @@ export interface ImportBatchResult {
  * Final import result (for backward compatibility during migration)
  */
 export interface ImportRunResult {
-  rawTransactions: ExternalTransaction[];
+  rawTransactions: RawTransaction[];
   finalCursor?: CursorState;
 }
 
@@ -251,7 +251,7 @@ private async *streamTokenTransactions(
  * @deprecated Use importStreaming instead
  */
 async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
-  const allTransactions: ExternalTransaction[] = [];
+  const allTransactions: RawTransaction[] = [];
   let finalCursor: CursorState | undefined;
 
   // Consume streaming iterator
@@ -289,7 +289,7 @@ Add method to find and resume from existing data source:
 private async findResumableDataSource(
   sourceId: string,
   sourceType: 'blockchain' | 'exchange'
-): Promise<{ dataSource: DataSource; cursor?: CursorState } | undefined> {
+): Promise<{ importSession: ImportSession; cursor?: CursorState } | undefined> {
   // Query for most recent incomplete import
   const result = await this.dataSourceRepository.findLatestIncomplete(sourceId, sourceType);
 
@@ -298,19 +298,19 @@ private async findResumableDataSource(
     return undefined;
   }
 
-  const dataSource = result.value;
-  if (!dataSource) return undefined;
+  const importSession = result.value;
+  if (!importSession) return undefined;
 
   logger.info(
-    `Found resumable data source #${dataSource.id}`,
+    `Found resumable data source #${importSession.id}`,
     {
-      status: dataSource.status,
-      transactionsImported: dataSource.transactionsImported,
-      cursorProgress: dataSource.lastCursor?.totalFetched
+      status: importSession.status,
+      transactionsImported: importSession.transactionsImported,
+      cursorProgress: importSession.lastCursor?.totalFetched
     }
   );
 
-  return { dataSource, cursor: dataSource.lastCursor };
+  return { importSession, cursor: importSession.lastCursor };
 }
 ```
 
@@ -326,7 +326,7 @@ Add query method:
 async findLatestIncomplete(
   sourceId: string,
   sourceType: 'blockchain' | 'exchange'
-): Promise<Result<DataSource | undefined, Error>> {
+): Promise<Result<ImportSession | undefined, Error>> {
   try {
     const row = await this.db
       .selectFrom('import_sessions')
@@ -371,7 +371,7 @@ async importWithStreaming(params: ImportParams): Promise<Result<ImportResult, Er
   const sourceType = params.address ? 'blockchain' : 'exchange';
 
   // ✅ STEP 1: Check for resumable data source
-  let dataSource: DataSource;
+  let importSession: ImportSession;
   let resumeCursor: CursorState | undefined = params.cursor;
   let totalImported = 0;
 
@@ -380,17 +380,17 @@ async importWithStreaming(params: ImportParams): Promise<Result<ImportResult, Er
     const resumable = await this.findResumableDataSource(sourceId, sourceType);
 
     if (resumable) {
-      dataSource = resumable.dataSource;
+      importSession = resumable.importSession;
       resumeCursor = resumable.cursor;
-      totalImported = dataSource.transactionsImported || 0;
+      totalImported = importSession.transactionsImported || 0;
 
       logger.info(
-        `Resuming import from data source #${dataSource.id}`,
+        `Resuming import from data source #${importSession.id}`,
         { totalImported, cursorProgress: resumeCursor?.totalFetched }
       );
 
       // Update status back to 'started' (in case it was 'failed')
-      await this.dataSourceRepository.update(dataSource.id, { status: 'started' });
+      await this.dataSourceRepository.update(importSession.id, { status: 'started' });
     } else {
       // No resumable import - create new data source
       const createResult = await this.dataSourceRepository.create({
@@ -407,8 +407,8 @@ async importWithStreaming(params: ImportParams): Promise<Result<ImportResult, Er
         return err(createResult.error);
       }
 
-      dataSource = createResult.value;
-      logger.info(`Starting new import with data source #${dataSource.id}`);
+      importSession = createResult.value;
+      logger.info(`Starting new import with data source #${importSession.id}`);
     }
   } else {
     // Cursor provided explicitly - create new data source
@@ -426,7 +426,7 @@ async importWithStreaming(params: ImportParams): Promise<Result<ImportResult, Er
       return err(createResult.error);
     }
 
-    dataSource = createResult.value;
+    importSession = createResult.value;
   }
 
   let lastCursor: CursorState | undefined = resumeCursor;
@@ -444,7 +444,7 @@ async importWithStreaming(params: ImportParams): Promise<Result<ImportResult, Er
     for await (const batchResult of batchIterator) {
       if (batchResult.isErr()) {
         // Update data source with error
-        await this.dataSourceRepository.update(dataSource.id, {
+        await this.dataSourceRepository.update(importSession.id, {
           status: 'failed',
           errorMessage: getErrorMessage(batchResult.error),
           lastCursor, // Preserve last successful cursor
@@ -457,13 +457,13 @@ async importWithStreaming(params: ImportParams): Promise<Result<ImportResult, Er
       // Save batch to database (with cursor)
       const saveResult = await this.rawDataRepository.saveBatch(
         batch.rawTransactions.map(tx => ({
-          dataSourceId: dataSource.id,
+          dataSourceId: importSession.id,
           ...tx,
         }))
       );
 
       if (saveResult.isErr()) {
-        await this.dataSourceRepository.update(dataSource.id, {
+        await this.dataSourceRepository.update(importSession.id, {
           status: 'failed',
           errorMessage: getErrorMessage(saveResult.error),
           lastCursor,
@@ -476,7 +476,7 @@ async importWithStreaming(params: ImportParams): Promise<Result<ImportResult, Er
 
       // ✅ CRITICAL: Update progress and cursor after EACH batch
       // This enables resumption after crashes
-      await this.dataSourceRepository.update(dataSource.id, {
+      await this.dataSourceRepository.update(importSession.id, {
         transactionsImported: totalImported,
         lastCursor: batch.cursor, // ✅ Persist cursor for resumability
       });
@@ -493,14 +493,14 @@ async importWithStreaming(params: ImportParams): Promise<Result<ImportResult, Er
     }
 
     // Mark complete
-    await this.dataSourceRepository.update(dataSource.id, {
+    await this.dataSourceRepository.update(importSession.id, {
       status: 'completed',
       completedAt: new Date(),
       lastCursor,
     });
 
     return ok({
-      dataSourceId: dataSource.id,
+      dataSourceId: importSession.id,
       imported: totalImported,
     });
 
@@ -508,7 +508,7 @@ async importWithStreaming(params: ImportParams): Promise<Result<ImportResult, Er
     // Unexpected error (not from Result chain)
     this.logger.error('Unexpected error during streaming import', { error: getErrorMessage(error) });
 
-    await this.dataSourceRepository.update(dataSource.id, {
+    await this.dataSourceRepository.update(importSession.id, {
       status: 'failed',
       errorMessage: getErrorMessage(error),
       lastCursor, // Preserve for potential manual recovery

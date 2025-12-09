@@ -3,10 +3,11 @@ import { z } from 'zod';
 import { DateSchema } from './money.ts';
 
 /**
- * Processing status schema for external transaction data lifecycle
- * 'skipped' - used for cross-account duplicate blockchain transactions (internal transfers)
+ * Processing status schema for external transaction data lifecycle:
+ * - 'pending': awaiting processing
+ * - 'processed': successfully transformed to universal transaction
  */
-export const ProcessingStatusSchema = z.enum(['pending', 'processed', 'failed', 'skipped']);
+export const ProcessingStatusSchema = z.enum(['pending', 'processed']);
 
 /**
  * Schema for input DTO used by importers before persistence (write-side)
@@ -30,7 +31,6 @@ export const RawTransactionSchema = RawTransactionInputSchema.extend({
   accountId: z.number().int().positive(),
   processingStatus: ProcessingStatusSchema,
   processedAt: DateSchema.optional(),
-  processingError: z.string().optional(),
   createdAt: DateSchema,
 });
 

@@ -91,7 +91,6 @@ describe('RawDataRepository', () => {
           normalized_data: '{}',
           processing_status: i % 2 === 0 ? 'processed' : 'pending',
           processed_at: i % 2 === 0 ? new Date().toISOString() : undefined,
-          processing_error: undefined,
           created_at: new Date().toISOString(),
         })
         .execute();
@@ -127,7 +126,6 @@ describe('RawDataRepository', () => {
       expect(krakenRecords).toHaveLength(3);
       expect(krakenRecords.every((r) => r.processing_status === 'pending')).toBe(true);
       expect(krakenRecords.every((r) => r.processed_at === null)).toBe(true);
-      expect(krakenRecords.every((r) => r.processing_error === null)).toBe(true);
 
       // Verify ethereum records unchanged
       const ethereumProcessed = await db
@@ -183,7 +181,6 @@ describe('RawDataRepository', () => {
       expect(allRecords).toHaveLength(5);
       expect(allRecords.every((r) => r.processing_status === 'pending')).toBe(true);
       expect(allRecords.every((r) => r.processed_at === null)).toBe(true);
-      expect(allRecords.every((r) => r.processing_error === null)).toBe(true);
     });
 
     it('should return 0 when no records exist', async () => {

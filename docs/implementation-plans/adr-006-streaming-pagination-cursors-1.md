@@ -249,7 +249,7 @@ Update the existing schema to use typed cursor:
 ```typescript
 import { CursorStateSchema } from './cursor.js';
 
-export const ExternalTransactionSchema = z.object({
+export const RawTransactionSchema = z.object({
   // ... existing fields ...
   cursor: CursorStateSchema.optional(), // ✅ Changed from z.record(z.string(), z.unknown())
   // ... rest of schema ...
@@ -305,7 +305,7 @@ export interface DataSourcesTable {
 
 **Migration Path:**
 
-The `external_transaction_data.cursor` field (line 49) stores per-transaction cursor for provenance/debugging. The NEW `import_sessions.last_cursor` field stores the authoritative cursor for resumption. Developer must:
+The `raw_transactions.cursor` field (line 49) stores per-transaction cursor for provenance/debugging. The NEW `import_sessions.last_cursor` field stores the authoritative cursor for resumption. Developer must:
 
 1. Add `last_cursor` column to `import_sessions` table in migration
 2. Parse/validate using `CursorStateSchema.safeParse()` on read
@@ -372,7 +372,7 @@ private deserializeCursor(cursorJson: string | undefined): CursorState | undefin
 async create(params: {
   // ... existing params ...
   lastCursor?: CursorState;
-}): Promise<Result<DataSource, Error>> {
+}): Promise<Result<ImportSession, Error>> {
   // ... existing code ...
 
   const result = await db
@@ -410,7 +410,7 @@ async update(id: number, params: {
 /**
  * Find data source by ID with cursor
  */
-async findById(id: number): Promise<Result<DataSource | undefined, Error>> {
+async findById(id: number): Promise<Result<ImportSession | undefined, Error>> {
   // ... query ...
 
   if (row) {

@@ -1,5 +1,5 @@
 import { BlockchainProviderManager, loadExplorerConfig } from '@exitbook/blockchain-providers';
-import type { SourceType } from '@exitbook/core';
+import type { ExchangeCredentials } from '@exitbook/core';
 import {
   AccountRepository,
   closeDatabase,
@@ -13,14 +13,13 @@ import { BalanceService, type BalanceVerificationResult } from '@exitbook/ingest
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { BalanceCommandOptionsSchema } from '../shared/schemas.js';
 
 import { BalanceHandler } from './balance-handler.js';
 import type { BalanceCommandResult } from './balance-types.js';
-import { buildBalanceParamsFromFlags } from './balance-utils.js';
+import { findAccountForBalance } from './balance-utils.js';
 
 /**
  * Balance command options validated by Zod at CLI boundary
@@ -79,7 +78,6 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
 
   // Create service with repositories
   const balanceService = new BalanceService(
-    userRepository,
     accountRepository,
     transactionRepository,
     sessionRepository,
@@ -91,13 +89,29 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
   const handler = new BalanceHandler(balanceService);
 
   try {
-    // Build params from flags (no interactive mode for balance command)
-    const params = unwrapResult(buildBalanceParamsFromFlags(options));
+    // Find account based on CLI options
+    const accountResult = await findAccountForBalance(options, accountRepository, userRepository);
+    if (accountResult.isErr()) {
+      output.error('balance', accountResult.error, ExitCodes.GENERAL_ERROR);
+      return;
+    }
+
+    const account = accountResult.value;
 
     const spinner = output.spinner();
-    spinner?.start(`Fetching and verifying balance for ${params.sourceName}...`);
+    spinner?.start(`Fetching and verifying balance for ${account.sourceName} (account ${account.id})...`);
 
-    const result = await handler.execute(params);
+    // Build credentials if provided
+    let credentials: ExchangeCredentials | undefined;
+    if (options.apiKey && options.apiSecret) {
+      credentials = {
+        apiKey: options.apiKey,
+        apiSecret: options.apiSecret,
+        ...(options.apiPassphrase && { apiPassphrase: options.apiPassphrase }),
+      };
+    }
+
+    const result = await handler.execute({ accountId: account.id, credentials: credentials });
 
     spinner?.stop();
 
@@ -106,15 +120,8 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
       return;
     }
 
-    // Account is now included in the verification result
-    await handleBalanceSuccess(
-      output,
-      result.value,
-      params.sourceName,
-      params.sourceType,
-      params.address,
-      accountRepository
-    );
+    // Display results
+    await handleBalanceSuccess(output, result.value, accountRepository);
   } catch (error) {
     output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   } finally {
@@ -129,10 +136,7 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
 async function handleBalanceSuccess(
   output: OutputManager,
   verificationResult: BalanceVerificationResult,
-  sourceName: string,
-  sourceType: SourceType,
-  address?: string,
-  accountRepository?: AccountRepository
+  accountRepository: AccountRepository
 ) {
   const account = verificationResult.account;
 
@@ -148,12 +152,10 @@ async function handleBalanceSuccess(
       console.log(`  Address: ${account.identifier}`);
 
       // Check if this account has children (xpub wallet)
-      if (accountRepository) {
-        const childAccountsResult = await accountRepository.findByParent(account.id);
-        if (childAccountsResult.isOk() && childAccountsResult.value.length > 0) {
-          console.log(`  Extended Public Key: Yes (${childAccountsResult.value.length} derived addresses)`);
-          console.log(`  Note: Balance aggregated from all derived addresses`);
-        }
+      const childAccountsResult = await accountRepository.findByParent(account.id);
+      if (childAccountsResult.isOk() && childAccountsResult.value.length > 0) {
+        console.log(`  Extended Public Key: Yes (${childAccountsResult.value.length} derived addresses)`);
+        console.log(`  Note: Balance aggregated from all derived addresses`);
       }
     } else {
       console.log(`  Identifier: ${account.identifier || 'N/A'}`);
@@ -165,7 +167,9 @@ async function handleBalanceSuccess(
 
     const statusSymbol =
       verificationResult.status === 'success' ? '✓' : verificationResult.status === 'warning' ? '⚠' : '✗';
-    output.outro(`${statusSymbol} Balance verification ${verificationResult.status.toUpperCase()} for ${sourceName}`);
+    output.outro(
+      `${statusSymbol} Balance verification ${verificationResult.status.toUpperCase()} for ${account.sourceName}`
+    );
     console.log('');
 
     // Summary
@@ -199,6 +203,7 @@ async function handleBalanceSuccess(
   }
 
   // Prepare result data for JSON mode
+  const isExchange = account.accountType === 'exchange-api' || account.accountType === 'exchange-csv';
   const resultData: BalanceCommandResult = {
     status: verificationResult.status,
     liveBalances: Object.fromEntries(verificationResult.comparisons.map((c) => [c.currency, c.liveBalance])),
@@ -214,9 +219,9 @@ async function handleBalanceSuccess(
     })),
     summary: verificationResult.summary,
     source: {
-      type: sourceType,
-      name: sourceName,
-      address,
+      type: isExchange ? 'exchange' : 'blockchain',
+      name: account.sourceName,
+      address: isExchange ? undefined : account.identifier,
     },
     account: {
       id: account.id,

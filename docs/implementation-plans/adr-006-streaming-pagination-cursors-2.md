@@ -107,7 +107,7 @@ private async loadRecentTransactionIds(
   windowSize: number = 1000
 ): Promise<Set<string>> {
   // TODO: Implement in Phase 2.3
-  // Query: SELECT external_id FROM external_transaction_data
+  // Query: SELECT external_id FROM raw_transactions
   //        WHERE data_source_id = ?
   //        ORDER BY id DESC
   //        LIMIT ?

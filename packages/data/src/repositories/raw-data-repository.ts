@@ -145,7 +145,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             .updateTable('raw_transactions')
             .set({
               processed_at: processedAt,
-              processing_error: null,
               processing_status: 'processed',
             })
             .where('id', '=', id)
@@ -291,7 +290,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .updateTable('raw_transactions')
         .set({
           processed_at: null,
-          processing_error: null,
           processing_status: 'pending',
         })
         .where('account_id', '=', accountId)
@@ -309,7 +307,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .updateTable('raw_transactions')
         .set({
           processed_at: null,
-          processing_error: null,
           processing_status: 'pending',
         })
         .executeTakeFirst();
@@ -404,7 +401,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       normalizedData: normalizedDataResult.value,
       processingStatus: row.processing_status,
       processedAt: row.processed_at ? new Date(row.processed_at) : undefined,
-      processingError: row.processing_error ?? undefined,
       createdAt: new Date(row.created_at),
     });
   }

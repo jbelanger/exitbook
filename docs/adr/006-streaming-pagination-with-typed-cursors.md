@@ -106,8 +106,8 @@ Exchange providers (Kraken, KuCoin) already solve this correctly:
 
 **Exchange providers** ✅:
 
-- Return cursors per-transaction in `ExternalTransaction.cursor`
-- Store progress in `external_transaction_data.cursor` field (database-schema.ts:60)
+- Return cursors per-transaction in `RawTransaction.cursor`
+- Store progress in `raw_transactions.cursor` field (database-schema.ts:60)
 - Support resumability via `FetchParams.cursor` (types.ts:7-9)
 - Handle partial failures via `PartialImportError`
 
@@ -315,7 +315,7 @@ async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     { type: 'getAddressTransactions', address: params.address }
   );
 
-  const allTransactions: ExternalTransaction[] = [];
+  const allTransactions: RawTransaction[] = [];
 
   for await (const batch of iterator) {
     const transactions = batch.data.map((txWithRaw) => ({
@@ -350,7 +350,7 @@ async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
 ✅ **Architectural consistency**: Blockchain providers align with exchange provider pattern
 ✅ **Cross-provider compatibility**: Typed cursors enable failover between different providers
 ✅ **Type safety**: Discriminated unions provide excellent TypeScript support
-✅ **Existing schema support**: Uses `external_transaction_data.cursor` field (already exists)
+✅ **Existing schema support**: Uses `raw_transactions.cursor` field (already exists)
 
 ### Drawbacks
 

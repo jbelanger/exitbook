@@ -1,4 +1,4 @@
-import type { Account, SourceType } from '@exitbook/core';
+import type { Account } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -68,8 +68,6 @@ export function compareBalances(
  */
 export function createVerificationResult(
   account: Account,
-  sourceName: string,
-  sourceType: SourceType,
   comparisons: BalanceComparison[],
   lastImportTimestamp?: number,
   hasTransactions = true
@@ -114,8 +112,6 @@ export function createVerificationResult(
 
   return {
     account,
-    sourceName,
-    sourceType,
     timestamp: Date.now(),
     status,
     comparisons,
@@ -133,7 +129,8 @@ export function generateVerificationReport(results: BalanceVerificationResult[])
   let report = `# Balance Verification Report - ${timestamp}\n\n`;
 
   for (const result of results) {
-    report += `## ${result.sourceName} (${result.sourceType})\n`;
+    report += `## ${result.account.sourceName} (${result.account.accountType})\n`;
+    report += `- **Account ID**: ${result.account.id}\n`;
     report += `- **Status**: ${result.status.toUpperCase()}\n`;
     report += `- **Total Currencies**: ${result.summary.totalCurrencies}\n`;
     report += `- **Matches**: ${result.summary.matches}\n`;
@@ -159,16 +156,16 @@ export function generateVerificationReport(results: BalanceVerificationResult[])
   }
 
   // Overall summary
-  const totalSources = results.length;
-  const successfulSources = results.filter((r) => r.status === 'success').length;
-  const warningSources = results.filter((r) => r.status === 'warning').length;
-  const failedSources = results.filter((r) => r.status === 'failed').length;
+  const totalAccounts = results.length;
+  const successfulAccounts = results.filter((r) => r.status === 'success').length;
+  const warningAccounts = results.filter((r) => r.status === 'warning').length;
+  const failedAccounts = results.filter((r) => r.status === 'failed').length;
 
   report += `## Overall Summary\n`;
-  report += `- **Total Sources**: ${totalSources}\n`;
-  report += `- **Successful**: ${successfulSources}\n`;
-  report += `- **Warnings**: ${warningSources}\n`;
-  report += `- **Failed**: ${failedSources}\n\n`;
+  report += `- **Total Accounts**: ${totalAccounts}\n`;
+  report += `- **Successful**: ${successfulAccounts}\n`;
+  report += `- **Warnings**: ${warningAccounts}\n`;
+  report += `- **Failed**: ${failedAccounts}\n\n`;
 
   return report;
 }

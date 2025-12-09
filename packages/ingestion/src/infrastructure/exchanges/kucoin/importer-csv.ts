@@ -189,8 +189,10 @@ export class KucoinCsvImporter implements IImporter {
                   `Parsed and validated ${validationResult.valid.length} trading transactions from ${file}`
                 );
 
+                const mainAccountRows = this.filterMainAccountRows(validationResult.valid, file, 'spot order');
+
                 // Convert each row to a RawTransactionWithMetadata
-                for (const row of validationResult.valid) {
+                for (const row of mainAccountRows) {
                   const externalId = this.getUniqueExternalId(row['Order ID']);
                   rawTransactions.push({
                     providerName: 'kucoin',
@@ -225,8 +227,10 @@ export class KucoinCsvImporter implements IImporter {
                   `Parsed and validated ${validationResult.valid.length} deposit transactions from ${file}`
                 );
 
+                const mainAccountRows = this.filterMainAccountRows(validationResult.valid, file, 'deposit');
+
                 // Convert each row to a RawTransactionWithMetadata
-                for (const row of validationResult.valid) {
+                for (const row of mainAccountRows) {
                   // Use hash as external ID, or generate one if hash is empty
                   const baseId = row.Hash || this.generateExternalId('deposit', row['Time(UTC)'], row.Coin, row.Amount);
                   const externalId = this.getUniqueExternalId(baseId);
@@ -263,8 +267,10 @@ export class KucoinCsvImporter implements IImporter {
                   `Parsed and validated ${validationResult.valid.length} withdrawal transactions from ${file}`
                 );
 
+                const mainAccountRows = this.filterMainAccountRows(validationResult.valid, file, 'withdrawal');
+
                 // Convert each row to a RawTransactionWithMetadata
-                for (const row of validationResult.valid) {
+                for (const row of mainAccountRows) {
                   // Use hash as external ID, or generate one if hash is empty
                   const baseId =
                     row.Hash || this.generateExternalId('withdrawal', row['Time(UTC)'], row.Coin, row.Amount);
@@ -302,8 +308,10 @@ export class KucoinCsvImporter implements IImporter {
                   `Parsed and validated ${validationResult.valid.length} account history entries from ${file}`
                 );
 
+                const mainAccountRows = this.filterMainAccountRows(validationResult.valid, file, 'account history');
+
                 // Convert each row to a RawTransactionWithMetadata
-                for (const row of validationResult.valid) {
+                for (const row of mainAccountRows) {
                   // Generate external ID from timestamp, type, currency, and amount
                   const baseId = this.generateExternalId(row.Type, row['Time(UTC)'], row.Currency, row.Amount);
                   const externalId = this.getUniqueExternalId(baseId);
@@ -351,8 +359,10 @@ export class KucoinCsvImporter implements IImporter {
                   `Parsed and validated ${validationResult.valid.length} order-splitting transactions from ${file}`
                 );
 
+                const mainAccountRows = this.filterMainAccountRows(validationResult.valid, file, 'order-splitting');
+
                 // Convert each row to a RawTransactionWithMetadata
-                for (const row of validationResult.valid) {
+                for (const row of mainAccountRows) {
                   // Use Order ID + Filled Time as external ID since there can be multiple fills per order
                   const baseId = `${row['Order ID']}-${row['Filled Time(UTC)']}`;
                   const externalId = this.getUniqueExternalId(baseId);
@@ -390,9 +400,12 @@ export class KucoinCsvImporter implements IImporter {
                 );
 
                 // Convert each row to a RawTransactionWithMetadata
-                for (const row of validationResult.valid) {
-                  // Use Order ID + Time Filled as external ID since there can be multiple fills per order
-                  const baseId = `${row['Order ID']}-${row['Time Filled(UTC)']}`;
+                const mainAccountRows = this.filterMainAccountRows(validationResult.valid, file, 'trading bot');
+
+                for (const row of mainAccountRows) {
+                  // Must match processor uniqueId: Order ID + timestamp (ms) + filled amount
+                  const timestamp = new Date(row['Time Filled(UTC)']).getTime();
+                  const baseId = `${row['Order ID']}-${timestamp}-${row['Filled Amount']}`;
                   const externalId = this.getUniqueExternalId(baseId);
                   rawTransactions.push({
                     providerName: 'kucoin',
@@ -699,7 +712,9 @@ export class KucoinCsvImporter implements IImporter {
             `Parsed and validated ${validationResult.valid.length} order-splitting transactions from ${fileName}`
           );
 
-          for (const row of validationResult.valid) {
+          const mainAccountRows = this.filterMainAccountRows(validationResult.valid, fileName, 'order-splitting');
+
+          for (const row of mainAccountRows) {
             const baseId = `${row['Order ID']}-${row['Filled Time(UTC)']}`;
             const externalId = this.getUniqueExternalId(baseId);
             rawTransactions.push({
@@ -733,8 +748,11 @@ export class KucoinCsvImporter implements IImporter {
             `Parsed and validated ${validationResult.valid.length} trading bot transactions from ${fileName}`
           );
 
-          for (const row of validationResult.valid) {
-            const baseId = `${row['Order ID']}-${row['Time Filled(UTC)']}`;
+          const mainAccountRows = this.filterMainAccountRows(validationResult.valid, fileName, 'trading bot');
+
+          for (const row of mainAccountRows) {
+            const timestamp = new Date(row['Time Filled(UTC)']).getTime();
+            const baseId = `${row['Order ID']}-${timestamp}-${row['Filled Amount']}`;
             const externalId = this.getUniqueExternalId(baseId);
             rawTransactions.push({
               providerName: 'kucoin',
@@ -953,6 +971,24 @@ export class KucoinCsvImporter implements IImporter {
     }
   }
 
+  /**
+   * Filter rows to mainAccount only. KuCoin sometimes labels sub-accounts differently;
+   * we currently ingest only mainAccount rows to keep balances aligned with spot/funding.
+   */
+  private filterMainAccountRows<T extends { ['Account Type']?: string }>(
+    rows: T[],
+    fileName: string,
+    rowLabel: string
+  ): T[] {
+    const filtered = rows.filter((row) => (row['Account Type'] ?? '').toLowerCase() === 'mainaccount');
+    const skipped = rows.length - filtered.length;
+    if (skipped > 0) {
+      this.logger.warn(
+        `Skipped ${skipped}/${rows.length} ${rowLabel} rows with Account Type != mainAccount in ${fileName}`
+      );
+    }
+    return filtered;
+  }
   /**
    * Count the number of data records in a CSV file (excluding header).
    */

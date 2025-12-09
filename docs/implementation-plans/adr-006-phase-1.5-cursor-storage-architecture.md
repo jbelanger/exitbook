@@ -12,7 +12,7 @@
 This phase redesigns cursor storage to support per-operation-type resumption for both blockchain and exchange imports. The key changes:
 
 1. **Convert `import_sessions.last_cursor` to a map** - Store cursor per operation type instead of single cursor
-2. **Remove `external_transaction_data.cursor` field** - Eliminate per-record cursor storage (~99.995% storage reduction)
+2. **Remove `raw_transactions.cursor` field** - Eliminate per-record cursor storage (~99.995% storage reduction)
 3. **Unified architecture** - Blockchains and exchanges use the same cursor storage pattern
 
 **Impact:**
@@ -30,7 +30,7 @@ This phase redesigns cursor storage to support per-operation-type resumption for
 **Two cursor fields exist:**
 
 1. **`import_sessions.last_cursor`** - Single `CursorState` for blockchain resumption (not yet used)
-2. **`external_transaction_data.cursor`** - Per-record cursor for exchange resumption (actively used)
+2. **`raw_transactions.cursor`** - Per-record cursor for exchange resumption (actively used)
 
 **Current exchange resumption flow:**
 
@@ -132,7 +132,7 @@ lastCursor: Record<string, CursorState> | undefined;
 
 ### 2. Remove Per-Record Cursor Storage
 
-**Delete `external_transaction_data.cursor` field entirely.**
+**Delete `raw_transactions.cursor` field entirely.**
 
 **Rationale:**
 
@@ -208,12 +208,11 @@ export const DataSourceSchema = z.object({
 **File:** `packages/core/src/schemas/external-transaction-data.ts`
 
 ```typescript
-export const ExternalTransactionSchema = z.object({
+export const RawTransactionSchema = z.object({
   providerName: z.string().min(1, 'Provider Name must not be empty'),
   sourceAddress: z.string().optional(),
   transactionTypeHint: z.string().optional(),
   externalId: z.string().min(1, 'External ID must not be empty'),
-  // REMOVED: cursor field
   rawData: z.unknown(),
   normalizedData: z.unknown(),
 });
@@ -227,7 +226,7 @@ export const ExternalTransactionSchema = z.object({
 // import_sessions table - line 23
 .addColumn('last_cursor', 'text') // Still JSON, now stores Record<string, CursorState>
 
-// external_transaction_data table - REMOVE line 37
+// raw_transactions table - REMOVE line 37
 // .addColumn('cursor', 'text')  // DELETE THIS LINE
 ```
 
@@ -260,14 +259,14 @@ async updateCursor(
       return err(dataSourceResult.error);
     }
 
-    const dataSource = dataSourceResult.value;
-    if (!dataSource) {
+    const importSession = dataSourceResult.value;
+    if (!importSession) {
       return err(new Error(`Data source ${dataSourceId} not found`));
     }
 
     // Merge with existing cursors
     const updatedCursors = {
-      ...(dataSource.lastCursor ?? {}),
+      ...(importSession.lastCursor ?? {}),
       [operationType]: cursor,
     };
 
@@ -400,7 +399,7 @@ if (importResult.cursor && importResult.operationType) {
 
 ```typescript
 export interface ImportBatchResult {
-  rawTransactions: ExternalTransaction[];
+  rawTransactions: RawTransaction[];
   cursor?: CursorState; // NEW: Structured cursor instead of Record<string, number>
   operationType?: string; // NEW: Which operation type this batch belongs to
   metadata?: Record<string, unknown>;
@@ -648,9 +647,9 @@ describe('DataSourceRepository - Cursor Map Management', () => {
 Just update `001_initial_schema.ts`:
 
 ```typescript
-// Remove cursor from external_transaction_data
+// Remove cursor from raw_transactions
 await db.schema
-  .createTable('external_transaction_data')
+  .createTable('raw_transactions')
   .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
   .addColumn('data_source_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
   .addColumn('provider_name', 'text', (col) => col.notNull())
@@ -691,7 +690,7 @@ await db.schema
 ## Success Criteria
 
 - ✅ `import_sessions.last_cursor` stores map of cursors per operation type
-- ✅ `external_transaction_data.cursor` column removed from schema
+- ✅ `raw_transactions.cursor` column removed from schema
 - ✅ `getLatestCursor()` method deleted
 - ✅ Exchange imports update cursor after each batch
 - ✅ Blockchain imports can resume each operation type independently

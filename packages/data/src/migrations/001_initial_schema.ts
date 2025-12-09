@@ -72,7 +72,6 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('normalized_data', 'text', (col) => col.notNull())
     .addColumn('processing_status', 'text', (col) => col.notNull().defaultTo('pending'))
     .addColumn('processed_at', 'text')
-    .addColumn('processing_error', 'text')
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .execute();
 

@@ -238,9 +238,14 @@ export class AccountRepository extends BaseRepository {
   /**
    * Find all accounts matching a source name
    */
-  async findBySourceName(sourceName: string): Promise<Result<Account[], Error>> {
+  async findBySourceName(sourceName: string, userId: number): Promise<Result<Account[], Error>> {
     try {
-      const rows = await this.db.selectFrom('accounts').selectAll().where('source_name', '=', sourceName).execute();
+      const rows = await this.db
+        .selectFrom('accounts')
+        .selectAll()
+        .where('source_name', '=', sourceName)
+        .where('user_id', '=', userId)
+        .execute();
 
       const accounts: Account[] = [];
       for (const row of rows) {
@@ -396,6 +401,35 @@ export class AccountRepository extends BaseRepository {
       return ok();
     } catch (error) {
       return wrapError(error, 'Failed to update account');
+    }
+  }
+
+  /**
+   * Update account identifier
+   * This is a special case method to update the identifier field, which is part of the unique constraint.
+   * Use with caution - this should only be used when merging CSV directories for exchange-csv accounts.
+   */
+  async updateIdentifier(accountId: number, newIdentifier: string): Promise<Result<void, Error>> {
+    try {
+      if (!newIdentifier || newIdentifier.trim() === '') {
+        return err(new Error('Account identifier must not be empty'));
+      }
+
+      const currentTimestamp = this.getCurrentDateTimeForDB();
+
+      await this.db
+        .updateTable('accounts')
+        .set({
+          identifier: newIdentifier,
+          updated_at: currentTimestamp,
+        })
+        .where('id', '=', accountId)
+        .execute();
+
+      this.logger.info({ accountId, newIdentifier }, 'Updated account identifier');
+      return ok();
+    } catch (error) {
+      return wrapError(error, 'Failed to update account identifier');
     }
   }
 
