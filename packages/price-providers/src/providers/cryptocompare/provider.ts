@@ -4,7 +4,7 @@
 
 import type { Currency } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { HttpClient } from '@exitbook/http';
+import type { HttpClient, InstrumentationCollector } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -64,7 +64,8 @@ export interface CryptoCompareProviderConfig {
  */
 export function createCryptoCompareProvider(
   db: PricesDB,
-  config: CryptoCompareProviderConfig = {}
+  config: CryptoCompareProviderConfig = {},
+  instrumentation?: InstrumentationCollector
 ): Result<CryptoCompareProvider, Error> {
   try {
     // Read from environment if not provided in config
@@ -76,6 +77,7 @@ export function createCryptoCompareProvider(
     // Create HTTP client
     const httpClient = createProviderHttpClient({
       baseUrl: 'https://min-api.cryptocompare.com',
+      instrumentation,
       providerName: 'CryptoCompare',
       rateLimit,
       // CryptoCompare uses query param for API key, not header

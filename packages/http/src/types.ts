@@ -1,11 +1,15 @@
 import type { ZodSchema } from 'zod';
 
+import type { InstrumentationCollector } from './instrumentation.js';
+
 export interface HttpClientConfig {
   baseUrl: string;
   defaultHeaders?: Record<string, string> | undefined;
+  instrumentation?: InstrumentationCollector | undefined;
   providerName: string;
   rateLimit: RateLimitConfig;
   retries?: number | undefined;
+  service?: 'blockchain' | 'exchange' | 'price' | undefined;
   timeout?: number | undefined;
 }
 

@@ -7,7 +7,7 @@
 
 import type { Currency } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
-import { HttpClient } from '@exitbook/http';
+import { HttpClient, type InstrumentationCollector } from '@exitbook/http';
 import type { Decimal } from 'decimal.js';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -246,6 +246,8 @@ export interface ProviderHttpClientConfig {
   apiKey?: string | undefined;
   /** API key header name (defaults to 'api_key' query param if not specified) */
   apiKeyHeader?: string | undefined;
+  /** Optional instrumentation collector for metrics */
+  instrumentation?: InstrumentationCollector | undefined;
   /** Rate limit configuration */
   rateLimit: ProviderRateLimitConfig;
   /** Request timeout in milliseconds (default: 10000) */
@@ -275,9 +277,11 @@ export function createProviderHttpClient(config: ProviderHttpClientConfig): Http
   return new HttpClient({
     baseUrl: config.baseUrl,
     defaultHeaders: headers,
+    instrumentation: config.instrumentation,
     providerName: config.providerName,
     rateLimit: config.rateLimit,
     retries: config.retries ?? 3,
+    service: 'price',
     timeout: config.timeout ?? 10000,
   });
 }

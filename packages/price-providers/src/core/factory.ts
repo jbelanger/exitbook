@@ -4,6 +4,7 @@
  * Auto-discovers providers via registry pattern
  */
 
+import type { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -32,16 +33,22 @@ const logger = getLogger('PriceProviderFactory');
  * Type-safe: All factories must match the expected signature
  */
 const PROVIDER_FACTORIES = {
-  'bank-of-canada': (db: PricesDB, _config: unknown) => createBankOfCanadaProvider(db),
-  binance: (db: PricesDB, config: unknown) =>
-    createBinanceProvider(db, config as Parameters<typeof createBinanceProvider>[1]),
-  coingecko: (db: PricesDB, config: unknown) =>
-    createCoinGeckoProvider(db, config as Parameters<typeof createCoinGeckoProvider>[1]),
-  cryptocompare: (db: PricesDB, config: unknown) =>
-    createCryptoCompareProvider(db, config as Parameters<typeof createCryptoCompareProvider>[1]),
-  ecb: (db: PricesDB, _config: unknown) => createECBProvider(db),
-  frankfurter: (db: PricesDB, _config: unknown) => createFrankfurterProvider(db),
-} as const satisfies Record<string, (db: PricesDB, config: unknown) => Result<IPriceProvider, Error>>;
+  'bank-of-canada': (db: PricesDB, config: unknown, instrumentation?: InstrumentationCollector) =>
+    createBankOfCanadaProvider(db, config, instrumentation),
+  binance: (db: PricesDB, config: unknown, instrumentation?: InstrumentationCollector) =>
+    createBinanceProvider(db, config as Parameters<typeof createBinanceProvider>[1], instrumentation),
+  coingecko: (db: PricesDB, config: unknown, instrumentation?: InstrumentationCollector) =>
+    createCoinGeckoProvider(db, config as Parameters<typeof createCoinGeckoProvider>[1], instrumentation),
+  cryptocompare: (db: PricesDB, config: unknown, instrumentation?: InstrumentationCollector) =>
+    createCryptoCompareProvider(db, config as Parameters<typeof createCryptoCompareProvider>[1], instrumentation),
+  ecb: (db: PricesDB, config: unknown, instrumentation?: InstrumentationCollector) =>
+    createECBProvider(db, config, instrumentation),
+  frankfurter: (db: PricesDB, config: unknown, instrumentation?: InstrumentationCollector) =>
+    createFrankfurterProvider(db, config, instrumentation),
+} as const satisfies Record<
+  string,
+  (db: PricesDB, config: unknown, instrumentation?: InstrumentationCollector) => Result<IPriceProvider, Error>
+>;
 
 export type ProviderName = keyof typeof PROVIDER_FACTORIES;
 
@@ -51,6 +58,8 @@ export type ProviderName = keyof typeof PROVIDER_FACTORIES;
 export interface ProviderFactoryConfig {
   /** Path to prices database file (defaults to ./data/prices.db) */
   databasePath?: string | undefined;
+  /** Optional instrumentation collector to record HTTP metrics */
+  instrumentation?: InstrumentationCollector | undefined;
   'bank-of-canada'?: {
     enabled?: boolean | undefined;
   };
@@ -107,7 +116,8 @@ export interface ProviderFactoryConfig {
  * ```
  */
 export async function createPriceProviders(
-  config: ProviderFactoryConfig = {}
+  config: ProviderFactoryConfig = {},
+  instrumentation?: InstrumentationCollector
 ): Promise<Result<IPriceProvider[], Error>> {
   // Initialize database (internal detail - caller never touches it)
   const dbPath = config.databasePath || './data/prices.db';
@@ -128,6 +138,7 @@ export async function createPriceProviders(
   logger.debug({ databasePath: dbPath }, 'Prices database initialized');
 
   const providers: IPriceProvider[] = [];
+  const instrumentationCollector = instrumentation ?? config.instrumentation;
 
   // Auto-discover and create all providers from registry
   for (const [name, factory] of Object.entries(PROVIDER_FACTORIES)) {
@@ -140,7 +151,7 @@ export async function createPriceProviders(
     }
 
     // Create provider using factory
-    const result = factory(db, providerConfig || {});
+    const result = factory(db, providerConfig || {}, instrumentationCollector);
     if (result.isErr()) {
       logger.warn(`Failed to create ${name} provider: ${result.error.message}`);
       continue;
@@ -189,6 +200,8 @@ export interface PriceProviderManagerFactoryConfig {
   providers?: ProviderFactoryConfig | undefined;
   /** Manager-specific configuration */
   manager?: Partial<ProviderManagerConfig> | undefined;
+  /** Optional instrumentation collector for HTTP metrics */
+  instrumentation?: InstrumentationCollector | undefined;
 }
 
 /**
@@ -227,7 +240,7 @@ export async function createPriceProviderManager(
   config: PriceProviderManagerFactoryConfig = {}
 ): Promise<Result<PriceProviderManager, Error>> {
   // Create providers
-  const providersResult = await createPriceProviders(config.providers ?? {});
+  const providersResult = await createPriceProviders(config.providers ?? {}, config.instrumentation);
 
   if (providersResult.isErr()) {
     return err(providersResult.error);

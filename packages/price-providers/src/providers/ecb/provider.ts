@@ -7,7 +7,7 @@
 
 import type { Currency } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { HttpClient } from '@exitbook/http';
+import type { HttpClient, InstrumentationCollector } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -38,7 +38,11 @@ const ECB_RATE_LIMIT: ProviderRateLimitConfig = {
  * @param db - Initialized prices database instance
  * @param config - Provider configuration (none required for ECB)
  */
-export function createECBProvider(db: PricesDB): Result<ECBProvider, Error> {
+export function createECBProvider(
+  db: PricesDB,
+  _config: unknown = {},
+  instrumentation?: InstrumentationCollector
+): Result<ECBProvider, Error> {
   try {
     // ECB API base URL
     const baseUrl = 'https://data-api.ecb.europa.eu/service/data/EXR';
@@ -46,6 +50,7 @@ export function createECBProvider(db: PricesDB): Result<ECBProvider, Error> {
     // Create HTTP client
     const httpClient = createProviderHttpClient({
       baseUrl,
+      instrumentation,
       providerName: 'ECB',
       rateLimit: ECB_RATE_LIMIT,
     });

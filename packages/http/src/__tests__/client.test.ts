@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { HttpClient } from '../client.js';
 import type { HttpEffects } from '../core/types.js';
+import { InstrumentationCollector } from '../instrumentation.js';
 import { ServiceError, RateLimitError, ResponseValidationError } from '../types.js';
 
 describe('HttpClient - Result Type Implementation', () => {
@@ -752,5 +753,170 @@ describe('HttpClient - Rich Log Context', () => {
       method: 'POST',
       providerName: 'test-provider',
     });
+  });
+});
+
+describe('HttpClient - Instrumentation', () => {
+  it('should record metrics on successful request', async () => {
+    const instrumentation = new InstrumentationCollector();
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve({ success: true }),
+      ok: true,
+      status: 200,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      // Mock now to return a sequence of values for start, rate limit checks, and end
+      now: vi
+        .fn()
+        .mockReturnValueOnce(1000) // Start time
+        .mockReturnValueOnce(1000) // Rate limit check
+        .mockReturnValueOnce(2000) // Duration calc (end)
+        .mockReturnValueOnce(2000), // Timestamp (end)
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        service: 'blockchain', // Required for instrumentation
+        rateLimit: { requestsPerSecond: 10 },
+        instrumentation,
+      },
+      mockEffects
+    );
+
+    await client.get('/test');
+
+    const metrics = instrumentation.getMetrics();
+    expect(metrics).toHaveLength(1);
+    expect(metrics[0]).toMatchObject({
+      provider: 'test-provider',
+      service: 'blockchain',
+      endpoint: '/test',
+      method: 'GET',
+      status: 200,
+      durationMs: 1000,
+      error: undefined,
+    });
+  });
+
+  it('should record metrics on failed request', async () => {
+    const instrumentation = new InstrumentationCollector();
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      ok: false,
+      status: 500,
+      text: () => Promise.resolve('Error'),
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 2000,
+    };
+
+    // Override now for start/end
+    vi.spyOn(mockEffects, 'now')
+      .mockReturnValueOnce(1000) // Rate limit
+      .mockReturnValueOnce(1000) // Start time
+      .mockReturnValue(2000); // Duration/Timestamp
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        service: 'blockchain',
+        rateLimit: { requestsPerSecond: 10 },
+        retries: 1, // 1 attempt (fail fast)
+        instrumentation,
+      },
+      mockEffects
+    );
+
+    await client.get('/test');
+
+    const metrics = instrumentation.getMetrics();
+    expect(metrics).toHaveLength(1);
+    expect(metrics[0]).toMatchObject({
+      provider: 'test-provider',
+      service: 'blockchain',
+      endpoint: '/test',
+      method: 'GET',
+      status: 500,
+      durationMs: 1000,
+    });
+  });
+
+  it('should sanitize endpoints in metrics', async () => {
+    const instrumentation = new InstrumentationCollector();
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve({ success: true }),
+      ok: true,
+      status: 200,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn(),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => Date.now(),
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        service: 'exchange',
+        rateLimit: { requestsPerSecond: 10 },
+        instrumentation,
+      },
+      mockEffects
+    );
+
+    await client.get('/users/0x1234567890abcdef1234567890abcdef12345678/profile');
+
+    const metrics = instrumentation.getMetrics();
+    expect(metrics).toHaveLength(1);
+    expect(metrics[0]?.endpoint).toBe('/users/{address}/profile');
+  });
+
+  it('should not record metrics if service is not configured', async () => {
+    const instrumentation = new InstrumentationCollector();
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve({ success: true }),
+      ok: true,
+      status: 200,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn(),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => Date.now(),
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        // service missing
+        rateLimit: { requestsPerSecond: 10 },
+        instrumentation,
+      },
+      mockEffects
+    );
+
+    await client.get('/test');
+
+    const metrics = instrumentation.getMetrics();
+    expect(metrics).toHaveLength(0);
   });
 });

@@ -8,11 +8,13 @@
  * 4. Derive (2nd pass) - Use newly fetched/normalized prices for ratio calculations
  */
 
+import { TransactionLinkRepository } from '@exitbook/accounting';
+import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
+import type { MetricsSummary } from '@exitbook/http';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { withDatabaseAndHandler } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { PricesEnrichCommandOptionsSchema } from '../shared/schemas.js';
@@ -65,6 +67,7 @@ interface PricesEnrichCommandResult {
         transactionsUpdated: number;
       }
     | undefined;
+  runStats?: MetricsSummary | undefined;
 }
 
 /**
@@ -144,18 +147,32 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
           : { ui: false, structured: 'stdout' },
     });
 
-    const result = await withDatabaseAndHandler(PricesEnrichHandler, params);
+    const database = await initializeDatabase();
+    const transactionRepo = new TransactionRepository(database);
+    const linkRepo = new TransactionLinkRepository(database);
+    const handler = new PricesEnrichHandler(transactionRepo, linkRepo);
 
-    // Reset logger context after command completes
-    resetLoggerContext();
+    try {
+      const result = await handler.execute(params);
 
-    if (result.isErr()) {
+      handler.destroy();
+      await closeDatabase(database);
+      resetLoggerContext();
+
+      if (result.isErr()) {
+        spinner?.stop('Price enrichment failed');
+        output.error('prices-enrich', result.error, ExitCodes.GENERAL_ERROR);
+        return;
+      }
+
+      handlePricesEnrichSuccess(output, result.value, spinner);
+    } catch (error) {
+      handler.destroy();
+      await closeDatabase(database);
+      resetLoggerContext();
       spinner?.stop('Price enrichment failed');
-      output.error('prices-enrich', result.error, ExitCodes.GENERAL_ERROR);
-      return;
+      output.error('prices-enrich', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
     }
-
-    handlePricesEnrichSuccess(output, result.value, spinner);
   } catch (error) {
     output.error('prices-enrich', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
@@ -244,6 +261,11 @@ function handlePricesEnrichSuccess(
       console.log('Stage 4: Derive (Second Pass)');
       console.log(`  Transactions updated: ${result.derive2.transactionsUpdated}`);
     }
+
+    if (result.runStats && result.runStats.total > 0) {
+      console.log('');
+      displayApiCallSummary(result.runStats);
+    }
   }
 
   // Prepare result data for JSON mode
@@ -252,6 +274,7 @@ function handlePricesEnrichSuccess(
     fetch: result.fetch,
     normalize: result.normalize,
     derive2: result.derive2,
+    runStats: result.runStats,
   };
 
   // Output success
@@ -282,4 +305,56 @@ function buildCompletionMessage(result: PricesEnrichResult): string {
   }
 
   return `Price enrichment complete - ${parts.join(', ')}`;
+}
+
+/**
+ * Render API call summary table to stdout
+ */
+function displayApiCallSummary(stats: MetricsSummary): void {
+  console.log('API Calls Summary:');
+
+  const rows: { avgDuration: string; calls: number; endpoint: string; provider: string }[] = [];
+
+  for (const [key, metrics] of Object.entries(stats.byEndpoint)) {
+    const [provider, endpoint] = key.split(':');
+    if (!provider || !endpoint) continue;
+
+    rows.push({
+      provider,
+      endpoint,
+      calls: metrics.calls,
+      avgDuration: `${Math.round(metrics.avgDuration)}ms`,
+    });
+  }
+
+  rows.sort((a, b) => {
+    if (a.provider !== b.provider) return a.provider.localeCompare(b.provider);
+    return b.calls - a.calls;
+  });
+
+  const providerWidth = Math.max(8, ...rows.map((r) => r.provider.length));
+  const endpointWidth = Math.max(8, ...rows.map((r) => r.endpoint.length));
+  const callsWidth = Math.max(5, ...rows.map((r) => r.calls.toString().length));
+  const durationWidth = Math.max(12, ...rows.map((r) => r.avgDuration.length));
+
+  const headerLine = `┌─${'─'.repeat(providerWidth)}─┬─${'─'.repeat(endpointWidth)}─┬─${'─'.repeat(callsWidth)}─┬─${'─'.repeat(durationWidth)}─┐`;
+  const separatorLine = `├─${'─'.repeat(providerWidth)}─┼─${'─'.repeat(endpointWidth)}─┼─${'─'.repeat(callsWidth)}─┼─${'─'.repeat(durationWidth)}─┤`;
+  const footerLine = `└─${'─'.repeat(providerWidth)}─┴─${'─'.repeat(endpointWidth)}─┴─${'─'.repeat(callsWidth)}─┴─${'─'.repeat(durationWidth)}─┘`;
+
+  console.log(headerLine);
+  console.log(
+    `│ ${'Provider'.padEnd(providerWidth)} │ ${'Endpoint'.padEnd(endpointWidth)} │ ${'Calls'.padEnd(callsWidth)} │ ${'Avg Response'.padEnd(durationWidth)} │`
+  );
+  console.log(separatorLine);
+
+  for (const row of rows) {
+    console.log(
+      `│ ${row.provider.padEnd(providerWidth)} │ ${row.endpoint.padEnd(endpointWidth)} │ ${row.calls.toString().padEnd(callsWidth)} │ ${row.avgDuration.padEnd(durationWidth)} │`
+    );
+  }
+
+  console.log(footerLine);
+  console.log('');
+  console.log(`Total API calls: ${stats.total}`);
+  console.log('');
 }

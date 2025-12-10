@@ -9,6 +9,8 @@ import {
   ImportSessionRepository,
   RawDataRepository,
 } from '@exitbook/data';
+import { InstrumentationCollector } from '@exitbook/http';
+import type { MetricsSummary } from '@exitbook/http';
 import {
   ImportOrchestrator,
   TransactionProcessService,
@@ -59,6 +61,7 @@ interface ImportCommandResult {
       processed: boolean;
     };
     processingErrors?: string[] | undefined;
+    runStats?: MetricsSummary | undefined;
     source?: string | undefined;
   };
   meta: {
@@ -154,6 +157,10 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
     // Initialize provider manager
     const providerManager = new BlockchainProviderManager();
 
+    // Initialize instrumentation for API call tracking
+    const instrumentation = new InstrumentationCollector();
+    providerManager.setInstrumentation(instrumentation);
+
     // Initialize services
     const tokenMetadataService = new TokenMetadataService(tokenMetadataRepository, providerManager);
     const importOrchestrator = new ImportOrchestrator(
@@ -199,6 +206,9 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 
       const result = await handler.execute(paramsWithCallback);
 
+      // Get instrumentation summary
+      const instrumentationSummary = instrumentation.getSummary();
+
       // Cleanup
       handler.destroy();
       await closeDatabase(database);
@@ -210,7 +220,13 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
         return;
       }
 
-      const summary = handleImportSuccess(output, result.value, params);
+      // Attach runStats to result
+      const resultWithStats = {
+        ...result.value,
+        runStats: instrumentationSummary,
+      };
+
+      const summary = handleImportSuccess(output, resultWithStats, params);
       spinner?.stop('Import complete');
       if (output.isTextMode() && summary) {
         output.outro(summary);
@@ -271,6 +287,7 @@ function handleImportSuccess(
           }))
         : undefined,
       processingErrors: importResult.processingErrors?.slice(0, 5),
+      runStats: importResult.runStats,
     },
     meta: {
       timestamp: new Date().toISOString(),
@@ -306,6 +323,11 @@ function handleImportSuccess(
     if (importResult.processingErrors && importResult.processingErrors.length > 0) {
       output.note(importResult.processingErrors.slice(0, 5).join('\n'), 'First 5 errors');
     }
+
+    // Display API call summary table
+    if (importResult.runStats && importResult.runStats.total > 0) {
+      displayApiCallSummary(importResult.runStats, output);
+    }
   }
 
   output.success('import', resultData);
@@ -313,4 +335,64 @@ function handleImportSuccess(
   // Don't call process.exit(0) - it triggers clack's cancellation handler
   // The process will exit naturally
   return summary;
+}
+
+/**
+ * Display API call summary table
+ */
+function displayApiCallSummary(stats: MetricsSummary, output: OutputManager): void {
+  output.log('');
+  output.log('API Calls Summary:');
+
+  // Build table rows from byEndpoint data
+  const rows: { avgDuration: string; calls: number; endpoint: string; provider: string }[] = [];
+
+  for (const [key, metrics] of Object.entries(stats.byEndpoint)) {
+    const [provider, endpoint] = key.split(':');
+    if (!provider || !endpoint) continue;
+
+    rows.push({
+      provider,
+      endpoint,
+      calls: metrics.calls,
+      avgDuration: `${Math.round(metrics.avgDuration)}ms`,
+    });
+  }
+
+  // Sort by provider, then by calls descending
+  rows.sort((a, b) => {
+    if (a.provider !== b.provider) {
+      return a.provider.localeCompare(b.provider);
+    }
+    return b.calls - a.calls;
+  });
+
+  // Calculate column widths
+  const providerWidth = Math.max(8, ...rows.map((r) => r.provider.length));
+  const endpointWidth = Math.max(8, ...rows.map((r) => r.endpoint.length));
+  const callsWidth = Math.max(5, ...rows.map((r) => r.calls.toString().length));
+  const durationWidth = Math.max(12, ...rows.map((r) => r.avgDuration.length));
+
+  // Print header
+  const headerLine = `┌─${'─'.repeat(providerWidth)}─┬─${'─'.repeat(endpointWidth)}─┬─${'─'.repeat(callsWidth)}─┬─${'─'.repeat(durationWidth)}─┐`;
+  const separatorLine = `├─${'─'.repeat(providerWidth)}─┼─${'─'.repeat(endpointWidth)}─┼─${'─'.repeat(callsWidth)}─┼─${'─'.repeat(durationWidth)}─┤`;
+  const footerLine = `└─${'─'.repeat(providerWidth)}─┴─${'─'.repeat(endpointWidth)}─┴─${'─'.repeat(callsWidth)}─┴─${'─'.repeat(durationWidth)}─┘`;
+
+  output.log(headerLine);
+  output.log(
+    `│ ${'Provider'.padEnd(providerWidth)} │ ${'Endpoint'.padEnd(endpointWidth)} │ ${'Calls'.padEnd(callsWidth)} │ ${'Avg Response'.padEnd(durationWidth)} │`
+  );
+  output.log(separatorLine);
+
+  // Print rows
+  for (const row of rows) {
+    output.log(
+      `│ ${row.provider.padEnd(providerWidth)} │ ${row.endpoint.padEnd(endpointWidth)} │ ${row.calls.toString().padEnd(callsWidth)} │ ${row.avgDuration.padEnd(durationWidth)} │`
+    );
+  }
+
+  output.log(footerLine);
+  output.log('');
+  output.log(`Total API calls: ${stats.total}`);
+  output.log('');
 }

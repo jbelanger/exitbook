@@ -2,6 +2,7 @@
 // All functions are pure and testable
 
 import { Currency, type UniversalTransactionData } from '@exitbook/core';
+import type { InstrumentationCollector, MetricsSummary } from '@exitbook/http';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import type { PriceQuery } from '@exitbook/price-providers';
 import { err, ok, type Result } from 'neverthrow';
@@ -41,6 +42,7 @@ export interface PriceFetchStats {
 export interface PricesFetchResult {
   stats: PriceFetchStats;
   errors: string[];
+  runStats?: MetricsSummary | undefined;
 }
 
 /**
@@ -211,7 +213,9 @@ export function determineEnrichmentStages(options: EnrichmentStageOptions): Enri
  *
  * @returns Result with initialized price provider manager
  */
-export async function createDefaultPriceProviderManager(): Promise<Result<PriceProviderManager, Error>> {
+export async function createDefaultPriceProviderManager(
+  instrumentation?: InstrumentationCollector
+): Promise<Result<PriceProviderManager, Error>> {
   return createPriceProviderManager({
     providers: {
       databasePath: './data/prices.db',
@@ -241,5 +245,6 @@ export async function createDefaultPriceProviderManager(): Promise<Result<PriceP
       maxConsecutiveFailures: 3,
       cacheTtlSeconds: 3600,
     },
+    instrumentation,
   });
 }

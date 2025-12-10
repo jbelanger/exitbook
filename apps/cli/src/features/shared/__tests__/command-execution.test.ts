@@ -1,10 +1,7 @@
-/* eslint-disable @typescript-eslint/unbound-method -- Acceptable in tests */
-import type { KyselyDB } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import type { CommandHandler } from '../command-execution.js';
-import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../command-execution.js';
+import { resolveCommandParams, unwrapResult } from '../command-execution.js';
 import type { OutputManager } from '../output.js';
 
 // Mock dependencies
@@ -36,132 +33,6 @@ describe('command-execution', () => {
       expect(unwrapResult(ok({ key: 'value' }))).toEqual({ key: 'value' });
       expect(unwrapResult(ok(['array', 'items']))).toEqual(['array', 'items']);
       expect(unwrapResult(ok(undefined))).toBe(undefined);
-    });
-  });
-
-  describe('withDatabaseAndHandler', () => {
-    let mockDatabase: KyselyDB;
-    let mockHandler: CommandHandler<string, string>;
-    let MockHandlerClass: new (db: KyselyDB) => CommandHandler<string, string>;
-    let initializeDatabase: Mock;
-    let closeDatabase: Mock;
-
-    beforeEach(async () => {
-      vi.clearAllMocks();
-
-      // Mock database
-      mockDatabase = {} as KyselyDB;
-
-      // Mock handler
-      mockHandler = {
-        destroy: vi.fn(),
-        execute: vi.fn() as (this: void, params: string) => Promise<import('neverthrow').Result<string, Error>>,
-      };
-
-      // Mock handler class constructor
-      MockHandlerClass = vi.fn().mockImplementation(() => mockHandler);
-
-      // Mock database functions
-      const dataModule = await import('@exitbook/data');
-      initializeDatabase = vi.mocked(dataModule.initializeDatabase) as Mock;
-      closeDatabase = vi.mocked(dataModule.closeDatabase) as Mock;
-
-      initializeDatabase.mockResolvedValue(mockDatabase);
-      closeDatabase.mockResolvedValue(void 0);
-    });
-
-    it('should initialize database', async () => {
-      (mockHandler.execute as Mock).mockResolvedValue(ok('result'));
-
-      await withDatabaseAndHandler(MockHandlerClass, 'params');
-
-      expect(initializeDatabase).toHaveBeenCalledWith();
-    });
-
-    it('should create handler with database and execute with params', async () => {
-      const executeMock = mockHandler.execute as Mock;
-      executeMock.mockResolvedValue(ok('result'));
-
-      await withDatabaseAndHandler(MockHandlerClass, 'test-params');
-
-      expect(MockHandlerClass).toHaveBeenCalledWith(mockDatabase);
-      expect(executeMock).toHaveBeenCalledWith('test-params');
-    });
-
-    it('should return successful result and cleanup resources', async () => {
-      const expectedResult = ok('success');
-      const executeMock = mockHandler.execute as Mock;
-      const destroyMock = mockHandler.destroy as Mock;
-      executeMock.mockResolvedValue(expectedResult);
-
-      const result = await withDatabaseAndHandler(MockHandlerClass, 'params');
-
-      expect(result).toBe(expectedResult);
-      expect(destroyMock).toHaveBeenCalled();
-      expect(closeDatabase).toHaveBeenCalledWith(mockDatabase);
-    });
-
-    it('should return error result and cleanup resources', async () => {
-      const expectedError = err(new Error('Handler error'));
-      const executeMock = mockHandler.execute as Mock;
-      const destroyMock = mockHandler.destroy as Mock;
-      executeMock.mockResolvedValue(expectedError);
-
-      const result = await withDatabaseAndHandler(MockHandlerClass, 'params');
-
-      expect(result).toBe(expectedError);
-      expect(destroyMock).toHaveBeenCalled();
-      expect(closeDatabase).toHaveBeenCalledWith(mockDatabase);
-    });
-
-    it('should cleanup resources when handler throws', async () => {
-      const error = new Error('Handler threw');
-      const executeMock = mockHandler.execute as Mock;
-      const destroyMock = mockHandler.destroy as Mock;
-      executeMock.mockRejectedValue(error);
-
-      await expect(withDatabaseAndHandler(MockHandlerClass, 'params')).rejects.toThrow(error);
-
-      expect(destroyMock).toHaveBeenCalled();
-      expect(closeDatabase).toHaveBeenCalledWith(mockDatabase);
-    });
-
-    it('should cleanup resources in correct order on success', async () => {
-      const callOrder: string[] = [];
-      const executeMock = mockHandler.execute as Mock;
-      const destroyMock = mockHandler.destroy as Mock;
-
-      executeMock.mockResolvedValue(ok('result'));
-      destroyMock.mockImplementation(() => {
-        callOrder.push('destroy');
-      });
-      closeDatabase.mockImplementation(() => {
-        callOrder.push('closeDatabase');
-        return Promise.resolve(void 0);
-      });
-
-      await withDatabaseAndHandler(MockHandlerClass, 'params');
-
-      expect(callOrder).toEqual(['destroy', 'closeDatabase']);
-    });
-
-    it('should cleanup resources in correct order on error', async () => {
-      const callOrder: string[] = [];
-      const executeMock = mockHandler.execute as Mock;
-      const destroyMock = mockHandler.destroy as Mock;
-
-      executeMock.mockRejectedValue(new Error('Test error'));
-      destroyMock.mockImplementation(() => {
-        callOrder.push('destroy');
-      });
-      closeDatabase.mockImplementation(() => {
-        callOrder.push('closeDatabase');
-        return Promise.resolve(void 0);
-      });
-
-      await expect(withDatabaseAndHandler(MockHandlerClass, 'params')).rejects.toThrow();
-
-      expect(callOrder).toEqual(['destroy', 'closeDatabase']);
     });
   });
 

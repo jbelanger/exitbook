@@ -4,6 +4,7 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { Currency } from '@exitbook/core';
 import type { TransactionRepository } from '@exitbook/data';
+import type { InstrumentationCollector } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import { CoinNotFoundError, PriceDataUnavailableError, type PriceProviderManager } from '@exitbook/price-providers';
 import type { Result } from 'neverthrow';
@@ -28,14 +29,17 @@ export class PricesFetchHandler {
   private priceManager: PriceProviderManager | undefined;
   private errors: string[] = [];
 
-  constructor(private transactionRepo: TransactionRepository) {}
+  constructor(
+    private transactionRepo: TransactionRepository,
+    private readonly instrumentation?: InstrumentationCollector
+  ) {}
 
   /**
    * Execute prices fetch command
    */
   async execute(options: PricesFetchCommandOptions): Promise<Result<PricesFetchResult, Error>> {
     // Initialize price provider manager using shared factory
-    const managerResult = await createDefaultPriceProviderManager();
+    const managerResult = await createDefaultPriceProviderManager(this.instrumentation);
 
     if (managerResult.isErr()) {
       return err(managerResult.error);
@@ -288,7 +292,9 @@ export class PricesFetchHandler {
       }
     }
 
-    return ok({ stats, errors: this.errors });
+    const runStats = this.instrumentation?.getSummary();
+
+    return ok({ stats, errors: this.errors, runStats });
   }
 
   /**

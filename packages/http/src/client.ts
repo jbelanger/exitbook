@@ -6,6 +6,7 @@ import * as HttpUtils from './core/http-utils.js';
 import * as RateLimitCore from './core/rate-limit.js';
 import type { HttpEffects, RateLimitState } from './core/types.js';
 import { createInitialRateLimitState } from './core/types.js';
+import { sanitizeEndpoint } from './instrumentation.js';
 import type { HttpClientConfig, HttpRequestOptions } from './types.js';
 import { RateLimitError, ResponseValidationError, ServiceError } from './types.js';
 
@@ -123,14 +124,18 @@ export class HttpClient {
     }
 
     for (let attempt = 1; attempt <= this.config.retries!; attempt++) {
+      const startTime = this.effects.now();
+      let response: Response | undefined;
+      const controller = new AbortController();
+      let timeoutId: NodeJS.Timeout | undefined;
+
       try {
         this.effects.log(
           'debug',
           `Making HTTP request - URL: ${HttpUtils.sanitizeUrl(url)}, Method: ${method}, Attempt: ${attempt}/${this.config.retries}`
         );
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        timeoutId = setTimeout(() => controller.abort(), timeout);
 
         const headers = {
           ...this.config.defaultHeaders,
@@ -147,15 +152,13 @@ export class HttpClient {
           }
         }
 
-        const response = await this.effects.fetch(url, {
+        response = await this.effects.fetch(url, {
           // eslint-disable-next-line unicorn/no-null -- 'fetch' requires null for empty body, not undefined
           body: body ?? null,
           headers,
           method,
           signal: controller.signal,
         });
-
-        clearTimeout(timeoutId);
 
         if (!response.ok) {
           const errorText = await response.text().catch(() => 'Unknown error');
@@ -285,10 +288,37 @@ export class HttpClient {
           this.effects.log('debug', `Retrying after delay - Delay: ${delay}ms, NextAttempt: ${attempt + 1}`);
           await this.effects.delay(delay);
         }
+      } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        const status = response?.status ?? 0;
+        const errorLabel = response ? undefined : lastError?.name || lastError?.message;
+        this.recordMetric(endpoint, method, status, startTime, errorLabel);
       }
     }
 
     return err(lastError ?? new Error('Request failed with unknown error'));
+  }
+
+  /**
+   * Record request metric if instrumentation is enabled
+   */
+  private recordMetric(endpoint: string, method: string, status: number, startTime: number, error?: string): void {
+    if (!this.config.instrumentation || !this.config.service) {
+      return;
+    }
+
+    this.config.instrumentation.record({
+      durationMs: this.effects.now() - startTime,
+      endpoint: sanitizeEndpoint(endpoint),
+      error,
+      method,
+      provider: this.config.providerName,
+      service: this.config.service,
+      status,
+      timestamp: this.effects.now(),
+    });
   }
 
   /**

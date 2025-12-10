@@ -7,6 +7,7 @@ import {
   recordSuccess,
   resetCircuit,
   type CircuitState,
+  type InstrumentationCollector,
 } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -53,6 +54,7 @@ export class BlockchainProviderManager {
   private readonly healthCheckInterval = 60000; // 1 minute
   private healthCheckTimer?: NodeJS.Timeout | undefined;
   private healthStatus = new Map<string, ProviderHealth>();
+  private instrumentation?: InstrumentationCollector | undefined;
   private providers = new Map<string, IBlockchainProvider[]>();
   private requestCache = new Map<string, CacheEntry>();
 
@@ -359,6 +361,14 @@ export class BlockchainProviderManager {
   }
 
   /**
+   * Set instrumentation collector for tracking API calls
+   * This will be passed to all providers for HTTP request tracking
+   */
+  setInstrumentation(collector: InstrumentationCollector): void {
+    this.instrumentation = collector;
+  }
+
+  /**
    * Auto-register all available providers from the registry (used when no config exists)
    */
   private autoRegisterFromRegistry(blockchain: string, preferredProvider?: string): IBlockchainProvider[] {
@@ -418,6 +428,7 @@ export class BlockchainProviderManager {
             blockchain, // Add blockchain for multi-chain support
             displayName: metadata.displayName,
             enabled: true,
+            instrumentation: this.instrumentation,
             name: metadata.name,
             priority: priority++,
             requiresApiKey: metadata.requiresApiKey,
@@ -997,6 +1008,7 @@ export class BlockchainProviderManager {
           blockchain, // Add blockchain for multi-chain support
           displayName: metadata.displayName,
           enabled: true,
+          instrumentation: this.instrumentation,
           name: metadata.name,
           priority: providerInfo.priority,
           rateLimit: {

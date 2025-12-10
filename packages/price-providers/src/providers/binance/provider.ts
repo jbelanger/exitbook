@@ -4,7 +4,7 @@
 
 import type { Currency } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { HttpClient } from '@exitbook/http';
+import type { HttpClient, InstrumentationCollector } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -57,7 +57,8 @@ export interface BinanceProviderConfig {
  */
 export function createBinanceProvider(
   db: PricesDB,
-  config: BinanceProviderConfig = {}
+  config: BinanceProviderConfig = {},
+  instrumentation?: InstrumentationCollector
 ): Result<BinanceProvider, Error> {
   try {
     const rateLimit = BINANCE_RATE_LIMITS.free;
@@ -65,6 +66,7 @@ export function createBinanceProvider(
     // Create HTTP client
     const httpClient = createProviderHttpClient({
       baseUrl: 'https://api.binance.com',
+      instrumentation,
       providerName: 'Binance',
       rateLimit,
     });

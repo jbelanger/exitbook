@@ -24,10 +24,11 @@ import {
   PriceEnrichmentService,
   PriceNormalizationService,
   StandardFxRateProvider,
-  type TransactionLinkRepository,
+  type TransactionLinkRepository as ITransactionLinkRepository,
 } from '@exitbook/accounting';
 import type { IFxRateProvider, NormalizeResult } from '@exitbook/accounting';
 import type { TransactionRepository } from '@exitbook/data';
+import { InstrumentationCollector, type MetricsSummary } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import type { PriceProviderManager } from '@exitbook/price-providers';
 import type { Result } from 'neverthrow';
@@ -75,6 +76,9 @@ export interface PricesEnrichResult {
 
   /** Stage 4 results (derivation - second pass) */
   derive2?: { transactionsUpdated: number } | undefined;
+
+  /** Aggregated API call statistics across stages */
+  runStats?: MetricsSummary | undefined;
 }
 
 /**
@@ -82,10 +86,11 @@ export interface PricesEnrichResult {
  */
 export class PricesEnrichHandler {
   private priceManager: PriceProviderManager | undefined;
+  private readonly instrumentation = new InstrumentationCollector();
 
   constructor(
-    private transactionRepo: TransactionRepository,
-    private linkRepo: TransactionLinkRepository
+    private readonly transactionRepo: TransactionRepository,
+    private readonly linkRepo: ITransactionLinkRepository
   ) {}
 
   /**
@@ -111,7 +116,7 @@ export class PricesEnrichHandler {
 
       // Initialize price provider manager (needed for Stage 2 and Stage 3)
       if (stages.normalize || stages.fetch) {
-        const managerResult = await createDefaultPriceProviderManager();
+        const managerResult = await createDefaultPriceProviderManager(this.instrumentation);
 
         if (managerResult.isErr()) {
           return err(managerResult.error);
@@ -207,7 +212,7 @@ export class PricesEnrichHandler {
       if (stages.fetch) {
         logger.info('Stage 3: Fetching missing prices from external providers');
 
-        const fetchHandler = new PricesFetchHandler(this.transactionRepo);
+        const fetchHandler = new PricesFetchHandler(this.transactionRepo, this.instrumentation);
         const fetchResult = await fetchHandler.execute({
           asset: options.asset,
           onMissing: options.onMissing,
@@ -254,6 +259,7 @@ export class PricesEnrichHandler {
       }
 
       logger.info('Unified price enrichment pipeline completed');
+      result.runStats = this.instrumentation.getSummary();
       return ok(result);
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));

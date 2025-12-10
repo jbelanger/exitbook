@@ -12,6 +12,8 @@ import { err, ok, type Result } from 'neverthrow';
 // Initialize all providers at startup
 initializeProviders();
 
+import type { MetricsSummary } from '@exitbook/http';
+
 /**
  * Result of the import operation.
  * Can be single ImportSession or array of ImportSessions (for xpub imports).
@@ -25,6 +27,9 @@ export interface ImportResult {
 
   /** Processing errors (if shouldProcess is true) */
   processingErrors?: string[] | undefined;
+
+  /** API call statistics from instrumentation */
+  runStats?: MetricsSummary | undefined;
 }
 
 /**

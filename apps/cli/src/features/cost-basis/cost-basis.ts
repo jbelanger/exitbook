@@ -1,10 +1,12 @@
 import type { CostBasisReport } from '@exitbook/accounting';
+import { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
+import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
 import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { Decimal } from 'decimal.js';
 import type { z } from 'zod';
 
-import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.js';
+import { resolveCommandParams, unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { CostBasisCommandOptionsSchema } from '../shared/schemas.js';
@@ -112,17 +114,34 @@ async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
       });
     }
 
-    const result = await withDatabaseAndHandler(CostBasisHandler, params);
+    const database = await initializeDatabase();
+    const transactionRepo = new TransactionRepository(database);
+    const linkRepo = new TransactionLinkRepository(database);
+    const costBasisRepo = new CostBasisRepository(database);
+    const lotTransferRepo = new LotTransferRepository(database);
+    const handler = new CostBasisHandler(transactionRepo, linkRepo, costBasisRepo, lotTransferRepo);
 
-    spinner?.stop();
-    resetLoggerContext();
+    try {
+      const result = await handler.execute(params);
 
-    if (result.isErr()) {
-      output.error('cost-basis', result.error, ExitCodes.GENERAL_ERROR);
-      return;
+      handler.destroy();
+      await closeDatabase(database);
+      spinner?.stop();
+      resetLoggerContext();
+
+      if (result.isErr()) {
+        output.error('cost-basis', result.error, ExitCodes.GENERAL_ERROR);
+        return;
+      }
+
+      handleCostBasisSuccess(output, result.value);
+    } catch (error) {
+      handler.destroy();
+      await closeDatabase(database);
+      spinner?.stop('Cost basis calculation failed');
+      resetLoggerContext();
+      throw error;
     }
-
-    handleCostBasisSuccess(output, result.value);
   } catch (error) {
     resetLoggerContext();
     output.error('cost-basis', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);

@@ -1,4 +1,4 @@
-import type { RateLimitConfig } from '@exitbook/http';
+import type { InstrumentationCollector, RateLimitConfig } from '@exitbook/http';
 
 import type { IBlockchainProvider, ProviderCapabilities } from './provider.js';
 
@@ -11,6 +11,7 @@ export interface ProviderConfig {
   blockchain: string;
   displayName: string;
   enabled?: boolean | undefined;
+  instrumentation?: InstrumentationCollector | undefined;
   name: string;
   priority?: number | undefined;
   rateLimit: RateLimitConfig;

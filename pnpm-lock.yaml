@@ -90,6 +90,9 @@ importers:
       '@exitbook/exchanges-providers':
         specifier: workspace:*
         version: link:../../packages/exchange-providers
+      '@exitbook/http':
+        specifier: workspace:*
+        version: link:../../packages/http
       '@exitbook/ingestion':
         specifier: workspace:*
         version: link:../../packages/ingestion
@@ -514,25 +517,6 @@ importers:
         version: 5.9.3
 
   packages/tsconfig: {}
-
-  packages/ui:
-    dependencies:
-      '@clack/prompts':
-        specifier: 1.0.0-alpha.6
-        version: 1.0.0-alpha.6
-    devDependencies:
-      '@types/node':
-        specifier: ^24.7.2
-        version: 24.7.2
-      tsconfig:
-        specifier: workspace:*
-        version: link:../tsconfig
-      tsx:
-        specifier: ^4.20.4
-        version: 4.20.6
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
 
 packages:
 

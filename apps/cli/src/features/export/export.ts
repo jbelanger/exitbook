@@ -1,8 +1,9 @@
+import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.js';
+import { resolveCommandParams, unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { ExportCommandOptionsSchema } from '../shared/schemas.js';
@@ -90,17 +91,31 @@ async function executeExportCommand(rawOptions: unknown): Promise<void> {
       });
     }
 
-    const result = await withDatabaseAndHandler(ExportHandler, params);
+    const database = await initializeDatabase();
+    const transactionRepository = new TransactionRepository(database);
+    const handler = new ExportHandler(transactionRepository);
 
-    spinner?.stop();
-    resetLoggerContext();
+    try {
+      const result = await handler.execute(params);
 
-    if (result.isErr()) {
-      output.error('export', result.error, ExitCodes.GENERAL_ERROR);
-      return; // TypeScript needs this even though output.error never returns
+      handler.destroy();
+      await closeDatabase(database);
+      spinner?.stop();
+      resetLoggerContext();
+
+      if (result.isErr()) {
+        output.error('export', result.error, ExitCodes.GENERAL_ERROR);
+        return; // TypeScript needs this even though output.error never returns
+      }
+
+      await handleExportSuccess(output, result.value);
+    } catch (error) {
+      handler.destroy();
+      await closeDatabase(database);
+      spinner?.stop('Export failed');
+      resetLoggerContext();
+      throw error;
     }
-
-    await handleExportSuccess(output, result.value);
   } catch (error) {
     resetLoggerContext();
     output.error('export', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);

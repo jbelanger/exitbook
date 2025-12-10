@@ -14,7 +14,7 @@
 
 import type { Currency } from '@exitbook/core';
 import { parseDecimal, wrapError } from '@exitbook/core';
-import type { HttpClient } from '@exitbook/http';
+import type { HttpClient, InstrumentationCollector } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -51,7 +51,11 @@ const FRANKFURTER_RATE_LIMIT: ProviderRateLimitConfig = {
  * @param db - Initialized prices database instance
  * @param config - Provider configuration (none required for Frankfurter)
  */
-export function createFrankfurterProvider(db: PricesDB): Result<FrankfurterProvider, Error> {
+export function createFrankfurterProvider(
+  db: PricesDB,
+  _config: unknown = {},
+  instrumentation?: InstrumentationCollector
+): Result<FrankfurterProvider, Error> {
   try {
     // Frankfurter API base URL (v1 API)
     const baseUrl = 'https://api.frankfurter.dev/v1';
@@ -59,6 +63,7 @@ export function createFrankfurterProvider(db: PricesDB): Result<FrankfurterProvi
     // Create HTTP client
     const httpClient = createProviderHttpClient({
       baseUrl,
+      instrumentation,
       providerName: 'Frankfurter',
       rateLimit: FRANKFURTER_RATE_LIMIT,
     });

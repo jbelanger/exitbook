@@ -29,6 +29,7 @@
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
     "@exitbook/exchanges-providers": "workspace:*",
+    "@exitbook/http": "workspace:*",
     "@exitbook/ingestion": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/price-providers": "workspace:*",

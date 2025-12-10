@@ -1,5 +1,3 @@
-import type { KyselyDB } from '@exitbook/data';
-import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
 import type { OutputManager } from './output.js';
@@ -21,28 +19,6 @@ export function unwrapResult<T>(result: Result<T, Error>): T {
     throw result.error;
   }
   return result.value;
-}
-
-/**
- * Execute a command with database and handler lifecycle management.
- */
-export async function withDatabaseAndHandler<TParams, TResult>(
-  HandlerClass: new (db: KyselyDB) => CommandHandler<TParams, TResult>,
-  params: TParams
-): Promise<Result<TResult, Error>> {
-  const database = await initializeDatabase();
-  const handler = new HandlerClass(database);
-
-  try {
-    const result = await handler.execute(params);
-    handler.destroy();
-    await closeDatabase(database);
-    return result;
-  } catch (error) {
-    handler.destroy();
-    await closeDatabase(database);
-    throw error;
-  }
 }
 
 /**

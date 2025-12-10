@@ -3,7 +3,7 @@
  */
 
 import { Currency, wrapError } from '@exitbook/core';
-import type { HttpClient } from '@exitbook/http';
+import type { HttpClient, InstrumentationCollector } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -77,7 +77,8 @@ export interface CoinGeckoProviderConfig {
  */
 export function createCoinGeckoProvider(
   db: PricesDB,
-  config: CoinGeckoProviderConfig = {}
+  config: CoinGeckoProviderConfig = {},
+  instrumentation?: InstrumentationCollector
 ): Result<CoinGeckoProvider, Error> {
   try {
     // Read from environment if not provided in config
@@ -97,6 +98,7 @@ export function createCoinGeckoProvider(
     // Create HTTP client
     const httpClient = createProviderHttpClient({
       baseUrl,
+      instrumentation,
       providerName: 'CoinGecko',
       apiKey,
       apiKeyHeader: 'x-cg-demo-api-key',

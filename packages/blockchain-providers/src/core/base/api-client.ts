@@ -62,9 +62,11 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     // Initialize HTTP client
     this.httpClient = new HttpClient({
       baseUrl: this.baseUrl,
+      instrumentation: config.instrumentation,
       providerName: this.metadata.name,
       rateLimit: config.rateLimit,
       retries: config.retries,
+      service: 'blockchain',
       timeout: config.timeout,
     });
 
@@ -506,9 +508,11 @@ export abstract class BaseApiClient implements IBlockchainProvider {
   }): void {
     const clientConfig = {
       baseUrl: config.baseUrl || this.baseUrl,
+      instrumentation: this.config.instrumentation,
       providerName: config.providerName || this.metadata.name,
       rateLimit: config.rateLimit || this.metadata.defaultConfig.rateLimit,
       retries: config.retries || this.metadata.defaultConfig.retries,
+      service: 'blockchain' as const,
       timeout: config.timeout || this.metadata.defaultConfig.timeout,
       ...(config.defaultHeaders && { defaultHeaders: config.defaultHeaders }),
     };

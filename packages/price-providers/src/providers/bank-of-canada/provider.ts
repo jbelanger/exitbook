@@ -7,7 +7,7 @@
 
 import type { Currency } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
-import type { HttpClient } from '@exitbook/http';
+import type { HttpClient, InstrumentationCollector } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -38,7 +38,11 @@ const BOC_RATE_LIMIT: ProviderRateLimitConfig = {
  * @param db - Initialized prices database instance
  * @param config - Provider configuration (none required for BoC)
  */
-export function createBankOfCanadaProvider(db: PricesDB): Result<BankOfCanadaProvider, Error> {
+export function createBankOfCanadaProvider(
+  db: PricesDB,
+  _config: unknown = {},
+  instrumentation?: InstrumentationCollector
+): Result<BankOfCanadaProvider, Error> {
   try {
     // Bank of Canada Valet API base URL
     const baseUrl = 'https://www.bankofcanada.ca/valet';
@@ -46,6 +50,7 @@ export function createBankOfCanadaProvider(db: PricesDB): Result<BankOfCanadaPro
     // Create HTTP client
     const httpClient = createProviderHttpClient({
       baseUrl,
+      instrumentation,
       providerName: 'BankOfCanada',
       rateLimit: BOC_RATE_LIMIT,
     });

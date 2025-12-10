@@ -1,8 +1,10 @@
+import { TransactionLinkRepository } from '@exitbook/accounting';
+import { TransactionRepository, closeDatabase, initializeDatabase } from '@exitbook/data';
 import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.js';
+import { resolveCommandParams, unwrapResult } from '../shared/command-execution.js';
 import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { LinksRunCommandOptionsSchema } from '../shared/schemas.js';
@@ -94,17 +96,32 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
       });
     }
 
-    const result = await withDatabaseAndHandler(LinksRunHandler, params);
+    const database = await initializeDatabase();
+    const transactionRepository = new TransactionRepository(database);
+    const linkRepository = new TransactionLinkRepository(database);
+    const handler = new LinksRunHandler(transactionRepository, linkRepository);
 
-    spinner?.stop();
-    resetLoggerContext();
+    try {
+      const result = await handler.execute(params);
 
-    if (result.isErr()) {
-      output.error('links-run', result.error, ExitCodes.GENERAL_ERROR);
-      return;
+      handler.destroy();
+      await closeDatabase(database);
+      spinner?.stop();
+      resetLoggerContext();
+
+      if (result.isErr()) {
+        output.error('links-run', result.error, ExitCodes.GENERAL_ERROR);
+        return;
+      }
+
+      handleLinksRunSuccess(output, result.value);
+    } catch (error) {
+      handler.destroy();
+      await closeDatabase(database);
+      spinner?.stop('Linking failed');
+      resetLoggerContext();
+      throw error;
     }
-
-    handleLinksRunSuccess(output, result.value);
   } catch (error) {
     resetLoggerContext();
     output.error('links-run', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
