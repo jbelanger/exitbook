@@ -29,6 +29,17 @@ const loggerCache = new Map<string, Logger>();
 // Root logger instance
 let rootLogger: Logger | undefined;
 
+interface TransportMode {
+  console: boolean;
+  file: boolean;
+}
+
+// Mutable transport settings so CLI can toggle console/file outputs at runtime
+let transportMode: TransportMode = {
+  console: env.LOGGER_CONSOLE_ENABLED,
+  file: env.LOGGER_FILE_LOG_ENABLED,
+};
+
 /**
  * Ensures that the log directory exists; if not, it creates it.
  */
@@ -56,22 +67,36 @@ function createRootLogger(): Logger {
   const transportTargets: TransportTarget[] = [];
 
   // In development, use pino-pretty for human-readable logs
-  if (env.NODE_ENV === 'development') {
+  if (transportMode.console) {
+    if (env.NODE_ENV === 'development') {
+      transportTargets.push({
+        level: 'trace',
+        options: {
+          ignore: 'pid,hostname,category,categoryLabel,service,environment,correlationId',
+        },
+        target: 'pino-pretty',
+      });
+    } else {
+      // In production, explicitly add a transport for stdout
+      // This ensures logs go to container stdout in JSON format
+      transportTargets.push({
+        level: 'trace',
+        options: {
+          destination: 1, // stdout file descriptor
+          // No additional formatting - pure JSON for log processors
+        },
+        target: 'pino/file',
+      });
+    }
+  }
+
+  // Optional file log for non-audit structured output (JSON)
+  if (transportMode.file) {
     transportTargets.push({
       level: 'trace',
       options: {
-        ignore: 'pid,hostname,category,categoryLabel,service,environment,correlationId',
-      },
-      target: 'pino-pretty',
-    });
-  } else {
-    // In production, explicitly add a transport for stdout
-    // This ensures logs go to container stdout in JSON format
-    transportTargets.push({
-      level: 'trace',
-      options: {
-        destination: 1, // stdout file descriptor
-        // No additional formatting - pure JSON for log processors
+        destination: `./${env.LOGGER_AUDIT_LOG_DIRNAME}/${env.LOGGER_FILE_LOG_FILENAME}`,
+        mkdir: true,
       },
       target: 'pino/file',
     });
@@ -138,3 +163,13 @@ export const getLogger = (category: string): Logger => {
 
   return categoryLogger;
 };
+
+/**
+ * Update transport mode at runtime (used by clack-logger to suppress console in JSON mode).
+ * Resets cached loggers so new configuration applies immediately.
+ */
+export function setLoggerTransports(next: Partial<TransportMode>): void {
+  transportMode = { ...transportMode, ...next };
+  rootLogger = undefined;
+  loggerCache.clear();
+}

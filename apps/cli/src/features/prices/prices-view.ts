@@ -91,7 +91,11 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
       mode: options.json ? 'json' : 'text',
       spinner: spinner || undefined,
       verbose: false,
-      sinks: spinner ? { ui: true, structured: 'off' } : { ui: false, structured: 'stdout' },
+      sinks: options.json
+        ? { ui: false, structured: 'file' }
+        : spinner
+          ? { ui: true, structured: 'off' }
+          : { ui: false, structured: 'stdout' },
     });
 
     // Initialize repository

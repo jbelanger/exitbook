@@ -72,7 +72,7 @@
  * @see {@link https://github.com/natemoo-re/clack @clack/prompts documentation}
  */
 
-import { getLogger as getPinoLogger, type Logger } from './pino-logger.js';
+import { getLogger as getPinoLogger, setLoggerTransports, type Logger } from './pino-logger.js';
 
 // Re-export Logger type
 export type { Logger } from './pino-logger.js';
@@ -101,9 +101,11 @@ export interface LoggerContext {
   sinks?: {
     /**
      * Structured sink destination.
-     * 'stdout' forwards to pino transports (default). 'off' keeps UI-only to avoid clack + console dupes.
+     * 'stdout' forwards to console transports (default).
+     * 'file' forwards to file transport only.
+     * 'off' keeps UI-only to avoid clack + console dupes.
      */
-    structured?: 'stdout' | 'off' | undefined;
+    structured?: 'stdout' | 'file' | 'off' | undefined;
     /** Whether to emit UI/clack lines (default: true when spinner + text mode) */
     ui?: boolean | undefined;
   };
@@ -135,6 +137,16 @@ let globalContext: LoggerContext = {};
  */
 export function configureLogger(context: LoggerContext): void {
   globalContext = { ...context };
+
+  const structured = globalContext.sinks?.structured ?? 'stdout';
+  if (structured === 'off') {
+    setLoggerTransports({ console: false, file: false });
+  } else if (structured === 'file') {
+    setLoggerTransports({ console: false, file: true });
+  } else {
+    // stdout (default) - respect existing file setting from env/config
+    setLoggerTransports({ console: true });
+  }
 }
 
 /**
@@ -164,10 +176,8 @@ export function getLoggerContext(): Readonly<LoggerContext> {
  * not at logger creation time.
  */
 export function getLogger(category: string): Logger {
-  const pinoLogger = getPinoLogger(category);
-
   // Always wrap the logger - context is checked at log time
-  return createSpinnerAwareLogger(pinoLogger);
+  return createSpinnerAwareLogger(category);
 }
 
 /**
@@ -205,9 +215,10 @@ export function getLogger(category: string): Logger {
  * @param pinoLogger - The underlying pino logger instance
  * @returns Proxied logger with clack integration
  */
-function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
-  return new Proxy(pinoLogger, {
-    get: (target, prop: string) => {
+function createSpinnerAwareLogger(category: string): Logger {
+  return new Proxy({} as Logger, {
+    get: (_target, prop: string) => {
+      const target = getPinoLogger(category);
       const isUiEnabled = (): boolean => {
         const sinks = globalContext.sinks ?? {};
         const uiEnabled = sinks.ui ?? true;

@@ -22,6 +22,15 @@ export const loggerEnvSchema = z.object({
     .string()
     .default('30')
     .transform((val: string) => parseInt(val, 10)),
+  LOGGER_CONSOLE_ENABLED: z
+    .string()
+    .default('true')
+    .transform((val: string) => val === 'true'),
+  LOGGER_FILE_LOG_ENABLED: z
+    .string()
+    .default('false')
+    .transform((val: string) => val === 'true'),
+  LOGGER_FILE_LOG_FILENAME: z.string().trim().min(1, { message: 'Invalid file log name' }).default('application.log'),
   LOGGER_LOG_LEVEL: z
     .string()
     .refine((val: string) => Object.keys(logLevelsSchema).includes(val), {
