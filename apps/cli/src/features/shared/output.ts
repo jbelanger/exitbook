@@ -89,6 +89,10 @@ export class OutputManager {
         spinner: clackSpinner,
         mode: 'text',
         verbose: false, // TODO: Add --verbose flag support
+        sinks: {
+          ui: true,
+          structured: 'off', // avoid duplicate console output while spinner is active
+        },
       });
     };
 
@@ -181,7 +185,7 @@ export class OutputManager {
   private displayTextSuccess<T>(response: CLIResponse<T>): void {
     // Override for specific command types
     // Subclasses or command handlers can customize this
-    logger.info(`Command '${response.command}' completed successfully`);
+    p.log.message(`Command '${response.command}' completed successfully`);
   }
 
   /**

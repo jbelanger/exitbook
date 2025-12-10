@@ -160,6 +160,7 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
       mode: options.json ? 'json' : 'text',
       spinner: spinner || undefined,
       verbose: false,
+      sinks: spinner ? { ui: true, structured: 'off' } : { ui: false, structured: 'stdout' },
     });
 
     // Initialize database, repositories, and service

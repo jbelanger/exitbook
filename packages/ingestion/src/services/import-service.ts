@@ -8,7 +8,7 @@ import { err, ok } from 'neverthrow';
 
 import { getBlockchainAdapter } from '../infrastructure/blockchains/index.js';
 import { createExchangeImporter } from '../infrastructure/exchanges/shared/exchange-importer-factory.js';
-import type { IImporter, ImportParams, ImportRunResult } from '../types/importers.js';
+import type { IImporter, ImportParams } from '../types/importers.js';
 
 export class TransactionImportService {
   private logger: Logger;
@@ -146,74 +146,6 @@ export class TransactionImportService {
     const startTime = Date.now();
 
     try {
-      // TEMPORARY: Use legacy import for KuCoin CSV to test if sorting affects balance
-      const isKucoinCsv = account.sourceName === 'kucoin' && account.accountType === 'exchange-csv';
-
-      if (isKucoinCsv) {
-        this.logger.warn('Using legacy non-streaming import for KuCoin CSV (temporary for debugging)');
-
-        // Call legacy import method (cast needed since it's not in IImporter interface)
-        // KuCoin importer still has the deprecated import() method
-        const importerWithLegacy = importer as IImporter & {
-          import(params: ImportParams): Promise<Result<ImportRunResult, Error>>;
-        };
-        const legacyResult = await importerWithLegacy.import(params);
-
-        if (legacyResult.isErr()) {
-          await this.importSessionRepository.update(importSessionId, {
-            status: 'failed',
-            error_message: legacyResult.error.message,
-          });
-          return err(legacyResult.error);
-        }
-
-        const legacyData = legacyResult.value;
-
-        // Save all transactions in one batch
-        this.logger.info(`Saving ${legacyData.rawTransactions.length} transactions...`);
-        const saveResult = await this.rawDataRepository.saveBatch(account.id, legacyData.rawTransactions);
-
-        if (saveResult.isErr()) {
-          await this.importSessionRepository.update(importSessionId, {
-            status: 'failed',
-            error_message: saveResult.error.message,
-          });
-          return err(saveResult.error);
-        }
-
-        const { inserted, skipped } = saveResult.value;
-        totalImported += inserted;
-        totalSkipped += skipped;
-
-        this.logger.info(
-          `Legacy import completed: ${inserted} inserted, ${skipped} skipped of ${legacyData.rawTransactions.length} transactions`
-        );
-
-        // Mark complete
-        const finalizeResult = await this.importSessionRepository.finalize(
-          importSessionId,
-          'completed',
-          startTime,
-          totalImported,
-          totalSkipped
-        );
-
-        if (finalizeResult.isErr()) {
-          return err(finalizeResult.error);
-        }
-
-        // Fetch and return the complete ImportSession
-        const sessionResult = await this.importSessionRepository.findById(importSessionId);
-        if (sessionResult.isErr()) {
-          return err(sessionResult.error);
-        }
-        if (!sessionResult.value) {
-          return err(new Error(`Import session #${importSessionId} not found after finalization`));
-        }
-
-        return ok(sessionResult.value);
-      }
-
       // Stream batches from importer
       const batchIterator = importer.importStreaming(params);
 

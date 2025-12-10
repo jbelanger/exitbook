@@ -106,7 +106,8 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
     configureLogger({
       mode: options.json ? 'json' : 'text',
       spinner: spinner || undefined,
-      verbose: false,
+      verbose: options.verbose ?? false,
+      sinks: spinner ? { ui: true, structured: 'off' } : { ui: false, structured: 'stdout' },
     });
 
     // Initialize repositories

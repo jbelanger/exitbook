@@ -13,8 +13,16 @@ import type { CursorState, RawTransactionInput, PaginationCursor } from '@exitbo
 import { err, errAsync, ok, okAsync, type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
-import type { ImportParams, ImportRunResult } from '../../../../types/importers.ts';
+import type { ImportParams } from '../../../../types/importers.ts';
 import { SubstrateImporter } from '../importer.js';
+
+/**
+ * Result type for aggregated import stream
+ */
+interface ImportRunResult {
+  rawTransactions: RawTransactionInput[];
+  cursorUpdates: Record<string, CursorState>;
+}
 
 /**
  * Helper to consume streaming iterator

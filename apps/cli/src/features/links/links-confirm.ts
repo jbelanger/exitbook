@@ -73,6 +73,7 @@ async function executeLinksConfirmCommand(linkId: string, rawOptions: unknown): 
       mode: options.json ? 'json' : 'text',
       spinner: spinner || undefined,
       verbose: false,
+      sinks: spinner ? { ui: true, structured: 'off' } : { ui: false, structured: 'stdout' },
     });
 
     // Initialize repositories

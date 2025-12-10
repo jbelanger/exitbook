@@ -51,18 +51,6 @@ export interface ImportBatchResult {
   isComplete: boolean;
 }
 
-export interface ImportRunResult {
-  // Successfully fetched and validated transactions
-  rawTransactions: RawTransactionInput[];
-  // Map of cursor states per operation type for resumption
-  // e.g., { "ledger": {...}, "trade": {...} } for exchanges
-  // e.g., { "normal": {...}, "internal": {...}, "token": {...} } for blockchains
-  // e.g., { "account-123": {...}, "account-456": {...} } for Coinbase
-  cursorUpdates?: Record<string, CursorState> | undefined;
-  // Metadata about the import run (e.g., total fetched, date ranges)
-  metadata?: Record<string, unknown> | undefined;
-}
-
 /**
  * Interface for importing raw data from external sources.
  * Each importer is responsible for fetching data from a specific source

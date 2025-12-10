@@ -98,6 +98,10 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       configureLogger({
         mode: options.json ? 'json' : 'text',
         verbose: false, // TODO: Add --verbose flag support
+        sinks: {
+          ui: false,
+          structured: 'stdout',
+        },
       });
     }
 

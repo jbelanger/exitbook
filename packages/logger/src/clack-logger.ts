@@ -53,7 +53,12 @@
  * spinner?.start('Importing data...');
  *
  * // Configure logger to route to spinner
- * configureLogger({ spinner, mode: 'text', verbose: options.verbose });
+ * configureLogger({
+ *   spinner,
+ *   mode: 'text',
+ *   verbose: options.verbose,
+ *   sinks: { ui: true, structured: 'off' }, // UI-only while spinner active
+ * });
  *
  * // All getLogger() calls now write to stderr with clack formatting
  * const logger = getLogger('importer');
@@ -92,6 +97,16 @@ export interface LoggerContext {
   mode?: 'text' | 'json' | undefined;
   /** Verbose mode (shows debug logs with [DEBUG] prefix) */
   verbose?: boolean | undefined;
+  /** Sink selection to avoid duplicate console + UI output */
+  sinks?: {
+    /**
+     * Structured sink destination.
+     * 'stdout' forwards to pino transports (default). 'off' keeps UI-only to avoid clack + console dupes.
+     */
+    structured?: 'stdout' | 'off' | undefined;
+    /** Whether to emit UI/clack lines (default: true when spinner + text mode) */
+    ui?: boolean | undefined;
+  };
 }
 
 /**
@@ -193,13 +208,22 @@ export function getLogger(category: string): Logger {
 function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
   return new Proxy(pinoLogger, {
     get: (target, prop: string) => {
+      const isUiEnabled = (): boolean => {
+        const sinks = globalContext.sinks ?? {};
+        const uiEnabled = sinks.ui ?? true;
+        return globalContext.spinner !== undefined && globalContext.mode === 'text' && uiEnabled;
+      };
+
+      const isStructuredEnabled = (): boolean => {
+        const sinks = globalContext.sinks ?? {};
+        return (sinks.structured ?? 'stdout') !== 'off';
+      };
+
       // Intercept info() calls - standard informational logs
       if (prop === 'info') {
         return (msgOrObj: object | string, msg?: string) => {
-          const isSpinnerActive = globalContext.spinner && globalContext.mode === 'text';
-
           // Only show logs when spinner is active (progressive disclosure)
-          if (isSpinnerActive) {
+          if (isUiEnabled()) {
             const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
             if (message) {
               // Clear spinner line (\r\x1b[K), write log with clack box prefix (│  ), reset colors (\x1b[0m)
@@ -208,13 +232,15 @@ function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
             }
           }
 
-          // Always forward to underlying Pino logger for file transports
-          if (typeof msgOrObj === 'string') {
-            target.info(msgOrObj);
-          } else if (msg) {
-            target.info(msgOrObj, msg);
-          } else {
-            target.info(msgOrObj);
+          // Forward to structured sink unless disabled
+          if (isStructuredEnabled()) {
+            if (typeof msgOrObj === 'string') {
+              target.info(msgOrObj);
+            } else if (msg) {
+              target.info(msgOrObj, msg);
+            } else {
+              target.info(msgOrObj);
+            }
           }
         };
       }
@@ -222,9 +248,7 @@ function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
       // Intercept warn() calls - important notices that aren't errors
       if (prop === 'warn') {
         return (msgOrObj: object | string, msg?: string) => {
-          const isSpinnerActive = globalContext.spinner && globalContext.mode === 'text';
-
-          if (isSpinnerActive) {
+          if (isUiEnabled()) {
             const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
             if (message) {
               process.stderr.write('\r\x1b[K');
@@ -233,13 +257,14 @@ function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
             }
           }
 
-          // Always forward to underlying Pino logger for file transports
-          if (typeof msgOrObj === 'string') {
-            target.warn(msgOrObj);
-          } else if (msg) {
-            target.warn(msgOrObj, msg);
-          } else {
-            target.warn(msgOrObj);
+          if (isStructuredEnabled()) {
+            if (typeof msgOrObj === 'string') {
+              target.warn(msgOrObj);
+            } else if (msg) {
+              target.warn(msgOrObj, msg);
+            } else {
+              target.warn(msgOrObj);
+            }
           }
         };
       }
@@ -247,9 +272,7 @@ function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
       // Intercept error() calls - critical failures requiring attention
       if (prop === 'error') {
         return (msgOrObj: object | string, msg?: string) => {
-          const isSpinnerActive = globalContext.spinner && globalContext.mode === 'text';
-
-          if (isSpinnerActive) {
+          if (isUiEnabled()) {
             const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
             if (message) {
               process.stderr.write('\r\x1b[K');
@@ -258,13 +281,14 @@ function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
             }
           }
 
-          // Always forward to underlying Pino logger for file transports
-          if (typeof msgOrObj === 'string') {
-            target.error(msgOrObj);
-          } else if (msg) {
-            target.error(msgOrObj, msg);
-          } else {
-            target.error(msgOrObj);
+          if (isStructuredEnabled()) {
+            if (typeof msgOrObj === 'string') {
+              target.error(msgOrObj);
+            } else if (msg) {
+              target.error(msgOrObj, msg);
+            } else {
+              target.error(msgOrObj);
+            }
           }
         };
       }
@@ -272,11 +296,9 @@ function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
       // Intercept debug() calls - verbose diagnostic information
       if (prop === 'debug') {
         return (msgOrObj: object | string, msg?: string) => {
-          const isSpinnerActive = globalContext.spinner && globalContext.mode === 'text';
-
           // Only show debug in verbose mode when spinner is active
           // This prevents noisy output unless user explicitly requests it via --verbose flag
-          if (isSpinnerActive && globalContext.verbose) {
+          if (isUiEnabled() && globalContext.verbose) {
             const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
             if (message) {
               process.stderr.write('\r\x1b[K');
@@ -285,13 +307,14 @@ function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
             }
           }
 
-          // Always forward to underlying Pino logger for file transports
-          if (typeof msgOrObj === 'string') {
-            target.debug(msgOrObj);
-          } else if (msg) {
-            target.debug(msgOrObj, msg);
-          } else {
-            target.debug(msgOrObj);
+          if (isStructuredEnabled()) {
+            if (typeof msgOrObj === 'string') {
+              target.debug(msgOrObj);
+            } else if (msg) {
+              target.debug(msgOrObj, msg);
+            } else {
+              target.debug(msgOrObj);
+            }
           }
         };
       }

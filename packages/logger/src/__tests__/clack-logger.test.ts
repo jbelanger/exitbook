@@ -193,6 +193,28 @@ describe('logger-factory', () => {
         // Should not write when no message provided
         expect(stderrWriteSpy).not.toHaveBeenCalled();
       });
+
+      it('should forward to pino when structured sink is enabled (default)', () => {
+        const logger = getLogger('test');
+        logger.info('test info message');
+
+        expect(mockPinoLogger.info).toHaveBeenCalledWith('test info message');
+      });
+
+      it('should suppress forwarding when structured sink is off', () => {
+        resetLoggerContext();
+        configureLogger({
+          spinner: mockSpinner,
+          mode: 'text',
+          sinks: { structured: 'off' },
+        });
+
+        const logger = getLogger('test');
+        logger.info('ui-only message');
+
+        expect(stderrWriteSpy).toHaveBeenCalled(); // UI path still runs
+        expect(mockPinoLogger.info).not.toHaveBeenCalled();
+      });
     });
 
     describe('warn logging', () => {
