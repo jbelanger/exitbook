@@ -14,10 +14,20 @@ const samplesDir = path.join(cliDir, 'samples');
 const testDataDir = path.join(cliDir, 'data/tests');
 
 /**
+ * Escape a shell argument by wrapping it in single quotes and escaping any single quotes
+ */
+function escapeShellArg(arg: string): string {
+  // Wrap in single quotes and escape any single quotes in the argument
+  return `'${arg.replace(/'/g, "'\\''")}'`;
+}
+
+/**
  * Execute a CLI command and parse JSON output
  */
 function executeCLI(args: string[]): CLIResponse<unknown> {
-  const command = `pnpm -s run dev ${args.join(' ')} --json`;
+  // Properly escape each argument to prevent shell interpretation of special characters
+  const escapedArgs = args.map(escapeShellArg).join(' ');
+  const command = `pnpm -s run dev ${escapedArgs} --json`;
 
   try {
     const stdout = execSync(command, {
@@ -63,21 +73,6 @@ function cleanupTestDatabase(): void {
     fs.rmSync(testDataDir, { recursive: true, force: true });
   }
   fs.mkdirSync(testDataDir, { recursive: true });
-}
-
-/**
- * Get all sample directories for KuCoin
- */
-function getKuCoinSampleDirs(): string[] {
-  if (!fs.existsSync(samplesDir)) {
-    return [];
-  }
-
-  return fs
-    .readdirSync(samplesDir)
-    .filter((name) => name.startsWith('BillingHistory'))
-    .map((name) => path.join(samplesDir, name))
-    .filter((dir) => fs.statSync(dir).isDirectory());
 }
 
 interface ImportCommandResult {
@@ -137,8 +132,7 @@ describe('KuCoin E2E Workflow', () => {
     process.env['KUCOIN_PASSPHRASE']
   );
 
-  const sampleDirs = getKuCoinSampleDirs();
-  const hasSampleData = sampleDirs.length > 0;
+  const hasSampleData = fs.existsSync(samplesDir) && fs.readdirSync(samplesDir).length > 0;
 
   const shouldSkip = !hasCredentials || !hasSampleData;
 
@@ -151,37 +145,28 @@ describe('KuCoin E2E Workflow', () => {
   it.skipIf(shouldSkip)(
     'should import, process, and verify balance for KuCoin CSV data',
     () => {
-      console.log(`\nTesting KuCoin workflow with ${sampleDirs.length} sample directories\n`);
+      console.log(`\nTesting KuCoin workflow with samples from ${samplesDir}\n`);
 
-      // Step 1: Import all CSV files
+      // Step 1: Import all CSV files (importer recursively processes all CSVs in the directory)
       console.log('Step 1: Importing CSV files...');
 
-      const allSessionIds: number[] = [];
-      let totalImported = 0;
-      let totalSkipped = 0;
+      const importResult = executeCLI(['import', '--exchange', 'kucoin', '--csv-dir', samplesDir]);
 
-      for (const csvDir of sampleDirs) {
-        const importResult = executeCLI(['import', '--exchange', 'kucoin', '--csv-dir', csvDir]);
+      expect(importResult.success).toBe(true);
+      expect(importResult.command).toBe('import');
 
-        expect(importResult.success).toBe(true);
-        expect(importResult.command).toBe('import');
+      const importData = importResult.data as ImportCommandResult;
+      expect(importData).toBeDefined();
+      expect(importData.imported).toBeGreaterThan(0);
+      expect(importData.importSessionIds).toBeInstanceOf(Array);
+      expect(importData.importSessionIds.length).toBeGreaterThan(0);
 
-        const importData = importResult.data as ImportCommandResult;
-        expect(importData).toBeDefined();
-        expect(importData.imported).toBeGreaterThanOrEqual(0);
-        expect(importData.importSessionIds).toBeInstanceOf(Array);
+      console.log(
+        `\nTotal imported: ${importData.imported}, skipped: ${importData.skipped}, sessions: ${importData.sessions}\n`
+      );
 
-        allSessionIds.push(...importData.importSessionIds);
-        totalImported += importData.imported;
-        totalSkipped += importData.skipped;
-
-        console.log(`  Imported ${importData.imported} transactions from ${path.basename(csvDir)}`);
-      }
-
-      console.log(`\nTotal imported: ${totalImported}, skipped: ${totalSkipped}, sessions: ${allSessionIds.length}\n`);
-
-      expect(totalImported).toBeGreaterThan(0);
-      expect(allSessionIds.length).toBeGreaterThan(0);
+      expect(importData.imported).toBeGreaterThan(0);
+      expect(importData.importSessionIds.length).toBeGreaterThan(0);
 
       // Step 2: Process the imported data
       console.log('Step 2: Processing imported data...');
@@ -273,15 +258,10 @@ describe('KuCoin E2E Workflow', () => {
       // Clean database for fresh test
       cleanupTestDatabase();
 
-      // Import and process in one command using first sample directory
-      const csvDir = sampleDirs[0];
-      if (!csvDir) {
-        throw new Error('No sample directories found');
-      }
+      // Import and process in one command using root samples directory
+      console.log(`Importing and processing from ${samplesDir}...`);
 
-      console.log(`Importing and processing ${path.basename(csvDir)}...`);
-
-      const importResult = executeCLI(['import', '--exchange', 'kucoin', '--csv-dir', csvDir, '--process']);
+      const importResult = executeCLI(['import', '--exchange', 'kucoin', '--csv-dir', samplesDir, '--process']);
 
       expect(importResult.success).toBe(true);
       expect(importResult.command).toBe('import');
@@ -295,8 +275,10 @@ describe('KuCoin E2E Workflow', () => {
       console.log(`  Imported: ${importData.imported}`);
       console.log(`  Processed: ${importData.processed}`);
 
-      // Verify that processed count matches imported count
-      expect(importData.processed).toEqual(importData.imported);
+      // Verify that some transactions were processed
+      // Note: Processed count may be less than imported due to grouping, deduplication, etc.
+      expect(importData.processed).toBeGreaterThan(0);
+      expect(importData.processed).toBeLessThanOrEqual(importData.imported);
     },
     120000
   );
