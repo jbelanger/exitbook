@@ -36,7 +36,7 @@ export function registerBalanceCommand(program: Command): void {
     .option('--api-key <key>', 'API key for exchange (overrides .env)')
     .option('--api-secret <secret>', 'API secret for exchange (overrides .env)')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange (if required)')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
       `
@@ -174,64 +174,58 @@ async function handleBalanceSuccess(
 
   // Display results in text mode
   if (output.isTextMode()) {
-    // Display account info
-    console.log('');
-    console.log('Account Information:');
-    console.log(`  Account ID: ${account.id}`);
-    console.log(`  Source: ${account.sourceName}`);
-    console.log(`  Type: ${account.accountType}`);
+    //output.info(`Balance verification completed for account ${account.id} (${account.sourceName})`);
+
+    // Display account info using clack-styled logs for consistent formatting
+    output.info('Account Information:');
+    output.log(`  Account ID: ${account.id}`);
+    output.log(`  Source: ${account.sourceName}`);
+    output.log(`  Type: ${account.accountType}`);
     if (account.accountType === 'blockchain') {
-      console.log(`  Address: ${account.identifier}`);
+      output.log(`  Address: ${account.identifier}`);
 
       // Check if this account has children (xpub wallet)
       const childAccountsResult = await accountRepository.findByParent(account.id);
       if (childAccountsResult.isOk() && childAccountsResult.value.length > 0) {
-        console.log(`  Extended Public Key: Yes (${childAccountsResult.value.length} derived addresses)`);
-        console.log(`  Note: Balance aggregated from all derived addresses`);
+        output.log(`  Extended Public Key: Yes (${childAccountsResult.value.length} derived addresses)`);
+        output.log(`  Note: Balance aggregated from all derived addresses`);
       }
     } else {
-      console.log(`  Identifier: ${account.identifier || 'N/A'}`);
+      output.log(`  Identifier: ${account.identifier || 'N/A'}`);
     }
     if (account.providerName) {
-      console.log(`  Provider: ${account.providerName}`);
+      output.log(`  Provider: ${account.providerName}`);
     }
-    console.log('');
-
-    const statusSymbol =
-      verificationResult.status === 'success' ? '✓' : verificationResult.status === 'warning' ? '⚠' : '✗';
-    output.outro(
-      `${statusSymbol} Balance verification ${verificationResult.status.toUpperCase()} for ${account.sourceName}`
-    );
-    console.log('');
 
     // Summary
-    console.log('Summary:');
-    console.log(`  Total currencies: ${verificationResult.summary.totalCurrencies}`);
-    console.log(`  Matches: ${verificationResult.summary.matches}`);
-    console.log(`  Warnings: ${verificationResult.summary.warnings}`);
-    console.log(`  Mismatches: ${verificationResult.summary.mismatches}`);
-    console.log('');
+    output.info('Summary:');
+    output.log(`  Total currencies: ${verificationResult.summary.totalCurrencies}`);
+    output.log(`  Matches: ${verificationResult.summary.matches}`);
+    output.log(`  Warnings: ${verificationResult.summary.warnings}`);
+    output.log(`  Mismatches: ${verificationResult.summary.mismatches}`);
 
     // Show details for each currency
     if (verificationResult.comparisons.length > 0) {
-      console.log('Balance Details:');
+      output.info('Balance Details:');
       for (const comparison of verificationResult.comparisons) {
         const statusIcon = comparison.status === 'match' ? '✓' : comparison.status === 'warning' ? '⚠' : '✗';
-        console.log(`  ${statusIcon} ${comparison.currency}:`);
-        console.log(`    Live:       ${comparison.liveBalance}`);
-        console.log(`    Calculated: ${comparison.calculatedBalance}`);
+        output.log(`  ${statusIcon} ${comparison.currency}:`);
+        output.log(`    Live:       ${comparison.liveBalance}`);
+        output.log(`    Calculated: ${comparison.calculatedBalance}`);
         if (comparison.status !== 'match') {
-          console.log(`    Difference: ${comparison.difference} (${comparison.percentageDiff.toFixed(2)}%)`);
+          output.log(`    Difference: ${comparison.difference} (${comparison.percentageDiff.toFixed(2)}%)`);
         }
       }
-      console.log('');
     }
 
     // Show suggestion if available
     if (verificationResult.suggestion) {
-      console.log(`Suggestion: ${verificationResult.suggestion}`);
-      console.log('');
+      output.warn(`Suggestion: ${verificationResult.suggestion}`);
     }
+
+    // Outro after all details
+    output.outro(`Balance verification completed`);
+    return;
   }
 
   // Prepare result data for JSON mode
@@ -265,7 +259,5 @@ async function handleBalanceSuccess(
     suggestion: verificationResult.suggestion,
   };
 
-  output.success('balance', resultData);
-  // Balance verification is informational - exit with 0 even on mismatches
-  process.exit(0);
+  output.json('balance', resultData);
 }

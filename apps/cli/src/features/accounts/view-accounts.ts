@@ -1,6 +1,7 @@
 // Command registration for view accounts subcommand
 
 import type { AccountType } from '@exitbook/core';
+import type { Spinner } from '@exitbook/logger';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
@@ -61,7 +62,7 @@ Account Types:
     .option('--source <name>', 'Filter by exchange or blockchain name')
     .option('--type <type>', 'Filter by account type (blockchain, exchange-api, exchange-csv)')
     .option('--show-sessions', 'Include import session details for each account')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeViewAccountsCommand(rawOptions);
     });
@@ -96,6 +97,7 @@ async function executeViewAccountsCommand(rawOptions: unknown): Promise<void> {
     };
 
     const spinner = output.spinner();
+    output.intro('Viewing accounts...');
     spinner?.start('Fetching accounts...');
 
     configureLogger({
@@ -149,15 +151,17 @@ function handleViewAccountsSuccess(
   output: OutputManager,
   result: ViewAccountsResult,
   params: ViewAccountsParams,
-  spinner: ReturnType<OutputManager['spinner']>
+  spinner: Spinner | undefined
 ): void {
   const { accounts, count, sessions } = result;
 
-  spinner?.stop(`Found ${count} accounts`);
+  spinner?.stop();
 
   // Display text output
   if (output.isTextMode()) {
-    console.log(formatAccountsListForDisplay(accounts, count, sessions));
+    formatAccountsListForDisplay(output, accounts, sessions);
+    output.outro(`Found ${count} accounts.`);
+    return;
   }
 
   // Prepare result data for JSON mode
@@ -181,6 +185,5 @@ function handleViewAccountsSuccess(
     meta: buildViewMeta(count, 0, count, count, filters),
   };
 
-  output.success('view-accounts', resultData);
-  process.exit(0);
+  output.json('view-accounts', resultData);
 }

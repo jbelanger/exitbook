@@ -33,7 +33,7 @@ export function registerLinksRejectCommand(linksCommand: Command): void {
     .command('reject')
     .description('Reject a suggested transaction link')
     .argument('<link-id>', 'ID of the link to reject')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (linkId: string, rawOptions: unknown) => {
       await executeLinksRejectCommand(linkId, rawOptions);
     });
@@ -137,6 +137,6 @@ function handleLinksRejectSuccess(
     reviewedAt: result.reviewedAt.toISOString(),
   };
 
-  output.success('links-reject', resultData);
+  output.json('links-reject', resultData);
   process.exit(0);
 }

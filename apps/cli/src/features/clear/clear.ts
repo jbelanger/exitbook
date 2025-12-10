@@ -113,7 +113,7 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
       if (output.isTextMode()) {
         console.error('No data to clear.');
       } else {
-        output.success('clear', { deleted: preview });
+        output.json('clear', { deleted: preview });
       }
       return;
     }
@@ -249,5 +249,5 @@ function handleClearSuccess(
 
   spinner?.stop(completionMessage);
 
-  output.success('clear', resultData);
+  output.json('clear', resultData);
 }

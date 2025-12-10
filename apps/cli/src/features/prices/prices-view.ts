@@ -52,7 +52,7 @@ Common Usage:
     .option('--source <name>', 'Filter by exchange or blockchain name')
     .option('--asset <currency>', 'Filter by specific asset (e.g., BTC, ETH)')
     .option('--missing-only', 'Show only assets with missing price data')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeViewPricesCommand(rawOptions);
     });
@@ -160,6 +160,6 @@ function handleViewPricesSuccess(
     meta: buildViewMeta(coverage.length, 0, coverage.length, coverage.length, filters),
   };
 
-  output.success('view-prices', resultData);
+  output.json('view-prices', resultData);
   process.exit(0);
 }

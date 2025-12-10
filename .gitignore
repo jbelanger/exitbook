@@ -144,6 +144,7 @@ Thumbs.db
 *.swp
 *.swo
 *~
+.tmp/
 
 # Build output
 dist/

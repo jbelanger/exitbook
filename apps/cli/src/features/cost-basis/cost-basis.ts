@@ -62,7 +62,7 @@ export function registerCostBasisCommand(program: Command): void {
     .option('--fiat-currency <currency>', 'Fiat currency for cost basis: USD, CAD, EUR, GBP')
     .option('--start-date <date>', 'Custom start date (YYYY-MM-DD, requires --end-date)')
     .option('--end-date <date>', 'Custom end date (YYYY-MM-DD, requires --start-date)')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeCostBasisCommand(rawOptions);
     });
@@ -196,7 +196,7 @@ function handleCostBasisSuccess(output: OutputManager, costBasisResult: CostBasi
     missingPricesWarning,
   };
 
-  output.success('cost-basis', resultData);
+  output.json('cost-basis', resultData);
   process.exit(0);
 }
 

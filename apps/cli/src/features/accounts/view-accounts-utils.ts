@@ -1,5 +1,6 @@
 import type { AccountType } from '@exitbook/core';
 
+import type { OutputManager } from '../shared/output.ts';
 import type { CommonViewFilters } from '../shared/view-utils.js';
 
 /**
@@ -48,21 +49,6 @@ export interface ViewAccountsResult {
 }
 
 /**
- * Get account type icon.
- */
-export function getAccountTypeIcon(accountType: AccountType): string {
-  switch (accountType) {
-    case 'blockchain':
-      return '⛓️';
-    case 'exchange-api':
-    case 'exchange-csv':
-      return '💱';
-    default:
-      return '•';
-  }
-}
-
-/**
  * Get verification status icon.
  */
 export function getVerificationIcon(status: 'match' | 'mismatch' | 'never-checked' | undefined): string {
@@ -100,92 +86,71 @@ export function getSessionStatusIcon(status: string): string {
  * Format a single account for text display.
  */
 export function formatAccountForDisplay(
+  output: OutputManager,
   account: AccountInfo,
   sessions?: SessionSummary[],
-  indent = '',
   allSessions?: Map<number, SessionSummary[]>
-): string {
-  const typeIcon = getAccountTypeIcon(account.accountType);
-  const lines: string[] = [];
-
+) {
   // Display xpub indicator for parent accounts with children
   const accountLabel =
     account.childAccounts && account.childAccounts.length > 0
       ? `${account.sourceName} (xpub with ${account.childAccounts.length} derived addresses)`
       : account.sourceName;
 
-  lines.push(`${indent}${typeIcon} Account #${account.id} - ${accountLabel} (${account.accountType})`);
-  lines.push(`${indent}   Identifier: ${account.identifier}`);
+  output.info(`Account ID ${account.id} - ${accountLabel} (${account.accountType})`);
+  output.log(`Identifier: ${account.identifier}`);
 
   if (account.providerName) {
-    lines.push(`${indent}   Provider: ${account.providerName}`);
+    output.log(`Provider: ${account.providerName}`);
   }
 
   if (account.lastBalanceCheckAt) {
     const verifyIcon = getVerificationIcon(account.verificationStatus);
-    lines.push(`${indent}   Last Balance Check: ${account.lastBalanceCheckAt} ${verifyIcon}`);
+    output.log(`Last Balance Check: ${account.lastBalanceCheckAt} ${verifyIcon}`);
     if (account.verificationStatus) {
-      lines.push(`${indent}   Verification Status: ${account.verificationStatus}`);
+      output.log(`Verification Status: ${account.verificationStatus}`);
     }
   }
 
   if (account.sessionCount !== undefined && account.sessionCount > 0) {
-    lines.push(`${indent}   Import Sessions: ${account.sessionCount}`);
+    output.log(`Import Sessions: ${account.sessionCount}`);
   }
 
-  lines.push(`${indent}   Created: ${account.createdAt}`);
+  output.log(`Created: ${account.createdAt}`);
 
   if (sessions && sessions.length > 0) {
-    lines.push(`${indent}   Recent Sessions:`);
+    output.log(`Recent Sessions:`);
     for (const session of sessions) {
       const statusIcon = getSessionStatusIcon(session.status);
       const completedInfo = session.completedAt ? ` → ${session.completedAt}` : '';
-      lines.push(
-        `${indent}     ${statusIcon} Session #${session.id} (${session.status}): ${session.startedAt}${completedInfo}`
-      );
+      output.log(`  ${statusIcon} Session #${session.id} (${session.status}): ${session.startedAt}${completedInfo}`);
     }
   }
 
   // Display child accounts if present
   if (account.childAccounts && account.childAccounts.length > 0) {
-    lines.push(`${indent}   Child Accounts:`);
+    output.log(`Child Accounts:`);
     for (const child of account.childAccounts) {
       const childSessions = allSessions?.get(child.id);
-      const childLines = formatAccountForDisplay(child, childSessions, `${indent}     `, allSessions);
-      lines.push(childLines);
+      formatAccountForDisplay(output, child, childSessions, allSessions);
     }
   }
-
-  return lines.join('\n');
 }
 
 /**
  * Format accounts list for text display.
  */
 export function formatAccountsListForDisplay(
+  output: OutputManager,
   accounts: AccountInfo[],
-  count: number,
   sessions?: Map<number, SessionSummary[]>
-): string {
-  const lines: string[] = [];
-
-  lines.push('');
-  lines.push('Accounts:');
-  lines.push('=============================');
-  lines.push('');
-
+) {
   if (accounts.length === 0) {
-    lines.push('No accounts found.');
+    output.warn('No accounts found.');
   } else {
     for (const account of accounts) {
       const accountSessions = sessions?.get(account.id);
-      lines.push(formatAccountForDisplay(account, accountSessions, '', sessions));
-      lines.push('');
+      formatAccountForDisplay(output, account, accountSessions, sessions);
     }
   }
-
-  lines.push('=============================');
-  lines.push(`Total: ${count} accounts`);
-
-  return lines.join('\n');
 }

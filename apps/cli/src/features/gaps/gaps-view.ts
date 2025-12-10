@@ -55,7 +55,7 @@ Gap Categories:
 `
     )
     .option('--category <category>', 'Filter by gap category (fees, prices, links, validation)')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeGapsViewCommand(rawOptions);
     });
@@ -156,6 +156,6 @@ function handleGapsViewSuccess(
     meta: buildViewMeta(issueCount, 0, issueCount, issueCount, filters),
   };
 
-  output.success('gaps-view', resultData);
+  output.json('gaps-view', resultData);
   process.exit(0);
 }

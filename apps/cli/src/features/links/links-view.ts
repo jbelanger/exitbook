@@ -65,7 +65,7 @@ Confidence Scores:
     .option('--max-confidence <score>', 'Filter by maximum confidence score (0-1)', parseFloat)
     .option('--limit <number>', 'Maximum number of links to return', parseInt)
     .option('--verbose', 'Include full transaction details (asset, amount, addresses)')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeLinksViewCommand(rawOptions);
     });
@@ -173,6 +173,6 @@ function handleLinksViewSuccess(
     meta: buildViewMeta(count, 0, params.limit || 50, count, filters),
   };
 
-  output.success('links-view', resultData);
+  output.json('links-view', resultData);
   process.exit(0);
 }

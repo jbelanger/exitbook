@@ -40,7 +40,7 @@ export function registerExportCommand(program: Command): void {
     .option('--blockchain <name>', 'Export from specific blockchain only')
     .option('--since <date>', 'Export transactions since date (YYYY-MM-DD, timestamp, or 0 for all history)')
     .option('--output <file>', 'Output file path')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeExportCommand(rawOptions);
     });
@@ -162,6 +162,6 @@ async function handleExportSuccess(output: OutputManager, exportResult: ExportRe
     );
   }
 
-  output.success('export', resultData);
+  output.json('export', resultData);
   process.exit(0);
 }

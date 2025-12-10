@@ -520,6 +520,8 @@ export class BlockchainProviderManager {
     // TODO Phase 2.3: Use loadRecentTransactionIds() from utils to seed dedup set from storage
     const deduplicationWindow = createDeduplicationWindow(initialIds);
 
+    let lastErrorMessage: string | undefined;
+
     while (providerIndex < providers.length) {
       const provider = providers[providerIndex];
       if (!provider) {
@@ -593,7 +595,8 @@ export class BlockchainProviderManager {
         for await (const batchResult of iterator) {
           // ✅ Check Result wrapper from provider
           if (batchResult.isErr()) {
-            logger.error(`Provider ${provider.name} batch failed: ${getErrorMessage(batchResult.error)}`);
+            lastErrorMessage = getErrorMessage(batchResult.error);
+            logger.error(`Provider ${provider.name} batch failed: ${lastErrorMessage}`);
 
             // Record failure and try next provider
             const circuitState = this.getOrCreateCircuitState(provider.name);
@@ -643,6 +646,7 @@ export class BlockchainProviderManager {
       } catch (error) {
         // ✅ Unexpected errors (outside Result chain) - wrap and yield
         const errorMessage = getErrorMessage(error);
+        lastErrorMessage = errorMessage;
         logger.error(`Provider ${provider.name} failed with unexpected error: ${errorMessage}`);
 
         // Record failure
@@ -672,11 +676,13 @@ export class BlockchainProviderManager {
       }
     }
 
-    // No compatible providers found
+    // No compatible providers found or all failed - include last error for diagnostics
+    const reason = lastErrorMessage ? ` Last error: ${lastErrorMessage}` : '';
     yield err(
-      new ProviderError(`No compatible providers found for ${blockchain}`, 'NO_COMPATIBLE_PROVIDERS', {
+      new ProviderError(`No compatible providers found for ${blockchain}.${reason}`, 'NO_COMPATIBLE_PROVIDERS', {
         blockchain,
         operation: operation.type,
+        lastError: lastErrorMessage,
       })
     );
   }

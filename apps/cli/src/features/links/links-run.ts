@@ -44,7 +44,7 @@ export function registerLinksRunCommand(linksCommand: Command): void {
     .option('--dry-run', 'Show matches without saving to database')
     .option('--min-confidence <score>', 'Minimum confidence threshold (0-1, default: 0.7)', parseFloat)
     .option('--auto-confirm-threshold <score>', 'Auto-confirm above this score (0-1, default: 0.95)', parseFloat)
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeLinksRunCommand(rawOptions);
     });
@@ -150,7 +150,7 @@ function handleLinksRunSuccess(output: OutputManager, linkResult: LinksRunResult
     dryRun: linkResult.dryRun,
   };
 
-  output.success('links-run', resultData);
+  output.json('links-run', resultData);
   process.exit(0);
 }
 

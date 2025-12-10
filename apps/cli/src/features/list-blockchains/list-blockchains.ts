@@ -40,7 +40,7 @@ export function registerListBlockchainsCommand(program: Command): void {
     .option('--category <type>', 'Filter by category (evm, substrate, cosmos, utxo, solana)')
     .option('--detailed', 'Show detailed provider information including rate limits')
     .option('--requires-api-key', 'Show only blockchains that require API key')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeListBlockchainsCommand(rawOptions);
     });
@@ -105,7 +105,7 @@ async function executeListBlockchainsCommand(rawOptions: unknown): Promise<void>
     };
 
     // Output success
-    output.success('list-blockchains', resultData);
+    output.json('list-blockchains', resultData);
 
     handler.destroy();
     resetLoggerContext();

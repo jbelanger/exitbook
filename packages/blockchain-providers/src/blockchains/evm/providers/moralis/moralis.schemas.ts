@@ -46,22 +46,27 @@ export const MoralisTransactionResponseSchema = z.object({
 /**
  * Schema for Moralis token transfer structure
  */
-export const MoralisTokenTransferSchema = z.object({
-  address: EvmAddressSchema,
-  block_hash: z.string().min(1, 'Block hash must not be empty'),
-  block_number: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
-  block_timestamp: timestampToDate,
-  contract_type: z.string().optional(),
-  from_address: EvmAddressSchema,
-  log_index: z.string().regex(/^\d+$/, 'Log index must be numeric string'),
-  to_address: EvmAddressSchema,
-  token_decimals: z.string().regex(/^\d+$/, 'Token decimals must be numeric string'),
-  token_logo: z.string().nullish(),
-  token_name: z.string().nullish(),
-  token_symbol: z.string().nullish(),
-  transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
-  value: z.string().regex(/^\d+$/, 'Value must be numeric string'),
-});
+export const MoralisTokenTransferSchema = z
+  .object({
+    address: EvmAddressSchema,
+    block_hash: z.string().min(1, 'Block hash must not be empty'),
+    block_number: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
+    block_timestamp: timestampToDate,
+    contract_type: z.string().optional(),
+    from_address: EvmAddressSchema,
+    log_index: z.union([z.string(), z.number()]),
+    to_address: EvmAddressSchema,
+    token_decimals: z.string().regex(/^\d+$/, 'Token decimals must be numeric string'),
+    token_logo: z.string().nullish(),
+    token_name: z.string().nullish(),
+    token_symbol: z.string().nullish(),
+    transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
+    value: z.string().regex(/^\d+$/, 'Value must be numeric string'),
+  })
+  .transform((data) => ({
+    ...data,
+    log_index: typeof data.log_index === 'number' ? data.log_index.toString() : data.log_index,
+  }));
 
 /**
  * Schema for Moralis token transfer response
@@ -79,7 +84,7 @@ export const MoralisTokenTransferResponseSchema = z.object({
 export const MoralisTokenBalanceSchema = z.object({
   balance: z.string().regex(/^\d+$/, 'Balance must be numeric string'),
   decimals: z.number().min(0, 'Decimals must be non-negative'),
-  logo: z.string().optional(),
+  logo: z.string().nullish(),
   name: z.string().min(1, 'Name must not be empty'),
   symbol: z.string().min(1, 'Symbol must not be empty'),
   token_address: EvmAddressSchema,

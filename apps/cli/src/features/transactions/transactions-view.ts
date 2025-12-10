@@ -57,7 +57,7 @@ Common Usage:
     .option('--operation-type <type>', 'Filter by operation type')
     .option('--no-price', 'Show only transactions without price data')
     .option('--limit <number>', 'Maximum number of transactions to return', parseInt)
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeViewTransactionsCommand(rawOptions);
     });
@@ -172,6 +172,6 @@ function handleViewTransactionsSuccess(
     meta: buildViewMeta(count, 0, params.limit || 50, count, filters),
   };
 
-  output.success('view-transactions', resultData);
+  output.json('view-transactions', resultData);
   process.exit(0);
 }

@@ -28,7 +28,7 @@ export function registerPricesSetCommand(pricesCommand: Command): void {
     .requiredOption('--price <amount>', 'Price value (e.g., 45000.50)')
     .option('--currency <code>', 'Price currency', 'USD')
     .option('--source <name>', 'Source attribution', 'manual-cli')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executePricesSetCommand(rawOptions);
     });
@@ -84,7 +84,7 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
       return;
     }
 
-    output.success('prices-set', result.value);
+    output.json('prices-set', result.value);
     process.exit(0);
   } catch (error) {
     resetLoggerContext();

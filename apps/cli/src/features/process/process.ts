@@ -39,7 +39,7 @@ export function registerProcessCommand(program: Command): void {
   program
     .command('process')
     .description('Process all pending raw data from all sources')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeProcessCommand(rawOptions);
     });
@@ -150,6 +150,6 @@ function handleProcessSuccess(output: OutputManager, processResult: ProcessResul
     }
   }
 
-  output.success('process', resultData);
+  output.json('process', resultData);
   process.exit(0);
 }

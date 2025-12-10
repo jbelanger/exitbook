@@ -33,7 +33,7 @@ export function registerLinksConfirmCommand(linksCommand: Command): void {
     .command('confirm')
     .description('Confirm a suggested transaction link')
     .argument('<link-id>', 'ID of the link to confirm')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (linkId: string, rawOptions: unknown) => {
       await executeLinksConfirmCommand(linkId, rawOptions);
     });
@@ -137,6 +137,6 @@ function handleLinksConfirmSuccess(
     reviewedAt: result.reviewedAt.toISOString(),
   };
 
-  output.success('links-confirm', resultData);
+  output.json('links-confirm', resultData);
   process.exit(0);
 }

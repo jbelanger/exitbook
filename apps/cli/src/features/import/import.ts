@@ -91,7 +91,7 @@ export function registerImportCommand(program: Command): void {
     .option('--api-secret <secret>', 'API secret for exchange API access')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange API access (if required)')
     .option('--process', 'Process data after import (combined import+process pipeline)')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (options: ImportCommandOptions) => {
       await executeImportCommand(options);
     });
@@ -330,7 +330,7 @@ function handleImportSuccess(
     }
   }
 
-  output.success('import', resultData);
+  output.json('import', resultData);
 
   // Don't call process.exit(0) - it triggers clack's cancellation handler
   // The process will exit naturally

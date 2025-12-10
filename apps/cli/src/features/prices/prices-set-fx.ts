@@ -28,7 +28,7 @@ export function registerPricesSetFxCommand(pricesCommand: Command): void {
     .requiredOption('--date <datetime>', 'Date/time (ISO 8601 format, e.g., 2024-01-15T10:30:00Z)')
     .requiredOption('--rate <value>', 'FX rate value (e.g., 1.08 for EUR→USD)')
     .option('--source <name>', 'Source attribution', 'user-provided')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executePricesSetFxCommand(rawOptions);
     });
@@ -84,7 +84,7 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
       return;
     }
 
-    output.success('prices-set-fx', result.value);
+    output.json('prices-set-fx', result.value);
     process.exit(0);
   } catch (error) {
     resetLoggerContext();

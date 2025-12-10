@@ -56,7 +56,7 @@ export function registerBenchmarkRateLimitCommand(program: Command): void {
     .option('--rates <rates>', 'Custom rates to test (comma-separated, e.g. "0.5,1,2,5")')
     .option('--num-requests <number>', 'Number of requests to send per rate test (default: 10)', '10')
     .option('--skip-burst', 'Skip burst limit testing (only test sustained rates)', false)
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeBenchmarkRateLimitCommand(rawOptions);
     });
@@ -127,7 +127,7 @@ async function executeBenchmarkRateLimitCommand(rawOptions: unknown): Promise<vo
     };
 
     // Output success
-    output.success('benchmark-rate-limit', resultData);
+    output.json('benchmark-rate-limit', resultData);
 
     handler.destroy();
     resetLoggerContext();

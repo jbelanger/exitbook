@@ -88,7 +88,7 @@ export function registerPricesEnrichCommand(pricesCommand: Command): void {
     .option('--fetch-only', 'Only run fetch stage (external providers)')
     .option('--interactive', 'Interactive mode for fetch stage')
     .option('--dry-run', 'Preview changes without applying them')
-    .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executePricesEnrichCommand(rawOptions);
     });
@@ -278,7 +278,7 @@ function handlePricesEnrichSuccess(
   };
 
   // Output success
-  output.success('prices-enrich', resultData);
+  output.json('prices-enrich', resultData);
   process.exit(0);
 }
 

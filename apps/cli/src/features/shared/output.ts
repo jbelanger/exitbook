@@ -2,7 +2,6 @@ import * as p from '@clack/prompts';
 import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
 import pc from 'picocolors';
 
-import type { CLIResponse } from './cli-response.js';
 import { createErrorResponse, createSuccessResponse, exitCodeToErrorCode } from './cli-response.js';
 import { ExitCodes, type ExitCode } from './exit-codes.js';
 
@@ -36,17 +35,14 @@ export class OutputManager {
   /**
    * Output a success response.
    */
-  success<T>(command: string, data: T, metadata?: Record<string, unknown>): void {
-    const duration_ms = Date.now() - this.startTime;
-    const response = createSuccessResponse(command, data, {
-      duration_ms,
-      ...metadata,
-    });
-
+  json<T>(command: string, data: T, metadata?: Record<string, unknown>): void {
     if (this.format === 'json') {
+      const duration_ms = Date.now() - this.startTime;
+      const response = createSuccessResponse(command, data, {
+        duration_ms,
+        ...metadata,
+      });
       console.log(JSON.stringify(response, undefined, 2));
-    } else {
-      this.displayTextSuccess(response);
     }
   }
 
@@ -120,7 +116,7 @@ export class OutputManager {
    */
   outro(message: string): void {
     if (this.format === 'text') {
-      p.outro(`${pc.green(message)}`);
+      p.outro(message);
     }
   }
 
@@ -138,7 +134,16 @@ export class OutputManager {
    */
   log(message: string): void {
     if (this.format === 'text') {
-      p.log.message(message);
+      p.log.message(message, { spacing: 0 });
+    }
+  }
+
+  /**
+   * Display a log message (only in text mode).
+   */
+  info(message: string): void {
+    if (this.format === 'text') {
+      p.log.info(message);
     }
   }
 
@@ -152,41 +157,6 @@ export class OutputManager {
       // In JSON mode, warnings go to stderr as structured logs
       logger.warn(message);
     }
-  }
-
-  /**
-   * Display progress information (only in text mode, goes to stderr in JSON mode).
-   */
-  progress(message: string, current?: number, total?: number): void {
-    if (this.format === 'text') {
-      if (current !== undefined && total !== undefined) {
-        const percentage = Math.round((current / total) * 100);
-        const bar = '█'.repeat(Math.floor(percentage / 5)) + '░'.repeat(20 - Math.floor(percentage / 5));
-        p.log.message(`${message} [${bar}] ${percentage}%`);
-      } else {
-        p.log.message(message);
-      }
-    } else {
-      // In JSON mode, send progress to stderr so it doesn't interfere with JSON output
-      console.error(
-        JSON.stringify({
-          type: 'progress',
-          message,
-          current,
-          total,
-          timestamp: new Date().toISOString(),
-        })
-      );
-    }
-  }
-
-  /**
-   * Display success in text format.
-   */
-  private displayTextSuccess<T>(response: CLIResponse<T>): void {
-    // Override for specific command types
-    // Subclasses or command handlers can customize this
-    p.log.message(`Command '${response.command}' completed successfully`);
   }
 
   /**

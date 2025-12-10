@@ -113,7 +113,7 @@ describe('OutputManager', () => {
       // Advance time to test duration
       vi.advanceTimersByTime(1000);
 
-      output.success('test-command', { result: 'success' });
+      output.json('test-command', { result: 'success' });
 
       expect(consoleLogSpy).toHaveBeenCalledOnce();
       const jsonOutput = JSON.parse(consoleLogSpy.mock.calls[0]?.[0] as string) as {
@@ -137,7 +137,7 @@ describe('OutputManager', () => {
 
     it('should output text in text mode', () => {
       const output = new OutputManager('text');
-      output.success('test-command', { result: 'success' });
+      output.json('test-command', { result: 'success' });
 
       // In text mode, success calls the logger (mocked)
       expect(consoleLogSpy).not.toHaveBeenCalled();
@@ -146,7 +146,7 @@ describe('OutputManager', () => {
     it('should include custom metadata', () => {
       const output = new OutputManager('json');
 
-      output.success('test-command', { result: 'success' }, { custom: 'metadata' });
+      output.json('test-command', { result: 'success' }, { custom: 'metadata' });
 
       const jsonOutput = JSON.parse(consoleLogSpy.mock.calls[0]?.[0] as string) as {
         metadata?: { custom?: string };
@@ -324,42 +324,6 @@ describe('OutputManager', () => {
 
       expect(p.log.warn).not.toHaveBeenCalled();
       // Logger is mocked, so we can't verify the actual call
-    });
-  });
-
-  describe('progress', () => {
-    it('should show progress bar in text mode with current and total', () => {
-      const output = new OutputManager('text');
-      output.progress('Processing', 50, 100);
-
-      expect(p.log.message).toHaveBeenCalledWith(expect.stringContaining('50%'));
-    });
-
-    it('should show message without bar in text mode when no current/total', () => {
-      const output = new OutputManager('text');
-      output.progress('Processing');
-
-      expect(p.log.message).toHaveBeenCalledWith('Processing');
-    });
-
-    it('should output JSON to stderr in json mode', () => {
-      const output = new OutputManager('json');
-      output.progress('Processing', 50, 100);
-
-      expect(consoleErrorSpy).toHaveBeenCalledOnce();
-      const jsonOutput = JSON.parse(consoleErrorSpy.mock.calls[0]?.[0] as string) as {
-        current: number;
-        message: string;
-        total: number;
-        type: string;
-      };
-
-      expect(jsonOutput).toMatchObject({
-        type: 'progress',
-        message: 'Processing',
-        current: 50,
-        total: 100,
-      });
     });
   });
 });
