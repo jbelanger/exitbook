@@ -32,7 +32,7 @@ import { mapInjectiveExplorerTransaction } from './mapper-utils.js';
     supportedOperations: ['getAddressTransactions', 'getAddressBalances'],
     supportedCursorTypes: ['blockNumber', 'txHash', 'timestamp'],
     preferredCursorType: 'blockNumber',
-    replayWindow: { blocks: 5 },
+    replayWindow: { blocks: 2 },
   },
   defaultConfig: {
     rateLimit: {

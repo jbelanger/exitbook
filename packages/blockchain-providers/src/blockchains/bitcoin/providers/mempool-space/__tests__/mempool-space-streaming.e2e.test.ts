@@ -400,8 +400,8 @@ describe('MempoolSpaceApiClient Streaming E2E', () => {
 
       expect(adjustedCursor.type).toBe('blockNumber');
       if (adjustedCursor.type === 'blockNumber') {
-        // Replay window is 6 blocks for Mempool.space
-        expect(adjustedCursor.value).toBe(800000 - 6);
+        // Replay window is 4 blocks for Mempool.space
+        expect(adjustedCursor.value).toBe(800000 - 4);
       }
     });
 

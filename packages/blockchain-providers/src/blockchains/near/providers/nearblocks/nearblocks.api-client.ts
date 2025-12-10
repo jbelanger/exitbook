@@ -48,7 +48,7 @@ const MAX_ENRICHMENT_EXTRA_PAGES = 5;
     supportedOperations: ['getAddressTransactions', 'getAddressTokenTransactions', 'getAddressBalances'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
-    replayWindow: { blocks: 20 },
+    replayWindow: { blocks: 3 },
   },
   defaultConfig: {
     rateLimit: {

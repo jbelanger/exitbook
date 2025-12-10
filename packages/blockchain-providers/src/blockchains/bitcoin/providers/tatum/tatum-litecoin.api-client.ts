@@ -38,7 +38,7 @@ import {
     supportedOperations: ['getAddressTransactions', 'getAddressBalances', 'hasAddressTransactions'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
-    replayWindow: { blocks: 5 },
+    replayWindow: { blocks: 4 },
   },
   defaultConfig: {
     rateLimit: {

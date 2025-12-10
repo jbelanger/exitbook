@@ -24,7 +24,7 @@ import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBala
     supportedOperations: ['getAddressBalances', 'getAddressTransactions', 'getAddressTokenBalances'],
     supportedCursorTypes: ['blockNumber', 'timestamp'],
     preferredCursorType: 'blockNumber',
-    replayWindow: { blocks: 5 },
+    replayWindow: { blocks: 2 },
   },
   defaultConfig: {
     rateLimit: {

@@ -416,8 +416,8 @@ describe('TatumBitcoinApiClient Streaming E2E', () => {
 
       expect(adjustedCursor.type).toBe('blockNumber');
       if (adjustedCursor.type === 'blockNumber') {
-        // Replay window is 5 blocks for Tatum
-        expect(adjustedCursor.value).toBe(800000 - 5);
+        // Replay window is 4 blocks for Tatum
+        expect(adjustedCursor.value).toBe(800000 - 4);
       }
     });
 

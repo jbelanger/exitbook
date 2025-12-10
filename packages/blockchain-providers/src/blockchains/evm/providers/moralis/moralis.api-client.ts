@@ -53,7 +53,7 @@ const CHAIN_ID_MAP: Record<string, string> = {
     ],
     supportedCursorTypes: ['pageToken', 'blockNumber'],
     preferredCursorType: 'pageToken',
-    replayWindow: { blocks: 5 },
+    replayWindow: { blocks: 2 },
   },
   defaultConfig: {
     rateLimit: {

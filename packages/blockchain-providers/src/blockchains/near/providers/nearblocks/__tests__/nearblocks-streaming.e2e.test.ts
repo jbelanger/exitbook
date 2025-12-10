@@ -282,8 +282,8 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
       const replayedCursor = client.applyReplayWindow(cursor);
 
       expect(replayedCursor.type).toBe('blockNumber');
-      // Should subtract 20 blocks (configured replay window)
-      expect(replayedCursor.value).toBe(80);
+      // Should subtract 3 blocks (configured replay window)
+      expect(replayedCursor.value).toBe(97);
     });
 
     it('should not apply replay window to non-blockNumber cursors', () => {
@@ -299,7 +299,7 @@ describe.sequential('NearBlocksApiClient Streaming E2E', () => {
       const replayedCursor = client.applyReplayWindow(cursor);
 
       expect(replayedCursor.type).toBe('blockNumber');
-      expect(replayedCursor.value).toBe(0); // Should not go negative
+      expect(replayedCursor.value).toBe(7); // Should not go negative
     });
   });
 });

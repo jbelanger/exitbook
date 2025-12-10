@@ -36,7 +36,7 @@ import { mapBlockchainComTransaction } from './mapper-utils.js';
     supportedOperations: ['getAddressTransactions', 'getAddressBalances', 'hasAddressTransactions'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
-    replayWindow: { blocks: 6 },
+    replayWindow: { blocks: 4 },
   },
   defaultConfig: {
     rateLimit: {

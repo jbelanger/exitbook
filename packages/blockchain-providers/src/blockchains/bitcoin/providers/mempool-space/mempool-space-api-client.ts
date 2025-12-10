@@ -37,7 +37,7 @@ import {
     supportedOperations: ['getAddressTransactions', 'getAddressBalances', 'hasAddressTransactions'],
     supportedCursorTypes: ['txHash', 'blockNumber', 'timestamp'],
     preferredCursorType: 'txHash',
-    replayWindow: { blocks: 6 },
+    replayWindow: { blocks: 4 },
   },
   defaultConfig: {
     rateLimit: {

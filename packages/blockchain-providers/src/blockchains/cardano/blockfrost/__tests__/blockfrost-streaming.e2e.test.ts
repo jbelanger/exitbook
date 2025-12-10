@@ -434,8 +434,8 @@ describe('BlockfrostApiClient Streaming E2E', () => {
 
       expect(adjustedCursor.type).toBe('blockNumber');
       if (adjustedCursor.type === 'blockNumber') {
-        // Replay window is 5 blocks for Blockfrost
-        expect(adjustedCursor.value).toBe(10000000 - 5);
+        // Replay window is 2 blocks for Blockfrost
+        expect(adjustedCursor.value).toBe(10000000 - 2);
       }
     });
 

@@ -346,8 +346,8 @@ describe('AlchemyApiClient Streaming E2E', () => {
 
         expect(adjustedCursor.type).toBe('blockNumber');
         if (adjustedCursor.type === 'blockNumber') {
-          // Replay window is 5 blocks for Alchemy
-          expect(adjustedCursor.value).toBe(15000000 - 5);
+          // Replay window is 2 blocks for Alchemy
+          expect(adjustedCursor.value).toBe(15000000 - 2);
         }
       });
 

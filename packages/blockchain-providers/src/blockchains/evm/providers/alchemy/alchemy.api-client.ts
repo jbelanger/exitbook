@@ -63,7 +63,7 @@ import {
     ],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
-    replayWindow: { blocks: 5 },
+    replayWindow: { blocks: 2 },
   },
   defaultConfig: {
     rateLimit: {
