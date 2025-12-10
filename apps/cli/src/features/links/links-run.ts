@@ -1,4 +1,4 @@
-import { getLogger } from '@exitbook/logger';
+import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -52,10 +52,14 @@ export function registerLinksRunCommand(linksCommand: Command): void {
  * Execute the links run command.
  */
 async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
+  // Check for --json flag early (even before validation) to determine output format
+  const isJsonMode =
+    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
+
   // Validate options at CLI boundary
   const parseResult = LinksRunCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
-    const output = new OutputManager('text');
+    const output = new OutputManager(isJsonMode ? 'json' : 'text');
     output.error(
       'links-run',
       new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
@@ -81,9 +85,19 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
     const spinner = output.spinner();
     spinner?.start('Linking transactions...');
 
+    // Configure logger if no spinner (JSON mode)
+    if (!spinner) {
+      configureLogger({
+        mode: options.json ? 'json' : 'text',
+        verbose: false,
+        sinks: options.json ? { ui: false, structured: 'file' } : { ui: false, structured: 'stdout' },
+      });
+    }
+
     const result = await withDatabaseAndHandler(LinksRunHandler, params);
 
     spinner?.stop();
+    resetLoggerContext();
 
     if (result.isErr()) {
       output.error('links-run', result.error, ExitCodes.GENERAL_ERROR);
@@ -92,6 +106,7 @@ async function executeLinksRunCommand(rawOptions: unknown): Promise<void> {
 
     handleLinksRunSuccess(output, result.value);
   } catch (error) {
+    resetLoggerContext();
     output.error('links-run', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }

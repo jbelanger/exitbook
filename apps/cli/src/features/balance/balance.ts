@@ -10,6 +10,7 @@ import {
   UserRepository,
 } from '@exitbook/data';
 import { BalanceService, type BalanceVerificationResult } from '@exitbook/ingestion';
+import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -50,10 +51,14 @@ export function registerBalanceCommand(program: Command): void {
  * Execute the balance command.
  */
 async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
+  // Check for --json flag early (even before validation) to determine output format
+  const isJsonMode =
+    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
+
   // Validate options at CLI boundary with Zod
   const validationResult = BalanceCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
-    const output = new OutputManager('text');
+    const output = new OutputManager(isJsonMode ? 'json' : 'text');
     const firstError = validationResult.error.issues[0];
     output.error('balance', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
     return;
@@ -61,6 +66,15 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
 
   const options = validationResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
+
+  // Configure logger for JSON mode
+  if (options.json) {
+    configureLogger({
+      mode: 'json',
+      verbose: false,
+      sinks: { ui: false, structured: 'file' },
+    });
+  }
 
   // Initialize database
   const database = await initializeDatabase();
@@ -123,10 +137,12 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
     // Display results
     await handleBalanceSuccess(output, result.value, accountRepository);
   } catch (error) {
+    resetLoggerContext();
     output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   } finally {
     handler.destroy();
     await closeDatabase(database);
+    resetLoggerContext();
   }
 }
 

@@ -17,7 +17,7 @@ const testDataDir = path.join(cliDir, 'data/tests');
  * Execute a CLI command and parse JSON output
  */
 function executeCLI(args: string[]): CLIResponse<unknown> {
-  const command = `pnpm run dev ${args.join(' ')} --json`;
+  const command = `pnpm -s run dev ${args.join(' ')} --json`;
 
   try {
     const stdout = execSync(command, {
@@ -30,24 +30,22 @@ function executeCLI(args: string[]): CLIResponse<unknown> {
       },
     });
 
-    // Parse JSON from last line of output (in case there are logs before it)
-    const lines = stdout.trim().split('\n');
-    const jsonLine = lines[lines.length - 1];
+    // Parse the entire stdout as JSON (it's pretty-printed across multiple lines)
+    const trimmed = stdout.trim();
 
-    if (!jsonLine) {
+    if (!trimmed) {
       throw new Error('No output from CLI command');
     }
 
-    return JSON.parse(jsonLine) as CLIResponse<unknown>;
+    return JSON.parse(trimmed) as CLIResponse<unknown>;
   } catch (error) {
     if (error instanceof Error && 'stdout' in error) {
       const stdout = (error as { stdout: Buffer }).stdout?.toString() || '';
-      const lines = stdout.trim().split('\n');
-      const jsonLine = lines[lines.length - 1];
+      const trimmed = stdout.trim();
 
-      if (jsonLine) {
+      if (trimmed) {
         try {
-          return JSON.parse(jsonLine) as CLIResponse<unknown>;
+          return JSON.parse(trimmed) as CLIResponse<unknown>;
         } catch {
           // Not JSON, re-throw original error
         }

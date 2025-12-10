@@ -1,6 +1,7 @@
 // Prices set command - manually set price for an asset
 // Allows bulk preparation of manual prices without interrupting enrichment
 
+import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -37,10 +38,14 @@ export function registerPricesSetCommand(pricesCommand: Command): void {
  * Execute the prices set command.
  */
 async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
+  // Check for --json flag early (even before validation) to determine output format
+  const isJsonMode =
+    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
+
   // Validate options at CLI boundary
   const parseResult = PricesSetCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
-    const output = new OutputManager('text');
+    const output = new OutputManager(isJsonMode ? 'json' : 'text');
     output.error(
       'prices-set',
       new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
@@ -53,6 +58,15 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
+    // Configure logger for JSON mode
+    if (options.json) {
+      configureLogger({
+        mode: 'json',
+        verbose: false,
+        sinks: { ui: false, structured: 'file' },
+      });
+    }
+
     const handler = new PricesSetHandler();
     const result = await handler.execute({
       asset: options.asset,
@@ -63,6 +77,8 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
     });
     handler.destroy();
 
+    resetLoggerContext();
+
     if (result.isErr()) {
       output.error('prices-set', result.error, ExitCodes.GENERAL_ERROR);
       return;
@@ -71,6 +87,7 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
     output.success('prices-set', result.value);
     process.exit(0);
   } catch (error) {
+    resetLoggerContext();
     output.error('prices-set', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }

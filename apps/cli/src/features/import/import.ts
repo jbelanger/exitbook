@@ -68,10 +68,14 @@ export function registerImportCommand(program: Command): void {
  * Execute the import command.
  */
 async function executeImportCommand(rawOptions: unknown): Promise<void> {
+  // Check for --json flag early (even before validation) to determine output format
+  const isJsonMode =
+    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
+
   // Validate options at CLI boundary with Zod
   const validationResult = ImportCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
-    const output = new OutputManager('text');
+    const output = new OutputManager(isJsonMode ? 'json' : 'text');
     const firstError = validationResult.error.issues[0];
     output.error('import', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
     return;

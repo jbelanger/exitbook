@@ -1,5 +1,5 @@
 import type { CostBasisReport } from '@exitbook/accounting';
-import { getLogger } from '@exitbook/logger';
+import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { Decimal } from 'decimal.js';
 import type { z } from 'zod';
@@ -70,10 +70,14 @@ export function registerCostBasisCommand(program: Command): void {
  * Execute the cost-basis command.
  */
 async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
+  // Check for --json flag early (even before validation) to determine output format
+  const isJsonMode =
+    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
+
   // Validate options at CLI boundary
   const parseResult = CostBasisCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
-    const output = new OutputManager('text');
+    const output = new OutputManager(isJsonMode ? 'json' : 'text');
     output.error(
       'cost-basis',
       new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
@@ -99,9 +103,19 @@ async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
     const spinner = output.spinner();
     spinner?.start('Calculating cost basis...');
 
+    // Configure logger if no spinner (JSON mode)
+    if (!spinner) {
+      configureLogger({
+        mode: options.json ? 'json' : 'text',
+        verbose: false,
+        sinks: options.json ? { ui: false, structured: 'file' } : { ui: false, structured: 'stdout' },
+      });
+    }
+
     const result = await withDatabaseAndHandler(CostBasisHandler, params);
 
     spinner?.stop();
+    resetLoggerContext();
 
     if (result.isErr()) {
       output.error('cost-basis', result.error, ExitCodes.GENERAL_ERROR);
@@ -110,6 +124,7 @@ async function executeCostBasisCommand(rawOptions: unknown): Promise<void> {
 
     handleCostBasisSuccess(output, result.value);
   } catch (error) {
+    resetLoggerContext();
     output.error('cost-basis', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }

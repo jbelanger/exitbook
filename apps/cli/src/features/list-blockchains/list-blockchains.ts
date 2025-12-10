@@ -1,4 +1,4 @@
-import { getLogger } from '@exitbook/logger';
+import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -50,10 +50,14 @@ export function registerListBlockchainsCommand(program: Command): void {
  * Execute the list-blockchains command.
  */
 async function executeListBlockchainsCommand(rawOptions: unknown): Promise<void> {
+  // Check for --json flag early (even before validation) to determine output format
+  const isJsonMode =
+    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
+
   // Validate options at CLI boundary
   const parseResult = ListBlockchainsCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
-    const output = new OutputManager('text');
+    const output = new OutputManager(isJsonMode ? 'json' : 'text');
     output.error(
       'list-blockchains',
       new Error(parseResult.error.issues[0]?.message || 'Invalid options'),
@@ -66,6 +70,15 @@ async function executeListBlockchainsCommand(rawOptions: unknown): Promise<void>
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
+    // Configure logger for JSON mode
+    if (options.json) {
+      configureLogger({
+        mode: 'json',
+        verbose: false,
+        sinks: { ui: false, structured: 'file' },
+      });
+    }
+
     // Create handler and execute
     const handler = new ListBlockchainsHandler();
 
@@ -73,6 +86,7 @@ async function executeListBlockchainsCommand(rawOptions: unknown): Promise<void>
 
     if (result.isErr()) {
       handler.destroy();
+      resetLoggerContext();
       output.error('list-blockchains', result.error, ExitCodes.INVALID_ARGS);
       return;
     }
@@ -94,8 +108,10 @@ async function executeListBlockchainsCommand(rawOptions: unknown): Promise<void>
     output.success('list-blockchains', resultData);
 
     handler.destroy();
+    resetLoggerContext();
     process.exit(0);
   } catch (error) {
+    resetLoggerContext();
     output.error(
       'list-blockchains',
       error instanceof Error ? error : new Error(String(error)),

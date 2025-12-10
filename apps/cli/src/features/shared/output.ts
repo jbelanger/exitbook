@@ -58,7 +58,8 @@ export class OutputManager {
     const response = createErrorResponse(command, error, errorCode);
 
     if (this.format === 'json') {
-      console.error(JSON.stringify(response, undefined, 2));
+      // In JSON mode, write to stdout (not stderr) so callers can parse the response
+      console.log(JSON.stringify(response, undefined, 2));
     } else {
       this.displayTextError(error, errorCode);
     }

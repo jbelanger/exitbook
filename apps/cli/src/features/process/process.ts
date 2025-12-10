@@ -8,6 +8,7 @@ import {
   RawDataRepository,
 } from '@exitbook/data';
 import { TransactionProcessService, TokenMetadataService } from '@exitbook/ingestion';
+import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -48,10 +49,14 @@ export function registerProcessCommand(program: Command): void {
  * Execute the process command.
  */
 async function executeProcessCommand(rawOptions: unknown): Promise<void> {
+  // Check for --json flag early (even before validation) to determine output format
+  const isJsonMode =
+    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
+
   // Validate options at CLI boundary with Zod
   const validationResult = ProcessCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
-    const output = new OutputManager('text');
+    const output = new OutputManager(isJsonMode ? 'json' : 'text');
     const firstError = validationResult.error.issues[0];
     output.error('process', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR);
     return;
@@ -62,7 +67,22 @@ async function executeProcessCommand(rawOptions: unknown): Promise<void> {
 
   try {
     const spinner = output.spinner();
-    spinner?.start('Processing all pending data...');
+
+    if (spinner) {
+      spinner.start('Processing all pending data...');
+    } else {
+      // Configure logger for JSON mode
+      configureLogger({
+        mode: options.json ? 'json' : 'text',
+        verbose: false,
+        sinks: options.json
+          ? { ui: false, structured: 'file' }
+          : {
+              ui: false,
+              structured: 'stdout',
+            },
+      });
+    }
 
     const database = await initializeDatabase();
 
@@ -92,6 +112,7 @@ async function executeProcessCommand(rawOptions: unknown): Promise<void> {
     // Cleanup
     handler.destroy();
     await closeDatabase(database);
+    resetLoggerContext();
 
     spinner?.stop();
 
@@ -102,6 +123,7 @@ async function executeProcessCommand(rawOptions: unknown): Promise<void> {
 
     handleProcessSuccess(output, result.value);
   } catch (error) {
+    resetLoggerContext();
     output.error('process', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }

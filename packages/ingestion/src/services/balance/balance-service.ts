@@ -263,7 +263,6 @@ export class BalanceService {
         new Error(`No credentials found for account ${account.id}. This should not happen for exchange-api accounts.`)
       );
     }
-    console.log(credentials ?? account.credentials ?? { apiKey: '', apiSecret: '' });
     const clientResult = createExchangeClient(
       account.sourceName,
       credentials ?? account.credentials ?? { apiKey: '', apiSecret: '' }
