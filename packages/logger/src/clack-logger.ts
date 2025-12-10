@@ -215,10 +215,14 @@ export function getLogger(category: string): Logger {
  * @param pinoLogger - The underlying pino logger instance
  * @returns Proxied logger with clack integration
  */
-function createSpinnerAwareLogger(category: string): Logger {
+
+/**
+ * Wraps an existing Logger instance with the spinner-aware proxy handlers.
+ * Used for both root loggers and child loggers.
+ */
+function wrapLoggerWithProxy(target: Logger): Logger {
   return new Proxy({} as Logger, {
     get: (_target, prop: string) => {
-      const target = getPinoLogger(category);
       const isUiEnabled = (): boolean => {
         const sinks = globalContext.sinks ?? {};
         const uiEnabled = sinks.ui ?? true;
@@ -227,6 +231,13 @@ function createSpinnerAwareLogger(category: string): Logger {
 
       const isStructuredEnabled = (): boolean => {
         const sinks = globalContext.sinks ?? {};
+        // In JSON mode we must not emit to stdout/stderr (would corrupt JSON),
+        // but file logging should stay available when explicitly requested.
+        if (globalContext.mode === 'json') {
+          const destination = sinks.structured ?? 'stdout';
+          return destination === 'file';
+        }
+
         return (sinks.structured ?? 'stdout') !== 'off';
       };
 
@@ -335,7 +346,7 @@ function createSpinnerAwareLogger(category: string): Logger {
         return (bindings: object, options?: object) => {
           const childLogger = target.child(bindings, options);
           // Recursively wrap child logger so it inherits clack formatting
-          return createSpinnerAwareLogger(childLogger);
+          return wrapLoggerWithProxy(childLogger);
         };
       }
 
@@ -344,4 +355,12 @@ function createSpinnerAwareLogger(category: string): Logger {
       return target[prop as keyof Logger];
     },
   });
+}
+
+/**
+ * Creates a spinner-aware logger for the given category.
+ * This is a convenience wrapper that gets the pino logger and wraps it.
+ */
+function createSpinnerAwareLogger(category: string): Logger {
+  return wrapLoggerWithProxy(getPinoLogger(category));
 }

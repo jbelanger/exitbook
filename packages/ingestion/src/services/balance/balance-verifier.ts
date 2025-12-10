@@ -25,23 +25,27 @@ export function compareBalances(
     const difference = calcBalance.minus(liveBalance);
     const absDifference = difference.abs();
 
+    let status: 'match' | 'warning' | 'mismatch';
     // Calculate percentage difference (avoid division by zero)
     let percentageDiff = 0;
-    if (!liveBalance.isZero()) {
-      percentageDiff = absDifference.dividedBy(liveBalance.abs()).times(100).toNumber();
-    } else if (!calcBalance.isZero()) {
-      percentageDiff = 100; // If live is zero but calculated isn't, 100% difference
-    }
 
-    // Determine status based on tolerance
-    let status: 'match' | 'warning' | 'mismatch';
+    // If we're within tolerance, treat as match and zero-out percentage difference to avoid misleading 100% values
     if (absDifference.lessThanOrEqualTo(tolerance)) {
       status = 'match';
-    } else if (percentageDiff < 1) {
-      // Less than 1% difference is a warning
-      status = 'warning';
+      percentageDiff = 0;
     } else {
-      status = 'mismatch';
+      if (!liveBalance.isZero()) {
+        percentageDiff = absDifference.dividedBy(liveBalance.abs()).times(100).toNumber();
+      } else if (!calcBalance.isZero()) {
+        percentageDiff = 100; // If live is zero but calculated isn't, 100% difference
+      }
+
+      if (percentageDiff < 1) {
+        // Less than 1% difference is a warning
+        status = 'warning';
+      } else {
+        status = 'mismatch';
+      }
     }
 
     comparisons.push({

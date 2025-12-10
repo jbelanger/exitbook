@@ -52,7 +52,7 @@ async function promptExchangeParams(): Promise<ImportParams> {
     return {
       sourceName,
       sourceType: 'exchange-csv',
-      csvDirectories: [csvDir],
+      csvDirectory: csvDir,
       shouldProcess,
     };
   } else {

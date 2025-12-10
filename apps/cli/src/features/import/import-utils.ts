@@ -70,7 +70,7 @@ export function buildImportParams(options: ImportCommandOptions): Result<ImportP
     return ok({
       sourceName,
       sourceType: accountType,
-      csvDirectories: [options.csvDir],
+      csvDirectory: options.csvDir,
       shouldProcess: options.process,
     });
   }

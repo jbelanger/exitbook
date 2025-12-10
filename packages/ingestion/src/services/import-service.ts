@@ -67,7 +67,7 @@ export class TransactionImportService {
     } else if (sourceType === 'exchange-api') {
       params.credentials = account.credentials ?? undefined;
     } else if (sourceType === 'exchange-csv') {
-      params.csvDirectories = account.identifier.split(',');
+      params.csvDirectory = account.identifier;
     }
 
     // Create importer based on source type

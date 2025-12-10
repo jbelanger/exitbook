@@ -88,7 +88,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     const params: ImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
-      csvDirectories: ['/test/csv'],
+      csvDirectory: '/test/csv',
     };
 
     const result = await consumeImportStream(importer, params);
@@ -113,7 +113,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     const params: ImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
-      csvDirectories: ['/test/csv'],
+      csvDirectory: '/test/csv',
     };
 
     const result = await consumeImportStream(importer, params);
@@ -143,7 +143,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     const params: ImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
-      csvDirectories: ['/test/csv'],
+      csvDirectory: '/test/csv',
     };
 
     const result = await consumeImportStream(importer, params);
@@ -170,7 +170,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     const params: ImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
-      csvDirectories: ['/test/csv'],
+      csvDirectory: '/test/csv',
       cursor: {
         [`csv:kucoin:${completedFilePath}`]: {
           primary: {
@@ -221,7 +221,7 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
     const params: ImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
-      csvDirectories: ['/test/csv'],
+      csvDirectory: '/test/csv',
     };
 
     const result = await consumeImportStream(importer, params);
@@ -262,7 +262,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     const result = await consumeImportStream(importer, {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
-      csvDirectories: ['/test/csv'],
+      csvDirectory: '/test/csv',
     });
 
     expect(result.isOk()).toBe(true);
@@ -284,7 +284,7 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
     const result = await consumeImportStream(importer, {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
-      csvDirectories: ['/test/csv'],
+      csvDirectory: '/test/csv',
     });
 
     expect(result.isOk()).toBe(true);
@@ -308,7 +308,7 @@ user123,mainAccount,2024-01-02 10:00:00,BTC,0.5,0.0005,hash456,bc1q...,Bitcoin,s
     const result = await consumeImportStream(importer, {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
-      csvDirectories: ['/test/csv'],
+      csvDirectory: '/test/csv',
     });
 
     expect(result.isOk()).toBe(true);
@@ -346,7 +346,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     const result = await consumeImportStream(importer, {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
-      csvDirectories: ['/test/csv'],
+      csvDirectory: '/test/csv',
     });
 
     expect(result.isOk()).toBe(true);
@@ -368,7 +368,7 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
     const result = await consumeImportStream(importer, {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
-      csvDirectories: ['/test/csv'],
+      csvDirectory: '/test/csv',
     });
 
     expect(result.isOk()).toBe(true);
@@ -391,7 +391,7 @@ user123,mainAccount,2024-01-02 10:00:00,BTC,0.5,0.0005,hash456,bc1q...,Bitcoin,s
     const result = await consumeImportStream(importer, {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
-      csvDirectories: ['/test/csv'],
+      csvDirectory: '/test/csv',
     });
 
     expect(result.isOk()).toBe(true);
@@ -415,11 +415,11 @@ describe('KucoinCsvImporter - Error Handling', () => {
     vi.clearAllMocks();
   });
 
-  test('returns error when csvDirectories is empty', async () => {
+  test('returns error when csvDirectory is not provided', async () => {
     const params: ImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
-      csvDirectories: [],
+      csvDirectory: undefined,
     };
 
     const batches: Result<unknown, Error>[] = [];
@@ -430,7 +430,7 @@ describe('KucoinCsvImporter - Error Handling', () => {
     expect(batches).toHaveLength(1);
     expect(batches[0]?.isErr()).toBe(true);
     if (batches[0]?.isErr()) {
-      expect(batches[0].error.message).toContain('CSV directories are required');
+      expect(batches[0].error.message).toContain('CSV directory is required');
     }
   });
 
@@ -440,7 +440,7 @@ describe('KucoinCsvImporter - Error Handling', () => {
     const params: ImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
-      csvDirectories: ['/test/invalid'],
+      csvDirectory: '/test/invalid',
     };
 
     const result = await consumeImportStream(importer, params);
@@ -460,7 +460,7 @@ describe('KucoinCsvImporter - Error Handling', () => {
     const params: ImportParams = {
       sourceName: 'kucoin',
       sourceType: 'exchange-csv' as const,
-      csvDirectories: ['/test/csv'],
+      csvDirectory: '/test/csv',
     };
 
     const result = await consumeImportStream(importer, params);

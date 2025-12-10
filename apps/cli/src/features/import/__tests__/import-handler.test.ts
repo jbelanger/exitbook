@@ -103,7 +103,7 @@ describe('ImportHandler', () => {
       const params: ImportParams = {
         sourceName: 'kraken',
         sourceType: 'exchange-csv',
-        csvDirectories: ['./data/kraken'],
+        csvDirectory: './data/kraken',
       };
 
       (mockImportOrchestrator.importExchangeCsv as Mock).mockResolvedValue(

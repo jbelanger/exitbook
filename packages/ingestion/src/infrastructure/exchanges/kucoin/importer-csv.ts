@@ -46,12 +46,10 @@ export class KucoinCsvImporter implements IImporter {
    * Supports resumption via cursor (skips completed files)
    */
   async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    this.logger.info(
-      `Starting KuCoin CSV streaming import from directories: ${params.csvDirectories?.join(', ') ?? 'none'}`
-    );
+    this.logger.info(`Starting KuCoin CSV streaming import from directory: ${params.csvDirectory ?? 'none'}`);
 
-    if (!params.csvDirectories?.length) {
-      yield err(new Error('CSV directories are required for KuCoin import'));
+    if (!params.csvDirectory) {
+      yield err(new Error('CSV directory is required for KuCoin import'));
       return;
     }
 
@@ -75,56 +73,54 @@ export class KucoinCsvImporter implements IImporter {
     }
 
     try {
-      for (const csvDirectory of params.csvDirectories) {
-        this.logger.info(`Processing CSV directory: ${csvDirectory}`);
+      this.logger.info(`Processing CSV directory: ${params.csvDirectory}`);
 
-        try {
-          const csvFiles = await this.collectCsvFiles(csvDirectory);
+      try {
+        const csvFiles = await this.collectCsvFiles(params.csvDirectory);
 
-          for (const filePath of csvFiles) {
-            const file = path.basename(filePath);
+        for (const filePath of csvFiles) {
+          const file = path.basename(filePath);
 
-            // Skip if already completed (using full path)
-            if (completedFiles.has(filePath)) {
-              this.logger.info(`Skipping completed file: ${filePath}`);
-              continue;
-            }
-
-            const fileType = await this.validateCSVHeaders(filePath);
-
-            // Skip unknown or unimplemented file types
-            if (fileType === 'unknown' || fileType.startsWith('not_implemented_') || fileType === 'convert') {
-              if (fileType === 'unknown') {
-                this.logger.warn(`Skipping unrecognized CSV file: ${file}`);
-              }
-              continue;
-            }
-
-            // Process file based on type (pass full path for unique identification)
-            const batchResult = await this.processFileAsBatch(filePath, fileType, totalFetched);
-
-            if (batchResult.isErr()) {
-              yield err(batchResult.error);
-              return;
-            }
-
-            const batch = batchResult.value;
-            totalFetched += batch.rawTransactions.length;
-
-            // Update cursor with cumulative total
-            batch.cursor.totalFetched = totalFetched;
-
-            yield ok(batch);
-
-            this.logger.info(
-              `Processed ${batch.rawTransactions.length} transactions from ${filePath} (total: ${totalFetched})`
-            );
+          // Skip if already completed (using full path)
+          if (completedFiles.has(filePath)) {
+            this.logger.info(`Skipping completed file: ${filePath}`);
+            continue;
           }
-        } catch (dirError) {
-          this.logger.error(`Failed to process CSV directory ${csvDirectory}: ${String(dirError)}`);
-          yield err(new Error(`Failed to process directory ${csvDirectory}: ${getErrorMessage(dirError)}`));
-          return;
+
+          const fileType = await this.validateCSVHeaders(filePath);
+
+          // Skip unknown or unimplemented file types
+          if (fileType === 'unknown' || fileType.startsWith('not_implemented_') || fileType === 'convert') {
+            if (fileType === 'unknown') {
+              this.logger.warn(`Skipping unrecognized CSV file: ${file}`);
+            }
+            continue;
+          }
+
+          // Process file based on type (pass full path for unique identification)
+          const batchResult = await this.processFileAsBatch(filePath, fileType, totalFetched);
+
+          if (batchResult.isErr()) {
+            yield err(batchResult.error);
+            return;
+          }
+
+          const batch = batchResult.value;
+          totalFetched += batch.rawTransactions.length;
+
+          // Update cursor with cumulative total
+          batch.cursor.totalFetched = totalFetched;
+
+          yield ok(batch);
+
+          this.logger.info(
+            `Processed ${batch.rawTransactions.length} transactions from ${filePath} (total: ${totalFetched})`
+          );
         }
+      } catch (dirError) {
+        this.logger.error(`Failed to process CSV directory ${params.csvDirectory}: ${String(dirError)}`);
+        yield err(new Error(`Failed to process directory ${params.csvDirectory}: ${getErrorMessage(dirError)}`));
+        return;
       }
 
       this.logger.info(`Completed KuCoin CSV streaming import: ${totalFetched} total transactions`);

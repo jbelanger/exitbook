@@ -9,7 +9,12 @@ import {
   ImportSessionRepository,
   RawDataRepository,
 } from '@exitbook/data';
-import { ImportOrchestrator, TransactionProcessService, TokenMetadataService } from '@exitbook/ingestion';
+import {
+  ImportOrchestrator,
+  TransactionProcessService,
+  TokenMetadataService,
+  type ImportParams,
+} from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 
@@ -28,13 +33,38 @@ import { buildImportParams } from './import-utils.js';
 /**
  * Import command result data.
  */
+interface ImportSessionSummary {
+  id: number;
+  files?: number | undefined;
+  startedAt?: string | undefined;
+  completedAt?: string | undefined;
+  status?: string | undefined;
+}
+
 interface ImportCommandResult {
-  imported: number;
-  skipped: number;
-  sessions: number;
-  importSessionIds: number[];
-  processed?: number | undefined;
-  processingErrors?: string[] | undefined;
+  status: 'success' | 'warning';
+  import: {
+    accountId?: number | undefined;
+    counts: {
+      imported: number;
+      processed?: number | undefined;
+      skipped: number;
+    };
+    importSessions?: ImportSessionSummary[] | undefined;
+    input: {
+      address?: string | undefined;
+      blockchain?: string | undefined;
+      csvDir?: string | undefined;
+      exchange?: string | undefined;
+      processed: boolean;
+    };
+    processingErrors?: string[] | undefined;
+    source?: string | undefined;
+  };
+  meta: {
+    durationMs?: number | undefined;
+    timestamp: string;
+  };
 }
 
 /**
@@ -180,7 +210,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
         return;
       }
 
-      const summary = handleImportSuccess(output, result.value);
+      const summary = handleImportSuccess(output, result.value, params);
       spinner?.stop('Import complete');
       if (output.isTextMode() && summary) {
         output.outro(summary);
@@ -202,27 +232,50 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
 /**
  * Handle successful import.
  */
-function handleImportSuccess(output: OutputManager, importResult: ImportResult): string | undefined {
+function handleImportSuccess(
+  output: OutputManager,
+  importResult: ImportResult,
+  params: ImportParams
+): string | undefined {
   // Calculate totals from sessions
   const totalImported = importResult.sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
   const totalSkipped = importResult.sessions.reduce((sum, s) => sum + s.transactionsSkipped, 0);
-  const importSessionIds = importResult.sessions.map((s) => s.id);
+  const includeSessions = importResult.sessions.length > 0;
+  const firstSession = importResult.sessions[0];
+  const sourceIsBlockchain = params.sourceType === 'blockchain';
 
-  // Prepare result data
+  // Prepare result data (compact, account-centric)
   const resultData: ImportCommandResult = {
-    imported: totalImported,
-    skipped: totalSkipped,
-    sessions: importResult.sessions.length,
-    importSessionIds,
+    status: importResult.processingErrors?.length ? 'warning' : 'success',
+    import: {
+      accountId: firstSession?.accountId,
+      source: params.sourceName,
+      input: {
+        exchange: sourceIsBlockchain ? undefined : params.sourceName,
+        blockchain: sourceIsBlockchain ? params.sourceName : undefined,
+        csvDir: params.csvDirectory,
+        address: params.address,
+        processed: Boolean(importResult.processed ?? params.shouldProcess),
+      },
+      counts: {
+        imported: totalImported,
+        skipped: totalSkipped,
+        processed: importResult.processed,
+      },
+      importSessions: includeSessions
+        ? importResult.sessions.map((s) => ({
+            id: s.id,
+            startedAt: s.startedAt ? new Date(s.startedAt).toISOString() : undefined,
+            completedAt: s.completedAt ? new Date(s.completedAt).toISOString() : undefined,
+            status: s.status,
+          }))
+        : undefined,
+      processingErrors: importResult.processingErrors?.slice(0, 5),
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
+    },
   };
-
-  if (importResult.processed !== undefined) {
-    resultData.processed = importResult.processed;
-  }
-
-  if (importResult.processingErrors && importResult.processingErrors.length > 0) {
-    resultData.processingErrors = importResult.processingErrors.slice(0, 5); // First 5 errors
-  }
 
   let summary: string | undefined;
 

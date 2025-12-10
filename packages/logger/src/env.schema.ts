@@ -24,7 +24,7 @@ export const loggerEnvSchema = z.object({
     .transform((val: string) => parseInt(val, 10)),
   LOGGER_CONSOLE_ENABLED: z
     .string()
-    .default('true')
+    .default('false')
     .transform((val: string) => val === 'true'),
   LOGGER_FILE_LOG_ENABLED: z
     .string()

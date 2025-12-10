@@ -5,13 +5,12 @@ import type { AccountType, BalanceCommandStatus, SourceType } from '@exitbook/co
  */
 export interface BalanceCommandResult {
   status: BalanceCommandStatus;
-  liveBalances: Record<string, string>;
-  calculatedBalances: Record<string, string>;
-  comparisons: {
+  balances: {
     calculatedBalance: string;
     currency: string;
     difference: string;
     liveBalance: string;
+    percentageDiff: number;
     status: 'match' | 'warning' | 'mismatch';
   }[];
   summary: {

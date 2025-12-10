@@ -57,10 +57,10 @@ export class ImportHandler {
 
       if (params.sourceType === 'exchange-csv') {
         // Exchange CSV import
-        if (!params.csvDirectories || params.csvDirectories.length === 0) {
-          return err(new Error('CSV directories are required for CSV imports'));
+        if (!params.csvDirectory) {
+          return err(new Error('CSV directory is required for CSV imports'));
         }
-        importResult = await this.importOrchestrator.importExchangeCsv(params.sourceName, params.csvDirectories);
+        importResult = await this.importOrchestrator.importExchangeCsv(params.sourceName, params.csvDirectory);
       } else if (params.sourceType === 'exchange-api') {
         // Exchange API import
         if (!params.credentials) {

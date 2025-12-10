@@ -139,13 +139,13 @@ function createRootLogger(): Logger {
 }
 
 /**
- * Returns a logger for the specified logging category.
- * Creates a child logger from the root logger with category-specific context.
+ * Internal: get or create the underlying pino logger for a category.
+ * Callers should prefer the proxy returned by getLogger below so
+ * transport reconfiguration (setLoggerTransports) is respected even
+ * for previously created loggers.
  */
-export const getLogger = (category: string): Logger => {
-  if (loggerCache.has(category)) {
-    return loggerCache.get(category)!;
-  }
+function getOrCreateCategoryLogger(category: string): Logger {
+  if (loggerCache.has(category)) return loggerCache.get(category)!;
 
   if (!rootLogger) {
     rootLogger = createRootLogger();
@@ -162,6 +162,24 @@ export const getLogger = (category: string): Logger => {
   loggerCache.set(category, categoryLogger);
 
   return categoryLogger;
+}
+
+/**
+ * Returns a category logger that stays in sync with transport reconfiguration.
+ *
+ * We return a Proxy that looks up the latest underlying pino logger on every
+ * property access. This ensures calls made after `setLoggerTransports(...)`
+ * use the new transports even if the caller captured the logger before
+ * reconfiguration (common when modules create loggers at top-level).
+ */
+export const getLogger = (category: string): Logger => {
+  return new Proxy({} as Logger, {
+    get: (_target, prop) => {
+      const logger = getOrCreateCategoryLogger(category);
+      const value = logger[prop as keyof Logger];
+      return typeof value === 'function' ? value.bind(logger) : value;
+    },
+  });
 };
 
 /**

@@ -148,27 +148,18 @@ export const ImportCommandOptionsSchema = z
 /**
  * Balance command options
  */
-export const BalanceCommandOptionsSchema = SourceSelectionSchema.safeExtend(BlockchainFieldsSchema.shape)
-  .safeExtend(
+export const BalanceCommandOptionsSchema = z
+  .object({
+    accountId: z.coerce.number().int().positive(),
+  })
+  .extend(
     z.object({
       apiKey: z.string().min(1).optional(),
       apiSecret: z.string().min(1).optional(),
       apiPassphrase: z.string().optional(),
     }).shape
   )
-  .safeExtend(JsonFlagSchema.shape)
-  .refine(
-    (data) => {
-      // For blockchain: address is required
-      if (data.blockchain && !data.address) {
-        return false;
-      }
-      return true;
-    },
-    {
-      message: '--address is required when using --blockchain',
-    }
-  )
+  .extend(JsonFlagSchema.shape)
   .refine(
     (data) => {
       // Both apiKey and apiSecret must be provided together

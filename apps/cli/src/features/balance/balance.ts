@@ -7,7 +7,6 @@ import {
   initializeDatabase,
   TokenMetadataRepository,
   TransactionRepository,
-  UserRepository,
 } from '@exitbook/data';
 import { BalanceService, type BalanceVerificationResult } from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
@@ -20,7 +19,6 @@ import { BalanceCommandOptionsSchema } from '../shared/schemas.js';
 
 import { BalanceHandler } from './balance-handler.js';
 import type { BalanceCommandResult } from './balance-types.js';
-import { findAccountForBalance } from './balance-utils.js';
 
 /**
  * Balance command options validated by Zod at CLI boundary
@@ -33,15 +31,24 @@ export type BalanceCommandOptions = z.infer<typeof BalanceCommandOptionsSchema>;
 export function registerBalanceCommand(program: Command): void {
   program
     .command('balance')
-    .description('Verify balance by comparing live balance against calculated balance from transactions')
-    .option('--exchange <name>', 'Exchange name (e.g., kraken, kucoin)')
-    .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, solana)')
-    .option('--address <address>', 'Wallet address (required for blockchain sources)')
-    .option('--provider <name>', 'Blockchain provider for blockchain sources')
+    .description('Verify balance for a specific account by ID')
+    .requiredOption('--account-id <id>', 'Account ID to verify')
     .option('--api-key <key>', 'API key for exchange (overrides .env)')
     .option('--api-secret <secret>', 'API secret for exchange (overrides .env)')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange (if required)')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook balance --account-id 5                          # blockchain or exchange-csv account (no creds)
+  $ exitbook balance --account-id 7 --api-key KEY --api-secret SECRET   # exchange-api or exchange-csv with live API fetch
+
+Notes:
+  - API credentials are accepted for exchange-api and exchange-csv accounts to fetch live balances from the exchange.
+  - Use "exitbook accounts view" to list account IDs and types.
+`
+    )
     .action(async (rawOptions: unknown) => {
       await executeBalanceCommand(rawOptions);
     });
@@ -84,7 +91,6 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
   const sessionRepository = new ImportSessionRepository(database);
   const accountRepository = new AccountRepository(database);
   const tokenMetadataRepository = new TokenMetadataRepository(database);
-  const userRepository = new UserRepository(database);
 
   // Initialize provider manager
   const config = loadExplorerConfig();
@@ -103,13 +109,12 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
   const handler = new BalanceHandler(balanceService);
 
   try {
-    // Find account based on CLI options
-    const accountResult = await findAccountForBalance(options, accountRepository, userRepository);
+    // Load the account by ID
+    const accountResult = await accountRepository.findById(options.accountId);
     if (accountResult.isErr()) {
       output.error('balance', accountResult.error, ExitCodes.GENERAL_ERROR);
       return;
     }
-
     const account = accountResult.value;
 
     const spinner = output.spinner();
@@ -123,6 +128,17 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
         apiSecret: options.apiSecret,
         ...(options.apiPassphrase && { apiPassphrase: options.apiPassphrase }),
       };
+    }
+
+    // Guard: credentials only make sense for exchange-backed accounts (api or csv with API fetch for live balance)
+    const allowsCredentials = account.accountType === 'exchange-api' || account.accountType === 'exchange-csv';
+    if (!allowsCredentials && credentials) {
+      output.error(
+        'balance',
+        new Error('Credentials can only be provided for exchange API accounts'),
+        ExitCodes.GENERAL_ERROR
+      );
+      return;
     }
 
     const result = await handler.execute({ accountId: account.id, credentials: credentials });
@@ -222,15 +238,12 @@ async function handleBalanceSuccess(
   const isExchange = account.accountType === 'exchange-api' || account.accountType === 'exchange-csv';
   const resultData: BalanceCommandResult = {
     status: verificationResult.status,
-    liveBalances: Object.fromEntries(verificationResult.comparisons.map((c) => [c.currency, c.liveBalance])),
-    calculatedBalances: Object.fromEntries(
-      verificationResult.comparisons.map((c) => [c.currency, c.calculatedBalance])
-    ),
-    comparisons: verificationResult.comparisons.map((c) => ({
+    balances: verificationResult.comparisons.map((c) => ({
       currency: c.currency,
       liveBalance: c.liveBalance,
       calculatedBalance: c.calculatedBalance,
       difference: c.difference,
+      percentageDiff: c.percentageDiff,
       status: c.status,
     })),
     summary: verificationResult.summary,

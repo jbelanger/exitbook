@@ -24,8 +24,8 @@ export interface ImportParams {
   /** API credentials (for exchange-api imports) */
   credentials?: ExchangeCredentials | undefined;
 
-  /** CSV directory paths (for exchange-csv imports) */
-  csvDirectories?: string[] | undefined;
+  /** CSV directory path (for exchange-csv imports) - subdirectories are recursively scanned */
+  csvDirectory?: string | undefined;
 
   /** Resume cursors per operation type (for crash recovery) */
   cursor?: Record<string, CursorState> | undefined;

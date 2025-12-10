@@ -150,12 +150,13 @@ export class ImportOrchestrator {
 
   /**
    * Import transactions from an exchange using CSV files
+   * The CSV directory can contain subdirectories - all CSV files are recursively scanned
    */
-  async importExchangeCsv(exchange: string, csvDirectories: string[]): Promise<Result<ImportSession, Error>> {
-    this.logger.info(`Starting exchange CSV import for ${exchange}`);
+  async importExchangeCsv(exchange: string, csvDirectory: string): Promise<Result<ImportSession, Error>> {
+    this.logger.info(`Starting exchange CSV import for ${exchange} from ${csvDirectory}`);
 
-    if (!csvDirectories || csvDirectories.length === 0) {
-      return err(new Error('At least one CSV directory is required for CSV imports'));
+    if (!csvDirectory) {
+      return err(new Error('CSV directory is required for CSV imports'));
     }
 
     // 1. Ensure default CLI user exists (id=1)
@@ -165,7 +166,7 @@ export class ImportOrchestrator {
     }
     const user = userResult.value;
 
-    // 2. Find existing exchange-csv account for this exchange
+    // 2. Check if an account already exists for this exchange (regardless of directory)
     const existingAccountsResult = await this.accountRepository.findAll({
       accountType: 'exchange-csv',
       sourceName: exchange,
@@ -177,69 +178,41 @@ export class ImportOrchestrator {
     }
 
     const existingAccounts = existingAccountsResult.value;
-    const existingAccount = existingAccounts.length > 0 ? existingAccounts[0] : undefined;
 
-    let account;
-
-    if (existingAccount) {
-      // 3. Merge new directories with existing ones
-      const existingDirs = existingAccount.identifier.split(',').filter((d) => d.length > 0);
-      const dirSet = new Set([...existingDirs, ...csvDirectories]);
-      const allDirectories = [...dirSet].sort();
-      const mergedIdentifier = allDirectories.join(',');
-
-      // Check if identifier needs updating (new directories were added)
-      if (mergedIdentifier !== existingAccount.identifier) {
-        this.logger.info(
-          `Found existing account #${existingAccount.id}, adding ${csvDirectories.length} new directory(ies) to ${existingDirs.length} existing`
+    // If an account exists with a different directory, reject
+    if (existingAccounts.length > 0) {
+      const existingAccount = existingAccounts[0]!;
+      if (existingAccount.identifier !== csvDirectory) {
+        return err(
+          new Error(
+            `An account already exists for ${exchange} using directory '${existingAccount.identifier}'. ` +
+              `Please use the same directory (which can contain subdirectories) or delete the existing account first.`
+          )
         );
-
-        // Update the existing account's identifier directly
-        // We can't use findOrCreate because the unique constraint on identifier would create a new account
-        const updateResult = await this.accountRepository.updateIdentifier(existingAccount.id, mergedIdentifier);
-        if (updateResult.isErr()) {
-          return err(updateResult.error);
-        }
-
-        // Fetch the updated account
-        const refreshedAccountResult = await this.accountRepository.findById(existingAccount.id);
-        if (refreshedAccountResult.isErr()) {
-          return err(refreshedAccountResult.error);
-        }
-        account = refreshedAccountResult.value;
-
-        this.logger.info(
-          `Updated account #${account.id} identifier with ${allDirectories.length} total directory(ies)`
-        );
-      } else {
-        this.logger.info(
-          `Found existing account #${existingAccount.id}, no new directories to add (already has ${existingDirs.length})`
-        );
-        account = existingAccount;
       }
-    } else {
-      // 4. Create new account
-      const identifier = [...csvDirectories].sort().join(',');
-      this.logger.info(`Creating new account for ${csvDirectories.length} CSV directory(ies)`);
-
-      const accountResult = await this.accountRepository.findOrCreate({
-        userId: user.id,
-        accountType: 'exchange-csv',
-        sourceName: exchange,
-        identifier,
-        providerName: undefined,
-        credentials: undefined,
-      });
-
-      if (accountResult.isErr()) {
-        return err(accountResult.error);
-      }
-      account = accountResult.value;
+      // Same directory - use existing account
+      this.logger.info(`Using existing account #${existingAccount.id} (exchange-csv)`);
+      return this.importService.importFromSource(existingAccount);
     }
 
-    this.logger.info(`Using account #${account.id} (exchange-csv)`);
+    // 3. Create new account
+    const accountResult = await this.accountRepository.findOrCreate({
+      userId: user.id,
+      accountType: 'exchange-csv',
+      sourceName: exchange,
+      identifier: csvDirectory,
+      providerName: undefined,
+      credentials: undefined,
+    });
 
-    // 5. Delegate to import service with account
+    if (accountResult.isErr()) {
+      return err(accountResult.error);
+    }
+    const account = accountResult.value;
+
+    this.logger.info(`Created new account #${account.id} (exchange-csv) for import`);
+
+    // 4. Delegate to import service with account
     return this.importService.importFromSource(account);
   }
 
