@@ -175,6 +175,18 @@ describe('BlockchainProviderManager', () => {
     expect(providers[1]?.name).toBe('fallback');
   });
 
+  test('autoRegisterFromConfig is idempotent when providers already exist', () => {
+    const registerSpy = vi.spyOn(manager, 'registerProviders');
+
+    const existingProviders = manager.getProviders('ethereum');
+    const result = manager.autoRegisterFromConfig('ethereum');
+
+    expect(result).toBe(existingProviders);
+    expect(registerSpy).not.toHaveBeenCalled();
+
+    registerSpy.mockRestore();
+  });
+
   test('should execute operations with primary provider', async () => {
     const operation: ProviderOperation = {
       address: '0x123',

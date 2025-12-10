@@ -88,6 +88,7 @@ describe('ImportOrchestrator', () => {
 
     mockAccountRepo = {
       findOrCreate: vi.fn(),
+      findByUniqueConstraint: vi.fn().mockResolvedValue(ok(undefined)),
     } as unknown as AccountRepository;
 
     mockRawDataRepo = {} as IRawDataRepository;

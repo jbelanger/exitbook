@@ -75,6 +75,29 @@ export class BlockchainProviderManager {
    * Falls back to all registered providers when no configuration exists
    */
   autoRegisterFromConfig(blockchain: string, preferredProvider?: string): IBlockchainProvider[] {
+    const existingProviders = this.providers.get(blockchain);
+
+    // Fast path: if providers already registered, skip redundant work/log noise
+    if (existingProviders && existingProviders.length > 0) {
+      if (!preferredProvider) {
+        logger.debug(`Providers already registered for ${blockchain}; skipping auto-registration`);
+        return existingProviders;
+      }
+
+      const preferredAlreadyRegistered =
+        existingProviders.length === 1 && existingProviders[0]?.name === preferredProvider;
+      if (preferredAlreadyRegistered) {
+        logger.debug(
+          `Preferred provider '${preferredProvider}' already registered for ${blockchain}; skipping auto-registration`
+        );
+        return existingProviders;
+      }
+
+      logger.info(
+        `Re-registering providers for ${blockchain} to honor preferred provider '${preferredProvider}' (existing: ${existingProviders.map((p) => p.name).join(', ')})`
+      );
+    }
+
     try {
       // If no config file exists, use all registered providers
       if (!this.explorerConfig) {

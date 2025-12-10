@@ -1,5 +1,5 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { ExchangeCredentials, ImportSession } from '@exitbook/core';
+import type { Account, ExchangeCredentials, ImportSession } from '@exitbook/core';
 import type { AccountRepository, IImportSessionRepository, IRawDataRepository, UserRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -235,6 +235,28 @@ export class ImportOrchestrator {
 
       this.logger.info(`Processing xpub import for ${blockchain}`);
 
+      // Detect whether the parent account already exists so we can log accurately
+      const existingParentResult = await this.accountRepository.findByUniqueConstraint(
+        'blockchain',
+        blockchain,
+        xpub,
+        userId
+      );
+      if (existingParentResult.isErr()) {
+        return err(existingParentResult.error);
+      }
+      const parentAlreadyExists = Boolean(existingParentResult.value);
+
+      // Reuse existing derived child accounts when present to avoid redundant gap scans
+      let existingChildAccounts: Account[] = [];
+      if (parentAlreadyExists) {
+        const childrenResult = await this.accountRepository.findByParent(existingParentResult.value!.id);
+        if (childrenResult.isErr()) {
+          return err(childrenResult.error);
+        }
+        existingChildAccounts = childrenResult.value;
+      }
+
       // 1. Create parent account for xpub
       const parentAccountResult = await this.accountRepository.findOrCreate({
         userId,
@@ -250,28 +272,41 @@ export class ImportOrchestrator {
       }
       const parentAccount = parentAccountResult.value;
 
-      this.logger.info(`Created parent account #${parentAccount.id} for xpub`);
+      this.logger.info(
+        `${parentAlreadyExists ? 'Using existing' : 'Created new'} parent account #${parentAccount.id} for xpub`
+      );
 
       // 2. Derive child addresses using provider manager for smart detection and gap scanning
-      const derivedAddresses = await blockchainAdapter.deriveAddressesFromXpub(
-        xpub,
-        this.providerManager,
-        blockchain,
-        xpubGap
-      );
+      const derivedAddresses =
+        existingChildAccounts.length > 0
+          ? existingChildAccounts.map((account) => ({
+              address: account.identifier,
+              derivationPath: 'existing',
+            }))
+          : (() => {
+              // Only derive when we have no cached children
+              return blockchainAdapter.deriveAddressesFromXpub(xpub, this.providerManager, blockchain, xpubGap);
+            })();
+
+      // If we used existing children, derivedAddresses is already a resolved array
+      const resolvedDerivedAddresses = await Promise.resolve(derivedAddresses);
+
       this.logger.info(
-        `Derived ${derivedAddresses.length} addresses from xpub${xpubGap !== undefined ? ` (gap: ${xpubGap})` : ''}`
+        existingChildAccounts.length > 0
+          ? `Reusing ${existingChildAccounts.length} existing child accounts for xpub`
+          : `Derived ${resolvedDerivedAddresses.length} addresses from xpub${xpubGap !== undefined ? ` (gap: ${xpubGap})` : ''}`
       );
 
       // Handle case where no active addresses were found
-      if (derivedAddresses.length === 0) {
+      if (resolvedDerivedAddresses.length === 0) {
         this.logger.info('No active addresses found for xpub - no transactions to import');
         return ok([]);
       }
 
       // 3. Create child account for each derived address
       const childAccounts = [];
-      for (const derived of derivedAddresses) {
+      let newlyCreatedCount = 0;
+      for (const derived of resolvedDerivedAddresses) {
         // Normalize derived address for consistent storage and comparison
         const normalizedDerivedResult = blockchainAdapter.normalizeAddress(derived.address);
         if (normalizedDerivedResult.isErr()) {
@@ -296,9 +331,20 @@ export class ImportOrchestrator {
         }
 
         childAccounts.push(childAccountResult.value);
+
+        // Track whether this was newly created
+        if (childAccountResult.value.createdAt === childAccountResult.value.updatedAt) {
+          newlyCreatedCount += 1;
+        }
       }
 
-      this.logger.info(`Created ${childAccounts.length} child accounts`);
+      if (newlyCreatedCount > 0) {
+        this.logger.info(
+          `Created ${newlyCreatedCount} child accounts${existingChildAccounts.length > 0 ? ` (reused ${existingChildAccounts.length})` : ''}`
+        );
+      } else {
+        this.logger.info(`Reused ${existingChildAccounts.length} existing child accounts for xpub`);
+      }
 
       // 4. Import each child account and collect ImportSessions
       const importSessions: ImportSession[] = [];
