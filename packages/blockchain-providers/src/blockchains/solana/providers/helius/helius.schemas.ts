@@ -94,10 +94,9 @@ export const HeliusSignatureResponseSchema = z.object({
   blockTime: timestampToDate.optional(),
   err: z
     .unknown()
-    .nullable()
-    .optional()
+    .nullish()
     .transform((val) => val ?? undefined),
-  memo: z.string(),
+  memo: z.string().nullish(),
   signature: z.string().min(1, 'Signature must not be empty'),
   slot: z.number().nonnegative('Slot must be non-negative'),
 });

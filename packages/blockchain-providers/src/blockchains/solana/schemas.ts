@@ -55,15 +55,13 @@ export const SolanaTokenBalanceSchema = z.object({
 export const SolanaSignatureSchema = z.object({
   blockTime: z
     .number()
-    .nullable()
-    .optional()
+    .nullish()
     .transform((val) => val ?? undefined),
   err: z
     .unknown()
-    .nullable()
-    .optional()
+    .nullish()
     .transform((val) => val ?? undefined),
-  memo: z.string().optional(),
+  memo: z.string().nullish(),
   signature: z.string().min(1, 'Signature must not be empty'),
   slot: z.number().nonnegative('Slot must be non-negative'),
 });
