@@ -6,7 +6,7 @@
  * the expected type.
  *
  * Supported message types:
- * - Bank transfers (MsgSend)
+ * - Bank transfers (MsgSend, MsgMultiSend)
  * - IBC transfers (MsgTransfer)
  * - CosmWasm contract execution (MsgExecuteContract)
  * - Injective wasmx contract execution (MsgExecuteContractCompat)
@@ -139,6 +139,97 @@ export function parseBankSendMessage(message: InjectiveMessage, decimals = 18): 
     tokenType: 'native',
     tokenSymbol: currency,
   };
+}
+
+/**
+ * Parse a bank multi-send message (/cosmos.bank.v1beta1.MsgMultiSend)
+ *
+ * Extracts transfer information from a Cosmos SDK multi-send transfer.
+ * This message type allows sending to multiple recipients in a single transaction.
+ *
+ * @param message - Message to parse
+ * @param relevantAddress - Address to filter transactions for
+ * @param decimals - Number of decimals for amount conversion (default: 18)
+ * @returns Parsed transfer data, or undefined if not relevant or not a multi-send message
+ */
+export function parseBankMultiSendMessage(
+  message: InjectiveMessage,
+  relevantAddress: string,
+  decimals = 18
+): BankSendResult | undefined {
+  if (message.type !== '/cosmos.bank.v1beta1.MsgMultiSend') {
+    return undefined;
+  }
+
+  const inputs = message.value.inputs;
+  const outputs = message.value.outputs;
+
+  if (!inputs || !Array.isArray(inputs) || inputs.length === 0) {
+    return undefined;
+  }
+
+  if (!outputs || !Array.isArray(outputs) || outputs.length === 0) {
+    return undefined;
+  }
+
+  // Check if relevant address is in inputs (sender)
+  const inputEntry = inputs.find((input) => input.address === relevantAddress);
+  if (inputEntry && inputEntry.coins.length > 0) {
+    // User is sending - calculate total amount sent
+    const firstCoin = inputEntry.coins[0];
+    if (!firstCoin) {
+      return undefined;
+    }
+
+    const amount = parseDecimal(firstCoin.amount).div(Math.pow(10, decimals)).toFixed();
+    const currency = firstCoin.denom;
+
+    // Use first output as destination (multi-send can have multiple outputs)
+    const firstOutput = outputs[0];
+    if (!firstOutput) {
+      return undefined;
+    }
+
+    return {
+      from: relevantAddress,
+      to: firstOutput.address,
+      amount,
+      currency,
+      tokenType: 'native',
+      tokenSymbol: currency,
+    };
+  }
+
+  // Check if relevant address is in outputs (receiver)
+  const outputEntry = outputs.find((output) => output.address === relevantAddress);
+  if (outputEntry && outputEntry.coins.length > 0) {
+    // User is receiving - calculate total amount received
+    const firstCoin = outputEntry.coins[0];
+    if (!firstCoin) {
+      return undefined;
+    }
+
+    const amount = parseDecimal(firstCoin.amount).div(Math.pow(10, decimals)).toFixed();
+    const currency = firstCoin.denom;
+
+    // Use first input as source
+    const firstInput = inputs[0];
+    if (!firstInput) {
+      return undefined;
+    }
+
+    return {
+      from: firstInput.address,
+      to: relevantAddress,
+      amount,
+      currency,
+      tokenType: 'native',
+      tokenSymbol: currency,
+    };
+  }
+
+  // Address not involved in this multi-send
+  return undefined;
 }
 
 /**

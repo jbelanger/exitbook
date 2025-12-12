@@ -191,8 +191,9 @@ export class LotTransferRepository extends BaseRepository {
 
   /**
    * Count lot transfers by account IDs
-   * Counts transfers where source transactions belong to the specified accounts
-   * Filters WHERE source_transaction_id IN (SELECT id FROM transactions WHERE account_id IN (accountIds))
+   * Counts transfers where source OR target transactions belong to the specified accounts,
+   * or where the source lot's acquisition transaction belongs to the specified accounts
+   * Filters WHERE source_transaction_id IN (...) OR target_transaction_id IN (...) OR source_lot_id IN (...)
    */
   async countByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
@@ -200,13 +201,25 @@ export class LotTransferRepository extends BaseRepository {
         return ok(0);
       }
 
+      const transactionsSubquery = this.db
+        .selectFrom('transactions')
+        .select('id')
+        .where('account_id', 'in', accountIds);
+
+      const lotsSubquery = this.db
+        .selectFrom('acquisition_lots')
+        .select('id')
+        .where('acquisition_transaction_id', 'in', transactionsSubquery);
+
       const result = await this.db
         .selectFrom('lot_transfers')
         .select(({ fn }) => [fn.count<number>('id').as('count')])
-        .where(
-          'source_transaction_id',
-          'in',
-          this.db.selectFrom('transactions').select('id').where('account_id', 'in', accountIds)
+        .where((eb) =>
+          eb.or([
+            eb('source_transaction_id', 'in', transactionsSubquery),
+            eb('target_transaction_id', 'in', transactionsSubquery),
+            eb('source_lot_id', 'in', lotsSubquery),
+          ])
         )
         .executeTakeFirst();
       return ok(result?.count ?? 0);
@@ -237,8 +250,9 @@ export class LotTransferRepository extends BaseRepository {
 
   /**
    * Delete lot transfers by account IDs
-   * Deletes transfers where source transactions belong to the specified accounts
-   * Deletes WHERE source_transaction_id IN (SELECT id FROM transactions WHERE account_id IN (accountIds))
+   * Deletes transfers where source OR target transactions belong to the specified accounts,
+   * or where the source lot's acquisition transaction belongs to the specified accounts
+   * Deletes WHERE source_transaction_id IN (...) OR target_transaction_id IN (...) OR source_lot_id IN (...)
    */
   async deleteByAccountIds(accountIds: number[]): Promise<Result<number, Error>> {
     try {
@@ -246,12 +260,24 @@ export class LotTransferRepository extends BaseRepository {
         return ok(0);
       }
 
+      const transactionsSubquery = this.db
+        .selectFrom('transactions')
+        .select('id')
+        .where('account_id', 'in', accountIds);
+
+      const lotsSubquery = this.db
+        .selectFrom('acquisition_lots')
+        .select('id')
+        .where('acquisition_transaction_id', 'in', transactionsSubquery);
+
       const result = await this.db
         .deleteFrom('lot_transfers')
-        .where(
-          'source_transaction_id',
-          'in',
-          this.db.selectFrom('transactions').select('id').where('account_id', 'in', accountIds)
+        .where((eb) =>
+          eb.or([
+            eb('source_transaction_id', 'in', transactionsSubquery),
+            eb('target_transaction_id', 'in', transactionsSubquery),
+            eb('source_lot_id', 'in', lotsSubquery),
+          ])
         )
         .executeTakeFirst();
 

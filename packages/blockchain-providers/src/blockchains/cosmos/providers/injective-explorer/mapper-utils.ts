@@ -5,6 +5,7 @@ import type { NormalizationError } from '../../../../core/index.js';
 import { validateOutput } from '../../../../core/index.js';
 import { calculateFee } from '../../calculation-utils.js';
 import {
+  parseBankMultiSendMessage,
   parseBankSendMessage,
   parseCosmwasmExecuteMessage,
   parseIbcTransferMessage,
@@ -81,6 +82,26 @@ export function mapInjectiveExplorerTransaction(
       amount = bankResult.amount;
       currency = formatDenom(bankResult.currency);
       tokenType = bankResult.tokenType;
+      tokenSymbol = currency;
+      bridgeType = 'native';
+
+      if (!isTransactionRelevant(from, to, relevantAddress, amount)) {
+        return err({
+          reason: `Transaction not relevant to wallet. MessageType="${messageType}", relevantAddress="${relevantAddress}", from="${from}", to="${to}"`,
+          type: 'skip',
+        });
+      }
+      break;
+    }
+
+    // Try parsing as bank multi-send message
+    const bankMultiSendResult = parseBankMultiSendMessage(message, relevantAddress);
+    if (bankMultiSendResult) {
+      from = bankMultiSendResult.from;
+      to = bankMultiSendResult.to;
+      amount = bankMultiSendResult.amount;
+      currency = formatDenom(bankMultiSendResult.currency);
+      tokenType = bankMultiSendResult.tokenType;
       tokenSymbol = currency;
       bridgeType = 'native';
 

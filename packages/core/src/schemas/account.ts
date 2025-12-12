@@ -28,7 +28,7 @@ export const AccountSchema = z.object({
   parentAccountId: z.number().optional(), // NULL for top-level accounts, set for derived address child accounts
   accountType: AccountTypeSchema,
   sourceName: z.string(), // 'kraken', 'bitcoin', 'ethereum', etc.
-  identifier: z.string(), // address/xpub for blockchain, apiKey for exchange-api, comma-separated CSV dirs for exchange-csv
+  identifier: z.string(), // address/xpub for blockchain, apiKey for exchange-api, CSV directory path for exchange-csv
   providerName: z.string().optional(), // preferred provider for blockchain imports
   credentials: ExchangeCredentialsSchema.optional(), // exchange-api credentials only
   lastCursor: z.record(z.string(), CursorStateSchema).optional(), // Record<operationType, CursorState>

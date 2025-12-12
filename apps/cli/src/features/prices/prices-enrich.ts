@@ -80,8 +80,7 @@ export function registerPricesEnrichCommand(pricesCommand: Command): void {
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH). Can be specified multiple times.', collect, [])
     .option(
       '--on-missing <behavior>',
-      'How to handle missing prices: prompt (interactive manual entry), fail (abort with report and suggested commands)',
-      'fail'
+      'How to handle missing prices: prompt (interactive manual entry), fail (abort immediately on first error), continue (collect errors and report at end, default)'
     )
     .option('--normalize-only', 'Only run normalization stage (FX conversion)')
     .option('--derive-only', 'Only run derivation stage (extract from USD trades)')

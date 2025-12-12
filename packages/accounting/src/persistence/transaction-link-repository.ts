@@ -304,8 +304,8 @@ export class TransactionLinkRepository extends BaseRepository {
 
   /**
    * Count transaction links by account IDs
-   * Counts links where source transactions belong to the specified accounts
-   * Filters WHERE source_transaction_id IN (SELECT id FROM transactions WHERE account_id IN (accountIds))
+   * Counts links where source OR target transactions belong to the specified accounts
+   * Filters WHERE source_transaction_id IN (...) OR target_transaction_id IN (...)
    *
    * @param accountIds - Account IDs to filter by
    * @returns Result with count
@@ -316,13 +316,19 @@ export class TransactionLinkRepository extends BaseRepository {
         return ok(0);
       }
 
+      const transactionsSubquery = this.db
+        .selectFrom('transactions')
+        .select('id')
+        .where('account_id', 'in', accountIds);
+
       const result = await this.db
         .selectFrom('transaction_links')
         .select(({ fn }) => [fn.count<number>('id').as('count')])
-        .where(
-          'source_transaction_id',
-          'in',
-          this.db.selectFrom('transactions').select('id').where('account_id', 'in', accountIds)
+        .where((eb) =>
+          eb.or([
+            eb('source_transaction_id', 'in', transactionsSubquery),
+            eb('target_transaction_id', 'in', transactionsSubquery),
+          ])
         )
         .executeTakeFirst();
       return ok(result?.count ?? 0);
@@ -401,8 +407,8 @@ export class TransactionLinkRepository extends BaseRepository {
 
   /**
    * Delete transaction links by account IDs
-   * Deletes links where source transactions belong to the specified accounts
-   * Deletes WHERE source_transaction_id IN (SELECT id FROM transactions WHERE account_id IN (accountIds))
+   * Deletes links where source OR target transactions belong to the specified accounts
+   * Deletes WHERE source_transaction_id IN (...) OR target_transaction_id IN (...)
    *
    * @param accountIds - Account IDs to match
    * @returns Result with count of deleted links
@@ -413,12 +419,18 @@ export class TransactionLinkRepository extends BaseRepository {
         return ok(0);
       }
 
+      const transactionsSubquery = this.db
+        .selectFrom('transactions')
+        .select('id')
+        .where('account_id', 'in', accountIds);
+
       const result = await this.db
         .deleteFrom('transaction_links')
-        .where(
-          'source_transaction_id',
-          'in',
-          this.db.selectFrom('transactions').select('id').where('account_id', 'in', accountIds)
+        .where((eb) =>
+          eb.or([
+            eb('source_transaction_id', 'in', transactionsSubquery),
+            eb('target_transaction_id', 'in', transactionsSubquery),
+          ])
         )
         .executeTakeFirst();
 

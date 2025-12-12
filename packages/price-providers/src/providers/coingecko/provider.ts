@@ -211,10 +211,10 @@ export class CoinGeckoProvider extends BasePriceProvider {
       if (providerIdResult.isErr()) {
         return err(providerIdResult.error);
       }
-      const providerName = providerIdResult.value;
+      const providerId = providerIdResult.value;
 
       // 3. Get coin ID for symbol
-      const coinIdResult = await this.providerRepo.getCoinIdForSymbol(providerName, query.asset);
+      const coinIdResult = await this.providerRepo.getCoinIdForSymbol(providerId, query.asset);
       if (coinIdResult.isErr()) {
         return err(coinIdResult.error);
       }
@@ -265,10 +265,10 @@ export class CoinGeckoProvider extends BasePriceProvider {
     if (providerIdResult.isErr()) {
       return err(providerIdResult.error);
     }
-    const providerName = providerIdResult.value;
+    const providerId = providerIdResult.value;
 
     // 2. Check if sync is needed
-    const needsSyncResult = await this.providerRepo.needsCoinListSync(providerName);
+    const needsSyncResult = await this.providerRepo.needsCoinListSync(providerId);
     if (needsSyncResult.isErr()) {
       return err(needsSyncResult.error);
     }
@@ -350,13 +350,13 @@ export class CoinGeckoProvider extends BasePriceProvider {
     }));
 
     // 6. Store mappings in DB
-    const upsertResult = await this.providerRepo.upsertCoinMappings(providerName, mappings);
+    const upsertResult = await this.providerRepo.upsertCoinMappings(providerId, mappings);
     if (upsertResult.isErr()) {
       return err(upsertResult.error);
     }
 
     // 7. Update sync timestamp
-    const updateResult = await this.providerRepo.updateProviderSync(providerName, mappings.length);
+    const updateResult = await this.providerRepo.updateProviderSync(providerId, mappings.length);
     if (updateResult.isErr()) {
       return err(updateResult.error);
     }

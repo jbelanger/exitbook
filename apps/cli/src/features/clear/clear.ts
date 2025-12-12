@@ -103,6 +103,7 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
 
     // Check if there's anything to delete
     const totalToDelete =
+      preview.accounts +
       preview.transactions +
       preview.links +
       preview.lots +
@@ -123,6 +124,7 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
     if (shouldConfirm) {
       if (output.isTextMode()) {
         console.error('\nThis will clear:');
+        if (preview.accounts > 0) console.error(`  • ${preview.accounts} accounts`);
         if (preview.transactions > 0) console.error(`  • ${preview.transactions} transactions`);
         if (preview.links > 0) console.error(`  • ${preview.links} transaction links`);
         if (preview.lots > 0) console.error(`  • ${preview.lots} acquisition lots`);
@@ -236,6 +238,7 @@ function handleClearSuccess(
   };
 
   const parts: string[] = [];
+  if (clearResult.deleted.accounts > 0) parts.push(`${clearResult.deleted.accounts} accounts`);
   if (clearResult.deleted.transactions > 0) parts.push(`${clearResult.deleted.transactions} transactions`);
   if (clearResult.deleted.links > 0) parts.push(`${clearResult.deleted.links} links`);
   if (clearResult.deleted.lots > 0) parts.push(`${clearResult.deleted.lots} lots`);

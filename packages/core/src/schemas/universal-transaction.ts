@@ -95,7 +95,7 @@ export const AssetMovementSchema = z
  * SCOPE (Who receives the fee):
  * - 'network': Paid to miners/validators (gas, miner fees)
  * - 'platform': Exchange/venue revenue (withdrawal fees, trading fees, maker/taker)
- * - 'spread': Implicit fee in price quote deviation (informational only, not included in cost basis)
+ * - 'spread': Implicit fee in price quote deviation (supported by schema; accounting currently treats it like other fees if present)
  * - 'tax': Regulatory levy (GST, VAT, FATCA withholding)
  * - 'other': Edge cases (penalties, staking commissions, etc.)
  *
@@ -135,7 +135,7 @@ export const AssetMovementSchema = z
  * - Exclude fees where settlement='balance' (separate cost, doesn't affect proceeds)
  *
  * For Acquisition Cost Basis (lot-matcher-utils.js:calculateFeesInFiat):
- * - Include ALL fees (all settlements, all scopes except 'spread')
+ * - Include ALL fees (all settlements, all scopes)
  * - Fees increase what you paid to acquire the asset
  *
  * For Balance Calculation (balance-calculator.js):

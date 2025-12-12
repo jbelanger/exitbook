@@ -461,6 +461,26 @@ export class AccountRepository extends BaseRepository {
   }
 
   /**
+   * Delete accounts by IDs
+   */
+  async deleteByIds(accountIds: number[]): Promise<Result<number, Error>> {
+    try {
+      if (accountIds.length === 0) {
+        return ok(0);
+      }
+
+      const result = await this.db.deleteFrom('accounts').where('id', 'in', accountIds).executeTakeFirst();
+
+      const count = Number(result.numDeletedRows ?? 0);
+      this.logger.debug({ accountIds, count }, 'Deleted accounts by IDs');
+      return ok(count);
+    } catch (error) {
+      this.logger.error({ error, accountIds }, 'Failed to delete accounts by IDs');
+      return wrapError(error, 'Failed to delete accounts by IDs');
+    }
+  }
+
+  /**
    * Convert database row to Account domain model
    */
   private toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {

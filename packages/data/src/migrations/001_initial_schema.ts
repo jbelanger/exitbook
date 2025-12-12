@@ -18,7 +18,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('parent_account_id', 'integer', (col) => col.references('accounts.id'))
     .addColumn('account_type', 'text', (col) => col.notNull())
     .addColumn('source_name', 'text', (col) => col.notNull())
-    .addColumn('identifier', 'text', (col) => col.notNull()) // address for blockchain, apiKey for exchange-api, comma-separated CSV dirs for exchange-csv
+    .addColumn('identifier', 'text', (col) => col.notNull()) // address/xpub for blockchain, apiKey for exchange-api, CSV directory path for exchange-csv
     .addColumn('provider_name', 'text')
     .addColumn('credentials', 'text') // JSON: ExchangeCredentials for exchange-api accounts only
     .addColumn('last_cursor', 'text')

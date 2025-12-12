@@ -19,6 +19,14 @@ export const InjectiveAmountSchema = z.object({
 });
 
 /**
+ * Schema for MsgMultiSend input/output structure
+ */
+export const InjectiveMultiSendIOSchema = z.object({
+  address: CosmosAddressSchema,
+  coins: z.array(InjectiveAmountSchema).min(1, 'Coins array must have at least one entry'),
+});
+
+/**
  * Schema for Injective gas fee structure
  * Granter and payer addresses normalized via CosmosAddressSchema
  * Both are optional as the API returns empty strings when not present
@@ -63,6 +71,9 @@ export const InjectiveMessageValueSchema = z.object({
   // Peggy bridge withdrawal fields
   eth_dest: CosmosAddressSchema.optional(),
   bridge_fee: InjectiveAmountSchema.optional(),
+  // MsgMultiSend fields
+  inputs: z.array(InjectiveMultiSendIOSchema).optional(),
+  outputs: z.array(InjectiveMultiSendIOSchema).optional(),
 });
 
 /**
@@ -161,6 +172,7 @@ export const InjectiveApiResponseSchema = z.object({
 
 // Type exports inferred from schemas
 export type InjectiveAmount = z.infer<typeof InjectiveAmountSchema>;
+export type InjectiveMultiSendIO = z.infer<typeof InjectiveMultiSendIOSchema>;
 export type InjectiveGasFee = z.infer<typeof InjectiveGasFeeSchema>;
 export type InjectiveMessageValue = z.infer<typeof InjectiveMessageValueSchema>;
 export type InjectiveMessage = z.infer<typeof InjectiveMessageSchema>;

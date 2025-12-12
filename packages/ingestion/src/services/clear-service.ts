@@ -125,6 +125,7 @@ export class ClearService {
         }
 
         return ok({
+          accounts: accountsToClear.length,
           calculations: calculationsResult.value,
           disposals: disposalsResult.value,
           links: linksResult.value,
@@ -184,7 +185,9 @@ export class ClearService {
           return err(calculationsResult.error);
         }
 
+        // For delete-all, we don't delete accounts (they remain for future imports)
         return ok({
+          accounts: 0,
           calculations: calculationsResult.value,
           disposals: disposalsResult.value,
           links: linksResult.value,
@@ -326,6 +329,12 @@ export class ClearService {
           return err(resetResult.error);
         }
       }
+    }
+
+    // Delete the accounts themselves (after all data that references them)
+    const deleteAccountsResult = await this.accountRepo.deleteByIds(accountIds);
+    if (deleteAccountsResult.isErr()) {
+      return err(deleteAccountsResult.error);
     }
 
     return ok();

@@ -21,7 +21,7 @@ export async function up(db: Kysely<PricesDatabase>): Promise<void> {
   await db.schema
     .createTable('provider_coin_mappings')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('provider_name', 'integer', (col) => col.notNull().references('providers.id').onDelete('cascade'))
+    .addColumn('provider_id', 'integer', (col) => col.notNull().references('providers.id').onDelete('cascade'))
     .addColumn('symbol', 'text', (col) => col.notNull())
     .addColumn('coin_id', 'text', (col) => col.notNull())
     .addColumn('coin_name', 'text', (col) => col.notNull())
@@ -30,11 +30,11 @@ export async function up(db: Kysely<PricesDatabase>): Promise<void> {
     .addColumn('updated_at', 'text')
     .execute();
 
-  // Create unique index on (provider_name, symbol, coin_id)
+  // Create unique index on (provider_id, symbol, coin_id)
   await db.schema
     .createIndex('idx_provider_coin_mappings_provider_symbol_coin')
     .on('provider_coin_mappings')
-    .columns(['provider_name', 'symbol', 'coin_id'])
+    .columns(['provider_id', 'symbol', 'coin_id'])
     .unique()
     .execute();
 
@@ -42,7 +42,7 @@ export async function up(db: Kysely<PricesDatabase>): Promise<void> {
   await db.schema
     .createIndex('idx_provider_coin_mappings_provider_symbol')
     .on('provider_coin_mappings')
-    .columns(['provider_name', 'symbol'])
+    .columns(['provider_id', 'symbol'])
     .execute();
 
   // Create prices table

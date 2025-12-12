@@ -170,9 +170,9 @@ export class TransactionProcessService {
           const userAccountsResult = await this.accountRepository.findByUser(account.userId);
           if (userAccountsResult.isOk()) {
             const userAccounts = userAccountsResult.value;
-            // Get all addresses for this blockchain from the user's accounts (excluding current account)
+            // Get all addresses for this blockchain from the user's accounts (including current account)
             const userAddresses = userAccounts
-              .filter((acc) => acc.sourceName === account.sourceName && acc.id !== account.id)
+              .filter((acc) => acc.sourceName === account.sourceName)
               .map((acc) => acc.identifier);
 
             if (userAddresses.length > 0) {

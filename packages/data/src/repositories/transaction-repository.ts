@@ -248,7 +248,11 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         .selectAll()
         .where((eb) =>
           eb.and([
-            eb.or([eb('movements_inflows', 'is not', null), eb('movements_outflows', 'is not', null)]),
+            eb.or([
+              eb('movements_inflows', 'is not', null),
+              eb('movements_outflows', 'is not', null),
+              eb('fees', 'is not', null),
+            ]),
             eb('excluded_from_accounting', '=', false),
           ])
         );
@@ -520,9 +524,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   /**
    * Parse fees array from JSON column
    *
-   * Schema validation via FeeMovementSchema.refine() ensures:
-   * - Required fields (scope, settlement) are present
-   * - Invalid combinations are rejected (e.g., on-chain + platform)
+   * Schema validation via FeeMovementSchema ensures required fields (scope, settlement) are present.
    */
   private parseFees(jsonString: string | null): Result<FeeMovement[], Error> {
     if (!jsonString) {

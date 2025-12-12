@@ -189,10 +189,11 @@ export class PriceEnrichmentService {
           continue;
         }
 
-        // Check if transaction has any prices to update
+        // Check if transaction has any prices to update (movements or fees)
         const inflows = tx.movements.inflows ?? [];
         const outflows = tx.movements.outflows ?? [];
-        const hasPrices = [...inflows, ...outflows].some((m) => m.priceAtTxTime);
+        const fees = tx.fees ?? [];
+        const hasPrices = [...inflows, ...outflows, ...fees].some((m) => m.priceAtTxTime);
 
         if (!hasPrices) {
           skippedCount++;

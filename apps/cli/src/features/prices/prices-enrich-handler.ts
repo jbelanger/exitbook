@@ -212,11 +212,18 @@ export class PricesEnrichHandler {
       if (stages.fetch) {
         logger.info('Stage 3: Fetching missing prices from external providers');
 
+        if (!this.priceManager) {
+          return err(new Error('Price manager not initialized'));
+        }
+
         const fetchHandler = new PricesFetchHandler(this.transactionRepo, this.instrumentation);
-        const fetchResult = await fetchHandler.execute({
-          asset: options.asset,
-          onMissing: options.onMissing,
-        });
+        const fetchResult = await fetchHandler.execute(
+          {
+            asset: options.asset,
+            onMissing: options.onMissing,
+          },
+          this.priceManager
+        );
 
         if (fetchResult.isErr()) {
           logger.error({ error: fetchResult.error }, 'Stage 3 (fetch) failed');

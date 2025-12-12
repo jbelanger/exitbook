@@ -36,16 +36,26 @@ export class PricesFetchHandler {
 
   /**
    * Execute prices fetch command
+   *
+   * @param options - Command options
+   * @param providedPriceManager - Optional pre-initialized price manager (avoids double initialization)
    */
-  async execute(options: PricesFetchCommandOptions): Promise<Result<PricesFetchResult, Error>> {
-    // Initialize price provider manager using shared factory
-    const managerResult = await createDefaultPriceProviderManager(this.instrumentation);
+  async execute(
+    options: PricesFetchCommandOptions,
+    providedPriceManager?: PriceProviderManager
+  ): Promise<Result<PricesFetchResult, Error>> {
+    // Use provided price manager if available, otherwise create new one
+    if (providedPriceManager) {
+      this.priceManager = providedPriceManager;
+    } else {
+      const managerResult = await createDefaultPriceProviderManager(this.instrumentation);
 
-    if (managerResult.isErr()) {
-      return err(managerResult.error);
+      if (managerResult.isErr()) {
+        return err(managerResult.error);
+      }
+
+      this.priceManager = managerResult.value;
     }
-
-    this.priceManager = managerResult.value;
 
     // Validate asset filter
     const assetFilterResult = validateAssetFilter(options.asset);

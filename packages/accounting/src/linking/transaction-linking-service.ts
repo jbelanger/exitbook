@@ -162,6 +162,23 @@ export class TransactionLinkingService {
   }
 
   /**
+   * Normalizes a blockchain transaction hash by removing log index suffix.
+   * Some providers (e.g., Moralis) append `-{logIndex}` to differentiate token transfers
+   * within the same transaction, while others (e.g., Routescan) don't provide log index.
+   *
+   * Examples:
+   * - 0xabc123-819 → 0xabc123
+   * - 0xabc123 → 0xabc123
+   *
+   * @param txHash - Transaction hash, potentially with log index suffix
+   * @returns Normalized transaction hash without suffix
+   */
+  private normalizeTransactionHash(txHash: string): string {
+    // Strip -<number> suffix if present (log index from Moralis, etc.)
+    return txHash.replace(/-\d+$/, '');
+  }
+
+  /**
    * Detect internal blockchain transfers (UTXO model)
    * Links transactions with the same blockchain_transaction_hash across different accounts
    *
@@ -170,6 +187,11 @@ export class TransactionLinkingService {
    *  - Account 13: 0.00301222 BTC inflow (tx_hash: abc123)
    * These are linked as views of the same on-chain transaction.
    *
+   * Note: Transaction hashes are normalized to handle provider inconsistencies:
+   * - Moralis appends log index (e.g., 0xabc-819 for token transfers)
+   * - Routescan/Alchemy use base hash only
+   * Both will group together as the same on-chain transaction.
+   *
    * @param transactions - All transactions to analyze
    * @returns Array of internal transfer links (always confirmed, 100% confidence)
    */
@@ -177,24 +199,39 @@ export class TransactionLinkingService {
     transactions: UniversalTransactionData[]
   ): Result<TransactionLink[], Error> {
     try {
-      // Group by blockchain_transaction_hash
+      // Group by normalized blockchain_transaction_hash (strip log index suffix)
       const txHashGroups = new Map<string, UniversalTransactionData[]>();
 
       for (const tx of transactions) {
         // Only consider blockchain transactions with a hash
         if (!tx.blockchain?.transaction_hash) continue;
 
-        const txHash = tx.blockchain.transaction_hash;
-        const group = txHashGroups.get(txHash) ?? [];
+        // Skip transactions with no movements (e.g., contract interactions with zero value)
+        // These don't represent actual value transfers and shouldn't be linked
+        const hasMovements =
+          (tx.movements.inflows && tx.movements.inflows.length > 0) ||
+          (tx.movements.outflows && tx.movements.outflows.length > 0);
+
+        if (!hasMovements) {
+          this.logger.debug(
+            { txId: tx.id, txHash: tx.blockchain.transaction_hash },
+            'Skipping transaction with no movements from internal linking'
+          );
+          continue;
+        }
+
+        // Normalize hash to handle cross-provider linking (strip -logIndex suffix)
+        const normalizedHash = this.normalizeTransactionHash(tx.blockchain.transaction_hash);
+        const group = txHashGroups.get(normalizedHash) ?? [];
         group.push(tx);
-        txHashGroups.set(txHash, group);
+        txHashGroups.set(normalizedHash, group);
       }
 
       const links: TransactionLink[] = [];
       const now = new Date();
 
       // Create links for groups with multiple transactions from different accounts
-      for (const [txHash, group] of txHashGroups) {
+      for (const [normalizedHash, group] of txHashGroups) {
         if (group.length < 2) continue;
 
         // Group transactions by account_id to avoid linking the same account to itself
@@ -221,7 +258,7 @@ export class TransactionLinkingService {
 
             if (!asset1 || !asset2 || asset1 !== asset2) {
               this.logger.warn(
-                { txHash, tx1Id: tx1.id, tx2Id: tx2.id },
+                { normalizedHash, tx1Id: tx1.id, tx2Id: tx2.id, asset1, asset2 },
                 'Skipping internal link - cannot extract matching asset from both transactions'
               );
               continue;
@@ -232,7 +269,7 @@ export class TransactionLinkingService {
 
             if (!amount1 || !amount2) {
               this.logger.warn(
-                { txHash, tx1Id: tx1.id, tx2Id: tx2.id },
+                { normalizedHash, tx1Id: tx1.id, tx2Id: tx2.id },
                 'Skipping internal link - cannot extract amounts from both transactions'
               );
               continue;
@@ -260,7 +297,7 @@ export class TransactionLinkingService {
               createdAt: now,
               updatedAt: now,
               metadata: {
-                blockchainTxHash: txHash,
+                blockchainTxHash: normalizedHash,
                 blockchain: tx1.blockchain?.name,
               },
             });
