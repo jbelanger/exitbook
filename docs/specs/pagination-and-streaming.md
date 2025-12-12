@@ -1,44 +1,44 @@
-# Pagination and Streaming
+---
+last_verified: 2025-12-12
+status: canonical
+---
 
-This document specifies the pagination, cursor, streaming, and failover behavior used across Exitbook ingestion. **Code is law**: this spec describes the current implementation (not an aspirational design).
+# Pagination & Streaming Specification
+
+> ⚠️ **Code is law**: If this document disagrees with implementation, update the spec to match code.
+
+Defines how Exitbook streams paginated data, persists cursors for crash recovery, and fails over between providers while maintaining deduplication and completion guarantees.
+
+## Quick Reference
+
+| Concept                | Key Rule                                                                                  |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| Cursor storage         | Stored per `operationType` in `accounts.last_cursor` and merged, not replaced             |
+| Completion signal      | `cursor.metadata.isComplete` is authoritative for “done”, even with empty/duplicate batch |
+| Resume priority        | Same-provider `pageToken` → `blockNumber` → `timestamp`; others passed through            |
+| Failover replay window | Applied only on cross-provider resume for `blockNumber` / `timestamp`                     |
+| Dedup windows          | Provider adapter ~500; manager 1000 seeded with `lastTransactionId`                       |
+| Dedup seeding          | Manager dedup window is seeded only by `lastTransactionId` (no wider persisted window)    |
 
 ## Goals
 
-- **Memory-bounded imports**: process large histories incrementally (batch-by-batch).
-- **Crash recovery**: resume without restarting from zero.
-- **Mid-stream failover**: when a provider fails, continue with the next compatible provider.
-- **Safe overlap**: use replay windows + deduplication to avoid gaps across failover/resume.
-- **Consistent error handling**: streaming yields `Result` values (neverthrow), not thrown exceptions.
+- **Memory-bounded imports**: Stream large histories batch-by-batch with immediate persistence.
+- **Resumability & failover**: Restart from last cursor and continue with next compatible provider on errors.
+- **Overlap-safe correctness**: Combine replay windows and deduplication to avoid gaps while preventing duplicates.
 
-## Terminology
+## Non-Goals
 
-- **Streaming operation**: returns many batches (e.g. blockchain address transactions).
-- **One-shot operation**: returns exactly one batch (e.g. balance, token metadata).
-- **Batch**: a unit of work yielded by a streaming iterator and persisted immediately.
-- **Cursor**: the persisted pagination checkpoint for one operation type.
-- **Cursor map**: `Record<operationType, CursorState>` stored on the `Account` for resumability.
+- Transaction normalization, pricing, or accounting semantics.
+- Perfect cursor portability across unrelated providers (provider-locked cursors allowed).
 
-## Cursor model
+## Definitions
 
-Cursor types are a discriminated union. Current runtime schema is defined by `packages/core/src/schemas/cursor.ts`.
-
-### CursorType
-
-Current supported `CursorType` values:
-
-- `blockNumber` — cross-provider compatible where block heights exist
-- `timestamp` — cross-provider compatible where timestamps exist (milliseconds since epoch)
-- `txHash` — chain-specific transaction identifier (e.g. Bitcoin-style)
-- `slot` — chain-specific slot cursor (e.g. Solana-style)
-- `signature` — chain-specific signature cursor (e.g. Solana-style)
-- `pageToken` — provider-locked opaque token; requires `providerName`
-
-### PaginationCursor
+### Pagination Cursor
 
 ```ts
 type PaginationCursor =
   | { type: 'blockNumber'; value: number }
-  | { type: 'timestamp'; value: number }
+  | { type: 'timestamp'; value: number } // ms since epoch
   | { type: 'txHash'; value: string }
   | { type: 'slot'; value: number }
   | { type: 'signature'; value: string }
@@ -57,189 +57,139 @@ interface CursorState {
     providerName: string;
     updatedAt: number;
     isComplete?: boolean;
-    // NOTE: passthrough, provider/exchange-specific fields allowed
+    // Provider/exchange-specific passthrough
     [k: string]: unknown;
   };
 }
 ```
 
-#### Semantics
+- `primary`: resume hint for the same provider when possible.
+- `alternatives`: all extractable cursors from the last yielded transaction for cross-provider options.
+- `lastTransactionId`: seeds dedup windows.
+- `totalFetched`: cumulative batches fetched for this operation type.
+- `metadata.providerName`: used to decide same-provider resume vs cross-provider failover.
 
-- `primary` is what the producer expects to use for same-producer resumption (when possible).
-- `alternatives` should include _all_ extractable cursors from the last yielded transaction to maximize cross-provider failover options.
-- `lastTransactionId` is used for deduplication windows (both provider-side and manager-side).
-- `totalFetched` is cumulative for that operation type, across batches (including resumption).
-- `metadata.isComplete` is the authoritative “done” signal for that operation type.
-- `metadata.providerName` is relied upon to detect cross-provider failover; producers should always set it.
-- `metadata` is `passthrough`: providers/exchanges may attach small additional fields (e.g. exchange offsets). Providers using the shared streaming adapter namespace custom state under `metadata.custom`.
+### Cursor Map (per Account)
 
-## Persistence: where cursors live
+`Record<string, CursorState>` keyed by importer-defined `operationType` (e.g., `normal`, `internal`, `token`, `ledger`). Persisted on `accounts.last_cursor`; validated in `AccountRepository.update()`.
 
-### Cursor storage
+## Behavioral Rules
 
-Cursors are persisted on the **Account** as a JSON cursor map:
+### Streaming Contract (all sources)
 
-- Table: `accounts.last_cursor`
-- Shape: `Record<string, CursorState>` (operation-type → cursor)
-- Validation: `AccountRepository.update()` validates with `z.record(z.string(), CursorStateSchema)` before writing.
+- Iterators yield `Result<Batch, Error>` (neverthrow) and must not throw for expected failures.
+- Each batch includes `operationType`, `cursor`, `rawTransactions` (or provider-specific items), and `isComplete = cursor.metadata?.isComplete ?? false`.
+- Batches are independently persistable; ingestion updates cursor storage **after every batch** for crash recovery. Cursor update failures log `warn` and import continues.
+- Completion must propagate even if the batch contains only duplicates or is synthetically empty.
 
-`import_sessions` track execution status and counts, but **do not store cursors**.
+### Ingestion Layer (`IImporter`)
 
-### Operation types (cursor map keys)
+- `importStreaming(params): AsyncIterableIterator<Result<ImportBatchResult, Error>>`.
+- Deduplication of `raw_transactions` happens in DB via unique indexes; collisions count as skipped, not fatal.
+- Session totals updated per batch; sessions finalize on completion or terminal error.
 
-The cursor map key is an importer/client concern. Examples in current code:
+### Blockchain Providers
 
-- EVM importer: `normal`, `internal`, `token`
-- Bitcoin importer: `normal`
-- Kraken API importer: `ledger`
+- Interface: `executeStreaming<T>(operation, cursor?)`.
+- Providers declare `supportedCursorTypes` and `preferredCursorType`; manager skips incompatible providers during resume.
+- Shared adapter (`createStreamingIterator` / `BaseApiClient.streamWithPagination`) handles:
+  - Pagination loop (`fetchPage` with `StreamingPageContext`).
+  - Mapping items → batches and building `CursorState`.
+  - Provider-local dedup window (default ~500, seeded with `resumeCursor.lastTransactionId`).
+  - Empty completion batch emission when the terminal page only duplicates.
+- Cursor construction in adapter:
+  - If API returns `pageToken`, `cursor.primary = { type: 'pageToken', value, providerName }`.
+  - Else prefer extracted `blockNumber`; fallback `{ type: 'blockNumber', value: 0 }` if none.
+  - `alternatives` = all extracted cursors from the last transaction.
+  - Provider-specific state under `cursor.metadata.custom`.
 
-The ingestion layer is responsible for mapping its operation types to provider manager operation types (e.g. `normal` → `getAddressTransactions`).
+### Provider Manager (`executeWithFailover`)
 
-## Streaming contract (shared across sources)
+| Condition                              | Behavior                                                                           |
+| -------------------------------------- | ---------------------------------------------------------------------------------- |
+| Resuming with `pageToken`              | Only same `providerName` is eligible; others skipped.                              |
+| Resuming with block/timestamp cursor   | Any provider declaring the cursor type is eligible.                                |
+| Cross-provider failover                | Apply replay window before issuing requests; manager dedup window absorbs overlap. |
+| Batch error (`Result.isErr()`)         | Record failure, advance to next provider, resume from last successful cursor.      |
+| Unexpected throw                       | Wrapped as error batch; if all providers fail, terminal error yielded.             |
+| Dedup leaves zero items but completion | Still yield batch so ingestion can finalize the operation.                         |
 
-All streaming surfaces follow the same shape:
+Cursor resolution priority: same-provider `pageToken` → `blockNumber` (`primary` then `alternatives`) → `timestamp` (`primary` then `alternatives`). Example: resuming an Alchemy stream with a stored `pageToken` created by Infura will skip that token and fall back to the last `blockNumber` in `alternatives`. Other cursor types pass through without replay-window adjustment.
 
-- Yield `Result<Batch, Error>` (neverthrow).
-- **Do not throw** to signal expected failures. If a throw happens anyway, higher layers catch and wrap it as an error batch.
-- Yield multiple batches, each independently persistable.
-- Always provide a `CursorState` for the batch, including a completion signal via `cursor.metadata.isComplete` when finished.
+Manager dedup window size: 1000; seeded with `resumeCursor.lastTransactionId` (no wider persisted window yet).
 
-### Ingestion layer (`IImporter`)
+### Exchange Providers
 
-Importers implement:
+- Streaming API: `fetchTransactionDataStreaming({ cursor? })`.
+- Uses the same account cursor map; exchange client reads/writes `cursor[operationType]`.
+- Completion may be signaled via empty batch with `cursor.metadata.isComplete === true`.
+- Example (Kraken API): `cursor.primary` is `timestamp` boundary; `cursor.metadata.offset` tracks `ofs`; emits explicit empty completion batch.
 
-```ts
-importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>>
+## Data Model
+
+### Cursor Storage on Accounts
+
+```sql
+accounts.last_cursor TEXT NULL -- JSON Record<operationType, CursorState>
 ```
 
-and yield `ImportBatchResult` values with:
+- Merged per `operationType`; existing keys preserved unless overwritten explicitly for that key.
+- Validated with `CursorStateSchema` (`packages/core/src/schemas/cursor.ts`) before write.
 
-- `rawTransactions`: batch items to persist
-- `operationType`: cursor-map key used for persistence
-- `cursor`: checkpoint for this operation type
-- `isComplete`: derived from `cursor.metadata?.isComplete ?? false`
-
-### TransactionImportService behavior
-
-`TransactionImportService.executeStreamingImport()` implements the “imperative shell”:
-
-1. Streams batches from the importer.
-2. Persists each batch via `RawDataRepository.saveBatch()` (duplicates are skipped by DB constraints).
-3. Updates `accounts.last_cursor[operationType]` after **each** batch for crash recovery.
-   - Cursor update failures are logged as warnings and do **not** fail the import.
-4. Tracks totals in `import_sessions` and finalizes the session on completion.
-
-## Blockchain providers: streaming + failover
-
-### Provider streaming interface
-
-Blockchain providers implement:
+### Batch Shape (Streaming)
 
 ```ts
-executeStreaming<T>(
-  operation: ProviderOperation,
-  cursor?: CursorState
-): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>>
+type ImportBatchResult = {
+  operationType: string;
+  rawTransactions: RawTransactionInput[];
+  cursor: CursorState;
+  isComplete: boolean;
+};
 ```
 
-Providers also declare cursor support via `ProviderCapabilities.supportedCursorTypes` and choose a preferred cursor type via `preferredCursorType`. If a cursor is present and a provider does not declare compatible cursor support, the provider manager will skip it during resumption.
+Provider-level `StreamingBatchResult<T>` mirrors this shape with provider-specific payloads in place of `rawTransactions`.
 
-### Shared streaming adapter (provider-side)
+## Pipeline / Flow
 
-Many providers use the shared streaming adapter (`createStreamingIterator` / `BaseApiClient.streamWithPagination`) which owns:
-
-- The pagination loop (`fetchPage` with a `StreamingPageContext`)
-- Per-provider batch mapping (`mapItem`)
-- Cursor-state construction (`buildCursorState`)
-- Provider-local deduplication window (default size: 500; seeded with `resumeCursor.lastTransactionId` when present)
-- “Empty completion batch” behavior when the terminal page contains only duplicates
-
-Key cursor construction behavior (`buildCursorState`):
-
-- If the provider returns a `pageToken`, `cursor.primary` becomes `{ type: 'pageToken', value, providerName }`.
-- Otherwise, `cursor.primary` prefers an extracted `blockNumber` cursor, or falls back to `{ type: 'blockNumber', value: 0 }`.
-- `cursor.alternatives` is set to all extracted cursors from the last transaction in the yielded batch.
-- Completion is surfaced via `cursor.metadata.isComplete`.
-- Provider-specific state is namespaced under `cursor.metadata.custom`.
-
-Providers may also yield a “synthetic completion cursor” (e.g. when an operation is conceptually complete but yields no data). This is a valid completion signal and should be treated as success.
-
-### Provider manager (`BlockchainProviderManager.executeWithFailover`)
-
-The provider manager exposes a unified iterator API for **both** streaming and one-shot operations:
-
-- Streaming operations yield multiple batches.
-- One-shot operations yield exactly one batch (wrapped to match the streaming shape).
-
-Current streaming operations are:
-
-- `getAddressTransactions`
-- `getAddressInternalTransactions`
-- `getAddressTokenTransactions`
-
-#### Failover loop
-
-For streaming operations, the manager:
-
-1. Selects providers that support the operation type and are not blocked by circuit breakers.
-2. If resuming:
-   - Skips providers that cannot resume from the stored cursor type (see “Cursor compatibility”).
-   - Distinguishes **same-provider resume** vs **cross-provider failover** using `cursor.metadata.providerName`.
-3. Runs `provider.executeStreaming(operation, adjustedCursor)` and yields its batches, with manager-local deduplication applied.
-4. On batch errors (`Result.isErr()`), records failures, advances to the next provider, and continues from the last successful cursor.
-5. On unexpected thrown errors, wraps them as an error and may fail over; if all providers fail, yields a terminal error.
-
-#### Cursor compatibility
-
-Compatibility checks are performed against `ProviderCapabilities.supportedCursorTypes`:
-
-- If the cursor type is `pageToken`, it is only compatible with the same provider name.
-- Otherwise, any matching cursor type in `cursor.primary` or `cursor.alternatives` is considered compatible.
-
-#### Cursor resolution and replay windows (manager-side)
-
-The manager resolves cursors to practical resume parameters using this priority order:
-
-1. `pageToken` **only** when it is from the same provider.
-2. `blockNumber` from `primary`, or from `alternatives`.
-3. `timestamp` from `primary`, or from `alternatives`.
-
-Replay windows (via `provider.applyReplayWindow`) are applied **only** during cross-provider failover (not during same-provider resume) for `blockNumber` / `timestamp` resolution.
-
-Cursor types outside `{pageToken, blockNumber, timestamp}` are passed through without manager-level replay-window adjustments.
-
-#### Deduplication (manager-side)
-
-The manager applies a deduplication window across yielded batches (window size: 1000) to absorb overlap introduced by replay windows and by provider-specific pagination quirks.
-
-When resuming, the manager currently seeds the dedup window with `resumeCursor.lastTransactionId` (and does not yet load a larger window from storage).
-
-Important invariant: completion must not be lost.
-
-- If a batch deduplicates down to zero items but the cursor marks completion, the manager still yields the completion batch so ingestion can finalize the operation.
-
-## Exchange providers: streaming + pagination
-
-Exchange clients can expose streaming via:
-
-```ts
-fetchTransactionDataStreaming(params?: { cursor?: Record<string, CursorState> })
-  : AsyncIterableIterator<Result<FetchBatchResult, Error>>
+```mermaid
+graph TD
+    A[Importer/Provider iterator] --> B[Batch emitted (Result)]
+    B --> C[Persist raw_transactions / provider data]
+    C --> D[Update accounts.last_cursor[operationType]]
+    D --> E[Manager dedup window]
+    E --> F{Next batch?}
+    F -->|yes| A
+    B -->|Result.err| H[Record failure, try next provider]
+    H --> A
+    H -->|all providers failed| I[Terminal error, finalize session]
+    F -->|complete| G[Finalize import session]
 ```
 
-Exchange pagination is client-specific, but shares the same **cursor map** persistence mechanism:
+## Invariants
 
-- The exchange client reads and updates `params.cursor[operationType]`.
-- The exchange client may store additional pagination state in `cursor.metadata` (e.g. offsets).
-- Completion can be signaled with an empty batch where `cursor.metadata.isComplete === true`.
+- **Completion preserved**: Completion signal must survive deduplication and empty batches.
+- **Cursor merge**: Updates merge per `operationType`; no wholesale replacement of the cursor map.
+- **No thrown control flow**: Expected failures surface as `Result.err`, not exceptions.
+- **Failover continuity**: Replay window + dedup window ensures resumed stream cannot skip data.
 
-Example: Kraken’s API pagination uses:
+## Edge Cases & Gotchas
 
-- `cursor.primary` as a `timestamp` (the “since” boundary)
-- `cursor.metadata.offset` as the pagination offset (`ofs`)
-- An explicit empty completion batch when there is no more data
+- Cursor update failure logs `warn` and continues; next run may re-fetch overlap.
+- Provider-locked cursors (`pageToken`) are unusable across providers; failover will skip them.
+- Synthetic completion cursors (no data ever returned) are valid and must finalize imports.
+- Manager dedup window seeded only by `lastTransactionId`; wider persisted windows not yet implemented.
 
-## Non-goals and constraints
+## Known Limitations (Current Implementation)
 
-- Cursors are optimized for **resumability and correctness**, not for perfect cross-provider portability. Provider-locked cursor types (e.g. `pageToken`) require same-provider resumption.
-- Cursor metadata is intentionally extensible; do not assume it contains only the core fields.
+- No persisted dedup window beyond `lastTransactionId`; heavy overlaps rely on in-memory window only.
+- Replay windows applied only for `blockNumber`/`timestamp`; other cursor types rely on provider behavior.
+- Provider compatibility check ignores `alternatives` ordering beyond type match (no numeric comparison).
+
+## Related Specs
+
+- [Accounts & Imports](./accounts-and-imports.md) — cursor storage, import sessions
+- [Fee Semantics](./fees.md) — how streamed raw transactions feed fee handling
+
+---
+
+_Last updated: 2025-12-12_

@@ -1,173 +1,180 @@
-# Fee Semantics Specification
+---
+last_verified: 2025-12-12
+status: canonical
+---
 
-This is the canonical spec for how Exitbook models, ingests, stores, links, and accounts for fees. If this document disagrees with implementation, the implementation is correct (“code is law”) and this spec must be updated.
+# Fees Specification
+
+> ⚠️ **Code is law**: If this disagrees with implementation, update the spec to match code.
+
+How Exitbook models, ingests, stores, links, and accounts for fees across blockchains and exchanges.
+
+## Quick Reference
+
+| Concept             | Key Rule                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------ |
+| Movement amounts    | `grossAmount` required; `netAmount` defaults to `grossAmount` and must be `<= grossAmount`             |
+| On-chain settlement | When fee asset matches movement asset, processors emit `netAmount = grossAmount - feeSum`              |
+| Fee structure       | Fees are an array; each entry requires `asset`, `amount`, `scope`, `settlement`                        |
+| Transfer matching   | Uses `netAmount ?? grossAmount`; prevents mismatches caused by carved-out fees                         |
+| Accounting proceeds | Only `settlement='on-chain'` fees reduce outflow proceeds; all fees increase inflow cost basis         |
+| Price requirements  | Crypto-denominated fees used in accounting must include `priceAtTxTime` or valuation errors are raised |
+| Proceeds vs basis   | On-chain fees reduce proceeds; all fees increase cost basis                                            |
 
 ## Goals
 
-- **Deterministic transfer linking** (avoid “transfer mismatch” caused by subtracting the wrong fees).
-- **Correct accounting inputs** (cost basis and proceeds calculations need consistent fee semantics).
-- **Auditability** (fees must be explicit and attributable to a scope + settlement).
+- **Deterministic transfer linking**: Prevent mismatches by aligning observable on-chain amounts via `netAmount`.
+- **Reliable accounting inputs**: Provide consistent fee semantics for cost basis and proceeds.
+- **Auditability**: Make every fee explicit, attributable, and priced when required.
+
+## Non-Goals
+
+- Tax reporting rules or jurisdiction-specific fee treatments.
+- Describing pricing/linking algorithms beyond their fee interactions.
 
 ## Definitions
 
-### Asset movements: `grossAmount` vs `netAmount`
-
-Every inflow/outflow movement has two amount fields:
+### Movement Amounts
 
 ```ts
-{
-  asset: 'BTC',
-  grossAmount: Decimal('1.0'),
-  netAmount: Decimal('0.9995'),
-  priceAtTxTime?: PriceAtTxTime
-}
+type Movement = {
+  asset: string;
+  grossAmount: Decimal;
+  netAmount?: Decimal;
+  priceAtTxTime?: PriceAtTxTime;
+};
 ```
 
-- `grossAmount` (required): the logical amount of the movement for portfolio/accounting purposes.
-- `netAmount` (optional at schema level): the amount used for **transfer matching** (what the other side should see).
-  - If omitted, the persistence layer normalizes `netAmount = grossAmount` on save.
-  - Invariants:
-    - `netAmount <= grossAmount` (schema-enforced)
-    - For movements where “on-chain-settled” fees apply to the _same asset_, processors should emit amounts such that:
-      - `netAmount = grossAmount - sum(on-chain fees in same asset)` (see “Settlement”)
+- `grossAmount` (required): portfolio/accounting amount.
+- `netAmount` (optional input): amount expected by the counterparty for matching; persisted as `grossAmount` when omitted.
+- Invariant: `netAmount <= grossAmount` (schema enforced).
 
-### Fee movements: `fees[]`
-
-Fees are stored as an array, not as fixed “network/platform slots”:
+### Fee Entry
 
 ```ts
-transaction.fees = [
-  {
-    asset: 'ETH',
-    amount: Decimal('0.001'),
-    scope: 'network',
-    settlement: 'balance',
-    priceAtTxTime?: PriceAtTxTime
-  }
-];
+type Fee = {
+  asset: string;
+  amount: Decimal;
+  scope: 'network' | 'platform' | 'spread' | 'tax' | 'other';
+  settlement: 'on-chain' | 'balance' | 'external';
+  priceAtTxTime?: PriceAtTxTime;
+};
 ```
 
-Fee fields are required:
+- `scope` explains _why_ the fee exists (network gas, exchange revenue, spreads, tax, other).
+- `settlement` dictates _how amounts relate_: `on-chain` (carved out of movement) vs `balance` (separate debit) vs `external` (out-of-band).
 
-- `scope`: _why/what kind of fee is this?_
-  - `network`: miners/validators (gas, miner fees)
-  - `platform`: exchange/venue revenue (trading fees, withdrawal fees, maker/taker)
-  - `spread`: implicit quote deviation (supported by schema; currently treated like a normal fee by accounting if present)
-  - `tax`: regulatory levy/withholding (GST/VAT/etc.)
-  - `other`: edge cases (penalties, staking commissions, etc.)
-- `settlement`: _how was it paid?_
-  - `on-chain`: fee is embedded into the movement semantics for matching (common for UTXO chains; also used by some exchanges for “carved-out” withdrawals)
-  - `balance`: fee is a separate deduction from the account balance (common for account-based chains’ gas, and for most exchange fees)
-  - `external`: fee paid outside tracked balances (reserved)
+### Settlement Semantics
 
-## Settlement semantics (important)
+- `settlement='balance'`: movement amounts match counterparty (`netAmount === grossAmount`); fee is an additional balance decrement.
+- `settlement='on-chain'`: fee represented by `grossAmount - netAmount` for matching; used when broadcast amount is smaller than reported gross.
+- `settlement='external'`: reserved; fee is paid outside tracked balances.
 
-`settlement` is not “where the fee goes” — it is **how the fee interacts with movement amounts**.
+Examples:
 
-- `settlement='balance'`
-  - The primary movement amount matches what the counterparty sees (`netAmount === grossAmount`).
-  - The fee is an additional balance decrement (separate from the movement).
-  - Example: EVM/Solana gas fees, most exchange trading/withdrawal fees.
+- `settlement='balance'`: EVM gas — you send 1 ETH, recipient gets 1 ETH; gas is a separate balance debit.
+- `settlement='on-chain'`: Coinbase withdrawal — you withdraw 1 BTC gross, 0.999 BTC arrives on-chain; 0.001 BTC is carved out as fee.
 
-- `settlement='on-chain'`
-  - The fee is represented as the difference between `grossAmount` and `netAmount` for matching purposes.
-  - Common pattern when the venue reports a “gross withdrawal” but broadcasts a smaller on-chain amount:
-    - `grossAmount = netAmount + fee.amount` (when fee asset matches movement asset)
-  - Note: UTXO chains conceptually pay fees from inputs (not “from the output amount”), but Exitbook models this as `on-chain` settlement because the wallet’s debited amount includes the fee while the recipient’s observed amount does not.
+## Behavioral Rules
 
-## Source ingestion rules (current behavior)
+### Movement Amount Semantics
 
-### Bitcoin (UTXO)
+- Persistence layer normalizes missing `netAmount` to `grossAmount`.
+- Processors must emit `netAmount = grossAmount - sum(on-chain fees in same asset)` when a movement’s own asset pays the on-chain fee.
+- `netAmount` is never greater than `grossAmount`.
 
-- Emits a `network` fee with `settlement='on-chain'`.
-- For outgoing wallet flows, processors emit:
-  - `outflow.grossAmount`: wallet debited amount attributable to leaving the wallet (excluding change)
-  - `outflow.netAmount`: amount that should match the counterparty deposit (gross minus the on-chain fee)
+### Fee Scopes & Structure
 
-### Account-based chains (EVM, Solana, Cosmos, Substrate, NEAR, …)
+- Fees are stored as an array; multiple entries per transaction are allowed.
+- Each fee must include `asset`, `amount`, `scope`, and `settlement`; omissions are schema errors.
 
-- Network fees are recorded as `scope='network'`, `settlement='balance'`.
-- Movement amounts are not reduced by gas in Exitbook:
-  - `movement.netAmount === movement.grossAmount`
-- Fees are only recorded when the user is determined to have paid them (e.g., Solana fee is not attributed to the receiver when an external sender paid it).
+### Settlement by Source (Current Behavior)
 
-### “Standard” exchanges (most CCXT-style ledgers)
+| Source type                             | Fee scope/settlement                                 | Movement amount rule                                |
+| --------------------------------------- | ---------------------------------------------------- | --------------------------------------------------- |
+| Bitcoin / UTXO blockchains              | `network`, `on-chain`; fee deducted from `netAmount` | Outflow `net = gross - fee` (same asset)            |
+| Account-based chains (EVM, Solana, …)   | `network`, `balance`                                 | `netAmount === grossAmount`; gas is separate fee    |
+| Standard exchanges (ccxt-style ledgers) | `platform`, `balance` (fee currency may differ)      | `netAmount === grossAmount`; fees logged separately |
+| Coinbase carved-out withdrawals         | `platform`, `on-chain`                               | Outflow `net = gross - fee`                         |
 
-- Ledger `amount` represents the movement itself; fees are separate:
-  - movements: `netAmount = grossAmount`
-  - fees: `scope='platform'`, `settlement='balance'` (fee currency may differ from movement asset)
-- When multiple entries for the same “logical transaction” exist, processors may consolidate duplicate fees by `(asset, scope, settlement)` (sum amounts).
+### Transfer Linking
 
-### Coinbase withdrawals (carved-out fee)
+- Candidate matching uses `amount = netAmount ?? grossAmount`.
+- Outflow validation expects `netAmount = grossAmount - sum(on-chain fees in same asset)` within tolerance; mismatches mark the transaction invalid/mis-modeled.
 
-Some Coinbase withdrawals report:
+### Accounting Treatment
 
-- a **gross** withdrawal amount that includes the fee, and
-- a fee that must be subtracted to get the on-chain broadcast amount.
+- Inflows: all fees contribute to cost basis regardless of settlement.
+- Outflows: only `settlement='on-chain'` fees reduce proceeds; balance-settled platform fees do not.
+- Crypto-denominated fees used in these calculations must carry `priceAtTxTime`; fiat fees rely on FX normalization when needed.
 
-Exitbook models this as:
+### Pricing & FX
 
-- outflow: `grossAmount = gross`, `netAmount = gross - fee`
-- fee: `scope='platform'`, `settlement='on-chain'`
+- Fee `priceAtTxTime` is required when the fee asset is crypto and participates in accounting; missing prices raise errors.
+- Non-USD fiat fee prices are normalized to USD alongside movement prices; crypto-denominated “prices” are rejected as unexpected.
 
-## Downstream behavior (linking + accounting)
+### Data Quality Checks (CLI `gaps`)
 
-### Transfer linking uses `netAmount`
+- `fee_without_price`: fee recorded without required price.
+- `missing_fee_fields`: fee classified transaction missing fee entries.
+- `fee_in_movements`: metadata suggests a fee but only a movement amount is present.
 
-Transaction linking converts each movement into a matching “candidate” using:
+## Data Model
 
-- `amount = movement.netAmount ?? movement.grossAmount`
+### Transactions (fee-related fields)
 
-This is the core mechanism that prevents fee-related transfer mismatches:
+```ts
+type Transaction = {
+  movements: Movement[];
+  fees: Fee[];
+};
+```
 
-- Source outflows and target inflows match on the same “on-chain-observable” amount.
+#### Field Semantics
 
-### Hidden fee detection (outflow validation)
+- `movements.grossAmount`: canonical portfolio amount.
+- `movements.netAmount`: matching amount; defaults to `grossAmount` on persistence.
+- `fees[]`: one row per distinct fee; array order not significant.
 
-When matching transfers, Exitbook validates that fee semantics are internally consistent:
+## Pipeline / Flow
 
-- For a given outflow and asset, it expects `netAmount` to equal `grossAmount - sum(on-chain fees in same asset)`.
-- If the difference exceeds configured tolerance, the transaction is treated as invalid/mis-modeled (likely missing fee metadata).
+```mermaid
+graph TD
+    A[Source parser] --> B[Emit movements + fees]
+    B --> C[Normalize netAmount defaults]
+    C --> D[Persist transaction]
+    D --> E[Link transfers using netAmount]
+    E --> F[Accounting valuations]
+    F --> G{settlement?}
+    G -->|on-chain| H[Reduce proceeds]
+    G -->|balance| I[No proceeds impact]
+```
 
-### Cost basis and proceeds treat `settlement` differently
+## Invariants
 
-When valuing fees for accounting:
+- **Required**: `netAmount <= grossAmount`; enforced by schema validation.
+- **Required**: Missing `netAmount` is stored as `grossAmount`; enforced in persistence layer.
+- **Required**: On-chain fee in same asset implies `netAmount = grossAmount - feeSum`; processors responsible for emitting.
+- **Required**: Each fee entry must include `asset`, `amount`, `scope`, and `settlement`; schema-enforced.
+- **Required**: Transfer matching always uses `netAmount ?? grossAmount`.
 
-- **Acquisitions (inflows):** all fees are considered part of cost basis (no settlement filter).
-- **Disposals (outflows):** only `settlement='on-chain'` fees reduce proceeds.
+## Edge Cases & Gotchas
 
-This makes “off-chain/balance” platform fees not corrupt disposal proceeds while still allowing them to be accounted for elsewhere.
+- Coinbase withdrawals report gross + fee; must be modeled as `settlement='on-chain'` or transfers will mismatch.
+- UTXO semantics pay fees from inputs; Exitbook still models them as `on-chain` carved-out fees to keep matching stable.
+- Cursor/gap analyses may surface fees inferred from metadata (`fee_in_movements`); these require processor fixes, not runtime defaults.
 
-### Fee prices are required for crypto accounting
+## Known Limitations (Current Implementation)
 
-Accounting needs fiat valuation of fees:
+- No automated detection of exchange-ledger fee consolidation errors beyond `gaps` checks.
+- `settlement='external'` is reserved; processors rarely populate it and downstream consumers may treat it as balance-settled.
 
-- If a fee is in a crypto asset and is used in a cost basis/proceeds calculation, it must have `fee.priceAtTxTime`, or the calculation errors.
-- Fiat fees can be handled without explicit `priceAtTxTime` only in limited cases (1:1 when the fee currency matches the movement’s price currency); otherwise an FX rate/price is required.
+## Related Specs
 
-### FX normalization applies to fees too
+- [Pagination and Streaming](./pagination-and-streaming.md) — cursor model underpinning ingestion batches
+- [Accounts & Imports](./accounts-and-imports.md) — where raw fees enter the system via imports
+- [Transfers & Tax](./transfers-and-tax.md) — transfer matching and tax semantics that rely on `netAmount`
 
-Price normalization (non-USD fiat → USD storage currency) applies to both:
+---
 
-- movement `priceAtTxTime`, and
-- fee `priceAtTxTime`
-
-Only fiat-denominated non-USD prices are normalized; crypto-denominated “prices” are treated as unexpected and skipped.
-
-## Data quality checks (CLI “gaps”)
-
-The `gaps view --category fees` analysis is a diagnostics tool that flags (non-exhaustive):
-
-- `fee_without_price`: network/platform fee exists but has no `priceAtTxTime`
-- `missing_fee_fields`: a transaction classified as a fee but has no populated fee entries
-- `fee_in_movements`: a note/metadata hints at a fee but the amount is only represented as a movement
-
-## Required invariants (summary)
-
-- Movements:
-  - `grossAmount` is required everywhere.
-  - `netAmount <= grossAmount`.
-  - Persistence normalizes missing `netAmount` to `grossAmount`.
-- Fees:
-  - Each fee must have `asset`, `amount`, `scope`, `settlement`.
-  - Fees are an array; multiple fee entries per transaction are allowed.
+_Last updated: 2025-12-12_

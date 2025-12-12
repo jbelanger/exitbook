@@ -1,203 +1,195 @@
-# Price Derivation & FX Normalization
+---
+last_verified: 2025-12-12
+status: canonical
+---
 
-This spec defines how Exitbook assigns **USD valuations** to transaction movements (and fees) for cost basis and reporting. In this repo, “derive prices” refers to **deterministic inference from transaction data + confirmed links**. “Fetch prices” refers to **external providers**. “Normalize” refers to **non-USD fiat → USD conversion**.
+# Price Derivation Specification
+
+> ⚠️ **Code is law**: If this disagrees with implementation, update the spec to match code.
+
+How Exitbook assigns USD valuations to movements and fees via deterministic math, FX normalization, external providers, and re-derivation.
+
+## Quick Reference
+
+| Concept            | Key Rule                                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------------- |
+| Stage order        | Derive → Normalize → Fetch → Re-Derive; flags can short-circuit stages                                         |
+| Price priority     | `exchange-execution` (3) > `derived-ratio` / `link-propagated` (2) > providers/manual (1) > tentative fiat (0) |
+| Simple-trade scope | Multi-pass derivation only runs when there is exactly 1 inflow and 1 outflow                                   |
+| Fiat normalization | Non-USD fiat prices are converted to USD and upgraded from `fiat-execution-tentative` → `derived-ratio`        |
+| Stablecoin quotes  | Provider prices in stablecoins are converted to USD; if stablecoin USD rate missing, assume 1:1 after warn     |
+| No temporal reuse  | Prices are never copied based on “nearby” timestamps (ADR-001)                                                 |
+| Link propagation   | Outflow → inflow only; same asset; gross amounts within 10% tolerance                                          |
 
 ## Goals
 
-- Persist USD valuations for all movements/fees.
-- Prefer “ground truth” (execution math, confirmed links) over provider spot prices.
-- Never reuse “nearby” transaction prices (no temporal proximity heuristic).
+- **Persistent USD valuations** for movements and fees used in cost basis and proceeds.
+- **Ground-truth first**: prefer execution math and confirmed links before external providers.
+- **Deterministic, repeatable pipeline** with explicit stage controls and priorities.
 
-## Non-goals
+## Non-Goals
 
-- Display-currency conversion (USD → CAD/EUR) at report time.
-- Guessing prices via time windows.
+- Display-currency conversion (USD → other) at report time.
+- Guessing prices via temporal windows or heuristics beyond defined derivation rules.
 
-## Storage Currency
+## Definitions
 
-- Stored prices are **intended** to be USD, but the pipeline may temporarily persist **non-USD fiat** prices as `fiat-execution-tentative` until normalization runs.
+### PriceAtTxTime (attached to movements/fees)
 
-## Pipeline (Recommended)
-
-The CLI’s unified workflow is a 4-stage pipeline:
-
-```mermaid
-graph TD
-    A[Transactions] --> B[Stage 1: Derive]
-    B --> C[Stage 2: Normalize]
-    C --> D[Stage 3: Fetch]
-    D --> E[Stage 4: Re-Derive]
-    E --> F[Enriched Transactions]
+```ts
+type PriceAtTxTime = {
+  price: { amount: Decimal; currency: string };
+  source: string;
+  fetchedAt?: Date;
+  granularity?: 'exact' | 'minute' | 'hour' | 'day';
+  fxRateToUSD?: Decimal;
+  fxSource?: string;
+  fxTimestamp?: Date;
+};
 ```
 
-Stage selection is controlled by CLI flags (`--derive-only`, `--normalize-only`, `--fetch-only`). By default all stages run.
+- `price.currency` is intended to be `USD`; non-USD fiat may appear pre-normalization.
+- `source` drives overwrite priority.
 
-## Stage 1: Derive (Deterministic, No Providers)
+### Price Source Priority (enforced)
 
-**Inputs**
+| Priority | Sources                                                                       |
+| -------: | ----------------------------------------------------------------------------- |
+|        3 | `exchange-execution`                                                          |
+|        2 | `derived-ratio`, `link-propagated`                                            |
+|        1 | Provider/manual (e.g., `binance`, `coingecko`, `manual`, `binance+usdt-rate`) |
+|        0 | `fiat-execution-tentative`                                                    |
 
-- Universal transactions in the DB
-- Confirmed transaction links
+### Transaction Group
 
-**Key behavior**
+- Transactions connected by the transitive closure of confirmed links; processed together during derivation.
 
-- Transactions are grouped by the **transitive closure** of confirmed links (Union-Find grouping).
-- Within each group, transactions are sorted chronologically and enriched together.
-- Derivation is **pure**: it uses only transaction content + confirmed links (no external price calls).
+### Price Cache Entry (`prices.db`)
 
-### 1.1 Multi-pass inference (`inferMultiPass`)
+```ts
+{
+  asset_symbol: string;   // e.g., 'BTC', 'EUR'
+  currency: string;       // e.g., 'USD'
+  timestamp: string;      // ISO
+  price: string;          // decimal
+  source_provider: string;
+  granularity?: string;
+  fetched_at: string;     // ISO
+}
+```
 
-Multi-pass inference only considers a **simple trade** shape: exactly **1 inflow + 1 outflow**.
+## Behavioral Rules
 
-**Pass 0 — Fiat execution pricing + fiat identity**
+### Stage Selection
 
-- If either side is **USD**, compute the other side’s execution price in USD and stamp USD identity (`1 USD = 1 USD`).
-  - Source: `exchange-execution` (priority 3)
-  - Granularity: `exact`
-- If one side is **non-USD fiat** (CAD/EUR/GBP/etc.), compute prices in that fiat currency and stamp fiat identity (`1 CAD = 1 CAD`).
-  - Source: `fiat-execution-tentative` (priority 0)
-  - Granularity: `exact`
-- Stablecoins are treated as crypto (not fiat): stablecoin trades are **not** execution-priced here so de-peg events can be captured by provider/secondary logic later.
+- Default CLI pipeline runs all stages. Flags allow partial runs: `--derive-only`, `--normalize-only`, `--fetch-only`.
 
-**Pass 1 — Derive inflow from priced outflow**
+### Stage 1: Derive (deterministic, no providers)
 
-- For a simple trade where:
-  - outflow has a price, and
-  - inflow is missing a price
-- Compute inflow price via swap ratio and stamp:
-  - Source: `derived-ratio` (priority 2)
-  - Currency: inherited from the priced outflow’s price currency
-  - Granularity: inherited from the priced outflow
+- Operates per transaction group (union-find over confirmed links), ordered chronologically.
+- Multi-pass logic only applies to **simple trades** (exactly one inflow + one outflow):
+  - **Pass 0**: If one side is USD, price the other in USD and stamp `exchange-execution` (priority 3). If one side is non-USD fiat, price in that fiat and stamp `fiat-execution-tentative` (priority 0). Stablecoins are treated as crypto, not fiat.
+  - **Pass 1**: If outflow priced and inflow missing, derive inflow via swap ratio; source `derived-ratio` (priority 2); currency/granularity inherited.
+  - **Pass N+2**: If both sides priced and neither is fiat/stablecoin, recompute inflow using execution ratio with outflow as anchor; overwrite inflow with `derived-ratio` (priority 2). Example: ETH→BTC swap where both sides have provider prices—treat ETH outflow priced at $3,000 as anchor and set BTC inflow price = `outflowValueUSD / btcAmount`, replacing the provider BTC spot.
+- Fees:
+  - If a fee shares asset with a priced movement in the same transaction, copy that price.
+  - Unpriced fiat fees: USD → `exchange-execution`; non-USD fiat → `fiat-execution-tentative`.
+- Link propagation (`propagatePricesAcrossLinks`):
+  - Copy prices from **source outflows → target inflows** when asset matches and gross amounts are within 10% tolerance.
+  - Copied prices keep original price/fetchedAt/granularity/FX metadata; `source` becomes `link-propagated` (priority 2).
 
-**Pass N+2 — Recalculate crypto↔crypto swap inflow price**
+### Stage 2: Normalize (non-USD fiat → USD)
 
-- For a simple trade where both sides are priced, and **neither** side is fiat-or-stablecoin:
-  - Treat the **outflow** (disposal) side as the FMV anchor (typically fetched/provider priced).
-  - Recalculate the inflow (acquisition) side using the execution ratio.
-  - Overwrite inflow using:
-    - Source: `derived-ratio` (priority 2)
-    - Currency/granularity: inherited from outflow price
-- This is intentionally run again in Stage 4 after fetch/normalize to ensure swaps use **execution ratio math** rather than two independent provider spot prices.
+- Targets movements/fees whose `price.currency` is fiat and not `USD`.
+- Looks up historical FX at transaction timestamp via FX providers (ECB, Bank of Canada, Frankfurter).
+- Validates FX rate in `(0, 1e3]`; errors on invalid values.
+- Transforms `price.amount *= fxRate`; sets `price.currency = 'USD'`; records `fxRateToUSD`, `fxSource`, `fxTimestamp`.
+- Upgrades `source` from `fiat-execution-tentative` to `derived-ratio` (priority 2) to prevent later provider overwrite.
+- Crypto in `price.currency` is treated as unexpected and logged; normalization skips.
 
-### 1.2 Fee price enrichment
+### Stage 3: Fetch (providers, gap filling)
 
-Fees are enriched from same-transaction movements:
+- Collects assets needing prices per transaction:
+  - Missing price entirely, or
+  - `fiat-execution-tentative` still present (when normalization was skipped/failed),
+  - Excludes fiat assets.
+- Uses `PriceProviderManager` (failover, caching, circuit breakers). Crypto providers: `binance`, `coingecko`, `cryptocompare`. FX providers: `ecb`, `bank-of-canada`, `frankfurter`. Manual cache entries flow through with `source='manual'`.
+- Stablecoin quote handling:
+  - If provider returns price in a stablecoin (e.g., `BTC/USDT`), manager fetches stablecoin→USD and multiplies.
+  - If stablecoin→USD fails, log `warn` and assume 1:1 for that timestamp.
 
-- If a fee has the same asset as a priced movement, copy that price.
-- Otherwise, if the fee asset is fiat and unpriced, stamp identity:
-  - USD → `exchange-execution`
-  - Non-USD fiat → `fiat-execution-tentative`
+### Stage 4: Re-Derive (second pass)
 
-### 1.3 Link-based propagation (`propagatePricesAcrossLinks`)
+- Reruns derivation (Pass 1, Pass N+2, link propagation) after Normalize/Fetch to align swaps to execution ratios and spread new prices through links.
 
-Across confirmed links in a group:
+### Price Application & Overwrite Rules
 
-- Copy prices from **source outflows → target inflows** when:
-  - asset matches exactly, and
-  - the gross amounts are within **10% tolerance** (to allow fee/slippage differences).
-- Copied prices preserve the original `price`, `fetchedAt`, `granularity`, and FX metadata, but the `source` is set to `link-propagated` (priority 2).
+- Higher priority replaces lower; equal priority may refresh (e.g., derived replacing earlier derived).
+- `exchange-execution` is never overwritten.
+- Derived sources (`derived-ratio`, `link-propagated`) can overwrite provider/manual results.
 
-## Stage 2: Normalize (Non-USD Fiat → USD)
+### Execution Identity Prices
 
-Normalize converts any **non-USD fiat** `priceAtTxTime.price.currency` into USD using an FX provider.
+- USD trades stamp USD identity (`1 USD = 1 USD`) with `exchange-execution`.
+- Non-USD fiat trades stamp fiat identity with `fiat-execution-tentative` until normalized.
 
-**Scope**
+### FX Validation & Safety
 
-- Movements and fees with `price.currency.isFiat()` and currency != `USD`.
-- Already-USD prices are skipped.
-- If a movement has a crypto currency in the `price.currency` field, it’s skipped and logged as unexpected.
-
-**FX lookup**
-
-- Uses historical FX rates at the transaction timestamp via the price-provider manager (e.g., ECB, Bank of Canada, Frankfurter).
-
-**Validation**
-
-- FX rates must be > 0 and within sanity bounds `[1e-7, 1000]`.
-
-**Normalization output**
-
-- `price.currency` becomes `USD`
-- `price.amount` is multiplied by the FX rate
-- FX metadata is recorded:
-  - `fxRateToUSD`, `fxSource`, `fxTimestamp`
-- If the original source was `fiat-execution-tentative`, it is upgraded to `derived-ratio` (priority 2). This prevents provider prices from overwriting execution-derived amounts.
-
-## Stage 3: Fetch (Providers, Gap Filling)
-
-Fetch fills remaining missing USD prices for non-fiat assets using external providers via the `PriceProviderManager` (with failover, circuit breakers, and caching).
-
-**What gets fetched**
-
-- For each transaction flagged as “needing prices”, gather unique assets that:
-  - have no price, or
-  - have a `fiat-execution-tentative` price (fallback behavior if normalization didn’t run or failed),
-  - excluding fiat currencies.
-
-**Providers (current, auto-registered unless disabled)**
-
-- Crypto: `binance`, `coingecko`, `cryptocompare`
-- FX: `ecb`, `bank-of-canada`, `frankfurter`
-- Manual entries are stored in the same cache DB and surface through the manager as provider-like sources (default `source` is `manual` / user-provided).
-
-**Stablecoin-denominated provider results**
-
-- Some providers fetch crypto prices in stablecoin quote pairs (e.g., `BTC/USDT`).
-- The manager converts stablecoin-denominated prices to USD by fetching the stablecoin’s USD rate and multiplying.
-- If the stablecoin USD rate can’t be fetched, the manager logs a warning and assumes 1:1 parity for that stablecoin at that timestamp.
-
-## Stage 4: Re-Derive (Second Pass)
-
-After Normalize and/or Fetch, Derive is run again to:
-
-- apply Pass 1 and Pass N+2 using newly available prices, and
-- propagate across links again with improved coverage.
-
-## Price Source Priority (Enforced in Code)
-
-When enriching movements, prices are applied by priority:
-
-| Priority | Source(s)                          | Notes                                                                                                          |
-| -------: | ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-|        3 | `exchange-execution`               | Never overwritten.                                                                                             |
-|        2 | `derived-ratio`, `link-propagated` | Can overwrite provider/manual sources. Derived sources can refresh other derived sources at the same priority. |
-|        1 | Any other source string            | Includes provider sources and manual sources (e.g., `binance`, `coingecko`, `manual`, `binance+usdt-rate`).    |
-|        0 | `fiat-execution-tentative`         | Provisional non-USD fiat; intended to be normalized to USD then upgraded.                                      |
-
-## Temporal Proximity (Explicitly Not Implemented)
-
-Per ADR 001 (2025-01-30): Exitbook does **not** reuse prices from “nearby” transactions. There is no temporal-window lookup in the derivation pipeline.
-
-Allowed sources of truth are:
-
-- same-transaction execution pricing (fiat ↔ crypto)
-- same-transaction ratio inference
-- confirmed link propagation
-- provider fetch (or manual entry) for gaps
+- FX rates must be positive and within sanity bounds `[1e-7, 1000]`; failures raise errors.
+- Normalization is skipped for already-USD prices.
 
 ## Data Model
 
-### `PriceAtTxTime` (movement/fee field)
+### Movements / Fees
 
-`PriceAtTxTime` is the persisted valuation attached to movements and fees:
+- Each movement/fee may hold `priceAtTxTime: PriceAtTxTime`.
+- Persisted prices are intended to be USD; pre-normalization fiat is allowed transiently.
 
-- `price` (Money), `source` (string), `fetchedAt` (Date)
-- optional `granularity`: `exact | minute | hour | day`
-- optional FX audit metadata: `fxRateToUSD`, `fxSource`, `fxTimestamp`
+### Price Cache (`prices.db`)
 
-### Price cache DB (`prices.db`)
+- Single table keyed by `(asset_symbol, currency, timestamp)`.
+- Stores provider name, granularity, fetched timestamp; used by fetch stage and stablecoin conversions.
 
-Crypto prices and FX rates are persisted in `prices.db` in a single `prices` table keyed by `(asset_symbol, currency, timestamp)`:
+## Pipeline / Flow
 
-- `asset_symbol` (e.g., `BTC`, `EUR`)
-- `currency` (e.g., `USD`)
-- `timestamp` (ISO)
-- `price` (string decimal)
-- `source_provider` (provider/source string)
-- optional `granularity`
-- `fetched_at` (ISO)
+```mermaid
+graph TD
+    A[Transactions + links] --> B[Derive]
+    B --> C[Normalize FX]
+    C --> D[Fetch missing]
+    D --> E[Re-Derive]
+    E --> F[Enriched transactions with USD prices]
+```
 
-## Known limitations (Current Behavior)
+## Invariants
 
-- Multi-pass inference only triggers for transactions shaped as **exactly one inflow and one outflow**.
-- Link propagation only copies prices from source **outflows** to target **inflows** (asset-equal, within 10% amount tolerance).
+- **Simple-trade guard**: Multi-pass derivation only runs when exactly one inflow and one outflow exist.
+- **Priority enforcement**: Application obeys source priority table; `exchange-execution` cannot be overwritten.
+- **No temporal reuse**: Prices are never inferred from nearby timestamps (ADR-001, 2025-01-30).
+- **FX sanity**: Non-positive or absurd FX rates are rejected.
+- **Link propagation scope**: Only outflow → inflow with same asset and ≤10% gross difference.
+
+## Edge Cases & Gotchas
+
+- Stablecoin quote pairs rely on fetching the stablecoin’s USD rate; missing rate falls back to 1:1 with a warning.
+- Transactions with crypto in `price.currency` are treated as malformed for normalization; left untouched and logged.
+- Provider failures may leave `fiat-execution-tentative` in place if normalization was skipped; rerunning Normalize upgrades them.
+- Execution math does not run for trades with multiple inflows/outflows; they depend on provider prices.
+- Re-Derive must run after Normalize and Fetch to ensure swaps use execution ratios based on the newest prices; skipping it leaves inflow prices anchored to stale/independent provider spots.
+
+## Known Limitations (Current Implementation)
+
+- Derivation covers only the simple-trade shape (1 inflow, 1 outflow); complex trades need provider/manual prices.
+- Link propagation copies prices only from source outflows to target inflows and only within 10% amount tolerance.
+- No persisted “dedup window” for prices; correctness relies on priority and deterministic recomputation, not caching heuristics.
+
+## Related Specs
+
+- [Fees](./fees.md) — fee pricing and proceeds/basis interactions
+- [Accounts & Imports](./accounts-and-imports.md) — where raw transactions originate before pricing
+- [Transfers & Tax](./transfers-and-tax.md) — transfer matching and tax semantics that consume priced movements
+- [Pagination & Streaming](./pagination-and-streaming.md) — ingestion batches that precede pricing
+
+---
+
+_Last updated: 2025-12-12_

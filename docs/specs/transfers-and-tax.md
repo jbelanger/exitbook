@@ -1,252 +1,192 @@
-# Transfers and Tax Specification
+---
+last_verified: 2025-12-12
+status: canonical
+---
 
-## Overview
+# Transfers & Tax Specification
 
-This specification defines how the system identifies, links, and taxes transfers between a user's own accounts (self-transfers).
+> ⚠️ **Code is law**: If this disagrees with implementation, update the spec to match code.
 
-This doc is implementation-driven: it describes the current behavior of transaction linking + cost basis lot matching.
+How Exitbook detects self-transfers, links transactions, preserves cost basis, and applies jurisdictional fee policy during tax lot matching.
 
-## Core Principles
+## Quick Reference
 
-1.  **Non-Taxable Events**: Transfers between own accounts are **not** taxable events (US, CA, UK, EU). They preserve cost basis.
-2.  **Fee Separation**: Fees paid to facilitate the transfer (network/gas fees) are distinct from the transfer itself and may be taxable disposals or added to basis (jurisdiction-dependent).
-3.  **Explicit Linking**: Only **confirmed** `TransactionLink` records with `confidenceScore >= 0.95` are treated as transfers by cost basis matching.
-4.  **Logical Ordering**: Linked transactions are processed in logical order (Source -> Target) even if timestamps disagree (dependency-aware sort).
-5.  **Net Amount Model**: Linking and transfer matching use **net movement amounts** when present (`movement.netAmount ?? movement.grossAmount`).
-6.  **Prices Required**: Cost basis matching requires `priceAtTxTime` on all non-fiat inflows/outflows, and it may require `priceAtTxTime` on fees depending on the calculation path.
+| Concept              | Key Rule                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| Link eligibility     | Only `TransactionLink` with `status='confirmed'` and `confidenceScore >= 0.95` are honored         |
+| Amounts used         | Linking and matching use `netAmount ?? grossAmount`                                                |
+| Ordering             | Source transaction is processed before target via dependency-aware sort, overriding timestamps     |
+| Variance guard       | Link creation rejects `targetAmount > sourceAmount` or >10% variance                               |
+| Fee policy           | `sameAssetTransferFeePolicy`: `'disposal'` (USA/UK/EU) or `'add-to-basis'` (Canada) required       |
+| Internal chain links | Auto-confirmed when transactions share normalized on-chain tx hash; cross-accounts only            |
+| Pricing prerequisite | Non-fiat movements/fees must have `priceAtTxTime`; matcher errors when required prices are missing |
 
-## Transfer Architecture
+## Goals
 
-### The Transaction Link
+- **Non-taxable self-transfers**: Preserve cost basis across owned accounts without triggering disposals.
+- **Deterministic linking**: Confirmed links drive transfer handling; unconfirmed suggestions never affect tax.
+- **Jurisdiction-aware fees**: Apply explicit policy for same-asset crypto fees to avoid silent assumptions.
 
-A transfer creates a relationship between a **Source** (Withdrawal/Outflow) and a **Target** (Deposit/Inflow).
+## Non-Goals
 
-```typescript
+- Discovering optimal tax strategies (strategy-agnostic core; FIFO/etc. handled elsewhere).
+- Inferring transfers from heuristics beyond the stated matcher and thresholds.
+
+## Definitions
+
+### TransactionLink (transfer contract)
+
+```ts
 interface TransactionLink {
   sourceTransactionId: number;
   targetTransactionId: number;
   asset: string;
-
-  // IMPORTANT (implementation): these are the amounts used by the linker
-  // and the lot matcher, and are derived from movements as:
-  // amount = movement.netAmount ?? movement.grossAmount
-  //
-  // i.e. these are "net movement amounts" when netAmount exists.
-  sourceAmount: Decimal;
-  targetAmount: Decimal;
-
+  sourceAmount: Decimal; // netAmount ?? grossAmount
+  targetAmount: Decimal; // netAmount ?? grossAmount
   linkType: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange' | 'blockchain_internal';
   confidenceScore: Decimal;
   status: 'suggested' | 'confirmed' | 'rejected';
 }
 ```
 
-### Logical Ordering
+### LotTransfer (cost basis movement)
 
-Exchange timestamps are often imprecise. To prevent "Negative Balance" errors where a deposit appears to arrive _after_ it was spent, or _before_ it was sent:
+Moves basis from source lots to target acquisitions when a transfer is processed.
 
-- The system enforces that **Source is processed before Target**.
-- This is implemented via a dependency-aware comparator sort (direct Source->Target constraints take precedence over timestamps).
+```sql
+id TEXT PRIMARY KEY,
+calculation_id TEXT NOT NULL,
+source_lot_id TEXT NOT NULL,
+link_id TEXT NOT NULL,
+quantity_transferred TEXT NOT NULL,
+cost_basis_per_unit TEXT NOT NULL,
+source_transaction_id INTEGER NOT NULL,
+target_transaction_id INTEGER NOT NULL,
+metadata_json TEXT
+```
 
-## Automatic Linking (TransactionLinkingService)
+### Fee Policy
 
-Automatic linking produces:
+`jurisdiction.sameAssetTransferFeePolicy`:
 
-- `suggestedLinks`: potential matches that did not meet auto-confirm threshold (not persisted as `TransactionLink` by this service).
-- `confirmedLinks`: auto-confirmed `TransactionLink` objects (plus auto-confirmed internal blockchain links).
+- `disposal`: same-asset crypto fee is a taxable disposal; remaining quantity transfers basis.
+- `add-to-basis`: fee adds to target basis; no immediate disposal.
 
-### Candidate Extraction
+## Behavioral Rules
 
-Linking is performed on per-movement candidates (one candidate per inflow and one per outflow movement), using:
+### Linking (Automatic & Manual)
 
-- `candidate.amount = movement.netAmount ?? movement.grossAmount`
-- `candidate.direction = 'out'` for outflows, `'in'` for inflows
+- Auto-linker emits `suggestedLinks` and auto-confirms when `confidenceScore >= autoConfirmThreshold` (default 0.95).
+- Confirmed links only: `status='confirmed'` and `confidenceScore >= 0.95`.
+- Hard filters: asset match; target after source within `maxTimingWindowHours` (default 48h); amount similarity ≥ `minAmountSimilarity` (0.95); address mismatch rejects; confidence ≥ `minConfidenceScore` (0.7).
+- Amount validation at creation: reject `targetAmount > sourceAmount` or variance > 10%.
+- Internal blockchain links:
+  - Group by normalized on-chain tx hash (strip log index suffix).
+  - Cross-account only; skips tx with no movements.
+  - Auto-confirmed at 100% confidence using primary movement amounts (first outflow gross else first inflow gross).
 
-### Matching Constraints (Hard Filters)
+### Amount Basis for Matching
 
-For a source(out) candidate to match a target(in) candidate:
+- Everywhere in linking and lot matching, `amount = movement.netAmount ?? movement.grossAmount`.
+- Net amounts reflect on-chain fees when `settlement='on-chain'`; see fee spec.
 
-- Assets must match.
-- Target must be after source in time and within the timing window (`maxTimingWindowHours`, default 48h).
-- Amount similarity must be >= `minAmountSimilarity` (default 0.95).
-- Confidence score must be >= `minConfidenceScore` (default 0.7).
-- If both addresses exist, they must match (address mismatch rejects the match).
+### Ordering & Dependency
 
-### Confidence Scoring (Current Weights)
+- Cost-basis calculation sorts transactions with a dependency-aware comparator: each source precedes its linked target, even if timestamps conflict (handles clock skew/backdated deposits).
+- If a target is encountered before source due to missing dependency, matcher errors when no `LotTransfer` exists.
 
-Confidence is computed from match criteria:
+### Lot Matching Behavior
 
-- asset match (required): 30%
-- amount similarity: 40%
-- timing validity: 20% (+5% bonus if within 1 hour)
-- address match bonus: +10% (address mismatch rejects)
+- When a source outflow with a confirmed link is processed:
+  - Marked as transfer (non-disposal) for linked quantity.
+  - Create `LotTransfer` rows to move basis to the target.
+  - Same-asset fee handling follows configured policy.
+- When a target inflow is processed:
+  - Aggregate all inflows of the linked asset in the transaction (using net amounts).
+  - Create acquisition lot with inherited basis from `LotTransfer` rows; add priced fiat fees (source + target).
+  - Error if no `LotTransfer` rows exist for the link.
 
-Auto-confirm happens when `confidenceScore >= autoConfirmThreshold` (default 0.95).
+### Fee Treatment
 
-### Amount Validation
+- Same-asset crypto fees:
+  - `disposal`: creates taxable disposal for fee amount.
+  - `add-to-basis`: store fee USD value on `LotTransfer.metadata.cryptoFeeUsdValue`; adds to target basis.
+  - **Example (Canada, add-to-basis)**: Transfer 1 BTC with 0.0001 BTC network fee priced at $6.50. Fee USD value is stored on `LotTransfer.metadata.cryptoFeeUsdValue`; target acquisition inherits source basis plus $6.50; no disposal event for the fee.
+- Fiat fees:
+  - Collected from source and target; added to basis only when `priceAtTxTime` exists; missing price logs warn and skips.
+- Third-asset fees:
+  - If emitted as explicit outflow in fee asset, treated as a normal disposal of that asset.
 
-Even after a potential match passes matching filters, link creation validates amounts:
+### Variance & Hidden Fee Checks
 
-- Rejects `targetAmount > sourceAmount`.
-- Rejects variance > 10% (`(source-target)/source * 100 > 10`).
+- Source vs target amounts (link creation): reject >10% variance.
+- Outflow fee validation (hidden/missing fees):
+  - Expect `outflow.net = gross - sum(on-chain fees in same asset)`.
+  - `hiddenFee = |expectedNet - outflow.netAmount|`; `variancePct = hiddenFee / expectedNet * 100`.
+  - Per-source thresholds (warn/error): `kraken` 0.5/2.0, `coinbase` 1.0/3.0, `binance` 1.5/5.0, `kucoin` 1.5/5.0, `default` 1.0/3.0.
+- Transfer amount consistency during matching:
+  - Source-side: compare outflow amount to `link.targetAmount`.
+  - Target-side: compare summed `LotTransfer.quantityTransferred` to target inflow quantity.
+  - Error on exceeding error tolerance; warn on warning tolerance.
 
-### Internal Blockchain Links (`blockchain_internal`)
+### Pricing Requirements
 
-The linker also auto-detects “internal” blockchain links:
-
-- Groups blockchain transactions by normalized `blockchain.transaction_hash` (provider log-index suffix `-<number>` is stripped).
-- Skips blockchain transactions with no movements.
-- Produces auto-confirmed, 100%-confidence links across different `accountId`s within the same normalized on-chain tx hash.
-
-These links use “primary movement” amounts (prefers first outflow gross amount, otherwise first inflow gross amount).
-
-## Transfer Processing (Lot Matching)
-
-When cost basis lot matching processes transactions (strategy-agnostic core, e.g. FIFO):
-
-**Required configuration**:
-
-- Transfer handling requires `jurisdiction.sameAssetTransferFeePolicy` to be provided; otherwise the matcher errors when it encounters a linked transfer source.
-
-### Source Side (Outflow)
-
-If a confirmed link is found for `(tx.id, asset, amount)` where `amount = outflow.netAmount ?? outflow.grossAmount`:
-
-- The outflow is treated as a transfer source.
-- The transferred amount is **not** treated as a taxable disposal.
-- The system creates `LotTransfer` records to move cost basis from matched source lots to the target.
-- Depending on jurisdiction policy, same-asset crypto transfer fees are either:
-  - **disposed** (taxable), or
-  - **added to basis** (no immediate disposal).
-
-### Target Side (Inflow)
-
-If a confirmed link is found for `(tx.id, asset)`:
-
-- All inflows of that asset in the transaction are aggregated into a single amount (sum of `inflow.netAmount ?? inflow.grossAmount`).
-- A new acquisition lot is created at the target with:
-  - quantity = aggregated inflow amount
-  - inherited cost basis from the `LotTransfer` records for that link
-  - fiat fees (from both source and target transactions) added when priced
-
-If no `LotTransfer` records exist for the link, the matcher errors (this usually indicates the source was not processed before the target).
-
-## Fee Handling
-
-Fees are handled based on the jurisdiction's tax laws.
-
-### Taxonomy
-
-- **Network Fee**: Paid to miners/validators (e.g., Gas).
-- **Platform Fee**: Paid to the exchange (e.g., Withdrawal fee).
-
-### Tax Treatments
-
-| Policy           | Description                                                                                                     | Typical Jurisdiction                 |
-| :--------------- | :-------------------------------------------------------------------------------------------------------------- | :----------------------------------- |
-| **Disposal**     | Fee is treated as a spending event. You "sold" the crypto to pay the fee. Triggers Gain/Loss on the fee amount. | **USA (IRS)**, **UK (HMRC)**, **EU** |
-| **Add-to-Basis** | Fee is added to the cost basis of the transferred asset. No immediate tax event.                                | **Canada (CRA)**                     |
-
-The matcher is configured via `jurisdiction.sameAssetTransferFeePolicy: 'disposal' | 'add-to-basis'`.
-
-## Reconciliation & Variance
-
-The system uses multiple, distinct validation paths with different tolerances:
-
-### Link Amount Validation (Link Creation)
-
-At link creation time:
-
-- Reject `targetAmount > sourceAmount`
-- Reject variance > 10%
-
-### Outflow Fee Validation (Hidden/Missing Fee Detection)
-
-When processing a transfer source outflow, if `outflow.netAmount` exists:
-
-- The matcher validates:
-  - `expectedNet = outflow.grossAmount - sum(on-chain fees in same asset)`
-  - `hiddenFee = abs(expectedNet - outflow.netAmount)`
-  - `variancePct = hiddenFee / expectedNet * 100`
-- If `variancePct` exceeds the **error threshold**, matching fails with an error describing the implied hidden fee.
-
-Tolerance is source-specific by `tx.source` (with optional config override):
-
-- `kraken`: warn 0.5%, error 2.0%
-- `coinbase`: warn 1.0%, error 3.0%
-- `binance`: warn 1.5%, error 5.0%
-- `kucoin`: warn 1.5%, error 5.0%
-- `default`: warn 1.0%, error 3.0%
-
-### Transfer Amount Variance (Link vs Movements)
-
-The matcher validates transfer consistency twice:
-
-- Source-side: compares `outflow.netAmount` (or `grossAmount`) to `link.targetAmount`
-- Target-side: compares total `LotTransfer.quantityTransferred` to the target inflow quantity
-
-Exceeding error tolerance fails the calculation; exceeding warning tolerance may emit warnings in logs.
+- Non-fiat inflows/outflows require `priceAtTxTime`; fees require prices when participating in basis or disposal math.
+- Pricing pipeline is independent but must have run to avoid matcher errors.
 
 ## Data Model
 
-### `transaction_links` (transfer-critical fields)
+### transaction_links (relevant fields)
 
-- `asset` (TEXT) — transferred asset symbol
-- `source_amount` (TEXT) — amount used for link matching (`movement.netAmount ?? movement.grossAmount`)
-- `target_amount` (TEXT) — amount used for link matching (`movement.netAmount ?? movement.grossAmount`)
-- Indexes on `(source_transaction_id, asset, source_amount)` and `(target_transaction_id, asset)` for O(1) lookup.
+- `asset`, `source_amount`, `target_amount` (net or gross as defined above)
+- `status`, `confidence_score`, `link_type`
+- Indexes: `(source_transaction_id, asset, source_amount)` and `(target_transaction_id, asset)`
+- `metadata_json`: variance (`variance`, `variancePct`, `impliedFee`), on-chain hash (`blockchainTxHash`, `blockchain`)
 
-### `transaction_links.metadata_json`
+### lot_transfers
 
-`metadata_json` is an untyped key/value record. Current uses include:
+Tracks cost basis flow between linked transactions; see definition above.
 
-- link variance metadata: `variance`, `variancePct`, `impliedFee` (all stored as strings)
-- internal blockchain link metadata: `blockchainTxHash`, `blockchain`
+## Pipeline / Flow
 
-### `lot_transfers` Table
-
-Tracks the movement of specific tax lots between transactions (cost basis flow via links).
-
-```sql
-CREATE TABLE lot_transfers (
-  id TEXT PRIMARY KEY,
-  calculation_id TEXT NOT NULL REFERENCES cost_basis_calculations(id),
-  source_lot_id TEXT NOT NULL REFERENCES acquisition_lots(id),
-  link_id TEXT NOT NULL REFERENCES transaction_links(id),
-  quantity_transferred TEXT NOT NULL,
-  cost_basis_per_unit TEXT NOT NULL,
-  source_transaction_id INTEGER NOT NULL REFERENCES transactions(id),
-  target_transaction_id INTEGER NOT NULL REFERENCES transactions(id),
-  created_at TEXT NOT NULL,
-  metadata_json TEXT
-);
+```mermaid
+graph TD
+    A[Raw transactions] --> B[Auto/Manual linking]
+    B --> C[Confirmed TransactionLinks]
+    C --> D[Dependency-aware ordering]
+    D --> E[Cost basis matcher]
+    E --> F[LotTransfers created]
+    F --> G[Target acquisitions inherit basis + fees]
 ```
 
-Metadata may include proportional `cryptoFeeUsdValue` when the jurisdiction uses add-to-basis.
+## Invariants
 
-## Fee Handling (Operational Rules)
+- **Confirmed-only**: Only links with `status='confirmed'` and `confidenceScore >= 0.95` affect transfers.
+- **Net-first amounts**: `netAmount ?? grossAmount` used everywhere in linking/matching.
+- **Source-before-target**: Dependency ordering guarantees source processed first; missing LotTransfers is an error.
+- **Variance guard**: Link creation rejects `targetAmount > sourceAmount` or >10% variance.
+- **Fee policy required**: Matcher errors if `sameAssetTransferFeePolicy` is unset when processing a linked transfer.
 
-- **Same-Asset Crypto Fees**:
-  - _Disposal policy_: creates a taxable disposal for the fee amount; transfers cost basis for the remaining quantity.
-  - _Add-to-basis policy_: no immediate disposal; the crypto fee’s USD value (when priced) is stored on `LotTransfer.metadata.cryptoFeeUsdValue` and added into inherited basis at the target.
-- **Fiat Fees**:
-  - Collected from both source and target transactions.
-  - Added to target basis only when `fee.priceAtTxTime` exists (missing price is warned and skipped).
-- **Third-Asset Fees**:
-  - If represented as an explicit outflow movement in the fee asset, it is processed as a normal disposal for that asset.
+## Edge Cases & Gotchas
 
-## Importer Requirements (Compatibility)
-
-- For transfer outflows that are linkable, populate `grossAmount` and `netAmount`.
-- Per fee semantics, only fees with `settlement='on-chain'` are expected to reduce `netAmount`.
-- Ensure non-fiat fees that matter to cost basis have `priceAtTxTime` when required by the calculation path.
-- For third-asset fees, emit an explicit outflow movement in the fee asset when you want it treated as a disposal.
-
-## Logical Ordering
-
-During cost basis calculation, transactions are sorted with a dependency-aware comparator so that every linked source is ordered before its linked target, overriding raw timestamps when necessary (fixes backdated deposits / clock skew).
+- Address mismatch hard-rejects a candidate even if other signals are strong.
+- Internal blockchain links ignore transactions with no movements and only link across accounts.
+- If pricing is missing for required movements/fees, matcher fails rather than assuming spot.
+- Targets with multiple inflows aggregate amounts before basis assignment; per-movement granularity is lost—structure as separate transactions or use manual adjustments if per-leg basis is required.
 
 ## Known Limitations (Current Implementation)
 
-- Automatic deduplication keys by `sourceTransaction.id` and `targetTransaction.id`, which effectively limits automatic cross-source linking to **one link per transaction id** in each direction, even if a single transaction contains multiple outflow movements.
-- `LinkIndex` supports multiple links per `(source tx, asset, amount)` (to handle batched withdrawals), but those links must already exist (e.g., created externally or manually).
+- Auto-linker effectively allows one link per transaction id per direction when deduping; multi-outflow transactions may need manual links.
+- Link propagation is one-way (source→target); no auto-splitting for partial matches beyond the 10% guard.
+- Dependency ordering only covers known links; missing links can still produce negative-balance style errors until resolved.
+
+## Related Specs
+
+- [Fees](./fees.md) — fee semantics and pricing that feed transfer amounts
+- [Price Derivation](./price-derivation.md) — required prices for movements/fees
+- [Accounts & Imports](./accounts-and-imports.md) — where raw transactions originate
+- [Pagination & Streaming](./pagination-and-streaming.md) — ingestion model preceding linking
+
+---
+
+_Last updated: 2025-12-12_
