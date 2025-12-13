@@ -24,37 +24,6 @@ export class TransactionProcessService {
   }
 
   /**
-   * Get processing status summary for an account.
-   */
-  async getProcessingStatus(accountId: number): Promise<
-    Result<
-      {
-        pending: number;
-        processed: number;
-        total: number;
-      },
-      Error
-    >
-  > {
-    const results = await Promise.all([
-      this.rawDataRepository.load({
-        processingStatus: 'pending',
-        accountId: accountId,
-      }),
-      this.rawDataRepository.load({
-        processingStatus: 'processed',
-        accountId: accountId,
-      }),
-    ]);
-
-    return Result.combine(results).map(([pending, processedItems]) => ({
-      pending: pending.length,
-      processed: processedItems.length,
-      total: pending.length + processedItems.length,
-    }));
-  }
-
-  /**
    * Process all accounts that have pending raw data.
    */
   async processAllPending(): Promise<Result<ProcessResult, Error>> {

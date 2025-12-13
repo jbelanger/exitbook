@@ -188,7 +188,10 @@ export const ExportCommandOptionsSchema = OptionalSourceSelectionSchema.merge(
 /**
  * Process command options
  */
-export const ProcessCommandOptionsSchema = JsonFlagSchema;
+export const ProcessCommandOptionsSchema = JsonFlagSchema.extend({
+  force: z.boolean().optional(),
+  accountId: z.coerce.number().int().positive().optional(),
+});
 
 /**
  * Clear command options

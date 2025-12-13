@@ -39,6 +39,8 @@ export function registerProcessCommand(program: Command): void {
   program
     .command('process')
     .description('Process all pending raw data from all sources')
+    .option('--force', 'Reset processing status and reprocess all raw data')
+    .option('--account-id <id>', 'Process only a specific account ID')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeProcessCommand(rawOptions);
@@ -105,9 +107,12 @@ async function executeProcessCommand(rawOptions: unknown): Promise<void> {
     );
 
     // Create handler
-    const handler = new ProcessHandler(processService, providerManager);
+    const handler = new ProcessHandler(processService, providerManager, rawDataRepository);
 
-    const result = await handler.execute({});
+    const result = await handler.execute({
+      force: options.force,
+      accountId: options.accountId,
+    });
 
     // Cleanup
     handler.destroy();

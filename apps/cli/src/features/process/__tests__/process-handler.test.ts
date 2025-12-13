@@ -1,19 +1,23 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { KyselyDB } from '@exitbook/data';
+import type { TransactionProcessService } from '@exitbook/ingestion';
+import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { ProcessHandler } from '../process-handler.js';
 
 describe('ProcessHandler', () => {
-  let mockDatabase: KyselyDB;
+  let mockProcessService: TransactionProcessService;
   let processHandler: ProcessHandler;
 
   beforeEach(() => {
-    // Mock the database
-    mockDatabase = {} as KyselyDB;
+    // Mock the process service
+    mockProcessService = {
+      processAllPending: vi.fn().mockResolvedValue(ok({ processed: 0, errors: [], failed: 0 })),
+      processAccountTransactions: vi.fn().mockResolvedValue(ok({ processed: 0, errors: [], failed: 0 })),
+    } as unknown as TransactionProcessService;
 
     // Create handler instance
-    processHandler = new ProcessHandler(mockDatabase);
+    processHandler = new ProcessHandler(mockProcessService);
   });
 
   describe('Resource Management', () => {
