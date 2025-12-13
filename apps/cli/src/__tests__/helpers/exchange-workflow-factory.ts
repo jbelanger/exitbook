@@ -235,7 +235,7 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
         const sampleDir = getSampleDir(name);
         console.log(`Importing and processing from ${sampleDir}...`);
 
-        const importResult = executeCLI(['import', '--exchange', name, '--csv-dir', sampleDir, '--process']);
+        const importResult = executeCLI(['import', '--exchange', name, '--csv-dir', sampleDir]);
 
         expect(importResult.success).toBe(true);
         expect(importResult.command).toBe('import');

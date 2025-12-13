@@ -172,13 +172,27 @@ describe('ImportCommandOptionsSchema', () => {
   });
 
   describe('optional flags', () => {
-    it('should accept --process flag', () => {
+    it('should accept --no-process flag (process: false)', () => {
       const result = ImportCommandOptionsSchema.safeParse({
         exchange: 'kraken',
         csvDir: '/path/to/csv',
-        process: true,
+        process: false,
       });
       expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.process).toBe(false);
+      }
+    });
+
+    it('should default process to true when not specified', () => {
+      const result = ImportCommandOptionsSchema.safeParse({
+        exchange: 'kraken',
+        csvDir: '/path/to/csv',
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.process).toBe(true);
+      }
     });
 
     it('should accept --json flag', () => {
@@ -194,11 +208,10 @@ describe('ImportCommandOptionsSchema', () => {
 
 describe('buildImportParams', () => {
   describe('exchange sources', () => {
-    it('should build params with CSV directory', () => {
+    it('should build params with CSV directory and default processing', () => {
       const options: ImportCommandOptions = {
         exchange: 'kraken',
         csvDir: '/path/to/csv',
-        process: true,
       };
 
       const result = buildImportParams(options);
@@ -207,8 +220,25 @@ describe('buildImportParams', () => {
       const params = result._unsafeUnwrap();
       expect(params.sourceName).toBe('kraken');
       expect(params.sourceType).toBe('exchange-csv');
-      expect(params.csvDirectories).toEqual(['/path/to/csv']);
+      expect(params.csvDirectory).toBe('/path/to/csv');
       expect(params.shouldProcess).toBe(true);
+    });
+
+    it('should build params with CSV directory and --no-process flag', () => {
+      const options: ImportCommandOptions = {
+        exchange: 'kraken',
+        csvDir: '/path/to/csv',
+        process: false,
+      };
+
+      const result = buildImportParams(options);
+
+      expect(result.isOk()).toBe(true);
+      const params = result._unsafeUnwrap();
+      expect(params.sourceName).toBe('kraken');
+      expect(params.sourceType).toBe('exchange-csv');
+      expect(params.csvDirectory).toBe('/path/to/csv');
+      expect(params.shouldProcess).toBe(false);
     });
 
     it('should build params with API credentials', () => {
@@ -266,12 +296,11 @@ describe('buildImportParams', () => {
       expect(params.address).toBe('bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
     });
 
-    it('should build params with address and provider', () => {
+    it('should build params with address and provider with default processing', () => {
       const options: ImportCommandOptions = {
         blockchain: 'bitcoin',
         address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
         provider: 'blockstream',
-        process: true,
       };
 
       const result = buildImportParams(options);

@@ -16,6 +16,6 @@ export async function initializeDatabase(): Promise<KyselyDB> {
   // Run migrations to ensure schema is up to date
   await runMigrations(database);
 
-  logger.info('Database initialization completed');
+  logger.debug('Database initialization completed');
   return database;
 }

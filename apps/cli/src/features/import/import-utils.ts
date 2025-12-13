@@ -56,7 +56,7 @@ export function buildImportParams(options: ImportCommandOptions): Result<ImportP
       address: normalizedAddressResult.value,
       providerName: options.provider,
       xpubGap: options.xpubGap,
-      shouldProcess: options.process,
+      shouldProcess: options.process ?? true,
     });
   }
 
@@ -71,7 +71,7 @@ export function buildImportParams(options: ImportCommandOptions): Result<ImportP
       sourceName,
       sourceType: accountType,
       csvDirectory: options.csvDir,
-      shouldProcess: options.process,
+      shouldProcess: options.process ?? true,
     });
   }
 
@@ -92,6 +92,6 @@ export function buildImportParams(options: ImportCommandOptions): Result<ImportP
     sourceName,
     sourceType: accountType,
     credentials,
-    shouldProcess: options.process,
+    shouldProcess: options.process ?? true,
   });
 }

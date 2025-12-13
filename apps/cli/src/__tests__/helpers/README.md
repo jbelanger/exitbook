@@ -151,7 +151,7 @@ Both factories create comprehensive test suites that validate:
    - Validates minimum match rate
 
 2. **Combined Workflow Test**: Import+Process in single command
-   - Tests `--process` flag on import command
+   - Tests default processing behavior on import command
    - Validates processed transaction count
 
 3. **Missing Data Test**: Shows helpful message when sample data missing
@@ -168,7 +168,7 @@ Both factories create comprehensive test suites that validate:
    - Validates minimum match rate (typically higher for blockchains)
 
 2. **Combined Workflow Test**: Import+Process in single command
-   - Tests `--process` flag on import command
+   - Tests default processing behavior on import command
    - Validates processed transaction count
 
 3. **Missing Test Cases Test**: Shows helpful message when no test cases configured

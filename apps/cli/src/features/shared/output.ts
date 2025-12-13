@@ -78,7 +78,7 @@ export class OutputManager {
     clackSpinner.start = (msg?: string) => {
       // Show spinner header with message (don't use clack animation)
       if (msg) {
-        console.log(`◆  ${msg}`);
+        p.log.step(`${msg}`);
       }
 
       // Configure logger to route logs through this spinner

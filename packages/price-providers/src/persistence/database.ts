@@ -76,7 +76,7 @@ export async function initializePricesDatabase(
     const defaultMigrationsPath = path.join(__dirname, './migrations');
     const finalMigrationsPath = migrationsPath || defaultMigrationsPath;
 
-    logger.info(`Running migrations from: ${finalMigrationsPath}`);
+    logger.debug(`Running migrations from: ${finalMigrationsPath}`);
 
     const migrator = new Migrator({
       db,
@@ -92,13 +92,13 @@ export async function initializePricesDatabase(
     if (results && results.length > 0) {
       for (const result of results) {
         if (result.status === 'Success') {
-          logger.info(`Migration "${result.migrationName}" executed successfully`);
+          logger.debug(`Migration "${result.migrationName}" executed successfully`);
         } else if (result.status === 'Error') {
           logger.error(`Migration "${result.migrationName}" failed`);
         }
       }
     } else {
-      logger.info('No pending migrations');
+      logger.debug('No pending migrations');
     }
 
     if (error) {
@@ -108,7 +108,7 @@ export async function initializePricesDatabase(
       return err(new Error(errorMessage));
     }
 
-    logger.info('Prices database initialized successfully');
+    logger.debug('Prices database initialized successfully');
     return ok();
   } catch (error) {
     logger.error({ error }, 'Error initializing prices database');

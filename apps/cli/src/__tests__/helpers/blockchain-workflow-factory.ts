@@ -234,7 +234,7 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
 
           console.log(`Importing and processing ${blockchain} address ${address}...`);
 
-          const importResult = executeCLI(['import', '--blockchain', blockchain, '--address', address, '--process']);
+          const importResult = executeCLI(['import', '--blockchain', blockchain, '--address', address]);
 
           expect(importResult.success).toBe(true);
           expect(importResult.command).toBe('import');

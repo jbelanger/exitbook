@@ -97,7 +97,7 @@ async function executeViewAccountsCommand(rawOptions: unknown): Promise<void> {
     };
 
     const spinner = output.spinner();
-    output.intro('Viewing accounts...');
+    output.intro('ExitBook | View accounts');
     spinner?.start('Fetching accounts...');
 
     configureLogger({

@@ -40,20 +40,20 @@ export async function runMigrations(db: KyselyDB): Promise<void> {
     }
 
     if (!results) {
-      logger.info('No migrations to run');
+      logger.debug('No migrations to run');
       return;
     }
 
     for (const result of results) {
       if (result.status === 'Success') {
-        logger.info(`Migration "${result.migrationName}" executed successfully`);
+        logger.debug(`Migration "${result.migrationName}" executed successfully`);
       } else if (result.status === 'Error') {
         logger.error(`Migration "${result.migrationName}" failed`);
         throw new Error(`Migration "${result.migrationName}" failed`);
       }
     }
 
-    logger.info(`Executed ${results.length} migrations`);
+    logger.debug(`Executed ${results.length} migrations`);
   } catch (error) {
     logger.error({ error }, 'Failed to run migrations');
     throw error;

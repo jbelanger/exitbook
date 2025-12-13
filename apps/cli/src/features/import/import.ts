@@ -90,7 +90,7 @@ export function registerImportCommand(program: Command): void {
     .option('--api-key <key>', 'API key for exchange API access')
     .option('--api-secret <secret>', 'API secret for exchange API access')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange API access (if required)')
-    .option('--process', 'Process data after import (combined import+process pipeline)')
+    .option('--no-process', 'Skip processing after import (import raw data only)')
     .option('--json', 'Output results in JSON format')
     .action(async (options: ImportCommandOptions) => {
       await executeImportCommand(options);

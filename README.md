@@ -49,7 +49,7 @@ Each stage is exposed as a CLI command via `pnpm run dev <command>`.
 - Run an initial pipeline:
 
 ```bash
-pnpm run dev import --exchange kraken --csv-dir ./exports/kraken --process
+pnpm run dev import --exchange kraken --csv-dir ./exports/kraken
 pnpm run dev link
 pnpm run dev prices enrich
 ```

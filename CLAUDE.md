@@ -19,9 +19,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### CLI Usage (essentials)
 
 - All commands via `pnpm run dev ...` (tsx + `.env`). Common flows:
-  - Import (CSV): `pnpm run dev import --exchange kraken --csv-dir ./exports/kraken --process`
-  - Import (API): `pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET --process`
-  - Import (on-chain): `pnpm run dev import --blockchain bitcoin --address bc1q... --process`
+  - Import (CSV): `pnpm run dev import --exchange kraken --csv-dir ./exports/kraken`
+  - Import (API): `pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET`
+  - Import (on-chain): `pnpm run dev import --blockchain bitcoin --address bc1q...`
+  - Import raw only: `pnpm run dev import --exchange kraken --csv-dir ./exports/kraken --no-process`
   - Prices enrich: `pnpm run dev prices enrich` (4-stage pipeline; use flags to slice)
   - Export: `pnpm run dev export --exchange kraken --format csv --output ./reports/kraken.csv`
   - Discover: `pnpm run dev list-blockchains`
@@ -163,7 +164,7 @@ pnpm vitest run packages/blockchain-providers/src/blockchains/bitcoin
 pnpm test  # Full test suite
 
 # CLI integration test
-pnpm run dev import --exchange kraken --csv-dir ./test-data --process
+pnpm run dev import --exchange kraken --csv-dir ./test-data
 ```
 
 ## Project Context
