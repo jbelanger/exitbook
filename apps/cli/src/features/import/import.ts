@@ -306,7 +306,7 @@ function handleImportSuccess(
 
     // Show skipped if any
     if (totalSkipped > 0) {
-      summaryParts.push(`${totalSkipped} skipped (duplicates)`);
+      summaryParts.push(`${totalSkipped} duplicates. `);
     }
 
     if (importResult.processed !== undefined && importResult.processed !== 0) {
