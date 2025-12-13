@@ -56,8 +56,6 @@ export class LinksRunHandler {
    */
   async execute(params: LinksRunHandlerParams): Promise<Result<LinksRunResult, Error>> {
     try {
-      logger.info({ dryRun: params.dryRun }, 'Starting transaction linking process');
-
       // Fetch all transactions
       const transactionsResult = await this.transactionRepository.getTransactions();
       if (transactionsResult.isErr()) {

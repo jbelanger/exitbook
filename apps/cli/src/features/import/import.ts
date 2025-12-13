@@ -299,28 +299,21 @@ function handleImportSuccess(
   let summary: string | undefined;
 
   if (output.isTextMode()) {
-    const summaryParts: string[] = [];
+    const summaryParts: string[] = ['Done. '];
 
     // Show imported count
-    summaryParts.push(`Loaded ${totalImported} transactions`);
+    summaryParts.push(`${totalImported} new transactions. `);
 
     // Show skipped if any
     if (totalSkipped > 0) {
       summaryParts.push(`${totalSkipped} skipped (duplicates)`);
     }
 
-    // Show session info (single session ID or count for multiple)
-    if (importResult.sessions.length === 1) {
-      summaryParts.push(`Session ${importResult.sessions[0]?.id}`);
-    } else {
-      summaryParts.push(`${importResult.sessions.length} sessions`);
+    if (importResult.processed !== undefined && importResult.processed !== 0) {
+      summaryParts.push(`${importResult.processed} processed. `);
     }
 
-    if (importResult.processed !== undefined) {
-      summaryParts.push(`Processed ${importResult.processed}`);
-    }
-
-    summary = summaryParts.join(' · ');
+    summary = summaryParts.join('');
 
     if (importResult.processingErrors && importResult.processingErrors.length > 0) {
       output.note(importResult.processingErrors.slice(0, 5).join('\n'), 'First 5 errors');

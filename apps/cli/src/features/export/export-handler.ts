@@ -42,8 +42,6 @@ export class ExportHandler {
    */
   async execute(params: ExportHandlerParams): Promise<Result<ExportResult, Error>> {
     try {
-      logger.info({ params }, 'Starting export');
-
       // Build filter object conditionally to avoid passing undefined values
       const filters = {
         ...(params.sourceName && { sourceName: params.sourceName }),

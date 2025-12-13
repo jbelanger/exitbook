@@ -98,8 +98,6 @@ export class PricesEnrichHandler {
    */
   async execute(options: PricesEnrichOptions): Promise<Result<PricesEnrichResult, Error>> {
     try {
-      logger.info('Starting unified price enrichment pipeline');
-
       // Determine which stages to run
       const stages = determineEnrichmentStages(options);
 

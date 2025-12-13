@@ -62,7 +62,7 @@ export class CostBasisHandler {
 
       const { config } = params;
 
-      logger.info(
+      logger.debug(
         {
           method: config.method,
           jurisdiction: config.jurisdiction,

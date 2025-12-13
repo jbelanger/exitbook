@@ -274,8 +274,8 @@ function wrapLoggerWithProxy(target: Logger): Logger {
             const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
             if (message) {
               process.stderr.write('\r\x1b[K');
-              // Yellow color (\x1b[33m) for warnings with ⚠️  icon for visual distinction
-              process.stderr.write(`\x1b[33m│  ⚠️  ${message}\x1b[0m\n`);
+              // Yellow color (\x1b[33m) for warnings
+              process.stderr.write(`\x1b[33m│  ${message}\x1b[0m\n`);
             }
           }
 
@@ -298,8 +298,8 @@ function wrapLoggerWithProxy(target: Logger): Logger {
             const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
             if (message) {
               process.stderr.write('\r\x1b[K');
-              // Red color (\x1b[31m) for errors with ❌ icon for immediate recognition
-              process.stderr.write(`\x1b[31m│  ❌ ${message}\x1b[0m\n`);
+              // Red color (\x1b[31m) for errors
+              process.stderr.write(`\x1b[31m│  ${message}\x1b[0m\n`);
             }
           }
 

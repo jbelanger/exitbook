@@ -140,7 +140,7 @@ export class TransactionImportService {
       }
 
       importSessionId = importSessionCreateResult.value;
-      this.logger.info(`Starting new import with import session #${importSessionId}`);
+      this.logger.info(`Created new import session #${importSessionId}`);
     }
 
     const startTime = Date.now();
@@ -162,7 +162,7 @@ export class TransactionImportService {
         const batch = batchResult.value;
 
         // Save batch to database
-        this.logger.info(`Saving ${batch.rawTransactions.length} ${batch.operationType} transactions...`);
+        this.logger.debug(`Saving ${batch.rawTransactions.length} ${batch.operationType} transactions...`);
         const saveResult = await this.rawDataRepository.saveBatch(account.id, batch.rawTransactions);
 
         if (saveResult.isErr()) {
@@ -215,9 +215,13 @@ export class TransactionImportService {
         return err(finalizeResult.error);
       }
 
-      this.logger.info(
-        `Import completed for ${sourceName}: ${totalImported} items saved, ${totalSkipped} duplicates skipped`
-      );
+      if (account.accountType === 'exchange-csv') {
+        this.logger.info(`Import completed for ${sourceName}: ${totalImported} items saved`);
+      } else {
+        this.logger.info(
+          `Import completed for ${sourceName}: ${totalImported} items saved, ${totalSkipped} duplicates skipped`
+        );
+      }
 
       // Fetch and return the complete ImportSession
       const sessionResult = await this.importSessionRepository.findById(importSessionId);

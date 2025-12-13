@@ -166,7 +166,7 @@ function handleProcessSuccess(output: OutputManager, processResult: ProcessResul
   // Output success
   if (output.isTextMode()) {
     // Display friendly outro and stats
-    output.outro(`Done: ${processResult.processed} transactions generated.`);
+    output.outro(`Done. ${processResult.processed} transactions generated.`);
 
     if (processResult.errors.length > 0) {
       console.log(`\n⚠️  Processing errors: ${processResult.errors.length}`);

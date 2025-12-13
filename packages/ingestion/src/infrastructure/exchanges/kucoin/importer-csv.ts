@@ -46,7 +46,7 @@ export class KucoinCsvImporter implements IImporter {
    * Supports resumption via cursor (skips completed files)
    */
   async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    this.logger.info(`Starting KuCoin CSV streaming import from directory: ${params.csvDirectory ?? 'none'}`);
+    this.logger.debug(`Starting KuCoin CSV import from directory: ${params.csvDirectory ?? 'none'}`);
 
     if (!params.csvDirectory) {
       yield err(new Error('CSV directory is required for KuCoin import'));
@@ -83,7 +83,7 @@ export class KucoinCsvImporter implements IImporter {
 
           // Skip if already completed (using full path)
           if (completedFiles.has(filePath)) {
-            this.logger.info(`Skipping completed file: ${filePath}`);
+            this.logger.info(`• Skipped previously processed file: ${filePath}`);
             continue;
           }
 
@@ -92,7 +92,7 @@ export class KucoinCsvImporter implements IImporter {
           // Skip unknown or unimplemented file types
           if (fileType === 'unknown' || fileType.startsWith('not_implemented_') || fileType === 'convert') {
             if (fileType === 'unknown') {
-              this.logger.warn(`Skipping unrecognized CSV file: ${file}`);
+              this.logger.warn(`• Skipping unrecognized CSV file: ${file}`);
             }
             continue;
           }
@@ -123,7 +123,7 @@ export class KucoinCsvImporter implements IImporter {
         return;
       }
 
-      this.logger.info(`Completed KuCoin CSV streaming import: ${totalFetched} total transactions`);
+      this.logger.debug(`Completed KuCoin CSV streaming import: ${totalFetched} total transactions`);
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       this.logger.error(`CSV streaming import failed: ${errorMessage}`);

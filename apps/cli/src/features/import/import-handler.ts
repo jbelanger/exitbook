@@ -55,8 +55,6 @@ export class ImportHandler {
    */
   async execute(params: ImportParams): Promise<Result<ImportResult, Error>> {
     try {
-      this.logger.info(`Importing from ${params.sourceName}`);
-
       // Call appropriate orchestrator method based on source type
       let importResult: Result<ImportSession | ImportSession[], Error>;
 
@@ -112,15 +110,33 @@ export class ImportHandler {
       // Process data if requested
       if (params.shouldProcess) {
         const totalImported = sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
-        this.logger.info(`Processing ${totalImported} transactions...`);
-        const processResult = await this.processService.processAllPending();
 
-        if (processResult.isErr()) {
-          return err(processResult.error);
+        if (totalImported > 0) {
+          this.logger.info(`Processing ${totalImported} transactions...`);
+
+          // Process only the accounts that were imported
+          const uniqueAccountIds = [...new Set(sessions.map((s) => s.accountId))];
+          let totalProcessed = 0;
+          const allErrors: string[] = [];
+
+          for (const accountId of uniqueAccountIds) {
+            const processResult = await this.processService.processAccountTransactions(accountId);
+
+            if (processResult.isErr()) {
+              return err(processResult.error);
+            }
+
+            totalProcessed += processResult.value.processed;
+            allErrors.push(...processResult.value.errors);
+          }
+
+          result.processed = totalProcessed;
+          result.processingErrors = allErrors;
+        } else {
+          this.logger.debug('No transactions imported, skipping processing');
+          result.processed = 0;
+          result.processingErrors = [];
         }
-
-        result.processed = processResult.value.processed;
-        result.processingErrors = processResult.value.errors;
       }
 
       return ok(result);

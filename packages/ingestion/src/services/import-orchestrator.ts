@@ -54,7 +54,7 @@ export class ImportOrchestrator {
     providerName?: string,
     xpubGap?: number
   ): Promise<Result<ImportSession | ImportSession[], Error>> {
-    this.logger.info(`Starting blockchain import for ${blockchain} (${addressOrXpub.substring(0, 20)}...)`);
+    this.logger.debug(`Starting blockchain import for ${blockchain} (${addressOrXpub.substring(0, 20)}...)`);
 
     // 1. Ensure default CLI user exists (id=1)
     const userResult = await this.userRepository.ensureDefaultUser();
@@ -116,7 +116,7 @@ export class ImportOrchestrator {
    * Import transactions from an exchange using API credentials
    */
   async importExchangeApi(exchange: string, credentials: ExchangeCredentials): Promise<Result<ImportSession, Error>> {
-    this.logger.info(`Starting exchange API import for ${exchange}`);
+    this.logger.debug(`Starting exchange API import for ${exchange}`);
 
     if (!credentials.apiKey) {
       return err(new Error('API key is required for exchange API imports'));
@@ -155,7 +155,7 @@ export class ImportOrchestrator {
    * The CSV directory can contain subdirectories - all CSV files are recursively scanned
    */
   async importExchangeCsv(exchange: string, csvDirectory: string): Promise<Result<ImportSession, Error>> {
-    this.logger.info(`Starting exchange CSV import for ${exchange} from ${csvDirectory}`);
+    this.logger.debug(`Starting exchange CSV import for ${exchange} from ${csvDirectory}`);
 
     if (!csvDirectory) {
       return err(new Error('CSV directory is required for CSV imports'));
@@ -198,7 +198,7 @@ export class ImportOrchestrator {
         );
       }
       // Same directory - use existing account
-      this.logger.info(`Using existing account #${existingAccount.id} (exchange-csv)`);
+      this.logger.info(`Found existing account #${existingAccount.id}`);
       return this.importService.importFromSource(existingAccount);
     }
 
@@ -217,7 +217,7 @@ export class ImportOrchestrator {
     }
     const account = accountResult.value;
 
-    this.logger.info(`Created new account #${account.id} (exchange-csv) for import`);
+    this.logger.info(`Created new account #${account.id} for import`);
 
     // 4. Delegate to import service with account
     return this.importService.importFromSource(account);
@@ -240,7 +240,7 @@ export class ImportOrchestrator {
         return err(new Error(`Blockchain ${blockchain} does not support xpub derivation`));
       }
 
-      this.logger.info(`Processing xpub import for ${blockchain}`);
+      this.logger.debug(`Processing xpub import for ${blockchain}`);
 
       // Detect whether the parent account already exists so we can log accurately
       const existingParentResult = await this.accountRepository.findByUniqueConstraint(
