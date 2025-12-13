@@ -1,3 +1,4 @@
+import { CostBasisRepository, LotTransferRepository, TransactionLinkRepository } from '@exitbook/accounting';
 import { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import {
   closeDatabase,
@@ -6,8 +7,10 @@ import {
   TokenMetadataRepository,
   AccountRepository,
   RawDataRepository,
+  ImportSessionRepository,
+  UserRepository,
 } from '@exitbook/data';
-import { TransactionProcessService, TokenMetadataService } from '@exitbook/ingestion';
+import { ClearService, TransactionProcessService, TokenMetadataService } from '@exitbook/ingestion';
 import { configureLogger, resetLoggerContext } from '@exitbook/logger';
 import type { Command } from 'commander';
 import type { z } from 'zod';
@@ -39,7 +42,7 @@ export function registerProcessCommand(program: Command): void {
   program
     .command('process')
     .description('Process all pending raw data from all sources')
-    .option('--force', 'Reset processing status and reprocess all raw data')
+    .option('--force', 'Clear all derived data (transactions, links, cost basis) and reprocess from raw data')
     .option('--account-id <id>', 'Process only a specific account ID')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
@@ -67,11 +70,13 @@ async function executeProcessCommand(rawOptions: unknown): Promise<void> {
   const options = validationResult.data;
   const output = new OutputManager(options.json ? 'json' : 'text');
 
+  output.intro('ExitBook | Process transactions');
+
   try {
     const spinner = output.spinner();
 
     if (spinner) {
-      spinner.start('Processing all pending data...');
+      spinner.start('Processing raw provider data...');
     } else {
       // Configure logger for JSON mode
       configureLogger({
@@ -89,10 +94,15 @@ async function executeProcessCommand(rawOptions: unknown): Promise<void> {
     const database = await initializeDatabase();
 
     // Initialize repositories
+    const userRepository = new UserRepository(database);
     const accountRepository = new AccountRepository(database);
     const transactionRepository = new TransactionRepository(database);
     const rawDataRepository = new RawDataRepository(database);
     const tokenMetadataRepository = new TokenMetadataRepository(database);
+    const importSessionRepository = new ImportSessionRepository(database);
+    const transactionLinkRepository = new TransactionLinkRepository(database);
+    const costBasisRepository = new CostBasisRepository(database);
+    const lotTransferRepository = new LotTransferRepository(database);
 
     // Initialize provider manager
     const providerManager = new BlockchainProviderManager(undefined);
@@ -105,9 +115,19 @@ async function executeProcessCommand(rawOptions: unknown): Promise<void> {
       transactionRepository,
       tokenMetadataService
     );
+    const clearService = new ClearService(
+      userRepository,
+      accountRepository,
+      transactionRepository,
+      transactionLinkRepository,
+      costBasisRepository,
+      lotTransferRepository,
+      rawDataRepository,
+      importSessionRepository
+    );
 
     // Create handler
-    const handler = new ProcessHandler(processService, providerManager, rawDataRepository);
+    const handler = new ProcessHandler(processService, providerManager, clearService);
 
     const result = await handler.execute({
       force: options.force,
@@ -146,15 +166,13 @@ function handleProcessSuccess(output: OutputManager, processResult: ProcessResul
   // Output success
   if (output.isTextMode()) {
     // Display friendly outro and stats
-    output.outro('✨ Processing complete!');
-    console.log(`\n✅ Processed: ${processResult.processed} transactions`);
+    output.outro(`Done: ${processResult.processed} transactions generated.`);
 
     if (processResult.errors.length > 0) {
       console.log(`\n⚠️  Processing errors: ${processResult.errors.length}`);
       output.note(processResult.errors.slice(0, 5).join('\n'), 'First 5 errors');
     }
+  } else {
+    output.json('process', resultData);
   }
-
-  output.json('process', resultData);
-  process.exit(0);
 }

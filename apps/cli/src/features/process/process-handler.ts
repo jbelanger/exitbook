@@ -1,6 +1,5 @@
 import { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { IRawDataRepository } from '@exitbook/data';
-import type { TransactionProcessService } from '@exitbook/ingestion';
+import type { ClearService, TransactionProcessService } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { err, type Result } from 'neverthrow';
 
@@ -21,7 +20,7 @@ export interface ProcessResult {
  * Process handler parameters
  */
 export interface ProcessHandlerParams {
-  /** Force reprocessing by resetting processing status */
+  /** Force reprocessing by clearing derived data and resetting raw data to pending */
   force?: boolean | undefined;
 
   /** Process only a specific account ID */
@@ -38,7 +37,7 @@ export class ProcessHandler {
   constructor(
     private processService: TransactionProcessService,
     providerManager?: BlockchainProviderManager,
-    private rawDataRepository?: IRawDataRepository
+    private clearService?: ClearService
   ) {
     // Use provided provider manager or create new one
     this.providerManager = providerManager ?? new BlockchainProviderManager();
@@ -50,31 +49,33 @@ export class ProcessHandler {
   async execute(params: ProcessHandlerParams): Promise<Result<ProcessResult, Error>> {
     const { force, accountId } = params;
 
-    // Handle --force flag: reset processing status
+    // Handle --force flag: clear derived data and reset raw data to pending
     if (force) {
-      if (!this.rawDataRepository) {
-        return err(new Error('Raw data repository is required when using --force flag'));
+      if (!this.clearService) {
+        return err(new Error('Clear service is required when using --force flag'));
       }
 
-      logger.info('Resetting processing status for raw data...');
-      const resetResult = accountId
-        ? await this.rawDataRepository.resetProcessingStatusByAccount(accountId)
-        : await this.rawDataRepository.resetProcessingStatusAll();
+      const clearResult = await this.clearService.execute({
+        accountId,
+        includeRaw: false, // Keep raw data, just reset processing status
+      });
 
-      if (resetResult.isErr()) {
-        return err(resetResult.error);
+      if (clearResult.isErr()) {
+        return err(clearResult.error);
       }
+      const deleted = clearResult.value.deleted;
 
-      const resetCount = resetResult.value;
-      logger.info(`Reset ${resetCount} raw data items to pending status`);
+      logger.info(
+        `Cleared derived data (${deleted.links} links, ${deleted.lots} lots, ${deleted.disposals} disposals, ${deleted.calculations} calculations)`
+      );
+
+      logger.info(`Reset ${deleted.transactions} transactions for reprocessing`);
     }
 
     // Process transactions
     if (accountId) {
-      logger.info(`Processing pending data for account ${accountId}`);
       return this.processService.processAccountTransactions(accountId);
     } else {
-      logger.info('Processing all pending data from all sources');
       return this.processService.processAllPending();
     }
   }

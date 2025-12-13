@@ -9,7 +9,7 @@ const logger = getLogger('DatabaseInitialization');
  * Initialize database with migrations
  */
 export async function initializeDatabase(): Promise<KyselyDB> {
-  logger.info('Initializing database...');
+  logger.debug('Initializing database...');
 
   const database = createDatabase();
 

@@ -122,7 +122,7 @@ export async function initializePricesDatabase(
 export async function closePricesDatabase(db: Kysely<PricesDatabase>): Promise<Result<void, Error>> {
   try {
     await db.destroy();
-    logger.info('Prices database connection closed');
+    logger.debug('Prices database connection closed');
     return ok();
   } catch (error) {
     logger.error({ error }, 'Error closing prices database');

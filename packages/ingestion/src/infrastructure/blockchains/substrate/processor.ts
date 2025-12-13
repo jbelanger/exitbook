@@ -31,11 +31,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
-    this.logger.info(
-      `Processing Substrate transactions - Primary address: ${context.primaryAddress}, ` +
-        `Total user addresses: ${context.userAddresses.length}`
-    );
-
     for (const item of normalizedData) {
       const normalizedTx = item as SubstrateTransaction;
       try {
@@ -127,12 +122,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
 
     // Log processing summary
     const totalInputTransactions = normalizedData.length;
-    const successfulTransactions = transactions.length;
     const failedTransactions = processingErrors.length;
-
-    this.logger.info(
-      `Processing completed for ${this.chainConfig.chainName}: ${successfulTransactions} transactions processed, ${failedTransactions} failed (${failedTransactions}/${totalInputTransactions} transactions lost)`
-    );
 
     // STRICT MODE: Fail if ANY transactions could not be processed
     // This is critical for portfolio accuracy - we cannot afford to silently drop transactions

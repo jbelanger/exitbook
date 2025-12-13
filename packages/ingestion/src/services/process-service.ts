@@ -46,12 +46,10 @@ export class TransactionProcessService {
         return ok({ errors: [], failed: 0, processed: 0 });
       }
 
-      this.logger.info(`Found ${pendingData.length} pending records across all accounts`);
-
       // Extract unique account IDs with pending data
       const accountIds = extractUniqueAccountIds(pendingData);
 
-      this.logger.info(`Found ${accountIds.length} accounts with pending records`);
+      this.logger.debug(`Found ${pendingData.length} pending records across ${accountIds.length} accounts`);
 
       // Process each account
       let totalProcessed = 0;
@@ -71,7 +69,7 @@ export class TransactionProcessService {
         allErrors.push(...result.value.errors);
       }
 
-      this.logger.info(`Completed processing all accounts: ${totalProcessed} transactions processed`);
+      this.logger.debug(`Completed processing all accounts: ${totalProcessed} transactions processed`);
 
       return ok({
         errors: allErrors,
@@ -100,8 +98,6 @@ export class TransactionProcessService {
       const sourceName = account.sourceName.toLowerCase();
       const sourceType = account.accountType;
 
-      this.logger.info(`Processing account ${accountId}: ${account.sourceName} (${sourceType})`);
-
       // Load all pending raw data for this account
       const rawDataItemsResult = await this.rawDataRepository.load({
         processingStatus: 'pending',
@@ -119,7 +115,7 @@ export class TransactionProcessService {
         return ok({ errors: [], failed: 0, processed: 0 });
       }
 
-      this.logger.info(`Found ${rawDataItems.length} pending items for account ${accountId}`);
+      this.logger.debug(`Processing ${rawDataItems.length} pending items for account ${accountId} (${sourceName})`);
 
       // Build processing context for blockchain processors
       // For blockchain accounts, include primary address and user addresses for fund-flow analysis
@@ -197,8 +193,6 @@ export class TransactionProcessService {
         processor = processorResult.value;
       }
 
-      this.logger.info('Transforming transactions...');
-
       // Process raw data into universal transactions
       const transactionsResult = await processor.process(normalizedRawDataItems, processingContext);
 
@@ -217,7 +211,7 @@ export class TransactionProcessService {
       this.logger.debug(`Processed ${transactions.length} transactions for account ${accountId}`);
 
       // Save transactions to database
-      this.logger.info(`Saving ${transactions.length} processed transactions...`);
+      this.logger.debug(`Saving ${transactions.length} processed transactions...`);
       const saveResults = await Promise.all(
         transactions.map((transaction) => this.transactionRepository.save(transaction, accountId))
       );
@@ -254,11 +248,14 @@ export class TransactionProcessService {
       }
 
       const skippedCount = rawDataItems.length - transactions.length;
+      const accountLabel = `Account ${accountId} (${sourceName})`.padEnd(25);
       if (skippedCount > 0) {
-        this.logger.info(`${skippedCount} items were processed but skipped (likely non-standard operation types)`);
+        this.logger.info(`• ${accountLabel}: Correlated ${rawDataItems.length} items into ${savedCount} transactions.`);
+      } else {
+        this.logger.info(`• ${accountLabel}: Processed ${rawDataItems.length} items.`);
       }
 
-      this.logger.info(`Processing completed for account ${accountId}: ${savedCount} transactions processed`);
+      // this.logger.info(`Processed ${savedCount} transactions for account ${accountId} (${sourceName})`);
 
       return ok({
         errors: [],

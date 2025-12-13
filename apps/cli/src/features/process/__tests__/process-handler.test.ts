@@ -1,5 +1,5 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { TransactionProcessService } from '@exitbook/ingestion';
+import type { ClearService, TransactionProcessService } from '@exitbook/ingestion';
 import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -7,6 +7,7 @@ import { ProcessHandler } from '../process-handler.js';
 
 describe('ProcessHandler', () => {
   let mockProcessService: TransactionProcessService;
+  let mockClearService: ClearService;
   let processHandler: ProcessHandler;
 
   beforeEach(() => {
@@ -16,8 +17,27 @@ describe('ProcessHandler', () => {
       processAccountTransactions: vi.fn().mockResolvedValue(ok({ processed: 0, errors: [], failed: 0 })),
     } as unknown as TransactionProcessService;
 
+    // Mock the clear service
+    mockClearService = {
+      execute: vi.fn().mockResolvedValue(
+        ok({
+          deleted: {
+            accounts: 0,
+            transactions: 0,
+            links: 0,
+            lots: 0,
+            disposals: 0,
+            calculations: 0,
+            transfers: 0,
+            sessions: 0,
+            rawData: 0,
+          },
+        })
+      ),
+    } as unknown as ClearService;
+
     // Create handler instance
-    processHandler = new ProcessHandler(mockProcessService);
+    processHandler = new ProcessHandler(mockProcessService, undefined, mockClearService);
   });
 
   describe('Resource Management', () => {

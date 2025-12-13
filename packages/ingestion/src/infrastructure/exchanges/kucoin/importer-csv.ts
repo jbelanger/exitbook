@@ -73,7 +73,7 @@ export class KucoinCsvImporter implements IImporter {
     }
 
     try {
-      this.logger.info(`Processing CSV directory: ${params.csvDirectory}`);
+      this.logger.info(`Reading files from CSV directory: ${params.csvDirectory}`);
 
       try {
         const csvFiles = await this.collectCsvFiles(params.csvDirectory);

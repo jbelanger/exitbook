@@ -128,12 +128,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
     // Log processing summary
     const totalInputTransactions = deduplicatedData.length;
-    const successfulTransactions = universalTransactions.length;
     const failedTransactions = processingErrors.length;
-
-    this.logger.info(
-      `Processing completed for ${this.chainConfig.chainName}: ${successfulTransactions} transactions processed, ${failedTransactions} failed (${failedTransactions}/${totalInputTransactions} transactions lost)`
-    );
 
     // STRICT MODE: Fail if ANY transactions could not be processed
     // This is critical for portfolio accuracy - we cannot afford to silently drop transactions

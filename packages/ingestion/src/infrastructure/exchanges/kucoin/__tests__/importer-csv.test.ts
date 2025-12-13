@@ -1,11 +1,11 @@
 import type { Dirent } from 'node:fs';
 import fs from 'node:fs/promises';
 
-import type { CursorState, RawTransactionInput } from '@exitbook/core';
-import { err, ok, type Result } from 'neverthrow';
+import { type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import type { ImportParams } from '../../../../types/importers.js';
+import { consumeImportStream } from '../../../../__tests__/test-utils/importer-test-utils.js';
+import type { ImportBatchResult, ImportParams } from '../../../../types/importers.js';
 import { KucoinCsvImporter } from '../importer-csv.js';
 
 vi.mock('node:fs/promises');
@@ -26,40 +26,6 @@ function createMockDirent(name: string, isFile = true): Dirent {
     parentPath: '',
     path: '',
   } as unknown as Dirent;
-}
-
-/**
- * Result type for aggregated import stream
- */
-interface ImportRunResult {
-  rawTransactions: RawTransactionInput[];
-  cursorUpdates: Record<string, CursorState>;
-}
-
-/**
- * Helper to consume streaming iterator and aggregate results
- */
-async function consumeImportStream(
-  importer: KucoinCsvImporter,
-  params: ImportParams
-): Promise<Result<ImportRunResult, Error>> {
-  const allTransactions: RawTransactionInput[] = [];
-  const cursorUpdates: Record<string, CursorState> = {};
-
-  for await (const batchResult of importer.importStreaming(params)) {
-    if (batchResult.isErr()) {
-      return err(batchResult.error);
-    }
-
-    const batch = batchResult.value;
-    allTransactions.push(...batch.rawTransactions);
-    cursorUpdates[batch.operationType] = batch.cursor;
-  }
-
-  return ok({
-    rawTransactions: allTransactions,
-    cursorUpdates,
-  });
 }
 
 describe('KucoinCsvImporter - Streaming Import', () => {
@@ -422,7 +388,7 @@ describe('KucoinCsvImporter - Error Handling', () => {
       csvDirectory: undefined,
     };
 
-    const batches: Result<unknown, Error>[] = [];
+    const batches: Result<ImportBatchResult, Error>[] = [];
     for await (const batch of importer.importStreaming(params)) {
       batches.push(batch);
     }

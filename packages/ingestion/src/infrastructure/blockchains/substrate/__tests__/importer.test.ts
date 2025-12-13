@@ -4,51 +4,17 @@
  */
 
 import {
-  type SubstrateChainConfig,
   type BlockchainProviderManager,
   ProviderError,
+  type SubstrateChainConfig,
 } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
-import type { CursorState, RawTransactionInput, PaginationCursor } from '@exitbook/core';
-import { err, errAsync, ok, okAsync, type Result } from 'neverthrow';
+import type { PaginationCursor } from '@exitbook/core';
+import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
-import type { ImportParams } from '../../../../types/importers.ts';
+import { consumeImportStream } from '../../../../__tests__/test-utils/importer-test-utils.js';
 import { SubstrateImporter } from '../importer.js';
-
-/**
- * Result type for aggregated import stream
- */
-interface ImportRunResult {
-  rawTransactions: RawTransactionInput[];
-  cursorUpdates: Record<string, CursorState>;
-}
-
-/**
- * Helper to consume streaming iterator
- */
-async function consumeImportStream(
-  importer: SubstrateImporter,
-  params: ImportParams
-): Promise<Result<ImportRunResult, Error>> {
-  const allTransactions: RawTransactionInput[] = [];
-  const cursorUpdates: Record<string, CursorState> = {};
-
-  for await (const batchResult of importer.importStreaming(params)) {
-    if (batchResult.isErr()) {
-      return err(batchResult.error);
-    }
-
-    const batch = batchResult.value;
-    allTransactions.push(...batch.rawTransactions);
-    cursorUpdates[batch.operationType] = batch.cursor;
-  }
-
-  return ok({
-    rawTransactions: allTransactions,
-    cursorUpdates,
-  });
-}
 
 const POLKADOT_CONFIG: SubstrateChainConfig = {
   chainName: 'polkadot',

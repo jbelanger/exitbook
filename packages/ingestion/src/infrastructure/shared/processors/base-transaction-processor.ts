@@ -34,7 +34,7 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
     normalizedData: unknown[],
     context?: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>> {
-    this.logger.info(`Processing ${normalizedData.length} normalized items for ${this.sourceName}`);
+    this.logger.debug(`Processing ${normalizedData.length} items for ${this.sourceName}`);
 
     const result = await this.processInternal(normalizedData, context || { primaryAddress: '', userAddresses: [] });
 
@@ -119,11 +119,6 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
     }
 
     const processedTransactions = this.applyScamDetection(valid);
-
-    this.logger.info(
-      `Processing completed for ${this.sourceName}: ${processedTransactions.length} transactions validated`
-    );
-
     return ok(processedTransactions);
   }
 

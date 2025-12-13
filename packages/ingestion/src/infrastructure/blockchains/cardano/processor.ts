@@ -34,8 +34,6 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
     normalizedData: unknown[],
     context: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>> {
-    this.logger.info(`Processing ${normalizedData.length} normalized Cardano transactions`);
-
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txHash: string }[] = [];
 
@@ -150,12 +148,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
 
     // Log processing summary
     const totalInputTransactions = normalizedData.length;
-    const successfulTransactions = transactions.length;
     const failedTransactions = processingErrors.length;
-
-    this.logger.info(
-      `Processing completed for Cardano: ${successfulTransactions} transactions processed, ${failedTransactions} failed (${failedTransactions}/${totalInputTransactions} transactions lost)`
-    );
 
     // STRICT MODE: Fail if ANY transactions could not be processed
     if (processingErrors.length > 0) {

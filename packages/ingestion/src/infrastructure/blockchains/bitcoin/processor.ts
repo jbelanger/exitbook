@@ -28,8 +28,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
     normalizedData: unknown[],
     context: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>> {
-    this.logger.info(`Processing ${normalizedData.length} normalized Bitcoin transactions`);
-
     const transactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
@@ -156,12 +154,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
 
     // Log processing summary
     const totalInputTransactions = normalizedData.length;
-    const successfulTransactions = transactions.length;
     const failedTransactions = processingErrors.length;
-
-    this.logger.info(
-      `Processing completed for Bitcoin: ${successfulTransactions} transactions processed, ${failedTransactions} failed (${failedTransactions}/${totalInputTransactions} transactions lost)`
-    );
 
     // STRICT MODE: Fail if ANY transactions could not be processed
     // This is critical for portfolio accuracy - we cannot afford to silently drop transactions

@@ -298,7 +298,7 @@ export class LotTransferRepository extends BaseRepository {
       const result = await this.db.deleteFrom('lot_transfers').executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.info({ count }, 'Deleted all lot transfers');
+      this.logger.debug({ count }, 'Deleted all lot transfers');
       return ok(count);
     } catch (error) {
       this.logger.error({ error }, 'Failed to delete all lot transfers');

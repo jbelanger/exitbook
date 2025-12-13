@@ -118,6 +118,8 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
   const output = new OutputManager(options.json ? 'json' : 'text');
   const spinner = output.spinner();
 
+  output.intro('ExitBook | Import raw transactions');
+
   try {
     const params = await resolveCommandParams({
       buildFromFlags: () => unwrapResult(buildImportParams(options)),

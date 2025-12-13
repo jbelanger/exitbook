@@ -30,8 +30,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     normalizedData: unknown[],
     context: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>> {
-    this.logger.info(`Processing ${normalizedData.length} normalized ${this.chainConfig.chainName} transactions`);
-
     // Enrich token metadata before processing (required for proper decimal normalization)
     const enrichResult = await this.enrichTokenMetadata(normalizedData as EvmTransaction[]);
     if (enrichResult.isErr()) {
@@ -143,14 +141,8 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     }
 
     // Log processing summary
-    const totalInputTransactions = normalizedData.length;
-    const successfulGroups = transactions.length;
     const failedGroups = processingErrors.length;
     const lostTransactionCount = processingErrors.reduce((sum, e) => sum + e.txCount, 0);
-
-    this.logger.info(
-      `Processing completed for ${this.chainConfig.chainName}: ${successfulGroups} groups processed, ${failedGroups} groups failed (${lostTransactionCount}/${totalInputTransactions} transactions lost)`
-    );
 
     // STRICT MODE: Fail if ANY transaction groups could not be processed
     // This is critical for portfolio accuracy - we cannot afford to silently drop transactions

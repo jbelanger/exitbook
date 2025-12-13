@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { Account, ExchangeCredentials, ImportSession } from '@exitbook/core';
 import type { AccountRepository, IImportSessionRepository, IRawDataRepository, UserRepository } from '@exitbook/data';
@@ -159,6 +161,9 @@ export class ImportOrchestrator {
       return err(new Error('CSV directory is required for CSV imports'));
     }
 
+    // Normalize path for consistent comparison and storage (remove trailing slashes, normalize separators)
+    const normalizedPath = path.normalize(csvDirectory).replace(/[/\\]+$/, '');
+
     // 1. Ensure default CLI user exists (id=1)
     const userResult = await this.userRepository.ensureDefaultUser();
     if (userResult.isErr()) {
@@ -182,7 +187,9 @@ export class ImportOrchestrator {
     // If an account exists with a different directory, reject
     if (existingAccounts.length > 0) {
       const existingAccount = existingAccounts[0]!;
-      if (existingAccount.identifier !== csvDirectory) {
+      const normalizedExistingPath = path.normalize(existingAccount.identifier).replace(/[/\\]+$/, '');
+
+      if (normalizedExistingPath !== normalizedPath) {
         return err(
           new Error(
             `An account already exists for ${exchange} using directory '${existingAccount.identifier}'. ` +
@@ -195,12 +202,12 @@ export class ImportOrchestrator {
       return this.importService.importFromSource(existingAccount);
     }
 
-    // 3. Create new account
+    // 3. Create new account (use normalized path for consistency)
     const accountResult = await this.accountRepository.findOrCreate({
       userId: user.id,
       accountType: 'exchange-csv',
       sourceName: exchange,
-      identifier: csvDirectory,
+      identifier: normalizedPath,
       providerName: undefined,
       credentials: undefined,
     });

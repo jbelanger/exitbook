@@ -46,7 +46,7 @@ export class TransactionImportService {
     const sourceName = account.sourceName;
     const sourceType = account.accountType;
 
-    this.logger.info(`Setting up ${sourceType} import for ${sourceName}`);
+    this.logger.debug(`Setting up ${sourceType} import for ${sourceName}`);
 
     // Extract params directly from account - no normalization needed
     const params: ImportParams = {
@@ -88,7 +88,7 @@ export class TransactionImportService {
       importer = importerResult.value;
     }
 
-    this.logger.info(`Importer for ${sourceName} created successfully`);
+    this.logger.debug(`Importer for ${sourceName} created successfully`);
 
     return ok({ importer, params });
   }

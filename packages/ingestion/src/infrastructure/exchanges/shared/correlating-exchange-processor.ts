@@ -43,8 +43,6 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
     // Cast to RawTransactionWithMetadata (contains both raw + normalized)
     const entries = normalizedData as RawTransactionWithMetadata<TRaw>[];
 
-    this.logger.info(`Processing ${entries.length} ledger entries for ${this.sourceName}`);
-
     // Group using strategy (e.g., by correlationId, timestamp, or no grouping)
     const entryGroups = this.grouping.group(entries);
 
@@ -126,14 +124,8 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
       );
     }
 
-    const totalInputEntries = normalizedData.length;
-    const successfulGroups = transactions.length;
     const failedGroups = processingErrors.length;
     const lostEntryCount = processingErrors.reduce((sum, e) => sum + e.entryCount, 0);
-
-    this.logger.info(
-      `Processing completed for ${this.sourceName}: ${successfulGroups} groups processed, ${failedGroups} groups failed (${lostEntryCount}/${totalInputEntries} entries lost)`
-    );
 
     if (processingErrors.length > 0) {
       this.logger.error(

@@ -453,7 +453,7 @@ export class TransactionLinkRepository extends BaseRepository {
       const result = await this.db.deleteFrom('transaction_links').executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.info({ count }, 'Deleted all transaction links');
+      this.logger.debug({ count }, 'Deleted all transaction links');
       return ok(count);
     } catch (error) {
       this.logger.error({ error }, 'Failed to delete all links');

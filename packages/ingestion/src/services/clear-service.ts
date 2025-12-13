@@ -76,9 +76,10 @@ export class ClearService {
         // Account-scoped deletion
         const accountIds = extractAccountIds(accountsToClear);
 
-        // Only count sessions and rawData if includeRaw is true (otherwise they won't be deleted)
+        // Only count sessions, rawData, and accounts if includeRaw is true (otherwise they won't be deleted)
         let sessionsCount = 0;
         let rawDataCount = 0;
+        let accountsCount = 0;
 
         if (params.includeRaw) {
           const sessionsResult = await this.sessionRepo.countByAccount(accountIds);
@@ -92,6 +93,8 @@ export class ClearService {
             return err(rawDataResult.error);
           }
           rawDataCount = rawDataResult.value;
+
+          accountsCount = accountsToClear.length;
         }
 
         const transactionsResult = await this.transactionRepo.countByAccountIds(accountIds);
@@ -125,7 +128,7 @@ export class ClearService {
         }
 
         return ok({
-          accounts: accountsToClear.length,
+          accounts: accountsCount,
           calculations: calculationsResult.value,
           disposals: disposalsResult.value,
           links: linksResult.value,
@@ -214,7 +217,7 @@ export class ClearService {
         return err(new Error(validation.error));
       }
 
-      logger.info(
+      logger.debug(
         { includeRaw: params.includeRaw, source: params.source, accountId: params.accountId },
         'Starting data clearing'
       );
@@ -261,7 +264,7 @@ export class ClearService {
         }
       }
 
-      logger.info({ deleted: preview.value }, 'Data clearing completed');
+      logger.debug({ deleted: preview.value }, 'Data clearing completed');
 
       return ok({ deleted: preview.value });
     } catch (error) {
@@ -331,10 +334,13 @@ export class ClearService {
       }
     }
 
-    // Delete the accounts themselves (after all data that references them)
-    const deleteAccountsResult = await this.accountRepo.deleteByIds(accountIds);
-    if (deleteAccountsResult.isErr()) {
-      return err(deleteAccountsResult.error);
+    // Only delete accounts if we're doing a full clear (includeRaw: true)
+    // When includeRaw: false, we're just resetting for reprocessing, so keep the accounts
+    if (includeRaw) {
+      const deleteAccountsResult = await this.accountRepo.deleteByIds(accountIds);
+      if (deleteAccountsResult.isErr()) {
+        return err(deleteAccountsResult.error);
+      }
     }
 
     return ok();

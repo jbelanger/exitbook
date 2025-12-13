@@ -27,8 +27,6 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
     normalizedData: unknown[],
     context: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>> {
-    this.logger.info(`Processing ${normalizedData.length} normalized NEAR transactions`);
-
     // Enrich all transactions with token metadata (required)
     const enrichResult = await this.enrichTokenMetadata(normalizedData as NearTransaction[]);
     if (enrichResult.isErr()) {
@@ -145,12 +143,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
 
     // Log processing summary
     const totalInputTransactions = normalizedData.length;
-    const successfulTransactions = transactions.length;
     const failedTransactions = processingErrors.length;
-
-    this.logger.info(
-      `Processing completed for NEAR: ${successfulTransactions} transactions processed, ${failedTransactions} failed (${failedTransactions}/${totalInputTransactions} transactions lost)`
-    );
 
     // STRICT MODE: Fail if ANY transactions could not be processed
     // This is critical for portfolio accuracy - we cannot afford to silently drop transactions

@@ -132,7 +132,7 @@ export async function clearDatabase(db: Kysely<DatabaseSchema>): Promise<void> {
 export async function closeDatabase(db: Kysely<DatabaseSchema>): Promise<void> {
   try {
     await db.destroy();
-    logger.info('Database connection closed');
+    logger.debug('Database connection closed');
   } catch (error) {
     logger.error({ error }, 'Error closing database');
     throw error;

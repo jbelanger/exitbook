@@ -864,7 +864,7 @@ export class CostBasisRepository extends BaseRepository {
       const result = await this.db.deleteFrom('lot_disposals').executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.info({ count }, 'Deleted all lot disposals');
+      this.logger.debug({ count }, 'Deleted all lot disposals');
       return ok(count);
     } catch (error) {
       this.logger.error({ error }, 'Failed to delete all lot disposals');
@@ -880,7 +880,7 @@ export class CostBasisRepository extends BaseRepository {
       const result = await this.db.deleteFrom('acquisition_lots').executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.info({ count }, 'Deleted all acquisition lots');
+      this.logger.debug({ count }, 'Deleted all acquisition lots');
       return ok(count);
     } catch (error) {
       this.logger.error({ error }, 'Failed to delete all acquisition lots');
@@ -896,7 +896,7 @@ export class CostBasisRepository extends BaseRepository {
       const result = await this.db.deleteFrom('cost_basis_calculations').executeTakeFirst();
 
       const count = Number(result.numDeletedRows ?? 0);
-      this.logger.info({ count }, 'Deleted all cost basis calculations');
+      this.logger.debug({ count }, 'Deleted all cost basis calculations');
       return ok(count);
     } catch (error) {
       this.logger.error({ error }, 'Failed to delete all cost basis calculations');
