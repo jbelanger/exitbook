@@ -5,11 +5,15 @@
 
 import { type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
-import type { PaginationCursor } from '@exitbook/core';
 import { errAsync, okAsync } from 'neverthrow';
-import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { consumeImportStream } from '../../../../__tests__/test-utils/importer-test-utils.js';
+import {
+  assertOk,
+  consumeImportStream,
+  createMockProviderManager,
+  type ProviderManagerMock,
+} from '../../../../__tests__/test-utils/importer-test-utils.js';
 import { SolanaTransactionImporter } from '../importer.js';
 
 const mockSolTx = {
@@ -29,10 +33,6 @@ const mockTokenTx = {
   tokenMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
   amount: '1000000', // 1 USDC (6 decimals)
 };
-
-type ProviderManagerMock = Mocked<
-  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'executeWithFailover' | 'getProviders'>
->;
 
 describe('SolanaTransactionImporter', () => {
   let mockProviderManager: ProviderManagerMock;
@@ -56,33 +56,7 @@ describe('SolanaTransactionImporter', () => {
   };
 
   beforeEach(() => {
-    mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-      executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
-      getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
-    } as unknown as ProviderManagerMock;
-
-    mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
-    mockProviderManager.getProviders.mockReturnValue([
-      {
-        name: 'mock-provider',
-        blockchain: 'solana',
-        benchmarkRateLimit: vi.fn().mockResolvedValue({
-          maxSafeRate: 1,
-          recommended: { maxRequestsPerSecond: 1 },
-          testResults: [],
-        }),
-        capabilities: { supportedOperations: [] },
-        execute: vi.fn(),
-        isHealthy: vi.fn().mockResolvedValue(true),
-        rateLimit: { requestsPerSecond: 1 },
-        executeStreaming: vi.fn(async function* () {
-          yield errAsync(new Error('Streaming not implemented in mock'));
-        }),
-        extractCursors: vi.fn((_transaction: unknown): PaginationCursor[] => []),
-        applyReplayWindow: vi.fn((cursor: PaginationCursor): PaginationCursor => cursor),
-      },
-    ]);
+    mockProviderManager = createMockProviderManager('solana');
   });
 
   const createImporter = (options?: { preferredProvider?: string | undefined }): SolanaTransactionImporter =>
@@ -136,28 +110,26 @@ describe('SolanaTransactionImporter', () => {
         address,
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.rawTransactions).toHaveLength(2);
+      const value = assertOk(result);
+      expect(value.rawTransactions).toHaveLength(2);
 
-        // Verify SOL transaction
-        expect(result.value.rawTransactions[0]).toMatchObject({
-          providerName: 'helius',
-          sourceAddress: address,
-          normalizedData: mockNormalizedSol,
-          providerData: mockSolTx,
-        });
-        expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+      // Verify SOL transaction
+      expect(value.rawTransactions[0]).toMatchObject({
+        providerName: 'helius',
+        sourceAddress: address,
+        normalizedData: mockNormalizedSol,
+        providerData: mockSolTx,
+      });
+      expect(value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
 
-        // Verify token transaction
-        expect(result.value.rawTransactions[1]).toMatchObject({
-          providerName: 'helius',
-          sourceAddress: address,
-          normalizedData: mockNormalizedToken,
-          providerData: mockTokenTx,
-        });
-        expect(result.value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
-      }
+      // Verify token transaction
+      expect(value.rawTransactions[1]).toMatchObject({
+        providerName: 'helius',
+        sourceAddress: address,
+        normalizedData: mockNormalizedToken,
+        providerData: mockTokenTx,
+      });
+      expect(value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
 
       // Verify API call was made
       expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(1);
@@ -183,10 +155,8 @@ describe('SolanaTransactionImporter', () => {
         address,
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.rawTransactions).toHaveLength(0);
-      }
+      const value = assertOk(result);
+      expect(value.rawTransactions).toHaveLength(0);
     });
 
     test('should handle array of transactions from provider', async () => {
@@ -211,13 +181,11 @@ describe('SolanaTransactionImporter', () => {
         address,
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.rawTransactions).toHaveLength(3);
-        expect(result.value.rawTransactions[0]!.providerData).toEqual(mockSolTx);
-        expect(result.value.rawTransactions[1]!.providerData).toEqual({ ...mockSolTx, signature: 'sig789' });
-        expect(result.value.rawTransactions[2]!.providerData).toEqual({ ...mockSolTx, signature: 'sig012' });
-      }
+      const value = assertOk(result);
+      expect(value.rawTransactions).toHaveLength(3);
+      expect(value.rawTransactions[0]!.providerData).toEqual(mockSolTx);
+      expect(value.rawTransactions[1]!.providerData).toEqual({ ...mockSolTx, signature: 'sig789' });
+      expect(value.rawTransactions[2]!.providerData).toEqual({ ...mockSolTx, signature: 'sig012' });
     });
   });
 

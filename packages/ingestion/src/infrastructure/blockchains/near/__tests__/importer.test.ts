@@ -4,12 +4,17 @@
  */
 import { type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
-import type { PaginationCursor } from '@exitbook/core';
 import { errAsync, okAsync } from 'neverthrow';
-import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { consumeImportStream } from '../../../../__tests__/test-utils/importer-test-utils.js';
+import {
+  assertOk,
+  consumeImportStream,
+  createMockProviderManager,
+  type ProviderManagerMock,
+} from '../../../../__tests__/test-utils/importer-test-utils.js';
 import { NearTransactionImporter } from '../importer.js';
+
 const mockNearTx = {
   id: 'AbCdEf123456',
   from: 'alice.near',
@@ -21,6 +26,7 @@ const mockNearTx = {
   feeAmount: '0.005',
   feeCurrency: 'NEAR',
 };
+
 const mockNearFunctionCallTx = {
   id: 'FunctionCallTx456',
   from: 'alice.near',
@@ -40,11 +46,10 @@ const mockNearFunctionCallTx = {
     },
   ],
 };
-type ProviderManagerMock = Mocked<
-  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'executeWithFailover' | 'getProviders'>
->;
+
 describe('NearTransactionImporter', () => {
   let mockProviderManager: ProviderManagerMock;
+
   /**
    * Helper to setup default mocks for both normal and token transaction calls
    */
@@ -75,33 +80,10 @@ describe('NearTransactionImporter', () => {
         });
       });
   };
+
   beforeEach(() => {
-    mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-      executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
-      getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
-    } as unknown as ProviderManagerMock;
-    mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
-    mockProviderManager.getProviders.mockReturnValue([
-      {
-        name: 'mock-provider',
-        blockchain: 'near',
-        benchmarkRateLimit: vi.fn().mockResolvedValue({
-          maxSafeRate: 1,
-          recommended: { maxRequestsPerSecond: 1 },
-          testResults: [],
-        }),
-        capabilities: { supportedOperations: [] },
-        execute: vi.fn(),
-        isHealthy: vi.fn().mockResolvedValue(true),
-        rateLimit: { requestsPerSecond: 1 },
-        executeStreaming: vi.fn(async function* () {
-          yield errAsync(new Error('Streaming not implemented in mock'));
-        }),
-        extractCursors: vi.fn((_transaction: unknown): PaginationCursor[] => []),
-        applyReplayWindow: vi.fn((cursor: PaginationCursor): PaginationCursor => cursor),
-      },
-    ]);
+    mockProviderManager = createMockProviderManager('near');
+
     // Default mock: return empty arrays for both calls (tests can override as needed)
     mockProviderManager.executeWithFailover.mockImplementation(async function* () {
       yield okAsync({
@@ -176,33 +158,33 @@ describe('NearTransactionImporter', () => {
           },
         });
       });
+
       const result = await consumeImportStream(importer, {
         sourceName: 'near',
         sourceType: 'blockchain' as const,
         address,
       });
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.rawTransactions).toHaveLength(2);
-        // Verify transfer transaction
-        expect(result.value.rawTransactions[0]).toMatchObject({
-          providerName: 'nearblocks',
-          sourceAddress: address,
-          normalizedData: mockNormalizedTransfer,
-          providerData: { transaction_hash: 'AbCdEf123456' },
-          transactionTypeHint: 'normal',
-        });
-        expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
-        // Verify function call transaction
-        expect(result.value.rawTransactions[1]).toMatchObject({
-          providerName: 'nearblocks',
-          sourceAddress: address,
-          normalizedData: mockNormalizedFunctionCall,
-          providerData: { transaction_hash: 'FunctionCallTx456' },
-          transactionTypeHint: 'normal',
-        });
-        expect(result.value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
-      }
+
+      const value = assertOk(result);
+      expect(value.rawTransactions).toHaveLength(2);
+      // Verify transfer transaction
+      expect(value.rawTransactions[0]).toMatchObject({
+        providerName: 'nearblocks',
+        sourceAddress: address,
+        normalizedData: mockNormalizedTransfer,
+        providerData: { transaction_hash: 'AbCdEf123456' },
+        transactionTypeHint: 'normal',
+      });
+      expect(value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+      // Verify function call transaction
+      expect(value.rawTransactions[1]).toMatchObject({
+        providerName: 'nearblocks',
+        sourceAddress: address,
+        normalizedData: mockNormalizedFunctionCall,
+        providerData: { transaction_hash: 'FunctionCallTx456' },
+        transactionTypeHint: 'normal',
+      });
+      expect(value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
       // Verify API calls were made (normal + token)
       expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(2);
       const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
@@ -225,10 +207,8 @@ describe('NearTransactionImporter', () => {
         sourceType: 'blockchain' as const,
         address,
       });
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.rawTransactions).toHaveLength(0);
-      }
+      const value = assertOk(result);
+      expect(value.rawTransactions).toHaveLength(0);
     });
     test('should handle array of transactions from provider', async () => {
       const importer = createImporter();
@@ -258,13 +238,11 @@ describe('NearTransactionImporter', () => {
         sourceType: 'blockchain' as const,
         address,
       });
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.rawTransactions).toHaveLength(3);
-        expect(result.value.rawTransactions[0]!.providerData).toEqual({ transaction_hash: 'AbCdEf123456' });
-        expect(result.value.rawTransactions[1]!.providerData).toEqual({ transaction_hash: 'Tx789' });
-        expect(result.value.rawTransactions[2]!.providerData).toEqual({ transaction_hash: 'Tx012' });
-      }
+      const value = assertOk(result);
+      expect(value.rawTransactions).toHaveLength(3);
+      expect(value.rawTransactions[0]!.providerData).toEqual({ transaction_hash: 'AbCdEf123456' });
+      expect(value.rawTransactions[1]!.providerData).toEqual({ transaction_hash: 'Tx789' });
+      expect(value.rawTransactions[2]!.providerData).toEqual({ transaction_hash: 'Tx012' });
     });
     test('should handle implicit account addresses', async () => {
       const importer = createImporter();
@@ -287,11 +265,9 @@ describe('NearTransactionImporter', () => {
         sourceType: 'blockchain' as const,
         address: implicitAddress,
       });
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.rawTransactions).toHaveLength(1);
-        expect(result.value.rawTransactions[0]?.sourceAddress).toBe(implicitAddress);
-      }
+      const value = assertOk(result);
+      expect(value.rawTransactions).toHaveLength(1);
+      expect(value.rawTransactions[0]?.sourceAddress).toBe(implicitAddress);
     });
     test('should handle sub-account addresses', async () => {
       const importer = createImporter();
@@ -314,11 +290,9 @@ describe('NearTransactionImporter', () => {
         sourceType: 'blockchain' as const,
         address: subAccount,
       });
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.rawTransactions).toHaveLength(1);
-        expect(result.value.rawTransactions[0]?.sourceAddress).toBe(subAccount);
-      }
+      const value = assertOk(result);
+      expect(value.rawTransactions).toHaveLength(1);
+      expect(value.rawTransactions[0]?.sourceAddress).toBe(subAccount);
     });
   });
   describe('Import - Error Cases', () => {
@@ -491,21 +465,21 @@ describe('NearTransactionImporter', () => {
           },
         });
       });
+
       const result = await consumeImportStream(importer, {
         sourceName: 'near',
         sourceType: 'blockchain' as const,
         address,
       });
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const id1 = result.value.rawTransactions[0]?.externalId;
-        const id2 = result.value.rawTransactions[1]?.externalId;
-        expect(id1).toBeDefined();
-        expect(id2).toBeDefined();
-        expect(id1).not.toBe(id2); // Should be unique
-        expect(id1).toMatch(/^[a-f0-9]{64}$/);
-        expect(id2).toMatch(/^[a-f0-9]{64}$/);
-      }
+      const value = assertOk(result);
+
+      const id1 = value.rawTransactions[0]?.externalId;
+      const id2 = value.rawTransactions[1]?.externalId;
+      expect(id1).toBeDefined();
+      expect(id2).toBeDefined();
+      expect(id1).not.toBe(id2); // Should be unique
+      expect(id1).toMatch(/^[a-f0-9]{64}$/);
+      expect(id2).toMatch(/^[a-f0-9]{64}$/);
     });
     test('should generate consistent IDs for same transaction', async () => {
       const importer = createImporter();
@@ -532,13 +506,12 @@ describe('NearTransactionImporter', () => {
         sourceType: 'blockchain' as const,
         address,
       });
-      expect(result1.isOk()).toBe(true);
-      expect(result2.isOk()).toBe(true);
-      if (result1.isOk() && result2.isOk()) {
-        const id1 = result1.value.rawTransactions[0]?.externalId;
-        const id2 = result2.value.rawTransactions[0]?.externalId;
-        expect(id1).toBe(id2); // Should be consistent
-      }
+      const value1 = assertOk(result1);
+      const value2 = assertOk(result2);
+
+      const id1 = value1.rawTransactions[0]?.externalId;
+      const id2 = value2.rawTransactions[0]?.externalId;
+      expect(id1).toBe(id2); // Should be consistent
     });
   });
 });

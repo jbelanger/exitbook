@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import { type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { consumeImportStream } from '../../../../__tests__/test-utils/importer-test-utils.js';
+import { assertOk, consumeImportStream } from '../../../../__tests__/test-utils/importer-test-utils.js';
 import type { ImportBatchResult, ImportParams } from '../../../../types/importers.js';
 import { KucoinCsvImporter } from '../importer-csv.js';
 
@@ -59,11 +59,9 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
     const result = await consumeImportStream(importer, params);
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-
-    expect(result.value.rawTransactions).toHaveLength(1);
-    expect(Object.keys(result.value.cursorUpdates)).toHaveLength(1);
+    const value = assertOk(result);
+    expect(value.rawTransactions).toHaveLength(1);
+    expect(Object.keys(value.cursorUpdates)).toHaveLength(1);
   });
 
   test('sets cursor metadata with file information', async () => {
@@ -84,10 +82,9 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
     const result = await consumeImportStream(importer, params);
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    const value = assertOk(result);
 
-    const cursorState = Object.values(result.value.cursorUpdates)[0];
+    const cursorState = Object.values(value.cursorUpdates)[0];
     expect(cursorState).toBeDefined();
     expect(cursorState?.metadata).toBeDefined();
     expect(cursorState?.metadata?.providerName).toBe('kucoin');
@@ -114,11 +111,9 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
     const result = await consumeImportStream(importer, params);
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-
-    expect(result.value.rawTransactions).toHaveLength(1);
-    const transaction = result.value.rawTransactions[0];
+    const value = assertOk(result);
+    expect(value.rawTransactions).toHaveLength(1);
+    const transaction = value.rawTransactions[0];
 
     // Verify transaction has standard fields but not legacy metadata
     expect('importMethod' in (transaction ?? {})).toBe(false);
@@ -160,11 +155,10 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
     const result = await consumeImportStream(importer, params);
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    const value = assertOk(result);
 
     // Should skip the completed file
-    expect(result.value.rawTransactions).toHaveLength(0);
+    expect(value.rawTransactions).toHaveLength(0);
     expect(mockReadFile).not.toHaveBeenCalled();
   });
 
@@ -192,13 +186,12 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
 
     const result = await consumeImportStream(importer, params);
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    const value = assertOk(result);
 
     // Should have transactions from both files
-    expect(result.value.rawTransactions.length).toBeGreaterThan(1);
+    expect(value.rawTransactions.length).toBeGreaterThan(1);
     // Should have cursor updates for both files
-    expect(Object.keys(result.value.cursorUpdates).length).toBeGreaterThan(1);
+    expect(Object.keys(value.cursorUpdates).length).toBeGreaterThan(1);
   });
 });
 
@@ -231,10 +224,9 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
       csvDirectory: '/test/csv',
     });
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    const value = assertOk(result);
 
-    const transaction = result.value.rawTransactions[0];
+    const transaction = value.rawTransactions[0];
     expect(transaction?.transactionTypeHint).toBe('spot_order');
     expect(transaction?.providerName).toBe('kucoin');
   });
@@ -253,10 +245,9 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
       csvDirectory: '/test/csv',
     });
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    const value = assertOk(result);
 
-    const transaction = result.value.rawTransactions[0];
+    const transaction = value.rawTransactions[0];
     expect(transaction?.transactionTypeHint).toBe('deposit');
     expect(transaction?.providerName).toBe('kucoin');
   });
@@ -277,10 +268,9 @@ user123,mainAccount,2024-01-02 10:00:00,BTC,0.5,0.0005,hash456,bc1q...,Bitcoin,s
       csvDirectory: '/test/csv',
     });
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    const value = assertOk(result);
 
-    const transaction = result.value.rawTransactions[0];
+    const transaction = value.rawTransactions[0];
     expect(transaction?.transactionTypeHint).toBe('withdrawal');
     expect(transaction?.providerName).toBe('kucoin');
   });
@@ -315,11 +305,9 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
       csvDirectory: '/test/csv',
     });
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-
-    expect(result.value.rawTransactions).toHaveLength(1);
-    const rawData = result.value.rawTransactions[0]?.providerData as Record<string, unknown> | undefined;
+    const value = assertOk(result);
+    expect(value.rawTransactions).toHaveLength(1);
+    const rawData = value.rawTransactions[0]?.providerData as Record<string, unknown> | undefined;
     expect(rawData?._rowType).toBe('spot_order');
   });
 
@@ -337,10 +325,8 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
       csvDirectory: '/test/csv',
     });
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-
-    const rawData = result.value.rawTransactions[0]?.providerData as Record<string, unknown> | undefined;
+    const value = assertOk(result);
+    const rawData = value.rawTransactions[0]?.providerData as Record<string, unknown> | undefined;
     expect(rawData?._rowType).toBe('deposit');
   });
 
@@ -360,10 +346,8 @@ user123,mainAccount,2024-01-02 10:00:00,BTC,0.5,0.0005,hash456,bc1q...,Bitcoin,s
       csvDirectory: '/test/csv',
     });
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-
-    const rawData = result.value.rawTransactions[0]?.providerData as Record<string, unknown> | undefined;
+    const value = assertOk(result);
+    const rawData = value.rawTransactions[0]?.providerData as Record<string, unknown> | undefined;
     expect(rawData?._rowType).toBe('withdrawal');
   });
 });
@@ -432,10 +416,9 @@ describe('KucoinCsvImporter - Error Handling', () => {
     const result = await consumeImportStream(importer, params);
 
     // When a file can't be read, it's logged and skipped, not returned as an error
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    const value = assertOk(result);
 
     // No transactions should be imported from the unreadable file
-    expect(result.value.rawTransactions).toHaveLength(0);
+    expect(value.rawTransactions).toHaveLength(0);
   });
 });

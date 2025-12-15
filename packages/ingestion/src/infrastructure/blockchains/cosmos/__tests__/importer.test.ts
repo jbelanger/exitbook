@@ -6,11 +6,15 @@
 import type { CosmosTransaction } from '@exitbook/blockchain-providers';
 import { type BlockchainProviderManager, type CosmosChainConfig, ProviderError } from '@exitbook/blockchain-providers';
 import { assertOperationType } from '@exitbook/blockchain-providers/blockchain/__tests__/test-utils.js';
-import type { PaginationCursor } from '@exitbook/core';
 import { errAsync, okAsync } from 'neverthrow';
-import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { consumeImportStream } from '../../../../__tests__/test-utils/importer-test-utils.js';
+import {
+  assertOk,
+  consumeImportStream,
+  createMockProviderManager,
+  type ProviderManagerMock,
+} from '../../../../__tests__/test-utils/importer-test-utils.js';
 import { CosmosImporter } from '../importer.js';
 
 const INJECTIVE_CONFIG: CosmosChainConfig = {
@@ -63,10 +67,6 @@ const mockIbcTransaction = {
   providerName: 'cosmos',
 };
 
-type ProviderManagerMock = Mocked<
-  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'executeWithFailover' | 'getProviders'>
->;
-
 describe('CosmosImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
@@ -89,33 +89,7 @@ describe('CosmosImporter', () => {
   };
 
   beforeEach(() => {
-    mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-      executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
-      getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
-    } as unknown as ProviderManagerMock;
-
-    mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
-    mockProviderManager.getProviders.mockReturnValue([
-      {
-        benchmarkRateLimit: vi.fn().mockResolvedValue({
-          maxSafeRate: 1,
-          recommended: { maxRequestsPerSecond: 1 },
-          testResults: [],
-        }),
-        blockchain: 'injective',
-        capabilities: { supportedOperations: [] },
-        execute: vi.fn(),
-        isHealthy: vi.fn().mockResolvedValue(true),
-        name: 'mock-provider',
-        rateLimit: { requestsPerSecond: 1 },
-        executeStreaming: vi.fn(async function* () {
-          yield errAsync(new Error('Streaming not implemented in mock'));
-        }),
-        extractCursors: vi.fn((_transaction: unknown): PaginationCursor[] => []),
-        applyReplayWindow: vi.fn((cursor: PaginationCursor): PaginationCursor => cursor),
-      },
-    ]);
+    mockProviderManager = createMockProviderManager('injective');
   });
 
   const createImporter = (
@@ -178,19 +152,17 @@ describe('CosmosImporter', () => {
         address,
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.rawTransactions).toHaveLength(1);
+      const value = assertOk(result);
+      expect(value.rawTransactions).toHaveLength(1);
 
-        // Verify transaction metadata and data structure
-        expect(result.value.rawTransactions[0]).toMatchObject({
-          providerName: 'injective-explorer',
-          sourceAddress: address,
-          normalizedData: mockCosmosTransaction,
-          providerData: { block_timestamp: mockCosmosTransaction.timestamp, id: mockCosmosTransaction.id },
-        });
-        expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
-      }
+      // Verify transaction metadata and data structure
+      expect(value.rawTransactions[0]).toMatchObject({
+        providerName: 'injective-explorer',
+        sourceAddress: address,
+        normalizedData: mockCosmosTransaction,
+        providerData: { block_timestamp: mockCosmosTransaction.timestamp, id: mockCosmosTransaction.id },
+      });
+      expect(value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
 
       // Verify API call was made
       expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(1);
@@ -224,11 +196,9 @@ describe('CosmosImporter', () => {
         address,
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.rawTransactions).toHaveLength(1);
-        expect(result.value.rawTransactions[0]!.normalizedData).toEqual(mockIbcTransaction);
-      }
+      const value = assertOk(result);
+      expect(value.rawTransactions).toHaveLength(1);
+      expect(value.rawTransactions[0]!.normalizedData).toEqual(mockIbcTransaction);
     });
 
     test('should handle multiple transactions', async () => {
@@ -259,13 +229,11 @@ describe('CosmosImporter', () => {
         address,
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.rawTransactions).toHaveLength(3);
-        expect(result.value.rawTransactions[0]!.normalizedData).toEqual(mockCosmosTransaction);
-        expect(result.value.rawTransactions[1]!.normalizedData).toEqual(tx2Normalized);
-        expect(result.value.rawTransactions[2]!.normalizedData).toEqual(mockIbcTransaction);
-      }
+      const value = assertOk(result);
+      expect(value.rawTransactions).toHaveLength(3);
+      expect(value.rawTransactions[0]!.normalizedData).toEqual(mockCosmosTransaction);
+      expect(value.rawTransactions[1]!.normalizedData).toEqual(tx2Normalized);
+      expect(value.rawTransactions[2]!.normalizedData).toEqual(mockIbcTransaction);
     });
 
     test('should handle empty transaction list', async () => {
@@ -280,10 +248,8 @@ describe('CosmosImporter', () => {
         address,
       });
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.rawTransactions).toHaveLength(0);
-      }
+      const value = assertOk(result);
+      expect(value.rawTransactions).toHaveLength(0);
     });
   });
 
