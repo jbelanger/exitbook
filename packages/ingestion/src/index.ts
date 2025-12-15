@@ -1,6 +1,6 @@
-// Initialize blockchain and exchange configs by importing the registries
-import './sources/blockchains';
-import './sources/exchanges';
+// Export registration functions for explicit initialization
+export { registerAllBlockchains } from './sources/blockchains/index.ts';
+export { registerAllExchanges } from './sources/exchanges/index.ts';
 
 export { ImportOrchestrator } from './core/import/import-orchestrator.ts';
 // TransactionImportService is internal - used only by ImportOrchestrator
@@ -48,6 +48,7 @@ export {
   getBlockchainAdapter,
   getAllBlockchains,
   hasBlockchainAdapter as hasBlockchainConfig,
+  clearBlockchainAdapters,
   type BlockchainAdapter as BlockchainConfig,
 } from './core/types/blockchain-adapter.js';
 
@@ -56,5 +57,6 @@ export {
   getExchangeAdapter,
   getAllExchanges,
   hasExchangeAdapter,
+  clearExchangeAdapters,
   type ExchangeAdapter,
 } from './core/types/exchange-adapter.js';

@@ -2,6 +2,7 @@
 import 'reflect-metadata';
 import { initializeProviders } from '@exitbook/blockchain-providers';
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
+import { registerAllBlockchains, registerAllExchanges } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { Command } from 'commander';
 
@@ -21,6 +22,10 @@ import { registerTransactionsCommand } from './features/transactions/transaction
 
 // Initialize all providers at startup
 initializeProviders();
+
+// Initialize blockchain and exchange adapters
+registerAllBlockchains();
+registerAllExchanges();
 
 const logger = getLogger('CLI');
 const program = new Command();

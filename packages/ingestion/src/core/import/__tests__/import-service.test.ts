@@ -74,7 +74,7 @@ const mockImportFn = vi.fn().mockResolvedValue(
 );
 
 // Mock blockchain adapter registry
-vi.mock('../types/blockchain-adapter.js', () => ({
+vi.mock('../../types/blockchain-adapter.js', () => ({
   getBlockchainAdapter: (id: string) => {
     if (id === 'bitcoin' || id === 'ethereum') {
       return {

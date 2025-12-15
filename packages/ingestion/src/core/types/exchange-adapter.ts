@@ -24,3 +24,11 @@ export function getAllExchanges(): string[] {
 export function hasExchangeAdapter(exchange: string): boolean {
   return adapters.has(exchange);
 }
+
+/**
+ * Clear all registered exchange adapters.
+ * Used for testing to avoid state leaking between test suites.
+ */
+export function clearExchangeAdapters(): void {
+  adapters.clear();
+}

@@ -43,7 +43,7 @@ const mockDeriveAddresses = vi.fn();
 const mockImportStreamingFn = vi.fn();
 
 // Mock blockchain configs
-vi.mock('../index.js', () => ({
+vi.mock('../../types/blockchain-adapter.js', () => ({
   getBlockchainAdapter: (id: string) => {
     if (id === 'bitcoin') {
       return {

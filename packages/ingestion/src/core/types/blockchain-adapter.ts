@@ -59,3 +59,11 @@ export function getAllBlockchains(): string[] {
 export function hasBlockchainAdapter(blockchain: string): boolean {
   return adapters.has(blockchain);
 }
+
+/**
+ * Clear all registered blockchain adapters.
+ * Used for testing to avoid state leaking between test suites.
+ */
+export function clearBlockchainAdapters(): void {
+  adapters.clear();
+}

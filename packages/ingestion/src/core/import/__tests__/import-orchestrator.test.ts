@@ -45,7 +45,7 @@ vi.mock('../import-service.js', () => ({
 
 // Mock blockchain configs
 const mockDeriveAddresses = vi.fn();
-vi.mock('../../sources/blockchains/index.js', () => ({
+vi.mock('../../types/blockchain-adapter.js', () => ({
   getBlockchainAdapter: (id: string) => {
     if (id === 'bitcoin') {
       return {
@@ -370,9 +370,9 @@ describe('ImportOrchestrator', () => {
         .mockResolvedValueOnce(ok(childAccount2));
 
       // Mock import service to fail on first child, succeed on second
-      const mockImportService = (
-        orchestrator as unknown as { importService: { importFromSource: ReturnType<typeof vi.fn> } }
-      ).importService;
+      const mockImportExecutor = (
+        orchestrator as unknown as { importExecutor: { importFromSource: ReturnType<typeof vi.fn> } }
+      ).importExecutor;
 
       const successSession: ImportSession = {
         id: 2,
@@ -385,7 +385,7 @@ describe('ImportOrchestrator', () => {
         createdAt: new Date(),
       };
 
-      vi.mocked(mockImportService.importFromSource)
+      vi.mocked(mockImportExecutor.importFromSource)
         .mockResolvedValueOnce(err(new Error('Network timeout')))
         .mockResolvedValueOnce(ok(successSession));
 
@@ -428,10 +428,10 @@ describe('ImportOrchestrator', () => {
         .mockResolvedValueOnce(ok(childAccount));
 
       // Mock import service to fail
-      const mockImportService = (
-        orchestrator as unknown as { importService: { importFromSource: ReturnType<typeof vi.fn> } }
-      ).importService;
-      vi.mocked(mockImportService.importFromSource).mockResolvedValue(err(new Error('Provider unavailable')));
+      const mockImportExecutor = (
+        orchestrator as unknown as { importExecutor: { importFromSource: ReturnType<typeof vi.fn> } }
+      ).importExecutor;
+      vi.mocked(mockImportExecutor.importFromSource).mockResolvedValue(err(new Error('Provider unavailable')));
 
       const result = await orchestrator.importBlockchain('bitcoin', 'xpub6C...');
 

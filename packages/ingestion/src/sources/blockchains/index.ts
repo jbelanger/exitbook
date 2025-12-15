@@ -1,8 +1,17 @@
-// Auto-register all blockchain configs by importing them
-import './bitcoin/adapter.ts';
-import './cardano/adapter.js';
-import './cosmos/adapter.js';
-import './evm/adapter.js';
-import './near/adapter.js';
-import './solana/adapter.js';
-import './substrate/adapter.js';
+import { registerBitcoinChains } from './bitcoin/register.ts';
+import { registerCardanoChain } from './cardano/register.ts';
+import { registerCosmosChains } from './cosmos/register.ts';
+import { registerEvmChains } from './evm/register.ts';
+import { registerNearChain } from './near/register.ts';
+import { registerSolanaChain } from './solana/register.ts';
+import { registerSubstrateChains } from './substrate/register.ts';
+
+export function registerAllBlockchains(): void {
+  registerEvmChains();
+  registerBitcoinChains();
+  registerCosmosChains();
+  registerSubstrateChains();
+  registerSolanaChain();
+  registerNearChain();
+  registerCardanoChain();
+}
