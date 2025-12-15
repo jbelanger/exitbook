@@ -25,7 +25,7 @@ vi.mock('@exitbook/logger', () => ({
   }),
 }));
 
-// Mock TransactionImportService
+// Mock ImportExecutor (internal service)
 const mockImportSession: ImportSession = {
   id: 1,
   accountId: 1,
@@ -38,7 +38,7 @@ const mockImportSession: ImportSession = {
 };
 
 vi.mock('../import-service.js', () => ({
-  TransactionImportService: vi.fn().mockImplementation(() => ({
+  ImportExecutor: vi.fn().mockImplementation(() => ({
     importFromSource: vi.fn().mockResolvedValue(ok(mockImportSession)),
   })),
 }));

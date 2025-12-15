@@ -10,7 +10,12 @@ import { getBlockchainAdapter } from '../../sources/blockchains/index.ts';
 import { createExchangeImporter } from '../../sources/exchanges/shared/exchange-importer-factory.ts';
 import type { IImporter, ImportParams } from '../types/importers.ts';
 
-export class TransactionImportService {
+/**
+ * Internal service that executes imports for a given account.
+ * Handles importer creation, streaming, crash recovery, and database persistence.
+ * Not exported - use ImportOrchestrator as the public API.
+ */
+export class ImportExecutor {
   private logger: Logger;
 
   constructor(
@@ -19,7 +24,7 @@ export class TransactionImportService {
     private accountRepository: AccountRepository,
     private providerManager: BlockchainProviderManager
   ) {
-    this.logger = getLogger('TransactionImportService');
+    this.logger = getLogger('ImportExecutor');
   }
 
   /**

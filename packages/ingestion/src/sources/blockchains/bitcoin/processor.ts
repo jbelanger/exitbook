@@ -2,8 +2,8 @@ import type { BitcoinChainConfig, BitcoinTransaction } from '@exitbook/blockchai
 import { parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
+import { BaseTransactionProcessor } from '../../../core/process/base-transaction-processor.ts';
 import type { ProcessedTransaction, ProcessingContext } from '../../../core/types/processors.ts';
-import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import { analyzeBitcoinFundFlow } from './processor-utils.js';
 

@@ -2,13 +2,9 @@ import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import { type Result, err, ok } from 'neverthrow';
 
-import {
-  ProcessedTransactionSchema,
-  type ITransactionProcessor,
-  type ProcessedTransaction,
-  type ProcessingContext,
-} from '../../../core/types/processors.ts';
-import { detectScamFromSymbol } from '../utils/scam-detection.js';
+import type { ITransactionProcessor, ProcessingContext, ProcessedTransaction } from '../types/processors.ts';
+import { ProcessedTransactionSchema } from '../types/processors.ts';
+import { detectScamFromSymbol } from '../utils/scam-detection.ts';
 
 /**
  * Base class providing common functionality for all processors.

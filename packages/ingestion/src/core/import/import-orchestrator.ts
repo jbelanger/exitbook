@@ -11,20 +11,21 @@ import { err, ok } from 'neverthrow';
 import type { BlockchainAdapter } from '../../sources/blockchains/index.ts';
 import { getBlockchainAdapter } from '../../sources/blockchains/index.ts';
 
-import { TransactionImportService } from './import-service.js';
+import { ImportExecutor } from './import-service.js';
 
 /**
+ * Public API for importing transactions from blockchains and exchanges.
  * Orchestrates the import process by coordinating user/account management
- * and delegating to TransactionImportService for the actual import work.
+ * and delegating to ImportExecutor for the actual import work.
  *
  * Responsibilities:
  * - Ensure default CLI user exists (id=1)
  * - Find or create account for the import
- * - Delegate to TransactionImportService
+ * - Delegate to ImportExecutor for streaming import execution
  */
 export class ImportOrchestrator {
   private logger: Logger;
-  private importService: TransactionImportService;
+  private importExecutor: ImportExecutor;
   private providerManager: BlockchainProviderManager;
 
   constructor(
@@ -36,7 +37,7 @@ export class ImportOrchestrator {
   ) {
     this.logger = getLogger('ImportOrchestrator');
     this.providerManager = providerManager;
-    this.importService = new TransactionImportService(
+    this.importExecutor = new ImportExecutor(
       rawDataRepository,
       importSessionRepository,
       accountRepository,
@@ -108,8 +109,8 @@ export class ImportOrchestrator {
 
     this.logger.info(`Using account #${account.id} (blockchain) for import`);
 
-    // 5. Delegate to import service with account
-    return this.importService.importFromSource(account);
+    // 5. Delegate to import executor with account
+    return this.importExecutor.importFromSource(account);
   }
 
   /**
@@ -146,8 +147,8 @@ export class ImportOrchestrator {
 
     this.logger.info(`Using account #${account.id} (exchange-api) for import`);
 
-    // 3. Delegate to import service with account
-    return this.importService.importFromSource(account);
+    // 3. Delegate to import executor with account
+    return this.importExecutor.importFromSource(account);
   }
 
   /**
@@ -199,7 +200,7 @@ export class ImportOrchestrator {
       }
       // Same directory - use existing account
       this.logger.info(`Found existing account #${existingAccount.id}`);
-      return this.importService.importFromSource(existingAccount);
+      return this.importExecutor.importFromSource(existingAccount);
     }
 
     // 3. Create new account (use normalized path for consistency)
@@ -219,8 +220,8 @@ export class ImportOrchestrator {
 
     this.logger.info(`Created new account #${account.id} for import`);
 
-    // 4. Delegate to import service with account
-    return this.importService.importFromSource(account);
+    // 4. Delegate to import executor with account
+    return this.importExecutor.importFromSource(account);
   }
 
   /**
@@ -362,7 +363,7 @@ export class ImportOrchestrator {
           `Importing child account #${childAccount.id} (${childAccount.identifier.substring(0, 20)}...)`
         );
 
-        const importResult = await this.importService.importFromSource(childAccount);
+        const importResult = await this.importExecutor.importFromSource(childAccount);
 
         if (importResult.isErr()) {
           const errorMsg = `Account #${childAccount.id}: ${importResult.error.message}`;

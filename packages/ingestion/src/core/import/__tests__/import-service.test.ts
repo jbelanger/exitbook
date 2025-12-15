@@ -1,5 +1,5 @@
 /**
- * Tests for TransactionImportService (imperative shell)
+ * Tests for ImportExecutor (internal import execution service)
  *
  * Tests orchestration, database interactions, and error handling
  * This service coordinates importing from exchanges and blockchains
@@ -13,7 +13,7 @@ import type { AccountRepository, IImportSessionRepository, IRawDataRepository } 
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TransactionImportService } from '../import-service.ts';
+import { ImportExecutor } from '../import-service.ts';
 
 // Helper to create mock accounts
 function createMockAccount(
@@ -118,8 +118,8 @@ vi.mock('../../sources/exchanges/shared/exchange-importer-factory.js', () => ({
   },
 }));
 
-describe('TransactionImportService', () => {
-  let service: TransactionImportService;
+describe('ImportExecutor', () => {
+  let service: ImportExecutor;
   let mockRawDataRepo: IRawDataRepository;
   let mockImportSessionRepo: IImportSessionRepository;
   let mockAccountRepo: AccountRepository;
@@ -188,12 +188,7 @@ describe('TransactionImportService', () => {
 
     mockProviderManager = {} as BlockchainProviderManager;
 
-    service = new TransactionImportService(
-      mockRawDataRepo,
-      mockImportSessionRepo,
-      mockAccountRepo,
-      mockProviderManager
-    );
+    service = new ImportExecutor(mockRawDataRepo, mockImportSessionRepo, mockAccountRepo, mockProviderManager);
   });
 
   describe('importFromSource - blockchain', () => {

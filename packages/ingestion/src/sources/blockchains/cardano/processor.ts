@@ -2,8 +2,8 @@ import type { CardanoTransaction } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
+import { BaseTransactionProcessor } from '../../../core/process/base-transaction-processor.ts';
 import type { ProcessedTransaction, ProcessingContext } from '../../../core/types/processors.ts';
-import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './processor-utils.js';
 

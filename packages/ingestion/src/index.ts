@@ -2,7 +2,7 @@
 import './sources/blockchains';
 
 export { ImportOrchestrator } from './core/import/import-orchestrator.ts';
-export { TransactionImportService } from './core/import/import-service.ts';
+// TransactionImportService is internal - used only by ImportOrchestrator
 export { TransactionProcessService } from './core/process/process-service.ts';
 export { ClearService } from './core/clear/clear-service.js';
 export type { ClearResult } from './core/clear/clear-service.js';

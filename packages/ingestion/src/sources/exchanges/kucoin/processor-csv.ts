@@ -1,8 +1,8 @@
 import { getErrorMessage } from '@exitbook/core';
 import { type Result, okAsync } from 'neverthrow';
 
+import { BaseTransactionProcessor } from '../../../core/process/base-transaction-processor.ts';
 import type { ProcessedTransaction } from '../../../core/types/processors.ts';
-import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.js';
 
 import {
   convertKucoinDepositToTransaction,
