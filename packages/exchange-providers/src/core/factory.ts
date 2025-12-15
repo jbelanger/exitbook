@@ -22,7 +22,7 @@ const exchangeFactories: Record<string, (credentials: ExchangeCredentials) => Re
   // This required complex backward pagination through each 24-hour period individually, making historical imports
   // slow, error-prone, and incomplete for accounts older than one year. In contrast, KuCoin's CSV export provides
   // complete historical data without time restrictions. Users should use the CSV import path (--csv-dir) which now
-  // supports efficient streaming for large datasets. See packages/ingestion/src/infrastructure/exchanges/kucoin/
+  // supports efficient streaming for large datasets. See packages/ingestion/src/sources/exchanges/kucoin/
   // for the CSV importer implementation.
 };
 

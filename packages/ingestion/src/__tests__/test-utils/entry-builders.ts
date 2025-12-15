@@ -6,7 +6,7 @@ import type {
 } from '@exitbook/blockchain-providers';
 import type { ExchangeLedgerEntry } from '@exitbook/exchanges-providers';
 
-import type { RawTransactionWithMetadata } from '../../infrastructure/exchanges/shared/strategies/grouping.js';
+import type { RawTransactionWithMetadata } from '../../sources/exchanges/shared/strategies/grouping.js';
 
 import { TEST_TIMESTAMPS } from './test-constants.js';
 

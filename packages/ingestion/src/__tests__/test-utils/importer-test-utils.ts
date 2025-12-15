@@ -4,7 +4,7 @@ import type { CursorState, RawTransactionInput } from '@exitbook/core';
 import { err, errAsync, ok, type Result } from 'neverthrow';
 import { expect, vi, type Mocked } from 'vitest';
 
-import type { IImporter, ImportParams } from '../../types/importers.js';
+import type { IImporter, ImportParams } from '../../core/types/importers.ts';
 
 export interface ImportRunResult {
   rawTransactions: RawTransactionInput[];

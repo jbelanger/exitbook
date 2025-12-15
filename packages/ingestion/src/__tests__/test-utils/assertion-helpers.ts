@@ -2,7 +2,7 @@ import type { UniversalTransactionData, AssetMovement, FeeMovement } from '@exit
 import type { Result } from 'neverthrow';
 import { expect } from 'vitest';
 
-import type { ProcessedTransaction } from '../../types/processors.ts';
+import type { ProcessedTransaction } from '../../core/types/processors.ts';
 
 /**
  * Unwraps an Ok Result and asserts it succeeded, throwing if it failed.

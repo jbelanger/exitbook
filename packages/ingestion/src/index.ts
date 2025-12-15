@@ -1,44 +1,44 @@
 // Initialize blockchain configs by importing the registry
-import './infrastructure/blockchains';
+import './sources/blockchains';
 
-export { ImportOrchestrator } from './services/import-orchestrator.js';
-export { TransactionImportService } from './services/import-service.js';
-export { TransactionProcessService } from './services/process-service.js';
-export { ClearService } from './services/clear-service.js';
-export type { ClearResult } from './services/clear-service.js';
-export type { ClearServiceParams, DeletionPreview } from './services/clear-service-utils.js';
-export { AccountService } from './services/account-service.js';
-export type { ViewAccountsParams } from './services/account-service.js';
+export { ImportOrchestrator } from './core/import/import-orchestrator.ts';
+export { TransactionImportService } from './core/import/import-service.ts';
+export { TransactionProcessService } from './core/process/process-service.ts';
+export { ClearService } from './core/clear/clear-service.js';
+export type { ClearResult } from './core/clear/clear-service.js';
+export type { ClearServiceParams, DeletionPreview } from './core/clear/clear-service-utils.js';
+export { AccountService } from './core/accounts/account-service.js';
+export type { ViewAccountsParams } from './core/accounts/account-service.js';
 export type {
   AccountQueryParams,
   AccountQueryResult,
   FormattedAccount,
   SessionSummary,
-} from './services/account-service-utils.js';
+} from './core/accounts/account-service-utils.js';
 
 // Token metadata services
-export { TokenMetadataService } from './services/token-metadata/token-metadata-service.js';
-export type { ITokenMetadataService } from './services/token-metadata/token-metadata-service.interface.js';
+export { TokenMetadataService } from './core/token-metadata/token-metadata-service.js';
+export type { ITokenMetadataService } from './core/token-metadata/token-metadata-service.interface.js';
 
 // Balance services
-export { BalanceService, type BalanceServiceParams } from './services/balance/balance-service.js';
-export { calculateBalances } from './services/balance/balance-calculator.js';
+export { BalanceService, type BalanceServiceParams } from './core/balance/balance-service.js';
+export { calculateBalances } from './core/balance/balance-calculator.js';
 export {
   fetchExchangeBalance,
   fetchBlockchainBalance,
   fetchChildAccountsBalance,
   convertBalancesToDecimals,
   type UnifiedBalanceSnapshot,
-} from './services/balance/balance-utils.js';
+} from './core/balance/balance-utils.js';
 export {
   compareBalances,
   createVerificationResult,
   generateVerificationReport,
-} from './services/balance/balance-verifier.js';
-export type { BalanceComparison, BalanceVerificationResult } from './services/balance/balance-verifier.types.js';
+} from './core/balance/balance-verifier.js';
+export type { BalanceComparison, BalanceVerificationResult } from './core/balance/balance-verifier.types.js';
 
 // Types
-export type { ImportParams } from './types/importers.js';
+export type { ImportParams } from './core/types/importers.ts';
 
 // Concrete implementations
 
@@ -48,8 +48,8 @@ export {
   getAllBlockchains,
   hasBlockchainAdapter as hasBlockchainConfig,
   type BlockchainAdapter as BlockchainConfig,
-} from './infrastructure/blockchains/shared/blockchain-adapter.js';
+} from './sources/blockchains/shared/blockchain-adapter.js';
 
 // Exchange factories
-export { createExchangeImporter } from './infrastructure/exchanges/shared/exchange-importer-factory.js';
-export { createExchangeProcessor } from './infrastructure/exchanges/shared/exchange-processor-factory.js';
+export { createExchangeImporter } from './sources/exchanges/shared/exchange-importer-factory.js';
+export { createExchangeProcessor } from './sources/exchanges/shared/exchange-processor-factory.js';

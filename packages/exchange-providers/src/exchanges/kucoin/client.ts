@@ -45,7 +45,7 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
           );
           // KuCoin API import is not supported due to severe limitations (1-day query window, 365-day lookback)
           // that made reliable historical data import impossible. Only CSV import is supported.
-          // See packages/ingestion/src/infrastructure/exchanges/kucoin/ for the CSV importer implementation.
+          // See packages/ingestion/src/sources/exchanges/kucoin/ for the CSV importer implementation.
         },
 
         async fetchBalance(): Promise<Result<BalanceSnapshot, Error>> {

@@ -5,7 +5,7 @@ import type { IExchangeClient, BalanceSnapshot } from '@exitbook/exchanges-provi
 import { errAsync, ok } from 'neverthrow';
 import { vi, type Mocked } from 'vitest';
 
-import type { ITokenMetadataService } from '../../services/token-metadata/token-metadata-service.interface.js';
+import type { ITokenMetadataService } from '../../core/token-metadata/token-metadata-service.interface.js';
 
 /**
  * Creates a mock raw data repository with default implementations.
