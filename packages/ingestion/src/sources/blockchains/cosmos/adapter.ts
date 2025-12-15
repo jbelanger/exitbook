@@ -3,7 +3,7 @@ import { COSMOS_CHAINS, getCosmosChainConfig } from '@exitbook/blockchain-provid
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../core/token-metadata/token-metadata-service.interface.js';
-import { registerBlockchain } from '../shared/blockchain-adapter.ts';
+import { registerBlockchain } from '../../../core/types/blockchain-adapter.ts';
 
 import { CosmosImporter } from './importer.js';
 import { CosmosProcessor } from './processor.js';

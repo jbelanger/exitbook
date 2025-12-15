@@ -4,9 +4,9 @@ import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, Result } from 'neverthrow';
 
-import { getBlockchainAdapter } from '../../sources/blockchains/index.ts';
 import { createExchangeProcessor } from '../../sources/exchanges/shared/exchange-processor-factory.ts';
 import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.ts';
+import { getBlockchainAdapter } from '../types/blockchain-adapter.ts';
 import type { ProcessingContext, ProcessResult } from '../types/processors.ts';
 
 import { extractUniqueAccountIds } from './process-service-utils.js';

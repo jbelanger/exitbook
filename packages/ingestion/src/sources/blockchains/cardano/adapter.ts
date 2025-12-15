@@ -7,8 +7,8 @@ import {
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../core/token-metadata/token-metadata-service.interface.js';
-import type { DerivedAddress } from '../shared/blockchain-adapter.ts';
-import { registerBlockchain } from '../shared/blockchain-adapter.ts';
+import type { DerivedAddress } from '../../../core/types/blockchain-adapter.ts';
+import { registerBlockchain } from '../../../core/types/blockchain-adapter.ts';
 
 import { CardanoTransactionImporter } from './importer.js';
 import { CardanoTransactionProcessor } from './processor.js';

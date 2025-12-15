@@ -8,8 +8,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { BlockchainAdapter } from '../../sources/blockchains/index.ts';
-import { getBlockchainAdapter } from '../../sources/blockchains/index.ts';
+import { getBlockchainAdapter, type BlockchainAdapter } from '../types/blockchain-adapter.ts';
 
 import { ImportExecutor } from './import-service.js';
 

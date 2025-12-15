@@ -6,8 +6,8 @@ import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { getBlockchainAdapter } from '../../sources/blockchains/index.ts';
 import { createExchangeImporter } from '../../sources/exchanges/shared/exchange-importer-factory.ts';
+import { getBlockchainAdapter } from '../types/blockchain-adapter.ts';
 import type { IImporter, ImportParams } from '../types/importers.ts';
 
 /**

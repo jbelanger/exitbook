@@ -48,7 +48,7 @@ export {
   getAllBlockchains,
   hasBlockchainAdapter as hasBlockchainConfig,
   type BlockchainAdapter as BlockchainConfig,
-} from './sources/blockchains/shared/blockchain-adapter.js';
+} from './core/types/blockchain-adapter.js';
 
 // Exchange factories
 export { createExchangeImporter } from './sources/exchanges/shared/exchange-importer-factory.js';

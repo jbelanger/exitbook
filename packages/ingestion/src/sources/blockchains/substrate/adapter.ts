@@ -3,7 +3,7 @@ import { getSubstrateChainConfig, SUBSTRATE_CHAINS } from '@exitbook/blockchain-
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../core/token-metadata/token-metadata-service.interface.js';
-import { registerBlockchain } from '../shared/blockchain-adapter.ts';
+import { registerBlockchain } from '../../../core/types/blockchain-adapter.ts';
 
 import { SubstrateImporter } from './importer.js';
 import { SubstrateProcessor } from './processor.js';

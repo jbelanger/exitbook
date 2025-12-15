@@ -6,6 +6,3 @@ import './evm/adapter.js';
 import './near/adapter.js';
 import './solana/adapter.js';
 import './substrate/adapter.js';
-
-// Export blockchain adapter utilities
-export * from './shared/blockchain-adapter.js';
