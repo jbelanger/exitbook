@@ -1,5 +1,6 @@
-// Initialize blockchain configs by importing the registry
+// Initialize blockchain and exchange configs by importing the registries
 import './sources/blockchains';
+import './sources/exchanges';
 
 export { ImportOrchestrator } from './core/import/import-orchestrator.ts';
 // TransactionImportService is internal - used only by ImportOrchestrator
@@ -50,6 +51,10 @@ export {
   type BlockchainAdapter as BlockchainConfig,
 } from './core/types/blockchain-adapter.js';
 
-// Exchange factories
-export { createExchangeImporter } from './sources/exchanges/shared/exchange-importer-factory.js';
-export { createExchangeProcessor } from './sources/exchanges/shared/exchange-processor-factory.js';
+// Exchange configuration
+export {
+  getExchangeAdapter,
+  getAllExchanges,
+  hasExchangeAdapter,
+  type ExchangeAdapter,
+} from './core/types/exchange-adapter.js';

@@ -6,8 +6,8 @@ import { getLogger } from '@exitbook/logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { createExchangeImporter } from '../../sources/exchanges/shared/exchange-importer-factory.ts';
 import { getBlockchainAdapter } from '../types/blockchain-adapter.ts';
+import { getExchangeAdapter } from '../types/exchange-adapter.ts';
 import type { IImporter, ImportParams } from '../types/importers.ts';
 
 /**
@@ -34,7 +34,7 @@ export class ImportExecutor {
    */
   async importFromSource(account: Account): Promise<Result<ImportSession, Error>> {
     // Get importer and params based on source type
-    const setupResult = await this.setupImport(account);
+    const setupResult = this.setupImport(account);
     if (setupResult.isErr()) return err(setupResult.error);
 
     const { importer, params } = setupResult.value;
@@ -47,7 +47,7 @@ export class ImportExecutor {
    * Setup import by creating importer and extracting params from account.
    * No rebuilding or normalization needed - Account stores canonical params.
    */
-  private async setupImport(account: Account): Promise<Result<{ importer: IImporter; params: ImportParams }, Error>> {
+  private setupImport(account: Account): Result<{ importer: IImporter; params: ImportParams }, Error> {
     const sourceName = account.sourceName;
     const sourceType = account.accountType;
 
@@ -86,11 +86,12 @@ export class ImportExecutor {
       }
       importer = adapter.createImporter(this.providerManager, params.providerName);
     } else {
-      const importerResult = await createExchangeImporter(sourceName);
-      if (importerResult.isErr()) {
-        return err(importerResult.error);
+      const normalizedSourceName = sourceName.toLowerCase();
+      const adapter = getExchangeAdapter(normalizedSourceName);
+      if (!adapter) {
+        return err(new Error(`Unknown exchange: ${sourceName}`));
       }
-      importer = importerResult.value;
+      importer = adapter.createImporter();
     }
 
     this.logger.debug(`Importer for ${sourceName} created successfully`);

@@ -73,8 +73,8 @@ const mockImportFn = vi.fn().mockResolvedValue(
   })
 );
 
-// Mock blockchain config
-vi.mock('../../sources/blockchains/index.js', () => ({
+// Mock blockchain adapter registry
+vi.mock('../types/blockchain-adapter.js', () => ({
   getBlockchainAdapter: (id: string) => {
     if (id === 'bitcoin' || id === 'ethereum') {
       return {
@@ -106,15 +106,17 @@ const mockExchangeImportStreamingFn = vi.fn().mockImplementation(async function*
   });
 });
 
-// Mock exchange importer factory
-vi.mock('../../sources/exchanges/shared/exchange-importer-factory.js', () => ({
-  createExchangeImporter: async (sourceName: string) => {
-    if (sourceName === 'kraken') {
-      return okAsync({
-        importStreaming: mockExchangeImportStreamingFn,
-      });
+// Mock exchange adapter registry
+vi.mock('../../types/exchange-adapter.js', () => ({
+  getExchangeAdapter: (id: string) => {
+    if (id === 'kraken') {
+      return {
+        createImporter: () => ({
+          importStreaming: mockExchangeImportStreamingFn,
+        }),
+      };
     }
-    return err(new Error(`Unknown exchange: ${sourceName}`));
+    return;
   },
 }));
 

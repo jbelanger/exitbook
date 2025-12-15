@@ -4,9 +4,9 @@ import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, Result } from 'neverthrow';
 
-import { createExchangeProcessor } from '../../sources/exchanges/shared/exchange-processor-factory.ts';
 import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.ts';
 import { getBlockchainAdapter } from '../types/blockchain-adapter.ts';
+import { getExchangeAdapter } from '../types/exchange-adapter.ts';
 import type { ProcessingContext, ProcessResult } from '../types/processors.ts';
 
 import { extractUniqueAccountIds } from './process-service-utils.js';
@@ -186,11 +186,11 @@ export class TransactionProcessService {
         }
         processor = processorResult.value;
       } else {
-        const processorResult = await createExchangeProcessor(sourceName);
-        if (processorResult.isErr()) {
-          return err(processorResult.error);
+        const adapter = getExchangeAdapter(sourceName);
+        if (!adapter) {
+          return err(new Error(`Unknown exchange: ${sourceName}`));
         }
-        processor = processorResult.value;
+        processor = adapter.createProcessor();
       }
 
       // Process raw data into universal transactions
