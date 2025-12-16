@@ -2,7 +2,7 @@ import type { NearTransaction } from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
 import { type Result, err, ok, okAsync } from 'neverthrow';
 
-import { BaseTransactionProcessor } from '../../../features/processing/base-transaction-processor.js';
+import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import { looksLikeContractAddress, isMissingMetadata } from '../../../features/token-metadata/token-metadata-utils.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';

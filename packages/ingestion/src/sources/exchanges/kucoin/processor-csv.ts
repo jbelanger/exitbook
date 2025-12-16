@@ -1,7 +1,7 @@
 import { getErrorMessage } from '@exitbook/core';
 import { type Result, okAsync } from 'neverthrow';
 
-import { BaseTransactionProcessor } from '../../../features/processing/base-transaction-processor.js';
+import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { ProcessedTransaction } from '../../../shared/types/processors.js';
 
 import {
