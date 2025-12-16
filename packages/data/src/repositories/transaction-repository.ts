@@ -1,12 +1,6 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
 import type { AssetMovement, FeeMovement, TransactionStatus, UniversalTransactionData } from '@exitbook/core';
-import {
-  AssetMovementSchema,
-  FeeMovementSchema,
-  NoteMetadataSchema,
-  TransactionMetadataSchema,
-  wrapError,
-} from '@exitbook/core';
+import { AssetMovementSchema, FeeMovementSchema, NoteMetadataSchema, wrapError } from '@exitbook/core';
 import type { Selectable, Updateable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -88,8 +82,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         normalizedOutflows.push(result.value);
       }
 
-      const rawDataJson = this.serializeToJson(transaction) ?? '{}';
-
       // Serialize fees array
       const feesJson =
         transaction.fees && transaction.fees.length > 0 ? this.serializeToJson(transaction.fees) : undefined;
@@ -106,7 +98,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           note_severity: transaction.note?.severity,
           note_type: transaction.note?.type,
           excluded_from_accounting: transaction.excludedFromAccounting ?? transaction.note?.type === 'SCAM_TOKEN',
-          raw_normalized_data: rawDataJson,
           source_name: transaction.source,
           source_type: transaction.blockchain ? 'blockchain' : 'exchange',
           to_address: transaction.to,
@@ -426,12 +417,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     const feesResult = this.parseFees(row.fees as string | null);
     if (feesResult.isErr()) {
       return err(feesResult.error);
-    }
-
-    // Parse metadata from raw_normalized_data if present (validate with schema)
-    const metadataResult = this.parseWithSchema(row.raw_normalized_data, TransactionMetadataSchema);
-    if (metadataResult.isErr()) {
-      return err(metadataResult.error);
     }
 
     const status: TransactionStatus = row.transaction_status;

@@ -111,7 +111,6 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('note_message', 'text')
     .addColumn('note_metadata', 'text')
     .addColumn('excluded_from_accounting', 'integer', (col) => col.notNull().defaultTo(0))
-    .addColumn('raw_normalized_data', 'text', (col) => col.notNull())
     // Structured movements
     .addColumn('movements_inflows', 'text')
     .addColumn('movements_outflows', 'text')

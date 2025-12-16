@@ -73,7 +73,6 @@ describe('LotTransferRepository', () => {
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
           excluded_from_accounting: false,
-          raw_normalized_data: '{}',
           created_at: new Date().toISOString(),
         })
         .execute();

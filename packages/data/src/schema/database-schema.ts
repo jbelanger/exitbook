@@ -125,9 +125,6 @@ export interface TransactionsTable {
   // Accounting exclusions
   excluded_from_accounting: boolean; // Skip from price enrichment and cost basis (e.g., scam tokens)
 
-  // Audit trail
-  raw_normalized_data: JSONString; // Keep for debugging/audit
-
   // Structured movements
   movements_inflows: JSONString | null; // Array<{asset: string, amount: Decimal}>
   movements_outflows: JSONString | null; // Array<{asset: string, amount: Decimal}>

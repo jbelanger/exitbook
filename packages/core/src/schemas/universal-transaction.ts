@@ -166,9 +166,6 @@ export const TransactionNoteSchema = z.object({
   metadata: NoteMetadataSchema.optional(),
 });
 
-// Transaction metadata schema (for raw_normalized_data field)
-export const TransactionMetadataSchema = z.record(z.string(), z.unknown());
-
 // Universal Transaction schema (new structure)
 export const UniversalTransactionSchema = z.object({
   // Core fields

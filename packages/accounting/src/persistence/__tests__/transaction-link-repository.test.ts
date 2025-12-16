@@ -70,7 +70,6 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
           excluded_from_accounting: false,
-          raw_normalized_data: '{}',
           created_at: new Date().toISOString(),
         })
         .execute();
