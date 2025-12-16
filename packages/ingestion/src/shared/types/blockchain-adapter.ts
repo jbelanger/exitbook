@@ -1,7 +1,7 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { type Result } from 'neverthrow';
 
-import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.ts';
+import type { ITokenMetadataService } from '../../features/token-metadata/token-metadata-service.interface.ts';
 
 import type { IImporter } from './importers.ts';
 import type { ITransactionProcessor } from './processors.ts';

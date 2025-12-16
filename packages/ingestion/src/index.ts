@@ -2,44 +2,43 @@
 export { registerAllBlockchains } from './sources/blockchains/index.ts';
 export { registerAllExchanges } from './sources/exchanges/index.ts';
 
-export { ImportOrchestrator } from './core/import/import-orchestrator.ts';
-// TransactionImportService is internal - used only by ImportOrchestrator
-export { TransactionProcessService } from './core/process/process-service.ts';
-export { ClearService } from './core/clear/clear-service.js';
-export type { ClearResult } from './core/clear/clear-service.js';
-export type { ClearServiceParams, DeletionPreview } from './core/clear/clear-service-utils.js';
-export { AccountService } from './core/accounts/account-service.js';
-export type { ViewAccountsParams } from './core/accounts/account-service.js';
+export { ImportOrchestrator } from './features/importing/import-orchestrator.ts';
+export { TransactionProcessService } from './features/processing/process-service.ts';
+export { ClearService } from './features/deletion/clear-service.js';
+export type { ClearResult } from './features/deletion/clear-service.js';
+export type { ClearServiceParams, DeletionPreview } from './features/deletion/clear-service-utils.js';
+export { AccountService } from './features/accounts/account-service.js';
+export type { ViewAccountsParams } from './features/accounts/account-service.js';
 export type {
   AccountQueryParams,
   AccountQueryResult,
   FormattedAccount,
   SessionSummary,
-} from './core/accounts/account-service-utils.js';
+} from './features/accounts/account-service-utils.js';
 
 // Token metadata services
-export { TokenMetadataService } from './core/token-metadata/token-metadata-service.js';
-export type { ITokenMetadataService } from './core/token-metadata/token-metadata-service.interface.js';
+export { TokenMetadataService } from './features/token-metadata/token-metadata-service.js';
+export type { ITokenMetadataService } from './features/token-metadata/token-metadata-service.interface.js';
 
 // Balance services
-export { BalanceService, type BalanceServiceParams } from './core/balance/balance-service.js';
-export { calculateBalances } from './core/balance/balance-calculator.js';
+export { BalanceService, type BalanceServiceParams } from './features/balances/balance-service.js';
+export { calculateBalances } from './features/balances/balance-calculator.js';
 export {
   fetchExchangeBalance,
   fetchBlockchainBalance,
   fetchChildAccountsBalance,
   convertBalancesToDecimals,
   type UnifiedBalanceSnapshot,
-} from './core/balance/balance-utils.js';
+} from './features/balances/balance-utils.js';
 export {
   compareBalances,
   createVerificationResult,
   generateVerificationReport,
-} from './core/balance/balance-verifier.js';
-export type { BalanceComparison, BalanceVerificationResult } from './core/balance/balance-verifier.types.js';
+} from './features/balances/balance-verifier.js';
+export type { BalanceComparison, BalanceVerificationResult } from './features/balances/balance-verifier.types.js';
 
 // Types
-export type { ImportParams } from './core/types/importers.ts';
+export type { ImportParams } from './shared/types/importers.ts';
 
 // Concrete implementations
 
@@ -50,7 +49,7 @@ export {
   hasBlockchainAdapter as hasBlockchainConfig,
   clearBlockchainAdapters,
   type BlockchainAdapter as BlockchainConfig,
-} from './core/types/blockchain-adapter.js';
+} from './shared/types/blockchain-adapter.js';
 
 // Exchange configuration
 export {
@@ -59,4 +58,4 @@ export {
   hasExchangeAdapter,
   clearExchangeAdapters,
   type ExchangeAdapter,
-} from './core/types/exchange-adapter.js';
+} from './shared/types/exchange-adapter.js';

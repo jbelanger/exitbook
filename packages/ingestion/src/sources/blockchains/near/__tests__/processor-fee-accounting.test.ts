@@ -3,7 +3,7 @@ import { ok } from 'neverthrow';
 import { describe, expect, test } from 'vitest';
 import { vi } from 'vitest';
 
-import type { ITokenMetadataService } from '../../../../core/token-metadata/token-metadata-service.interface.js';
+import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.js';
 import { NearTransactionProcessor } from '../processor.js';
 
 const USER_ADDRESS = 'user.near';

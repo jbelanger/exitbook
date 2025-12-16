@@ -43,32 +43,30 @@ vi.mock('../import-service.js', () => ({
   })),
 }));
 
-// Mock blockchain configs
+// Mock blockchain configs - shared state for the mock
 const mockDeriveAddresses = vi.fn();
-vi.mock('../../types/blockchain-adapter.js', () => ({
-  getBlockchainAdapter: (id: string) => {
-    if (id === 'bitcoin') {
-      return {
-        normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
-        isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
-        deriveAddressesFromXpub: mockDeriveAddresses,
-      };
-    }
-    if (id === 'cardano') {
-      return {
-        normalizeAddress: (addr: string) => ok(addr),
-        isExtendedPublicKey: (addr: string) =>
-          addr.startsWith('stake') || addr.startsWith('xpub') || addr.startsWith('addr_xvk'),
-        deriveAddressesFromXpub: mockDeriveAddresses,
-      };
-    }
-    if (id === 'ethereum') {
-      return {
-        normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
-      };
-    }
-    return;
+
+interface MockBlockchainConfig {
+  blockchain: string;
+  createImporter: ReturnType<typeof vi.fn>;
+  createProcessor: ReturnType<typeof vi.fn>;
+  deriveAddressesFromXpub?: typeof mockDeriveAddresses;
+  isExtendedPublicKey?: (addr: string) => boolean;
+  normalizeAddress: (addr: string) => unknown;
+}
+
+const mockAdaptersRegistry = new Map<string, MockBlockchainConfig>();
+
+vi.mock('../../../shared/types/blockchain-adapter.js', () => ({
+  registerBlockchain: (config: MockBlockchainConfig) => {
+    mockAdaptersRegistry.set(config.blockchain, config);
   },
+  getBlockchainAdapter: (id: string) => {
+    return mockAdaptersRegistry.get(id);
+  },
+  getAllBlockchains: () => Array.from(mockAdaptersRegistry.keys()),
+  hasBlockchainAdapter: (id: string) => mockAdaptersRegistry.has(id),
+  clearBlockchainAdapters: () => mockAdaptersRegistry.clear(),
 }));
 
 describe('ImportOrchestrator', () => {
@@ -81,7 +79,37 @@ describe('ImportOrchestrator', () => {
 
   const mockUser = { id: 1, createdAt: new Date() };
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Clear and register mock blockchain adapters
+    mockAdaptersRegistry.clear();
+    const { registerBlockchain } = await import('../../../shared/types/blockchain-adapter.js');
+
+    registerBlockchain({
+      blockchain: 'bitcoin',
+      normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
+      isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
+      deriveAddressesFromXpub: mockDeriveAddresses,
+      createImporter: vi.fn(),
+      createProcessor: vi.fn(),
+    });
+
+    registerBlockchain({
+      blockchain: 'cardano',
+      normalizeAddress: (addr: string) => ok(addr),
+      isExtendedPublicKey: (addr: string) =>
+        addr.startsWith('stake') || addr.startsWith('xpub') || addr.startsWith('addr_xvk'),
+      deriveAddressesFromXpub: mockDeriveAddresses,
+      createImporter: vi.fn(),
+      createProcessor: vi.fn(),
+    });
+
+    registerBlockchain({
+      blockchain: 'ethereum',
+      normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
+      createImporter: vi.fn(),
+      createProcessor: vi.fn(),
+    });
+
     mockUserRepo = {
       ensureDefaultUser: vi.fn().mockResolvedValue(ok(mockUser)),
     } as unknown as UserRepository;

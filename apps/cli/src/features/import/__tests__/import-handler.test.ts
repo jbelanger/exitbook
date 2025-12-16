@@ -50,7 +50,7 @@ describe('ImportHandler', () => {
     };
 
     mockProcessService = {
-      processAllPending: vi.fn(),
+      processAccountTransactions: vi.fn(),
     };
 
     handler = new ImportHandler(
@@ -135,7 +135,7 @@ describe('ImportHandler', () => {
         ],
       });
 
-      expect(mockImportOrchestrator.importExchangeCsv).toHaveBeenCalledWith('kraken', ['./data/kraken']);
+      expect(mockImportOrchestrator.importExchangeCsv).toHaveBeenCalledWith('kraken', './data/kraken');
     });
 
     it('should successfully import exchange data from API', async () => {
@@ -186,7 +186,7 @@ describe('ImportHandler', () => {
         })
       );
 
-      (mockProcessService.processAllPending as Mock).mockResolvedValue(
+      (mockProcessService.processAccountTransactions as Mock).mockResolvedValue(
         ok({
           processed: 50,
           errors: [],
@@ -212,7 +212,7 @@ describe('ImportHandler', () => {
         processingErrors: [],
       });
 
-      expect(mockProcessService.processAllPending).toHaveBeenCalled();
+      expect(mockProcessService.processAccountTransactions).toHaveBeenCalledWith(1);
     });
 
     it('should return processing errors when present', async () => {
@@ -236,7 +236,7 @@ describe('ImportHandler', () => {
       );
 
       const processingErrors = ['Error 1', 'Error 2', 'Error 3'];
-      (mockProcessService.processAllPending as Mock).mockResolvedValue(
+      (mockProcessService.processAccountTransactions as Mock).mockResolvedValue(
         ok({
           processed: 47,
           errors: processingErrors,
@@ -289,13 +289,18 @@ describe('ImportHandler', () => {
 
       (mockImportOrchestrator.importBlockchain as Mock).mockResolvedValue(
         ok({
-          importSessionId: 123,
+          id: 123,
+          accountId: 1,
+          status: 'completed',
+          startedAt: new Date(),
           transactionsImported: 50,
+          transactionsSkipped: 0,
+          createdAt: new Date(),
         })
       );
 
       const processingError = new Error('Processing failed');
-      (mockProcessService.processAllPending as Mock).mockResolvedValue(err(processingError));
+      (mockProcessService.processAccountTransactions as Mock).mockResolvedValue(err(processingError));
 
       const result = await handler.execute(params);
 

@@ -42,31 +42,32 @@ const mockDeriveAddresses = vi.fn();
 // Mock import streaming function
 const mockImportStreamingFn = vi.fn();
 
-// Mock blockchain configs
-vi.mock('../../types/blockchain-adapter.js', () => ({
-  getBlockchainAdapter: (id: string) => {
-    if (id === 'bitcoin') {
-      return {
-        normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
-        isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
-        deriveAddressesFromXpub: mockDeriveAddresses,
-        createImporter: () => ({
-          importStreaming: mockImportStreamingFn,
-        }),
-      };
-    }
-    if (id === 'cardano') {
-      return {
-        normalizeAddress: (addr: string) => ok(addr),
-        isExtendedPublicKey: (addr: string) => addr.startsWith('stake') || addr.startsWith('addr_xvk'),
-        deriveAddressesFromXpub: mockDeriveAddresses,
-        createImporter: () => ({
-          importStreaming: mockImportStreamingFn,
-        }),
-      };
-    }
-    return;
+// Mock blockchain configs - shared state for the mock
+interface MockBlockchainConfig {
+  blockchain: string;
+  [key: string]: unknown;
+}
+
+const mockAdaptersRegistry = new Map<string, MockBlockchainConfig>();
+
+vi.mock('../../../shared/types/blockchain-adapter.js', () => ({
+  registerBlockchain: (config: MockBlockchainConfig) => {
+    mockAdaptersRegistry.set(config.blockchain, config);
   },
+  getBlockchainAdapter: (id: string) => {
+    return mockAdaptersRegistry.get(id);
+  },
+  getAllBlockchains: () => Array.from(mockAdaptersRegistry.keys()),
+  hasBlockchainAdapter: (id: string) => mockAdaptersRegistry.has(id),
+  clearBlockchainAdapters: () => mockAdaptersRegistry.clear(),
+}));
+
+vi.mock('../../../shared/types/exchange-adapter.js', () => ({
+  registerExchange: vi.fn(),
+  getExchangeAdapter: vi.fn(),
+  getAllExchanges: () => [],
+  hasExchangeAdapter: () => false,
+  clearExchangeAdapters: vi.fn(),
 }));
 
 describe('xpub import integration tests', () => {
@@ -78,6 +79,35 @@ describe('xpub import integration tests', () => {
   let sessionRepo: ImportSessionRepository;
 
   beforeEach(async () => {
+    // Clear and register mock blockchain adapters
+    mockAdaptersRegistry.clear();
+    const { registerBlockchain } = await import('../../../shared/types/blockchain-adapter.js');
+
+    registerBlockchain({
+      blockchain: 'bitcoin',
+      normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
+      isExtendedPublicKey: (addr: string) => addr.startsWith('xpub') || addr.startsWith('ypub'),
+      deriveAddressesFromXpub: mockDeriveAddresses,
+      createImporter: () => ({
+        importStreaming: mockImportStreamingFn,
+      }),
+      createProcessor: vi.fn(),
+    });
+
+    registerBlockchain({
+      blockchain: 'cardano',
+      normalizeAddress: (addr: string) => ok(addr),
+      isExtendedPublicKey: (addr: string) => addr.startsWith('stake') || addr.startsWith('addr_xvk'),
+      deriveAddressesFromXpub: mockDeriveAddresses,
+      createImporter: () => ({
+        importStreaming: mockImportStreamingFn,
+      }),
+      createProcessor: vi.fn(),
+    });
+    // Reset mocks
+    mockDeriveAddresses.mockReset();
+    mockImportStreamingFn.mockReset();
+
     // Create in-memory database
     db = createDatabase(':memory:');
     await runMigrations(db);

@@ -243,7 +243,8 @@ describe('createPriceProviders', () => {
     // Factory passes empty config, individual providers read from process.env
     expect(createCoinGeckoProvider).toHaveBeenCalledWith(
       expect.anything(), // db parameter
-      {} // Empty config - provider reads process.env itself
+      {}, // Empty config - provider reads process.env itself
+      undefined // instrumentation parameter
     );
   });
 
@@ -259,7 +260,8 @@ describe('createPriceProviders', () => {
       expect.anything(), // db parameter
       expect.objectContaining({
         apiKey: 'config-key',
-      })
+      }),
+      undefined // instrumentation parameter
     );
   });
 
@@ -428,7 +430,8 @@ describe('createPriceProviderManager', () => {
       expect.objectContaining({
         apiKey: 'manager-key',
         useProApi: true,
-      })
+      }),
+      undefined // instrumentation parameter
     );
   });
 

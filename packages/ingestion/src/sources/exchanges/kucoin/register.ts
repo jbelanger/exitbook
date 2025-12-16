@@ -1,4 +1,4 @@
-import { registerExchange } from '../../../core/types/exchange-adapter.ts';
+import { registerExchange } from '../../../shared/types/exchange-adapter.ts';
 
 import { KucoinCsvImporter } from './importer-csv.js';
 import { KucoinProcessor } from './processor-csv.js';

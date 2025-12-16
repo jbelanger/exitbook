@@ -3,7 +3,7 @@ import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-provid
 import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import type { ITokenMetadataService } from '../../../../core/token-metadata/token-metadata-service.interface.js';
+import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.js';
 import { EvmTransactionProcessor } from '../processor.js';
 
 const ETHEREUM_CONFIG: EvmChainConfig = {

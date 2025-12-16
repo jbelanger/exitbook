@@ -9,7 +9,7 @@ import { getErrorMessage } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportBatchResult, ImportParams } from '../../../core/types/importers.ts';
+import type { IImporter, ImportBatchResult, ImportParams } from '../../../shared/types/importers.ts';
 
 import { mapToRawTransactions } from './evm-importer-utils.js';
 

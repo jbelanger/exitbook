@@ -2,7 +2,7 @@ import type { SolanaTransaction } from '@exitbook/blockchain-providers';
 import { ok } from 'neverthrow';
 import { describe, expect, test, vi } from 'vitest';
 
-import type { ITokenMetadataService } from '../../../../core/token-metadata/token-metadata-service.interface.js';
+import type { ITokenMetadataService } from '../../../../features/token-metadata/token-metadata-service.interface.js';
 import { SolanaTransactionProcessor } from '../processor.js';
 
 const USER_ADDRESS = 'user1111111111111111111111111111111111111111';

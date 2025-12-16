@@ -2,8 +2,8 @@ import { isValidNearAccountId } from '@exitbook/blockchain-providers';
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
-import type { ITokenMetadataService } from '../../../core/token-metadata/token-metadata-service.interface.js';
-import { registerBlockchain } from '../../../core/types/blockchain-adapter.ts';
+import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
+import { registerBlockchain } from '../../../shared/types/blockchain-adapter.ts';
 
 import { NearTransactionImporter } from './importer.js';
 import { NearTransactionProcessor } from './processor.js';

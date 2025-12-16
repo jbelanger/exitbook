@@ -13,6 +13,7 @@ import type { AccountRepository, IImportSessionRepository, IRawDataRepository } 
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { ITransactionProcessor } from '../../../shared/types/processors.ts';
 import { ImportExecutor } from '../import-service.ts';
 
 // Helper to create mock accounts
@@ -73,20 +74,19 @@ const mockImportFn = vi.fn().mockResolvedValue(
   })
 );
 
-// Mock blockchain adapter registry
-vi.mock('../../types/blockchain-adapter.js', () => ({
-  getBlockchainAdapter: (id: string) => {
-    if (id === 'bitcoin' || id === 'ethereum') {
-      return {
-        normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
-        createImporter: () => ({
-          import: mockImportFn,
-          importStreaming: mockImportStreamingFn,
-        }),
-      };
-    }
-    return;
+// Mock blockchain adapter registry - shared state for the mock
+const mockAdaptersRegistry = new Map<string, unknown>();
+
+vi.mock('../../../shared/types/blockchain-adapter.js', () => ({
+  registerBlockchain: (config: { [key: string]: unknown; blockchain: string }) => {
+    mockAdaptersRegistry.set(config.blockchain, config);
   },
+  getBlockchainAdapter: (id: string) => {
+    return mockAdaptersRegistry.get(id);
+  },
+  getAllBlockchains: () => Array.from(mockAdaptersRegistry.keys()),
+  hasBlockchainAdapter: (id: string) => mockAdaptersRegistry.has(id),
+  clearBlockchainAdapters: () => mockAdaptersRegistry.clear(),
 }));
 
 // Create a mock exchange import streaming function that can be controlled per-test
@@ -107,7 +107,7 @@ const mockExchangeImportStreamingFn = vi.fn().mockImplementation(async function*
 });
 
 // Mock exchange adapter registry
-vi.mock('../../types/exchange-adapter.js', () => ({
+vi.mock('../../../shared/types/exchange-adapter.js', () => ({
   getExchangeAdapter: (id: string) => {
     if (id === 'kraken') {
       return {
@@ -127,7 +127,30 @@ describe('ImportExecutor', () => {
   let mockAccountRepo: AccountRepository;
   let mockProviderManager: BlockchainProviderManager;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Clear and register mock blockchain adapters
+    mockAdaptersRegistry.clear();
+    const { registerBlockchain } = await import('../../../shared/types/blockchain-adapter.js');
+
+    registerBlockchain({
+      blockchain: 'bitcoin',
+      normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
+      createImporter: () => ({
+        import: mockImportFn,
+        importStreaming: mockImportStreamingFn,
+      }),
+      createProcessor: vi.fn().mockReturnValue(ok({} as ITransactionProcessor)),
+    });
+
+    registerBlockchain({
+      blockchain: 'ethereum',
+      normalizeAddress: (addr: string) => ok(addr.toLowerCase()),
+      createImporter: () => ({
+        import: mockImportFn,
+        importStreaming: mockImportStreamingFn,
+      }),
+      createProcessor: vi.fn().mockReturnValue(ok({} as ITransactionProcessor)),
+    });
     // Reset the mock import streaming function to default behavior
     mockImportStreamingFn.mockReset().mockImplementation(async function* () {
       yield okAsync({

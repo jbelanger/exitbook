@@ -6,7 +6,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ProcessingContext } from '../../../core/types/processors.ts';
+import type { ProcessingContext } from '../../../shared/types/processors.ts';
 
 import type { SolanaBalanceChangeAnalysis, SolanaFundFlow, SolanaMovement } from './types.js';
 

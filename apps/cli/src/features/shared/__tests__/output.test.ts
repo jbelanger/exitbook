@@ -164,8 +164,8 @@ describe('OutputManager', () => {
 
       expect(() => output.error('test-command', error, ExitCodes.GENERAL_ERROR)).toThrow('process.exit called');
 
-      expect(consoleErrorSpy).toHaveBeenCalledOnce();
-      const jsonOutput = JSON.parse(consoleErrorSpy.mock.calls[0]?.[0] as string) as {
+      expect(consoleLogSpy).toHaveBeenCalledOnce();
+      const jsonOutput = JSON.parse(consoleLogSpy.mock.calls[0]?.[0] as string) as {
         command: string;
         error: { code: string; message: string };
         success: boolean;
@@ -299,7 +299,7 @@ describe('OutputManager', () => {
       const output = new OutputManager('text');
       output.log('Test message');
 
-      expect(p.log.message).toHaveBeenCalledWith('Test message');
+      expect(p.log.message).toHaveBeenCalledWith('Test message', { spacing: 0 });
     });
 
     it('should not call p.log.message in json mode', () => {

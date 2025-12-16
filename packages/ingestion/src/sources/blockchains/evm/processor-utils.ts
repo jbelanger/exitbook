@@ -6,7 +6,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProcessingContext } from '../../../core/types/processors.ts';
+import type { ProcessingContext } from '../../../shared/types/processors.ts';
 
 import type { EvmFundFlow, EvmMovement } from './types.js';
 

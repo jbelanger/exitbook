@@ -2,8 +2,8 @@ import type { SubstrateTransaction, SubstrateChainConfig } from '@exitbook/block
 import { parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
-import { BaseTransactionProcessor } from '../../../core/process/base-transaction-processor.ts';
-import type { ProcessedTransaction, ProcessingContext } from '../../../core/types/processors.ts';
+import { BaseTransactionProcessor } from '../../../features/processing/base-transaction-processor.ts';
+import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.ts';
 
 import { analyzeFundFlowFromNormalized, determineOperationFromFundFlow, didUserPayFee } from './processor-utils.js';
 

@@ -2,10 +2,10 @@ import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-provid
 import { parseDecimal } from '@exitbook/core';
 import { err, okAsync, ok, type Result } from 'neverthrow';
 
-import { BaseTransactionProcessor } from '../../../core/process/base-transaction-processor.ts';
-import type { ITokenMetadataService } from '../../../core/token-metadata/token-metadata-service.interface.js';
-import { looksLikeContractAddress, isMissingMetadata } from '../../../core/token-metadata/token-metadata-utils.js';
-import type { ProcessedTransaction, ProcessingContext } from '../../../core/types/processors.ts';
+import { BaseTransactionProcessor } from '../../../features/processing/base-transaction-processor.ts';
+import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
+import { looksLikeContractAddress, isMissingMetadata } from '../../../features/token-metadata/token-metadata-utils.js';
+import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.ts';
 
 import {
   determineEvmOperationFromFundFlow,

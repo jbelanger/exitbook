@@ -2,7 +2,7 @@ import { createCoinbaseClient } from '@exitbook/exchanges-providers';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportBatchResult, ImportParams } from '../../../core/types/importers.ts';
+import type { IImporter, ImportBatchResult, ImportParams } from '../../../shared/types/importers.ts';
 
 /**
  * API-based importer for Coinbase exchange.

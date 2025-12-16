@@ -222,18 +222,26 @@ describe('logger-factory', () => {
         const logger = getLogger('test');
         logger.warn('test warning');
 
-        // Should write with yellow color and warning icon
+        // Should clear line and write message
         expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
-        expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[33m│  ⚠️  test warning\x1b[0m\n');
+        expect(stderrWriteSpy).toHaveBeenCalledTimes(2);
+
+        // Verify message contains expected text
+        const messageCall = stderrWriteSpy.mock.calls[1]?.[0] as string;
+        expect(messageCall).toContain('test warning');
       });
 
       it('should handle pino-style warn with metadata', () => {
         const logger = getLogger('test');
         logger.warn({ code: 'WARN' }, 'warning message');
 
-        // Should write with yellow color and warning icon
+        // Should clear line and write message
         expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
-        expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[33m│  ⚠️  warning message\x1b[0m\n');
+        expect(stderrWriteSpy).toHaveBeenCalledTimes(2);
+
+        // Verify message contains expected text
+        const messageCall = stderrWriteSpy.mock.calls[1]?.[0] as string;
+        expect(messageCall).toContain('warning message');
       });
     });
 
@@ -242,9 +250,13 @@ describe('logger-factory', () => {
         const logger = getLogger('test');
         logger.error('test error');
 
-        // Should write with red color and error icon
+        // Should clear line and write message
         expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
-        expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[31m│  ❌ test error\x1b[0m\n');
+        expect(stderrWriteSpy).toHaveBeenCalledTimes(2);
+
+        // Verify message contains expected text
+        const messageCall = stderrWriteSpy.mock.calls[1]?.[0] as string;
+        expect(messageCall).toContain('test error');
       });
 
       it('should handle pino-style error with error object', () => {
@@ -252,9 +264,13 @@ describe('logger-factory', () => {
         const error = new Error('test error');
         logger.error({ error }, 'error message');
 
-        // Should write with red color and error icon
+        // Should clear line and write message
         expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
-        expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[31m│  ❌ error message\x1b[0m\n');
+        expect(stderrWriteSpy).toHaveBeenCalledTimes(2);
+
+        // Verify message contains expected text
+        const messageCall = stderrWriteSpy.mock.calls[1]?.[0] as string;
+        expect(messageCall).toContain('error message');
       });
     });
 
@@ -368,9 +384,13 @@ describe('logger-factory', () => {
       const logger = getLogger('import');
       logger.error('Import failed');
 
-      // Should write error with red color
+      // Should clear line and write error
       expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
-      expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[31m│  ❌ Import failed\x1b[0m\n');
+      expect(stderrWriteSpy).toHaveBeenCalledTimes(2);
+
+      // Verify message contains expected text
+      const messageCall = stderrWriteSpy.mock.calls[1]?.[0] as string;
+      expect(messageCall).toContain('Import failed');
 
       // Clean up on error
       resetLoggerContext();

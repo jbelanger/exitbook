@@ -1,7 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { ok } from 'neverthrow';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ImportCommandOptionsSchema } from '../../shared/schemas.js';
 import { buildImportParams, type ImportCommandOptions } from '../import-utils.js';
+
+// Mock the getBlockchainAdapter function
+vi.mock('@exitbook/ingestion', () => ({
+  getBlockchainAdapter: vi.fn((_blockchain: string) => ({
+    normalizeAddress: vi.fn((address: string) => ok(address)),
+  })),
+}));
 
 describe('ImportCommandOptionsSchema', () => {
   describe('interactive mode (no flags)', () => {

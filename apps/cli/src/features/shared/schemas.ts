@@ -75,7 +75,7 @@ export const ImportCommandOptionsSchema = z
   .extend(CsvImportSchema.shape)
   .extend(
     z.object({
-      process: z.boolean().optional().default(true), // --no-process flag (defaults to true, false when flag present)
+      process: z.boolean().optional(), // --no-process flag
       json: z.boolean().optional(),
     }).shape
   )

@@ -8,7 +8,7 @@ import type { CursorState } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportParams, ImportBatchResult } from '../../../core/types/importers.ts';
+import type { IImporter, ImportParams, ImportBatchResult } from '../../../shared/types/importers.ts';
 
 /**
  * Solana transaction importer that fetches raw transaction data from blockchain APIs.

@@ -1,7 +1,7 @@
 import { parseDecimal } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 
-import type { ProcessedTransaction } from '../../../core/types/processors.ts';
+import type { ProcessedTransaction } from '../../../shared/types/processors.ts';
 
 import type {
   CsvAccountHistoryRow,
