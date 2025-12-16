@@ -1,9 +1,9 @@
 // Export registration functions for explicit initialization
-export { registerAllBlockchains } from './sources/blockchains/index.ts';
-export { registerAllExchanges } from './sources/exchanges/index.ts';
+export { registerAllBlockchains } from './sources/blockchains/index.js';
+export { registerAllExchanges } from './sources/exchanges/index.js';
 
-export { ImportOrchestrator } from './features/importing/import-orchestrator.ts';
-export { TransactionProcessService } from './features/processing/process-service.ts';
+export { ImportOrchestrator } from './features/importing/import-orchestrator.js';
+export { TransactionProcessService } from './features/processing/process-service.js';
 export { ClearService } from './features/deletion/clear-service.js';
 export type { ClearResult } from './features/deletion/clear-service.js';
 export type { ClearServiceParams, DeletionPreview } from './features/deletion/clear-service-utils.js';
@@ -38,7 +38,7 @@ export {
 export type { BalanceComparison, BalanceVerificationResult } from './features/balances/balance-verifier.types.js';
 
 // Types
-export type { ImportParams } from './shared/types/importers.ts';
+export type { ImportParams } from './shared/types/importers.js';
 
 // Concrete implementations
 

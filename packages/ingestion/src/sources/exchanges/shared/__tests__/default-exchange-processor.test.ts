@@ -8,7 +8,7 @@ import {
   expectMovement,
   expectFee,
   expectOperation,
-} from '../../../../__tests__/test-utils/index.js';
+} from '../../../../shared/test-utils/index.js';
 import { DefaultExchangeProcessor } from '../default-exchange-processor.js';
 
 // Legacy helper function for tests not yet refactored

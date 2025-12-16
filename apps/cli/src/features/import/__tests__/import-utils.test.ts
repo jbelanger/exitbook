@@ -192,14 +192,14 @@ describe('ImportCommandOptionsSchema', () => {
       }
     });
 
-    it('should default process to true when not specified', () => {
+    it('should allow process to be undefined when not specified', () => {
       const result = ImportCommandOptionsSchema.safeParse({
         exchange: 'kraken',
         csvDir: '/path/to/csv',
       });
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.process).toBe(true);
+        expect(result.data.process).toBeUndefined();
       }
     });
 

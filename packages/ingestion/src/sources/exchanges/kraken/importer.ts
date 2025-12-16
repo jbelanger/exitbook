@@ -2,7 +2,7 @@ import { createKrakenClient } from '@exitbook/exchanges-providers';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportBatchResult, ImportParams } from '../../../shared/types/importers.ts';
+import type { IImporter, ImportBatchResult, ImportParams } from '../../../shared/types/importers.js';
 
 /**
  * API-based importer for Kraken exchange.

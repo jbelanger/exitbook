@@ -1,7 +1,7 @@
 import type { RawTransaction } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { extractUniqueAccountIds } from '../process-service-utils.ts';
+import { extractUniqueAccountIds } from '../process-service-utils.js';
 
 describe('process-service-utils', () => {
   describe('extractUniqueAccountIds', () => {

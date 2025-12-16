@@ -1,6 +1,6 @@
-import { registerCoinbaseExchange } from './coinbase/register.ts';
-import { registerKrakenExchange } from './kraken/register.ts';
-import { registerKucoinExchange } from './kucoin/register.ts';
+import { registerCoinbaseExchange } from './coinbase/register.js';
+import { registerKrakenExchange } from './kraken/register.js';
+import { registerKucoinExchange } from './kucoin/register.js';
 
 export function registerAllExchanges(): void {
   registerKrakenExchange();

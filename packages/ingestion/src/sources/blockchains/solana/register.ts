@@ -2,7 +2,7 @@ import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
-import { registerBlockchain } from '../../../shared/types/blockchain-adapter.ts';
+import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
 import { SolanaTransactionImporter } from './importer.js';
 import { SolanaTransactionProcessor } from './processor.js';

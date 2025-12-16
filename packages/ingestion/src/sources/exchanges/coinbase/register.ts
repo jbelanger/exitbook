@@ -1,4 +1,4 @@
-import { registerExchange } from '../../../shared/types/exchange-adapter.ts';
+import { registerExchange } from '../../../shared/types/exchange-adapter.js';
 
 import { CoinbaseApiImporter } from './importer.js';
 import { CoinbaseProcessor } from './processor.js';

@@ -5,7 +5,7 @@ import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ProcessingContext } from '../../../shared/types/processors.ts';
+import type { ProcessingContext } from '../../../shared/types/processors.js';
 
 import type { SubstrateFundFlow, SubstrateMovement } from './types.js';
 

@@ -1,10 +1,10 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { type Result } from 'neverthrow';
 
-import type { ITokenMetadataService } from '../../features/token-metadata/token-metadata-service.interface.ts';
+import type { ITokenMetadataService } from '../../features/token-metadata/token-metadata-service.interface.js';
 
-import type { IImporter } from './importers.ts';
-import type { ITransactionProcessor } from './processors.ts';
+import type { IImporter } from './importers.js';
+import type { ITransactionProcessor } from './processors.js';
 
 export interface DerivedAddress {
   address: string;

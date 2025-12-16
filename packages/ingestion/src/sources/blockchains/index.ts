@@ -1,10 +1,10 @@
-import { registerBitcoinChains } from './bitcoin/register.ts';
-import { registerCardanoChain } from './cardano/register.ts';
-import { registerCosmosChains } from './cosmos/register.ts';
-import { registerEvmChains } from './evm/register.ts';
-import { registerNearChain } from './near/register.ts';
-import { registerSolanaChain } from './solana/register.ts';
-import { registerSubstrateChains } from './substrate/register.ts';
+import { registerBitcoinChains } from './bitcoin/register.js';
+import { registerCardanoChain } from './cardano/register.js';
+import { registerCosmosChains } from './cosmos/register.js';
+import { registerEvmChains } from './evm/register.js';
+import { registerNearChain } from './near/register.js';
+import { registerSolanaChain } from './solana/register.js';
+import { registerSubstrateChains } from './substrate/register.js';
 
 export function registerAllBlockchains(): void {
   registerEvmChains();

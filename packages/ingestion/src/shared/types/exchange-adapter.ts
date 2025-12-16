@@ -1,5 +1,5 @@
-import type { IImporter } from './importers.ts';
-import type { ITransactionProcessor } from './processors.ts';
+import type { IImporter } from './importers.js';
+import type { ITransactionProcessor } from './processors.js';
 
 export interface ExchangeAdapter {
   exchange: string;

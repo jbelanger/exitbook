@@ -4,10 +4,10 @@ import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import { err, ok, Result } from 'neverthrow';
 
-import { getBlockchainAdapter } from '../../shared/types/blockchain-adapter.ts';
-import { getExchangeAdapter } from '../../shared/types/exchange-adapter.ts';
-import type { ProcessResult, ProcessingContext } from '../../shared/types/processors.ts';
-import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.ts';
+import { getBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
+import { getExchangeAdapter } from '../../shared/types/exchange-adapter.js';
+import type { ProcessResult, ProcessingContext } from '../../shared/types/processors.js';
+import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.js';
 
 import { extractUniqueAccountIds } from './process-service-utils.js';
 

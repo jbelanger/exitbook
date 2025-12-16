@@ -21,7 +21,7 @@ import { AccountRepository, UserRepository } from '@exitbook/data';
 import { ok, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ImportOrchestrator } from '../import-orchestrator.ts';
+import { ImportOrchestrator } from '../import-orchestrator.js';
 
 // Mock logger
 vi.mock('@exitbook/logger', () => ({

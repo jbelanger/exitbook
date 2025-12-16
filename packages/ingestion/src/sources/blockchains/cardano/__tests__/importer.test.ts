@@ -9,7 +9,7 @@ import type { PaginationCursor } from '@exitbook/core';
 import { errAsync, okAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
-import { consumeImportStream } from '../../../../__tests__/test-utils/importer-test-utils.js';
+import { consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';
 import { CardanoTransactionImporter } from '../importer.js';
 
 const USER_ADDRESS = 'addr1qyuser111111111111111111111111111111111111111111111111111111';

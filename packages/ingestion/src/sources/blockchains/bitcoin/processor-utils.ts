@@ -1,7 +1,7 @@
 import type { BitcoinTransaction } from '@exitbook/blockchain-providers';
 import { type Result, ok } from 'neverthrow';
 
-import type { ProcessingContext } from '../../../shared/types/processors.ts';
+import type { ProcessingContext } from '../../../shared/types/processors.js';
 
 import type { BitcoinFundFlow } from './types.js';
 

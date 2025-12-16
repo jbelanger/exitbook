@@ -7,7 +7,7 @@ import { getErrorMessage, type RawTransactionInput } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { IImporter, ImportBatchResult, ImportParams } from '../../../shared/types/importers.ts';
+import type { IImporter, ImportBatchResult, ImportParams } from '../../../shared/types/importers.js';
 import { parseCsvFile, validateCsvHeaders } from '../shared/csv-parser-utils.js';
 
 import { CSV_FILE_TYPES } from './constants.js';

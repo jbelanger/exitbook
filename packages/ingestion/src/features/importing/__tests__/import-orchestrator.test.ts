@@ -13,7 +13,7 @@ import type { AccountRepository, IImportSessionRepository, IRawDataRepository, U
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ImportOrchestrator } from '../import-orchestrator.ts';
+import { ImportOrchestrator } from '../import-orchestrator.js';
 
 // Mock logger
 vi.mock('@exitbook/logger', () => ({

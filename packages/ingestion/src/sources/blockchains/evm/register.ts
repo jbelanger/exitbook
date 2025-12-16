@@ -3,7 +3,7 @@ import { EVM_CHAINS, getEvmChainConfig, normalizeEvmAddress } from '@exitbook/bl
 import { err, ok } from 'neverthrow';
 
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
-import { registerBlockchain } from '../../../shared/types/blockchain-adapter.ts';
+import { registerBlockchain } from '../../../shared/types/blockchain-adapter.js';
 
 import { EvmImporter } from './importer.js';
 import { EvmTransactionProcessor } from './processor.js';

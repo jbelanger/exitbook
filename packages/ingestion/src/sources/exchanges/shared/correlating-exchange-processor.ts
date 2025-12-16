@@ -1,8 +1,8 @@
 import { parseDecimal } from '@exitbook/core';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 
-import { BaseTransactionProcessor } from '../../../features/processing/base-transaction-processor.ts';
-import type { ProcessedTransaction } from '../../../shared/types/processors.ts';
+import { BaseTransactionProcessor } from '../../../features/processing/base-transaction-processor.js';
+import type { ProcessedTransaction } from '../../../shared/types/processors.js';
 
 import {
   classifyExchangeOperationFromFundFlow,

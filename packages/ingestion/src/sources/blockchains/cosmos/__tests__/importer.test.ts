@@ -14,7 +14,7 @@ import {
   consumeImportStream,
   createMockProviderManager,
   type ProviderManagerMock,
-} from '../../../../__tests__/test-utils/importer-test-utils.js';
+} from '../../../../shared/test-utils/importer-test-utils.js';
 import { CosmosImporter } from '../importer.js';
 
 const INJECTIVE_CONFIG: CosmosChainConfig = {

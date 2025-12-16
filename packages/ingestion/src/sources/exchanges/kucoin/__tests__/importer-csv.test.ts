@@ -4,8 +4,8 @@ import fs from 'node:fs/promises';
 import { type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { assertOk, consumeImportStream } from '../../../../__tests__/test-utils/importer-test-utils.js';
-import type { ImportBatchResult, ImportParams } from '../../../../shared/types/importers.ts';
+import { assertOk, consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';
+import type { ImportBatchResult, ImportParams } from '../../../../shared/types/importers.js';
 import { KucoinCsvImporter } from '../importer-csv.js';
 
 vi.mock('node:fs/promises');

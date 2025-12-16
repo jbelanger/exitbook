@@ -1,4 +1,4 @@
-import { registerExchange } from '../../../shared/types/exchange-adapter.ts';
+import { registerExchange } from '../../../shared/types/exchange-adapter.js';
 import { DefaultExchangeProcessor } from '../shared/default-exchange-processor.js';
 
 import { KrakenApiImporter } from './importer.js';

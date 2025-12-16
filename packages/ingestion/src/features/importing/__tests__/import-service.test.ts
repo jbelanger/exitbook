@@ -13,8 +13,8 @@ import type { AccountRepository, IImportSessionRepository, IRawDataRepository } 
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ITransactionProcessor } from '../../../shared/types/processors.ts';
-import { ImportExecutor } from '../import-service.ts';
+import type { ITransactionProcessor } from '../../../shared/types/processors.js';
+import { ImportExecutor } from '../import-service.js';
 
 // Helper to create mock accounts
 function createMockAccount(
