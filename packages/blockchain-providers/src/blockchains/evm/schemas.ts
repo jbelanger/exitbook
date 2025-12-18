@@ -25,6 +25,14 @@ export const EvmAddressSchema = z.string().transform((val) => normalizeEvmAddres
  *
  * Validates transactions from all EVM-compatible chains (Ethereum, Avalanche, etc.)
  * Supports the superset of features across all chains.
+ *
+ * Note on logIndex and traceId fields:
+ * - logIndex: Only provided by Moralis (not Routescan/Alchemy)
+ * - traceId: Only provided by Routescan (not Alchemy/Moralis)
+ *
+ * These fields are preserved in the schema but the EVM importer excludes them from
+ * eventId generation due to inconsistent provider support. See evm-importer-utils.ts
+ * for deduplication logic and limitations.
  */
 export const EvmTransactionSchema = z.object({
   // Core transaction data

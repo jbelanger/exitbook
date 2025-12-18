@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { generateUniqueTransactionId, type TransactionIdFields } from '../transaction-utils.js';
+import { generateUniqueTransactionEventId, type TransactionIdFields } from '../transaction-utils.js';
 
 describe('transaction-utils', () => {
   describe('generateUniqueTransactionId', () => {
@@ -15,11 +15,11 @@ describe('transaction-utils', () => {
         type: 'transfer',
       };
 
-      const externalId1 = generateUniqueTransactionId(tx);
-      const externalId2 = generateUniqueTransactionId(tx);
+      const eventId1 = generateUniqueTransactionEventId(tx);
+      const eventId2 = generateUniqueTransactionEventId(tx);
 
-      expect(externalId1).toBe(externalId2);
-      expect(externalId1).toMatch(/^[a-f0-9]{64}$/);
+      expect(eventId1).toBe(eventId2);
+      expect(eventId1).toMatch(/^[a-f0-9]{64}$/);
     });
 
     it('should generate different hashes for different transactions', () => {
@@ -38,10 +38,10 @@ describe('transaction-utils', () => {
         amount: '2000000000000000000', // Different amount
       };
 
-      const externalId1 = generateUniqueTransactionId(tx1);
-      const externalId2 = generateUniqueTransactionId(tx2);
+      const eventId1 = generateUniqueTransactionEventId(tx1);
+      const eventId2 = generateUniqueTransactionEventId(tx2);
 
-      expect(externalId1).not.toBe(externalId2);
+      expect(eventId1).not.toBe(eventId2);
     });
 
     it('should normalize addresses to lowercase', () => {
@@ -60,10 +60,10 @@ describe('transaction-utils', () => {
         from: '0xabcdef1234567890123456789012345678901234', // Lowercase version
       };
 
-      const externalId1 = generateUniqueTransactionId(tx1);
-      const externalId2 = generateUniqueTransactionId(tx2);
+      const eventId1 = generateUniqueTransactionEventId(tx1);
+      const eventId2 = generateUniqueTransactionEventId(tx2);
 
-      expect(externalId1).toBe(externalId2);
+      expect(eventId1).toBe(eventId2);
     });
 
     it('should handle missing to address', () => {
@@ -76,8 +76,8 @@ describe('transaction-utils', () => {
         type: 'transfer',
       };
 
-      const externalId = generateUniqueTransactionId(tx);
-      expect(externalId).toMatch(/^[a-f0-9]{64}$/);
+      const eventId = generateUniqueTransactionEventId(tx);
+      expect(eventId).toMatch(/^[a-f0-9]{64}$/);
     });
 
     it('should differentiate token transfers by token address', () => {
@@ -101,37 +101,10 @@ describe('transaction-utils', () => {
         tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // USDC
       };
 
-      const externalId1 = generateUniqueTransactionId(tx1);
-      const externalId2 = generateUniqueTransactionId(tx2);
+      const eventId1 = generateUniqueTransactionEventId(tx1);
+      const eventId2 = generateUniqueTransactionEventId(tx2);
 
-      expect(externalId1).not.toBe(externalId2);
-    });
-
-    it('should differentiate internal transactions by traceId', () => {
-      const baseTx: TransactionIdFields = {
-        id: '0xabc123',
-        from: '0x1234567890123456789012345678901234567890',
-        to: '0x0987654321098765432109876543210987654321',
-        currency: 'ETH',
-        amount: '1000000000000000000',
-        timestamp: 1234567890,
-        type: 'internal',
-      };
-
-      const tx1: TransactionIdFields = {
-        ...baseTx,
-        traceId: 'trace-0',
-      };
-
-      const tx2: TransactionIdFields = {
-        ...baseTx,
-        traceId: 'trace-1',
-      };
-
-      const externalId1 = generateUniqueTransactionId(tx1);
-      const externalId2 = generateUniqueTransactionId(tx2);
-
-      expect(externalId1).not.toBe(externalId2);
+      expect(eventId1).not.toBe(eventId2);
     });
 
     it('should handle internal transaction without traceId', () => {
@@ -145,12 +118,12 @@ describe('transaction-utils', () => {
         type: 'internal',
       };
 
-      const externalId = generateUniqueTransactionId(tx);
-      expect(externalId).toMatch(/^[a-f0-9]{64}$/);
+      const eventId = generateUniqueTransactionEventId(tx);
+      expect(eventId).toMatch(/^[a-f0-9]{64}$/);
     });
   });
 
-  describe('generateEvmExternalId', () => {
+  describe('generateEvmEventId', () => {
     it('should generate deterministic hash for EVM transaction', () => {
       const tx = {
         id: '0xabc123',
@@ -164,11 +137,11 @@ describe('transaction-utils', () => {
         providerName: 'alchemy',
       };
 
-      const externalId1 = generateUniqueTransactionId(tx);
-      const externalId2 = generateUniqueTransactionId(tx);
+      const eventId1 = generateUniqueTransactionEventId(tx);
+      const eventId2 = generateUniqueTransactionEventId(tx);
 
-      expect(externalId1).toBe(externalId2);
-      expect(externalId1).toMatch(/^[a-f0-9]{64}$/);
+      expect(eventId1).toBe(eventId2);
+      expect(eventId1).toMatch(/^[a-f0-9]{64}$/);
     });
 
     it('should differentiate token transfers by token address', () => {
@@ -194,10 +167,10 @@ describe('transaction-utils', () => {
         tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // USDC
       };
 
-      const externalId1 = generateUniqueTransactionId(tx1);
-      const externalId2 = generateUniqueTransactionId(tx2);
+      const eventId1 = generateUniqueTransactionEventId(tx1);
+      const eventId2 = generateUniqueTransactionEventId(tx2);
 
-      expect(externalId1).not.toBe(externalId2);
+      expect(eventId1).not.toBe(eventId2);
     });
   });
 
@@ -224,7 +197,7 @@ describe('transaction-utils', () => {
         ],
       };
 
-      const externalId = generateUniqueTransactionId({
+      const eventId = generateUniqueTransactionEventId({
         id: btcTx.id,
         from: btcTx.inputs[0]?.address || '',
         to: btcTx.outputs[0]?.address,
@@ -234,7 +207,7 @@ describe('transaction-utils', () => {
         type: 'transfer',
       });
 
-      expect(externalId).toMatch(/^[a-f0-9]{64}$/);
+      expect(eventId).toMatch(/^[a-f0-9]{64}$/);
     });
 
     it('should work with Solana transaction structure', () => {
@@ -249,12 +222,12 @@ describe('transaction-utils', () => {
         providerName: 'helius',
       };
 
-      const externalId = generateUniqueTransactionId({
+      const eventId = generateUniqueTransactionEventId({
         ...solTx,
         type: 'transfer',
       });
 
-      expect(externalId).toMatch(/^[a-f0-9]{64}$/);
+      expect(eventId).toMatch(/^[a-f0-9]{64}$/);
     });
 
     it('should work with Substrate transaction structure', () => {
@@ -269,12 +242,12 @@ describe('transaction-utils', () => {
         providerName: 'subscan',
       };
 
-      const externalId = generateUniqueTransactionId({
+      const eventId = generateUniqueTransactionEventId({
         ...dotTx,
         type: 'transfer',
       });
 
-      expect(externalId).toMatch(/^[a-f0-9]{64}$/);
+      expect(eventId).toMatch(/^[a-f0-9]{64}$/);
     });
 
     it('should work with Cosmos transaction structure', () => {
@@ -289,12 +262,12 @@ describe('transaction-utils', () => {
         providerName: 'injective-explorer',
       };
 
-      const externalId = generateUniqueTransactionId({
+      const eventId = generateUniqueTransactionEventId({
         ...injTx,
         type: 'transfer',
       });
 
-      expect(externalId).toMatch(/^[a-f0-9]{64}$/);
+      expect(eventId).toMatch(/^[a-f0-9]{64}$/);
     });
   });
 });

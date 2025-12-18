@@ -3,7 +3,7 @@ import type {
   SolanaTransaction,
   TransactionWithRawData,
 } from '@exitbook/blockchain-providers';
-import { generateUniqueTransactionId } from '@exitbook/blockchain-providers';
+import { generateUniqueTransactionEventId } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -88,7 +88,7 @@ export class SolanaTransactionImporter implements IImporter {
 
       // Map to raw transactions
       const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
-        eventId: generateUniqueTransactionId({
+        eventId: generateUniqueTransactionEventId({
           amount: txWithRaw.normalized.amount,
           currency: txWithRaw.normalized.currency,
           from: txWithRaw.normalized.from,

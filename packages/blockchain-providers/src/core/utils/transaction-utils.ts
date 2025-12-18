@@ -12,7 +12,8 @@ export interface TransactionIdFields {
   timestamp: number; // Transaction timestamp
   to?: string | undefined; // Destination address (optional for some tx types)
   tokenAddress?: string | undefined; // Token contract address (for token transfers)
-  traceId?: string | undefined; // Trace ID for internal transactions (EVM)
+  traceId?: string | undefined; // Trace/event ID for distinguishing multiple events in same tx
+  logIndex?: number | undefined; // Log index for token transfers (EVM)
   type: string; // Transaction type (transfer, token_transfer, etc.)
 }
 
@@ -30,12 +31,16 @@ export interface TransactionIdFields {
  * - Transaction type
  * - Timestamp
  * - Token address (if present)
- * - Trace ID (if present, for internal transactions)
+ * - Trace ID (if present)
+ * - Log index (if present)
+ *
+ * Note: Each blockchain importer decides which fields to include based on
+ * whether all providers for that blockchain consistently supply those fields.
  *
  * @param tx - Transaction with minimum required fields
  * @returns SHA-256 hash of transaction fields (lowercase hex)
  */
-export function generateUniqueTransactionId(tx: TransactionIdFields): string {
+export function generateUniqueTransactionEventId(tx: TransactionIdFields): string {
   // Normalize addresses to lowercase for consistency
   const from = (tx.from || '').toLowerCase();
   const to = (tx.to || '').toLowerCase();
@@ -60,6 +65,11 @@ export function generateUniqueTransactionId(tx: TransactionIdFields): string {
   // Add trace ID if present to differentiate internal transactions with same hash
   if (tx.traceId) {
     parts.push(tx.traceId);
+  }
+
+  // Add log index if present to differentiate token transfers with same hash
+  if (tx.logIndex !== undefined) {
+    parts.push(tx.logIndex.toString());
   }
 
   const dataString = parts.join('|');

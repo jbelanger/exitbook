@@ -95,7 +95,7 @@ export function mapMoralisTokenTransfer(rawData: MoralisTokenTransfer): Result<E
     blockId: rawData.block_hash,
     currency,
     from: normalizeEvmAddress(rawData.from_address) ?? '',
-    id: `${rawData.transaction_hash}-${rawData.log_index}`,
+    id: rawData.transaction_hash,
     logIndex,
     providerName: 'moralis',
     status: 'success', // Token transfers are always successful if they appear in the results
