@@ -111,7 +111,7 @@ export const MoralisTokenMetadataSchema = z
     total_supply_formatted: DecimalStringSchema.optional(),
     fully_diluted_valuation: DecimalStringSchema.optional(),
     block_number: z.union([z.number(), z.string()]).nullish(),
-    validated: z.string().nullish(),
+    validated: z.union([z.number(), z.string()]).nullish(),
     created_at: z.string().nullish(),
     thumbnail: z.string().nullish(),
     logo_hash: z.string().nullish(),

@@ -630,3 +630,166 @@ describe('Provider System Integration', () => {
     }
   });
 });
+
+describe('Preferred Provider Behavior', () => {
+  let manager: BlockchainProviderManager;
+  let routescanProvider: MockProvider;
+  let moralisProvider: MockProvider;
+
+  beforeEach(() => {
+    manager = new BlockchainProviderManager(mockExplorerConfig);
+
+    // Routescan supports only basic operations (no token metadata)
+    routescanProvider = new MockProvider('routescan', 'ethereum');
+    routescanProvider.capabilities.supportedOperations = ['getAddressTransactions', 'getAddressBalances'];
+
+    // Moralis supports advanced operations including token metadata
+    moralisProvider = new MockProvider('moralis', 'ethereum');
+    moralisProvider.capabilities.supportedOperations = [
+      'getAddressTransactions',
+      'getAddressBalances',
+      'getAddressTokenBalances',
+      'getTokenMetadata',
+    ];
+  });
+
+  afterEach(() => {
+    manager.destroy();
+  });
+
+  test('should use ONLY preferred provider when it supports the operation', async () => {
+    // Register both providers with routescan as preferred
+    manager.registerProviders('ethereum', [routescanProvider, moralisProvider]);
+
+    // Simulate setting routescan as preferred (this happens in autoRegisterFromConfig)
+    // We need to access the private preferredProviders map - use type assertion for testing
+
+    (manager as unknown as { preferredProviders: Map<string, string> }).preferredProviders.set('ethereum', 'routescan');
+
+    const executeSpyRoutescan = vi.spyOn(routescanProvider, 'execute');
+    const executeSpyMoralis = vi.spyOn(moralisProvider, 'execute');
+
+    // Test operation that routescan DOES support
+    const operation: ProviderOperation = {
+      address: '0x123',
+      type: 'getAddressBalances',
+    };
+
+    const result = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
+
+    expect(result.isOk()).toBe(true);
+    expect(executeSpyRoutescan).toHaveBeenCalledTimes(1);
+    expect(executeSpyMoralis).not.toHaveBeenCalled(); // Moralis should NOT be used
+
+    executeSpyRoutescan.mockRestore();
+    executeSpyMoralis.mockRestore();
+  });
+
+  test('should failover to other providers when preferred provider does NOT support the operation', async () => {
+    // Register both providers with routescan as preferred
+    manager.registerProviders('ethereum', [routescanProvider, moralisProvider]);
+
+    // Simulate setting routescan as preferred
+    (manager as unknown as { preferredProviders: Map<string, string> }).preferredProviders.set('ethereum', 'routescan');
+
+    const executeSpyRoutescan = vi.spyOn(routescanProvider, 'execute');
+    const executeSpyMoralis = vi.spyOn(moralisProvider, 'execute');
+
+    // Test operation that routescan does NOT support (token metadata)
+    const operation: ProviderOperation = {
+      type: 'getTokenMetadata',
+      contractAddress: '0xabc',
+    };
+
+    const result = await manager.executeWithFailoverOnce<{ success: boolean }>('ethereum', operation);
+
+    expect(result.isOk()).toBe(true);
+    expect(executeSpyRoutescan).not.toHaveBeenCalled(); // Routescan doesn't support this operation
+    expect(executeSpyMoralis).toHaveBeenCalledTimes(1); // Moralis should be used via failover
+
+    executeSpyRoutescan.mockRestore();
+    executeSpyMoralis.mockRestore();
+  });
+
+  test('should NOT failover when preferred provider fails but supports the operation', async () => {
+    // Register both providers with routescan as preferred
+    manager.registerProviders('ethereum', [routescanProvider, moralisProvider]);
+
+    // Simulate setting routescan as preferred
+    (manager as unknown as { preferredProviders: Map<string, string> }).preferredProviders.set('ethereum', 'routescan');
+
+    // Make routescan fail
+    routescanProvider.setFailureMode(true);
+
+    const executeSpyRoutescan = vi.spyOn(routescanProvider, 'execute');
+    const executeSpyMoralis = vi.spyOn(moralisProvider, 'execute');
+
+    // Test operation that routescan DOES support
+    const operation: ProviderOperation = {
+      address: '0x123',
+      type: 'getAddressBalances',
+    };
+
+    const result = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
+
+    // Should fail because we use ONLY the preferred provider when it supports the operation
+    expect(result.isErr()).toBe(true);
+    expect(executeSpyRoutescan).toHaveBeenCalledTimes(1); // Tried routescan only
+    expect(executeSpyMoralis).not.toHaveBeenCalled(); // Moralis should NOT be used (no failover)
+
+    executeSpyRoutescan.mockRestore();
+    executeSpyMoralis.mockRestore();
+  });
+
+  test('should use normal provider selection when no preferred provider is set', async () => {
+    // Register both providers WITHOUT setting a preferred provider
+    manager.registerProviders('ethereum', [routescanProvider, moralisProvider]);
+
+    const executeSpyRoutescan = vi.spyOn(routescanProvider, 'execute');
+    const executeSpyMoralis = vi.spyOn(moralisProvider, 'execute');
+
+    // Test operation that both support
+    const operation: ProviderOperation = {
+      address: '0x123',
+      type: 'getAddressBalances',
+    };
+
+    const result = await manager.executeWithFailoverOnce<{ balance: number; currency: string }>('ethereum', operation);
+
+    expect(result.isOk()).toBe(true);
+    // With normal selection, the first provider in the list (routescan) should be tried
+    expect(executeSpyRoutescan).toHaveBeenCalled();
+
+    executeSpyRoutescan.mockRestore();
+    executeSpyMoralis.mockRestore();
+  });
+
+  test('should handle streaming operations with preferred provider', async () => {
+    // Register both providers with routescan as preferred
+    manager.registerProviders('ethereum', [routescanProvider, moralisProvider]);
+
+    // Simulate setting routescan as preferred
+    (manager as unknown as { preferredProviders: Map<string, string> }).preferredProviders.set('ethereum', 'routescan');
+
+    const executeStreamingSpyRoutescan = vi.spyOn(routescanProvider, 'executeStreaming');
+    const executeStreamingSpyMoralis = vi.spyOn(moralisProvider, 'executeStreaming');
+
+    // Test streaming operation that routescan DOES support
+    const operation: ProviderOperation = {
+      address: '0x123',
+      type: 'getAddressTransactions',
+    };
+
+    // Consume first batch from streaming operation
+    for await (const batchResult of manager.executeWithFailover('ethereum', operation)) {
+      expect(batchResult.isOk()).toBe(true);
+      break; // Only check first batch
+    }
+
+    expect(executeStreamingSpyRoutescan).toHaveBeenCalledTimes(1);
+    expect(executeStreamingSpyMoralis).not.toHaveBeenCalled(); // Moralis should NOT be used
+
+    executeStreamingSpyRoutescan.mockRestore();
+    executeStreamingSpyMoralis.mockRestore();
+  });
+});

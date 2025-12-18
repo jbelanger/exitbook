@@ -57,6 +57,7 @@ export class BlockchainProviderManager {
   private instrumentation?: InstrumentationCollector | undefined;
   private providers = new Map<string, IBlockchainProvider[]>();
   private requestCache = new Map<string, CacheEntry>();
+  private preferredProviders = new Map<string, string>(); // blockchain -> preferred provider name
 
   constructor(private readonly explorerConfig?: BlockchainExplorersConfig | undefined) {
     // Providers are auto-registered via the import in this file's header
@@ -373,18 +374,20 @@ export class BlockchainProviderManager {
    */
   private autoRegisterFromRegistry(blockchain: string, preferredProvider?: string): IBlockchainProvider[] {
     try {
-      let registeredProviders = ProviderRegistry.getAvailable(blockchain);
+      const registeredProviders = ProviderRegistry.getAvailable(blockchain);
 
-      // If a preferred provider is specified, filter to only that provider
+      // If a preferred provider is specified, validate it exists and save it
       if (preferredProvider) {
         const matchingProvider = registeredProviders.find((provider) => provider.name === preferredProvider);
-        if (matchingProvider) {
-          registeredProviders = [matchingProvider];
-          logger.info(`Filtering to preferred provider: ${preferredProvider} for ${blockchain}`);
-        } else {
+        if (!matchingProvider) {
           const availableProviders = registeredProviders.map((p) => p.name);
           throw new Error(buildProviderNotFoundError(blockchain, preferredProvider, availableProviders));
         }
+        // Store the preferred provider for this blockchain
+        this.preferredProviders.set(blockchain, preferredProvider);
+        logger.info(
+          `Preferred provider: ${preferredProvider} for ${blockchain} (will be used exclusively if it supports the operation, otherwise failover to others)`
+        );
       }
 
       const providers: IBlockchainProvider[] = [];
@@ -893,6 +896,25 @@ export class BlockchainProviderManager {
       now
     );
 
+    // Check if a preferred provider was specified for this blockchain
+    const preferredProviderName = this.preferredProviders.get(blockchain);
+
+    if (preferredProviderName) {
+      // Check if the preferred provider supports this operation
+      const preferredProvider = scoredProviders.find((sp) => sp.provider.name === preferredProviderName);
+
+      if (preferredProvider) {
+        // Preferred provider supports this operation - use ONLY this provider (no failover)
+        logger.debug(`Using preferred provider ${preferredProviderName} for ${operation.type} (supports operation)`);
+        return [preferredProvider.provider];
+      } else {
+        // Preferred provider doesn't support this operation - use all available providers
+        logger.debug(
+          `Preferred provider ${preferredProviderName} does not support ${operation.type} - using ${scoredProviders.length} available provider(s)`
+        );
+      }
+    }
+
     // Log provider selection details
     if (scoredProviders.length > 1) {
       logger.debug(
@@ -928,50 +950,43 @@ export class BlockchainProviderManager {
       priority: number;
     }[] = [];
 
-    // If preferred provider specified, use only that one
+    // If preferred provider specified, validate it exists and save it
     if (preferredProvider) {
-      if (allRegisteredProviders.some((p) => p.name === preferredProvider)) {
-        const override = overrides[preferredProvider] || {};
-        // Check if explicitly disabled
-        if (override.enabled === false) {
-          logger.warn(`Preferred provider '${preferredProvider}' is disabled in config overrides`);
-        } else {
-          providersToCreate.push({
-            name: preferredProvider,
-            overrideConfig: override,
-            priority: override.priority || 1,
-          });
-        }
-      } else {
+      if (!allRegisteredProviders.some((p) => p.name === preferredProvider)) {
         const availableProviders = allRegisteredProviders.map((p) => p.name);
         throw new Error(buildProviderNotFoundError(blockchain, preferredProvider, availableProviders));
       }
-    } else {
-      // Use defaultEnabled list, filtered by overrides
-      for (const providerName of defaultEnabled) {
-        if (!allRegisteredProviders.some((p) => p.name === providerName)) {
-          logger.warn(`Default provider '${providerName}' not registered for ${blockchain}. Skipping.`);
-          continue;
-        }
+      // Store the preferred provider for this blockchain
+      this.preferredProviders.set(blockchain, preferredProvider);
+      logger.info(
+        `Preferred provider: ${preferredProvider} for ${blockchain} (will be used exclusively if it supports the operation, otherwise failover to others)`
+      );
+    }
 
-        const override = overrides[providerName] || {};
-
-        // Skip if explicitly disabled
-        if (override.enabled === false) {
-          logger.debug(`Provider '${providerName}' disabled via config override for ${blockchain}`);
-          continue;
-        }
-
-        providersToCreate.push({
-          name: providerName,
-          overrideConfig: override,
-          priority: override.priority || providersToCreate.length + 1,
-        });
+    // Use defaultEnabled list, filtered by overrides
+    for (const providerName of defaultEnabled) {
+      if (!allRegisteredProviders.some((p) => p.name === providerName)) {
+        logger.warn(`Default provider '${providerName}' not registered for ${blockchain}. Skipping.`);
+        continue;
       }
 
-      // Sort by priority
-      providersToCreate.sort((a, b) => a.priority - b.priority);
+      const override = overrides[providerName] || {};
+
+      // Skip if explicitly disabled
+      if (override.enabled === false) {
+        logger.debug(`Provider '${providerName}' disabled via config override for ${blockchain}`);
+        continue;
+      }
+
+      providersToCreate.push({
+        name: providerName,
+        overrideConfig: override,
+        priority: override.priority || providersToCreate.length + 1,
+      });
     }
+
+    // Sort by priority
+    providersToCreate.sort((a, b) => a.priority - b.priority);
 
     const providers: IBlockchainProvider[] = [];
 

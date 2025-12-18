@@ -140,7 +140,12 @@ export function detectScamToken(
   }
 
   // Check total supply for ridiculous values (common in scam tokens)
-  if (tokenMetadata.totalSupply && hasRidiculousTotalSupply(tokenMetadata.totalSupply)) {
+  // Skip this check for verified contracts as they may legitimately have high supplies
+  if (
+    tokenMetadata.totalSupply &&
+    !tokenMetadata.verifiedContract &&
+    hasRidiculousTotalSupply(tokenMetadata.totalSupply, tokenMetadata.decimals)
+  ) {
     suspiciousIndicators.push('Extremely high total supply (likely worthless)');
     if (riskLevel !== 'error') {
       riskLevel = 'warning';
@@ -163,17 +168,18 @@ export function detectScamToken(
   // TIER 3: HEURISTICS (Context-based signals)
   // ============================================================
   if (transactionContext?.isAirdrop && transactionContext.amount > 0) {
-    // Only add as warning if other indicators already present
+    // Only add airdrop warning if:
+    // 1. There are other suspicious indicators already present, OR
+    // 2. The contract is unverified (verified contracts get benefit of the doubt)
     if (suspiciousIndicators.length > 0) {
       suspiciousIndicators.push('Unsolicited airdrop');
-    } else {
-      // Airdrop alone is not enough to flag as scam
+    } else if (!tokenMetadata.verifiedContract) {
+      // Unverified contract + airdrop = highly suspicious (legitimate projects verify contracts)
       detectionSource = 'heuristic';
-      if (riskLevel !== 'error') {
-        riskLevel = 'warning';
-      }
-      suspiciousIndicators.push('Unsolicited airdrop (verify legitimacy)');
+      riskLevel = 'error';
+      suspiciousIndicators.push('Unverified contract with unsolicited airdrop');
     }
+    // If verified contract with no other indicators, don't flag anything
   }
 
   // Generate warning note if suspicious patterns found
@@ -269,8 +275,11 @@ function isSuspiciousUrl(url: string): boolean {
  * Scam tokens often have supplies like 1 quadrillion to make recipients feel wealthy
  *
  * Uses Decimal.js for precise arithmetic without floating-point precision loss
+ *
+ * @param totalSupply - Raw total supply (may include decimals)
+ * @param decimals - Optional token decimals to convert to human-readable supply
  */
-function hasRidiculousTotalSupply(totalSupply: string): boolean {
+function hasRidiculousTotalSupply(totalSupply: string, decimals?: number): boolean {
   try {
     // Remove common formatting (commas, spaces) before parsing
     const cleaned = totalSupply.replace(/[,\s]/g, '');
@@ -288,10 +297,19 @@ function hasRidiculousTotalSupply(totalSupply: string): boolean {
       return false;
     }
 
-    // Flag if total supply > 1 trillion
-    // Legitimate tokens rarely exceed billions, let alone trillions
-    const RIDICULOUS_THRESHOLD = new Decimal('1e12'); // 1 trillion
-    return parsed.value.greaterThan(RIDICULOUS_THRESHOLD);
+    // Convert to human-readable supply if decimals are provided
+    // e.g., 1e27 with 18 decimals = 1e9 (1 billion tokens)
+    let humanReadableSupply = parsed.value;
+    if (decimals !== undefined && decimals > 0) {
+      const divisor = new Decimal(10).pow(decimals);
+      humanReadableSupply = parsed.value.dividedBy(divisor);
+    }
+
+    // Flag if human-readable supply > 100 trillion
+    // This is an extremely conservative threshold to catch only the most absurd scam tokens
+    // (e.g., tokens with quadrillions or quintillions in circulation)
+    const RIDICULOUS_THRESHOLD = new Decimal('1e14'); // 100 trillion
+    return humanReadableSupply.greaterThan(RIDICULOUS_THRESHOLD);
   } catch (error) {
     logger.warn({ error, totalSupply }, 'Failed to parse total supply value');
     return false;

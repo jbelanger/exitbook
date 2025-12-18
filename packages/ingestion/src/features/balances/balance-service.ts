@@ -291,23 +291,23 @@ export class BalanceService {
     if (childAccounts.length > 0) {
       logger.info(`Fetching balances for ${childAccounts.length} child accounts`);
 
+      // Don't pass providerName - allow failover to all available providers for accurate balance verification
       return fetchChildAccountsBalance(
         this.providerManager,
         this.tokenMetadataRepository,
         account.sourceName,
         account.identifier,
-        childAccounts,
-        account.providerName
+        childAccounts
       );
     }
 
     // Standard single-address balance fetch
+    // Don't pass providerName - allow failover to all available providers for accurate balance verification
     return fetchBlockchainBalance(
       this.providerManager,
       this.tokenMetadataRepository,
       account.sourceName,
-      account.identifier,
-      account.providerName
+      account.identifier
     );
   }
 
