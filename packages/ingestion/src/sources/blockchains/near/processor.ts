@@ -73,7 +73,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
           fundFlow.feeAbsorbedByMovement &&
           fundFlow.outflows.some((movement) => movement.asset === (fundFlow.feeCurrency || 'NEAR'));
 
-        const userPaidFee = fundFlow.feePaidByUser && !feeAccountedInMovements;
+        const shouldRecordFeeEntry = fundFlow.feePaidByUser && !feeAccountedInMovements;
 
         // Convert to ProcessedTransaction with structured fields
         const universalTransaction: ProcessedTransaction = {
@@ -108,7 +108,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
           },
 
           fees:
-            userPaidFee && !parseDecimal(normalizedTx.feeAmount || '0').isZero()
+            shouldRecordFeeEntry && !parseDecimal(normalizedTx.feeAmount || '0').isZero()
               ? [
                   {
                     asset: normalizedTx.feeCurrency || 'NEAR',

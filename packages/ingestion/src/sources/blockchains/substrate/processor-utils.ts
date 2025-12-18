@@ -487,7 +487,8 @@ export function normalizeAmount(amountPlanck: string | undefined, nativeDecimals
 }
 
 /**
- * Determine if the user paid the transaction fee based on transaction characteristics.
+ * Determine if a fee entry should be recorded for this transaction.
+ * Returns true when the user paid the fee (vs validator/other party paying).
  *
  * Pure function that infers who signed/paid for a Substrate transaction.
  * In Substrate chains, the transaction signer/broadcaster pays the fee.
@@ -500,9 +501,9 @@ export function normalizeAmount(amountPlanck: string | undefined, nativeDecimals
  * @param transaction - The normalized Substrate transaction
  * @param fundFlow - The analyzed fund flow
  * @param userAddress - The user's address
- * @returns true if user paid the fee, false otherwise
+ * @returns true if a fee entry should be recorded, false otherwise
  */
-export function didUserPayFee(
+export function shouldRecordFeeEntry(
   transaction: SubstrateTransaction,
   fundFlow: SubstrateFundFlow,
   userAddress: string

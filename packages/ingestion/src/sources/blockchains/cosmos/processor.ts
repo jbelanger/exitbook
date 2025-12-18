@@ -55,12 +55,12 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
         // Only include fees if user was the sender (they paid the fee)
         // For incoming transactions (deposits, received transfers), the sender/validator paid the fee
-        // User paid fee if:
+        // Record fee entry if:
         // 1. They have ANY outflows (sent funds, delegated, swapped, etc.) OR
         // 2. They initiated a transaction with no outflows (governance votes, contract calls, etc.)
         // Note: Addresses are already normalized to lowercase via CosmosAddressSchema
         const userInitiatedTransaction = normalizedTx.from === context.primaryAddress;
-        const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
+        const shouldRecordFeeEntry = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
         // Convert to ProcessedTransaction with enhanced metadata
         const universalTransaction: ProcessedTransaction = {
@@ -94,7 +94,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
           // Structured fees - only deduct from balance if user paid them
           fees:
-            userPaidFee && !parseDecimal(fundFlow.feeAmount).isZero()
+            shouldRecordFeeEntry && !parseDecimal(fundFlow.feeAmount).isZero()
               ? [
                   {
                     asset: fundFlow.feeCurrency,

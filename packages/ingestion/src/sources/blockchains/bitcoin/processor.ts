@@ -55,8 +55,8 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         const feeAmount = parseDecimal(normalizedTx.feeAmount || '0');
         const zeroDecimal = parseDecimal('0');
 
-        const userPaidFee = fundFlow.isOutgoing && !walletInputAmount.isZero();
-        const effectiveFeeAmount = userPaidFee ? feeAmount : zeroDecimal;
+        const shouldRecordFeeEntry = fundFlow.isOutgoing && !walletInputAmount.isZero();
+        const effectiveFeeAmount = shouldRecordFeeEntry ? feeAmount : zeroDecimal;
 
         // Measure wallet spend in two views:
         // - grossOutflow: balance impact (amount removed from wallet after accounting for change)
@@ -119,7 +119,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
           },
 
           fees:
-            userPaidFee && !feeAmount.isZero()
+            shouldRecordFeeEntry && !feeAmount.isZero()
               ? [
                   {
                     asset: normalizedTx.feeCurrency || this.chainConfig.nativeCurrency,

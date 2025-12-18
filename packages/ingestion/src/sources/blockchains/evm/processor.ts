@@ -77,12 +77,12 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
       // Only include fees if user initiated the transaction (they paid the fee)
       // For incoming-only transactions (deposits, received transfers), the sender paid the fee
-      // User paid fee if:
+      // Record fee entry if:
       // 1. They have ANY outflows (sent funds, swapped, etc.) OR
       // 2. They initiated a contract interaction with no outflows (approval, state change, etc.)
       // Addresses already normalized to lowercase via EvmAddressSchema
       const userInitiatedTransaction = (fundFlow.fromAddress || '') === context.primaryAddress;
-      const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
+      const shouldRecordFeeEntry = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
       const universalTransaction: ProcessedTransaction = {
         externalId: primaryTx.id,
@@ -114,7 +114,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
         },
 
         fees:
-          userPaidFee && !parseDecimal(fundFlow.feeAmount).isZero()
+          shouldRecordFeeEntry && !parseDecimal(fundFlow.feeAmount).isZero()
             ? [
                 {
                   asset: fundFlow.feeCurrency,

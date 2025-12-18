@@ -65,7 +65,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
           fundFlow.feeAbsorbedByMovement &&
           fundFlow.outflows.some((movement) => movement.asset === (fundFlow.feeCurrency || 'SOL'));
 
-        const userPaidFee = fundFlow.feePaidByUser && !feeAccountedInMovements;
+        const shouldRecordFeeEntry = fundFlow.feePaidByUser && !feeAccountedInMovements;
 
         // Convert to ProcessedTransaction with structured fields
         const universalTransaction: ProcessedTransaction = {
@@ -98,7 +98,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
           },
 
           fees:
-            userPaidFee && !parseDecimal(normalizedTx.feeAmount || '0').isZero()
+            shouldRecordFeeEntry && !parseDecimal(normalizedTx.feeAmount || '0').isZero()
               ? [
                   {
                     asset: normalizedTx.feeCurrency || 'SOL',

@@ -5,7 +5,11 @@ import { type Result, err, okAsync } from 'neverthrow';
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
 
-import { analyzeFundFlowFromNormalized, determineOperationFromFundFlow, didUserPayFee } from './processor-utils.js';
+import {
+  analyzeFundFlowFromNormalized,
+  determineOperationFromFundFlow,
+  shouldRecordFeeEntry,
+} from './processor-utils.js';
 
 /**
  * Generic Substrate transaction processor that converts raw blockchain transaction data
@@ -54,7 +58,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
 
         // Only include fees if user was the signer/broadcaster (they paid the fee)
         // For incoming transactions (deposits, received transfers), the sender/protocol paid the fee
-        const userPaidFee = didUserPayFee(normalizedTx, fundFlow, context.primaryAddress);
+        const shouldRecordFee = shouldRecordFeeEntry(normalizedTx, fundFlow, context.primaryAddress);
 
         const universalTransaction: ProcessedTransaction = {
           movements: {
@@ -76,7 +80,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
             }),
           },
           fees:
-            userPaidFee && !parseDecimal(fundFlow.feeAmount).isZero()
+            shouldRecordFee && !parseDecimal(fundFlow.feeAmount).isZero()
               ? [
                   {
                     asset: fundFlow.feeCurrency,

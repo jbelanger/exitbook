@@ -4,7 +4,7 @@ import { describe, expect, test } from 'vitest';
 import {
   analyzeFundFlowFromNormalized,
   determineOperationFromFundFlow,
-  didUserPayFee,
+  shouldRecordFeeEntry,
   enrichSourceContext,
   normalizeAmount,
 } from '../processor-utils.js';
@@ -1198,7 +1198,7 @@ describe('determineOperationFromFundFlow', () => {
   });
 });
 
-describe('didUserPayFee', () => {
+describe('shouldRecordFeeEntry', () => {
   test('returns true when user has outflows', () => {
     const transaction: SubstrateTransaction = {
       amount: '10000000000',
@@ -1236,7 +1236,7 @@ describe('didUserPayFee', () => {
       toAddress: EXTERNAL_ADDRESS,
     };
 
-    const userPaidFee = didUserPayFee(transaction, fundFlow, POLKADOT_ADDRESS);
+    const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
     expect(userPaidFee).toBe(true);
   });
@@ -1278,7 +1278,7 @@ describe('didUserPayFee', () => {
       toAddress: POLKADOT_ADDRESS,
     };
 
-    const userPaidFee = didUserPayFee(transaction, fundFlow, POLKADOT_ADDRESS);
+    const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
     expect(userPaidFee).toBe(true);
   });
@@ -1320,7 +1320,7 @@ describe('didUserPayFee', () => {
       toAddress: POLKADOT_ADDRESS,
     };
 
-    const userPaidFee = didUserPayFee(transaction, fundFlow, POLKADOT_ADDRESS);
+    const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
     expect(userPaidFee).toBe(true);
   });
@@ -1362,7 +1362,7 @@ describe('didUserPayFee', () => {
       toAddress: POLKADOT_ADDRESS,
     };
 
-    const userPaidFee = didUserPayFee(transaction, fundFlow, POLKADOT_ADDRESS);
+    const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
     expect(userPaidFee).toBe(true);
   });
@@ -1404,7 +1404,7 @@ describe('didUserPayFee', () => {
       toAddress: POLKADOT_ADDRESS,
     };
 
-    const userPaidFee = didUserPayFee(transaction, fundFlow, POLKADOT_ADDRESS);
+    const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
     expect(userPaidFee).toBe(true);
   });
@@ -1446,7 +1446,7 @@ describe('didUserPayFee', () => {
       toAddress: POLKADOT_ADDRESS,
     };
 
-    const userPaidFee = didUserPayFee(transaction, fundFlow, POLKADOT_ADDRESS);
+    const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
     expect(userPaidFee).toBe(true);
   });
@@ -1488,7 +1488,7 @@ describe('didUserPayFee', () => {
       toAddress: POLKADOT_ADDRESS,
     };
 
-    const userPaidFee = didUserPayFee(transaction, fundFlow, POLKADOT_ADDRESS);
+    const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
     expect(userPaidFee).toBe(false);
   });
@@ -1530,7 +1530,7 @@ describe('didUserPayFee', () => {
       toAddress: POLKADOT_ADDRESS,
     };
 
-    const userPaidFee = didUserPayFee(transaction, fundFlow, POLKADOT_ADDRESS);
+    const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
     expect(userPaidFee).toBe(false);
   });

@@ -58,7 +58,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
 
         // Calculate fee details
         const feeAmount = parseDecimal(fundFlow.feeAmount || '0');
-        const userPaidFee = fundFlow.feePaidByUser && !feeAmount.isZero();
+        const shouldRecordFeeEntry = fundFlow.feePaidByUser && !feeAmount.isZero();
 
         // Build movements from fund flow
         // Convert to ProcessedTransaction format
@@ -86,7 +86,8 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
               const grossAmount = parseDecimal(outflow.amount);
               // For ADA outflows when user paid fee: netAmount = grossAmount - fee
               // For other assets or when no fee: netAmount = grossAmount
-              const netAmount = outflow.asset === 'ADA' && userPaidFee ? grossAmount.minus(feeAmount) : grossAmount;
+              const netAmount =
+                outflow.asset === 'ADA' && shouldRecordFeeEntry ? grossAmount.minus(feeAmount) : grossAmount;
 
               return {
                 asset: outflow.asset,
@@ -96,7 +97,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
             }),
           },
 
-          fees: userPaidFee
+          fees: shouldRecordFeeEntry
             ? [
                 {
                   asset: fundFlow.feeCurrency,
