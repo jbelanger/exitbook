@@ -3,7 +3,6 @@ import { parseDecimal } from '@exitbook/core';
 import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import { applyScamDetection } from '../../../features/process/scam-detection-utils.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import { looksLikeContractAddress, isMissingMetadata } from '../../../features/token-metadata/token-metadata-utils.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
@@ -134,16 +133,16 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
 
         // Scam detection: Check inflows only (scam tokens arrive as airdrops)
         for (const inflow of fundFlow.inflows) {
-          // Determine if this is an unsolicited airdrop (inflow with no corresponding outflows)
-          const isAirdrop = fundFlow.outflows.length === 0 && !fundFlow.feePaidByUser;
-          const amount = parseDecimal(inflow.amount).toNumber();
-
           const scamNote = await this.detectScamForAsset(inflow.asset, inflow.tokenAddress, {
-            amount,
-            isAirdrop,
+            amount: parseDecimal(inflow.amount).toNumber(),
+            isAirdrop: fundFlow.outflows.length === 0 && !fundFlow.feePaidByUser,
           });
           if (scamNote) {
-            applyScamDetection(universalTransaction, scamNote);
+            // Apply scam detection results based on severity
+            if (scamNote.severity === 'error') {
+              universalTransaction.isSpam = true;
+            }
+            universalTransaction.notes = [...(universalTransaction.notes || []), scamNote];
             break;
           }
         }

@@ -2,8 +2,6 @@ import { type TokenMetadataRecord, type TransactionNote, tryParseDecimal } from 
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 
-import type { ProcessedTransaction } from '../../shared/types/processors.js';
-
 const logger = getLogger('scam-detection');
 
 // ============================================================
@@ -361,41 +359,4 @@ export function detectScamFromSymbol(tokenSymbol: string): {
   }
 
   return { isScam: false, reason: '' };
-}
-
-/**
- * Applies scam detection results to a transaction.
- *
- * ⚠️ MUTATES TRANSACTION IN PLACE ⚠️
- *
- * Behavior based on severity:
- * - 'error' severity: Sets isSpam=true AND adds note (excludes from accounting)
- * - 'warning' severity: Only adds note (allows user verification)
- *
- * This provides consistent scam handling across all processors while preventing
- * false positives from excluding legitimate tokens from accounting.
- *
- * @param transaction - Transaction to mutate (modified in place)
- * @param scamNote - Scam detection note with severity and details
- * @mutates transaction.isSpam - Set to true for error severity
- * @mutates transaction.notes - Scam note appended to array
- *
- * @example
- * const scamNote = detectScamToken(address, metadata);
- * if (scamNote) {
- *   applyScamDetection(transaction, scamNote);
- * }
- */
-export function applyScamDetection(transaction: ProcessedTransaction, scamNote: TransactionNote): void {
-  // Only set isSpam flag for error severity (confirmed scams)
-  // Warning severity (e.g., SUSPICIOUS_AIRDROP) should not auto-exclude from accounting
-  if (scamNote.severity === 'error') {
-    transaction.isSpam = true;
-  }
-
-  // Append scam note to existing notes array
-  if (!transaction.notes) {
-    transaction.notes = [];
-  }
-  transaction.notes.push(scamNote);
 }

@@ -3,7 +3,6 @@ import { parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import { applyScamDetection } from '../../../features/process/scam-detection-utils.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
 
 import {
@@ -120,16 +119,23 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
         // Scam detection: Check inflows only (scam tokens arrive as airdrops)
         for (const inflow of fundFlow.inflows) {
-          // Determine if this is an unsolicited airdrop (inflow with no corresponding outflows)
-          const isAirdrop = fundFlow.outflows.length === 0 && !userInitiatedTransaction;
-          const amount = parseDecimal(inflow.amount).toNumber();
+          // Cosmos-specific airdrop detection: inflows without outflows and not user-initiated
+          const context = {
+            amount: parseDecimal(inflow.amount).toNumber(),
+            contractAddress: inflow.tokenAddress,
+            isAirdrop: fundFlow.outflows.length === 0 && !userInitiatedTransaction,
+          };
 
-          const scamNote = await this.detectScamForAsset(inflow.asset, inflow.tokenAddress, {
-            amount,
-            isAirdrop,
+          const scamNote = await this.detectScamForAsset(inflow.asset, context.contractAddress, {
+            amount: context.amount,
+            isAirdrop: context.isAirdrop,
           });
           if (scamNote) {
-            applyScamDetection(universalTransaction, scamNote);
+            // Apply scam detection results based on severity
+            if (scamNote.severity === 'error') {
+              universalTransaction.isSpam = true;
+            }
+            universalTransaction.notes = [...(universalTransaction.notes || []), scamNote];
             break;
           }
         }
