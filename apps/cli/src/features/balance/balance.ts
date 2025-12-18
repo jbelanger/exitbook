@@ -1,5 +1,6 @@
 import { BlockchainProviderManager, loadExplorerConfig } from '@exitbook/blockchain-providers';
 import type { ExchangeCredentials } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import {
   AccountRepository,
   closeDatabase,
@@ -17,6 +18,7 @@ import { ExitCodes } from '../shared/exit-codes.js';
 import { OutputManager } from '../shared/output.js';
 import { BalanceCommandOptionsSchema } from '../shared/schemas.js';
 
+import { buildBalanceMismatchExplanation } from './balance-explain.js';
 import { BalanceHandler } from './balance-handler.js';
 import type { BalanceCommandResult } from './balance-types.js';
 
@@ -36,6 +38,7 @@ export function registerBalanceCommand(program: Command): void {
     .option('--api-key <key>', 'API key for exchange (overrides .env)')
     .option('--api-secret <secret>', 'API secret for exchange (overrides .env)')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange (if required)')
+    .option('--explain', 'Print diagnostic breakdown for mismatches')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
@@ -43,6 +46,7 @@ export function registerBalanceCommand(program: Command): void {
 Examples:
   $ exitbook balance --account-id 5                          # blockchain or exchange-csv account (no creds)
   $ exitbook balance --account-id 7 --api-key KEY --api-secret SECRET   # exchange-api or exchange-csv with live API fetch
+  $ exitbook balance --account-id 5 --explain                # show mismatch diagnostics
 
 Notes:
   - API credentials are accepted for exchange-api and exchange-csv accounts to fetch live balances from the exchange.
@@ -151,7 +155,7 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
     }
 
     // Display results
-    await handleBalanceSuccess(output, result.value, accountRepository);
+    await handleBalanceSuccess(output, result.value, accountRepository, transactionRepository, options.explain);
   } catch (error) {
     resetLoggerContext();
     output.error('balance', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
@@ -168,7 +172,9 @@ async function executeBalanceCommand(rawOptions: unknown): Promise<void> {
 async function handleBalanceSuccess(
   output: OutputManager,
   verificationResult: BalanceVerificationResult,
-  accountRepository: AccountRepository
+  accountRepository: AccountRepository,
+  transactionRepository: TransactionRepository,
+  explain?: boolean
 ) {
   const account = verificationResult.account;
 
@@ -221,6 +227,40 @@ async function handleBalanceSuccess(
     // Show suggestion if available
     if (verificationResult.suggestion) {
       output.warn(`Suggestion: ${verificationResult.suggestion}`);
+    }
+
+    // Optional diagnostics for mismatches
+    if (explain && verificationResult.summary.mismatches > 0) {
+      const childAccountsResult = await accountRepository.findByParent(account.id);
+      if (childAccountsResult.isErr()) {
+        output.warn(`Explain: failed to load child accounts: ${childAccountsResult.error.message}`);
+      } else {
+        const accountIds = [account.id, ...childAccountsResult.value.map((child) => child.id)];
+        const txResult = await transactionRepository.getTransactions({ accountIds });
+        if (txResult.isErr()) {
+          output.warn(`Explain: failed to load transactions: ${txResult.error.message}`);
+        } else {
+          const mismatches = verificationResult.comparisons.filter((c) => c.status === 'mismatch');
+          const explainData = buildBalanceMismatchExplanation({
+            accountIdentifier: account.identifier,
+            transactions: txResult.value,
+            mismatches: mismatches.map((m) => ({
+              currency: m.currency,
+              live: parseDecimal(m.liveBalance),
+              calculated: parseDecimal(m.calculatedBalance),
+            })),
+          });
+
+          if (explainData.isErr()) {
+            output.warn(`Explain: ${explainData.error.message}`);
+          } else if (explainData.value.lines.length > 0) {
+            output.info('Explain:');
+            for (const line of explainData.value.lines) {
+              output.log(`  ${line}`);
+            }
+          }
+        }
+      }
     }
 
     // Outro after all details

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { getExchangeCredentialsFromEnv } from './balance-utils.js';
+import { getExchangeCredentialsFromEnv } from '../balance-utils.js';
 
 describe('getExchangeCredentialsFromEnv', () => {
   const originalEnv = process.env;

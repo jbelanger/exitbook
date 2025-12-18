@@ -55,7 +55,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Database
 
 - Kysely + SQLite. Auto-migrate via `initializeDatabase()`.
-- Data dir: `EXITBOOK_DATA_DIR` if set, else `process.cwd()/data` (CLI default is `apps/cli/data/`).
+- Data dir: `EXITBOOK_DATA_DIR` if set, else `process.cwd()/data` (CLI default is `apps/cli/data/`). Named transactions.db.
 
 ### Multi-Currency & FX
 

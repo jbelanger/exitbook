@@ -157,6 +157,7 @@ export const BalanceCommandOptionsSchema = z
       apiKey: z.string().min(1).optional(),
       apiSecret: z.string().min(1).optional(),
       apiPassphrase: z.string().optional(),
+      explain: z.boolean().optional(),
     }).shape
   )
   .extend(JsonFlagSchema.shape)
