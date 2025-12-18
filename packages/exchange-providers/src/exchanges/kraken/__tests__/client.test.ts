@@ -131,7 +131,7 @@ describe('createKrakenClient - fetchTransactionDataStreaming', () => {
 
     expect(batches).toHaveLength(1);
     expect(batches[0]?.transactions).toHaveLength(1);
-    expect(batches[0]?.transactions[0]?.externalId).toBe('LEDGER1');
+    expect(batches[0]?.transactions[0]?.eventId).toBe('LEDGER1');
     expect(batches[0]?.operationType).toBe('ledger');
     expect(batches[0]?.isComplete).toBe(true);
     expect(batches[0]?.cursor.totalFetched).toBe(1);
@@ -449,7 +449,7 @@ describe('createKrakenClient - fetchTransactionDataStreaming', () => {
     // Should yield successful batch first
     expect(batches).toHaveLength(1);
     expect(batches[0]?.transactions).toHaveLength(1);
-    expect(batches[0]?.transactions[0]?.externalId).toBe('LEDGER1');
+    expect(batches[0]?.transactions[0]?.eventId).toBe('LEDGER1');
     expect(batches[0]?.cursor.totalFetched).toBe(1);
     expect(batches[0]?.cursor.metadata?.offset).toBe(1);
 

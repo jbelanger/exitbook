@@ -20,7 +20,7 @@ export function mapToRawTransactions(
 ): RawTransactionInput[] {
   return transactions.map((txWithRaw) => ({
     providerName,
-    externalId: generateUniqueTransactionId(txWithRaw.normalized),
+    eventId: generateUniqueTransactionId(txWithRaw.normalized),
     blockchainTransactionHash: txWithRaw.normalized.id,
     transactionTypeHint,
     sourceAddress,

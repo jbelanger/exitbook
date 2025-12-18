@@ -12,7 +12,7 @@ function buildEntry(
 ): RawTransactionWithMetadata<CoinbaseLedgerEntry> {
   const timestamp = 1_722_461_782_000;
   const base: RawTransactionWithMetadata<CoinbaseLedgerEntry> = {
-    externalId: 'entry-1',
+    eventId: 'entry-1',
     cursor: {},
     normalized: {
       id: 'entry-1',

@@ -83,7 +83,7 @@ describe('RawDataRepository', () => {
         .values({
           account_id: i <= 3 ? 1 : 2, // First 3 from kraken, last 2 from ethereum
           provider_name: i <= 3 ? 'kraken' : 'ethereum',
-          external_id: `ext-${i}`,
+          event_id: `ext-${i}`,
           blockchain_transaction_hash: null,
           source_address: null,
           transaction_type_hint: null,

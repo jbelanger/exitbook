@@ -16,7 +16,7 @@ export const RawTransactionInputSchema = z.object({
   providerName: z.string().min(1, 'Provider Name must not be empty'),
   sourceAddress: z.string().optional(),
   transactionTypeHint: z.string().optional(),
-  externalId: z.string().min(1, 'External ID must not be empty'),
+  eventId: z.string().min(1, 'Event ID must not be empty'),
   blockchainTransactionHash: z.string().optional(), // On-chain transaction hash for deduplication (blockchain only)
   providerData: z.unknown(),
   normalizedData: z.unknown(),

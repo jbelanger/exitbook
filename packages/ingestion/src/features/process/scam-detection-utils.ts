@@ -168,16 +168,23 @@ export function detectScamToken(
   // TIER 3: HEURISTICS (Context-based signals)
   // ============================================================
   if (transactionContext?.isAirdrop && transactionContext.amount > 0) {
-    // Only add airdrop warning if:
-    // 1. There are other suspicious indicators already present, OR
-    // 2. The contract is unverified (verified contracts get benefit of the doubt)
+    // Add airdrop warning based on context:
+    // 1. If there are already other suspicious indicators, add as additional signal
+    // 2. If explicitly unverified (false), escalate to error
+    // 3. If unknown verification status (undefined), add warning to verify
+    // 4. If verified (true) with no other indicators, don't flag anything
     if (suspiciousIndicators.length > 0) {
       suspiciousIndicators.push('Unsolicited airdrop');
-    } else if (!tokenMetadata.verifiedContract) {
-      // Unverified contract + airdrop = highly suspicious (legitimate projects verify contracts)
+    } else if (tokenMetadata.verifiedContract === false) {
+      // Explicitly unverified contract + airdrop = highly suspicious (legitimate projects verify contracts)
       detectionSource = 'heuristic';
       riskLevel = 'error';
       suspiciousIndicators.push('Unverified contract with unsolicited airdrop');
+    } else if (tokenMetadata.verifiedContract === undefined) {
+      // Unknown verification status + airdrop = warning to verify
+      detectionSource = 'heuristic';
+      // Keep riskLevel as 'warning' (default)
+      suspiciousIndicators.push('Unsolicited airdrop (verify legitimacy)');
     }
     // If verified contract with no other indicators, don't flag anything
   }

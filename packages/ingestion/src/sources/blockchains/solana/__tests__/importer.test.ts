@@ -120,7 +120,7 @@ describe('SolanaTransactionImporter', () => {
         normalizedData: mockNormalizedSol,
         providerData: mockSolTx,
       });
-      expect(value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+      expect(value.rawTransactions[0]?.eventId).toMatch(/^[a-f0-9]{64}$/);
 
       // Verify token transaction
       expect(value.rawTransactions[1]).toMatchObject({
@@ -129,7 +129,7 @@ describe('SolanaTransactionImporter', () => {
         normalizedData: mockNormalizedToken,
         providerData: mockTokenTx,
       });
-      expect(value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+      expect(value.rawTransactions[1]?.eventId).toMatch(/^[a-f0-9]{64}$/);
 
       // Verify API call was made
       expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(1);

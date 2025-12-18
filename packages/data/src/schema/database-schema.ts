@@ -79,7 +79,7 @@ export interface RawTransactionTable {
   provider_name: string;
 
   // Transaction identification
-  external_id: string; // Unique transaction ID from exchange/blockchain
+  event_id: string; // Unique transaction ID from exchange/blockchain
   blockchain_transaction_hash: string | null; // On-chain transaction hash for deduplication (null for exchange transactions)
 
   // Source metadata

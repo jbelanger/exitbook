@@ -176,7 +176,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             .insertInto('raw_transactions')
             .values({
               created_at: this.getCurrentDateTimeForDB(),
-              external_id: item.externalId,
+              event_id: item.eventId,
               account_id: accountId,
               blockchain_transaction_hash: item.blockchainTransactionHash ?? null,
               normalized_data: JSON.stringify(item.normalizedData),
@@ -195,7 +195,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
           if (
             errorMessage.includes('UNIQUE constraint failed') ||
             errorMessage.includes('idx_raw_tx_account_blockchain_hash') ||
-            errorMessage.includes('idx_raw_tx_account_external_id')
+            errorMessage.includes('idx_raw_tx_account_event_id')
           ) {
             // Skip duplicate - return 0 to indicate nothing was inserted
             return 0;
@@ -243,7 +243,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
               .insertInto('raw_transactions')
               .values({
                 created_at: createdAt,
-                external_id: item.externalId ?? null,
+                event_id: item.eventId ?? null,
                 account_id: accountId,
                 blockchain_transaction_hash: item.blockchainTransactionHash ?? null,
                 normalized_data: JSON.stringify(item.normalizedData),
@@ -264,7 +264,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             if (
               errorMessage.includes('UNIQUE constraint failed') ||
               errorMessage.includes('idx_raw_tx_account_blockchain_hash') ||
-              errorMessage.includes('idx_raw_tx_account_external_id')
+              errorMessage.includes('idx_raw_tx_account_event_id')
             ) {
               // Skip duplicate - this is expected for blockchain transactions shared across derived addresses or re-imported exchange data
               continue;
@@ -395,7 +395,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       providerName: row.provider_name,
       sourceAddress: row.source_address ?? undefined,
       transactionTypeHint: row.transaction_type_hint ?? undefined,
-      externalId: row.external_id,
+      eventId: row.event_id,
       blockchainTransactionHash: row.blockchain_transaction_hash ?? undefined,
       providerData: rawDataResult.value,
       normalizedData: normalizedDataResult.value,

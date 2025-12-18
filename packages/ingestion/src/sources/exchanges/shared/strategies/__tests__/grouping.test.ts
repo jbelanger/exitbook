@@ -16,11 +16,11 @@ function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedge
   };
 }
 
-function wrapEntry(entry: ExchangeLedgerEntry, externalId?: string): RawTransactionWithMetadata {
+function wrapEntry(entry: ExchangeLedgerEntry, eventId?: string): RawTransactionWithMetadata {
   return {
     raw: entry,
     normalized: entry,
-    externalId: externalId || entry.id,
+    eventId: eventId || entry.id,
     cursor: {},
   };
 }

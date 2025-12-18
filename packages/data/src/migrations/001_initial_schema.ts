@@ -64,7 +64,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
     .addColumn('provider_name', 'text', (col) => col.notNull())
-    .addColumn('external_id', 'text', (col) => col.notNull())
+    .addColumn('event_id', 'text', (col) => col.notNull())
     .addColumn('source_address', 'text')
     .addColumn('blockchain_transaction_hash', 'text')
     .addColumn('transaction_type_hint', 'text')
@@ -78,10 +78,10 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
   // Create index on account_id for fast account-scoped queries
   await db.schema.createIndex('idx_raw_tx_account_id').on('raw_transactions').column('account_id').execute();
 
-  // Create unique index on (account_id, external_id) to prevent duplicate exchange transactions per account
+  // Create unique index on (account_id, event_id) to prevent duplicate exchange transactions per account
   await sql`
-    CREATE UNIQUE INDEX idx_raw_tx_account_external_id
-    ON raw_transactions(account_id, external_id)
+    CREATE UNIQUE INDEX idx_raw_tx_account_event_id
+    ON raw_transactions(account_id, event_id)
   `.execute(db);
 
   // Create transactions table

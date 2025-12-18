@@ -522,7 +522,7 @@ export function analyzeEvmFundFlow(
 /**
  * Selects the primary transaction from a correlated group.
  *
- * Pure function that chooses the most representative transaction for external_id and metadata.
+ * Pure function that chooses the most representative transaction for event_id and metadata.
  * Prioritizes token transfers when present, then follows a preferred order of transaction types.
  */
 export function selectPrimaryEvmTransaction(

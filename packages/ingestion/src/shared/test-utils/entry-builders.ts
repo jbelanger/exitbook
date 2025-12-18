@@ -91,7 +91,7 @@ export function wrapEntry(entry: ExchangeLedgerEntry): RawTransactionWithMetadat
   return {
     raw: entry,
     normalized: entry,
-    externalId: entry.id,
+    eventId: entry.id,
     cursor: {},
   };
 }
@@ -103,13 +103,13 @@ export function wrapEntry(entry: ExchangeLedgerEntry): RawTransactionWithMetadat
 export function createRawTransactionWithMetadata<T>(
   raw: T,
   normalized: ExchangeLedgerEntry,
-  externalId?: string,
+  eventId?: string,
   cursor?: Record<string, number>
 ): RawTransactionWithMetadata<T> {
   return {
     raw,
     normalized,
-    externalId: externalId ?? normalized.id,
+    eventId: eventId ?? normalized.id,
     cursor: cursor ?? {},
   };
 }

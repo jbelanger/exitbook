@@ -88,7 +88,7 @@ export class CardanoTransactionImporter implements IImporter {
 
       // Map to raw transactions
       const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
-        externalId: generateUniqueTransactionId({
+        eventId: generateUniqueTransactionId({
           amount: txWithRaw.normalized.outputs[0]?.amounts[0]?.quantity || '0',
           currency: txWithRaw.normalized.currency,
           from: txWithRaw.normalized.inputs[0]?.address || '',

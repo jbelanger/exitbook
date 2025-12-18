@@ -162,7 +162,7 @@ describe('CosmosImporter', () => {
         normalizedData: mockCosmosTransaction,
         providerData: { block_timestamp: mockCosmosTransaction.timestamp, id: mockCosmosTransaction.id },
       });
-      expect(value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+      expect(value.rawTransactions[0]?.eventId).toMatch(/^[a-f0-9]{64}$/);
 
       // Verify API call was made
       expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(1);

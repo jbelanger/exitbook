@@ -165,7 +165,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
 
                 // Add validated transaction to batch
                 transactions.push({
-                  externalId: validatedData.id,
+                  eventId: validatedData.id,
                   providerName: 'kraken',
                   providerData: validatedData,
                   normalizedData: normalizedValidation.data,
@@ -245,7 +245,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
                     }
                   : {
                       primary: { type: 'timestamp', value: since ?? Date.now() },
-                      lastTransactionId: transactions[transactions.length - 1]?.externalId ?? '',
+                      lastTransactionId: transactions[transactions.length - 1]?.eventId ?? '',
                       totalFetched: cumulativeFetched,
                       metadata: {
                         providerName: 'kraken',

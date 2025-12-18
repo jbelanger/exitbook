@@ -436,7 +436,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
     // First batch: account1 (BTC)
     expect(batches[0]?.operationType).toBe('account1');
     expect(batches[0]?.transactions).toHaveLength(1);
-    expect(batches[0]?.transactions[0]?.externalId).toBe('BTC1');
+    expect(batches[0]?.transactions[0]?.eventId).toBe('BTC1');
     expect(batches[0]?.isComplete).toBe(true);
     expect(batches[0]?.cursor.metadata?.isComplete).toBe(true);
     expect(batches[0]?.cursor.metadata?.accountId).toBe('account1');
@@ -444,7 +444,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
     // Second batch: account2 (USD)
     expect(batches[1]?.operationType).toBe('account2');
     expect(batches[1]?.transactions).toHaveLength(1);
-    expect(batches[1]?.transactions[0]?.externalId).toBe('USD1');
+    expect(batches[1]?.transactions[0]?.eventId).toBe('USD1');
     expect(batches[1]?.isComplete).toBe(true);
     expect(batches[1]?.cursor.metadata?.isComplete).toBe(true);
     expect(batches[1]?.cursor.metadata?.accountId).toBe('account2');
@@ -666,7 +666,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
     // Should have 1 successful batch with valid item, then 1 error
     expect(batches).toHaveLength(1);
     expect(batches[0]?.transactions).toHaveLength(1);
-    expect(batches[0]?.transactions[0]?.externalId).toBe('LEDGER1');
+    expect(batches[0]?.transactions[0]?.eventId).toBe('LEDGER1');
     expect(batches[0]?.cursor.totalFetched).toBe(1);
 
     expect(errors).toHaveLength(1);

@@ -218,7 +218,7 @@ describe('SubstrateImporter', () => {
           normalizedData: mockSubstrateTx1,
           providerData: { original: 'data1' },
         });
-        expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+        expect(result.value.rawTransactions[0]?.eventId).toMatch(/^[a-f0-9]{64}$/);
 
         // Verify second transaction
         expect(result.value.rawTransactions[1]).toMatchObject({
@@ -227,7 +227,7 @@ describe('SubstrateImporter', () => {
           normalizedData: mockSubstrateTx2,
           providerData: { original: 'data2' },
         });
-        expect(result.value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+        expect(result.value.rawTransactions[1]?.eventId).toMatch(/^[a-f0-9]{64}$/);
       }
 
       // Verify API call was made

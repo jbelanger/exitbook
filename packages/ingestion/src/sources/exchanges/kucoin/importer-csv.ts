@@ -33,11 +33,11 @@ import {
 export class KucoinCsvImporter implements IImporter {
   private readonly logger: Logger;
   private readonly sourceName = 'kucoin';
-  private usedExternalIds: Map<string, number>;
+  private usedEventIds: Map<string, number>;
 
   constructor() {
     this.logger = getLogger('kucoinImporter');
-    this.usedExternalIds = new Map();
+    this.usedEventIds = new Map();
   }
 
   /**
@@ -54,7 +54,7 @@ export class KucoinCsvImporter implements IImporter {
     }
 
     // Reset external ID tracking for new import
-    this.usedExternalIds.clear();
+    this.usedEventIds.clear();
 
     // Track total fetched across all files for cursor
     let totalFetched = 0;
@@ -169,13 +169,13 @@ export class KucoinCsvImporter implements IImporter {
           );
 
           for (const row of validationResult.valid) {
-            const externalId = this.getUniqueExternalId(row['Order ID']);
+            const eventId = this.getUniqueEventlId(row['Order ID']);
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'spot_order',
               providerData: { _rowType: 'spot_order', ...row },
               normalizedData: { _rowType: 'spot_order', ...row },
-              externalId,
+              eventId: eventId,
             });
           }
           break;
@@ -202,14 +202,14 @@ export class KucoinCsvImporter implements IImporter {
           );
 
           for (const row of validationResult.valid) {
-            const baseId = row.Hash || this.generateExternalId('deposit', row['Time(UTC)'], row.Coin, row.Amount);
-            const externalId = this.getUniqueExternalId(baseId);
+            const baseId = row.Hash || this.generateEventId('deposit', row['Time(UTC)'], row.Coin, row.Amount);
+            const eventId = this.getUniqueEventlId(baseId);
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'deposit',
               providerData: { _rowType: 'deposit', ...row },
               normalizedData: { _rowType: 'deposit', ...row },
-              externalId,
+              eventId: eventId,
             });
           }
           break;
@@ -236,14 +236,14 @@ export class KucoinCsvImporter implements IImporter {
           );
 
           for (const row of validationResult.valid) {
-            const baseId = row.Hash || this.generateExternalId('withdrawal', row['Time(UTC)'], row.Coin, row.Amount);
-            const externalId = this.getUniqueExternalId(baseId);
+            const baseId = row.Hash || this.generateEventId('withdrawal', row['Time(UTC)'], row.Coin, row.Amount);
+            const eventId = this.getUniqueEventlId(baseId);
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'withdrawal',
               normalizedData: { _rowType: 'withdrawal', ...row },
               providerData: { _rowType: 'withdrawal', ...row },
-              externalId,
+              eventId: eventId,
             });
           }
           break;
@@ -270,14 +270,14 @@ export class KucoinCsvImporter implements IImporter {
           );
 
           for (const row of validationResult.valid) {
-            const baseId = this.generateExternalId(row.Type, row['Time(UTC)'], row.Currency, row.Amount);
-            const externalId = this.getUniqueExternalId(baseId);
+            const baseId = this.generateEventId(row.Type, row['Time(UTC)'], row.Currency, row.Amount);
+            const eventId = this.getUniqueEventlId(baseId);
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'account_history',
               normalizedData: { _rowType: 'account_history', ...row },
               providerData: { _rowType: 'account_history', ...row },
-              externalId,
+              eventId: eventId,
             });
           }
           break;
@@ -321,13 +321,13 @@ export class KucoinCsvImporter implements IImporter {
 
           for (const row of mainAccountRows) {
             const baseId = `${row['Order ID']}-${row['Filled Time(UTC)']}`;
-            const externalId = this.getUniqueExternalId(baseId);
+            const eventId = this.getUniqueEventlId(baseId);
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'order_splitting',
               normalizedData: { _rowType: 'order_splitting', ...row },
               providerData: { _rowType: 'order_splitting', ...row },
-              externalId,
+              eventId: eventId,
             });
           }
           break;
@@ -358,13 +358,13 @@ export class KucoinCsvImporter implements IImporter {
           for (const row of mainAccountRows) {
             const timestamp = new Date(row['Time Filled(UTC)']).getTime();
             const baseId = `${row['Order ID']}-${timestamp}-${row['Filled Amount']}`;
-            const externalId = this.getUniqueExternalId(baseId);
+            const eventId = this.getUniqueEventlId(baseId);
             rawTransactions.push({
               providerName: 'kucoin',
               transactionTypeHint: 'trading_bot',
               normalizedData: { _rowType: 'trading_bot', ...row },
               providerData: { _rowType: 'trading_bot', ...row },
-              externalId,
+              eventId: eventId,
             });
           }
           break;
@@ -509,7 +509,7 @@ export class KucoinCsvImporter implements IImporter {
 
       // Create cursor for this file
       const lastTransaction = rawTransactions.length > 0 ? rawTransactions[rawTransactions.length - 1] : undefined;
-      const lastTransactionId = lastTransaction?.externalId ?? `csv:kucoin:${filePath}:none`;
+      const lastTransactionId = lastTransaction?.eventId ?? `csv:kucoin:${filePath}:none`;
 
       const cursor = this.createFileCursor(
         filePath,
@@ -665,18 +665,18 @@ export class KucoinCsvImporter implements IImporter {
    * Generate a deterministic external ID from row fields.
    * Used when CSV rows don't have a natural unique identifier.
    */
-  private generateExternalId(type: string, timestamp: string, currency: string, amount: string): string {
+  private generateEventId(type: string, timestamp: string, currency: string, amount: string): string {
     const data = `${type}-${timestamp}-${currency}-${amount}`;
     return crypto.createHash('sha256').update(data).digest('hex').substring(0, 16);
   }
 
   /**
-   * Get a unique external ID, appending a counter if the ID has been used before.
+   * Get a unique event ID, appending a counter if the ID has been used before.
    * This handles duplicate rows in CSV files.
    */
-  private getUniqueExternalId(baseId: string): string {
-    const count = this.usedExternalIds.get(baseId) ?? 0;
-    this.usedExternalIds.set(baseId, count + 1);
+  private getUniqueEventlId(baseId: string): string {
+    const count = this.usedEventIds.get(baseId) ?? 0;
+    this.usedEventIds.set(baseId, count + 1);
 
     return count === 0 ? baseId : `${baseId}-${count}`;
   }

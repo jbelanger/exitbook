@@ -60,7 +60,7 @@ describe('Kraken Client Streaming E2E', () => {
 
         // Verify transaction structure
         const firstTx = firstBatch.transactions[0]!;
-        expect(firstTx).toHaveProperty('externalId');
+        expect(firstTx).toHaveProperty('eventId');
         expect(firstTx).toHaveProperty('rawData');
         expect(firstTx).toHaveProperty('normalizedData');
         expect(firstTx.providerName).toBe('kraken');
@@ -147,7 +147,7 @@ describe('Kraken Client Streaming E2E', () => {
 
           const batch = result.value;
           if (batch.transactions.length > 0) {
-            resumedBatchFirstTx = batch.transactions[0]!.externalId;
+            resumedBatchFirstTx = batch.transactions[0]!.eventId;
             break;
           }
         }

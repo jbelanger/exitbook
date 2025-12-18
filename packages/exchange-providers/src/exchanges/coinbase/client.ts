@@ -233,7 +233,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   (item) => ({ ...item }),
                   // Validator: Validate using Zod schema
                   (rawItem) => ExchangeUtils.validateRawData(CoinbaseLedgerEntrySchema, rawItem, 'coinbase'),
-                  // Metadata mapper: Extract cursor, externalId, and normalizedData
+                  // Metadata mapper: Extract cursor, eventId, and normalizedData
                   // PRESERVED FROM BATCH IMPLEMENTATION (lines 192-320)
                   (validatedData: CoinbaseLedgerEntry, item) => {
                     const timestamp = Math.floor(validatedData.timestamp); // Ensure integer
@@ -360,7 +360,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                           },
                         },
                       },
-                      externalId: validatedData.id,
+                      eventId: validatedData.id,
                       normalizedData,
                     };
                   },
@@ -391,7 +391,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                       : {
                           primary: { type: 'timestamp' as const, value: accountCursor ?? Date.now() },
                           lastTransactionId:
-                            partialError.successfulItems[partialError.successfulItems.length - 1]?.externalId ?? '',
+                            partialError.successfulItems[partialError.successfulItems.length - 1]?.eventId ?? '',
                           totalFetched: cumulativeFetched,
                           metadata: {
                             providerName: 'coinbase',
@@ -449,7 +449,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   operationType: accountId,
                   cursor: currentAccountCursor ?? {
                     primary: { type: 'timestamp', value: accountCursor ?? Date.now() },
-                    lastTransactionId: transactions[transactions.length - 1]?.externalId ?? '',
+                    lastTransactionId: transactions[transactions.length - 1]?.eventId ?? '',
                     totalFetched: cumulativeFetched,
                     metadata: {
                       providerName: 'coinbase',

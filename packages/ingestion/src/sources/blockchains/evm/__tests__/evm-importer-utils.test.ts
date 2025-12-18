@@ -39,8 +39,8 @@ describe('evm-importer-utils', () => {
         normalizedData: transactions[0]!.normalized,
         providerData: transactions[0]!.raw,
       });
-      expect(result[0]!.externalId).toBeDefined();
-      expect(typeof result[0]!.externalId).toBe('string');
+      expect(result[0]!.eventId).toBeDefined();
+      expect(typeof result[0]!.eventId).toBe('string');
     });
 
     test('should map internal transactions correctly', () => {
@@ -208,9 +208,9 @@ describe('evm-importer-utils', () => {
 
       const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'normal');
 
-      expect(result[0]!.externalId).toBeDefined();
-      expect(result[1]!.externalId).toBeDefined();
-      expect(result[0]!.externalId).not.toBe(result[1]!.externalId);
+      expect(result[0]!.eventId).toBeDefined();
+      expect(result[1]!.eventId).toBeDefined();
+      expect(result[0]!.eventId).not.toBe(result[1]!.eventId);
     });
 
     test('should preserve all raw data fields', () => {

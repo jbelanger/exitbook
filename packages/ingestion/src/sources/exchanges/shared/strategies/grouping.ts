@@ -11,7 +11,7 @@ export interface RawTransactionWithMetadata<TRaw = unknown> {
   /** Validated common contract (invariants enforced) */
   normalized: ExchangeLedgerEntry;
   /** Unique transaction ID from source */
-  externalId: string;
+  eventId: string;
   /** Cursor for resuming imports */
   cursor: Record<string, number>;
 }

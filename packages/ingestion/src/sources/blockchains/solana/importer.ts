@@ -88,7 +88,7 @@ export class SolanaTransactionImporter implements IImporter {
 
       // Map to raw transactions
       const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
-        externalId: generateUniqueTransactionId({
+        eventId: generateUniqueTransactionId({
           amount: txWithRaw.normalized.amount,
           currency: txWithRaw.normalized.currency,
           from: txWithRaw.normalized.from,

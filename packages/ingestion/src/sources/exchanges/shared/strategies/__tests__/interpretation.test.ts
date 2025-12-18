@@ -21,7 +21,7 @@ function wrapEntry(entry: ExchangeLedgerEntry): RawTransactionWithMetadata {
   return {
     raw: entry,
     normalized: entry,
-    externalId: entry.id,
+    eventId: entry.id,
     cursor: {},
   };
 }

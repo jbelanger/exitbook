@@ -235,7 +235,7 @@ describe('processItems', () => {
         metadata: { providerName: 'kraken', updatedAt: Date.now() },
       },
     },
-    externalId: parsed.id,
+    eventId: parsed.id,
     normalizedData: {
       id: parsed.id,
       correlationId: parsed.id,
@@ -265,7 +265,7 @@ describe('processItems', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.transactions).toHaveLength(1);
-      expect(result.value.transactions[0]!.externalId).toBe('tx-1');
+      expect(result.value.transactions[0]!.eventId).toBe('tx-1');
       expect(result.value.transactions[0]!.providerName).toBe('kraken');
       expect(result.value.cursorUpdates.ledger?.primary.value).toBe(1704067200000);
     }
@@ -283,9 +283,9 @@ describe('processItems', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.transactions).toHaveLength(3);
-      expect(result.value.transactions[0]!.externalId).toBe('tx-1');
-      expect(result.value.transactions[1]!.externalId).toBe('tx-2');
-      expect(result.value.transactions[2]!.externalId).toBe('tx-3');
+      expect(result.value.transactions[0]!.eventId).toBe('tx-1');
+      expect(result.value.transactions[1]!.eventId).toBe('tx-2');
+      expect(result.value.transactions[2]!.eventId).toBe('tx-3');
       expect(result.value.cursorUpdates.ledger?.primary.value).toBe(1704240000000);
     }
   });
@@ -303,7 +303,7 @@ describe('processItems', () => {
       const error = result.error;
       expect(error).toBeInstanceOf(PartialImportError);
       expect(error.successfulItems).toHaveLength(1);
-      expect(error.successfulItems[0]!.externalId).toBe('tx-1');
+      expect(error.successfulItems[0]!.eventId).toBe('tx-1');
     }
   });
 
@@ -332,8 +332,8 @@ describe('processItems', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.transactions).toHaveLength(2);
-      expect(result.value.transactions[0]!.externalId).toBe('tx-1');
-      expect(result.value.transactions[1]!.externalId).toBe('tx-2');
+      expect(result.value.transactions[0]!.eventId).toBe('tx-1');
+      expect(result.value.transactions[1]!.eventId).toBe('tx-2');
       expect(result.value.cursorUpdates.ledger?.primary.value).toEqual(1704153600000);
     }
   });
@@ -362,7 +362,7 @@ describe('processItems', () => {
           metadata: { providerName: 'kraken', updatedAt: Date.now() },
         },
       },
-      externalId: 'tx-1',
+      eventId: 'tx-1',
       normalizedData: {
         id: 'tx-1',
         // Missing required fields - will fail ExchangeLedgerEntrySchema validation

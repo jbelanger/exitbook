@@ -172,7 +172,7 @@ describe('BitcoinTransactionImporter', () => {
           normalizedData: mockNormalized,
           providerData: mockBitcoinTx,
         });
-        expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+        expect(result.value.rawTransactions[0]?.eventId).toMatch(/^[a-f0-9]{64}$/);
       }
 
       // Verify API call was made

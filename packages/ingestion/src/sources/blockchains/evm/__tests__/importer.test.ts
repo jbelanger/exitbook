@@ -187,7 +187,7 @@ describe('EvmImporter', () => {
           providerData: mockNormalTx,
           normalizedData: { id: mockNormalTx.hash },
         });
-        expect(result.value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+        expect(result.value.rawTransactions[0]?.eventId).toMatch(/^[a-f0-9]{64}$/);
 
         // Verify internal transaction
         expect(result.value.rawTransactions[1]).toMatchObject({
@@ -197,7 +197,7 @@ describe('EvmImporter', () => {
           providerData: mockInternalTx,
           normalizedData: { id: mockInternalTx.hash },
         });
-        expect(result.value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+        expect(result.value.rawTransactions[1]?.eventId).toMatch(/^[a-f0-9]{64}$/);
 
         // Verify token transaction
         expect(result.value.rawTransactions[2]).toMatchObject({
@@ -207,7 +207,7 @@ describe('EvmImporter', () => {
           providerData: mockTokenTx,
           normalizedData: { id: mockTokenTx.hash },
         });
-        expect(result.value.rawTransactions[2]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+        expect(result.value.rawTransactions[2]?.eventId).toMatch(/^[a-f0-9]{64}$/);
       }
 
       // Verify all three API calls were made (one for each transaction type)

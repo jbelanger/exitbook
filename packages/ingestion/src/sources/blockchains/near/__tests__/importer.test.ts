@@ -175,7 +175,7 @@ describe('NearTransactionImporter', () => {
         providerData: { transaction_hash: 'AbCdEf123456' },
         transactionTypeHint: 'normal',
       });
-      expect(value.rawTransactions[0]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+      expect(value.rawTransactions[0]?.eventId).toMatch(/^[a-f0-9]{64}$/);
       // Verify function call transaction
       expect(value.rawTransactions[1]).toMatchObject({
         providerName: 'nearblocks',
@@ -184,7 +184,7 @@ describe('NearTransactionImporter', () => {
         providerData: { transaction_hash: 'FunctionCallTx456' },
         transactionTypeHint: 'normal',
       });
-      expect(value.rawTransactions[1]?.externalId).toMatch(/^[a-f0-9]{64}$/);
+      expect(value.rawTransactions[1]?.eventId).toMatch(/^[a-f0-9]{64}$/);
       // Verify API calls were made (normal + token)
       expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(2);
       const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
@@ -473,8 +473,8 @@ describe('NearTransactionImporter', () => {
       });
       const value = assertOk(result);
 
-      const id1 = value.rawTransactions[0]?.externalId;
-      const id2 = value.rawTransactions[1]?.externalId;
+      const id1 = value.rawTransactions[0]?.eventId;
+      const id2 = value.rawTransactions[1]?.eventId;
       expect(id1).toBeDefined();
       expect(id2).toBeDefined();
       expect(id1).not.toBe(id2); // Should be unique
@@ -509,8 +509,8 @@ describe('NearTransactionImporter', () => {
       const value1 = assertOk(result1);
       const value2 = assertOk(result2);
 
-      const id1 = value1.rawTransactions[0]?.externalId;
-      const id2 = value2.rawTransactions[0]?.externalId;
+      const id1 = value1.rawTransactions[0]?.eventId;
+      const id2 = value2.rawTransactions[0]?.eventId;
       expect(id1).toBe(id2); // Should be consistent
     });
   });
