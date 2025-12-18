@@ -78,6 +78,14 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
   // Create index on account_id for fast account-scoped queries
   await db.schema.createIndex('idx_raw_tx_account_id').on('raw_transactions').column('account_id').execute();
 
+  // Create index on (account_id, blockchain_transaction_hash) for performance only, no deduplication
+  // Only applies when blockchain_transaction_hash is not null (blockchain imports, not exchange imports)
+  await sql`
+    CREATE INDEX idx_raw_tx_account_blockchain_hash
+    ON raw_transactions(account_id, blockchain_transaction_hash)
+    WHERE blockchain_transaction_hash IS NOT NULL
+  `.execute(db);
+
   // Create unique index on (account_id, event_id) to prevent duplicate exchange transactions per account
   await sql`
     CREATE UNIQUE INDEX idx_raw_tx_account_event_id
