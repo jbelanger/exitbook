@@ -94,10 +94,8 @@ describe('TransactionRepository - delete methods', () => {
           transaction_datetime: new Date().toISOString(),
           from_address: undefined,
           to_address: undefined,
-          note_type: undefined,
-          note_severity: undefined,
-          note_message: undefined,
-          note_metadata: undefined,
+          notes_json: undefined,
+          is_spam: false,
           excluded_from_accounting: false,
           movements_inflows: undefined,
           movements_outflows: undefined,
@@ -266,6 +264,7 @@ describe('TransactionRepository - scam token filtering', () => {
           external_id: `tx-${i}`,
           transaction_status: 'success' as const,
           transaction_datetime: new Date().toISOString(),
+          is_spam: false,
           excluded_from_accounting: false,
           movements_inflows: JSON.stringify([{ asset: 'ETH', grossAmount: '1.0', netAmount: '1.0' }]),
           operation_type: 'transfer' as const,
@@ -286,9 +285,8 @@ describe('TransactionRepository - scam token filtering', () => {
           external_id: `scam-tx-${i}`,
           transaction_status: 'success' as const,
           transaction_datetime: new Date().toISOString(),
-          note_type: 'SCAM_TOKEN',
-          note_severity: 'error' as const,
-          note_message: 'Scam token detected',
+          notes_json: JSON.stringify([{ type: 'SCAM_TOKEN', message: 'Scam token detected', severity: 'error' }]),
+          is_spam: true,
           excluded_from_accounting: true, // Scam tokens excluded
           movements_inflows: JSON.stringify([{ asset: 'SCAM', grossAmount: '1000.0', netAmount: '1000.0' }]),
           operation_type: 'transfer' as const,
@@ -309,7 +307,7 @@ describe('TransactionRepository - scam token filtering', () => {
     if (result.isOk()) {
       // Should only return the 3 non-scam transactions
       expect(result.value).toHaveLength(3);
-      expect(result.value.every((tx) => tx.note?.type !== 'SCAM_TOKEN')).toBe(true);
+      expect(result.value.every((tx) => !tx.notes?.some((note) => note.type === 'SCAM_TOKEN'))).toBe(true);
     }
   });
 
@@ -319,7 +317,7 @@ describe('TransactionRepository - scam token filtering', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toHaveLength(3);
-      expect(result.value.every((tx) => tx.note?.type !== 'SCAM_TOKEN')).toBe(true);
+      expect(result.value.every((tx) => !tx.notes?.some((note) => note.type === 'SCAM_TOKEN'))).toBe(true);
     }
   });
 
@@ -330,7 +328,7 @@ describe('TransactionRepository - scam token filtering', () => {
     if (result.isOk()) {
       // Should return all 5 transactions (3 regular + 2 scam)
       expect(result.value).toHaveLength(5);
-      const scamTransactions = result.value.filter((tx) => tx.note?.type === 'SCAM_TOKEN');
+      const scamTransactions = result.value.filter((tx) => tx.notes?.some((note) => note.type === 'SCAM_TOKEN'));
       expect(scamTransactions).toHaveLength(2);
     }
   });
@@ -354,6 +352,244 @@ describe('TransactionRepository - scam token filtering', () => {
     if (result.isOk()) {
       expect(result.value).toHaveLength(3);
     }
+  });
+});
+
+describe('TransactionRepository - isSpam field', () => {
+  let db: KyselyDB;
+  let repository: TransactionRepository;
+
+  beforeEach(async () => {
+    db = createDatabase(':memory:');
+    await runMigrations(db);
+    repository = new TransactionRepository(db);
+
+    // Create default user and account
+    await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
+    await db
+      .insertInto('accounts')
+      .values({
+        id: 1,
+        user_id: 1,
+        account_type: 'blockchain',
+        source_name: 'ethereum',
+        identifier: '0x123',
+        provider_name: null,
+        parent_account_id: null,
+        last_cursor: null,
+        last_balance_check_at: null,
+        verification_metadata: null,
+        created_at: new Date().toISOString(),
+        updated_at: null,
+      })
+      .execute();
+
+    // Create mock import session
+    await db
+      .insertInto('import_sessions')
+      .values({
+        id: 1,
+        account_id: 1,
+        started_at: new Date().toISOString(),
+        status: 'completed',
+        transactions_imported: 0,
+        transactions_skipped: 0,
+        created_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+      })
+      .execute();
+  });
+
+  afterEach(async () => {
+    await db.destroy();
+  });
+
+  it('should persist isSpam=true and auto-exclude from accounting', async () => {
+    const transaction = {
+      datetime: new Date().toISOString(),
+      externalId: 'spam-tx-1',
+      fees: [],
+      isSpam: true,
+      movements: {
+        inflows: [
+          {
+            asset: 'SCAM',
+            grossAmount: parseDecimal('1000'),
+            netAmount: parseDecimal('1000'),
+          },
+        ],
+        outflows: [],
+      },
+      note: {
+        message: '⚠️ Scam token detected',
+        metadata: { scamReason: 'Flagged by provider', scamAsset: 'SCAM' },
+        severity: 'error' as const,
+        type: 'SCAM_TOKEN',
+      },
+      operation: {
+        category: 'transfer' as const,
+        type: 'deposit' as const,
+      },
+      source: 'ethereum',
+      status: 'success' as const,
+      timestamp: Date.now(),
+    };
+
+    const result = await repository.save(transaction, 1);
+
+    expect(result.isOk()).toBe(true);
+
+    // Verify isSpam was persisted
+    const tx = await db
+      .selectFrom('transactions')
+      .selectAll()
+      .where('external_id', '=', 'spam-tx-1')
+      .executeTakeFirst();
+    expect(tx?.is_spam).toBe(1); // SQLite uses 1 for true
+    expect(tx?.excluded_from_accounting).toBe(1); // Should auto-exclude
+  });
+
+  it('should persist isSpam=false', async () => {
+    const transaction = {
+      datetime: new Date().toISOString(),
+      externalId: 'legit-tx-1',
+      fees: [],
+      isSpam: false,
+      movements: {
+        inflows: [
+          {
+            asset: 'ETH',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('1'),
+          },
+        ],
+        outflows: [],
+      },
+      operation: {
+        category: 'transfer' as const,
+        type: 'deposit' as const,
+      },
+      source: 'ethereum',
+      status: 'success' as const,
+      timestamp: Date.now(),
+    };
+
+    const result = await repository.save(transaction, 1);
+
+    expect(result.isOk()).toBe(true);
+
+    // Verify isSpam was persisted as false
+    const tx = await db
+      .selectFrom('transactions')
+      .selectAll()
+      .where('external_id', '=', 'legit-tx-1')
+      .executeTakeFirst();
+    expect(tx?.is_spam).toBe(0); // SQLite uses 0 for false
+    expect(tx?.excluded_from_accounting).toBe(0); // Should NOT exclude
+  });
+
+  it('should default isSpam to false when not specified', async () => {
+    const transaction = {
+      datetime: new Date().toISOString(),
+      externalId: 'normal-tx-1',
+      fees: [],
+      movements: {
+        inflows: [
+          {
+            asset: 'ETH',
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('1'),
+          },
+        ],
+        outflows: [],
+      },
+      operation: {
+        category: 'transfer' as const,
+        type: 'deposit' as const,
+      },
+      source: 'ethereum',
+      status: 'success' as const,
+      timestamp: Date.now(),
+    };
+
+    const result = await repository.save(transaction, 1);
+
+    expect(result.isOk()).toBe(true);
+
+    // Verify isSpam defaults to false
+    const tx = await db
+      .selectFrom('transactions')
+      .selectAll()
+      .where('external_id', '=', 'normal-tx-1')
+      .executeTakeFirst();
+    expect(tx?.is_spam).toBe(0); // SQLite uses 0 for false (default)
+  });
+
+  it('should respect explicit excludedFromAccounting even when isSpam=true', async () => {
+    const transaction = {
+      datetime: new Date().toISOString(),
+      excludedFromAccounting: false, // Explicitly set to false
+      externalId: 'spam-tx-2',
+      fees: [],
+      isSpam: true,
+      movements: {
+        inflows: [],
+        outflows: [],
+      },
+      operation: {
+        category: 'transfer' as const,
+        type: 'deposit' as const,
+      },
+      source: 'ethereum',
+      status: 'success' as const,
+      timestamp: Date.now(),
+    };
+
+    const result = await repository.save(transaction, 1);
+
+    expect(result.isOk()).toBe(true);
+
+    // Verify explicit excludedFromAccounting=false is respected
+    const tx = await db
+      .selectFrom('transactions')
+      .selectAll()
+      .where('external_id', '=', 'spam-tx-2')
+      .executeTakeFirst();
+    expect(tx?.is_spam).toBe(1);
+    expect(tx?.excluded_from_accounting).toBe(0); // Should NOT auto-exclude when explicitly set
+  });
+
+  it('should use isSpam for auto-exclusion when excludedFromAccounting not specified', async () => {
+    const spamTransaction = {
+      datetime: new Date().toISOString(),
+      externalId: 'spam-tx-3',
+      fees: [],
+      isSpam: true,
+      movements: {
+        inflows: [],
+        outflows: [],
+      },
+      operation: {
+        category: 'transfer' as const,
+        type: 'deposit' as const,
+      },
+      source: 'ethereum',
+      status: 'success' as const,
+      timestamp: Date.now(),
+    };
+
+    const result = await repository.save(spamTransaction, 1);
+
+    expect(result.isOk()).toBe(true);
+
+    // Verify isSpam=true causes auto-exclusion
+    const tx = await db
+      .selectFrom('transactions')
+      .selectAll()
+      .where('external_id', '=', 'spam-tx-3')
+      .executeTakeFirst();
+    expect(tx?.is_spam).toBe(1);
+    expect(tx?.excluded_from_accounting).toBe(1); // Should auto-exclude
   });
 });
 
@@ -419,6 +655,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
         transaction_status: 'success',
         transaction_datetime: new Date().toISOString(),
         operation_type: 'swap',
+        is_spam: false,
         excluded_from_accounting: false,
         movements_inflows: JSON.stringify([{ asset: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
         fees: JSON.stringify([{ asset: 'BTC', amount: '0.0001', scope: 'network', settlement: 'on-chain' }]),
@@ -617,6 +854,7 @@ describe.skip('TransactionRepository - deduplication across sessions (deprecated
           external_id: `tx-${i}`,
           transaction_status: 'success' as const,
           transaction_datetime: new Date('2024-01-01').toISOString(),
+          is_spam: false,
           excluded_from_accounting: false,
           movements_inflows: JSON.stringify([{ asset: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
           operation_type: 'deposit' as const,
@@ -646,6 +884,7 @@ describe.skip('TransactionRepository - deduplication across sessions (deprecated
           external_id: externalId,
           transaction_status: 'success' as const,
           transaction_datetime: new Date('2024-01-02').toISOString(),
+          is_spam: false,
           excluded_from_accounting: false,
           movements_inflows: JSON.stringify([{ asset: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
           operation_type: 'deposit' as const,

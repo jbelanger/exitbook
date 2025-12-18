@@ -1,6 +1,7 @@
+import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../../core/index.js';
+import { parseApiBoolean, timestampToDate } from '../../../../core/index.js';
 import { EvmAddressSchema } from '../../schemas.js';
 
 /**
@@ -24,7 +25,7 @@ export const MoralisTransactionSchema = z
     receipt_status: z.string().regex(/^[01]$/, 'Receipt status must be 0 or 1'),
     to_address: EvmAddressSchema,
     transaction_index: z.string(),
-    value: z.string().regex(/^\d+$/, 'Value must be numeric string'),
+    value: DecimalStringSchema,
   })
   .passthrough(); // Allow additional fields from API
 
@@ -61,7 +62,7 @@ export const MoralisTokenTransferSchema = z
     token_name: z.string().nullish(),
     token_symbol: z.string().nullish(),
     transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
-    value: z.string().regex(/^\d+$/, 'Value must be numeric string'),
+    value: DecimalStringSchema,
   })
   .transform((data) => ({
     ...data,
@@ -82,7 +83,7 @@ export const MoralisTokenTransferResponseSchema = z.object({
  * Schema for Moralis token balance
  */
 export const MoralisTokenBalanceSchema = z.object({
-  balance: z.string().regex(/^\d+$/, 'Balance must be numeric string'),
+  balance: DecimalStringSchema,
   decimals: z.number().min(0, 'Decimals must be non-negative'),
   logo: z.string().nullish(),
   name: z.string().min(1, 'Name must not be empty'),
@@ -95,11 +96,25 @@ export const MoralisTokenBalanceSchema = z.object({
  */
 export const MoralisTokenMetadataSchema = z
   .object({
-    address: EvmAddressSchema.optional(),
-    decimals: z.union([z.number(), z.string()]).optional(),
-    logo: z.string().optional(),
+    address: EvmAddressSchema.nullish(),
+    decimals: z.union([z.number(), z.string()]).nullish(),
+    logo: z.string().nullish(),
     name: z.string().min(1, 'Name must not be empty'),
     symbol: z.string().min(1, 'Symbol must not be empty'),
+
+    // Professional spam detection from Moralis (primary signal for scam identification)
+    possible_spam: z.union([z.boolean(), z.string()]).nullish(),
+    verified_contract: z.union([z.boolean(), z.string()]).nullish(),
+
+    // Additional useful fields from Moralis
+    total_supply: DecimalStringSchema.optional(),
+    total_supply_formatted: DecimalStringSchema.optional(),
+    fully_diluted_valuation: DecimalStringSchema.optional(),
+    block_number: z.union([z.number(), z.string()]).nullish(),
+    validated: z.string().nullish(),
+    created_at: z.string().nullish(),
+    thumbnail: z.string().nullish(),
+    logo_hash: z.string().nullish(),
   })
   .transform((data) => ({
     ...data,
@@ -109,13 +124,28 @@ export const MoralisTokenMetadataSchema = z
           ? parseInt(data.decimals, 10)
           : data.decimals
         : undefined,
+    // Transform string booleans to actual booleans
+    possible_spam: parseApiBoolean(data.possible_spam),
+    verified_contract: parseApiBoolean(data.verified_contract),
+    // Transform block_number from string to number if needed
+    block_number:
+      data.block_number !== undefined && data.block_number !== null
+        ? typeof data.block_number === 'string' && data.block_number !== ''
+          ? (() => {
+              const parsed = parseInt(data.block_number, 10);
+              return Number.isNaN(parsed) ? undefined : parsed;
+            })()
+          : typeof data.block_number === 'number'
+            ? data.block_number
+            : undefined
+        : undefined,
   }));
 
 /**
  * Schema for Moralis native balance
  */
 export const MoralisNativeBalanceSchema = z.object({
-  balance: z.string().regex(/^\d+$/, 'Balance must be numeric string'),
+  balance: DecimalStringSchema,
 });
 
 // Type exports (inferred from schemas)

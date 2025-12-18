@@ -223,8 +223,8 @@ function detectFeeIssuesInTransaction(tx: UniversalTransactionData): FeeGapIssue
     if (!isInFeeFields) {
       // This outflow is not in fee fields - check if it should be
       // Look for hints in transaction notes or metadata
-      const noteText = tx.note?.message?.toLowerCase() ?? '';
-      const hasFeeHint = noteText.includes('fee') || noteText.includes('cost');
+      const noteTexts = tx.notes?.map((note) => note.message.toLowerCase()) ?? [];
+      const hasFeeHint = noteTexts.some((text) => text.includes('fee') || text.includes('cost'));
 
       if (hasFeeHint) {
         issues.push({

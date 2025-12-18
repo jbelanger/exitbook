@@ -531,7 +531,7 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
 
     // User signs contract call, should pay fee even with zero value
     expect(transaction.fees.find((f) => f.scope === 'network')?.amount.toFixed()).toBe('500000000000000');
-    expect(transaction.note?.type).toBe('contract_interaction');
+    expect(transaction.notes?.[0]?.type).toBe('contract_interaction');
   });
 
   test('deducts fee for failed transactions when user signed', async () => {

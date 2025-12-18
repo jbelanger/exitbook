@@ -155,15 +155,12 @@ export const FeeMovementSchema = z.object({
   priceAtTxTime: PriceAtTxTimeSchema.optional(),
 });
 
-// Note metadata schema (for note.metadata field)
-export const NoteMetadataSchema = z.record(z.string(), z.any());
-
-// Transaction note schema
+// Transaction note schema - allows additional properties for flexible metadata
 export const TransactionNoteSchema = z.object({
   type: z.string(),
   message: z.string(),
   severity: z.enum(['info', 'warning', 'error']).optional(),
-  metadata: NoteMetadataSchema.optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 // Universal Transaction schema (new structure)
@@ -205,7 +202,10 @@ export const UniversalTransactionSchema = z.object({
     .optional(),
 
   // Optional fields
-  note: TransactionNoteSchema.optional(),
+  notes: z.array(TransactionNoteSchema).optional(),
+
+  // Spam detection
+  isSpam: z.boolean().optional(),
 
   // Accounting exclusion
   excludedFromAccounting: z.boolean().optional(),

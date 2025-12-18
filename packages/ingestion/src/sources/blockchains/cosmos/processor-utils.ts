@@ -221,14 +221,16 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
   // Classified as transfer with note (contract call, approval, etc.)
   if (isAmountZero && fundFlow.hasContractInteraction) {
     return {
-      note: {
-        message: `Contract interaction with zero value. May be approval, delegation, or other state change.`,
-        metadata: {
-          hasContractInteraction: fundFlow.hasContractInteraction,
+      notes: [
+        {
+          message: `Contract interaction with zero value. May be approval, delegation, or other state change.`,
+          metadata: {
+            hasContractInteraction: fundFlow.hasContractInteraction,
+          },
+          severity: 'info',
+          type: 'contract_interaction',
         },
-        severity: 'info',
-        type: 'contract_interaction',
-      },
+      ],
       operation: {
         category: 'transfer',
         type: 'transfer',
@@ -257,16 +259,18 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
           ? 'Gravity Bridge from Ethereum'
           : 'IBC transfer from another chain';
     return {
-      note: {
-        message: `Bridge deposit via ${bridgeInfo}.`,
-        metadata: {
-          bridgeType: fundFlow.bridgeType,
-          destinationChain: fundFlow.destinationChain,
-          sourceChain: fundFlow.sourceChain,
+      notes: [
+        {
+          message: `Bridge deposit via ${bridgeInfo}.`,
+          metadata: {
+            bridgeType: fundFlow.bridgeType,
+            destinationChain: fundFlow.destinationChain,
+            sourceChain: fundFlow.sourceChain,
+          },
+          severity: 'info',
+          type: 'bridge_transfer',
         },
-        severity: 'info',
-        type: 'bridge_transfer',
-      },
+      ],
       operation: {
         category: 'transfer',
         type: 'deposit',
@@ -284,16 +288,18 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
           ? 'Gravity Bridge to Ethereum'
           : 'IBC transfer to another chain';
     return {
-      note: {
-        message: `Bridge withdrawal via ${bridgeInfo}.`,
-        metadata: {
-          bridgeType: fundFlow.bridgeType,
-          destinationChain: fundFlow.destinationChain,
-          sourceChain: fundFlow.sourceChain,
+      notes: [
+        {
+          message: `Bridge withdrawal via ${bridgeInfo}.`,
+          metadata: {
+            bridgeType: fundFlow.bridgeType,
+            destinationChain: fundFlow.destinationChain,
+            sourceChain: fundFlow.sourceChain,
+          },
+          severity: 'info',
+          type: 'bridge_transfer',
         },
-        severity: 'info',
-        type: 'bridge_transfer',
-      },
+      ],
       operation: {
         category: 'transfer',
         type: 'withdrawal',
@@ -309,15 +315,17 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
 
     if (outAsset !== inAsset) {
       return {
-        note: {
-          message: `Asset swap: ${outAsset} → ${inAsset}.`,
-          metadata: {
-            inAsset,
-            outAsset,
+        notes: [
+          {
+            message: `Asset swap: ${outAsset} → ${inAsset}.`,
+            metadata: {
+              inAsset,
+              outAsset,
+            },
+            severity: 'info',
+            type: 'swap',
           },
-          severity: 'info',
-          type: 'swap',
-        },
+        ],
         operation: {
           category: 'trade',
           type: 'swap',
@@ -367,15 +375,17 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
   // Pattern 9: Complex multi-asset transaction (UNCERTAIN - add note)
   if (fundFlow.classificationUncertainty) {
     return {
-      note: {
-        message: fundFlow.classificationUncertainty,
-        metadata: {
-          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+      notes: [
+        {
+          message: fundFlow.classificationUncertainty,
+          metadata: {
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'classification_uncertain',
         },
-        severity: 'info',
-        type: 'classification_uncertain',
-      },
+      ],
       operation: {
         category: 'transfer',
         type: 'transfer',
@@ -385,15 +395,17 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
 
   // Ultimate fallback: Couldn't match any confident pattern
   return {
-    note: {
-      message: 'Unable to determine transaction classification using confident patterns.',
-      metadata: {
-        inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-        outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+    notes: [
+      {
+        message: 'Unable to determine transaction classification using confident patterns.',
+        metadata: {
+          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+        },
+        severity: 'warning',
+        type: 'classification_failed',
       },
-      severity: 'warning',
-      type: 'classification_failed',
-    },
+    ],
     operation: {
       category: 'transfer',
       type: 'transfer',

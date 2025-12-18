@@ -171,8 +171,8 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
-      expect(result.note?.type).toBe('contract_interaction');
-      expect(result.note?.severity).toBe('info');
+      expect(result.notes?.[0]?.type).toBe('contract_interaction');
+      expect(result.notes?.[0]?.severity).toBe('info');
     });
 
     it('classifies staking operation as transfer with note', () => {
@@ -193,7 +193,7 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
-      expect(result.note?.type).toBe('contract_interaction');
+      expect(result.notes?.[0]?.type).toBe('contract_interaction');
     });
   });
 
@@ -216,7 +216,7 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow);
 
       expect(result.operation).toEqual({ category: 'fee', type: 'fee' });
-      expect(result.note).toBeUndefined();
+      expect(result.notes).toBeUndefined();
     });
   });
 
@@ -239,7 +239,7 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow);
 
       expect(result.operation).toEqual({ category: 'trade', type: 'swap' });
-      expect(result.note).toBeUndefined();
+      expect(result.notes).toBeUndefined();
     });
   });
 
@@ -262,7 +262,7 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'deposit' });
-      expect(result.note).toBeUndefined();
+      expect(result.notes).toBeUndefined();
     });
 
     it('classifies multi-asset deposit when multiple inflows present', () => {
@@ -308,7 +308,7 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
-      expect(result.note).toBeUndefined();
+      expect(result.notes).toBeUndefined();
     });
 
     it('classifies multi-asset withdrawal when multiple outflows present', () => {
@@ -354,7 +354,7 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
-      expect(result.note).toBeUndefined();
+      expect(result.notes).toBeUndefined();
     });
   });
 
@@ -385,10 +385,10 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
-      expect(result.note?.type).toBe('classification_uncertain');
-      expect(result.note?.severity).toBe('info');
-      expect(result.note?.metadata).toHaveProperty('inflows');
-      expect(result.note?.metadata).toHaveProperty('outflows');
+      expect(result.notes?.[0]?.type).toBe('classification_uncertain');
+      expect(result.notes?.[0]?.severity).toBe('info');
+      expect(result.notes?.[0]?.metadata).toHaveProperty('inflows');
+      expect(result.notes?.[0]?.metadata).toHaveProperty('outflows');
     });
   });
 
@@ -413,8 +413,8 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
-      expect(result.note?.type).toBe('classification_failed');
-      expect(result.note?.severity).toBe('warning');
+      expect(result.notes?.[0]?.type).toBe('classification_failed');
+      expect(result.notes?.[0]?.severity).toBe('warning');
     });
   });
 });

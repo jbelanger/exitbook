@@ -1,24 +1,55 @@
-import { type TransactionNote } from '@exitbook/core';
+import { type TokenMetadataRecord, type TransactionNote, tryParseDecimal } from '@exitbook/core';
+import { getLogger } from '@exitbook/logger';
+import { Decimal } from 'decimal.js';
+
+import type { ProcessedTransaction } from '../../shared/types/processors.js';
+
+const logger = getLogger('scam-detection');
+
+// ============================================================
+// MODULE-LEVEL REGEX PATTERNS (for performance)
+// ============================================================
+const GIFT_EMOJI_REGEX = /[🎁🎉🎊💰💎⭐✨🔥🚀🪂]/u;
+
+// More conservative pattern - only flag obvious scam phrases, not individual words
+const TIME_BASED_DROP_REGEX = /\b(202[3-9].*(?:drop|airdrop|claim)|(?:visit|go to).*(?:claim|drop|airdrop))\b/i;
+
+const URL_PATTERN_REGEX = /\b(www\.|\.com|\.net|\.org|\.io|\.app|\.xyz|https?:\/\/|token-|claim-)/i;
+
+const EXPLICIT_SCAM_PHRASES_REGEX =
+  /\b(visit.*to.*claim|go.*to.*claim|click.*to.*claim|free.*airdrop.*claim|claim.*your.*reward)\b/i;
+
+const SUSPICIOUS_URL_PATTERNS = [
+  /jupiter.*claim/i,
+  /solana.*drop/i,
+  /crypto.*bonus/i,
+  /.*-airdrop.*\.com/i,
+  /.*claim.*\.site/i,
+  /.*bonus.*\.xyz/i,
+];
+
+// Unicode homograph detection (lookalike characters commonly used in scams)
+const HOMOGRAPH_CHARS = /[\u0430-\u044f\u0410-\u042f\u0370-\u03ff\u0400-\u04ff]/u; // Cyrillic, Greek
+
+// Zero-width and invisible characters used to obfuscate
+// eslint-disable-next-line no-misleading-character-class -- Intended regex
+const ZERO_WIDTH_CHARS = /[\u200b\u200c\u200d\u2060\ufeff]/u;
+
+// Unicode obfuscated dots/separators
+const UNICODE_DOT_OBFUSCATION = /[\u2024\u2027\u2218\u2219\u22c5\u00b7\u0387\u16eb\u2022\u2981\u0701]/u;
 
 /**
- * Token metadata from DAS API for scam detection
- */
-interface TokenMetadata {
-  attributes?: { trait_type: string; value: string }[] | undefined;
-  description?: string | undefined;
-  external_url?: string | undefined;
-  image?: string | undefined;
-  name: string;
-  symbol: string;
-}
-
-/**
- * Analyzes token metadata to identify potential scam tokens
- * Returns a transaction note if suspicious patterns are detected
+ * Analyzes token metadata to identify potential scam tokens using multi-tier detection.
+ * Priority: Professional detection > Pattern matching > Heuristics
+ *
+ * @param contractAddress - Token contract address
+ * @param tokenMetadata - Token metadata from repository (includes professional spam flags)
+ * @param transactionContext - Optional context about the transaction (for heuristics)
+ * @returns TransactionNote if suspicious patterns detected, undefined otherwise
  */
 export function detectScamToken(
-  mintAddress: string,
-  tokenMetadata: TokenMetadata,
+  contractAddress: string,
+  tokenMetadata: TokenMetadataRecord,
   transactionContext?: {
     amount: number;
     isAirdrop: boolean;
@@ -26,22 +57,66 @@ export function detectScamToken(
 ): TransactionNote | undefined {
   const suspiciousIndicators: string[] = [];
   let riskLevel: 'warning' | 'error' = 'warning';
+  let detectionSource: 'professional' | 'pattern' | 'heuristic' = 'pattern';
+
+  // ============================================================
+  // TIER 1: PROFESSIONAL SPAM DETECTION (Highest Confidence)
+  // ============================================================
+  if (tokenMetadata.possibleSpam === true) {
+    suspiciousIndicators.push('Flagged by provider spam detection');
+    riskLevel = 'error';
+    detectionSource = 'professional';
+
+    // Return immediately - trust professional detection
+    return {
+      type: 'SCAM_TOKEN',
+      message: `⚠️ Scam token detected by ${tokenMetadata.source}: ${contractAddress.slice(0, 8)}...`,
+      severity: 'error',
+      metadata: {
+        contractAddress,
+        detectionSource: 'professional',
+        indicators: suspiciousIndicators,
+        provider: tokenMetadata.source,
+        tokenName: tokenMetadata.name,
+        tokenSymbol: tokenMetadata.symbol,
+        verifiedContract: tokenMetadata.verifiedContract,
+      },
+    };
+  }
+
+  // ============================================================
+  // TIER 2: PATTERN MATCHING (Fallback for non-spam providers)
+  // ============================================================
 
   // Analyze token name for gift/reward emojis
   if (tokenMetadata.name && containsGiftEmojis(tokenMetadata.name)) {
     suspiciousIndicators.push('Gift/drop emojis in token name');
+    // riskLevel is 'warning' by default, no need to set it again
+  }
+
+  // Check for homograph attacks (unicode lookalikes)
+  if (tokenMetadata.name && containsHomographChars(tokenMetadata.name)) {
+    suspiciousIndicators.push('Contains lookalike unicode characters (possible spoofing)');
     riskLevel = 'error';
   }
 
-  // Check for project impersonation attempts
-  const impersonationResult = detectProjectImpersonation(tokenMetadata.symbol, tokenMetadata.name);
-  if (impersonationResult.isImpersonation) {
-    suspiciousIndicators.push(`Impersonating ${impersonationResult.targetProject}`);
+  // Check for zero-width character obfuscation
+  if (tokenMetadata.name && containsZeroWidthChars(tokenMetadata.name)) {
+    suspiciousIndicators.push('Contains invisible unicode characters (obfuscation)');
+    riskLevel = 'error';
+  }
+
+  // Check for unicode dot obfuscation in URLs
+  if (
+    (tokenMetadata.name && containsUnicodeDotObfuscation(tokenMetadata.name)) ||
+    (tokenMetadata.externalUrl && containsUnicodeDotObfuscation(tokenMetadata.externalUrl))
+  ) {
+    suspiciousIndicators.push('Contains obfuscated URL characters');
     riskLevel = 'error';
   }
 
   // Validate external URLs for suspicious patterns
-  if (tokenMetadata.external_url && isSuspiciousUrl(tokenMetadata.external_url)) {
+  if (tokenMetadata.externalUrl && isSuspiciousUrl(tokenMetadata.externalUrl)) {
     suspiciousIndicators.push('Suspicious external URL');
     riskLevel = 'error';
   }
@@ -49,7 +124,9 @@ export function detectScamToken(
   // Check for time-sensitive drop language
   if (tokenMetadata.name && hasTimeBasedDropPattern(tokenMetadata.name)) {
     suspiciousIndicators.push('Suspicious year/drop pattern in name');
-    riskLevel = 'warning';
+    if (riskLevel !== 'error') {
+      riskLevel = 'warning';
+    }
   }
 
   // Detect embedded URLs in token names
@@ -58,10 +135,47 @@ export function detectScamToken(
     riskLevel = 'error';
   }
 
-  // Evaluate airdrop context
+  // Check description for scam phrases (Solana-specific rich metadata)
+  if (tokenMetadata.description && containsExplicitScamPhrases(tokenMetadata.description)) {
+    suspiciousIndicators.push('Scam phrases in description');
+    riskLevel = 'error';
+  }
+
+  // Check total supply for ridiculous values (common in scam tokens)
+  if (tokenMetadata.totalSupply && hasRidiculousTotalSupply(tokenMetadata.totalSupply)) {
+    suspiciousIndicators.push('Extremely high total supply (likely worthless)');
+    if (riskLevel !== 'error') {
+      riskLevel = 'warning';
+    }
+  }
+
+  // Check token age if createdAt available (very new + airdrop = suspicious)
+  if (tokenMetadata.createdAt && transactionContext?.isAirdrop) {
+    const tokenAgeResult = analyzeTokenAge(tokenMetadata.createdAt);
+    if (tokenAgeResult.isVeryRecent) {
+      suspiciousIndicators.push(`Token created ${tokenAgeResult.ageDescription}`);
+      // Only flag as error if combined with other indicators
+      if (suspiciousIndicators.length > 1) {
+        riskLevel = 'error';
+      }
+    }
+  }
+
+  // ============================================================
+  // TIER 3: HEURISTICS (Context-based signals)
+  // ============================================================
   if (transactionContext?.isAirdrop && transactionContext.amount > 0) {
-    suspiciousIndicators.push('Unsolicited airdrop');
-    riskLevel = 'warning';
+    // Only add as warning if other indicators already present
+    if (suspiciousIndicators.length > 0) {
+      suspiciousIndicators.push('Unsolicited airdrop');
+    } else {
+      // Airdrop alone is not enough to flag as scam
+      detectionSource = 'heuristic';
+      if (riskLevel !== 'error') {
+        riskLevel = 'warning';
+      }
+      suspiciousIndicators.push('Unsolicited airdrop (verify legitimacy)');
+    }
   }
 
   // Generate warning note if suspicious patterns found
@@ -71,11 +185,13 @@ export function detectScamToken(
     return {
       message: `⚠️ ${riskLevel === 'error' ? 'Scam token detected' : 'Suspicious token'}: ${suspiciousIndicators.join(', ')}`,
       metadata: {
-        externalUrl: tokenMetadata.external_url,
+        contractAddress,
+        detectionSource,
+        externalUrl: tokenMetadata.externalUrl,
         indicators: suspiciousIndicators,
-        mintAddress,
         tokenName: tokenMetadata.name,
         tokenSymbol: tokenMetadata.symbol,
+        verifiedContract: tokenMetadata.verifiedContract,
       },
       severity: riskLevel,
       type: noteType,
@@ -89,71 +205,50 @@ export function detectScamToken(
  * Checks if token name contains gift/reward emojis commonly used in scam tokens
  */
 function containsGiftEmojis(name: string): boolean {
-  const giftEmojis = /[🎁🎉🎊💰💎⭐✨🔥🚀]/u;
-  return giftEmojis.test(name);
+  return GIFT_EMOJI_REGEX.test(name);
 }
 
 /**
- * Identifies potential impersonation of legitimate projects
+ * Detects homograph attacks using lookalike unicode characters (e.g., Cyrillic 'а' vs Latin 'a')
  */
-function detectProjectImpersonation(
-  symbol: string,
-  name: string
-): { isImpersonation: boolean; targetProject?: string } {
-  const knownProjects = [
-    { names: ['jupiter'], project: 'Jupiter Exchange', symbols: ['jup'] },
-    { names: ['solana'], project: 'Solana', symbols: ['sol'] },
-    { names: ['raydium'], project: 'Raydium', symbols: ['ray'] },
-    { names: ['serum'], project: 'Serum', symbols: ['srm'] },
-    { names: ['orca'], project: 'Orca', symbols: ['orca'] },
-    { names: ['mango'], project: 'Mango Markets', symbols: ['mngo'] },
-  ];
-
-  const lowerSymbol = symbol.toLowerCase();
-  const lowerName = name.toLowerCase();
-
-  for (const project of knownProjects) {
-    // Check if symbol matches but name suggests it's fake
-    if (project.symbols.includes(lowerSymbol)) {
-      // If name contains suspicious patterns, it's likely impersonation
-      if (hasTimeBasedDropPattern(name) || containsGiftEmojis(name)) {
-        return { isImpersonation: true, targetProject: project.project };
-      }
-    }
-
-    // Check if name contains project name but has suspicious additions
-    const hasProjectName = project.names.some((projName) => lowerName.includes(projName));
-    if (hasProjectName && (hasTimeBasedDropPattern(name) || containsGiftEmojis(name))) {
-      return { isImpersonation: true, targetProject: project.project };
-    }
-  }
-
-  return { isImpersonation: false };
+function containsHomographChars(text: string): boolean {
+  return HOMOGRAPH_CHARS.test(text);
 }
 
 /**
- * Detects time-sensitive language commonly used in scam tokens
+ * Detects zero-width and invisible unicode characters used for obfuscation
+ */
+function containsZeroWidthChars(text: string): boolean {
+  return ZERO_WIDTH_CHARS.test(text);
+}
+
+/**
+ * Detects unicode dot obfuscation (e.g., 'claim․com' using unicode dot instead of period)
+ */
+function containsUnicodeDotObfuscation(text: string): boolean {
+  return UNICODE_DOT_OBFUSCATION.test(text);
+}
+
+/**
+ * Detects time-sensitive language commonly used in scam tokens (more conservative)
+ * Now requires combination of year/action rather than single keywords
  */
 function hasTimeBasedDropPattern(name: string): boolean {
-  const yearDropPatterns = /\b(202[3-9]|drop|airdrop|claim|bonus|reward|visit|free|prize|win)\b/i;
-  return yearDropPatterns.test(name);
+  return TIME_BASED_DROP_REGEX.test(name);
 }
 
 /**
  * Identifies URL or website patterns embedded in token names
  */
 function containsUrlPattern(name: string): boolean {
-  const urlPatterns = /\b(www\.|\.com|\.net|\.org|\.io|\.app|\.xyz|token-|claim-|visit |go to )/i;
-  return urlPatterns.test(name);
+  return URL_PATTERN_REGEX.test(name);
 }
 
 /**
  * Detects explicit scam language patterns (conservative approach)
  */
 function containsExplicitScamPhrases(name: string): boolean {
-  const obviousScamPatterns =
-    /\b(visit.*to.*claim|go.*to.*claim|click.*to.*claim|free.*airdrop.*claim|claim.*your.*reward)\b/i;
-  return obviousScamPatterns.test(name);
+  return EXPLICIT_SCAM_PHRASES_REGEX.test(name);
 }
 
 /**
@@ -164,20 +259,81 @@ function isSuspiciousUrl(url: string): boolean {
     const parsedUrl = new URL(url);
     const hostname = parsedUrl.hostname.toLowerCase();
 
-    // Check for suspicious domain patterns
-    const suspiciousPatterns = [
-      /jupiter.*claim/i,
-      /solana.*drop/i,
-      /crypto.*bonus/i,
-      /.*-airdrop.*\.com/i,
-      /.*claim.*\.site/i,
-      /.*bonus.*\.xyz/i,
-    ];
+    return SUSPICIOUS_URL_PATTERNS.some((pattern) => pattern.test(hostname));
+  } catch (error) {
+    logger.warn({ error, url }, 'Invalid URL format in token metadata - skipping URL validation');
+    return false;
+  }
+}
 
-    return suspiciousPatterns.some((pattern) => pattern.test(hostname));
-  } catch {
-    // Invalid URL is suspicious
-    return true;
+/**
+ * Check if total supply is ridiculously high (common scam pattern)
+ * Scam tokens often have supplies like 1 quadrillion to make recipients feel wealthy
+ *
+ * Uses Decimal.js for precise arithmetic without floating-point precision loss
+ */
+function hasRidiculousTotalSupply(totalSupply: string): boolean {
+  try {
+    // Remove common formatting (commas, spaces) before parsing
+    const cleaned = totalSupply.replace(/[,\s]/g, '');
+
+    // Parse using Decimal.js to avoid precision loss on large numbers
+    const parsed = { value: new Decimal(0) };
+    if (!tryParseDecimal(cleaned, parsed)) {
+      logger.warn({ totalSupply, cleaned }, 'Invalid total supply value - failed to parse');
+      return false;
+    }
+
+    // Validate parsed value (check for NaN or infinite)
+    if (!parsed.value.isFinite()) {
+      logger.warn({ totalSupply, cleaned }, 'Invalid total supply value - not finite');
+      return false;
+    }
+
+    // Flag if total supply > 1 trillion
+    // Legitimate tokens rarely exceed billions, let alone trillions
+    const RIDICULOUS_THRESHOLD = new Decimal('1e12'); // 1 trillion
+    return parsed.value.greaterThan(RIDICULOUS_THRESHOLD);
+  } catch (error) {
+    logger.warn({ error, totalSupply }, 'Failed to parse total supply value');
+    return false;
+  }
+}
+
+/**
+ * Analyze token age from createdAt timestamp
+ * Very recently created tokens (< 7 days) that are airdropped are often scams
+ */
+function analyzeTokenAge(createdAt: string): {
+  ageDescription: string;
+  isVeryRecent: boolean;
+} {
+  try {
+    const createdDate = new Date(createdAt);
+    const now = new Date();
+    const ageMs = now.getTime() - createdDate.getTime();
+    const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
+    const ageHours = Math.floor(ageMs / (1000 * 60 * 60));
+
+    if (ageDays < 1) {
+      return {
+        ageDescription: ageHours < 1 ? 'less than 1 hour ago' : `${ageHours} hours ago`,
+        isVeryRecent: true,
+      };
+    } else if (ageDays < 7) {
+      return {
+        ageDescription: `${ageDays} days ago`,
+        isVeryRecent: true,
+      };
+    }
+
+    return {
+      ageDescription: `${ageDays} days ago`,
+      isVeryRecent: false,
+    };
+  } catch (error) {
+    logger.warn({ error, createdAt }, 'Failed to parse token createdAt timestamp');
+    return { ageDescription: 'unknown', isVeryRecent: false };
   }
 }
 
@@ -204,11 +360,42 @@ export function detectScamFromSymbol(tokenSymbol: string): {
     return { isScam: true, reason: 'Contains gift/reward emojis' };
   }
 
-  // Check known specific scam tokens
-  const knownScamTokens = ['jup']; // Fake Jupiter from Solana - specific known scam
-  if (knownScamTokens.includes(tokenSymbol.toLowerCase())) {
-    return { isScam: true, reason: 'Known scam token' };
+  return { isScam: false, reason: '' };
+}
+
+/**
+ * Applies scam detection results to a transaction.
+ *
+ * ⚠️ MUTATES TRANSACTION IN PLACE ⚠️
+ *
+ * Behavior based on severity:
+ * - 'error' severity: Sets isSpam=true AND adds note (excludes from accounting)
+ * - 'warning' severity: Only adds note (allows user verification)
+ *
+ * This provides consistent scam handling across all processors while preventing
+ * false positives from excluding legitimate tokens from accounting.
+ *
+ * @param transaction - Transaction to mutate (modified in place)
+ * @param scamNote - Scam detection note with severity and details
+ * @mutates transaction.isSpam - Set to true for error severity
+ * @mutates transaction.notes - Scam note appended to array
+ *
+ * @example
+ * const scamNote = detectScamToken(address, metadata);
+ * if (scamNote) {
+ *   applyScamDetection(transaction, scamNote);
+ * }
+ */
+export function applyScamDetection(transaction: ProcessedTransaction, scamNote: TransactionNote): void {
+  // Only set isSpam flag for error severity (confirmed scams)
+  // Warning severity (e.g., SUSPICIOUS_AIRDROP) should not auto-exclude from accounting
+  if (scamNote.severity === 'error') {
+    transaction.isSpam = true;
   }
 
-  return { isScam: false, reason: '' };
+  // Append scam note to existing notes array
+  if (!transaction.notes) {
+    transaction.notes = [];
+  }
+  transaction.notes.push(scamNote);
 }

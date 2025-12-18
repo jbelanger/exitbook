@@ -509,16 +509,18 @@ export function classifyNearOperationFromFundFlow(
 
     // Complex staking with both inflows and outflows
     return {
-      note: {
-        message: 'Complex staking operation with both inflows and outflows. Manual review recommended.',
-        metadata: {
-          hasStaking: true,
-          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+      notes: [
+        {
+          message: 'Complex staking operation with both inflows and outflows. Manual review recommended.',
+          metadata: {
+            hasStaking: true,
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'classification_uncertain',
         },
-        severity: 'info',
-        type: 'classification_uncertain',
-      },
+      ],
       operation: {
         category: 'staking',
         type: 'stake',
@@ -589,17 +591,19 @@ export function classifyNearOperationFromFundFlow(
 
     // Complex contract interaction (both inflows and outflows, but not a clear swap)
     return {
-      note: {
-        message: 'Contract call with token transfers detected. May be swap or complex operation.',
-        metadata: {
-          hasContractCall: true,
-          hasTokenTransfers: true,
-          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+      notes: [
+        {
+          message: 'Contract call with token transfers detected. May be swap or complex operation.',
+          metadata: {
+            hasContractCall: true,
+            hasTokenTransfers: true,
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'contract_interaction',
         },
-        severity: 'info',
-        type: 'contract_interaction',
-      },
+      ],
       operation: {
         category: 'defi',
         type: 'batch',
@@ -645,15 +649,17 @@ export function classifyNearOperationFromFundFlow(
   // Pattern 8: Complex multi-asset transaction (UNCERTAIN - add note)
   if (fundFlow.classificationUncertainty) {
     return {
-      note: {
-        message: fundFlow.classificationUncertainty,
-        metadata: {
-          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+      notes: [
+        {
+          message: fundFlow.classificationUncertainty,
+          metadata: {
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'classification_uncertain',
         },
-        severity: 'info',
-        type: 'classification_uncertain',
-      },
+      ],
       operation: {
         category: 'transfer',
         type: 'transfer',
@@ -664,17 +670,19 @@ export function classifyNearOperationFromFundFlow(
   // Pattern 9: Batch operations (multiple actions)
   if (fundFlow.actionCount > 3) {
     return {
-      note: {
-        message: `Batch transaction with ${fundFlow.actionCount} actions. May contain multiple operations.`,
-        metadata: {
-          actionCount: fundFlow.actionCount,
-          actionTypes: fundFlow.actionTypes,
-          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+      notes: [
+        {
+          message: `Batch transaction with ${fundFlow.actionCount} actions. May contain multiple operations.`,
+          metadata: {
+            actionCount: fundFlow.actionCount,
+            actionTypes: fundFlow.actionTypes,
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'batch_operation',
         },
-        severity: 'info',
-        type: 'batch_operation',
-      },
+      ],
       operation: {
         category: 'transfer',
         type: 'transfer',
@@ -684,15 +692,17 @@ export function classifyNearOperationFromFundFlow(
 
   // Ultimate fallback: Couldn't match any confident pattern
   return {
-    note: {
-      message: 'Unable to determine transaction classification using confident patterns.',
-      metadata: {
-        inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-        outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+    notes: [
+      {
+        message: 'Unable to determine transaction classification using confident patterns.',
+        metadata: {
+          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+        },
+        severity: 'warning',
+        type: 'classification_failed',
       },
-      severity: 'warning',
-      type: 'classification_failed',
-    },
+    ],
     operation: {
       category: 'transfer',
       type: 'transfer',

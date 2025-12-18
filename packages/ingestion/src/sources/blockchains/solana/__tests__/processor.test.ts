@@ -10,15 +10,15 @@ const EXTERNAL_ADDRESS = 'external222222222222222222222222222222222222';
 const CONTRACT_ADDRESS = 'contract333333333333333333333333333333333333';
 const TOKEN_ACCOUNT = 'token4444444444444444444444444444444444444444';
 
-function createProcessor() {
+function createProcessor(customMetadataService?: ITokenMetadataService) {
   // Create minimal mock for token metadata service
-  const mockTokenMetadataService = {
+  const defaultMockService = {
     // Return NO_PROVIDERS ProviderError to simulate provider not supporting metadata
     enrichBatch: vi.fn().mockResolvedValue(ok()),
     getOrFetch: vi.fn().mockResolvedValue(ok(undefined)),
   } as unknown as ITokenMetadataService;
 
-  return new SolanaTransactionProcessor(mockTokenMetadataService);
+  return new SolanaTransactionProcessor(customMetadataService || defaultMockService);
 }
 
 describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
@@ -346,7 +346,7 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
     // Small deposits are normal deposits, no special handling
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.note).toBeUndefined(); // No note for normal small deposits
+    expect(transaction.notes).toBeUndefined(); // No note for normal small deposits
   });
 
   test('handles failed transactions', async () => {
@@ -738,8 +738,8 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
     expect(usdtInflow).toBeDefined();
     expect(usdtInflow?.netAmount?.toFixed()).toBe('500');
 
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('classification_uncertain');
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('classification_uncertain');
   });
 
   test('consolidates duplicate assets', async () => {
@@ -1057,10 +1057,10 @@ describe('SolanaTransactionProcessor - Classification Uncertainty', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('classification_uncertain');
-    expect(transaction.note?.severity).toBe('info');
-    expect(transaction.note?.message).toContain('Complex transaction');
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('classification_uncertain');
+    expect(transaction.notes?.[0]?.severity).toBe('info');
+    expect(transaction.notes?.[0]?.message).toContain('Complex transaction');
 
     // Should track all assets
     expect(transaction.movements.outflows).toHaveLength(2); // SOL and USDC
@@ -1369,5 +1369,85 @@ describe('SolanaTransactionProcessor - Token Metadata Enrichment', () => {
 
     // Symbol should remain as mint address (fallback on error)
     expect(normalizedData[0]?.tokenChanges?.[0]?.symbol).toBe('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+  });
+});
+
+describe('SolanaTransactionProcessor - Scam Detection', () => {
+  test('detects scam token in airdrop', async () => {
+    // Mock metadata service to return a scam token
+    const mockMetadataService = {
+      enrichBatch: vi.fn().mockResolvedValue(ok()),
+      getOrFetch: vi.fn().mockResolvedValue(
+        ok({
+          contractAddress: 'ScamTokenAddress123',
+          blockchain: 'solana',
+          name: 'Free Money 🎁',
+          symbol: 'SCAM',
+          decimals: 9,
+          possibleSpam: true, // Professional detection
+          source: 'provider-api',
+          refreshedAt: new Date(),
+        })
+      ),
+    } as unknown as ITokenMetadataService;
+
+    const processor = createProcessor(mockMetadataService);
+
+    const normalizedData: SolanaTransaction[] = [
+      {
+        accountChanges: [
+          {
+            account: USER_ADDRESS,
+            postBalance: '1000000000',
+            preBalance: '1000000000',
+          },
+        ],
+        amount: '0',
+        currency: 'SOL',
+        feeAmount: '0.000005',
+        feeCurrency: 'SOL',
+        from: EXTERNAL_ADDRESS,
+        id: 'sigScam1',
+        providerName: 'helius',
+        slot: 100040,
+        status: 'success',
+        timestamp: Date.now(),
+        to: USER_ADDRESS,
+        tokenAddress: 'ScamTokenAddress123',
+        tokenChanges: [
+          {
+            account: TOKEN_ACCOUNT,
+            decimals: 9,
+            mint: 'ScamTokenAddress123',
+            owner: USER_ADDRESS,
+            postAmount: '1000000000', // +1 SCAM
+            preAmount: '0',
+            symbol: 'SCAM',
+          },
+        ],
+        // Transaction not paid by user (airdrop characteristics)
+      },
+    ];
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // Should be flagged as spam with SCAM_TOKEN note
+    expect(transaction.isSpam).toBe(true);
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('SCAM_TOKEN');
+    expect(transaction.notes?.[0]?.severity).toBe('error');
+
+    // Should still be classified as deposit
+    expect(transaction.operation.type).toBe('deposit');
   });
 });

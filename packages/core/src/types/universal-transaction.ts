@@ -23,7 +23,7 @@ export type AssetMovement = z.infer<typeof AssetMovementSchema>;
 export type FeeMovement = z.infer<typeof FeeMovementSchema>;
 
 /**
- * Operation classification result with optional note
+ * Operation classification result with optional notes
  * Used by transaction processors to classify operations
  */
 export interface OperationClassification {
@@ -31,7 +31,7 @@ export interface OperationClassification {
     category: OperationCategory;
     type: OperationType;
   };
-  note?: TransactionNote | undefined;
+  notes?: TransactionNote[] | undefined;
 }
 
 /**

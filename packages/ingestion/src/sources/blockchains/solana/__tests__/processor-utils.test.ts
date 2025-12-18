@@ -421,7 +421,7 @@ describe('Solana Processor Utils', () => {
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
         expect(result.operation.category).toBe('staking');
         expect(result.operation.type).toBe('stake');
-        expect(result.note?.type).toBe('classification_uncertain');
+        expect(result.notes?.[0]?.type).toBe('classification_uncertain');
       });
     });
 
@@ -506,7 +506,7 @@ describe('Solana Processor Utils', () => {
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
         expect(result.operation.category).toBe('trade');
         expect(result.operation.type).toBe('swap');
-        expect(result.note?.type).toBe('program_based_classification');
+        expect(result.notes?.[0]?.type).toBe('program_based_classification');
       });
     });
 
@@ -623,8 +623,8 @@ describe('Solana Processor Utils', () => {
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
         expect(result.operation.category).toBe('transfer');
         expect(result.operation.type).toBe('transfer');
-        expect(result.note?.type).toBe('classification_uncertain');
-        expect(result.note?.message).toContain('Complex transaction');
+        expect(result.notes?.[0]?.type).toBe('classification_uncertain');
+        expect(result.notes?.[0]?.message).toContain('Complex transaction');
       });
     });
 
@@ -658,8 +658,8 @@ describe('Solana Processor Utils', () => {
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
         expect(result.operation.category).toBe('transfer');
         expect(result.operation.type).toBe('transfer');
-        expect(result.note?.type).toBe('batch_operation');
-        expect(result.note?.message).toContain('Batch transaction with 5 instructions');
+        expect(result.notes?.[0]?.type).toBe('batch_operation');
+        expect(result.notes?.[0]?.message).toContain('Batch transaction with 5 instructions');
       });
     });
 
@@ -693,8 +693,8 @@ describe('Solana Processor Utils', () => {
         const result = classifySolanaOperationFromFundFlow(fundFlow, []);
         expect(result.operation.category).toBe('transfer');
         expect(result.operation.type).toBe('transfer');
-        expect(result.note?.type).toBe('classification_failed');
-        expect(result.note?.severity).toBe('warning');
+        expect(result.notes?.[0]?.type).toBe('classification_failed');
+        expect(result.notes?.[0]?.severity).toBe('warning');
       });
     });
   });

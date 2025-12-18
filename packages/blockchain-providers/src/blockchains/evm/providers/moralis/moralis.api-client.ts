@@ -249,6 +249,16 @@ export class MoralisApiClient extends BaseApiClient {
       logoUrl: metadata.logo ?? undefined,
       name: metadata.name ?? undefined,
       symbol: metadata.symbol ?? undefined,
+
+      // Professional spam detection from Moralis (primary signal for scam identification)
+      possibleSpam: metadata.possible_spam ?? undefined,
+      verifiedContract: metadata.verified_contract ?? undefined,
+
+      // Additional metadata
+      totalSupply: metadata.total_supply ?? undefined,
+      createdAt: metadata.created_at ?? undefined,
+      blockNumber: metadata.block_number ?? undefined,
+
       source: 'moralis',
     });
   }

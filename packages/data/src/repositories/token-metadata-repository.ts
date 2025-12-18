@@ -45,6 +45,16 @@ export class TokenMetadataRepository extends BaseRepository {
         name: result.name ?? undefined,
         decimals: result.decimals ?? undefined,
         logoUrl: result.logo_url ?? undefined,
+        // Professional spam detection
+        possibleSpam: result.possible_spam !== null ? Boolean(result.possible_spam) : undefined,
+        verifiedContract: result.verified_contract !== null ? Boolean(result.verified_contract) : undefined,
+        // Additional metadata for pattern-based detection
+        description: result.description ?? undefined,
+        externalUrl: result.external_url ?? undefined,
+        // Additional useful fields
+        totalSupply: result.total_supply ?? undefined,
+        createdAt: result.created_at_provider ?? undefined,
+        blockNumber: result.block_number ?? undefined,
         refreshedAt: new Date(result.refreshed_at),
         source: result.source,
       };
@@ -115,6 +125,37 @@ export class TokenMetadataRepository extends BaseRepository {
       const mergedName = metadata.name !== undefined ? metadata.name : (existing?.name ?? null);
       const mergedDecimals = metadata.decimals !== undefined ? metadata.decimals : (existing?.decimals ?? null);
       const mergedLogoUrl = metadata.logoUrl !== undefined ? metadata.logoUrl : (existing?.logoUrl ?? null);
+      // Professional spam detection (convert boolean to SQLite integer: 0/1)
+      const mergedPossibleSpam =
+        metadata.possibleSpam !== undefined
+          ? metadata.possibleSpam
+            ? 1
+            : 0
+          : existing?.possibleSpam !== undefined
+            ? existing.possibleSpam
+              ? 1
+              : 0
+            : null;
+      const mergedVerifiedContract =
+        metadata.verifiedContract !== undefined
+          ? metadata.verifiedContract
+            ? 1
+            : 0
+          : existing?.verifiedContract !== undefined
+            ? existing.verifiedContract
+              ? 1
+              : 0
+            : null;
+      // Additional metadata
+      const mergedDescription =
+        metadata.description !== undefined ? metadata.description : (existing?.description ?? null);
+      const mergedExternalUrl =
+        metadata.externalUrl !== undefined ? metadata.externalUrl : (existing?.externalUrl ?? null);
+      const mergedTotalSupply =
+        metadata.totalSupply !== undefined ? metadata.totalSupply : (existing?.totalSupply ?? null);
+      const mergedCreatedAt = metadata.createdAt !== undefined ? metadata.createdAt : (existing?.createdAt ?? null);
+      const mergedBlockNumber =
+        metadata.blockNumber !== undefined ? metadata.blockNumber : (existing?.blockNumber ?? null);
 
       await this.db
         .insertInto('token_metadata')
@@ -125,6 +166,13 @@ export class TokenMetadataRepository extends BaseRepository {
           name: mergedName,
           decimals: mergedDecimals,
           logo_url: mergedLogoUrl,
+          possible_spam: mergedPossibleSpam,
+          verified_contract: mergedVerifiedContract,
+          description: mergedDescription,
+          external_url: mergedExternalUrl,
+          total_supply: mergedTotalSupply,
+          created_at_provider: mergedCreatedAt,
+          block_number: mergedBlockNumber,
           source: metadata.source,
           refreshed_at: now,
         })
@@ -134,6 +182,13 @@ export class TokenMetadataRepository extends BaseRepository {
             name: mergedName,
             decimals: mergedDecimals,
             logo_url: mergedLogoUrl,
+            possible_spam: mergedPossibleSpam,
+            verified_contract: mergedVerifiedContract,
+            description: mergedDescription,
+            external_url: mergedExternalUrl,
+            total_supply: mergedTotalSupply,
+            created_at_provider: mergedCreatedAt,
+            block_number: mergedBlockNumber,
             source: metadata.source,
             refreshed_at: now,
           })

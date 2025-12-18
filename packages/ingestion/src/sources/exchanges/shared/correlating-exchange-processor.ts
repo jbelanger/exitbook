@@ -115,7 +115,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         })),
 
         operation: classification.operation,
-        note: classification.note,
+        notes: classification.notes,
       };
 
       transactions.push(ProcessedTransaction);

@@ -93,7 +93,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
             transaction_hash: normalizedTx.id,
             is_confirmed: normalizedTx.status === 'success',
           },
-          note: classification.note,
+          notes: classification.notes,
 
           externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),

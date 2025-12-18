@@ -133,10 +133,12 @@ describe('gaps-view-utils', () => {
             ],
           },
           fees: [],
-          note: {
-            type: 'info',
-            message: 'Transaction includes network fee',
-          },
+          notes: [
+            {
+              type: 'info',
+              message: 'Transaction includes network fee',
+            },
+          ],
         }),
       ];
 
@@ -175,10 +177,12 @@ describe('gaps-view-utils', () => {
               },
             },
           ],
-          note: {
-            type: 'info',
-            message: 'Network fee applied',
-          },
+          notes: [
+            {
+              type: 'info',
+              message: 'Network fee applied',
+            },
+          ],
         }),
       ];
 

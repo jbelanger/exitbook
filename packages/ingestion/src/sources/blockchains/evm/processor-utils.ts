@@ -126,15 +126,17 @@ export function determineEvmOperationFromFundFlow(fundFlow: EvmFundFlow): Operat
   // Approvals, staking operations, state changes - classified as transfer with note
   if (isZero && (fundFlow.hasContractInteraction || fundFlow.hasTokenTransfers)) {
     return {
-      note: {
-        message: `Contract interaction with zero value. May be approval, staking, or other state change.`,
-        metadata: {
-          hasContractInteraction: fundFlow.hasContractInteraction,
-          hasTokenTransfers: fundFlow.hasTokenTransfers,
+      notes: [
+        {
+          message: `Contract interaction with zero value. May be approval, staking, or other state change.`,
+          metadata: {
+            hasContractInteraction: fundFlow.hasContractInteraction,
+            hasTokenTransfers: fundFlow.hasTokenTransfers,
+          },
+          severity: 'info',
+          type: 'contract_interaction',
         },
-        severity: 'info',
-        type: 'contract_interaction',
-      },
+      ],
       operation: {
         category: 'transfer',
         type: 'transfer',
@@ -211,15 +213,17 @@ export function determineEvmOperationFromFundFlow(fundFlow: EvmFundFlow): Operat
   // Multiple inflows or outflows - could be LP, batch, multi-swap
   if (fundFlow.classificationUncertainty) {
     return {
-      note: {
-        message: fundFlow.classificationUncertainty,
-        metadata: {
-          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+      notes: [
+        {
+          message: fundFlow.classificationUncertainty,
+          metadata: {
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'classification_uncertain',
         },
-        severity: 'info',
-        type: 'classification_uncertain',
-      },
+      ],
       operation: {
         category: 'transfer',
         type: 'transfer',
@@ -229,15 +233,17 @@ export function determineEvmOperationFromFundFlow(fundFlow: EvmFundFlow): Operat
 
   // Ultimate fallback: Couldn't match any confident pattern
   return {
-    note: {
-      message: 'Unable to determine transaction classification using confident patterns.',
-      metadata: {
-        inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-        outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+    notes: [
+      {
+        message: 'Unable to determine transaction classification using confident patterns.',
+        metadata: {
+          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+        },
+        severity: 'warning',
+        type: 'classification_failed',
       },
-      severity: 'warning',
-      type: 'classification_failed',
-    },
+    ],
     operation: {
       category: 'transfer',
       type: 'transfer',

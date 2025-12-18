@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type TransactionNote } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
@@ -15,14 +15,7 @@ export interface OperationClassification {
     category: 'trade' | 'transfer' | 'fee' | 'staking';
     type: 'swap' | 'deposit' | 'withdrawal' | 'transfer' | 'fee' | 'refund' | 'reward';
   };
-  note?:
-    | {
-        message: string;
-        metadata?: Record<string, unknown>;
-        severity: 'info' | 'warning';
-        type: string;
-      }
-    | undefined;
+  notes?: TransactionNote[] | undefined;
 }
 
 /**
@@ -227,15 +220,17 @@ export function classifyExchangeOperationFromFundFlow(fundFlow: ExchangeFundFlow
   // Pattern 6: Complex multi-asset transaction
   if (fundFlow.classificationUncertainty) {
     return {
-      note: {
-        message: fundFlow.classificationUncertainty,
-        metadata: {
-          inflows: inflows.map((i) => ({ amount: i.grossAmount, asset: i.asset })),
-          outflows: outflows.map((o) => ({ amount: o.grossAmount, asset: o.asset })),
+      notes: [
+        {
+          type: 'classification_uncertain',
+          message: fundFlow.classificationUncertainty,
+          severity: 'info',
+          metadata: {
+            inflows: inflows.map((i) => ({ amount: i.grossAmount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.grossAmount, asset: o.asset })),
+          },
         },
-        severity: 'info',
-        type: 'classification_uncertain',
-      },
+      ],
       operation: {
         category: 'transfer',
         type: 'transfer',
@@ -244,15 +239,17 @@ export function classifyExchangeOperationFromFundFlow(fundFlow: ExchangeFundFlow
   }
 
   return {
-    note: {
-      message: 'Unable to determine transaction classification using confident patterns.',
-      metadata: {
-        inflows: inflows.map((i) => ({ amount: i.grossAmount, asset: i.asset })),
-        outflows: outflows.map((o) => ({ amount: o.grossAmount, asset: o.asset })),
+    notes: [
+      {
+        type: 'classification_failed',
+        message: 'Unable to determine transaction classification using confident patterns.',
+        severity: 'warning',
+        metadata: {
+          inflows: inflows.map((i) => ({ amount: i.grossAmount, asset: i.asset })),
+          outflows: outflows.map((o) => ({ amount: o.grossAmount, asset: o.asset })),
+        },
       },
-      severity: 'warning',
-      type: 'classification_failed',
-    },
+    ],
     operation: {
       category: 'transfer',
       type: 'transfer',

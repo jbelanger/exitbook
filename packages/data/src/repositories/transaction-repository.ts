@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
 import type { AssetMovement, FeeMovement, TransactionStatus, UniversalTransactionData } from '@exitbook/core';
-import { AssetMovementSchema, FeeMovementSchema, NoteMetadataSchema, wrapError } from '@exitbook/core';
+import { AssetMovementSchema, FeeMovementSchema, TransactionNoteSchema, wrapError } from '@exitbook/core';
 import type { Selectable, Updateable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -55,11 +55,11 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     accountId: number
   ): Promise<Result<number, Error>> {
     try {
-      // Validate note metadata before saving
-      if (transaction.note?.metadata !== undefined) {
-        const noteMetadataValidation = NoteMetadataSchema.safeParse(transaction.note.metadata);
-        if (!noteMetadataValidation.success) {
-          return err(new Error(`Invalid note metadata: ${noteMetadataValidation.error.message}`));
+      // Validate notes before saving
+      if (transaction.notes !== undefined) {
+        const notesValidation = z.array(TransactionNoteSchema).safeParse(transaction.notes);
+        if (!notesValidation.success) {
+          return err(new Error(`Invalid notes: ${notesValidation.error.message}`));
         }
       }
 
@@ -93,11 +93,10 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           external_id: transaction.externalId || generateDeterministicTransactionHash(transaction),
           from_address: transaction.from,
           account_id: accountId,
-          note_message: transaction.note?.message,
-          note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
-          note_severity: transaction.note?.severity,
-          note_type: transaction.note?.type,
-          excluded_from_accounting: transaction.excludedFromAccounting ?? transaction.note?.type === 'SCAM_TOKEN',
+          notes_json:
+            transaction.notes && transaction.notes.length > 0 ? this.serializeToJson(transaction.notes) : undefined,
+          is_spam: transaction.isSpam ?? false,
+          excluded_from_accounting: transaction.excludedFromAccounting ?? transaction.isSpam ?? false,
           source_name: transaction.source,
           source_type: transaction.blockchain ? 'blockchain' : 'exchange',
           to_address: transaction.to,
@@ -441,6 +440,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         category: row.operation_category ?? 'transfer',
         type: row.operation_type ?? 'transfer',
       },
+      isSpam: row.is_spam ? true : undefined,
       excludedFromAccounting: row.excluded_from_accounting ? true : undefined,
     };
 
@@ -454,19 +454,13 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       };
     }
 
-    // Add note if present
-    if (row.note_type) {
-      const noteMetadataResult = this.parseWithSchema(row.note_metadata, NoteMetadataSchema);
-      if (noteMetadataResult.isErr()) {
-        return err(noteMetadataResult.error);
+    // Add notes if present
+    if (row.notes_json) {
+      const notesResult = this.parseWithSchema(row.notes_json, z.array(TransactionNoteSchema));
+      if (notesResult.isErr()) {
+        return err(notesResult.error);
       }
-
-      transaction.note = {
-        type: row.note_type,
-        message: row.note_message ?? '',
-        severity: row.note_severity ?? undefined,
-        metadata: noteMetadataResult.value,
-      };
+      transaction.notes = notesResult.value;
     }
 
     return ok(transaction);

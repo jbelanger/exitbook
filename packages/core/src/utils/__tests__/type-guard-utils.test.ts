@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getErrorMessage, hasStringProperty, isErrorWithMessage, wrapError } from './type-guard-utils.js';
+import { isErrorWithMessage, getErrorMessage, wrapError, hasStringProperty } from '../type-guard-utils.ts';
 
 describe('Type Guard Utilities', () => {
   describe('isErrorWithMessage', () => {

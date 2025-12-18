@@ -116,11 +116,11 @@ export interface TransactionsTable {
   from_address: string | null;
   to_address: string | null;
 
-  // Notes and metadata
-  note_type: string | null;
-  note_severity: 'info' | 'warning' | 'error' | null;
-  note_message: string | null;
-  note_metadata: JSONString | null;
+  // Notes (Array<TransactionNote>)
+  notes_json: JSONString | null;
+
+  // Spam detection
+  is_spam: boolean; // SQLite: INTEGER (0/1), default 0
 
   // Accounting exclusions
   excluded_from_accounting: boolean; // Skip from price enrichment and cost basis (e.g., scam tokens)
@@ -279,6 +279,16 @@ export interface TokenMetadataTable {
   name: string | null;
   decimals: number | null;
   logo_url: string | null;
+  // Professional spam detection (SQLite uses INTEGER for booleans: 0/1)
+  possible_spam: number | null;
+  verified_contract: number | null;
+  // Additional metadata for pattern-based detection
+  description: string | null;
+  external_url: string | null;
+  // Additional useful fields from providers
+  total_supply: string | null;
+  created_at_provider: string | null;
+  block_number: number | null;
   source: string;
   refreshed_at: DateTime;
 }

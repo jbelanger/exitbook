@@ -106,10 +106,8 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('transaction_datetime', 'text', (col) => col.notNull())
     .addColumn('from_address', 'text')
     .addColumn('to_address', 'text')
-    .addColumn('note_type', 'text')
-    .addColumn('note_severity', 'text')
-    .addColumn('note_message', 'text')
-    .addColumn('note_metadata', 'text')
+    .addColumn('notes_json', 'text') // Array<TransactionNote>
+    .addColumn('is_spam', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('excluded_from_accounting', 'integer', (col) => col.notNull().defaultTo(0))
     // Structured movements
     .addColumn('movements_inflows', 'text')
@@ -156,6 +154,16 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('name', 'text')
     .addColumn('decimals', 'integer')
     .addColumn('logo_url', 'text')
+    // Professional spam detection (Moralis, Helius, etc.) - SQLite uses INTEGER for booleans (0/1)
+    .addColumn('possible_spam', 'integer')
+    .addColumn('verified_contract', 'integer')
+    // Additional metadata for pattern-based detection (fallback)
+    .addColumn('description', 'text')
+    .addColumn('external_url', 'text')
+    // Additional useful fields from providers
+    .addColumn('total_supply', 'text')
+    .addColumn('created_at_provider', 'text')
+    .addColumn('block_number', 'integer')
     .addColumn('source', 'text', (col) => col.notNull())
     .addColumn('refreshed_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .execute();

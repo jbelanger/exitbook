@@ -3,6 +3,7 @@ import { parseDecimal } from '@exitbook/core';
 import { type Result, err, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
+import { applyScamDetection } from '../../../features/process/scam-detection-utils.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
 
 import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './processor-utils.js';
@@ -120,18 +121,36 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
           },
 
           // Add note if there's classification uncertainty
-          note: fundFlow.classificationUncertainty
-            ? {
-                message: fundFlow.classificationUncertainty,
-                metadata: {
-                  inflows: fundFlow.inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-                  outflows: fundFlow.outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          notes: fundFlow.classificationUncertainty
+            ? [
+                {
+                  message: fundFlow.classificationUncertainty,
+                  metadata: {
+                    inflows: fundFlow.inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+                    outflows: fundFlow.outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+                  },
+                  severity: 'info',
+                  type: 'classification_uncertain',
                 },
-                severity: 'info',
-                type: 'classification_uncertain',
-              }
+              ]
             : undefined,
         };
+
+        // Scam detection: Check inflows only (scam tokens arrive as airdrops)
+        for (const inflow of fundFlow.inflows) {
+          // Determine if this is an unsolicited airdrop (inflow with no corresponding outflows)
+          const isAirdrop = fundFlow.outflows.length === 0 && !fundFlow.feePaidByUser;
+          const amount = parseDecimal(inflow.amount).toNumber();
+
+          const scamNote = await this.detectScamForAsset(inflow.asset, inflow.policyId, {
+            amount,
+            isAirdrop,
+          });
+          if (scamNote) {
+            applyScamDetection(universalTransaction, scamNote);
+            break;
+          }
+        }
 
         transactions.push(universalTransaction);
 

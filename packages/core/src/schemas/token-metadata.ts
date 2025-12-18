@@ -12,6 +12,19 @@ export const TokenMetadataSchema = z.object({
   name: z.string().optional(),
   decimals: z.number().int().nonnegative().optional(),
   logoUrl: z.string().optional(),
+
+  // Professional spam detection (Moralis, Helius, etc.)
+  possibleSpam: z.boolean().optional(),
+  verifiedContract: z.boolean().optional(),
+
+  // Additional metadata for pattern-based detection (fallback)
+  description: z.string().optional(),
+  externalUrl: z.string().optional(),
+
+  // Additional useful fields from providers
+  totalSupply: z.string().optional(),
+  createdAt: z.string().optional(),
+  blockNumber: z.number().int().nonnegative().optional(),
 });
 
 /**

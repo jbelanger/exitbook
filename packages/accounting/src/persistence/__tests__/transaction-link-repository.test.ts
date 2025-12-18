@@ -69,6 +69,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
           source_type: 'exchange',
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
+          is_spam: false,
           excluded_from_accounting: false,
           created_at: new Date().toISOString(),
         })

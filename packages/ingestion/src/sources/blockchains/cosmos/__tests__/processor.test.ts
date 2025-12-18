@@ -323,7 +323,7 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
     // Small deposits are normal deposits (affect balance), no special handling
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.note).toBeUndefined(); // No note for normal small deposits
+    expect(transaction.notes).toBeUndefined(); // No note for normal small deposits
   });
 
   test('classifies contract interaction without fund movement as transfer', async () => {
@@ -444,9 +444,9 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
 
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('bridge_transfer');
-    expect(transaction.note?.message).toContain('Peggy bridge from Ethereum');
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('bridge_transfer');
+    expect(transaction.notes?.[0]?.message).toContain('Peggy bridge from Ethereum');
   });
 
   test('detects Peggy bridge withdrawal', async () => {
@@ -488,9 +488,9 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
 
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('bridge_transfer');
-    expect(transaction.note?.message).toContain('Peggy bridge to Ethereum');
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('bridge_transfer');
+    expect(transaction.notes?.[0]?.message).toContain('Peggy bridge to Ethereum');
   });
 
   test('detects IBC transfer deposit', async () => {
@@ -532,9 +532,9 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     // Verify IBC classification
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('bridge_transfer');
-    expect(transaction.note?.message).toContain('IBC transfer from another chain');
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('bridge_transfer');
+    expect(transaction.notes?.[0]?.message).toContain('IBC transfer from another chain');
   });
 
   test('detects IBC transfer withdrawal', async () => {
@@ -576,9 +576,9 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     // Verify IBC classification
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('bridge_transfer');
-    expect(transaction.note?.message).toContain('IBC transfer to another chain');
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('bridge_transfer');
+    expect(transaction.notes?.[0]?.message).toContain('IBC transfer to another chain');
   });
 });
 
@@ -844,10 +844,10 @@ describe('CosmosProcessor - Classification Uncertainty', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('contract_interaction');
-    expect(transaction.note?.message).toContain('Contract interaction');
-    expect(transaction.note?.message).toContain('zero value');
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('contract_interaction');
+    expect(transaction.notes?.[0]?.message).toContain('Contract interaction');
+    expect(transaction.notes?.[0]?.message).toContain('zero value');
 
     // Still classified as transfer
     expect(transaction.operation.category).toBe('transfer');

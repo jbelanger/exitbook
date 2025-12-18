@@ -2,20 +2,20 @@ import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import {
-  addMoney,
-  createMoney,
-  dbStringToMoney,
-  decimalToString,
-  formatDecimal,
-  isZeroMoney,
-  moneyEquals,
-  moneyToDbString,
-  moneyToNumber,
-  parseDecimal,
-  stringToDecimal,
-  subtractMoney,
   tryParseDecimal,
-} from './decimal-utils.js';
+  parseDecimal,
+  createMoney,
+  moneyToNumber,
+  formatDecimal,
+  addMoney,
+  subtractMoney,
+  moneyEquals,
+  isZeroMoney,
+  decimalToString,
+  stringToDecimal,
+  moneyToDbString,
+  dbStringToMoney,
+} from '../decimal-utils.ts';
 
 describe('Decimal Utilities', () => {
   describe('tryParseDecimal', () => {

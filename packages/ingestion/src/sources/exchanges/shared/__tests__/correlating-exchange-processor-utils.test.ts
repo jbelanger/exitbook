@@ -242,7 +242,7 @@ describe('correlating-exchange-processor-utils', () => {
         category: 'trade',
         type: 'swap',
       });
-      expect(result.note).toBeUndefined();
+      expect(result.notes).toBeUndefined();
     });
 
     it('should classify simple deposit', () => {
@@ -342,9 +342,9 @@ describe('correlating-exchange-processor-utils', () => {
         category: 'transfer',
         type: 'transfer',
       });
-      expect(result.note).toBeDefined();
-      expect(result.note?.type).toBe('classification_uncertain');
-      expect(result.note?.severity).toBe('info');
+      expect(result.notes).toBeDefined();
+      expect(result.notes?.[0]?.type).toBe('classification_uncertain');
+      expect(result.notes?.[0]?.severity).toBe('info');
     });
 
     it('should handle unclassifiable transactions', () => {
@@ -370,9 +370,9 @@ describe('correlating-exchange-processor-utils', () => {
         category: 'transfer',
         type: 'transfer',
       });
-      expect(result.note).toBeDefined();
-      expect(result.note?.type).toBe('classification_failed');
-      expect(result.note?.severity).toBe('warning');
+      expect(result.notes).toBeDefined();
+      expect(result.notes?.[0]?.type).toBe('classification_failed');
+      expect(result.notes?.[0]?.severity).toBe('warning');
     });
   });
 

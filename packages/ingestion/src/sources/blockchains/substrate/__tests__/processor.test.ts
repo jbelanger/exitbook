@@ -306,8 +306,8 @@ describe('SubstrateProcessor - Staking Operations', () => {
     expect(transaction.operation.type).toBe('stake');
     expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.movements.outflows?.length).toBe(0);
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('staking_operation');
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('staking_operation');
   });
 
   test('classifies incoming staking reward as staking_reward', async () => {
@@ -506,8 +506,8 @@ describe('SubstrateProcessor - Utility Operations', () => {
     expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('3');
     expect(transaction.movements.inflows?.length).toBe(0);
     expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed() ?? '0').toBe('0.0256');
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('batch_operation');
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('batch_operation');
   });
 
   test('detects batch_all as utility batch', async () => {
@@ -546,8 +546,8 @@ describe('SubstrateProcessor - Utility Operations', () => {
     // Structured fields - batch_all is also classified as transfer with note
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('batch_operation');
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('batch_operation');
   });
 });
 
@@ -590,8 +590,8 @@ describe('SubstrateProcessor - Proxy Operations', () => {
     expect(transaction.movements.outflows?.length).toBe(1);
     expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('1');
     expect(transaction.movements.inflows?.length).toBe(0);
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('proxy_operation');
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('proxy_operation');
   });
 });
 
@@ -635,8 +635,8 @@ describe('SubstrateProcessor - Multisig Operations', () => {
     expect(transaction.movements.outflows?.length).toBe(1);
     expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('1');
     expect(transaction.movements.inflows?.length).toBe(0);
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('multisig_operation');
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('multisig_operation');
   });
 });
 
@@ -1102,8 +1102,8 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
     // Second transaction: nominate (stake with no amount)
     expect(result.value[1]?.operation.category).toBe('staking');
     expect(result.value[1]?.operation.type).toBe('stake');
-    expect(result.value[1]?.note).toBeDefined();
-    expect(result.value[1]?.note?.type).toBe('staking_operation');
+    expect(result.value[1]?.notes).toBeDefined();
+    expect(result.value[1]?.notes?.[0]?.type).toBe('staking_operation');
 
     // Third transaction: reward
     expect(result.value[2]?.operation.category).toBe('staking');
@@ -1154,7 +1154,7 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
     expect(transaction.operation.type).toBe('transfer');
     expect(transaction.movements.outflows?.length).toBe(1);
     expect(transaction.movements.inflows?.length).toBe(0);
-    expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('batch_operation');
+    expect(transaction.notes).toBeDefined();
+    expect(transaction.notes?.[0]?.type).toBe('batch_operation');
   });
 });

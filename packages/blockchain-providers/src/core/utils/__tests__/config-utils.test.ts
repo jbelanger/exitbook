@@ -4,7 +4,8 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { type BlockchainExplorersConfig, ConfigUtils, loadExplorerConfig } from './config-utils.js';
+import type { BlockchainExplorersConfig } from '../config-utils.ts';
+import { ConfigUtils, loadExplorerConfig } from '../config-utils.ts';
 
 describe('config-utils', () => {
   let tempDir: string;

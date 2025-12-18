@@ -220,9 +220,9 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
     if (!result.isOk()) return;
 
     const [transaction] = result.value;
-    expect(transaction?.note).toBeDefined();
-    expect(transaction?.note?.type).toBe('classification_uncertain');
-    expect(transaction?.note?.severity).toBe('info');
+    expect(transaction?.notes).toBeDefined();
+    expect(transaction?.notes?.[0]?.type).toBe('classification_uncertain');
+    expect(transaction?.notes?.[0]?.severity).toBe('info');
     expect(transaction?.movements.inflows).toHaveLength(2);
     expect(transaction?.movements.outflows).toHaveLength(2);
   });

@@ -702,9 +702,9 @@ describe('determineOperationFromFundFlow', () => {
 
     expect(classification.operation.category).toBe('staking');
     expect(classification.operation.type).toBe('stake');
-    expect(classification.note).toBeDefined();
-    expect(classification.note?.type).toBe('staking_operation');
-    expect(classification.note?.message).toContain('nominate');
+    expect(classification.notes).toBeDefined();
+    expect(classification.notes?.[0]?.type).toBe('staking_operation');
+    expect(classification.notes?.[0]?.message).toContain('nominate');
   });
 
   test('classifies governance proposal', () => {
@@ -879,9 +879,9 @@ describe('determineOperationFromFundFlow', () => {
 
     expect(classification.operation.category).toBe('transfer');
     expect(classification.operation.type).toBe('transfer');
-    expect(classification.note).toBeDefined();
-    expect(classification.note?.type).toBe('batch_operation');
-    expect(classification.note?.severity).toBe('warning');
+    expect(classification.notes).toBeDefined();
+    expect(classification.notes?.[0]?.type).toBe('batch_operation');
+    expect(classification.notes?.[0]?.severity).toBe('warning');
   });
 
   test('classifies proxy operation with info note', () => {
@@ -925,9 +925,9 @@ describe('determineOperationFromFundFlow', () => {
 
     expect(classification.operation.category).toBe('transfer');
     expect(classification.operation.type).toBe('transfer');
-    expect(classification.note).toBeDefined();
-    expect(classification.note?.type).toBe('proxy_operation');
-    expect(classification.note?.severity).toBe('info');
+    expect(classification.notes).toBeDefined();
+    expect(classification.notes?.[0]?.type).toBe('proxy_operation');
+    expect(classification.notes?.[0]?.severity).toBe('info');
   });
 
   test('classifies multisig operation with info note', () => {
@@ -971,9 +971,9 @@ describe('determineOperationFromFundFlow', () => {
 
     expect(classification.operation.category).toBe('transfer');
     expect(classification.operation.type).toBe('transfer');
-    expect(classification.note).toBeDefined();
-    expect(classification.note?.type).toBe('multisig_operation');
-    expect(classification.note?.severity).toBe('info');
+    expect(classification.notes).toBeDefined();
+    expect(classification.notes?.[0]?.type).toBe('multisig_operation');
+    expect(classification.notes?.[0]?.severity).toBe('info');
   });
 
   test('classifies fee-only transaction', () => {
@@ -1192,9 +1192,9 @@ describe('determineOperationFromFundFlow', () => {
 
     expect(classification.operation.category).toBe('transfer');
     expect(classification.operation.type).toBe('transfer');
-    expect(classification.note).toBeDefined();
-    expect(classification.note?.type).toBe('classification_failed');
-    expect(classification.note?.severity).toBe('warning');
+    expect(classification.notes).toBeDefined();
+    expect(classification.notes?.[0]?.type).toBe('classification_failed');
+    expect(classification.notes?.[0]?.severity).toBe('warning');
   });
 });
 

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { hexOrNumericToNumericOptional, hexOrNumericToNumericRequired, timestampToDate } from './zod-utils.js';
+import {
+  hexOrNumericToNumericOptional,
+  hexOrNumericToNumericRequired,
+  parseApiBoolean,
+  timestampToDate,
+} from '../zod-utils.ts';
 
 describe('zod-utils', () => {
   describe('hexOrNumericToNumericOptional', () => {
@@ -146,6 +151,90 @@ describe('zod-utils', () => {
       expect(() => schema.parse({ value: '0xGGG' })).toThrow();
       expect(() => schema.parse({ value: '123abc' })).toThrow();
       expect(() => schema.parse({ value: '12.34' })).toThrow();
+    });
+  });
+
+  describe('parseApiBoolean', () => {
+    describe('boolean inputs', () => {
+      it('should return true for boolean true', () => {
+        expect(parseApiBoolean(true)).toBe(true);
+      });
+
+      it('should return false for boolean false', () => {
+        expect(parseApiBoolean(false)).toBe(false);
+      });
+    });
+
+    describe('string inputs - lowercase', () => {
+      it('should return true for "true"', () => {
+        expect(parseApiBoolean('true')).toBe(true);
+      });
+
+      it('should return false for "false"', () => {
+        expect(parseApiBoolean('false')).toBe(false);
+      });
+
+      it('should return true for "1"', () => {
+        expect(parseApiBoolean('1')).toBe(true);
+      });
+
+      it('should return false for "0"', () => {
+        expect(parseApiBoolean('0')).toBe(false);
+      });
+    });
+
+    describe('string inputs - uppercase (case-insensitive)', () => {
+      it('should return true for "True"', () => {
+        expect(parseApiBoolean('True')).toBe(true);
+      });
+
+      it('should return true for "TRUE"', () => {
+        expect(parseApiBoolean('TRUE')).toBe(true);
+      });
+
+      it('should return false for "False"', () => {
+        expect(parseApiBoolean('False')).toBe(false);
+      });
+
+      it('should return false for "FALSE"', () => {
+        expect(parseApiBoolean('FALSE')).toBe(false);
+      });
+
+      it('should return true for "TrUe" (mixed case)', () => {
+        expect(parseApiBoolean('TrUe')).toBe(true);
+      });
+
+      it('should return false for "FaLsE" (mixed case)', () => {
+        expect(parseApiBoolean('FaLsE')).toBe(false);
+      });
+    });
+
+    describe('null and undefined inputs', () => {
+      it('should return undefined for null', () => {
+        // eslint-disable-next-line unicorn/no-null -- needed for test
+        expect(parseApiBoolean(null)).toBeUndefined();
+      });
+
+      it('should return undefined for undefined', () => {
+        expect(parseApiBoolean(undefined)).toBeUndefined();
+      });
+    });
+
+    describe('invalid inputs', () => {
+      it('should return undefined for invalid string', () => {
+        expect(parseApiBoolean('invalid')).toBeUndefined();
+      });
+
+      it('should return undefined for empty string', () => {
+        expect(parseApiBoolean('')).toBeUndefined();
+      });
+
+      it('should return undefined for random text', () => {
+        expect(parseApiBoolean('yes')).toBeUndefined();
+        expect(parseApiBoolean('no')).toBeUndefined();
+        expect(parseApiBoolean('Y')).toBeUndefined();
+        expect(parseApiBoolean('N')).toBeUndefined();
+      });
     });
   });
 

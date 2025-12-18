@@ -190,16 +190,18 @@ export function classifySolanaOperationFromFundFlow(
 
     // Complex staking with both inflows and outflows
     return {
-      note: {
-        message: 'Complex staking operation with both inflows and outflows. Manual review recommended.',
-        metadata: {
-          hasStaking: true,
-          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+      notes: [
+        {
+          message: 'Complex staking operation with both inflows and outflows. Manual review recommended.',
+          metadata: {
+            hasStaking: true,
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'classification_uncertain',
         },
-        severity: 'info',
-        type: 'classification_uncertain',
-      },
+      ],
       operation: {
         category: 'staking',
         type: 'stake',
@@ -235,16 +237,18 @@ export function classifySolanaOperationFromFundFlow(
   // Pattern 4: DEX swap detected by program (less confident than single-asset swap)
   if (fundFlow.hasSwaps) {
     return {
-      note: {
-        message: 'DEX program detected. Classified as swap based on program analysis.',
-        metadata: {
-          hasSwaps: true,
-          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+      notes: [
+        {
+          message: 'DEX program detected. Classified as swap based on program analysis.',
+          metadata: {
+            hasSwaps: true,
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'program_based_classification',
         },
-        severity: 'info',
-        type: 'program_based_classification',
-      },
+      ],
       operation: {
         category: 'trade',
         type: 'swap',
@@ -290,15 +294,17 @@ export function classifySolanaOperationFromFundFlow(
   // Pattern 9: Complex multi-asset transaction (UNCERTAIN - add note)
   if (fundFlow.classificationUncertainty) {
     return {
-      note: {
-        message: fundFlow.classificationUncertainty,
-        metadata: {
-          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+      notes: [
+        {
+          message: fundFlow.classificationUncertainty,
+          metadata: {
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'classification_uncertain',
         },
-        severity: 'info',
-        type: 'classification_uncertain',
-      },
+      ],
       operation: {
         category: 'transfer',
         type: 'transfer',
@@ -309,17 +315,19 @@ export function classifySolanaOperationFromFundFlow(
   // Pattern 10: Batch operations (multiple instructions)
   if (fundFlow.hasMultipleInstructions && fundFlow.instructionCount > 3) {
     return {
-      note: {
-        message: `Batch transaction with ${fundFlow.instructionCount} instructions. May contain multiple operations.`,
-        metadata: {
-          hasMultipleInstructions: true,
-          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-          instructionCount: fundFlow.instructionCount,
-          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+      notes: [
+        {
+          message: `Batch transaction with ${fundFlow.instructionCount} instructions. May contain multiple operations.`,
+          metadata: {
+            hasMultipleInstructions: true,
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            instructionCount: fundFlow.instructionCount,
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'batch_operation',
         },
-        severity: 'info',
-        type: 'batch_operation',
-      },
+      ],
       operation: {
         category: 'transfer',
         type: 'transfer',
@@ -329,15 +337,17 @@ export function classifySolanaOperationFromFundFlow(
 
   // Ultimate fallback: Couldn't match any confident pattern
   return {
-    note: {
-      message: 'Unable to determine transaction classification using confident patterns.',
-      metadata: {
-        inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-        outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+    notes: [
+      {
+        message: 'Unable to determine transaction classification using confident patterns.',
+        metadata: {
+          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+        },
+        severity: 'warning',
+        type: 'classification_failed',
       },
-      severity: 'warning',
-      type: 'classification_failed',
-    },
+    ],
     operation: {
       category: 'transfer',
       type: 'transfer',

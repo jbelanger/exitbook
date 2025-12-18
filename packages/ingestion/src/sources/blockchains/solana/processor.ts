@@ -3,6 +3,7 @@ import { parseDecimal } from '@exitbook/core';
 import { type Result, err, ok, okAsync } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
+import { applyScamDetection } from '../../../features/process/scam-detection-utils.js';
 import type { ITokenMetadataService } from '../../../features/token-metadata/token-metadata-service.interface.js';
 import { looksLikeContractAddress, isMissingMetadata } from '../../../features/token-metadata/token-metadata-utils.js';
 import type { ProcessedTransaction, ProcessingContext } from '../../../shared/types/processors.js';
@@ -15,8 +16,11 @@ import { analyzeSolanaFundFlow, classifySolanaOperationFromFundFlow } from './pr
  * and historical context for accurate transaction classification.
  */
 export class SolanaTransactionProcessor extends BaseTransactionProcessor {
-  constructor(private readonly tokenMetadataService: ITokenMetadataService) {
-    super('solana');
+  // Override to make tokenMetadataService required (guaranteed by factory)
+  declare protected readonly tokenMetadataService: ITokenMetadataService;
+
+  constructor(tokenMetadataService: ITokenMetadataService) {
+    super('solana', tokenMetadataService);
   }
 
   /**
@@ -108,7 +112,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
           operation: classification.operation,
 
-          note: classification.note,
+          notes: classification.notes,
 
           blockchain: {
             name: 'solana',
@@ -117,6 +121,22 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
             is_confirmed: normalizedTx.status === 'success',
           },
         };
+
+        // Scam detection: Check inflows only (scam tokens arrive as airdrops)
+        for (const inflow of fundFlow.inflows) {
+          // Determine if this is an unsolicited airdrop (inflow with no corresponding outflows)
+          const isAirdrop = fundFlow.outflows.length === 0 && !fundFlow.feePaidByUser;
+          const amount = parseDecimal(inflow.amount).toNumber();
+
+          const scamNote = await this.detectScamForAsset(inflow.asset, inflow.tokenAddress, {
+            amount,
+            isAirdrop,
+          });
+          if (scamNote) {
+            applyScamDetection(universalTransaction, scamNote);
+            break;
+          }
+        }
 
         transactions.push(universalTransaction);
 

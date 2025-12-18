@@ -56,6 +56,35 @@ export const hexOrNumericToNumericRequired = z
   });
 
 /**
+ * Parses boolean values from API responses that may return boolean, string ("true"/"false"),
+ * or numeric string ("0"/"1") formats. Returns undefined for invalid or missing values.
+ *
+ * Examples:
+ * - true -> true
+ * - false -> false
+ * - "true" / "True" / "TRUE" -> true
+ * - "false" / "False" / "FALSE" -> false
+ * - "1" -> true
+ * - "0" -> false
+ * - null -> undefined
+ * - undefined -> undefined
+ * - "invalid" -> undefined
+ *
+ * This is useful for blockchain APIs that return boolean flags in inconsistent formats.
+ * Case-insensitive to handle providers that may send "True"/"False" instead of "true"/"false".
+ */
+export function parseApiBoolean(value: boolean | string | undefined | null): boolean | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'boolean') return value;
+
+  // Normalize string to lowercase for case-insensitive comparison
+  const normalizedValue = value.toLowerCase();
+  if (normalizedValue === 'true' || normalizedValue === '1') return true;
+  if (normalizedValue === 'false' || normalizedValue === '0') return false;
+  return undefined;
+}
+
+/**
  * Schema that accepts various timestamp formats and transforms them to a Date object.
  *
  * Examples:
