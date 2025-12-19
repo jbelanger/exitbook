@@ -133,6 +133,7 @@ describe('BitcoinTransactionImporter', () => {
         blockHeight: 800000,
         currency: 'BTC',
         id: 'tx1abc',
+        eventId: '0'.repeat(64),
         inputs: mockBitcoinTx.inputs,
         outputs: mockBitcoinTx.outputs,
       };

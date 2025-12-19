@@ -5,7 +5,13 @@ import type { NormalizationError } from '../../../../core/index.ts';
 import { validateOutput } from '../../../../core/index.ts';
 import type { SolanaTransaction } from '../../schemas.ts';
 import { SolanaTransactionSchema } from '../../schemas.ts';
-import { lamportsToSol, extractAccountChanges, extractTokenChanges, determinePrimaryTransfer } from '../../utils.ts';
+import {
+  lamportsToSol,
+  extractAccountChanges,
+  extractTokenChanges,
+  determinePrimaryTransfer,
+  generateSolanaTransactionEventId,
+} from '../../utils.ts';
 
 import type { SolanaRPCTransaction } from './solana-rpc.schemas.js';
 
@@ -30,15 +36,20 @@ export function mapSolanaRPCTransaction(rawData: SolanaRPCTransaction): Result<S
 
     const { primaryAmount, primaryCurrency } = determinePrimaryTransfer(accountChanges, tokenChanges);
 
+    const timestamp = rawData.blockTime?.getTime() ?? 0;
+    const from = accountKeys?.[0] || '';
+    const to = accountKeys?.[1] || '';
+
     const solanaTransaction: SolanaTransaction = {
       accountChanges,
       amount: primaryAmount,
       blockHeight: rawData.slot,
       blockId: signature,
       currency: primaryCurrency,
+      eventId: generateSolanaTransactionEventId({ signature }),
       feeAmount: fee.toString(),
       feeCurrency: 'SOL',
-      from: accountKeys?.[0] || '',
+      from,
       id: signature,
       instructions: rawData.transaction.message.instructions.map((instruction) => ({
         accounts: instruction.accounts.map((accountIndex) => accountKeys[accountIndex] || ''),
@@ -50,8 +61,8 @@ export function mapSolanaRPCTransaction(rawData: SolanaRPCTransaction): Result<S
       signature,
       slot: rawData.slot,
       status: rawData.meta.err ? 'failed' : 'success',
-      timestamp: rawData.blockTime?.getTime() ?? 0,
-      to: accountKeys?.[1] || '',
+      timestamp,
+      to,
       tokenChanges,
     };
 

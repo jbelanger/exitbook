@@ -76,7 +76,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         continue;
       }
 
-      const ProcessedTransaction: ProcessedTransaction = {
+      const processedTransaction: ProcessedTransaction = {
         externalId: primaryEntry.normalized.id,
         datetime: new Date(fundFlow.timestamp).toISOString(),
         timestamp: fundFlow.timestamp,
@@ -118,9 +118,9 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         notes: classification.notes,
       };
 
-      transactions.push(ProcessedTransaction);
+      transactions.push(processedTransaction);
       this.logger.debug(
-        `Successfully processed correlated entry group ${ProcessedTransaction.externalId} (${fundFlow.entryCount} entries)`
+        `Successfully processed correlated entry group ${processedTransaction.externalId} (${fundFlow.entryCount} entries)`
       );
     }
 

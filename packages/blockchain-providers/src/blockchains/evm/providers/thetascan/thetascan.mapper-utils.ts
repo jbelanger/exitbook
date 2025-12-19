@@ -2,7 +2,7 @@ import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../core/index.js';
+import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
 import { withValidation } from '../../../../core/index.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
@@ -82,22 +82,34 @@ function mapThetaScanTransactionInternal(rawData: ThetaScanTransaction): Result<
   // - THETA transfers are mapped as token_transfer, so amounts should be normalized (not wei)
   // - TFUEL transfers are mapped as native transfer, so amounts should be in wei
   const amountFormatted = isTheta ? amount.toFixed() : amount.mul(parseDecimal('10').pow(THETA_DECIMALS)).toFixed(0);
+  const from = normalizeEvmAddress(rawData.sending_address) ?? '';
+  const to = normalizeEvmAddress(rawData.recieving_address);
+  const transactionType = isTheta ? 'token_transfer' : 'transfer';
 
   const transaction: EvmTransaction = {
     amount: amountFormatted,
     blockHeight: parseInt(rawData.block),
     currency,
+    eventId: generateUniqueTransactionEventId({
+      amount: amountFormatted,
+      currency,
+      from,
+      id: rawData.hash,
+      timestamp,
+      to,
+      type: transactionType,
+    }),
     feeAmount: feeInWei.toFixed(0),
     feeCurrency: 'TFUEL', // Fees are always paid in TFUEL on Theta
-    from: normalizeEvmAddress(rawData.sending_address) ?? '',
+    from,
     id: rawData.hash,
     providerName: 'thetascan',
     status: 'success', // ThetaScan only returns successful transactions
     timestamp,
-    to: normalizeEvmAddress(rawData.recieving_address),
+    to,
     tokenSymbol: isTheta ? 'THETA' : 'TFUEL',
     tokenType: 'native',
-    type: isTheta ? 'token_transfer' : 'transfer',
+    type: transactionType,
   };
 
   return ok(transaction);

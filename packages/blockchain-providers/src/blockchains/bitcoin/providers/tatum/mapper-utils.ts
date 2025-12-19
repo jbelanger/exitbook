@@ -9,6 +9,7 @@ import {
   type BitcoinTransactionInput,
   type BitcoinTransactionOutput,
 } from '../../schemas.js';
+import { generateBitcoinTransactionEventId } from '../../utils.js';
 
 import type { TatumBCashTransaction } from './tatum-bcash.schemas.js';
 import type { TatumDogecoinTransaction } from './tatum-dogecoin.schemas.js';
@@ -41,6 +42,7 @@ export function mapTatumTransaction(
 
   const normalized: BitcoinTransaction = {
     currency: chainConfig.nativeCurrency,
+    eventId: generateBitcoinTransactionEventId({ txid: rawData.hash, currency: chainConfig.nativeCurrency }),
     id: rawData.hash,
     inputs,
     outputs,
@@ -94,6 +96,7 @@ export function mapTatumBCashTransaction(
 
   const normalized: BitcoinTransaction = {
     currency: chainConfig.nativeCurrency,
+    eventId: generateBitcoinTransactionEventId({ txid: rawData.txid, currency: chainConfig.nativeCurrency }),
     id: rawData.txid,
     inputs,
     outputs,
@@ -142,6 +145,7 @@ export function mapTatumDogecoinTransaction(
 
   const normalized: BitcoinTransaction = {
     currency: chainConfig.nativeCurrency,
+    eventId: generateBitcoinTransactionEventId({ txid: rawData.hash, currency: chainConfig.nativeCurrency }),
     id: rawData.hash,
     inputs,
     outputs,
@@ -191,6 +195,7 @@ export function mapTatumLitecoinTransaction(
 
   const normalized: BitcoinTransaction = {
     currency: chainConfig.nativeCurrency,
+    eventId: generateBitcoinTransactionEventId({ txid: rawData.hash, currency: chainConfig.nativeCurrency }),
     id: rawData.hash,
     inputs,
     outputs,

@@ -16,16 +16,29 @@ function createProcessor() {
   return new BitcoinTransactionProcessor(chainConfig);
 }
 
+function createTransaction(overrides: Partial<BitcoinTransaction> = {}): BitcoinTransaction {
+  return {
+    blockHeight: 800000,
+    currency: 'BTC',
+    feeAmount: '0.0001',
+    feeCurrency: 'BTC',
+    id: 'tx-default',
+    eventId: '0xdefaulteventid',
+    inputs: [],
+    outputs: [],
+    providerName: 'mempool.space',
+    status: 'success',
+    timestamp: 1700000000000,
+    ...overrides,
+  };
+}
+
 describe('BitcoinTransactionProcessor', () => {
   test('incoming transfer - user receives BTC, does NOT pay fee', async () => {
     const processor = createProcessor();
 
     const normalizedData: BitcoinTransaction[] = [
-      {
-        blockHeight: 800000,
-        currency: 'BTC',
-        feeAmount: '0.0001', // Paid by sender
-        feeCurrency: 'BTC',
+      createTransaction({
         id: 'tx1abc',
         inputs: [
           {
@@ -43,9 +56,7 @@ describe('BitcoinTransactionProcessor', () => {
           },
         ],
         providerName: 'blockstream.info',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -72,11 +83,8 @@ describe('BitcoinTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: BitcoinTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 800001,
-        currency: 'BTC',
-        feeAmount: '0.0001',
-        feeCurrency: 'BTC',
         id: 'tx2def',
         inputs: [
           {
@@ -93,10 +101,7 @@ describe('BitcoinTransactionProcessor', () => {
             value: '100000000', // 1.0 BTC sent
           },
         ],
-        providerName: 'mempool.space',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -125,11 +130,8 @@ describe('BitcoinTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: BitcoinTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 800002,
-        currency: 'BTC',
-        feeAmount: '0.0001',
-        feeCurrency: 'BTC',
         id: 'tx3ghi',
         inputs: [
           {
@@ -147,9 +149,7 @@ describe('BitcoinTransactionProcessor', () => {
           },
         ],
         providerName: 'blockchain.com',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -174,11 +174,8 @@ describe('BitcoinTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: BitcoinTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 800003,
-        currency: 'BTC',
-        feeAmount: '0.0001',
-        feeCurrency: 'BTC',
         id: 'tx4jkl',
         inputs: [
           {
@@ -201,9 +198,7 @@ describe('BitcoinTransactionProcessor', () => {
           },
         ],
         providerName: 'blockstream.info',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -234,11 +229,8 @@ describe('BitcoinTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: BitcoinTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 800004,
-        currency: 'BTC',
-        feeAmount: '0.0001',
-        feeCurrency: 'BTC',
         id: 'tx5mno',
         inputs: [
           {
@@ -261,10 +253,7 @@ describe('BitcoinTransactionProcessor', () => {
             value: '50000000', // 0.5 BTC sent
           },
         ],
-        providerName: 'mempool.space',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -291,11 +280,8 @@ describe('BitcoinTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: BitcoinTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 800005,
-        currency: 'BTC',
-        feeAmount: '0.0001',
-        feeCurrency: 'BTC',
         id: 'tx6pqr',
         inputs: [
           {
@@ -318,9 +304,7 @@ describe('BitcoinTransactionProcessor', () => {
           },
         ],
         providerName: 'blockchain.com',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -347,11 +331,8 @@ describe('BitcoinTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: BitcoinTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 800007,
-        currency: 'BTC',
-        feeAmount: '0.0001',
-        feeCurrency: 'BTC',
         id: 'tx8vwx',
         inputs: [
           {
@@ -368,10 +349,8 @@ describe('BitcoinTransactionProcessor', () => {
             value: '100000000',
           },
         ],
-        providerName: 'mempool.space',
         status: 'failed',
-        timestamp: Date.now(),
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -396,11 +375,8 @@ describe('BitcoinTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: BitcoinTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 800009,
-        currency: 'BTC',
-        feeAmount: '0.0001',
-        feeCurrency: 'BTC',
         id: 'tx10a',
         inputs: [
           {
@@ -418,14 +394,10 @@ describe('BitcoinTransactionProcessor', () => {
           },
         ],
         providerName: 'blockstream.info',
-        status: 'success',
-        timestamp: Date.now(),
-      },
-      {
+      }),
+      createTransaction({
         blockHeight: 800010,
-        currency: 'BTC',
         feeAmount: '0.0002',
-        feeCurrency: 'BTC',
         id: 'tx10b',
         inputs: [
           {
@@ -442,10 +414,7 @@ describe('BitcoinTransactionProcessor', () => {
             value: '50000000',
           },
         ],
-        providerName: 'mempool.space',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {

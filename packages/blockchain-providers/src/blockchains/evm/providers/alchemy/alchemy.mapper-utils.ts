@@ -2,7 +2,7 @@ import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { type Result } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../core/index.js';
+import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
 import { validateOutput } from '../../../../core/index.js';
 import { calculateGasFee } from '../../receipt-utils.js';
 import { EvmTransactionSchema } from '../../schemas.js';
@@ -200,17 +200,30 @@ export function mapAlchemyTransaction(rawData: AlchemyAssetTransfer): Result<Evm
   const { amount, currency, tokenType } = extractAmountAndCurrency(rawData);
   const timestamp = rawData.metadata.blockTimestamp.getTime();
   const transactionType = determineTransactionType(rawData.category);
+  const from = normalizeEvmAddress(rawData.from) ?? '';
+  const to = normalizeEvmAddress(rawData.to);
+  const tokenAddress = rawData.rawContract?.address ? normalizeEvmAddress(rawData.rawContract.address) : undefined;
 
   const transaction: EvmTransaction = {
     amount: amount.toFixed(),
     blockHeight: parseInt(rawData.blockNum, 16),
     currency,
-    from: normalizeEvmAddress(rawData.from) ?? '',
+    eventId: generateUniqueTransactionEventId({
+      amount: amount.toFixed(),
+      currency,
+      from,
+      id: rawData.hash,
+      timestamp,
+      to,
+      tokenAddress,
+      type: transactionType,
+    }),
+    from,
     id: rawData.hash,
     providerName: 'alchemy',
     status: 'success',
     timestamp,
-    to: normalizeEvmAddress(rawData.to),
+    to,
     tokenType,
     type: transactionType,
   };

@@ -7,7 +7,7 @@ import type { ProcessedTransaction, ProcessingContext } from '../../../shared/ty
 
 import {
   analyzeFundFlowFromNormalized,
-  deduplicateByTransactionId,
+  deduplicateByEventId,
   determineOperationFromFundFlow,
 } from './processor-utils.js';
 
@@ -32,12 +32,12 @@ export class CosmosProcessor extends BaseTransactionProcessor {
     normalizedData: unknown[],
     context: ProcessingContext
   ): Promise<Result<ProcessedTransaction[], string>> {
-    // Deduplicate by transaction ID (handles cases like Peggy deposits where multiple validators
-    // submit the same deposit claim with different tx hashes but same event_nonce-based ID)
-    const deduplicatedData = deduplicateByTransactionId(normalizedData as CosmosTransaction[]);
+    // Deduplicate by eventId (handles cases like Peggy deposits where multiple validators
+    // submit the same deposit claim as different tx hashes but represent the same logical event)
+    const deduplicatedData = deduplicateByEventId(normalizedData as CosmosTransaction[]);
     if (deduplicatedData.length < normalizedData.length) {
       this.logger.info(
-        `Deduplicated ${normalizedData.length - deduplicatedData.length} transactions by ID (${normalizedData.length} → ${deduplicatedData.length})`
+        `Deduplicated ${normalizedData.length - deduplicatedData.length} transactions by eventId (${normalizedData.length} → ${deduplicatedData.length})`
       );
     }
 

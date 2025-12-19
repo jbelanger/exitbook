@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
 import { satoshisToBtcString } from '../../../utils.js';
@@ -136,6 +136,61 @@ describe('mapBlockstreamTransaction', () => {
       expect(normalized.blockId).toBeUndefined();
       expect(normalized.feeAmount).toBeUndefined();
       expect(normalized.feeCurrency).toBeUndefined();
+    }
+  });
+
+  it('should produce deterministic eventId for unconfirmed txs (timestamp must not affect identity)', () => {
+    vi.useFakeTimers();
+    try {
+      const rawData: BlockstreamTransaction = {
+        txid: 'abc123',
+        version: 2,
+        locktime: 0,
+        size: 200,
+        weight: 600,
+        fee: 0,
+        status: {
+          confirmed: false,
+        },
+        vin: [
+          {
+            txid: 'input-txid',
+            vout: 0,
+            sequence: 4294967295,
+            is_coinbase: false,
+            scriptsig: '',
+            scriptsig_asm: '',
+            prevout: {
+              scriptpubkey: 'script',
+              scriptpubkey_asm: 'asm',
+              scriptpubkey_type: 'type',
+              value: 1000,
+            },
+          },
+        ],
+        vout: [
+          {
+            scriptpubkey: 'script',
+            scriptpubkey_asm: 'asm',
+            scriptpubkey_type: 'type',
+            value: 1000,
+          },
+        ],
+      };
+
+      vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+      const first = mapBlockstreamTransaction(rawData, mockBitcoinChainConfig);
+      expect(first.isOk()).toBe(true);
+      if (!first.isOk()) return;
+
+      vi.setSystemTime(new Date('2025-01-01T00:00:10.000Z'));
+      const second = mapBlockstreamTransaction(rawData, mockBitcoinChainConfig);
+      expect(second.isOk()).toBe(true);
+      if (!second.isOk()) return;
+
+      expect(first.value.eventId).toBe(second.value.eventId);
+    } finally {
+      vi.useRealTimers();
     }
   });
 

@@ -1,11 +1,12 @@
 import { parseDecimal } from '@exitbook/core';
-import { type Result } from 'neverthrow';
+import { err, type Result } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../core/index.js';
+import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
 import { validateOutput } from '../../../../core/index.js';
 import { SUBSTRATE_CHAINS } from '../../chain-registry.js';
 import { SubstrateTransactionSchema } from '../../schemas.js';
 import type { SubstrateTransaction } from '../../types.js';
+import { normalizeSubstrateAccountIdHex } from '../../utils.js';
 
 import type { TaostatsTransaction } from './taostats.schemas.js';
 
@@ -25,7 +26,7 @@ export function convertTaostatsTransaction(
   // Get Bittensor chain config for ss58Format
   const chainConfig = SUBSTRATE_CHAINS.bittensor;
   if (!chainConfig) {
-    throw new Error('Bittensor chain configuration not found');
+    return err({ message: 'Bittensor chain configuration not found', type: 'error' });
   }
 
   // Parse amount (rao = smallest unit). Provider already returns planck values so keep raw units.
@@ -36,15 +37,28 @@ export function convertTaostatsTransaction(
 
   // Parse timestamp (ISO string to milliseconds)
   const timestamp = new Date(rawData.timestamp).getTime();
+  const amount = amountPlanck.toFixed();
+  const fromIdentity = normalizeSubstrateAccountIdHex(rawData.from.hex);
+  const toIdentity = normalizeSubstrateAccountIdHex(rawData.to.hex);
 
   // Build the normalized SubstrateTransaction
   // Note: Taostats only provides basic transfer data, no module/call/events information
   // The processor will handle classification based on available fields
   const transaction: SubstrateTransaction = {
-    amount: amountPlanck.toFixed(),
+    amount,
     blockHeight: rawData.block_number,
     chainName: chainConfig.chainName,
     currency: nativeCurrency,
+    eventId: generateUniqueTransactionEventId({
+      amount,
+      currency: nativeCurrency,
+      from: fromIdentity,
+      id: rawData.transaction_hash,
+      timestamp,
+      to: toIdentity,
+      traceId: rawData.extrinsic_id,
+      type: 'transfer',
+    }),
     extrinsicIndex: rawData.extrinsic_id,
     feeAmount: feePlanck.toFixed(),
     feeCurrency: nativeCurrency,

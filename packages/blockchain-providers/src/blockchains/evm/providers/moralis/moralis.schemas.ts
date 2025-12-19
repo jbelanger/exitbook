@@ -5,6 +5,26 @@ import { parseApiBoolean, timestampToDate } from '../../../../core/index.js';
 import { EvmAddressSchema } from '../../schemas.js';
 
 /**
+ * Schema for Moralis internal transaction structure
+ * Internal transactions are included in the parent transaction response
+ * when using the include=internal_transactions parameter
+ */
+export const MoralisInternalTransactionSchema = z.object({
+  block_hash: z.string().min(1, 'Block hash must not be empty'),
+  block_number: z.number().int().nonnegative(),
+  error: z.string().nullish(),
+  from: EvmAddressSchema,
+  gas: z.string().regex(/^\d+$/, 'Gas must be numeric string'),
+  gas_used: z.string().regex(/^\d+$/, 'Gas used must be numeric string'),
+  input: z.string(),
+  output: z.string(),
+  to: EvmAddressSchema,
+  transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
+  type: z.string(), // CALL, DELEGATECALL, STATICCALL, etc.
+  value: DecimalStringSchema,
+});
+
+/**
  * Schema for Moralis transaction structure
  */
 export const MoralisTransactionSchema = z
@@ -17,6 +37,7 @@ export const MoralisTransactionSchema = z
     gas_price: z.string().regex(/^\d*$/, 'Gas price must be numeric string or empty'), // Can be empty
     hash: z.string().min(1, 'Transaction hash must not be empty'),
     input: z.string(), // Can be empty string (e.g., "0x")
+    internal_transactions: z.array(MoralisInternalTransactionSchema).optional(),
     nonce: z.string(),
     receipt_contract_address: EvmAddressSchema.nullish(), // Null when no contract created
     receipt_cumulative_gas_used: z.string().regex(/^\d*$/, 'Receipt cumulative gas used must be numeric or empty'),
@@ -149,6 +170,7 @@ export const MoralisNativeBalanceSchema = z.object({
 });
 
 // Type exports (inferred from schemas)
+export type MoralisInternalTransaction = z.infer<typeof MoralisInternalTransactionSchema>;
 export type MoralisTransaction = z.infer<typeof MoralisTransactionSchema>;
 export type MoralisTokenTransfer = z.infer<typeof MoralisTokenTransferSchema>;
 export type MoralisTokenBalance = z.infer<typeof MoralisTokenBalanceSchema>;

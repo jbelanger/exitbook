@@ -9,6 +9,8 @@ import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
 import type { CircuitState } from '@exitbook/http';
 import { getCircuitStatus, isCircuitHalfOpen, isCircuitOpen } from '@exitbook/http';
 
+import type { NormalizedTransactionBase } from '../index.ts';
+
 import type {
   IBlockchainProvider,
   ProviderCapabilities,
@@ -307,7 +309,7 @@ export function isInDeduplicationWindow(window: DeduplicationWindow, id: string)
  * Filter transactions by deduplication
  * Mutates the window in place for performance
  */
-export function deduplicateTransactions<T extends { normalized: { id: string } }>(
+export function deduplicateTransactions<T extends { normalized: NormalizedTransactionBase }>(
   transactions: T[],
   window: DeduplicationWindow,
   maxWindowSize: number
@@ -315,16 +317,17 @@ export function deduplicateTransactions<T extends { normalized: { id: string } }
   const deduplicated: T[] = [];
 
   for (const tx of transactions) {
-    const id = tx.normalized.id;
+    // Use eventId computed by provider during normalization
+    const key = tx.normalized.eventId;
 
-    if (isInDeduplicationWindow(window, id)) {
+    if (isInDeduplicationWindow(window, key)) {
       // Skip duplicate
       continue;
     }
 
     // Add to results and update window
     deduplicated.push(tx);
-    addToDeduplicationWindow(window, id, maxWindowSize);
+    addToDeduplicationWindow(window, key, maxWindowSize);
   }
 
   return deduplicated;

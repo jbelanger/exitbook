@@ -11,11 +11,16 @@ export interface JsonRpcResponse<T = unknown> {
   };
 }
 
+import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
+
 /**
- * Wrapper for a single transaction that includes both raw provider data and normalized data
- * Used for debugging purposes to retain original provider responses
+ * Wrapper for a single transaction that includes both raw provider data and normalized data.
+ * Used for debugging purposes to retain original provider responses.
+ *
+ * All normalized transactions must implement NormalizedTransactionBase to ensure
+ * consistent identity handling (id and eventId fields).
  */
-export interface TransactionWithRawData<TNormalized = unknown> {
+export interface TransactionWithRawData<TNormalized extends NormalizedTransactionBase = NormalizedTransactionBase> {
   raw: unknown;
   normalized: TNormalized;
 }

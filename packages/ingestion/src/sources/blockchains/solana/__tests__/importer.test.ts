@@ -96,8 +96,8 @@ describe('SolanaTransactionImporter', () => {
       const importer = createImporter();
       const address = 'user1111111111111111111111111111111111111111';
 
-      const mockNormalizedSol = { id: 'sig123abc', amount: '1', currency: 'SOL' };
-      const mockNormalizedToken = { id: 'sig456def', amount: '1', currency: 'USDC' };
+      const mockNormalizedSol = { id: 'sig123abc', eventId: '0'.repeat(64), amount: '1', currency: 'SOL' };
+      const mockNormalizedToken = { id: 'sig456def', eventId: '1'.repeat(64), amount: '1', currency: 'USDC' };
 
       setupMockData([
         { normalized: mockNormalizedSol, raw: mockSolTx },

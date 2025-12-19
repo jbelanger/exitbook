@@ -4,7 +4,7 @@ import { ServiceError } from '@exitbook/http';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../../core/base/api-client.js';
-import type { ProviderConfig, ProviderOperation } from '../../../../core/index.js';
+import type { NormalizedTransactionBase, ProviderConfig, ProviderOperation } from '../../../../core/index.js';
 import { RegisterApiClient } from '../../../../core/index.js';
 import {
   createStreamingIterator,
@@ -196,7 +196,7 @@ export class RoutescanApiClient extends BaseApiClient {
     }
   }
 
-  async *executeStreaming<T>(
+  async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
@@ -705,10 +705,12 @@ export class RoutescanApiClient extends BaseApiClient {
           return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 
-        return ok({
-          raw,
-          normalized: mapped.value,
-        });
+        return ok([
+          {
+            raw,
+            normalized: mapped.value,
+          },
+        ]);
       },
       extractCursors: (tx) => this.extractCursors(tx),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
@@ -818,10 +820,12 @@ export class RoutescanApiClient extends BaseApiClient {
           return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 
-        return ok({
-          raw,
-          normalized: mapped.value,
-        });
+        return ok([
+          {
+            raw,
+            normalized: mapped.value,
+          },
+        ]);
       },
       extractCursors: (tx) => this.extractCursors(tx),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
@@ -934,10 +938,12 @@ export class RoutescanApiClient extends BaseApiClient {
           return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 
-        return ok({
-          raw,
-          normalized: mapped.value,
-        });
+        return ok([
+          {
+            raw,
+            normalized: mapped.value,
+          },
+        ]);
       },
       extractCursors: (tx) => this.extractCursors(tx),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),

@@ -11,34 +11,51 @@ function createPolkadotProcessor() {
   return new SubstrateProcessor(SUBSTRATE_CHAINS.polkadot!);
 }
 
+// Helper function to create transaction objects with defaults
+function createTransaction(overrides: Partial<SubstrateTransaction> = {}): SubstrateTransaction {
+  return {
+    amount: '0',
+    blockHeight: 100,
+    call: 'transfer',
+    chainName: 'polkadot',
+    currency: 'DOT',
+    feeAmount: '156000000',
+    feeCurrency: 'DOT',
+    from: USER_ADDRESS,
+    id: 'extrinsic-default',
+    eventId: 'event-default',
+    module: 'balances',
+    providerName: 'subscan',
+    status: 'success',
+    timestamp: Date.now(),
+    to: EXTERNAL_ADDRESS,
+    ...overrides,
+  };
+}
+
+// Helper function to create session context with defaults
+function createSessionContext(overrides: Partial<{ primaryAddress: string; userAddresses: string[] }> = {}) {
+  return {
+    primaryAddress: USER_ADDRESS,
+    userAddresses: [USER_ADDRESS],
+    ...overrides,
+  };
+}
+
 describe('SubstrateProcessor - Fee Accounting', () => {
   describe('High Confidence Cases (9/10)', () => {
     test('user pays fee when sending tokens (outgoing transfer)', async () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '25000000000', // 2.5 DOT
           blockHeight: 101,
-          call: 'transfer',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000', // 0.0156 DOT
-          feeCurrency: 'DOT',
-          from: USER_ADDRESS,
           id: 'extrinsic-101-1',
-          module: 'balances',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
-          to: EXTERNAL_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -57,29 +74,16 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '15000000000', // 1.5 DOT
-          blockHeight: 100,
           blockId: '0xblock1',
-          call: 'transfer',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000', // 0.0156 DOT (sender paid this)
-          feeCurrency: 'DOT',
           from: EXTERNAL_ADDRESS,
           id: 'extrinsic-100-1',
-          module: 'balances',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
           to: USER_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -98,27 +102,14 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '10000000000', // 1 DOT
-          call: 'transfer',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000', // 0.0156 DOT
-          feeCurrency: 'DOT',
-          from: USER_ADDRESS,
           id: 'extrinsic-102-1',
-          module: 'balances',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
           to: USER_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -137,27 +128,16 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '100000000000', // 10 DOT bonded
           call: 'bond',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000', // 0.0156 DOT
-          feeCurrency: 'DOT',
-          from: USER_ADDRESS,
           id: 'extrinsic-103-1',
           module: 'staking',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
           to: VALIDATOR_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -175,27 +155,17 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '50000000000', // 5 DOT unbonded
           call: 'unbond',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000', // 0.0156 DOT
-          feeCurrency: 'DOT',
           from: VALIDATOR_ADDRESS, // Funds come FROM staking module
           id: 'extrinsic-104-1',
           module: 'staking',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
           to: USER_ADDRESS, // Going TO user
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -214,27 +184,17 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '50000000000', // 5 DOT withdrawn
           call: 'withdraw_unbonded',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000', // 0.0156 DOT
-          feeCurrency: 'DOT',
           from: VALIDATOR_ADDRESS,
           id: 'extrinsic-105-1',
           module: 'staking',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
           to: USER_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -251,27 +211,16 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '0', // Nominate doesn't move funds
           call: 'nominate',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000', // 0.0156 DOT
-          feeCurrency: 'DOT',
-          from: USER_ADDRESS,
           id: 'extrinsic-106-1',
           module: 'staking',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
           to: VALIDATOR_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -290,27 +239,16 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '0',
           call: 'chill',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000', // 0.0156 DOT
-          feeCurrency: 'DOT',
-          from: USER_ADDRESS,
           id: 'extrinsic-107-1',
           module: 'staking',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
           to: USER_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -327,27 +265,18 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '5000000000', // 0.5 DOT reward
           call: 'payout_stakers', // Validator paid out
-          chainName: 'polkadot',
-          currency: 'DOT',
           feeAmount: '100000000', // Validator paid this fee
-          feeCurrency: 'DOT',
           from: VALIDATOR_ADDRESS,
           id: 'extrinsic-108-1',
           module: 'staking',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
           to: USER_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -366,27 +295,15 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '50000000000', // 5 DOT locked for vote
           call: 'vote',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000',
-          feeCurrency: 'DOT',
-          from: USER_ADDRESS,
           id: 'extrinsic-109-1',
           module: 'democracy',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
-          to: EXTERNAL_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -404,27 +321,14 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '10000000000',
-          call: 'transfer',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000',
-          feeCurrency: 'DOT',
-          from: USER_ADDRESS,
           id: 'extrinsic-110-1',
-          module: 'balances',
-          providerName: 'subscan',
           status: 'failed',
-          timestamp: Date.now(),
-          to: EXTERNAL_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -444,27 +348,18 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '100000000000', // 10 DOT refund
           call: 'payout',
-          chainName: 'polkadot',
-          currency: 'DOT',
           feeAmount: '200000000', // Treasury/system paid this
-          feeCurrency: 'DOT',
           from: EXTERNAL_ADDRESS, // Treasury address
           id: 'extrinsic-111-1',
           module: 'treasury',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
           to: USER_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -483,27 +378,16 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '30000000000', // 3 DOT total
           call: 'batch',
-          chainName: 'polkadot',
-          currency: 'DOT',
           feeAmount: '256000000',
-          feeCurrency: 'DOT',
-          from: USER_ADDRESS,
           id: 'extrinsic-112-1',
           module: 'utility',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
-          to: EXTERNAL_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -521,27 +405,15 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '10000000000',
           call: 'proxy',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000',
-          feeCurrency: 'DOT',
-          from: USER_ADDRESS, // User is proxy
           id: 'extrinsic-113-1',
           module: 'proxy',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
-          to: EXTERNAL_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -559,27 +431,15 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '10000000000',
           call: 'approve_as_multi',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000',
-          feeCurrency: 'DOT',
-          from: USER_ADDRESS, // User is one of the signers
           id: 'extrinsic-114-1',
           module: 'multisig',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
-          to: EXTERNAL_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -599,27 +459,13 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '10000000000',
-          call: 'transfer',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000',
-          feeCurrency: 'DOT',
-          from: USER_ADDRESS, // Same case - should match
           id: 'extrinsic-115-1',
-          module: 'balances',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
-          to: EXTERNAL_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -636,27 +482,16 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '0',
           call: 'remark',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000',
-          feeCurrency: 'DOT',
-          from: USER_ADDRESS,
           id: 'extrinsic-116-1',
           module: 'system',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
           to: USER_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -673,26 +508,14 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = createPolkadotProcessor();
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '10000000000',
-          call: 'transfer',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          from: USER_ADDRESS,
+          feeAmount: undefined,
           id: 'extrinsic-117-1',
-          module: 'balances',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
-          to: EXTERNAL_ADDRESS,
-          // No feeAmount provided
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -709,27 +532,18 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       const processor = new SubstrateProcessor(SUBSTRATE_CHAINS.bittensor!);
 
       const normalizedData: SubstrateTransaction[] = [
-        {
+        createTransaction({
           amount: '1000000000', // 1 TAO (9 decimals)
-          call: 'transfer',
           chainName: 'bittensor',
           currency: 'TAO',
           feeAmount: '100000000', // 0.1 TAO
           feeCurrency: 'TAO',
-          from: USER_ADDRESS,
           id: 'extrinsic-118-1',
-          module: 'balances',
           providerName: 'taostats',
-          status: 'success',
-          timestamp: Date.now(),
-          to: EXTERNAL_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -750,75 +564,45 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       const normalizedData: SubstrateTransaction[] = [
         // 1. Bond
-        {
+        createTransaction({
           amount: '100000000000', // 10 DOT
           call: 'bond',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000',
-          feeCurrency: 'DOT',
-          from: USER_ADDRESS,
           id: 'extrinsic-119-1',
           module: 'staking',
-          providerName: 'subscan',
-          status: 'success',
-          timestamp: Date.now(),
           to: VALIDATOR_ADDRESS,
-        },
+        }),
         // 2. Nominate
-        {
+        createTransaction({
           amount: '0',
           call: 'nominate',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000',
-          feeCurrency: 'DOT',
-          from: USER_ADDRESS,
           id: 'extrinsic-119-2',
           module: 'staking',
-          providerName: 'subscan',
-          status: 'success',
           timestamp: Date.now() + 1000,
           to: VALIDATOR_ADDRESS,
-        },
+        }),
         // 3. Unbond
-        {
+        createTransaction({
           amount: '50000000000', // 5 DOT
           call: 'unbond',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000',
-          feeCurrency: 'DOT',
           from: VALIDATOR_ADDRESS,
           id: 'extrinsic-119-3',
           module: 'staking',
-          providerName: 'subscan',
-          status: 'success',
           timestamp: Date.now() + 2000,
           to: USER_ADDRESS,
-        },
+        }),
         // 4. Withdraw
-        {
+        createTransaction({
           amount: '50000000000', // 5 DOT
           call: 'withdraw_unbonded',
-          chainName: 'polkadot',
-          currency: 'DOT',
-          feeAmount: '156000000',
-          feeCurrency: 'DOT',
           from: VALIDATOR_ADDRESS,
           id: 'extrinsic-119-4',
           module: 'staking',
-          providerName: 'subscan',
-          status: 'success',
           timestamp: Date.now() + 3000,
           to: USER_ADDRESS,
-        },
+        }),
       ];
 
-      const result = await processor.process(normalizedData, {
-        primaryAddress: USER_ADDRESS,
-        userAddresses: [USER_ADDRESS],
-      });
+      const result = await processor.process(normalizedData, createSessionContext());
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;

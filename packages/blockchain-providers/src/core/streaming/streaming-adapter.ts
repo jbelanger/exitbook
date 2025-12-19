@@ -1,7 +1,7 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderOperation } from '../index.js';
+import type { NormalizedTransactionBase, ProviderOperation } from '../index.js';
 import { createDeduplicationWindow, deduplicateTransactions } from '../provider-manager-utils.js';
 import type { StreamingBatchResult, TransactionWithRawData } from '../types/index.js';
 import { buildCursorState } from '../utils/cursor-utils.js';
@@ -56,12 +56,18 @@ export interface StreamingPageContext {
  * - applyReplayWindow: adjust primary cursor before use (block-5, slot-2,
  *   timestamp-5min). Optional if replay is meaningless for the cursor type.
  */
-export interface StreamingAdapterOptions<Raw, Tx> {
+export interface StreamingAdapterOptions<Raw, Tx extends NormalizedTransactionBase = NormalizedTransactionBase> {
   providerName: string;
   operation: ProviderOperation;
   resumeCursor?: CursorState | undefined;
   fetchPage: (ctx: StreamingPageContext) => Promise<Result<StreamingPage<Raw>, Error>>;
-  mapItem: (raw: Raw) => Result<TransactionWithRawData<Tx>, Error>;
+  /**
+   *
+   * Map a raw item into one or more TransactionWithRawData<Tx>. Some providers may
+   * return multiple transactions per raw item (e.g., Moralis including internal transfers
+   * with regular transactions).
+   */
+  mapItem: (raw: Raw) => Result<TransactionWithRawData<Tx>[], Error>;
   extractCursors: (tx: Tx) => PaginationCursor[];
   applyReplayWindow?: ((cursor: PaginationCursor) => PaginationCursor) | undefined;
   dedupWindowSize?: number | undefined;
@@ -83,7 +89,7 @@ export interface StreamingAdapterOptions<Raw, Tx> {
   logger?: { debug: (msg: string, meta?: unknown) => void; warn: (msg: string, meta?: unknown) => void } | undefined;
 }
 
-export function createStreamingIterator<Raw, Tx extends { id: string }>(
+export function createStreamingIterator<Raw, Tx extends NormalizedTransactionBase>(
   opts: StreamingAdapterOptions<Raw, Tx>
 ): AsyncIterableIterator<Result<StreamingBatchResult<Tx>, Error>> {
   const {
@@ -149,7 +155,8 @@ export function createStreamingIterator<Raw, Tx extends { id: string }>(
           yield err(mapped.error);
           return;
         }
-        mappedBatch.push(mapped.value);
+        const items = mapped.value;
+        mappedBatch.push(...items);
       }
 
       const deduped = deduplicateTransactions(mappedBatch, dedupWindow, dedupLimit);
@@ -188,7 +195,9 @@ export function createStreamingIterator<Raw, Tx extends { id: string }>(
         isComplete: page.isComplete ?? !page.nextPageToken,
         customMetadata: page.customMetadata,
       });
-
+      logger?.debug?.(
+        `Yielding batch with ${deduped.length} transactions after deduplication from ${mappedBatch.length} mapped`
+      );
       yield ok({ data: deduped, cursor: cursorState });
 
       pageToken = page.nextPageToken || undefined;

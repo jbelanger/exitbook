@@ -1,7 +1,7 @@
 import { getLogger } from '@exitbook/logger';
 import { type Result, err } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../core/index.js';
+import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
 import { validateOutput } from '../../../../core/index.js';
 import { calculateFee } from '../../calculation-utils.js';
 import {
@@ -16,7 +16,7 @@ import {
 } from '../../message-parser-utils.js';
 import { CosmosTransactionSchema } from '../../schemas.js';
 import type { CosmosTransaction } from '../../types.js';
-import { formatDenom, generatePeggyId, isTransactionRelevant } from '../../utils.js';
+import { formatDenom, generatePeggyEventRootId, isTransactionRelevant } from '../../utils.js';
 
 import type { InjectiveTransaction as InjectiveApiTransaction } from './injective-explorer.schemas.js';
 
@@ -40,6 +40,7 @@ export function mapInjectiveExplorerTransaction(
   }
 
   const timestamp = rawData.block_timestamp.getTime();
+  const transactionHash = rawData.hash;
 
   // Calculate fee using pure function
   const feeResult = calculateFee(rawData.gas_fee);
@@ -62,16 +63,17 @@ export function mapInjectiveExplorerTransaction(
   let tokenDecimals: number | undefined;
   let tokenSymbol: string | undefined;
   let tokenType: 'cw20' | 'native' | 'ibc' | undefined;
+  let selectedMessageIndex: number | undefined;
 
   // Parse messages to extract transfer information
-  for (const message of rawData.messages) {
+  for (const [messageIndex, message] of rawData.messages.entries()) {
     messageType = message.type;
 
     // Check if message should be skipped
     const skipReason = shouldSkipMessage(message.type);
     if (skipReason) {
-      logger.debug(`Skipping message: ${message.type} in tx ${rawData.hash}`);
-      return err({ reason: skipReason, type: 'skip' });
+      logger.debug(`Skipping non-transfer message: ${message.type} in tx ${transactionHash}. Reason: ${skipReason}`);
+      continue;
     }
 
     // Try parsing as bank send message
@@ -86,11 +88,12 @@ export function mapInjectiveExplorerTransaction(
       bridgeType = 'native';
 
       if (!isTransactionRelevant(from, to, relevantAddress, amount)) {
-        return err({
-          reason: `Transaction not relevant to wallet. MessageType="${messageType}", relevantAddress="${relevantAddress}", from="${from}", to="${to}"`,
-          type: 'skip',
-        });
+        logger.debug(
+          `Skipping message not relevant to wallet. MessageType="${messageType}", relevantAddress="${relevantAddress}", from="${from}", to="${to}", tx=${transactionHash}`
+        );
+        continue;
       }
+      selectedMessageIndex = messageIndex;
       break;
     }
 
@@ -106,11 +109,12 @@ export function mapInjectiveExplorerTransaction(
       bridgeType = 'native';
 
       if (!isTransactionRelevant(from, to, relevantAddress, amount)) {
-        return err({
-          reason: `Transaction not relevant to wallet. MessageType="${messageType}", relevantAddress="${relevantAddress}", from="${from}", to="${to}"`,
-          type: 'skip',
-        });
+        logger.debug(
+          `Skipping message not relevant to wallet. MessageType="${messageType}", relevantAddress="${relevantAddress}", from="${from}", to="${to}", tx=${transactionHash}`
+        );
+        continue;
       }
+      selectedMessageIndex = messageIndex;
       break;
     }
 
@@ -128,11 +132,12 @@ export function mapInjectiveExplorerTransaction(
       sourcePort = ibcResult.sourcePort;
 
       if (!isTransactionRelevant(from, to, relevantAddress, amount)) {
-        return err({
-          reason: `Transaction not relevant to wallet. MessageType="${messageType}", relevantAddress="${relevantAddress}", from="${from}", to="${to}"`,
-          type: 'skip',
-        });
+        logger.debug(
+          `Skipping message not relevant to wallet. MessageType="${messageType}", relevantAddress="${relevantAddress}", from="${from}", to="${to}", tx=${transactionHash}`
+        );
+        continue;
       }
+      selectedMessageIndex = messageIndex;
       break;
     }
 
@@ -148,11 +153,12 @@ export function mapInjectiveExplorerTransaction(
 
       // Only relevant if user is the sender
       if (from !== relevantAddress) {
-        return err({
-          reason: `Contract execution not relevant - sender is not the wallet address`,
-          type: 'skip',
-        });
+        logger.debug(
+          `Skipping contract execution not relevant - sender is not the wallet address. sender="${from}", relevantAddress="${relevantAddress}", tx=${transactionHash}`
+        );
+        continue;
       }
+      selectedMessageIndex = messageIndex;
       break;
     }
 
@@ -168,11 +174,12 @@ export function mapInjectiveExplorerTransaction(
 
       // Only relevant if user is the sender
       if (from !== relevantAddress) {
-        return err({
-          reason: `Wasmx execution not relevant - sender is not the wallet address`,
-          type: 'skip',
-        });
+        logger.debug(
+          `Skipping wasmx execution not relevant - sender is not the wallet address. sender="${from}", relevantAddress="${relevantAddress}", tx=${transactionHash}`
+        );
+        continue;
       }
+      selectedMessageIndex = messageIndex;
       break;
     }
 
@@ -190,11 +197,12 @@ export function mapInjectiveExplorerTransaction(
 
       // Only relevant if user is the sender
       if (from !== relevantAddress) {
-        return err({
-          reason: `Peggy withdrawal not relevant - sender is not the wallet address`,
-          type: 'skip',
-        });
+        logger.debug(
+          `Skipping Peggy withdrawal not relevant - sender is not the wallet address. sender="${from}", relevantAddress="${relevantAddress}", tx=${transactionHash}`
+        );
+        continue;
       }
+      selectedMessageIndex = messageIndex;
       break;
     }
 
@@ -212,19 +220,30 @@ export function mapInjectiveExplorerTransaction(
       ethereumSender = peggyDepositResult.ethereumSender;
       ethereumReceiver = peggyDepositResult.ethereumReceiver;
       tokenAddress = peggyDepositResult.tokenAddress;
+      selectedMessageIndex = messageIndex;
       break;
     }
 
     // Unsupported message type
-    logger.debug(`Skipping unsupported message type "${message.type}" in transaction ${rawData.hash}.`);
+    logger.debug(`Skipping unsupported message type "${message.type}" in transaction ${transactionHash}.`);
+    continue;
+  }
+
+  if (selectedMessageIndex === undefined) {
     return err({
-      reason: `Unsupported message type ${message.type}`,
+      reason: `No relevant transfer messages found in transaction ${transactionHash} for address ${relevantAddress}`,
       type: 'skip',
     });
   }
 
-  // Generate unique transaction ID (handles Peggy deposit deduplication)
-  const transactionId = generatePeggyId(eventNonce, rawData.claim_id, rawData.hash);
+  const isPeggyDeposit = messageType === '/injective.peggy.v1.MsgDepositClaim';
+  const eventRootId = isPeggyDeposit
+    ? generatePeggyEventRootId(eventNonce, rawData.claim_id, transactionHash)
+    : transactionHash;
+  const traceId = isPeggyDeposit ? eventRootId : `msg:${selectedMessageIndex}`;
+  // Peggy deposit claims are submitted by multiple validators as separate txs (different timestamps / hashes).
+  // Use a stable timestamp for eventId generation so we deduplicate these at the DB layer (event_id unique index).
+  const eventIdTimestamp = isPeggyDeposit ? 0 : timestamp;
 
   const transaction: CosmosTransaction = {
     amount,
@@ -234,13 +253,24 @@ export function mapInjectiveExplorerTransaction(
     currency,
     ethereumReceiver,
     ethereumSender,
+    eventId: generateUniqueTransactionEventId({
+      amount,
+      currency,
+      from,
+      id: eventRootId,
+      timestamp: eventIdTimestamp,
+      to,
+      tokenAddress,
+      traceId,
+      type: messageType || 'transfer',
+    }),
     eventNonce,
     feeAmount: feeAmount !== '0' ? feeAmount : undefined,
     feeCurrency: feeAmount !== '0' ? feeCurrency : undefined,
     from,
     gasUsed: rawData.gas_used,
     gasWanted: rawData.gas_wanted,
-    id: transactionId,
+    id: transactionHash,
     memo: rawData.memo,
     messageType,
     providerName: 'injective-explorer',

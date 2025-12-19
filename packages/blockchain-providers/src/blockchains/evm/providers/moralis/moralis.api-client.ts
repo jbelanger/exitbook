@@ -3,7 +3,7 @@ import { getErrorMessage } from '@exitbook/core';
 import { err, ok, okAsync, type Result } from 'neverthrow';
 import { z } from 'zod';
 
-import type { ProviderConfig, ProviderOperation } from '../../../../core/index.js';
+import type { NormalizedTransactionBase, ProviderConfig, ProviderOperation } from '../../../../core/index.js';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
 import {
   createStreamingIterator,
@@ -18,7 +18,11 @@ import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
 import type { EvmTransaction } from '../../types.js';
 
-import { mapMoralisTransaction, mapMoralisTokenTransfer } from './moralis.mapper-utils.js';
+import {
+  mapMoralisTransaction,
+  mapMoralisTokenTransfer,
+  mapMoralisInternalTransaction,
+} from './moralis.mapper-utils.js';
 import {
   MoralisNativeBalanceSchema,
   MoralisTokenBalanceSchema,
@@ -172,7 +176,7 @@ export class MoralisApiClient extends BaseApiClient {
     }
   }
 
-  async *executeStreaming<T>(
+  async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
@@ -354,10 +358,43 @@ export class MoralisApiClient extends BaseApiClient {
         return err(new Error(`Provider data validation failed: ${errorMessage}`));
       }
 
+      // Add the main transaction
       transactions.push({
         raw: rawTx,
         normalized: mapResult.value,
       });
+
+      // Unpack and map internal transactions
+      if (rawTx.internal_transactions && rawTx.internal_transactions.length > 0) {
+        const parentTimestamp = new Date(rawTx.block_timestamp).getTime();
+
+        for (let i = 0; i < rawTx.internal_transactions.length; i++) {
+          const internalTx = rawTx.internal_transactions[i]!;
+          const internalMapResult = mapMoralisInternalTransaction(
+            internalTx,
+            parentTimestamp,
+            this.chainConfig.nativeCurrency,
+            i // Pass array index for uniqueness
+          );
+
+          if (internalMapResult.isErr()) {
+            const errorMessage =
+              internalMapResult.error.type === 'error'
+                ? internalMapResult.error.message
+                : internalMapResult.error.reason;
+            this.logger.error(`Internal transaction validation failed - Parent: ${rawTx.hash}, Error: ${errorMessage}`);
+            return err(new Error(`Internal transaction validation failed: ${errorMessage}`));
+          }
+
+          // Add internal transaction with same parent hash for grouping
+          transactions.push({
+            raw: internalTx,
+            normalized: internalMapResult.value,
+          });
+        }
+
+        this.logger.debug(`Unpacked ${rawTx.internal_transactions.length} internal transaction(s) from ${rawTx.hash}`);
+      }
     }
 
     this.logger.debug(
@@ -550,10 +587,45 @@ export class MoralisApiClient extends BaseApiClient {
           return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 
-        return ok({
-          raw,
-          normalized: mapped.value,
-        });
+        const results: TransactionWithRawData<EvmTransaction>[] = [
+          {
+            raw,
+            normalized: mapped.value,
+          },
+        ];
+
+        // Unpack and map internal transactions
+        if (raw.internal_transactions && raw.internal_transactions.length > 0) {
+          const parentTimestamp = new Date(raw.block_timestamp).getTime();
+
+          for (let i = 0; i < raw.internal_transactions.length; i++) {
+            const internalTx = raw.internal_transactions[i]!;
+            const internalMapResult = mapMoralisInternalTransaction(
+              internalTx,
+              parentTimestamp,
+              this.chainConfig.nativeCurrency,
+              i // Pass array index for uniqueness
+            );
+
+            if (internalMapResult.isErr()) {
+              const errorMessage =
+                internalMapResult.error.type === 'error'
+                  ? internalMapResult.error.message
+                  : internalMapResult.error.reason;
+              this.logger.error(`Internal transaction validation failed - Parent: ${raw.hash}, Error: ${errorMessage}`);
+              return err(new Error(`Internal transaction validation failed: ${errorMessage}`));
+            }
+
+            results.push({
+              raw: internalTx,
+              normalized: internalMapResult.value,
+            });
+          }
+
+          this.logger.debug(`Unpacked ${raw.internal_transactions.length} internal transaction(s) from ${raw.hash}`);
+        }
+
+        return ok(results);
       },
       extractCursors: (tx) => this.extractCursors(tx),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
@@ -620,10 +692,12 @@ export class MoralisApiClient extends BaseApiClient {
           return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 
-        return ok({
-          raw,
-          normalized: mapped.value,
-        });
+        return ok([
+          {
+            raw,
+            normalized: mapped.value,
+          },
+        ]);
       },
       extractCursors: (tx) => this.extractCursors(tx),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),

@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 import { ok, type Result } from 'neverthrow';
 
-import type { NormalizationError } from '../../../core/index.js';
+import { generateUniqueTransactionEventId, type NormalizationError } from '../../../core/index.js';
 import { withValidation } from '../../../core/index.js';
 import {
   CardanoTransactionSchema,
@@ -107,12 +107,22 @@ function mapBlockfrostTransactionInternal(
   // Determine transaction status based on smart contract validation
   // valid_contract = false means the smart contract failed
   const status = rawData.valid_contract ? 'success' : 'failed';
+  const timestamp = rawData.block_time.getTime();
 
   // Build normalized transaction with real metadata
   const normalized: CardanoTransaction = {
     blockHeight: rawData.block_height,
     blockId: rawData.block_hash,
     currency: 'ADA',
+    eventId: generateUniqueTransactionEventId({
+      amount: outputs[0]?.amounts[0]?.quantity || '0',
+      currency: 'ADA',
+      from: inputs[0]?.address || '',
+      id: rawData.hash,
+      timestamp,
+      to: outputs[0]?.address,
+      type: 'transfer',
+    }),
     feeAmount: lovelaceToAda(rawData.fees),
     feeCurrency: 'ADA',
     id: rawData.hash,
@@ -120,7 +130,7 @@ function mapBlockfrostTransactionInternal(
     outputs,
     providerName: 'blockfrost',
     status,
-    timestamp: rawData.block_time.getTime(), // Convert Date to milliseconds
+    timestamp,
   };
 
   return ok(normalized);

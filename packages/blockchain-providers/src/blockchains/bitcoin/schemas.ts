@@ -1,6 +1,8 @@
 import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
+import { NormalizedTransactionBaseSchema } from '../../core/schemas/normalized-transaction.js';
+
 import { BITCOIN_CHAINS } from './chain-registry.js';
 import { normalizeBitcoinAddress } from './utils.js';
 
@@ -50,14 +52,24 @@ export const BitcoinTransactionOutputSchema = z.object({
 
 /**
  * Schema for normalized Bitcoin transaction
+ *
+ * Extends NormalizedTransactionBaseSchema to ensure consistent identity handling.
+ * The eventId field is computed by providers during normalization using
+ * generateUniqueTransactionEventId() with a Bitcoin-specific scheme that is:
+ * - stable across providers and re-imports
+ * - independent of confirmation/pending timestamps
+ *
+ * Note: We currently treat one on-chain txid as the event granularity for Bitcoin-like chains.
+ * If/when we emit multiple events per tx (e.g., per-output), eventId must incorporate an
+ * additional discriminator such as the output index.
  */
-export const BitcoinTransactionSchema = z.object({
+export const BitcoinTransactionSchema = NormalizedTransactionBaseSchema.extend({
+  // Bitcoin-specific transaction data
   blockHeight: z.number().optional(),
   blockId: z.string().optional(),
   currency: BitcoinCurrencySchema,
   feeAmount: DecimalStringSchema.optional(),
   feeCurrency: BitcoinCurrencySchema.optional(),
-  id: z.string().min(1, 'Transaction ID must not be empty'),
   inputs: z.array(BitcoinTransactionInputSchema).min(1, 'Transaction must have at least one input'),
   outputs: z.array(BitcoinTransactionOutputSchema).min(1, 'Transaction must have at least one output'),
   providerName: z.string().min(1, 'Provider Name must not be empty'),

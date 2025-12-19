@@ -2,6 +2,8 @@ import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
 import type { RateLimitConfig } from '@exitbook/http';
 import type { Result } from 'neverthrow';
 
+import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.ts';
+
 import type { TransactionWithRawData } from './common.js';
 import type { ProviderOperation, ProviderOperationType } from './operations.js';
 
@@ -40,7 +42,7 @@ export interface ProviderCapabilities {
  * Streaming batch result with Result wrapper
  * Follows neverthrow pattern for consistent error handling
  */
-export interface StreamingBatchResult<T> {
+export interface StreamingBatchResult<T extends NormalizedTransactionBase = NormalizedTransactionBase> {
   data: TransactionWithRawData<T>[];
   cursor: CursorState;
 }
@@ -93,7 +95,7 @@ export interface IBlockchainProvider<TConfig = Record<string, unknown>> {
    * }
    * ```
    */
-  executeStreaming<T>(
+  executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
     operation: ProviderOperation,
     cursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>>;

@@ -338,14 +338,14 @@ export function formatDenom(denom: string | undefined): string {
  *
  * @example
  * ```typescript
- * generatePeggyId("12345", [1, 2], "0xabc")  // "peggy-deposit-12345"
- * generatePeggyId(undefined, [67], "0xabc")  // "peggy-deposit-67"
- * generatePeggyId(undefined, [], "0xabc")    // "0xabc"
+ * generatePeggyEventRootId("12345", [1, 2], "0xabc")  // "peggy-deposit-12345"
+ * generatePeggyEventRootId(undefined, [67], "0xabc")  // "peggy-deposit-67"
+ * generatePeggyEventRootId(undefined, [], "0xabc")    // "0xabc"
  * ```
  *
  * @public
  */
-export function generatePeggyId(
+export function generatePeggyEventRootId(
   eventNonce: string | undefined,
   claimId: number[] | undefined,
   transactionHash: string

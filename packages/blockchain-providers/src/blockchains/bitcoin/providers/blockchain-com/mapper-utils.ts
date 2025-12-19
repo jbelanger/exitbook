@@ -8,7 +8,7 @@ import {
   type BitcoinTransactionInput,
   type BitcoinTransactionOutput,
 } from '../../schemas.js';
-import { satoshisToBtcString } from '../../utils.js';
+import { generateBitcoinTransactionEventId, satoshisToBtcString } from '../../utils.js';
 
 import type { BlockchainComTransaction } from './blockchain-com.schemas.js';
 
@@ -38,6 +38,7 @@ export function mapBlockchainComTransaction(
 
   const normalized: BitcoinTransaction = {
     currency: chainConfig.nativeCurrency,
+    eventId: generateBitcoinTransactionEventId({ txid: rawData.hash, currency: chainConfig.nativeCurrency }),
     id: rawData.hash,
     inputs,
     outputs,

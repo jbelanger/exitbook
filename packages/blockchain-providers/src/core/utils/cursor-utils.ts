@@ -7,6 +7,8 @@
 
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 
+import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
+
 /**
  * Configuration for cursor state building
  */
@@ -60,13 +62,13 @@ export interface CursorStateConfig<T> {
  * @param config - Configuration for cursor state building
  * @returns Complete cursor state for this batch
  */
-export function buildCursorState<T extends { id: string }>(config: CursorStateConfig<T>): CursorState {
+export function buildCursorState<T extends NormalizedTransactionBase>(config: CursorStateConfig<T>): CursorState {
   const { transactions, extractCursors, totalFetched, providerName, pageToken, isComplete, customMetadata } = config;
 
   // Extract cursors from last transaction
   const lastTx = transactions[transactions.length - 1]!; // Safe: caller ensures transactions.length > 0
   const cursors = extractCursors(lastTx.normalized);
-  const lastTransactionId = lastTx.normalized.id;
+  const lastTransactionId = lastTx.normalized.eventId;
 
   // Build cursor state
   return {

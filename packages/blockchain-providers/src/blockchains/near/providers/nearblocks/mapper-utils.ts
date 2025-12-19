@@ -1,7 +1,7 @@
 import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../core/index.ts';
+import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.ts';
 import { validateOutput } from '../../../../core/index.ts';
 import type { NearAction, NearAccountChange, NearTokenTransfer, NearTransaction } from '../../schemas.ts';
 import { NearAccountChangeSchema, NearTokenTransferSchema, NearTransactionSchema } from '../../schemas.ts';
@@ -254,6 +254,57 @@ export function mapNearBlocksFtTransactionToTokenTransfer(
 }
 
 /**
+ * Map NearBlocks FT transaction to a full NearTransaction with eventId
+ * This creates a synthetic transaction wrapping a token transfer
+ */
+export function mapNearBlocksFtTransactionToTransaction(
+  ftTx: NearBlocksFtTransaction,
+  accountId: string,
+  providerName: string
+): Result<NearTransaction, NormalizationError> {
+  const tokenTransferResult = mapNearBlocksFtTransactionToTokenTransfer(ftTx, accountId);
+
+  if (tokenTransferResult.isErr()) {
+    return err(tokenTransferResult.error);
+  }
+
+  const tokenTransfer = tokenTransferResult.value;
+  // NearBlocks FT endpoint may omit transaction_hash; receipt_id is always present and is still stable.
+  // Prefer transaction_hash for `id` when available, but fall back to receipt_id (never a timestamp).
+  const txId = ftTx.transaction_hash ?? ftTx.receipt_id;
+  const timestamp = parseNearBlocksTimestamp(ftTx.block_timestamp);
+  const stableCurrencyId = tokenTransfer.contractAddress;
+
+  const transaction: NearTransaction = {
+    amount: tokenTransfer.amount,
+    currency: tokenTransfer.symbol || tokenTransfer.contractAddress,
+    eventId: generateUniqueTransactionEventId({
+      amount: tokenTransfer.amount,
+      // Use a stable identifier for token identity; symbols can change or be missing.
+      currency: stableCurrencyId,
+      from: tokenTransfer.from,
+      id: txId,
+      // Receipt id disambiguates multiple FT events within a single transaction hash.
+      traceId: ftTx.receipt_id,
+      timestamp,
+      to: tokenTransfer.to,
+      tokenAddress: tokenTransfer.contractAddress,
+      type: 'token_transfer',
+    }),
+    from: tokenTransfer.from,
+    id: txId,
+    providerName,
+    status: 'success',
+    timestamp,
+    to: tokenTransfer.to,
+    tokenTransfers: [tokenTransfer],
+    type: 'token_transfer',
+  };
+
+  return validateOutput(transaction, NearTransactionSchema, 'NearTransaction');
+}
+
+/**
  * Map NearBlocks transaction to normalized NearTransaction
  * Input data is pre-validated by HTTP client schema validation
  */
@@ -287,6 +338,15 @@ export function mapNearBlocksTransaction(rawData: NearBlocksTransaction): Result
     actions,
     amount: totalDeposit,
     currency: 'NEAR',
+    eventId: generateUniqueTransactionEventId({
+      amount: totalDeposit,
+      currency: 'NEAR',
+      from: validatedRawData.signer_account_id,
+      id: validatedRawData.transaction_hash,
+      timestamp,
+      to: validatedRawData.receiver_account_id,
+      type,
+    }),
     from: validatedRawData.signer_account_id,
     id: validatedRawData.transaction_hash,
     providerName: 'nearblocks',

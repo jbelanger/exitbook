@@ -164,9 +164,24 @@ describe('EvmImporter', () => {
       const address = '0x1234567890123456789012345678901234567890';
 
       setupDefaultMocks(
-        [{ raw: mockNormalTx, normalized: { id: mockNormalTx.hash } }],
-        [{ raw: mockInternalTx, normalized: { id: mockInternalTx.hash } }],
-        [{ raw: mockTokenTx, normalized: { id: mockTokenTx.hash } }]
+        [
+          {
+            raw: mockNormalTx,
+            normalized: { id: mockNormalTx.hash, eventId: '0'.repeat(64), type: 'transfer' as const },
+          },
+        ],
+        [
+          {
+            raw: mockInternalTx,
+            normalized: { id: mockInternalTx.hash, eventId: '1'.repeat(64), type: 'internal' as const },
+          },
+        ],
+        [
+          {
+            raw: mockTokenTx,
+            normalized: { id: mockTokenTx.hash, eventId: '2'.repeat(64), type: 'token_transfer' as const },
+          },
+        ]
       );
 
       const result = await consumeImportStream(importer, {
@@ -185,7 +200,7 @@ describe('EvmImporter', () => {
           sourceAddress: address,
           transactionTypeHint: 'normal',
           providerData: mockNormalTx,
-          normalizedData: { id: mockNormalTx.hash },
+          normalizedData: { id: mockNormalTx.hash, eventId: '0'.repeat(64) },
         });
         expect(result.value.rawTransactions[0]?.eventId).toMatch(/^[a-f0-9]{64}$/);
 
@@ -195,7 +210,7 @@ describe('EvmImporter', () => {
           sourceAddress: address,
           transactionTypeHint: 'internal',
           providerData: mockInternalTx,
-          normalizedData: { id: mockInternalTx.hash },
+          normalizedData: { id: mockInternalTx.hash, eventId: '1'.repeat(64) },
         });
         expect(result.value.rawTransactions[1]?.eventId).toMatch(/^[a-f0-9]{64}$/);
 
@@ -205,7 +220,7 @@ describe('EvmImporter', () => {
           sourceAddress: address,
           transactionTypeHint: 'token',
           providerData: mockTokenTx,
-          normalizedData: { id: mockTokenTx.hash },
+          normalizedData: { id: mockTokenTx.hash, eventId: '2'.repeat(64) },
         });
         expect(result.value.rawTransactions[2]?.eventId).toMatch(/^[a-f0-9]{64}$/);
       }
@@ -276,7 +291,16 @@ describe('EvmImporter', () => {
       const importer = createImporter(AVALANCHE_CONFIG);
       const address = '0x1234567890123456789012345678901234567890';
 
-      setupDefaultMocks([{ raw: mockNormalTx, normalized: { id: mockNormalTx.hash } }], [], []);
+      setupDefaultMocks(
+        [
+          {
+            raw: mockNormalTx,
+            normalized: { id: mockNormalTx.hash, eventId: '0'.repeat(64), type: 'transfer' as const },
+          },
+        ],
+        [],
+        []
+      );
 
       const result = await consumeImportStream(importer, {
         sourceName: 'evm',
@@ -312,8 +336,14 @@ describe('EvmImporter', () => {
       const address = '0x1234567890123456789012345678901234567890';
 
       const multipleNormalTxs = [
-        { raw: mockNormalTx, normalized: { id: mockNormalTx.hash } },
-        { raw: { ...mockNormalTx, hash: '0x789' }, normalized: { id: '0x789' } },
+        {
+          raw: mockNormalTx,
+          normalized: { id: mockNormalTx.hash, eventId: '0'.repeat(64), type: 'transfer' as const },
+        },
+        {
+          raw: { ...mockNormalTx, hash: '0x789' },
+          normalized: { id: '0x789', eventId: '1'.repeat(64), type: 'transfer' as const },
+        },
       ];
 
       setupDefaultMocks(multipleNormalTxs, [], []);

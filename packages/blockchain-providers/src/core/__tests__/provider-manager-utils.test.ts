@@ -529,11 +529,11 @@ describe('provider-manager-utils', () => {
 
     describe('deduplicateTransactions', () => {
       it('should filter duplicate transactions', () => {
-        const window = createDeduplicationWindow(['tx-1']);
+        const window = createDeduplicationWindow(['event-1']);
         const transactions = [
-          { normalized: { id: 'tx-1' } },
-          { normalized: { id: 'tx-2' } },
-          { normalized: { id: 'tx-3' } },
+          { normalized: { id: 'tx-1', eventId: 'event-1' } },
+          { normalized: { id: 'tx-2', eventId: 'event-2' } },
+          { normalized: { id: 'tx-3', eventId: 'event-3' } },
         ];
 
         const result = deduplicateTransactions(transactions, window, 10);
@@ -543,37 +543,43 @@ describe('provider-manager-utils', () => {
       });
 
       it('should update window with new IDs', () => {
-        const window = createDeduplicationWindow(['tx-1']);
-        const transactions = [{ normalized: { id: 'tx-2' } }, { normalized: { id: 'tx-3' } }];
+        const window = createDeduplicationWindow(['event-1']);
+        const transactions = [
+          { normalized: { id: 'tx-2', eventId: 'event-2' } },
+          { normalized: { id: 'tx-3', eventId: 'event-3' } },
+        ];
 
         deduplicateTransactions(transactions, window, 10);
         // Window is mutated in place
-        expect(window.set.has('tx-1')).toBe(true);
-        expect(window.set.has('tx-2')).toBe(true);
-        expect(window.set.has('tx-3')).toBe(true);
+        expect(window.set.has('event-1')).toBe(true);
+        expect(window.set.has('event-2')).toBe(true);
+        expect(window.set.has('event-3')).toBe(true);
       });
 
       it('should evict oldest when exceeding window size', () => {
-        const window = createDeduplicationWindow(['tx-1', 'tx-2']);
-        const transactions = [{ normalized: { id: 'tx-3' } }, { normalized: { id: 'tx-4' } }];
+        const window = createDeduplicationWindow(['event-1', 'event-2']);
+        const transactions = [
+          { normalized: { id: 'tx-3', eventId: 'event-3' } },
+          { normalized: { id: 'tx-4', eventId: 'event-4' } },
+        ];
 
         deduplicateTransactions(transactions, window, 3);
         // Window is mutated in place
         expect(window.queue).toHaveLength(3);
-        expect(window.set.has('tx-1')).toBe(false); // Evicted
-        expect(window.set.has('tx-2')).toBe(true);
-        expect(window.set.has('tx-3')).toBe(true);
-        expect(window.set.has('tx-4')).toBe(true);
+        expect(window.set.has('event-1')).toBe(false); // Evicted
+        expect(window.set.has('event-2')).toBe(true);
+        expect(window.set.has('event-3')).toBe(true);
+        expect(window.set.has('event-4')).toBe(true);
       });
 
       it('should mutate window in place for performance', () => {
-        const window = createDeduplicationWindow(['tx-1']);
-        const transactions = [{ normalized: { id: 'tx-2' } }];
+        const window = createDeduplicationWindow(['event-1']);
+        const transactions = [{ normalized: { id: 'tx-2', eventId: 'event-2' } }];
 
         deduplicateTransactions(transactions, window, 10);
         // Verify mutation happened
-        expect(window.queue).toEqual(['tx-1', 'tx-2']);
-        expect(window.set.has('tx-2')).toBe(true);
+        expect(window.queue).toEqual(['event-1', 'event-2']);
+        expect(window.set.has('event-2')).toBe(true);
       });
     });
   });

@@ -9,25 +9,40 @@ import { describe, expect, test } from 'vitest';
 import { mapToRawTransactions } from '../evm-importer-utils.js';
 
 describe('evm-importer-utils', () => {
+  const createTransaction = (
+    overrides: Partial<EvmTransaction> = {},
+    rawOverrides: Record<string, unknown> = {}
+  ): TransactionWithRawData<EvmTransaction> => {
+    const id = overrides.id ?? '0x123';
+    const normalized: EvmTransaction = {
+      id,
+      eventId: overrides.eventId ?? `${id}-0`,
+      type: 'transfer',
+      status: 'success',
+      providerName: 'alchemy',
+      blockHeight: 100,
+      from: '0xabc',
+      to: '0xdef',
+      amount: '1000000000000000000',
+      currency: 'ETH',
+      timestamp: 1234567890,
+      ...overrides,
+    };
+
+    return {
+      normalized,
+      raw: {
+        hash: normalized.id,
+        from: normalized.from,
+        to: normalized.to,
+        ...rawOverrides,
+      },
+    };
+  };
+
   describe('mapToRawTransactions', () => {
     test('should map normal transactions correctly', () => {
-      const transactions: TransactionWithRawData<EvmTransaction>[] = [
-        {
-          normalized: {
-            id: '0x123',
-            type: 'transfer',
-            status: 'success',
-            providerName: 'alchemy',
-            blockHeight: 100,
-            from: '0xabc',
-            to: '0xdef',
-            amount: '1000000000000000000',
-            currency: 'ETH',
-            timestamp: 1234567890,
-          },
-          raw: { hash: '0x123', from: '0xabc', to: '0xdef' },
-        },
-      ];
+      const transactions = [createTransaction()];
 
       const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'normal');
 
@@ -44,22 +59,20 @@ describe('evm-importer-utils', () => {
     });
 
     test('should map internal transactions correctly', () => {
-      const transactions: TransactionWithRawData<EvmTransaction>[] = [
-        {
-          normalized: {
+      const transactions = [
+        createTransaction(
+          {
             id: '0x456',
             type: 'internal',
-            status: 'success',
             providerName: 'moralis',
             blockHeight: 101,
             from: '0xdef',
             to: '0xghi',
             amount: '500000000000000000',
-            currency: 'ETH',
             timestamp: 1234567891,
           },
-          raw: { hash: '0x456', from: '0xdef', to: '0xghi', type: 'internal' },
-        },
+          { type: 'internal' }
+        ),
       ];
 
       const result = mapToRawTransactions(transactions, 'moralis', '0xsource', 'internal');
@@ -75,23 +88,19 @@ describe('evm-importer-utils', () => {
     });
 
     test('should map token transactions correctly', () => {
-      const transactions: TransactionWithRawData<EvmTransaction>[] = [
-        {
-          normalized: {
+      const transactions = [
+        createTransaction(
+          {
             id: '0x789',
             type: 'token_transfer',
-            status: 'success',
-            providerName: 'alchemy',
             blockHeight: 102,
-            from: '0xabc',
-            to: '0xdef',
             amount: '1000000',
             currency: 'USDC',
             timestamp: 1234567892,
             tokenAddress: '0xtoken',
           },
-          raw: { hash: '0x789', tokenAddress: '0xtoken', value: '1000000' },
-        },
+          { tokenAddress: '0xtoken', value: '1000000' }
+        ),
       ];
 
       const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'token');
@@ -113,52 +122,10 @@ describe('evm-importer-utils', () => {
     });
 
     test('should handle multiple transactions', () => {
-      const transactions: TransactionWithRawData<EvmTransaction>[] = [
-        {
-          normalized: {
-            id: '0x111',
-            type: 'transfer',
-            status: 'success',
-            providerName: 'alchemy',
-            blockHeight: 100,
-            from: '0xabc',
-            to: '0xdef',
-            amount: '1',
-            currency: 'ETH',
-            timestamp: 1,
-          },
-          raw: { hash: '0x111' },
-        },
-        {
-          normalized: {
-            id: '0x222',
-            type: 'transfer',
-            status: 'success',
-            providerName: 'alchemy',
-            blockHeight: 101,
-            from: '0xabc',
-            to: '0xdef',
-            amount: '2',
-            currency: 'ETH',
-            timestamp: 2,
-          },
-          raw: { hash: '0x222' },
-        },
-        {
-          normalized: {
-            id: '0x333',
-            type: 'transfer',
-            status: 'success',
-            providerName: 'alchemy',
-            blockHeight: 102,
-            from: '0xabc',
-            to: '0xdef',
-            amount: '3',
-            currency: 'ETH',
-            timestamp: 3,
-          },
-          raw: { hash: '0x333' },
-        },
+      const transactions = [
+        createTransaction({ id: '0x111', blockHeight: 100, amount: '1', timestamp: 1 }),
+        createTransaction({ id: '0x222', blockHeight: 101, amount: '2', timestamp: 2 }),
+        createTransaction({ id: '0x333', blockHeight: 102, amount: '3', timestamp: 3 }),
       ];
 
       const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'normal');
@@ -173,37 +140,9 @@ describe('evm-importer-utils', () => {
     });
 
     test('should generate unique external IDs for each transaction', () => {
-      const transactions: TransactionWithRawData<EvmTransaction>[] = [
-        {
-          normalized: {
-            id: '0x111',
-            type: 'transfer',
-            status: 'success',
-            providerName: 'alchemy',
-            blockHeight: 100,
-            from: '0xabc',
-            to: '0xdef',
-            amount: '1',
-            currency: 'ETH',
-            timestamp: 1,
-          },
-          raw: { hash: '0x111' },
-        },
-        {
-          normalized: {
-            id: '0x222',
-            type: 'transfer',
-            status: 'success',
-            providerName: 'alchemy',
-            blockHeight: 101,
-            from: '0xabc',
-            to: '0xdef',
-            amount: '2',
-            currency: 'ETH',
-            timestamp: 2,
-          },
-          raw: { hash: '0x222' },
-        },
+      const transactions = [
+        createTransaction({ id: '0x111', blockHeight: 100, amount: '1', timestamp: 1 }),
+        createTransaction({ id: '0x222', blockHeight: 101, amount: '2', timestamp: 2 }),
       ];
 
       const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'normal');
@@ -225,27 +164,35 @@ describe('evm-importer-utils', () => {
         customField: 'custom value',
       };
 
-      const transactions: TransactionWithRawData<EvmTransaction>[] = [
-        {
-          normalized: {
-            id: '0x123',
-            type: 'transfer',
-            status: 'success',
-            providerName: 'alchemy',
-            blockHeight: 100,
-            from: '0xabc',
-            to: '0xdef',
-            amount: '1000000000000000000',
-            currency: 'ETH',
-            timestamp: 1234567890,
-          },
-          raw: rawData,
-        },
-      ];
+      const transactions = [createTransaction({}, rawData)];
 
       const result = mapToRawTransactions(transactions, 'alchemy', '0xsource', 'normal');
 
       expect(result[0]!.providerData).toEqual(rawData);
+    });
+
+    test('should use transaction.type instead of operationType parameter for hint', () => {
+      // Moralis includes internal transactions in the normal stream
+      // This test verifies they get the correct 'internal' hint despite operationType='normal'
+      const transactions = [
+        createTransaction(
+          {
+            id: '0xparenthash',
+            type: 'internal', // This is an internal transaction
+            providerName: 'moralis',
+            from: '0xcontract1',
+            to: '0xcontract2',
+          },
+          { type: 'CALL' }
+        ),
+      ];
+
+      // Even though we pass 'normal' as operationType (because it came from the normal stream),
+      // the function should use the actual transaction type ('internal') for the hint
+      const result = mapToRawTransactions(transactions, 'moralis', '0xsource', 'normal');
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.transactionTypeHint).toBe('internal'); // Should be 'internal', not 'normal'
     });
   });
 });

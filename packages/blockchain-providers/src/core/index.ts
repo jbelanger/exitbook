@@ -9,6 +9,9 @@ export * from './base/mapper.js';
 // Core types
 export * from './types/index.js';
 
+// Core schemas
+export * from './schemas/index.js';
+
 // Registry system
 export * from './registry/decorators.js';
 export * from './registry/provider-registry.js';

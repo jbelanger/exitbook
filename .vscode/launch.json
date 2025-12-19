@@ -30,89 +30,26 @@
       "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"]
     },
     {
-      "name": "Debug CLI Status",
+      "name": "Debug CLI (Custom Args)",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/apps/cli/index.ts",
-      "args": ["status"],
+      "program": "${workspaceFolder}/apps/cli/src/index.ts",
+      "args": "${input:cliArgs}",
       "runtimeExecutable": "node",
       "runtimeArgs": ["--import", "tsx/esm"],
       "cwd": "${workspaceFolder}/apps/cli",
-      "envFile": "${workspaceFolder}/apps/cli/.env",
+      "envFile": "${workspaceFolder}/.env",
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**"],
       "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"]
-    },
+    }
+  ],
+  "inputs": [
     {
-      "name": "Debug CLI Import Bitcoin",
-      "type": "node",
-      "request": "launch",
-      "program": "${workspaceFolder}/apps/cli/index.ts",
-      "args": ["import", "--blockchain", "bitcoin", "--address", "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"],
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["--import", "tsx/esm"],
-      "cwd": "${workspaceFolder}/apps/cli",
-      "envFile": "${workspaceFolder}/apps/cli/.env",
-      "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**"],
-      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"]
-    },
-
-    {
-      "name": "Debug CLI Import Injective",
-      "type": "node",
-      "request": "launch",
-      "program": "${workspaceFolder}/apps/cli/index.ts",
-      "args": ["import", "--blockchain", "injective", "--address", "inj13f2vnh79al8wdmcswszc5977l5l38czetm6afv"],
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["--import", "tsx/esm"],
-      "cwd": "${workspaceFolder}/apps/cli",
-      "envFile": "${workspaceFolder}/apps/cli/.env",
-      "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**"],
-      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"]
-    },
-    {
-      "name": "Debug CLI Verify",
-      "type": "node",
-      "request": "launch",
-      "program": "${workspaceFolder}/apps/cli/index.ts",
-      "args": ["verify", "--exchange", "kraken"],
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["--import", "tsx/esm"],
-      "cwd": "${workspaceFolder}/apps/cli",
-      "envFile": "${workspaceFolder}/apps/cli/.env",
-      "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**"],
-      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"]
-    },
-    {
-      "name": "Debug CLI Export",
-      "type": "node",
-      "request": "launch",
-      "program": "${workspaceFolder}/apps/cli/index.ts",
-      "args": ["export", "--format", "csv"],
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["--import", "tsx/esm"],
-      "cwd": "${workspaceFolder}/apps/cli",
-      "envFile": "${workspaceFolder}/apps/cli/.env",
-      "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**"],
-      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"]
-    },
-    {
-      "name": "Debug CLI Process",
-      "type": "node",
-      "request": "launch",
-      "program": "${workspaceFolder}/apps/cli/index.ts",
-      "args": ["process", "--blockchain", "bitcoin", "--all"],
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["--import", "tsx/esm"],
-      "cwd": "${workspaceFolder}/apps/cli",
-      "envFile": "${workspaceFolder}/apps/cli/.env",
-      "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**"],
-      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"]
+      "id": "cliArgs",
+      "type": "promptString",
+      "description": "CLI arguments (e.g., import --exchange kraken --csv-dir ./exports)",
+      "default": "status"
     }
   ]
 }

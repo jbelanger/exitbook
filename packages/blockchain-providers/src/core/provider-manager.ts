@@ -12,6 +12,8 @@ import {
 import { getLogger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
 
+import type { NormalizedTransactionBase } from '../index.ts';
+
 import {
   buildProviderNotFoundError,
   buildProviderSelectionDebugInfo,
@@ -616,7 +618,7 @@ export class BlockchainProviderManager {
           // Deduplicate (especially important after failover with replay window)
           // Note: deduplicateTransactions mutates deduplicationWindow in place for performance
           const deduplicated = deduplicateTransactions(
-            batch.data as { normalized: { id: string } }[],
+            batch.data as { normalized: NormalizedTransactionBase }[],
             deduplicationWindow,
             DEDUP_WINDOW_SIZE
           );

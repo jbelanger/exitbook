@@ -39,49 +39,54 @@ function createAvalancheProcessor() {
   return new EvmTransactionProcessor(AVALANCHE_CONFIG, createMockTokenMetadataService());
 }
 
+function createTransaction(overrides: Partial<EvmTransaction> = {}): EvmTransaction {
+  return {
+    amount: '1000000000000000000',
+    currency: 'ETH',
+    eventId: 'event1',
+    feeAmount: '21000000000000',
+    from: EXTERNAL_ADDRESS,
+    id: '0xhash1',
+    providerName: 'alchemy',
+    status: 'success',
+    timestamp: Date.now(),
+    to: USER_ADDRESS,
+    tokenType: 'native',
+    type: 'transfer',
+    ...overrides,
+  };
+}
+
 describe('EvmTransactionProcessor - Transaction Correlation', () => {
   test('correlates multiple transactions with same hash into single output', async () => {
     const processor = createEthereumProcessor();
 
     const baseTimestamp = Date.now();
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000', // 1 ETH
+      createTransaction({
         blockHeight: 100,
-        currency: 'ETH',
-        feeAmount: '21000000000000',
         feeCurrency: 'ETH',
         from: CONTRACT_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: baseTimestamp,
         to: USER_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
-      {
-        amount: '500000000000000000', // 0.5 ETH internal
+      }),
+      createTransaction({
+        amount: '500000000000000000',
         blockHeight: 100,
-        currency: 'ETH',
         from: CONTRACT_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: baseTimestamp,
         to: USER_ADDRESS,
-        tokenType: 'native',
         traceId: 'trace-1',
         type: 'internal',
-      },
-      {
-        amount: '2500000', // 2.5 USDC in smallest units (2500000 / 10^6 = 2.5)
+      }),
+      createTransaction({
+        amount: '2500000',
         blockHeight: 100,
         currency: 'USDC',
         from: CONTRACT_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: baseTimestamp,
         to: USER_ADDRESS,
         tokenAddress: '0xusdc000000000000000000000000000000000000',
@@ -89,7 +94,7 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
         tokenSymbol: 'USDC',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -125,32 +130,19 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        currency: 'ETH',
-        feeAmount: '21000000000000',
+      createTransaction({
         from: EXTERNAL_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
-      {
+      }),
+      createTransaction({
         amount: '2000000000000000000',
-        currency: 'ETH',
-        feeAmount: '21000000000000',
         from: USER_ADDRESS,
         id: '0xhash2',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now() + 1000,
         to: EXTERNAL_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -174,32 +166,22 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        currency: 'ETH',
-        feeAmount: '21000000000000', // 0.000021 ETH
+      createTransaction({
+        feeAmount: '21000000000000',
         from: EXTERNAL_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
-      {
+      }),
+      createTransaction({
         amount: '500000000000000000',
-        currency: 'ETH',
-        feeAmount: '15000000000000', // 0.000015 ETH
+        feeAmount: '15000000000000',
         from: EXTERNAL_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        tokenType: 'native',
         type: 'internal',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -222,19 +204,12 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000', // 1 ETH sent
-        currency: 'ETH',
-        feeAmount: '21000000000000', // 0.000021 ETH fee
+      createTransaction({
         from: USER_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -258,19 +233,10 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000', // 1 ETH received
-        currency: 'ETH',
-        feeAmount: '21000000000000', // 0.000021 ETH fee (paid by sender)
-        from: EXTERNAL_ADDRESS, // External sender (not user)
+      createTransaction({
         id: '0xhash2',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -294,19 +260,12 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '500000000000000000', // 0.5 ETH self-transfer
-        currency: 'ETH',
-        feeAmount: '21000000000000', // 0.000021 ETH fee
+      createTransaction({
+        amount: '500000000000000000',
         from: USER_ADDRESS,
         id: '0xhash3',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -330,20 +289,17 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
+      createTransaction({
         amount: '0',
-        currency: 'ETH',
-        feeAmount: '150000000000000', // 0.00015 ETH fee
+        feeAmount: '150000000000000',
         from: USER_ADDRESS,
         functionName: 'approve',
         id: '0xhash4',
         methodId: '0x095ea7b3',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         type: 'contract_call',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -366,22 +322,19 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000', // 1000 USDC received
+      createTransaction({
+        amount: '1000000000',
         currency: 'USDC',
-        feeAmount: '50000000000000', // 0.00005 ETH fee (paid by sender/minter)
-        from: CONTRACT_ADDRESS, // Contract/minter is sender
+        feeAmount: '50000000000000',
+        from: CONTRACT_ADDRESS,
         id: '0xhash5',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS, // User receives tokens
         tokenAddress: '0xusdc000000000000000000000000000000000000',
         tokenDecimals: 6,
         tokenSymbol: 'USDC',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -405,19 +358,15 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '2000000000000000000', // 2 ETH (failed send)
-        currency: 'ETH',
-        feeAmount: '100000000000000', // 0.0001 ETH fee (still consumed on failure)
-        from: USER_ADDRESS, // User initiated transaction
+      createTransaction({
+        amount: '2000000000000000000',
+        feeAmount: '100000000000000',
+        from: USER_ADDRESS,
         id: '0xhash6',
-        providerName: 'alchemy',
         status: 'failed',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -441,26 +390,19 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '500000000000000000', // 0.5 ETH sent
-        currency: 'ETH',
-        feeAmount: '150000000000000', // 0.00015 ETH fee
-        from: USER_ADDRESS, // User initiates swap
+      createTransaction({
+        amount: '500000000000000000',
+        feeAmount: '150000000000000',
+        from: USER_ADDRESS,
         id: '0xswap1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
-      {
-        amount: '1000000000', // 1000 USDC received
+      }),
+      createTransaction({
+        amount: '1000000000',
         currency: 'USDC',
         from: CONTRACT_ADDRESS,
         id: '0xswap1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
         tokenAddress: '0xusdc000000000000000000000000000000000000',
@@ -468,7 +410,7 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
         tokenSymbol: 'USDC',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -494,20 +436,12 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
     const mixedCaseUser = '0xUsEr00000000000000000000000000000000000000';
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        currency: 'ETH',
-        feeAmount: '21000000000000',
-        // Addresses normalized to lowercase (as they would be from EvmAddressSchema)
+      createTransaction({
         from: mixedCaseUser.toLowerCase(),
         id: '0xhash7',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -532,19 +466,11 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1500000000000000000', // 1.5 ETH in wei
-        currency: 'ETH',
-        feeAmount: '21000000000000',
-        from: EXTERNAL_ADDRESS,
+      createTransaction({
+        amount: '1500000000000000000',
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -576,19 +502,14 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '2000000000000000000', // 2 ETH in wei
-        currency: 'ETH',
+      createTransaction({
+        amount: '2000000000000000000',
         feeAmount: '100000000000000',
         from: USER_ADDRESS,
         id: '0xhash2',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -620,19 +541,12 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '500000000000000000', // 0.5 ETH
-        currency: 'ETH',
-        feeAmount: '21000000000000',
+      createTransaction({
+        amount: '500000000000000000',
         from: USER_ADDRESS,
         id: '0xhash3',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
     const result = await processor.process(normalizedData, {
       primaryAddress: USER_ADDRESS,
@@ -659,21 +573,17 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000', // 1000 USDC (pre-normalized, 6 decimals)
+      createTransaction({
+        amount: '1000000000',
         currency: 'USDC',
-        from: EXTERNAL_ADDRESS,
         id: '0xhash4',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
         tokenAddress: '0xusdc000000000000000000000000000000000000',
         tokenDecimals: 6,
         tokenSymbol: 'USDC',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -696,13 +606,11 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '5000000000', // 5000 USDC
+      createTransaction({
+        amount: '5000000000',
         currency: 'USDC',
         from: USER_ADDRESS,
         id: '0xhash5',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
         tokenAddress: '0xusdc000000000000000000000000000000000000',
@@ -710,7 +618,7 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
         tokenSymbol: 'USDC',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -735,19 +643,14 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
+      createTransaction({
         amount: '0',
-        currency: 'ETH',
         feeAmount: '50000000000000',
         from: USER_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -771,19 +674,11 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000', // 0.000001 ETH (small amount)
-        currency: 'ETH',
-        feeAmount: '21000000000000',
-        from: EXTERNAL_ADDRESS,
+      createTransaction({
+        amount: '1000000000000',
         id: '0xhash2',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -808,20 +703,17 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
+      createTransaction({
         amount: '0',
-        currency: 'ETH',
         feeAmount: '100000000000000',
         from: USER_ADDRESS,
         functionName: 'approve',
         id: '0xhash3',
         methodId: '0x095ea7b3',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         type: 'contract_call',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -845,19 +737,13 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        currency: 'ETH',
-        feeAmount: '21000000000000',
+      createTransaction({
         from: USER_ADDRESS,
         id: '0xhash4',
-        providerName: 'alchemy',
         status: 'failed',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -884,18 +770,14 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        currency: 'ETH',
+      createTransaction({
         feeAmount: '150000000000000',
         from: USER_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         type: 'contract_call',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -915,19 +797,14 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        currency: 'ETH',
+      createTransaction({
         feeAmount: '150000000000000',
         from: USER_ADDRESS,
         id: '0xhash2',
-        methodId: '0xa9059cbb', // transfer(address,uint256)
-        providerName: 'alchemy',
-        status: 'success',
+        methodId: '0xa9059cbb',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -947,19 +824,14 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        currency: 'ETH',
+      createTransaction({
         feeAmount: '150000000000000',
         from: USER_ADDRESS,
         functionName: 'swap',
         id: '0xhash3',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
-        type: 'transfer',
-      },
+      }),
     ];
     const result = await processor.process(normalizedData, {
       primaryAddress: USER_ADDRESS,
@@ -980,19 +852,10 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        currency: 'ETH',
-        feeAmount: '21000000000000',
-        from: EXTERNAL_ADDRESS,
+      createTransaction({
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -1017,19 +880,13 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
     const processor = createAvalancheProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
+      createTransaction({
         amount: '2000000000000000000',
         currency: 'AVAX',
-        feeAmount: '21000000000000',
-        from: EXTERNAL_ADDRESS,
         id: '0xhash2',
         providerName: 'snowtrace',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -1054,18 +911,11 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '123456789012345678', // 0.123456789012345678 ETH (18 decimals)
-        currency: 'ETH',
-        from: EXTERNAL_ADDRESS,
+      createTransaction({
+        amount: '123456789012345678',
         id: '0xhash3',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -1089,19 +939,11 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
     const mixedCaseUser = '0xUsEr00000000000000000000000000000000000000';
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        currency: 'ETH',
-        from: EXTERNAL_ADDRESS,
+      createTransaction({
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        // Addresses normalized to lowercase (as they would be from EvmAddressSchema)
         to: mixedCaseUser.toLowerCase(),
-        tokenType: 'native',
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -1125,19 +967,11 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        currency: 'ETH',
-        from: EXTERNAL_ADDRESS,
+      createTransaction({
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-        // No feeAmount field
-      },
+        feeAmount: undefined,
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -1160,18 +994,11 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        currency: 'ETH',
-        from: EXTERNAL_ADDRESS,
+      createTransaction({
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
-        type: 'transfer',
-        // Missing: blockHeight, blockId, tokenType, etc.
-      },
+        tokenType: undefined,
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -1194,17 +1021,10 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        currency: 'ETH',
-        from: EXTERNAL_ADDRESS,
-        id: '', // Invalid ID
-        providerName: 'alchemy',
-        status: 'success',
+      createTransaction({
+        id: '',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
-        type: 'transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -1225,24 +1045,17 @@ describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000000000000',
-        currency: 'ETH',
+      createTransaction({
         from: CONTRACT_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'transfer',
-      },
-      {
+      }),
+      createTransaction({
         amount: '2500000',
         currency: 'USDC',
         from: CONTRACT_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now() + 100,
         to: USER_ADDRESS,
         tokenAddress: '0xusdc000000000000000000000000000000000000',
@@ -1250,7 +1063,7 @@ describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
         tokenSymbol: 'USDC',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
+      }),
     ];
     const result = await processor.process(normalizedData, {
       primaryAddress: USER_ADDRESS,
@@ -1269,30 +1082,24 @@ describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '0', // Main tx has no value
-        currency: 'ETH',
+      createTransaction({
+        amount: '0',
         feeAmount: '150000000000000',
         from: USER_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         type: 'contract_call',
-      },
-      {
-        amount: '500000000000000000', // Internal has value
-        currency: 'ETH',
+      }),
+      createTransaction({
+        amount: '500000000000000000',
         from: CONTRACT_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
         traceId: 'trace-1',
         type: 'internal',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -1317,26 +1124,19 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '500000000000000000', // 0.5 ETH sent
-        currency: 'ETH',
+      createTransaction({
+        amount: '500000000000000000',
         feeAmount: '150000000000000',
         from: USER_ADDRESS,
         id: '0xswap1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
-      {
-        amount: '1000000000', // 1000 USDC in smallest units (1000000000 / 10^6 = 1000)
+      }),
+      createTransaction({
+        amount: '1000000000',
         currency: 'USDC',
         from: CONTRACT_ADDRESS,
         id: '0xswap1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
         tokenAddress: '0xusdc000000000000000000000000000000000000',
@@ -1344,7 +1144,7 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
         tokenSymbol: 'USDC',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -1380,13 +1180,11 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '2000000000', // 2000 USDC sent
+      createTransaction({
+        amount: '2000000000',
         currency: 'USDC',
         from: USER_ADDRESS,
         id: '0xswap2',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         tokenAddress: '0xusdc000000000000000000000000000000000000',
@@ -1394,20 +1192,16 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
         tokenSymbol: 'USDC',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
-      {
-        amount: '1000000000000000000', // 1 ETH received
-        currency: 'ETH',
+      }),
+      createTransaction({
+        amount: '1000000000000000000',
         feeAmount: '150000000000000',
         from: CONTRACT_ADDRESS,
         id: '0xswap2',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        tokenType: 'native',
         type: 'internal',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -1432,26 +1226,19 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '500000000000000000', // 0.5 ETH sent
-        currency: 'ETH',
+      createTransaction({
+        amount: '500000000000000000',
         feeAmount: '150000000000000',
         from: USER_ADDRESS,
         id: '0xcomplex1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
-        tokenType: 'native',
-        type: 'transfer',
-      },
-      {
-        amount: '1000000000', // 1000 USDC sent
+      }),
+      createTransaction({
+        amount: '1000000000',
         currency: 'USDC',
         from: USER_ADDRESS,
         id: '0xcomplex1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         tokenAddress: '0xusdc000000000000000000000000000000000000',
@@ -1459,14 +1246,12 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
         tokenSymbol: 'USDC',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
-      {
-        amount: '5000000000000000000000', // 5000 DAI in smallest units (5000 * 10^18)
+      }),
+      createTransaction({
+        amount: '5000000000000000000000',
         currency: 'DAI',
         from: CONTRACT_ADDRESS,
         id: '0xcomplex1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
         tokenAddress: '0xdai0000000000000000000000000000000000000',
@@ -1474,7 +1259,7 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
         tokenSymbol: 'DAI',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -1509,20 +1294,17 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
-      {
+      createTransaction({
         amount: '0',
-        currency: 'ETH',
         feeAmount: '100000000000000',
         from: USER_ADDRESS,
         functionName: 'approve',
         id: '0xapprove1',
         methodId: '0x095ea7b3',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         type: 'contract_call',
-      },
+      }),
     ];
     const result = await processor.process(normalizedData, {
       primaryAddress: USER_ADDRESS,
@@ -1585,22 +1367,17 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
     const processor = new EvmTransactionProcessor(ETHEREUM_CONFIG, mockTokenMetadataService);
 
     const normalizedData: EvmTransaction[] = [
-      {
-        amount: '1000000000', // 1000 USDC
-        // Symbol is contract address (needs enrichment)
+      createTransaction({
+        amount: '1000000000',
         currency: '0xusdc000000000000000000000000000000000000',
-        from: EXTERNAL_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
         tokenAddress: '0xusdc000000000000000000000000000000000000',
         tokenDecimals: 6,
         tokenSymbol: '0xusdc000000000000000000000000000000000000',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -1637,21 +1414,17 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
     const processor = new EvmTransactionProcessor(ETHEREUM_CONFIG, mockTokenMetadataService);
 
     const normalizedData: EvmTransaction[] = [
-      {
+      createTransaction({
         amount: '1000000000',
-        currency: 'USDC', // Already readable
-        from: EXTERNAL_ADDRESS,
+        currency: 'USDC',
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
         tokenAddress: '0xusdc000000000000000000000000000000000000',
         tokenDecimals: 6,
-        tokenSymbol: 'USDC', // Already readable
+        tokenSymbol: 'USDC',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -1669,21 +1442,17 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
     const processor = new EvmTransactionProcessor(ETHEREUM_CONFIG, mockTokenMetadataService);
 
     const normalizedData: EvmTransaction[] = [
-      {
+      createTransaction({
         amount: '1000000000000000000',
         currency: '0xtoken00000000000000000000000000000000000',
-        from: EXTERNAL_ADDRESS,
         id: '0xhash1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS,
         tokenAddress: '0xtoken00000000000000000000000000000000000',
-        // tokenDecimals missing
+        tokenDecimals: undefined,
         tokenSymbol: '0xtoken00000000000000000000000000000000000',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -1709,13 +1478,11 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
     const processor = new EvmTransactionProcessor(ETHEREUM_CONFIG, mockTokenMetadataService);
 
     const normalizedData: EvmTransaction[] = [
-      {
+      createTransaction({
         amount: '1000000000',
         currency: '0xusdc000000000000000000000000000000000000',
         from: USER_ADDRESS,
         id: '0xswap1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         tokenAddress: '0xusdc000000000000000000000000000000000000',
@@ -1723,14 +1490,12 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
         tokenSymbol: '0xusdc000000000000000000000000000000000000',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
-      {
+      }),
+      createTransaction({
         amount: '1000000000000000000000',
         currency: '0xdai0000000000000000000000000000000000000',
         from: CONTRACT_ADDRESS,
         id: '0xswap1',
-        providerName: 'alchemy',
-        status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
         tokenAddress: '0xdai0000000000000000000000000000000000000',
@@ -1738,7 +1503,7 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
         tokenSymbol: '0xdai0000000000000000000000000000000000000',
         tokenType: 'erc20',
         type: 'token_transfer',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {

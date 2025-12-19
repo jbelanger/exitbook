@@ -1,6 +1,8 @@
 import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
+import { NormalizedTransactionBaseSchema } from '../../core/schemas/normalized-transaction.js';
+
 /**
  * Substrate address schema (SS58 format)
  *
@@ -31,8 +33,14 @@ export const SubstrateEventDataSchema = z.object({
 
 /**
  * Schema for normalized Substrate transaction
+ *
+ * Extends NormalizedTransactionBaseSchema to ensure consistent identity handling.
+ * The eventId field is computed by providers during normalization using
+ * generateUniqueTransactionEventId() with Substrate-specific discriminating fields
+ * (e.g., extrinsic index, event index for transactions with multiple events).
  */
-export const SubstrateTransactionSchema = z.object({
+export const SubstrateTransactionSchema = NormalizedTransactionBaseSchema.extend({
+  // Substrate-specific transaction data
   amount: DecimalStringSchema,
   args: z.unknown().optional(),
   blockHeight: z.number().optional(),
@@ -46,7 +54,6 @@ export const SubstrateTransactionSchema = z.object({
   feeCurrency: z.string().optional(),
   from: SubstrateAddressSchema,
   genesisHash: z.string().optional(),
-  id: z.string().min(1, 'Transaction ID must not be empty'),
   module: z.string().optional(),
   nonce: z.number().nonnegative().optional(),
   providerName: z.string().min(1, 'Provider Name must not be empty'),

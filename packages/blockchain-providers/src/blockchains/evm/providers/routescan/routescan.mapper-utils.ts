@@ -1,6 +1,6 @@
 import { type Result } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../core/index.js';
+import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
 import { validateOutput } from '../../../../core/index.js';
 import { calculateGasFeeBigInt } from '../../receipt-utils.js';
 import { EvmTransactionSchema } from '../../schemas.js';
@@ -27,17 +27,29 @@ export function transformInternalTransaction(
   nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   const timestamp = rawData.timeStamp.getTime();
+  const from = normalizeEvmAddress(rawData.from) ?? '';
+  const to = normalizeEvmAddress(rawData.to);
 
   const transaction: EvmTransaction = {
     amount: rawData.value,
     blockHeight: parseInt(rawData.blockNumber),
     currency: nativeCurrency,
-    from: normalizeEvmAddress(rawData.from) ?? '',
+    eventId: generateUniqueTransactionEventId({
+      amount: rawData.value,
+      currency: nativeCurrency,
+      from,
+      id: rawData.hash,
+      timestamp,
+      to,
+      traceId: rawData.traceId,
+      type: 'internal',
+    }),
+    from,
     id: rawData.hash,
     providerName: 'routescan',
     status: rawData.isError === '0' ? 'success' : 'failed',
     timestamp,
-    to: normalizeEvmAddress(rawData.to),
+    to,
     traceId: rawData.traceId,
     type: 'internal',
   };
@@ -54,21 +66,33 @@ export function transformNormalTransaction(
   nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   const timestamp = rawData.timeStamp.getTime();
+  const transactionType = getTransactionTypeFromFunctionName(rawData.functionName);
+  const from = normalizeEvmAddress(rawData.from) ?? '';
+  const to = normalizeEvmAddress(rawData.to);
 
   const transaction: EvmTransaction = {
     amount: rawData.value,
     blockHeight: parseInt(rawData.blockNumber),
     blockId: rawData.blockHash,
     currency: nativeCurrency,
-    from: normalizeEvmAddress(rawData.from) ?? '',
+    eventId: generateUniqueTransactionEventId({
+      amount: rawData.value,
+      currency: nativeCurrency,
+      from,
+      id: rawData.hash,
+      timestamp,
+      to,
+      type: transactionType,
+    }),
+    from,
     gasPrice: rawData.gasPrice,
     gasUsed: rawData.gasUsed,
     id: rawData.hash,
     providerName: 'routescan',
     status: rawData.txreceipt_status === '1' ? 'success' : 'failed',
     timestamp,
-    to: normalizeEvmAddress(rawData.to),
-    type: getTransactionTypeFromFunctionName(rawData.functionName),
+    to,
+    type: transactionType,
   };
 
   // Add optional fields
@@ -99,21 +123,34 @@ export function transformTokenTransfer(
   nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
   const timestamp = rawData.timeStamp.getTime();
+  const from = normalizeEvmAddress(rawData.from) ?? '';
+  const to = normalizeEvmAddress(rawData.to);
+  const tokenAddress = normalizeEvmAddress(rawData.contractAddress);
 
   const transaction: EvmTransaction = {
     amount: rawData.value,
     blockHeight: parseInt(rawData.blockNumber),
     blockId: rawData.blockHash,
     currency: rawData.tokenSymbol,
-    from: normalizeEvmAddress(rawData.from) ?? '',
+    eventId: generateUniqueTransactionEventId({
+      amount: rawData.value,
+      currency: rawData.tokenSymbol,
+      from,
+      id: rawData.hash,
+      timestamp,
+      to,
+      tokenAddress,
+      type: 'token_transfer',
+    }),
+    from,
     gasPrice: rawData.gasPrice,
     gasUsed: rawData.gasUsed,
     id: rawData.hash,
     providerName: 'routescan',
     status: 'success',
     timestamp,
-    to: normalizeEvmAddress(rawData.to),
-    tokenAddress: normalizeEvmAddress(rawData.contractAddress),
+    to,
+    tokenAddress,
     tokenDecimals: parseInt(rawData.tokenDecimal),
     tokenSymbol: rawData.tokenSymbol,
     tokenType: 'erc20', // Assume ERC-20 for Routescan token transfers

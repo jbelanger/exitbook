@@ -1,6 +1,8 @@
 import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
+import { NormalizedTransactionBaseSchema } from '../../core/schemas/normalized-transaction.js';
+
 import { normalizeEvmAddress } from './utils.js';
 
 /**
@@ -26,17 +28,19 @@ export const EvmAddressSchema = z.string().transform((val) => normalizeEvmAddres
  * Validates transactions from all EVM-compatible chains (Ethereum, Avalanche, etc.)
  * Supports the superset of features across all chains.
  *
+ * Extends NormalizedTransactionBaseSchema to ensure consistent identity handling.
+ * The eventId field is computed by providers during normalization using
+ * generateUniqueTransactionEventId() with chain-specific discriminating fields.
+ *
  * Note on logIndex and traceId fields:
  * - logIndex: Only provided by Moralis (not Routescan/Alchemy)
  * - traceId: Only provided by Routescan (not Alchemy/Moralis)
  *
- * These fields are preserved in the schema but the EVM importer excludes them from
- * eventId generation due to inconsistent provider support. See evm-importer-utils.ts
- * for deduplication logic and limitations.
+ * These fields are preserved in the schema and included in eventId generation
+ * when available to ensure unique identification of events within a transaction.
  */
-export const EvmTransactionSchema = z.object({
-  // Core transaction data
-  id: z.string().min(1, 'Transaction ID must not be empty'),
+export const EvmTransactionSchema = NormalizedTransactionBaseSchema.extend({
+  // EVM-specific transaction data
   type: z.enum(['transfer', 'token_transfer', 'internal', 'contract_call']),
   status: z.enum(['success', 'failed', 'pending']),
   timestamp: z.number().positive('Timestamp must be positive'),

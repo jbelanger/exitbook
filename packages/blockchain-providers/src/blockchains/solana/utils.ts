@@ -1,6 +1,8 @@
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
+import { generateUniqueTransactionEventId } from '../../core/index.js';
+
 import type { SolanaTokenBalance, SolanaTokenChange } from './schemas.js';
 
 /**
@@ -26,6 +28,29 @@ export function lamportsToSol(lamports: number | string): Decimal {
  */
 export function solToLamports(sol: number | string): Decimal {
   return parseDecimal(sol.toString()).mul(parseDecimal('10').pow(9));
+}
+
+/**
+ * Deterministic event identity for Solana.
+ *
+ * Important: raw storage dedup is keyed by `(account_id, event_id)` and the raw layer
+ * is append-only (no upserts). This means `eventId` MUST NOT depend on fields that
+ * can change between imports or vary between providers (e.g., inferred from/to,
+ * token parsing differences, or missing blockTime).
+ *
+ * For Solana, we currently treat one on-chain signature as the event granularity,
+ * so the canonical discriminant is the signature itself.
+ */
+export function generateSolanaTransactionEventId(params: { signature: string }): string {
+  return generateUniqueTransactionEventId({
+    amount: '0',
+    currency: 'SOL',
+    from: '',
+    id: params.signature,
+    timestamp: 0,
+    traceId: 'solana-tx',
+    type: 'transfer',
+  });
 }
 
 /**

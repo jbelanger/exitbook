@@ -19,12 +19,13 @@ function createProcessor() {
   return new NearTransactionProcessor(mockTokenMetadataService);
 }
 
-function buildNearTx(overrides: Partial<NearTransaction> = {}): NearTransaction {
+function createTransaction(overrides: Partial<NearTransaction> = {}): NearTransaction {
   return {
     amount: '0',
     currency: 'NEAR',
     from: USER_ADDRESS,
     id: 'test-tx',
+    eventId: '0xtestevent',
     providerName: 'nearblocks',
     status: 'success',
     timestamp: Date.now(),
@@ -39,7 +40,7 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: NearTransaction[] = [
-      buildNearTx({
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -80,7 +81,7 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: NearTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -89,17 +90,12 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         amount: '2000000000000000000000000',
-        currency: 'NEAR',
         feeAmount: '0.0001', // Fee paid by sender
         feeCurrency: 'NEAR',
         from: EXTERNAL_ADDRESS,
         id: 'tx2def',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -127,7 +123,7 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: NearTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -142,18 +138,11 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
             methodName: 'some_method',
           },
         ],
-        amount: '0',
-        currency: 'NEAR',
         feeAmount: '0.0001',
         feeCurrency: 'NEAR',
-        from: USER_ADDRESS,
         id: 'tx3ghi',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -180,7 +169,7 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: NearTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -195,16 +184,9 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
             methodName: 'ft_transfer',
           },
         ],
-        amount: '0',
-        currency: 'NEAR',
         feeAmount: '0.0001',
         feeCurrency: 'NEAR',
-        from: USER_ADDRESS,
         id: 'tx4jkl',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         tokenTransfers: [
           {
@@ -216,7 +198,7 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
             to: EXTERNAL_ADDRESS,
           },
         ],
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -244,7 +226,7 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: NearTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -253,17 +235,10 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         amount: '2000000000000000000000000',
-        currency: 'NEAR',
         feeAmount: '0.0001',
         feeCurrency: 'NEAR',
-        from: USER_ADDRESS,
         id: 'tx5mno',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
-        to: EXTERNAL_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -290,7 +265,7 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: NearTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -299,17 +274,12 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         amount: '2000000000000000000000000',
-        currency: 'NEAR',
         feeAmount: '0',
         feeCurrency: 'NEAR',
         from: EXTERNAL_ADDRESS,
         id: 'tx6pqr',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {

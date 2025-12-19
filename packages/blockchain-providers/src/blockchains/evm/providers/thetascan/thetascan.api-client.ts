@@ -2,7 +2,7 @@ import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig, ProviderOperation } from '../../../../core/index.js';
+import type { NormalizedTransactionBase, ProviderConfig, ProviderOperation } from '../../../../core/index.js';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
 import {
   createStreamingIterator,
@@ -98,7 +98,7 @@ export class ThetaScanApiClient extends BaseApiClient {
     }
   }
 
-  async *executeStreaming<T>(
+  async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
@@ -369,10 +369,12 @@ export class ThetaScanApiClient extends BaseApiClient {
           return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 
-        return ok({
-          raw,
-          normalized: mapped.value,
-        });
+        return ok([
+          {
+            raw,
+            normalized: mapped.value,
+          },
+        ]);
       },
       extractCursors: (tx) => this.extractCursors(tx),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),

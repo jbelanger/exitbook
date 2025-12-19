@@ -4,6 +4,7 @@ import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
 import type {
+  NormalizedTransactionBase,
   ProviderConfig,
   ProviderOperation,
   RawBalanceData,
@@ -124,7 +125,7 @@ export class MempoolSpaceApiClient extends BaseApiClient {
     }
   }
 
-  async *executeStreaming<T>(
+  async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
@@ -314,10 +315,12 @@ export class MempoolSpaceApiClient extends BaseApiClient {
           return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 
-        return ok({
-          raw,
-          normalized: mapped.value,
-        });
+        return ok([
+          {
+            raw,
+            normalized: mapped.value,
+          },
+        ]);
       },
       extractCursors: (tx) => this.extractCursors(tx),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
