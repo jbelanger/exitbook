@@ -34,6 +34,8 @@ export interface BalanceCommandResult {
       }
     | undefined;
   meta: {
+    beaconWithdrawalsSkippedReason?: 'no-provider-support' | 'api-error' | 'unsupported-chain' | undefined;
+    includesBeaconWithdrawals?: boolean | undefined;
     timestamp: string;
   };
   suggestion?: string | undefined;

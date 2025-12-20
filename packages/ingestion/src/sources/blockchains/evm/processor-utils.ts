@@ -134,6 +134,27 @@ export function determineEvmOperationFromFundFlow(
     const ETH_32_THRESHOLD = parseDecimal('32');
     const isPrincipalReturn = amount.gte(ETH_32_THRESHOLD);
 
+    // Extract withdrawal metadata from the beacon withdrawal transaction
+    const beaconTx = txGroup.find((tx) => tx.type === 'beacon_withdrawal');
+    const withdrawalMetadata: Record<string, unknown> = {
+      amount: amount.toFixed(),
+      needsReview: isPrincipalReturn,
+      taxClassification: isPrincipalReturn ? 'non-taxable (principal return)' : 'taxable (income)',
+    };
+
+    // Include withdrawal-specific metadata if available
+    if (beaconTx) {
+      if (beaconTx.withdrawalIndex !== undefined) {
+        withdrawalMetadata.withdrawalIndex = beaconTx.withdrawalIndex;
+      }
+      if (beaconTx.validatorIndex !== undefined) {
+        withdrawalMetadata.validatorIndex = beaconTx.validatorIndex;
+      }
+      if (beaconTx.blockHeight !== undefined) {
+        withdrawalMetadata.blockHeight = beaconTx.blockHeight;
+      }
+    }
+
     return {
       operation: {
         category: 'staking',
@@ -146,11 +167,7 @@ export function determineEvmOperationFromFundFlow(
             ? 'Full withdrawal (≥32 ETH) - likely principal return. Verify if rewards are included.'
             : 'Partial withdrawal (<32 ETH) - staking reward',
           severity: isPrincipalReturn ? 'warning' : 'info',
-          metadata: {
-            amount: amount.toFixed(),
-            needsReview: isPrincipalReturn,
-            taxClassification: isPrincipalReturn ? 'non-taxable (principal return)' : 'taxable (income)',
-          },
+          metadata: withdrawalMetadata,
         },
       ],
     };

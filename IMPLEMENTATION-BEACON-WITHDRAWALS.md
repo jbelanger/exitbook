@@ -781,14 +781,7 @@ private shouldFetchBeaconWithdrawals(options: ImportOptions): boolean {
     return false;
   }
 
-  // Check if explicitly disabled
-  if (options.noWithdrawals) {
-    this.logger.warn(
-      '⚠️  Beacon withdrawals disabled via --no-withdrawals flag. ' +
-      'Balance calculations may be incorrect for addresses that receive validator withdrawals.'
-    );
-    return false;
-  }
+
 
   // Check if provider supports the operation
   const supportsWithdrawals = this.provider.capabilities.operations.includes(
@@ -876,37 +869,7 @@ async import(context: ImportContext): Promise<Result<RawTransaction[], Error>> {
 }
 ```
 
-### 5. CLI Updates
-
-**File:** `apps/cli/src/features/import/import-blockchain.ts`
-
-**Add flag for disabling withdrawals:**
-
-```typescript
-// Add to command options
-.option(
-  '--no-withdrawals',
-  'Skip fetching beacon chain withdrawals (Ethereum only). ' +
-  'WARNING: May result in incorrect balances for contract withdrawal addresses.'
-)
-
-// Pass through to import context
-const options: ImportOptions = {
-  // ... existing options ...
-  noWithdrawals: !program.opts().withdrawals,  // Note the inversion (--no-withdrawals)
-};
-```
-
-**File:** `packages/ingestion/src/shared/types/import.ts`
-
-```typescript
-export interface ImportOptions {
-  // ... existing options ...
-  noWithdrawals?: boolean; // Skip beacon withdrawal fetching
-}
-```
-
-### 6. Environment Variables
+### 5. Environment Variables
 
 **File:** `.env.example`
 
@@ -919,7 +882,7 @@ export interface ImportOptions {
 ETHERSCAN_API_KEY=YourApiKeyToken
 ```
 
-### 7. Documentation Updates
+### 6. Documentation Updates
 
 #### 7.1 Internal Documentation
 
@@ -934,7 +897,7 @@ ETHERSCAN_API_KEY=YourApiKeyToken
 - **Beacon Withdrawals (Ethereum):** Post-Shanghai consensus layer withdrawals tracked via Etherscan
   - Not regular transactions (no tx hash, uses withdrawal index)
   - Required for accurate balances on any address that receives validator withdrawals
-  - Fetched by default if provider supports it, use `--no-withdrawals` to skip
+  - Fetched by default if provider supports it
   - Requires Etherscan API key (free tier available)
 ```
 
@@ -998,16 +961,6 @@ Set your API key in `.env`:
 ETHERSCAN_API_KEY=your_api_key_here
 ```
 
-### Skipping Withdrawals
-
-If you **know** your address doesn't receive withdrawals, you can skip fetching:
-
-```bash
-pnpm run dev import --blockchain ethereum --address 0x... --no-withdrawals
-```
-
-⚠️ **Warning:** Only use this flag if you're certain. Balance calculations will be wrong if withdrawals exist but are skipped.
-
 ## Tax Classification
 
 **Smart Classification (32 ETH Threshold)**
@@ -1063,7 +1016,6 @@ ETHERSCAN_API_KEY=your_key_here
 
 1. Check if withdrawals were imported: `grep beacon_withdrawal data/transactions.db`
 2. Verify Etherscan API key is valid
-3. Re-import with explicit flag: `--no-withdrawals=false`
 
 ### Slow import for validator addresses
 
@@ -1143,7 +1095,6 @@ if (!report.metadata.includesBeaconWithdrawals) {
 
 ### Phase 4: Importer Integration
 
-- [ ] Add `noWithdrawals` flag to `ImportOptions` interface
 - [ ] Implement `shouldFetchBeaconWithdrawals()` logic
 - [ ] Add withdrawal fetching to import flow
 - [ ] Add logging for withdrawal fetch status
@@ -1152,7 +1103,6 @@ if (!report.metadata.includesBeaconWithdrawals) {
 
 ### Phase 5: CLI & User Experience
 
-- [ ] Add `--no-withdrawals` flag to import command
 - [ ] Add warning message when withdrawals skipped
 - [ ] Update CLI help text
 - [ ] Add `ETHERSCAN_API_KEY` to `.env.example`
@@ -1237,7 +1187,7 @@ Test cases:
 - ✅ Verify withdrawals saved to raw_transactions
 - ✅ Verify withdrawals processed to universal_transactions
 - ✅ Verify balance calculation includes withdrawals
-- ✅ Test `--no-withdrawals` flag skips fetching
+
 - ✅ Verify warning logged when skipped
 
 ### Manual Testing
@@ -1261,17 +1211,8 @@ Test cases:
    - Should succeed with 0 withdrawals
    - No errors
 
-3. **Skip withdrawals:**
+3. **Non-Ethereum chain:**
 
-   ```bash
-   pnpm run dev import --blockchain ethereum --address 0x51b4... --no-withdrawals
-   ```
-
-   - Should log warning
-   - Should NOT fetch withdrawals
-   - Balance will be incorrect
-
-4. **Non-Ethereum chain:**
    ```bash
    pnpm run dev import --blockchain polygon --address 0x...
    ```
@@ -1286,7 +1227,7 @@ Test cases:
 ### Functional Requirements
 
 ✅ **FR1:** Withdrawals fetched by default for Ethereum mainnet when provider supports it, unless disabled per Decisions #2/#3
-✅ **FR2:** `--no-withdrawals` flag allows explicitly skipping withdrawal fetch
+
 ✅ **FR3:** User is informed when withdrawals are skipped (manual or unsupported provider), per Decision #3 UX
 ✅ **FR4:** Withdrawals processed as inflows (no fees); operation category/type set per Decision #1
 ✅ **FR5:** Withdrawals use `0x000...000` as sender address

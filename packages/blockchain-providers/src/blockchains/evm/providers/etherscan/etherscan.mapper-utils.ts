@@ -97,6 +97,9 @@ export function mapEtherscanWithdrawalToEvmTransaction(
       to,
       tokenType: 'native',
       type: 'beacon_withdrawal',
+      // Preserve withdrawal metadata for processor notes
+      withdrawalIndex: rawData.withdrawalIndex,
+      validatorIndex: rawData.validatorIndex,
     };
 
     return validateOutput(transaction, EvmTransactionSchema, 'EtherscanBeaconWithdrawal');

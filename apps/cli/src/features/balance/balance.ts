@@ -270,6 +270,40 @@ async function handleBalanceSuccess(
 
   // Prepare result data for JSON mode
   const isExchange = account.accountType === 'exchange-api' || account.accountType === 'exchange-csv';
+
+  // Check beacon withdrawal completeness for Ethereum blockchain accounts
+  let includesBeaconWithdrawals: boolean | undefined;
+  let beaconWithdrawalsSkippedReason: 'no-provider-support' | 'api-error' | 'unsupported-chain' | undefined;
+
+  if (!isExchange && account.sourceName.toLowerCase() === 'ethereum') {
+    // Check if there are any beacon withdrawal transactions
+    const hasBeaconWithdrawalsResult = await transactionRepository.hasTransactionsOfType(
+      account.id,
+      'beacon_withdrawal'
+    );
+
+    if (hasBeaconWithdrawalsResult.isOk()) {
+      includesBeaconWithdrawals = hasBeaconWithdrawalsResult.value;
+
+      // If no beacon withdrawals found, check if a fetch was attempted
+      if (!includesBeaconWithdrawals) {
+        // Check if a beacon_withdrawal fetch was attempted by looking at the lastCursor
+        const hasBeaconWithdrawalCursor = account.lastCursor && 'beacon_withdrawal' in account.lastCursor;
+
+        if (!hasBeaconWithdrawalCursor) {
+          // No fetch attempted - provider doesn't support it
+          beaconWithdrawalsSkippedReason = 'no-provider-support';
+        }
+        // If hasBeaconWithdrawalCursor is true, fetch was attempted but no withdrawals found
+        // This is a valid state - user genuinely has no beacon withdrawals
+        // Don't set beaconWithdrawalsSkippedReason in this case
+      }
+    }
+  } else if (!isExchange) {
+    // Non-Ethereum blockchain - withdrawals not applicable
+    beaconWithdrawalsSkippedReason = 'unsupported-chain';
+  }
+
   const resultData: BalanceCommandResult = {
     status: verificationResult.status,
     balances: verificationResult.comparisons.map((c) => ({
@@ -295,6 +329,8 @@ async function handleBalanceSuccess(
     },
     meta: {
       timestamp: new Date(verificationResult.timestamp).toISOString(),
+      includesBeaconWithdrawals,
+      beaconWithdrawalsSkippedReason,
     },
     suggestion: verificationResult.suggestion,
   };

@@ -106,15 +106,37 @@ export class EvmImporter implements IImporter {
       }
 
       // Stream beacon withdrawals (Ethereum mainnet only, if supported)
+      // Per Product Decision #3: Warn on errors instead of failing the entire import
       if (this.shouldFetchBeaconWithdrawals()) {
+        this.logger.info('Fetching beacon chain withdrawals...');
         const withdrawalCursor = params.cursor?.['beacon_withdrawal'];
+        let hasWithdrawalError = false;
+
         for await (const batchResult of this.streamTransactionType(
           address,
           'beacon_withdrawal',
           'getAddressBeaconWithdrawals',
           withdrawalCursor
         )) {
+          if (batchResult.isErr()) {
+            // Don't fail the import - log warning and continue
+            // This handles missing/invalid API keys gracefully
+            const errorMsg = batchResult.error.message;
+            this.logger.warn(
+              `⚠️  Failed to fetch beacon withdrawals: ${errorMsg}\n` +
+                `Your ETH balance may be incorrect if this address receives validator withdrawals.\n` +
+                `If using Etherscan, ensure ETHERSCAN_API_KEY is set in .env (free at https://etherscan.io/apis)`
+            );
+            hasWithdrawalError = true;
+            // Don't yield the error - skip beacon withdrawals and continue with other transaction types
+            break;
+          }
+
           yield batchResult;
+        }
+
+        if (!hasWithdrawalError) {
+          this.logger.info('Beacon withdrawal fetch completed successfully');
         }
       }
 
@@ -200,7 +222,6 @@ export class EvmImporter implements IImporter {
    *
    * Withdrawals are skipped if:
    * - Chain is not Ethereum mainnet
-   * - User explicitly disabled withdrawals via --no-withdrawals flag
    * - No provider supports getAddressBeaconWithdrawals operation
    *
    * @param params - Import parameters

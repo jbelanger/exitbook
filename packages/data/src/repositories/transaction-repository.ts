@@ -375,6 +375,27 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   }
 
   /**
+   * Check if account has any beacon withdrawal transactions
+   * Used to determine beacon withdrawal completeness for balance reports
+   * Beacon withdrawals are identified by the presence of 'consensus_withdrawal' in notes
+   */
+  async hasTransactionsOfType(accountId: number, _noteType: string): Promise<Result<boolean, Error>> {
+    try {
+      // Query for transactions with consensus_withdrawal in notes
+      // This is a simple heuristic - beacon withdrawals have notes with type='consensus_withdrawal'
+      const result = await this.db
+        .selectFrom('transactions')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .where('account_id', '=', accountId)
+        .where('notes_json', 'like', '%consensus_withdrawal%')
+        .executeTakeFirst();
+      return ok((result?.count ?? 0) > 0);
+    } catch (error) {
+      return wrapError(error, 'Failed to check for beacon withdrawal transactions');
+    }
+  }
+
+  /**
    * Delete transactions by account IDs
    * Deletes transactions WHERE account_id IN (accountIds)
    */
