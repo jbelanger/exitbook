@@ -14,7 +14,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../core/types/index.js';
+import type { RawBalanceData } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import { convertToMainUnit, createRawBalanceData } from '../../balance-utils.js';
 import type { SubstrateChainConfig } from '../../chain-config.interface.js';
@@ -107,10 +107,6 @@ export class TaostatsApiClient extends BaseApiClient {
     );
 
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return (await this.getAddressTransactions({
-          address: operation.address,
-        })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
           address: operation.address,
@@ -179,96 +175,6 @@ export class TaostatsApiClient extends BaseApiClient {
     return ok(
       createRawBalanceData(balanceRao, balanceDecimal, this.chainConfig.nativeDecimals, this.chainConfig.nativeCurrency)
     );
-  }
-
-  private async getAddressTransactions(params: {
-    address: string;
-  }): Promise<Result<TransactionWithRawData<SubstrateTransaction>[], Error>> {
-    const { address } = params;
-
-    // Validate address format
-    if (!isValidSS58Address(address)) {
-      return err(new Error(`Invalid SS58 address for ${this.blockchain}: ${address}`));
-    }
-
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-
-    const transactions: TaostatsTransaction[] = [];
-    let offset = 0;
-    const maxPages = 100; // Safety limit to prevent infinite loops
-    const limit = 100;
-    let hasMorePages = true;
-
-    while (hasMorePages && Math.floor(offset / limit) < maxPages) {
-      // Build query parameters
-      const params = new URLSearchParams({
-        network: 'finney',
-        address: address,
-        limit: limit.toString(),
-        offset: offset.toString(),
-      });
-
-      const endpoint = `/transfer/v1?${params.toString()}`;
-      const result = await this.httpClient.get<{ data?: TaostatsTransaction[] }>(endpoint, {
-        schema: TaostatsTransactionsResponseSchema,
-      });
-
-      if (result.isErr()) {
-        this.logger.error(
-          `Failed to fetch raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-        );
-        return err(result.error);
-      }
-
-      const response = result.value;
-      const pageTransactions = response.data || [];
-
-      transactions.push(...pageTransactions);
-      offset += limit;
-
-      // Check if there are more pages
-      hasMorePages = pageTransactions.length === limit;
-
-      this.logger.debug(
-        `Fetched page ${Math.floor(offset / limit)}: ${pageTransactions.length} transactions${hasMorePages ? ' (more pages available)' : ' (last page)'}`
-      );
-
-      // Safety check to prevent infinite pagination
-      if (Math.floor(offset / limit) >= maxPages) {
-        this.logger.warn(`Reached maximum page limit (${maxPages}), stopping pagination`);
-        break;
-      }
-    }
-
-    // Normalize transactions using pure mapping function
-    const relevantAddresses = new Set([address]);
-    const normalizedTransactions: TransactionWithRawData<SubstrateTransaction>[] = [];
-    for (const rawTx of transactions) {
-      // Skip transactions that aren't relevant to this address
-      if (!isTransactionRelevant(rawTx, relevantAddresses)) {
-        continue;
-      }
-
-      const mapResult = convertTaostatsTransaction(rawTx, this.chainConfig.nativeCurrency);
-
-      if (mapResult.isErr()) {
-        const error = mapResult.error;
-        const errorMessage = error.type === 'error' ? error.message : error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      normalizedTransactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${normalizedTransactions.length}, PagesProcessed: ${Math.floor(offset / limit)}`
-    );
-
-    return ok(normalizedTransactions);
   }
 
   private streamAddressTransactions(
