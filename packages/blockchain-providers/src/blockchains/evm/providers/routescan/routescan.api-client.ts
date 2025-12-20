@@ -80,6 +80,7 @@ const CHAIN_ID_MAP: Record<string, number> = {
 };
 
 const ROUTESCAN_PAGE_SIZE = 10000;
+const ROUTESCAN_TOKEN_PAGE_SIZE = 1000; // Token endpoint is much slower, smaller page size to avoid timeouts
 const ROUTESCAN_BLOCK_CURSOR_PREFIX = 'block:';
 
 @RegisterApiClient({
@@ -104,7 +105,7 @@ const ROUTESCAN_BLOCK_CURSOR_PREFIX = 'block:';
       requestsPerSecond: 5,
     },
     retries: 3,
-    timeout: 10000,
+    timeout: 60000,
   },
   description: 'Multi-chain EVM blockchain explorer API with Etherscan-compatible interface',
   displayName: 'Routescan',
@@ -136,7 +137,6 @@ export class RoutescanApiClient extends BaseApiClient {
     // Override base URL with chain-specific URL
     this.reinitializeHttpClient({
       baseUrl: `https://api.routescan.io/v2/network/mainnet/evm/${this.routescanChainId}/etherscan/api`,
-      timeout: 30000,
     });
 
     this.logger.debug(
@@ -526,7 +526,7 @@ export class RoutescanApiClient extends BaseApiClient {
         address: address,
         endblock: '99999999',
         module: 'account',
-        offset: ROUTESCAN_PAGE_SIZE.toString(),
+        offset: ROUTESCAN_TOKEN_PAGE_SIZE.toString(),
         page: page.toString(),
         sort: 'asc',
         startblock: String(startBlock),

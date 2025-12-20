@@ -12,10 +12,10 @@ import { z } from 'zod';
  */
 export const NearBlocksActionSchema = z.object({
   action: z.string().min(1, 'Action must not be empty'),
-  args: z.union([z.record(z.string(), z.unknown()), z.string(), z.null()]).optional(),
-  deposit: DecimalStringSchema.optional(),
-  fee: DecimalStringSchema.optional(),
-  method: z.string().nullish().optional(),
+  args: z.union([z.record(z.string(), z.unknown()), z.string(), z.null()]).nullish(),
+  deposit: DecimalStringSchema.nullish(),
+  fee: DecimalStringSchema.nullish(),
+  method: z.string().nullish(),
 });
 
 /**
@@ -58,19 +58,19 @@ export const NearBlocksOutcomeSchema = z.object({
  * From /v1/account/{account}/txns-only endpoint
  */
 export const NearBlocksTransactionSchema = z.object({
-  actions: z.array(NearBlocksActionSchema).optional(),
-  actions_agg: z.record(z.string(), z.number()).optional(),
-  block: NearBlocksBlockSchema.optional(),
+  actions: z.array(NearBlocksActionSchema).nullish(),
+  actions_agg: z.record(z.string(), z.number()).nullish(),
+  block: NearBlocksBlockSchema.nullish(),
   block_timestamp: z.string().min(1, 'Block timestamp must not be empty'),
-  id: z.string().optional(),
-  included_in_block_hash: z.string().optional(),
-  outcomes: NearBlocksOutcomeSchema.optional(),
-  outcomes_agg: z.record(z.string(), z.number()).optional(),
-  receipt_block: NearBlocksReceiptBlockSchema.optional(),
-  receipt_conversion_tokens_burnt: z.string().nullish().optional(),
-  receipt_id: z.string().optional(),
-  receipt_kind: z.string().optional(),
-  receipt_outcome: NearBlocksReceiptOutcomeSchema.optional(),
+  id: z.string().nullish(),
+  included_in_block_hash: z.string().nullish(),
+  outcomes: NearBlocksOutcomeSchema.nullish(),
+  outcomes_agg: z.record(z.string(), z.number()).nullish(),
+  receipt_block: NearBlocksReceiptBlockSchema.nullish(),
+  receipt_conversion_tokens_burnt: z.string().nullish(),
+  receipt_id: z.string().nullish(),
+  receipt_kind: z.string().nullish(),
+  receipt_outcome: NearBlocksReceiptOutcomeSchema.nullish(),
   receiver_account_id: z.string().min(1, 'Receiver account ID must not be empty'),
   signer_account_id: z.string().min(1, 'Signer account ID must not be empty'),
   transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
@@ -80,7 +80,7 @@ export const NearBlocksTransactionSchema = z.object({
  * Schema for NearBlocks paginated transaction response
  */
 export const NearBlocksTransactionsResponseSchema = z.object({
-  cursor: z.string().optional(),
+  cursor: z.string().nullish(),
   txns: z.array(NearBlocksTransactionSchema),
 });
 
@@ -90,24 +90,24 @@ export const NearBlocksTransactionsResponseSchema = z.object({
 export const NearBlocksAccountDataSchema = z.object({
   account_id: z.string().min(1, 'Account ID must not be empty'),
   amount: DecimalStringSchema,
-  block_height: z.union([z.number(), z.string()]).optional(),
-  block_hash: z.string().optional(),
-  code_hash: z.string().optional(),
-  locked: z.string().optional(),
-  storage_paid_at: z.number().optional(),
-  storage_usage: z.number().optional(),
+  block_height: z.union([z.number(), z.string()]).nullish(),
+  block_hash: z.string().nullish(),
+  code_hash: z.string().nullish(),
+  locked: z.string().nullish(),
+  storage_paid_at: z.number().nullish(),
+  storage_usage: z.number().nullish(),
   created: z
     .object({
       transaction_hash: z.string(),
       block_timestamp: z.number(),
     })
-    .optional(),
+    .nullish(),
   deleted: z
     .object({
       transaction_hash: z.string().nullish(),
       block_timestamp: z.number().nullish(),
     })
-    .optional(),
+    .nullish(),
 });
 
 /**
@@ -134,7 +134,7 @@ export const NearBlocksActivitySchema = z.object({
   block_height: z.string().min(1, 'Block height must not be empty'),
   block_timestamp: z.string().min(1, 'Block timestamp must not be empty'),
   cause: z.string().min(1, 'Cause must not be empty'),
-  delta_nonstaked_amount: z.string().optional(),
+  delta_nonstaked_amount: z.string().nullish(),
   direction: NearBlocksActivityDirectionSchema,
   event_index: z.string().min(1, 'Event index must not be empty'),
   involved_account_id: z.string().nullish(),
@@ -146,7 +146,7 @@ export const NearBlocksActivitySchema = z.object({
  * Schema for NearBlocks paginated activity response
  */
 export const NearBlocksActivitiesResponseSchema = z.object({
-  cursor: z.string().optional(),
+  cursor: z.string().nullish(),
   activities: z.array(NearBlocksActivitySchema),
 });
 
@@ -155,7 +155,7 @@ export const NearBlocksActivitiesResponseSchema = z.object({
  * From /v1/account/{account}/receipts endpoint
  */
 export const NearBlocksReceiptSchema = z.object({
-  block_timestamp: z.string().optional(),
+  block_timestamp: z.string().nullish(),
   transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
   predecessor_account_id: z.string().min(1, 'Predecessor account ID must not be empty'),
   receipt_id: z.string().min(1, 'Receipt ID must not be empty'),
@@ -167,7 +167,7 @@ export const NearBlocksReceiptSchema = z.object({
  * API returns receipts in 'txns' array
  */
 export const NearBlocksReceiptsResponseSchema = z.object({
-  cursor: z.string().optional(),
+  cursor: z.string().nullish(),
   txns: z.array(NearBlocksReceiptSchema),
 });
 
@@ -177,28 +177,28 @@ export const NearBlocksReceiptsResponseSchema = z.object({
  */
 export const NearBlocksFtTransactionSchema = z.object({
   affected_account_id: z.string().min(1, 'Affected account ID must not be empty'),
-  block_height: z.number().optional(),
+  block_height: z.number().nullish(),
   block_timestamp: z.string().min(1, 'Block timestamp must not be empty'),
-  cause: z.string().optional(),
-  delta_amount: z.string().optional(),
+  cause: z.string().nullish(),
+  delta_amount: z.string().nullish(),
   ft: z
     .object({
       contract: z.string().min(1, 'Contract must not be empty'),
       decimals: z.number().nonnegative(),
-      name: z.string().optional(),
-      symbol: z.string().optional(),
+      name: z.string().nullish(),
+      symbol: z.string().nullish(),
     })
-    .optional(),
-  involved_account_id: z.string().optional(),
+    .nullish(),
+  involved_account_id: z.string().nullish(),
   receipt_id: z.string().min(1, 'Receipt ID must not be empty'),
-  transaction_hash: z.string().optional(),
+  transaction_hash: z.string().nullish(),
 });
 
 /**
  * Schema for NearBlocks paginated FT transactions response
  */
 export const NearBlocksFtTransactionsResponseSchema = z.object({
-  cursor: z.string().optional(),
+  cursor: z.string().nullish(),
   txns: z.array(NearBlocksFtTransactionSchema),
 });
 

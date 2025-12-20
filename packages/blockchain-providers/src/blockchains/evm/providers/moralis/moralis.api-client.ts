@@ -305,6 +305,14 @@ export class MoralisApiClient extends BaseApiClient {
     // Convert to RawBalanceData format
     const balances: RawBalanceData[] = [];
     for (const balance of rawBalances) {
+      // Skip tokens with missing decimals - we can't accurately convert them
+      if (balance.decimals === null || balance.decimals === undefined) {
+        this.logger.warn(
+          `Skipping token ${balance.token_address} with missing decimals (name: ${balance.name || 'unknown'}, symbol: ${balance.symbol || 'unknown'})`
+        );
+        continue;
+      }
+
       // Convert from smallest units to decimal string
       const balanceDecimal = convertWeiToDecimal(balance.balance, balance.decimals);
 

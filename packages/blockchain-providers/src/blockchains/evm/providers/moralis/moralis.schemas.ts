@@ -37,7 +37,7 @@ export const MoralisTransactionSchema = z
     gas_price: z.string().regex(/^\d*$/, 'Gas price must be numeric string or empty'), // Can be empty
     hash: z.string().min(1, 'Transaction hash must not be empty'),
     input: z.string(), // Can be empty string (e.g., "0x")
-    internal_transactions: z.array(MoralisInternalTransactionSchema).optional(),
+    internal_transactions: z.array(MoralisInternalTransactionSchema).nullish(),
     nonce: z.string(),
     receipt_contract_address: EvmAddressSchema.nullish(), // Null when no contract created
     receipt_cumulative_gas_used: z.string().regex(/^\d*$/, 'Receipt cumulative gas used must be numeric or empty'),
@@ -74,7 +74,7 @@ export const MoralisTokenTransferSchema = z
     block_hash: z.string().min(1, 'Block hash must not be empty'),
     block_number: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
     block_timestamp: timestampToDate,
-    contract_type: z.string().optional(),
+    contract_type: z.string().nullish(),
     from_address: EvmAddressSchema,
     log_index: z.union([z.string(), z.number()]),
     to_address: EvmAddressSchema,
@@ -105,10 +105,10 @@ export const MoralisTokenTransferResponseSchema = z.object({
  */
 export const MoralisTokenBalanceSchema = z.object({
   balance: DecimalStringSchema,
-  decimals: z.number().min(0, 'Decimals must be non-negative'),
+  decimals: z.number().min(0, 'Decimals must be non-negative').nullish(),
   logo: z.string().nullish(),
-  name: z.string().min(1, 'Name must not be empty'),
-  symbol: z.string().min(1, 'Symbol must not be empty'),
+  name: z.string().nullish(),
+  symbol: z.string().nullish(),
   token_address: EvmAddressSchema,
 });
 
@@ -120,17 +120,17 @@ export const MoralisTokenMetadataSchema = z
     address: EvmAddressSchema.nullish(),
     decimals: z.union([z.number(), z.string()]).nullish(),
     logo: z.string().nullish(),
-    name: z.string().min(1, 'Name must not be empty'),
-    symbol: z.string().min(1, 'Symbol must not be empty'),
+    name: z.string().nullish(),
+    symbol: z.string().nullish(),
 
     // Professional spam detection from Moralis (primary signal for scam identification)
     possible_spam: z.union([z.boolean(), z.string()]).nullish(),
     verified_contract: z.union([z.boolean(), z.string()]).nullish(),
 
     // Additional useful fields from Moralis
-    total_supply: DecimalStringSchema.optional(),
-    total_supply_formatted: DecimalStringSchema.optional(),
-    fully_diluted_valuation: DecimalStringSchema.optional(),
+    total_supply: DecimalStringSchema.nullish(),
+    total_supply_formatted: DecimalStringSchema.nullish(),
+    fully_diluted_valuation: DecimalStringSchema.nullish(),
     block_number: z.union([z.number(), z.string()]).nullish(),
     validated: z.union([z.number(), z.string()]).nullish(),
     created_at: z.string().nullish(),

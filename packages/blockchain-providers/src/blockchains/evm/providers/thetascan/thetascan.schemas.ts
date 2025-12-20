@@ -22,10 +22,10 @@ export const ThetaScanTransactionSchema = z.object({
   theta: ThetaScanNumericStringSchema,
   timestamp: timestampToDate,
   // Optional fields for token transfers
-  contract_address: EvmAddressSchema.optional(),
-  token_name: z.string().optional(),
-  token_symbol: z.string().optional(),
-  type: z.string().optional(),
+  contract_address: EvmAddressSchema.nullish(),
+  token_name: z.string().nullish(),
+  token_symbol: z.string().nullish(),
+  type: z.string().nullish(),
 });
 
 /**
@@ -49,9 +49,9 @@ export const ThetaScanBalanceResponseSchema = z.object({
 export const ThetaScanTokenBalanceSchema = z.object({
   balance: ThetaScanNumericValueSchema,
   contract_address: EvmAddressSchema,
-  token_decimals: z.number().optional(),
-  token_name: z.string().optional(),
-  token_symbol: z.string().optional(),
+  token_decimals: z.number().nullish(),
+  token_name: z.string().nullish(),
+  token_symbol: z.string().nullish(),
 });
 
 // Type exports inferred from schemas

@@ -41,11 +41,7 @@ export const SolanaRPCMessageSchema = z.object({
  * Schema for Solana RPC transaction meta
  */
 export const SolanaRPCMetaSchema = z.object({
-  err: z
-    .unknown()
-    .nullable()
-    .optional()
-    .transform((val) => val ?? undefined),
+  err: z.unknown().nullish(),
   fee: z.number().nonnegative('Fee must be non-negative'),
   innerInstructions: z.array(z.unknown()),
   logMessages: z.array(z.string()),
@@ -100,31 +96,31 @@ export const SolanaRPCRawTokenBalanceDataSchema = z.object({
  * JSON-RPC wrapper schemas for Solana RPC API responses
  */
 export const SolanaRPCBalanceJsonRpcResponseSchema = z.object({
-  jsonrpc: z.string().optional(),
-  id: z.union([z.string(), z.number()]).optional(),
-  result: SolanaAccountBalanceSchema.optional(),
-  error: z.object({ code: z.number(), message: z.string() }).optional(),
+  jsonrpc: z.string().nullish(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  result: SolanaAccountBalanceSchema.nullish(),
+  error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 
 export const SolanaRPCSignaturesJsonRpcResponseSchema = z.object({
-  jsonrpc: z.string().optional(),
-  id: z.union([z.string(), z.number()]).optional(),
-  result: z.array(SolanaSignatureSchema).optional(),
-  error: z.object({ code: z.number(), message: z.string() }).optional(),
+  jsonrpc: z.string().nullish(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  result: z.array(SolanaSignatureSchema).nullish(),
+  error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 
 export const SolanaRPCTransactionJsonRpcResponseSchema = z.object({
-  jsonrpc: z.string().optional(),
-  id: z.union([z.string(), z.number()]).optional(),
-  result: SolanaRPCTransactionSchema.nullable().optional(),
-  error: z.object({ code: z.number(), message: z.string() }).optional(),
+  jsonrpc: z.string().nullish(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  result: SolanaRPCTransactionSchema.nullish(),
+  error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 
 export const SolanaRPCTokenAccountsJsonRpcResponseSchema = z.object({
-  jsonrpc: z.string().optional(),
-  id: z.union([z.string(), z.number()]).optional(),
-  result: SolanaTokenAccountsResponseSchema.optional(),
-  error: z.object({ code: z.number(), message: z.string() }).optional(),
+  jsonrpc: z.string().nullish(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  result: SolanaTokenAccountsResponseSchema.nullish(),
+  error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 
 // Type exports inferred from schemas

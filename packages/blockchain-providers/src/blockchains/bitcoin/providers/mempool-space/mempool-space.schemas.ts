@@ -7,9 +7,9 @@ import { BitcoinAddressSchema } from '../../schemas.js';
  * Schema for Mempool.space transaction status
  */
 export const MempoolTransactionStatusSchema = z.object({
-  block_hash: z.string().optional(),
-  block_height: z.number().optional(),
-  block_time: timestampToDate.optional(),
+  block_hash: z.string().nullish(),
+  block_height: z.number().nullish(),
+  block_time: timestampToDate.nullish(),
   confirmed: z.boolean(),
 });
 
@@ -18,7 +18,7 @@ export const MempoolTransactionStatusSchema = z.object({
  */
 export const MempoolPrevoutSchema = z.object({
   scriptpubkey: z.string(),
-  scriptpubkey_address: BitcoinAddressSchema.optional(),
+  scriptpubkey_address: BitcoinAddressSchema.nullish(),
   scriptpubkey_asm: z.string(),
   scriptpubkey_type: z.string(),
   value: z.number().nonnegative('Value must be non-negative'),
@@ -28,13 +28,13 @@ export const MempoolPrevoutSchema = z.object({
  * Schema for Mempool.space transaction input
  */
 export const MempoolInputSchema = z.object({
-  prevout: MempoolPrevoutSchema.optional(),
+  prevout: MempoolPrevoutSchema.nullish(),
   scriptsig: z.string(),
   scriptsig_asm: z.string(),
   sequence: z.number(),
   txid: z.string().min(1, 'Input txid must not be empty'),
   vout: z.number().nonnegative(),
-  witness: z.array(z.string()).optional(),
+  witness: z.array(z.string()).nullish(),
 });
 
 /**
@@ -42,7 +42,7 @@ export const MempoolInputSchema = z.object({
  */
 export const MempoolOutputSchema = z.object({
   scriptpubkey: z.string(),
-  scriptpubkey_address: BitcoinAddressSchema.optional(),
+  scriptpubkey_address: BitcoinAddressSchema.nullish(),
   scriptpubkey_asm: z.string(),
   scriptpubkey_type: z.string(),
   value: z.number().nonnegative('Output value must be non-negative'),
@@ -55,7 +55,7 @@ export const MempoolTransactionSchema = z
   .object({
     fee: z.number().nonnegative('Fee must be non-negative'),
     locktime: z.number().nonnegative(),
-    sigops: z.number().nonnegative('Sigops must be non-negative').optional(),
+    sigops: z.number().nonnegative('Sigops must be non-negative').nullish(),
     size: z.number().positive('Size must be positive'),
     status: MempoolTransactionStatusSchema,
     txid: z.string().min(1, 'Transaction ID must not be empty'),

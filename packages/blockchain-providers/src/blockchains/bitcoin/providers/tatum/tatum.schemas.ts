@@ -7,22 +7,12 @@ import { BitcoinAddressSchema } from '../../schemas.js';
  * Schema for Tatum Bitcoin transaction input coin
  */
 export const TatumBitcoinCoinSchema = z.object({
-  address: BitcoinAddressSchema.nullable()
-    .optional()
-    .transform((val) => val ?? undefined),
+  address: BitcoinAddressSchema.nullish(),
   coinbase: z.boolean(),
   height: z.number(),
-  reqSigs: z
-    .number()
-    .nullish()
-    .optional()
-    .transform((val) => val ?? undefined),
+  reqSigs: z.number().nullish(),
   script: z.string(),
-  type: z
-    .string()
-    .nullish()
-    .optional()
-    .transform((val) => val ?? undefined),
+  type: z.string().nullish(),
   value: z.number().nonnegative('Value must be non-negative'),
   version: z.number(),
 });
@@ -39,12 +29,8 @@ export const TatumBitcoinPrevoutSchema = z.object({
  * Schema for Tatum Bitcoin transaction input
  */
 export const TatumBitcoinInputSchema = z.object({
-  coin: TatumBitcoinCoinSchema.nullable()
-    .optional()
-    .transform((val) => val ?? undefined),
-  prevout: TatumBitcoinPrevoutSchema.nullable()
-    .optional()
-    .transform((val) => val ?? undefined),
+  coin: TatumBitcoinCoinSchema.nullish(),
+  prevout: TatumBitcoinPrevoutSchema.nullish(),
   script: z.string(),
   sequence: z.number(),
 });
@@ -53,11 +39,7 @@ export const TatumBitcoinInputSchema = z.object({
  * Schema for Tatum Bitcoin transaction output scriptPubKey
  */
 export const TatumBitcoinScriptPubKeySchema = z.object({
-  reqSigs: z
-    .number()
-    .nullish()
-    .optional()
-    .transform((val) => val ?? undefined),
+  reqSigs: z.number().nullish(),
   type: z.string(),
 });
 
@@ -65,9 +47,7 @@ export const TatumBitcoinScriptPubKeySchema = z.object({
  * Schema for Tatum Bitcoin transaction output
  */
 export const TatumBitcoinOutputSchema = z.object({
-  address: BitcoinAddressSchema.nullable()
-    .optional()
-    .transform((val) => val ?? undefined),
+  address: BitcoinAddressSchema.nullish(),
   script: z.string(),
   scriptPubKey: TatumBitcoinScriptPubKeySchema,
   value: z.number().nonnegative('Output value must be non-negative'),
@@ -78,17 +58,8 @@ export const TatumBitcoinOutputSchema = z.object({
  */
 export const TatumBitcoinTransactionSchema = z
   .object({
-    block: z
-      .string()
-      .nullable()
-      .optional()
-      .transform((val) => val ?? undefined),
-    blockNumber: z
-      .number()
-      .nonnegative()
-      .nullable()
-      .optional()
-      .transform((val) => val ?? undefined),
+    block: z.string().nullish(),
+    blockNumber: z.number().nonnegative().nullish(),
     fee: DecimalStringSchema,
     hash: z.string().min(1, 'Transaction hash must not be empty'),
     hex: z.string(),

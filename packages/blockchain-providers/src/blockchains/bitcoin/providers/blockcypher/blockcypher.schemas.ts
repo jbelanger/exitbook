@@ -30,33 +30,33 @@ export const BlockCypherOutputSchema = z.object({
  */
 export const BlockCypherTransactionSchema = z
   .object({
-    addresses: z.array(BitcoinAddressSchema).optional(), // Root-level addresses involved in transaction
-    block_hash: z.string().optional(), // Optional for unconfirmed transactions
-    block_height: z.number().nonnegative().optional(), // Optional for unconfirmed transactions
-    block_index: z.number().nonnegative().optional(), // Optional for unconfirmed transactions
+    addresses: z.array(BitcoinAddressSchema).nullish(), // Root-level addresses involved in transaction
+    block_hash: z.string().nullish(), // Optional for unconfirmed transactions
+    block_height: z.number().nonnegative().nullish(), // Optional for unconfirmed transactions
+    block_index: z.number().nonnegative().nullish(), // Optional for unconfirmed transactions
     confidence: z.number().min(0).max(1),
     confirmations: z.number().nonnegative(),
-    confirmed: z.string().optional(), // ISO 8601 date, optional for unconfirmed transactions
+    confirmed: z.string().nullish(), // ISO 8601 date, optional for unconfirmed transactions
     double_spend: z.boolean(),
     fees: z.number().nonnegative('Fees must be non-negative'), // Note: 'fees' not 'fee'
-    gas_limit: z.number().optional(),
-    gas_price: z.number().optional(),
-    gas_used: z.number().optional(),
+    gas_limit: z.number().nullish(),
+    gas_price: z.number().nullish(),
+    gas_used: z.number().nullish(),
     hash: z.string().min(1, 'Transaction hash must not be empty'), // Note: 'hash' not 'txid'
     inputs: z.array(BlockCypherInputSchema).min(1, 'Transaction must have at least one input'),
-    next_inputs: z.string().optional(), // URL for next page of inputs
-    next_outputs: z.string().optional(), // URL for next page of outputs
-    opt_in_rbf: z.boolean().optional(), // Replace-by-fee flag
+    next_inputs: z.string().nullish(), // URL for next page of inputs
+    next_outputs: z.string().nullish(), // URL for next page of outputs
+    opt_in_rbf: z.boolean().nullish(), // Replace-by-fee flag
     outputs: z.array(BlockCypherOutputSchema).min(1, 'Transaction must have at least one output'),
     preference: z.string(),
     received: z.string().min(1, 'Received timestamp must not be empty'), // ISO 8601 date
-    relayed_by: z.string().optional(), // IP address that relayed the transaction
+    relayed_by: z.string().nullish(), // IP address that relayed the transaction
     size: z.number().positive('Size must be positive'),
     lock_time: z.number().nonnegative(),
-    total: z.number().nonnegative().optional(), // Total amount transacted in satoshis
+    total: z.number().nonnegative().nullish(), // Total amount transacted in satoshis
     ver: z.number(),
-    vin_sz: z.number().nonnegative().optional(), // Number of inputs
-    vout_sz: z.number().nonnegative().optional(), // Number of outputs
+    vin_sz: z.number().nonnegative().nullish(), // Number of inputs
+    vout_sz: z.number().nonnegative().nullish(), // Number of outputs
     vsize: z.number().positive('Virtual size must be positive'),
   })
   .strict();
@@ -83,14 +83,14 @@ export const BlockCypherTxRefSchema = z.object({
 export const BlockCypherAddressSchema = z.object({
   address: BitcoinAddressSchema,
   balance: z.number(),
-  error: z.string().optional(),
+  error: z.string().nullish(),
   final_balance: z.number(),
   final_n_tx: z.number(),
-  hasMore: z.boolean().optional(),
+  hasMore: z.boolean().nullish(),
   n_tx: z.number(),
   total_received: z.number(),
   total_sent: z.number(),
-  txrefs: z.array(BlockCypherTxRefSchema).optional(),
+  txrefs: z.array(BlockCypherTxRefSchema).nullish(),
   unconfirmed_balance: z.number(),
   unconfirmed_n_tx: z.number(),
 });

@@ -13,17 +13,13 @@ import {
  * Schema for Helius transaction meta structure
  */
 export const HeliusTransactionMetaSchema = z.object({
-  err: z
-    .unknown()
-    .nullable()
-    .optional()
-    .transform((val) => val ?? undefined),
+  err: z.unknown().nullish(),
   fee: z.number().nonnegative('Fee must be non-negative'),
   logMessages: z.array(z.string()),
   postBalances: z.array(z.number()),
-  postTokenBalances: z.array(SolanaTokenBalanceSchema).optional(),
+  postTokenBalances: z.array(SolanaTokenBalanceSchema).nullish(),
   preBalances: z.array(z.number()),
-  preTokenBalances: z.array(SolanaTokenBalanceSchema).optional(),
+  preTokenBalances: z.array(SolanaTokenBalanceSchema).nullish(),
 });
 
 /**
@@ -39,20 +35,16 @@ export const HeliusTransactionMessageSchema = z.object({
  * Schema for Helius transaction structure
  */
 export const HeliusTransactionSchema = z.object({
-  blockTime: timestampToDate.optional(),
-  err: z
-    .unknown()
-    .nullable()
-    .optional()
-    .transform((val) => val ?? undefined),
+  blockTime: timestampToDate.nullish(),
+  err: z.unknown().nullish(),
   meta: HeliusTransactionMetaSchema,
-  signature: z.string().min(1, 'Signature must not be empty').optional(),
+  signature: z.string().min(1, 'Signature must not be empty').nullish(),
   slot: z.number().nonnegative('Slot must be non-negative'),
   transaction: z.object({
     message: HeliusTransactionMessageSchema,
     signatures: z.array(z.string().min(1, 'Signature must not be empty')),
   }),
-  version: z.number().or(z.string()).optional(),
+  version: z.number().or(z.string()).nullish(),
 });
 
 /**
@@ -68,34 +60,31 @@ export const HeliusAssetResponseSchema = z.object({
     .object({
       links: z
         .object({
-          image: z.string().optional(),
+          image: z.string().nullish(),
         })
-        .optional(),
+        .nullish(),
       metadata: z.object({
-        description: z.string().optional(),
-        name: z.string().optional(),
-        symbol: z.string().optional(),
-        token_standard: z.string().optional(),
+        description: z.string().nullish(),
+        name: z.string().nullish(),
+        symbol: z.string().nullish(),
+        token_standard: z.string().nullish(),
       }),
     })
-    .optional(),
+    .nullish(),
   token_info: z
     .object({
-      decimals: z.number().optional(),
-      supply: z.number().optional(),
+      decimals: z.number().nullish(),
+      supply: z.number().nullish(),
     })
-    .optional(),
+    .nullish(),
 });
 
 /**
  * Schema for Helius signature response
  */
 export const HeliusSignatureResponseSchema = z.object({
-  blockTime: timestampToDate.optional(),
-  err: z
-    .unknown()
-    .nullish()
-    .transform((val) => val ?? undefined),
+  blockTime: timestampToDate.nullish(),
+  err: z.unknown().nullish(),
   memo: z.string().nullish(),
   signature: z.string().min(1, 'Signature must not be empty'),
   slot: z.number().nonnegative('Slot must be non-negative'),
@@ -105,31 +94,31 @@ export const HeliusSignatureResponseSchema = z.object({
  * JSON-RPC wrapper schemas for Helius API responses
  */
 export const HeliusAssetJsonRpcResponseSchema = z.object({
-  jsonrpc: z.string().optional(),
-  id: z.union([z.string(), z.number()]).optional(),
-  result: HeliusAssetResponseSchema.nullable().optional(),
-  error: z.object({ code: z.number(), message: z.string() }).optional(),
+  jsonrpc: z.string().nullish(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  result: HeliusAssetResponseSchema.nullish(),
+  error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 
 export const HeliusSignaturesJsonRpcResponseSchema = z.object({
-  jsonrpc: z.string().optional(),
-  id: z.union([z.string(), z.number()]).optional(),
-  result: z.array(SolanaSignatureSchema).optional(),
-  error: z.object({ code: z.number(), message: z.string() }).optional(),
+  jsonrpc: z.string().nullish(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  result: z.array(SolanaSignatureSchema).nullish(),
+  error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 
 export const HeliusTransactionJsonRpcResponseSchema = z.object({
-  jsonrpc: z.string().optional(),
-  id: z.union([z.string(), z.number()]).optional(),
-  result: HeliusTransactionSchema.nullable().optional(),
-  error: z.object({ code: z.number(), message: z.string() }).optional(),
+  jsonrpc: z.string().nullish(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  result: HeliusTransactionSchema.nullish(),
+  error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 
 export const HeliusBalanceJsonRpcResponseSchema = z.object({
-  jsonrpc: z.string().optional(),
-  id: z.union([z.string(), z.number()]).optional(),
-  result: SolanaAccountBalanceSchema.optional(),
-  error: z.object({ code: z.number(), message: z.string() }).optional(),
+  jsonrpc: z.string().nullish(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  result: SolanaAccountBalanceSchema.nullish(),
+  error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 
 export const SolanaTokenAccountsResponseSchema = z.object({
@@ -137,10 +126,10 @@ export const SolanaTokenAccountsResponseSchema = z.object({
 });
 
 export const HeliusTokenAccountsJsonRpcResponseSchema = z.object({
-  jsonrpc: z.string().optional(),
-  id: z.union([z.string(), z.number()]).optional(),
-  result: SolanaTokenAccountsResponseSchema.optional(),
-  error: z.object({ code: z.number(), message: z.string() }).optional(),
+  jsonrpc: z.string().nullish(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  result: SolanaTokenAccountsResponseSchema.nullish(),
+  error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 
 // Type exports inferred from schemas

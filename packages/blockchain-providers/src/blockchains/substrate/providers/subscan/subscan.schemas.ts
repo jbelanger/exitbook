@@ -10,17 +10,17 @@ import { SubstrateAddressSchema } from '../../schemas.js';
  * Schema for account display metadata
  */
 const SubscanAccountDisplaySchema = z.object({
-  account_index: z.string().optional(),
-  address: SubstrateAddressSchema.optional(),
-  display: z.string().optional(),
-  evm_address: z.string().optional(),
+  account_index: z.string().nullish(),
+  address: SubstrateAddressSchema.nullish(),
+  display: z.string().nullish(),
+  evm_address: z.string().nullish(),
   evm_contract: z
     .object({
-      contract_name: z.string().optional(),
-      verify_source: z.string().optional(),
+      contract_name: z.string().nullish(),
+      verify_source: z.string().nullish(),
     })
-    .optional(),
-  identity: z.boolean().optional(),
+    .nullish(),
+  identity: z.boolean().nullish(),
   judgements: z
     .array(
       z.object({
@@ -28,27 +28,27 @@ const SubscanAccountDisplaySchema = z.object({
         judgement: z.string(),
       })
     )
-    .optional(),
+    .nullish(),
   merkle: z
     .object({
-      address_type: z.string().optional(),
-      tag_name: z.string().optional(),
-      tag_subtype: z.string().optional(),
-      tag_type: z.string().optional(),
+      address_type: z.string().nullish(),
+      tag_name: z.string().nullish(),
+      tag_subtype: z.string().nullish(),
+      tag_type: z.string().nullish(),
     })
-    .optional(),
+    .nullish(),
   parent: z
     .object({
-      address: SubstrateAddressSchema.optional(),
-      display: z.string().optional(),
-      identity: z.boolean().optional(),
-      sub_symbol: z.string().optional(),
+      address: SubstrateAddressSchema.nullish(),
+      display: z.string().nullish(),
+      identity: z.boolean().nullish(),
+      sub_symbol: z.string().nullish(),
     })
-    .optional(),
+    .nullish(),
   people: z
     .object({
-      display: z.string().optional(),
-      identity: z.boolean().optional(),
+      display: z.string().nullish(),
+      identity: z.boolean().nullish(),
       judgements: z
         .array(
           z.object({
@@ -56,37 +56,37 @@ const SubscanAccountDisplaySchema = z.object({
             judgement: z.string(),
           })
         )
-        .optional(),
+        .nullish(),
       parent: z
         .object({
-          address: SubstrateAddressSchema.optional(),
-          display: z.string().optional(),
-          identity: z.boolean().optional(),
-          sub_symbol: z.string().optional(),
+          address: SubstrateAddressSchema.nullish(),
+          display: z.string().nullish(),
+          identity: z.boolean().nullish(),
+          sub_symbol: z.string().nullish(),
         })
-        .optional(),
+        .nullish(),
     })
-    .optional(),
+    .nullish(),
 });
 
 /**
  * Schema for NFT/Item metadata
  */
 const SubscanItemDetailSchema = z.object({
-  collection_symbol: z.string().optional(),
-  fallback_image: z.string().optional(),
-  image: z.string().optional(),
-  local_image: z.string().optional(),
+  collection_symbol: z.string().nullish(),
+  fallback_image: z.string().nullish(),
+  image: z.string().nullish(),
+  local_image: z.string().nullish(),
   media: z
     .array(
       z.object({
-        types: z.string().optional(),
-        url: z.string().optional(),
+        types: z.string().nullish(),
+        url: z.string().nullish(),
       })
     )
-    .optional(),
-  symbol: z.string().optional(),
-  thumbnail: z.string().optional(),
+    .nullish(),
+  symbol: z.string().nullish(),
+  thumbnail: z.string().nullish(),
 });
 
 /**
@@ -126,22 +126,22 @@ export const SubscanTransfersResponseSchema = z.object({
   code: z.number(),
   data: z
     .object({
-      count: z.number().optional(),
+      count: z.number().nullish(),
       total: z
         .record(
           z.string(),
           z.object({
-            received: z.string().optional(),
-            sent: z.string().optional(),
-            total: z.string().optional(),
+            received: z.string().nullish(),
+            sent: z.string().nullish(),
+            total: z.string().nullish(),
           })
         )
-        .optional(),
+        .nullish(),
       transfers: z.array(SubscanTransferBaseSchema),
     })
-    .optional(),
-  generated_at: z.number().optional(),
-  message: z.string().optional(),
+    .nullish(),
+  generated_at: z.number().nullish(),
+  message: z.string().nullish(),
 });
 
 /**
@@ -151,12 +151,12 @@ export const SubscanAccountResponseSchema = z.object({
   code: z.number(),
   data: z
     .object({
-      account: SubstrateAddressSchema.optional(),
-      balance: hexOrNumericToNumericRequired.optional(),
-      reserved: hexOrNumericToNumericRequired.optional(),
+      account: SubstrateAddressSchema.nullish(),
+      balance: hexOrNumericToNumericRequired.nullish(),
+      reserved: hexOrNumericToNumericRequired.nullish(),
     })
-    .optional(),
-  message: z.string().optional(),
+    .nullish(),
+  message: z.string().nullish(),
 });
 
 // Type exports inferred from schemas

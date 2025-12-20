@@ -86,7 +86,7 @@ export function transformNormalTransaction(
     }),
     from,
     gasPrice: rawData.gasPrice,
-    gasUsed: rawData.gasUsed,
+    gasUsed: rawData.gasUsed ?? undefined,
     id: rawData.hash,
     providerName: 'routescan',
     status: rawData.txreceipt_status === '1' ? 'success' : 'failed',
@@ -145,7 +145,7 @@ export function transformTokenTransfer(
     }),
     from,
     gasPrice: rawData.gasPrice,
-    gasUsed: rawData.gasUsed,
+    gasUsed: rawData.gasUsed ?? undefined,
     id: rawData.hash,
     providerName: 'routescan',
     status: 'success',
@@ -153,7 +153,7 @@ export function transformTokenTransfer(
     to,
     tokenAddress,
     tokenDecimals: parseInt(rawData.tokenDecimal),
-    tokenSymbol: rawData.tokenSymbol,
+    tokenSymbol: rawData.tokenSymbol || undefined,
     tokenType: 'erc20', // Assume ERC-20 for Routescan token transfers
     type: 'token_transfer',
   };
