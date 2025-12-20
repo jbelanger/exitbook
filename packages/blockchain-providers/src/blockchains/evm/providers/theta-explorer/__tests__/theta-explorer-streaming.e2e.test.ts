@@ -61,7 +61,7 @@ describe('ThetaExplorerApiClient Streaming E2E', () => {
         // Verify cursor metadata
         expect(batch.cursor.metadata?.providerName).toBe('theta-explorer');
         expect(batch.cursor.metadata?.updatedAt).toBeGreaterThan(0);
-        expect(typeof batch.cursor.metadata?.isComplete).toBe('boolean');
+        expect(typeof batch.isComplete).toBe('boolean');
 
         // Limit test to avoid API credit usage
         if (batchCount >= maxBatches) {

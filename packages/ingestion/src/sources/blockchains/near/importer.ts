@@ -133,7 +133,7 @@ export class NearTransactionImporter implements IImporter {
         rawTransactions: rawTransactions,
         operationType,
         cursor: providerBatch.cursor,
-        isComplete: providerBatch.cursor.metadata?.isComplete ?? false,
+        isComplete: providerBatch.isComplete,
       });
     }
   }

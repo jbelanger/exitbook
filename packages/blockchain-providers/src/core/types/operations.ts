@@ -71,4 +71,5 @@ export interface FailoverStreamingExecutionResult<T> {
   data: T[];
   providerName: string;
   cursor: CursorState;
+  isComplete: boolean;
 }

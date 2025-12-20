@@ -45,6 +45,7 @@ export interface ProviderCapabilities {
 export interface StreamingBatchResult<T extends NormalizedTransactionBase = NormalizedTransactionBase> {
   data: TransactionWithRawData<T>[];
   cursor: CursorState;
+  isComplete: boolean;
 }
 
 export interface IBlockchainProvider<TConfig = Record<string, unknown>> {

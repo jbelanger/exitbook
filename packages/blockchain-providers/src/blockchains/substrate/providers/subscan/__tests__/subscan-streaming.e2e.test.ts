@@ -46,7 +46,7 @@ describe.sequential('SubscanApiClient Streaming E2E', () => {
         expect(batch.cursor.metadata).toBeDefined();
         expect(batch.cursor.metadata?.providerName).toBe('subscan');
         expect(typeof batch.cursor.metadata?.updatedAt).toBe('number');
-        expect(typeof batch.cursor.metadata?.isComplete).toBe('boolean');
+        expect(typeof batch.isComplete).toBe('boolean');
 
         // Verify primary cursor is pageToken
         if (batch.cursor.primary.type === 'pageToken') {
@@ -69,7 +69,7 @@ describe.sequential('SubscanApiClient Streaming E2E', () => {
         }
 
         // Stop after maxBatches for testing
-        if (batchCount >= maxBatches || batch.cursor.metadata?.isComplete) {
+        if (batchCount >= maxBatches || batch.isComplete) {
           break;
         }
       }
@@ -142,7 +142,7 @@ describe.sequential('SubscanApiClient Streaming E2E', () => {
           seenTransactionIds.add(txId);
         }
 
-        if (batchCount >= maxBatches || batch.cursor.metadata?.isComplete) {
+        if (batchCount >= maxBatches || batch.isComplete) {
           break;
         }
       }
@@ -165,7 +165,7 @@ describe.sequential('SubscanApiClient Streaming E2E', () => {
       // Should either complete successfully with no data or fail
       if (results.length > 0 && results[0]!.isOk()) {
         const batch = results[0].value;
-        expect(batch.cursor.metadata?.isComplete).toBe(true);
+        expect(batch.isComplete).toBe(true);
       }
     }, 30000);
   });

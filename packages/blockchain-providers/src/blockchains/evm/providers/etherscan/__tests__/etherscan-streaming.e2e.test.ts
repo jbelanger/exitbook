@@ -95,7 +95,7 @@ describe('EtherscanApiClient Streaming E2E', () => {
           // Verify cursor metadata
           expect(batch.cursor.metadata?.providerName).toBe('etherscan');
           expect(batch.cursor.metadata?.updatedAt).toBeGreaterThan(0);
-          expect(typeof batch.cursor.metadata?.isComplete).toBe('boolean');
+          expect(typeof batch.isComplete).toBe('boolean');
 
           // Limit test to avoid API credit usage
           if (batches.length >= maxBatches) {
@@ -305,7 +305,7 @@ describe('EtherscanApiClient Streaming E2E', () => {
 
           batchCount++;
 
-          if (batch.cursor.metadata?.isComplete || batchCount >= maxBatches) {
+          if (batch.isComplete || batchCount >= maxBatches) {
             break;
           }
         }
@@ -380,8 +380,8 @@ describe('EtherscanApiClient Streaming E2E', () => {
 
         if (lastBatch) {
           // If we got an empty batch or isComplete is true, we're done
-          if (lastBatch.data.length === 0 || lastBatch.cursor.metadata?.isComplete) {
-            expect(lastBatch.cursor.metadata?.isComplete).toBe(true);
+          if (lastBatch.data.length === 0 || lastBatch.isComplete) {
+            expect(lastBatch.isComplete).toBe(true);
             console.log('Streaming completed - all withdrawals fetched');
           } else {
             console.log('Streaming interrupted at batch limit - more data may be available');
@@ -414,7 +414,7 @@ describe('EtherscanApiClient Streaming E2E', () => {
 
           // Should complete with empty results
           if (batch.data.length === 0) {
-            expect(batch.cursor.metadata?.isComplete).toBe(true);
+            expect(batch.isComplete).toBe(true);
             break;
           }
         }

@@ -240,9 +240,9 @@ export class BlockchainProviderManager {
           metadata: {
             providerName: result.value.providerName,
             updatedAt: Date.now(),
-            isComplete: true,
           },
         },
+        isComplete: true,
       });
     }
   }
@@ -626,12 +626,12 @@ export class BlockchainProviderManager {
 
           // Critical: Always yield completion batches, even with zero data after dedup
           // Otherwise importer never receives "complete" signal when last page contains only duplicates
-          const isComplete = batch.cursor.metadata?.isComplete ?? false;
-          if (deduplicated.length > 0 || isComplete) {
+          if (deduplicated.length > 0 || batch.isComplete) {
             yield ok({
               data: deduplicated as T[],
               providerName: provider.name,
               cursor: batch.cursor,
+              isComplete: batch.isComplete,
             });
           }
 

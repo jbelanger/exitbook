@@ -103,7 +103,7 @@ export class BitcoinTransactionImporter implements IImporter {
         rawTransactions: rawTransactions,
         operationType: 'normal',
         cursor: providerBatch.cursor,
-        isComplete: providerBatch.cursor.metadata?.isComplete ?? false,
+        isComplete: providerBatch.isComplete,
       });
     }
   }

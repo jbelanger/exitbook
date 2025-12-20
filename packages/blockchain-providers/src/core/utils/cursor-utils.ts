@@ -39,11 +39,6 @@ export interface CursorStateConfig<T> {
   pageToken?: string | undefined;
 
   /**
-   * Whether this is the last batch (no more data available)
-   */
-  isComplete: boolean;
-
-  /**
    * Optional provider-specific metadata to merge into CursorState.metadata
    * Useful for carrying small state across streaming batches (e.g., NEAR balance snapshots)
    */
@@ -63,7 +58,7 @@ export interface CursorStateConfig<T> {
  * @returns Complete cursor state for this batch
  */
 export function buildCursorState<T extends NormalizedTransactionBase>(config: CursorStateConfig<T>): CursorState {
-  const { transactions, extractCursors, totalFetched, providerName, pageToken, isComplete, customMetadata } = config;
+  const { transactions, extractCursors, totalFetched, providerName, pageToken, customMetadata } = config;
 
   // Extract cursors from last transaction
   const lastTx = transactions[transactions.length - 1]!; // Safe: caller ensures transactions.length > 0
@@ -81,7 +76,6 @@ export function buildCursorState<T extends NormalizedTransactionBase>(config: Cu
     metadata: {
       providerName,
       updatedAt: Date.now(),
-      isComplete,
       // Namespace custom metadata to prevent collision with core fields
       ...(customMetadata ? { custom: customMetadata } : {}),
     },

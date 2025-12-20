@@ -146,6 +146,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
             totalFetched: 101,
             metadata: { providerName: 'provider-1', updatedAt: Date.now() },
           },
+          isComplete: false,
         },
       ]);
 
@@ -185,6 +186,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
             totalFetched: 101,
             metadata: { providerName: 'provider-3', updatedAt: Date.now() },
           },
+          isComplete: false,
         },
       ]);
 
@@ -229,6 +231,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
             totalFetched: 101,
             metadata: { providerName: 'provider-3', updatedAt: Date.now() },
           },
+          isComplete: false,
         },
       ]);
 
@@ -269,6 +272,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
             totalFetched: 101,
             metadata: { providerName: 'provider-2', updatedAt: Date.now() },
           },
+          isComplete: false,
         },
       ]);
 
@@ -310,6 +314,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
             totalFetched: 1,
             metadata: { providerName: 'provider-2', updatedAt: Date.now() },
           },
+          isComplete: false,
         },
       ]);
 
@@ -386,6 +391,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
             totalFetched: 1,
             metadata: { providerName: 'provider-2', updatedAt: Date.now() },
           },
+          isComplete: false,
         },
       ]);
 
@@ -426,6 +432,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
             totalFetched: 3,
             metadata: { providerName: 'provider-1', updatedAt: Date.now() },
           },
+          isComplete: false,
         },
       ]);
 
@@ -467,6 +474,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
             totalFetched: 2,
             metadata: { providerName: 'provider-1', updatedAt: Date.now() },
           },
+          isComplete: false,
         },
       ]);
 
@@ -516,6 +524,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
             totalFetched: 2,
             metadata: { providerName: 'provider-2', updatedAt: Date.now() },
           },
+          isComplete: false,
         },
       ]);
 
@@ -546,6 +555,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       provider1.setBatches([
         {
           data: [],
+          isComplete: false,
           cursor: {
             primary: { type: 'blockNumber', value: 1000 },
             lastTransactionId: 'none',
@@ -580,6 +590,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       provider1.setBatches([
         {
           data: [],
+          isComplete: false,
           cursor: {
             primary: { type: 'blockNumber', value: 1000 },
             lastTransactionId: 'none',
@@ -644,6 +655,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
             totalFetched: 1,
             metadata: { providerName: 'provider-1', updatedAt: Date.now() },
           },
+          isComplete: false,
         },
       ]);
 

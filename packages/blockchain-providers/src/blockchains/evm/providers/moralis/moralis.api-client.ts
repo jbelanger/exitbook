@@ -191,6 +191,7 @@ export class MoralisApiClient extends BaseApiClient {
             operationType: 'internal',
             identifier: operation.address,
           }),
+          isComplete: true,
         });
         break;
       default:
