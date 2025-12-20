@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/index.js';
+import type { RawBalanceData } from '../../../../../core/index.js';
 import { ProviderRegistry } from '../../../../../core/index.js';
-import type { BitcoinTransaction } from '../../../schemas.js';
 import { BlockCypherApiClient } from '../blockcypher.api-client.js';
 
 describe.skip('BlockCypherApiClient E2E', () => {
@@ -44,41 +43,6 @@ describe.skip('BlockCypherApiClient E2E', () => {
       }
     },
     60000
-  );
-
-  it.skipIf(!process.env['BLOCKCYPHER_API_KEY'] || process.env['BLOCKCYPHER_API_KEY'] === 'YourApiKeyToken')(
-    'should get normalized address transactions',
-    async () => {
-      const result = await client.execute<TransactionWithRawData<BitcoinTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
-        if (transactions.length > 0) {
-          const txWithRaw = transactions[0]!;
-          expect(txWithRaw).toHaveProperty('raw');
-          expect(txWithRaw).toHaveProperty('normalized');
-
-          expect(txWithRaw.raw).toHaveProperty('hash');
-          expect(txWithRaw.raw).toHaveProperty('inputs');
-          expect(txWithRaw.raw).toHaveProperty('outputs');
-
-          const tx = txWithRaw.normalized;
-          expect(tx).toBeDefined();
-          expect(tx.id).toBeDefined();
-          expect(typeof tx.id).toBe('string');
-          expect(tx.currency).toBe('BTC');
-          expect(tx.providerName).toBe('blockcypher');
-          expect(Array.isArray(tx.inputs)).toBe(true);
-          expect(Array.isArray(tx.outputs)).toBe(true);
-        }
-      }
-    },
-    90000
   );
 
   it.skipIf(!process.env['BLOCKCYPHER_API_KEY'] || process.env['BLOCKCYPHER_API_KEY'] === 'YourApiKeyToken')(

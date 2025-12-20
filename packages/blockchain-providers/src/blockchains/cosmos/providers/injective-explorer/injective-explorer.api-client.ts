@@ -10,7 +10,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import type { RawBalanceData, StreamingBatchResult, TransactionWithRawData } from '../../../../core/types/index.js';
+import type { RawBalanceData, StreamingBatchResult } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import { convertBalance, createZeroBalance, findNativeBalance } from '../../balance-utils.js';
 import type { CosmosChainConfig } from '../../chain-config.interface.js';
@@ -112,10 +112,6 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
     );
 
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return (await this.getAddressTransactions({
-          address: operation.address,
-        })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
           address: operation.address,
@@ -149,73 +145,6 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
         return Boolean(response && typeof response === 'object');
       },
     };
-  }
-
-  private async getAddressTransactions(params: {
-    address: string;
-  }): Promise<Result<TransactionWithRawData<CosmosTransaction>[], Error>> {
-    const { address } = params;
-
-    if (!this.validateAddress(address)) {
-      return err(new Error(`Invalid ${this.chainConfig.displayName} address: ${address}`));
-    }
-
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-
-    const endpoint = `/api/explorer/v1/accountTxs/${address}`;
-    const result = await this.httpClient.get<InjectiveApiResponse>(endpoint, {
-      schema: InjectiveApiResponseSchema,
-    });
-
-    if (result.isErr()) {
-      this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
-      return err(result.error);
-    }
-
-    const response = result.value;
-
-    if (!response.data || !Array.isArray(response.data)) {
-      this.logger.debug(`No raw transactions found for address - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    const rawTransactions = response.data;
-
-    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-      this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    const transactions: TransactionWithRawData<CosmosTransaction>[] = [];
-    for (const rawTx of rawTransactions) {
-      const mapResult = mapInjectiveExplorerTransaction(rawTx, address);
-
-      if (mapResult.isErr()) {
-        const error = mapResult.error;
-        if (error.type === 'skip') {
-          this.logger.debug(`Skipping transaction - Address: ${maskAddress(address)}, Reason: ${error.reason}`);
-          continue;
-        }
-        // error.type === 'error'
-        this.logger.error(
-          `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${error.message}`
-        );
-        return err(new Error(`Provider data validation failed: ${error.message}`));
-      }
-
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
-    );
-
-    return ok(transactions);
   }
 
   private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {

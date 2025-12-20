@@ -8,7 +8,6 @@ import type {
   ProviderOperation,
   RawBalanceData,
   StreamingBatchResult,
-  TransactionWithRawData,
 } from '../../../../core/index.js';
 import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
@@ -104,10 +103,6 @@ export class BlockchainComApiClient extends BaseApiClient {
     );
 
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return (await this.getAddressTransactions({
-          address: operation.address,
-        })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
           address: operation.address,
@@ -201,63 +196,6 @@ export class BlockchainComApiClient extends BaseApiClient {
     this.logger.debug(`Successfully retrieved raw address info - Address: ${maskAddress(address)}`);
 
     return ok(createRawBalanceData(balanceSats, balanceBTC, this.chainConfig.nativeCurrency));
-  }
-
-  /**
-   * Get raw transaction data without transformation for wallet-aware parsing
-   */
-  private async getAddressTransactions(params: {
-    address: string;
-  }): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
-    const { address } = params;
-
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-
-    const result = await this.httpClient.get<BlockchainComAddressResponse>(`/rawaddr/${address}?limit=50`, {
-      schema: BlockchainComAddressResponseSchema,
-    });
-
-    if (result.isErr()) {
-      this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
-      return err(result.error);
-    }
-
-    const addressData = result.value;
-
-    if (!addressData.txs || addressData.txs.length === 0) {
-      this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    const filteredRawTransactions = addressData.txs;
-
-    // Sort by timestamp (newest first)
-    filteredRawTransactions.sort((a, b) => b.time - a.time);
-
-    // Normalize transactions immediately using mapper
-    const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
-    for (const rawTx of filteredRawTransactions) {
-      const mapResult = mapBlockchainComTransaction(rawTx, this.chainConfig);
-
-      if (mapResult.isErr()) {
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}`
-    );
-
-    return ok(transactions);
   }
 
   private streamAddressTransactions(

@@ -17,10 +17,11 @@ import { mapToRawTransactions } from './evm-importer-utils.js';
  * Generic EVM transaction importer that fetches raw transaction data from blockchain APIs.
  * Works with any EVM-compatible chain (Ethereum, Avalanche, Polygon, BSC, etc.).
  *
- * Fetches three types of transactions in parallel:
+ * Fetches multiple types of transactions:
  * - Normal (external) transactions
  * - Internal transactions (contract calls)
  * - Token transfers (ERC-20/721/1155)
+ * - Beacon withdrawals (Ethereum mainnet only, if supported by provider)
  *
  * Uses provider manager for failover between multiple API providers.
  */
@@ -52,7 +53,7 @@ export class EvmImporter implements IImporter {
 
   /**
    * Streaming import implementation
-   * Streams NORMAL + INTERNAL + TOKEN batches without accumulating everything in memory
+   * Streams NORMAL + INTERNAL + TOKEN + BEACON_WITHDRAWALS batches without accumulating everything in memory
    */
   async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     if (!params.address) {
@@ -104,6 +105,19 @@ export class EvmImporter implements IImporter {
         yield batchResult;
       }
 
+      // Stream beacon withdrawals (Ethereum mainnet only, if supported)
+      if (this.shouldFetchBeaconWithdrawals()) {
+        const withdrawalCursor = params.cursor?.['beacon_withdrawal'];
+        for await (const batchResult of this.streamTransactionType(
+          address,
+          'beacon_withdrawal',
+          'getAddressBeaconWithdrawals',
+          withdrawalCursor
+        )) {
+          yield batchResult;
+        }
+      }
+
       this.logger.info(`${this.chainConfig.chainName} streaming import completed`);
     } catch (error) {
       this.logger.error(`Failed to stream transactions for address ${address}: ${getErrorMessage(error)}`);
@@ -117,12 +131,22 @@ export class EvmImporter implements IImporter {
    */
   private async *streamTransactionType(
     address: string,
-    operationType: 'normal' | 'internal' | 'token',
-    providerOperationType: 'getAddressTransactions' | 'getAddressInternalTransactions' | 'getAddressTokenTransactions',
+    operationType: 'normal' | 'internal' | 'token' | 'beacon_withdrawal',
+    providerOperationType:
+      | 'getAddressTransactions'
+      | 'getAddressInternalTransactions'
+      | 'getAddressTokenTransactions'
+      | 'getAddressBeaconWithdrawals',
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     const cacheKeyPrefix =
-      operationType === 'normal' ? 'normal-txs' : operationType === 'internal' ? 'internal-txs' : 'token-txs';
+      operationType === 'normal'
+        ? 'normal-txs'
+        : operationType === 'internal'
+          ? 'internal-txs'
+          : operationType === 'token'
+            ? 'token-txs'
+            : 'beacon-withdrawals';
 
     const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<EvmTransaction>>(
       this.chainConfig.chainName,
@@ -161,5 +185,36 @@ export class EvmImporter implements IImporter {
         isComplete: providerBatch.cursor.metadata?.isComplete ?? false,
       });
     }
+  }
+
+  /**
+   * Determines if beacon withdrawals should be fetched.
+   *
+   * Withdrawals are skipped if:
+   * - Chain is not Ethereum mainnet
+   * - User explicitly disabled withdrawals via --no-withdrawals flag
+   * - No provider supports getAddressBeaconWithdrawals operation
+   *
+   * @param params - Import parameters
+   * @returns true if withdrawals should be fetched
+   */
+  private shouldFetchBeaconWithdrawals(): boolean {
+    // Only Ethereum mainnet has beacon withdrawals
+    if (this.chainConfig.chainName !== 'ethereum') {
+      return false;
+    }
+
+    // Check if any provider supports beacon withdrawals
+    const providers = this.providerManager.getProviders(this.chainConfig.chainName);
+    const hasWithdrawalSupport = providers.some((provider) =>
+      provider.capabilities.supportedOperations.includes('getAddressBeaconWithdrawals')
+    );
+
+    if (!hasWithdrawalSupport) {
+      this.logger.debug('No provider supports beacon withdrawals for this chain');
+      return false;
+    }
+
+    return true;
   }
 }

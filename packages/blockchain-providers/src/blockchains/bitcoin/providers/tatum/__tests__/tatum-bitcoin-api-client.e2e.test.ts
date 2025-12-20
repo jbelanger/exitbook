@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawBalanceData, TransactionWithRawData } from '../../../../../core/index.js';
+import type { RawBalanceData } from '../../../../../core/index.js';
 import { ProviderRegistry } from '../../../../../core/index.js';
-import type { BitcoinTransaction } from '../../../schemas.js';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
 
 describe('TatumBitcoinApiClient E2E', () => {
@@ -38,44 +37,6 @@ describe('TatumBitcoinApiClient E2E', () => {
         expect(balance.symbol).toBe('BTC');
         expect(balance.decimals).toBe(8);
         expect(balance.rawAmount || balance.decimalAmount).toBeDefined();
-      }
-    },
-    30000
-  );
-
-  it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
-    'should fetch normalized address transactions successfully',
-    async () => {
-      const result = await provider.execute<TransactionWithRawData<BitcoinTransaction>[]>({
-        address: testAddress,
-        type: 'getAddressTransactions',
-      });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const transactions = result.value;
-        expect(Array.isArray(transactions)).toBe(true);
-        if (transactions.length > 0) {
-          const txWithRaw = transactions[0]!;
-          expect(txWithRaw).toHaveProperty('raw');
-          expect(txWithRaw).toHaveProperty('normalized');
-
-          expect(txWithRaw.raw).toHaveProperty('hash');
-          expect(txWithRaw.raw).toHaveProperty('inputs');
-          expect(txWithRaw.raw).toHaveProperty('outputs');
-
-          const tx = txWithRaw.normalized;
-          expect(tx).toHaveProperty('id');
-          expect(tx).toHaveProperty('inputs');
-          expect(tx).toHaveProperty('outputs');
-          expect(tx).toHaveProperty('timestamp');
-          expect(tx).toHaveProperty('currency');
-          expect(tx).toHaveProperty('providerName');
-          expect(tx.currency).toBe('BTC');
-          expect(tx.providerName).toBe('tatum');
-          expect(Array.isArray(tx.inputs)).toBe(true);
-          expect(Array.isArray(tx.outputs)).toBe(true);
-        }
       }
     },
     30000

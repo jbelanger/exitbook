@@ -1,6 +1,6 @@
 import type { CursorState, PaginationCursor, TokenMetadata } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
-import { err, ok, okAsync, type Result } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
 import type { NormalizedTransactionBase, ProviderConfig, ProviderOperation } from '../../../../core/index.js';
@@ -139,27 +139,10 @@ export class MoralisApiClient extends BaseApiClient {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {
-      case 'getAddressTransactions': {
-        const { address } = operation;
-        this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-        return (await this.getAddressTransactions(address)) as Result<T, Error>;
-      }
-      case 'getAddressInternalTransactions': {
-        const { address } = operation;
-        this.logger.debug(`Fetching raw address internal transactions - Address: ${maskAddress(address)}`);
-        return (await this.getAddressInternalTransactions(address)) as Result<T, Error>;
-      }
       case 'getAddressBalances': {
         const { address } = operation;
         this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
         return (await this.getAddressBalances(address)) as Result<T, Error>;
-      }
-      case 'getAddressTokenTransactions': {
-        const { address, contractAddress } = operation;
-        this.logger.debug(
-          `Fetching token transactions - Address: ${maskAddress(address)}, Contract: ${contractAddress || 'all'}`
-        );
-        return (await this.getAddressTokenTransactions(address, contractAddress)) as Result<T, Error>;
       }
       case 'getAddressTokenBalances': {
         const { address, contractAddresses } = operation;
@@ -294,125 +277,6 @@ export class MoralisApiClient extends BaseApiClient {
     } as RawBalanceData);
   }
 
-  private async getAddressTransactions(
-    address: string
-  ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const rawTransactions: MoralisTransaction[] = [];
-    let cursor: string | null | undefined;
-    let pageCount = 0;
-    const maxPages = 100; // Safety limit to prevent infinite loops
-
-    do {
-      const params = new URLSearchParams({
-        chain: this.moralisChainId,
-        limit: '100',
-      });
-
-      if (cursor) {
-        params.append('cursor', cursor);
-      }
-
-      // Include internal transactions in the same call for efficiency
-      params.append('include', 'internal_transactions');
-
-      const endpoint = `/${address}?${params.toString()}`;
-      const result = await this.httpClient.get(endpoint, { schema: MoralisTransactionResponseSchema });
-
-      if (result.isErr()) {
-        this.logger.error(
-          `Failed to fetch raw address transactions for ${address} - Error: ${getErrorMessage(result.error)}`
-        );
-        return err(result.error);
-      }
-
-      const response = result.value;
-      const pageTransactions = response.result || [];
-
-      rawTransactions.push(...pageTransactions);
-      cursor = response.cursor;
-      pageCount++;
-
-      this.logger.debug(
-        `Fetched page ${pageCount}: ${pageTransactions.length} transactions${cursor ? ' (more pages available)' : ' (last page)'}`
-      );
-
-      // Safety check to prevent infinite pagination
-      if (pageCount >= maxPages) {
-        this.logger.warn(`Reached maximum page limit (${maxPages}), stopping pagination`);
-        break;
-      }
-    } while (cursor);
-
-    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-      this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
-    for (const rawTx of rawTransactions) {
-      const mapResult = mapMoralisTransaction(rawTx, this.chainConfig.nativeCurrency);
-
-      if (mapResult.isErr()) {
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      // Add the main transaction
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-
-      // Unpack and map internal transactions
-      if (rawTx.internal_transactions && rawTx.internal_transactions.length > 0) {
-        const parentTimestamp = new Date(rawTx.block_timestamp).getTime();
-
-        for (let i = 0; i < rawTx.internal_transactions.length; i++) {
-          const internalTx = rawTx.internal_transactions[i]!;
-          const internalMapResult = mapMoralisInternalTransaction(
-            internalTx,
-            parentTimestamp,
-            this.chainConfig.nativeCurrency,
-            i // Pass array index for uniqueness
-          );
-
-          if (internalMapResult.isErr()) {
-            const errorMessage =
-              internalMapResult.error.type === 'error'
-                ? internalMapResult.error.message
-                : internalMapResult.error.reason;
-            this.logger.error(`Internal transaction validation failed - Parent: ${rawTx.hash}, Error: ${errorMessage}`);
-            return err(new Error(`Internal transaction validation failed: ${errorMessage}`));
-          }
-
-          // Add internal transaction with same parent hash for grouping
-          transactions.push({
-            raw: internalTx,
-            normalized: internalMapResult.value,
-          });
-        }
-
-        this.logger.debug(`Unpacked ${rawTx.internal_transactions.length} internal transaction(s) from ${rawTx.hash}`);
-      }
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
-    );
-    return ok(transactions);
-  }
-
-  private async getAddressInternalTransactions(address: string): Promise<Result<MoralisTransaction[], Error>> {
-    // Moralis includes internal transactions automatically when fetching regular transactions
-    // with the 'include=internal_transactions' parameter. To avoid duplicate API calls,
-    // internal transactions should be fetched via getAddressTransactions instead.
-    this.logger.info(
-      `Moralis internal transactions are included in getAddressTransactions call - returning empty array to avoid duplicate fetching for ${maskAddress(address)}`
-    );
-    return okAsync([]);
-  }
-
   private async getAddressTokenBalances(
     address: string,
     contractAddresses?: string[]
@@ -456,83 +320,6 @@ export class MoralisApiClient extends BaseApiClient {
     return ok(balances);
   }
 
-  private async getAddressTokenTransactions(
-    address: string,
-    contractAddress?: string
-  ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const rawTransfers: MoralisTokenTransfer[] = [];
-    let cursor: string | null | undefined;
-    let pageCount = 0;
-    const maxPages = 100; // Safety limit to prevent infinite loops
-
-    do {
-      const params = new URLSearchParams({
-        chain: this.moralisChainId,
-        limit: '100',
-      });
-
-      if (contractAddress) {
-        params.append('contract_addresses[]', contractAddress);
-      }
-
-      if (cursor) {
-        params.append('cursor', cursor);
-      }
-
-      const endpoint = `/${address}/erc20/transfers?${params.toString()}`;
-      const result = await this.httpClient.get(endpoint, { schema: MoralisTokenTransferResponseSchema });
-
-      if (result.isErr()) {
-        this.logger.error(
-          `Failed to fetch raw token transactions for ${address} - Error: ${getErrorMessage(result.error)}`
-        );
-        return err(result.error);
-      }
-
-      const response = result.value;
-      const pageTransfers = response.result || [];
-      rawTransfers.push(...pageTransfers);
-      cursor = response.cursor;
-      pageCount++;
-
-      this.logger.debug(
-        `Fetched page ${pageCount}: ${pageTransfers.length} token transfers${cursor ? ' (more pages available)' : ' (last page)'}`
-      );
-
-      // Safety check to prevent infinite pagination
-      if (pageCount >= maxPages) {
-        this.logger.warn(`Reached maximum page limit (${maxPages}), stopping pagination`);
-        break;
-      }
-    } while (cursor);
-
-    if (!Array.isArray(rawTransfers) || rawTransfers.length === 0) {
-      this.logger.debug(`No raw token transactions found - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
-    for (const rawTx of rawTransfers) {
-      const mapResult = mapMoralisTokenTransfer(rawTx);
-
-      if (mapResult.isErr()) {
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized token transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
-    );
-    return ok(transactions);
-  }
-
   private streamAddressTransactions(
     address: string,
     resumeCursor?: CursorState
@@ -541,6 +328,7 @@ export class MoralisApiClient extends BaseApiClient {
       const params = new URLSearchParams({
         chain: this.moralisChainId,
         limit: '100',
+        order: 'ASC', // Ascending order (oldest first) for correct cursor extraction
       });
 
       if (ctx.pageToken) {
@@ -645,6 +433,7 @@ export class MoralisApiClient extends BaseApiClient {
       const params = new URLSearchParams({
         chain: this.moralisChainId,
         limit: '100',
+        order: 'ASC', // Ascending order (oldest first) for correct cursor extraction
       });
 
       if (contractAddress) {

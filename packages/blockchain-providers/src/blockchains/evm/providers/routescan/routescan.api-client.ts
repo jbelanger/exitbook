@@ -11,7 +11,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import type { RawBalanceData, StreamingBatchResult, TransactionWithRawData } from '../../../../core/types/index.js';
+import type { RawBalanceData, StreamingBatchResult } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
@@ -173,23 +173,9 @@ export class RoutescanApiClient extends BaseApiClient {
     );
 
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return (await this.getAddressTransactions({
-          address: operation.address,
-        })) as Result<T, Error>;
-      case 'getAddressInternalTransactions':
-        return (await this.getAddressInternalTransactions({
-          address: operation.address,
-        })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
           address: operation.address,
-        })) as Result<T, Error>;
-      case 'getAddressTokenTransactions':
-        return (await this.getAddressTokenTransactions({
-          address: operation.address,
-          contractAddress: operation.contractAddress,
-          limit: operation.limit,
         })) as Result<T, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
@@ -241,140 +227,6 @@ export class RoutescanApiClient extends BaseApiClient {
         return !!(data && data.status === '1');
       },
     };
-  }
-
-  private async fetchAddressInternalTransactions(
-    address: string
-  ): Promise<Result<RoutescanInternalTransaction[], Error>> {
-    const allTransactions: RoutescanInternalTransaction[] = [];
-    let page = 1;
-
-    while (true) {
-      // API constraint: page * offset <= 10000, so optimize accordingly
-      const maxOffset = Math.floor(10000 / page);
-      if (maxOffset < 1) break; // Can't fetch more pages
-
-      const params = new URLSearchParams({
-        action: 'txlistinternal',
-        address: address,
-        endblock: '99999999',
-        module: 'account',
-        offset: maxOffset.toString(),
-        page: page.toString(),
-        sort: 'asc',
-        startblock: '0',
-      });
-
-      if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
-        params.append('apikey', this.apiKey);
-      }
-
-      const result = await this.httpClient.get(`?${params.toString()}`, {
-        schema: RoutescanInternalTransactionsResponseSchema,
-      });
-
-      if (result.isErr()) {
-        this.logger.error(
-          `Failed to fetch internal transactions page ${page} - Error: ${getErrorMessage(result.error)}`
-        );
-        return err(result.error);
-      }
-
-      const res = result.value;
-      if (res.status !== '1') {
-        // If no results found, break the loop
-        if (res.message === 'No transactions found') {
-          break;
-        }
-        return err(
-          new ServiceError(`Routescan API error: ${res.message}`, this.name, 'fetchAddressInternalTransactions')
-        );
-      }
-
-      // Handle case where result is a string (error message) instead of array
-      if (typeof res.result === 'string') {
-        return err(
-          new ServiceError(`Routescan API error: ${res.result}`, this.name, 'fetchAddressInternalTransactions')
-        );
-      }
-
-      const transactions = res.result || [];
-      allTransactions.push(...transactions);
-
-      // If we got less than the max offset, we've reached the end
-      if (transactions.length < maxOffset) {
-        break;
-      }
-
-      page++;
-    }
-
-    return ok(allTransactions);
-  }
-
-  private async getNormalTransactions(address: string): Promise<Result<RoutescanTransaction[], Error>> {
-    const allTransactions: RoutescanTransaction[] = [];
-    let page = 1;
-
-    while (true) {
-      // API constraint: page * offset <= 10000, so optimize accordingly
-      const maxOffset = Math.floor(10000 / page);
-      if (maxOffset < 1) break; // Can't fetch more pages
-
-      const params = new URLSearchParams({
-        action: 'txlist',
-        address: address,
-        endblock: '99999999',
-        module: 'account',
-        offset: maxOffset.toString(),
-        page: page.toString(),
-        sort: 'asc',
-        startblock: '0',
-      });
-
-      if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
-        params.append('apikey', this.apiKey);
-      }
-
-      const result = await this.httpClient.get(`?${params.toString()}`, {
-        schema: RoutescanTransactionsResponseSchema,
-      });
-
-      if (result.isErr()) {
-        this.logger.error(`Failed to fetch normal transactions page ${page} - Error: ${getErrorMessage(result.error)}`);
-        return err(result.error);
-      }
-
-      const res = result.value;
-
-      if (res.status !== '1') {
-        if (res.message === 'NOTOK' && res.message.includes('Invalid API Key')) {
-          return err(new ServiceError('Invalid Routescan API key', this.name, 'getNormalTransactions'));
-        }
-        // If no results found, break the loop
-        if (res.message === 'No transactions found') {
-          break;
-        }
-        return err(new ServiceError(`Routescan API error: ${res.message}`, this.name, 'getNormalTransactions'));
-      }
-
-      // Handle case where result is a string (error message) instead of array
-      if (typeof res.result === 'string') {
-        return err(new ServiceError(`Routescan API error: ${res.result}`, this.name, 'getNormalTransactions'));
-      }
-
-      const transactions = res.result || [];
-      allTransactions.push(...transactions);
-
-      // If we got less than the max offset, we've reached the end
-      if (transactions.length < maxOffset) {
-        break;
-      }
-
-      page++;
-    }
-
-    return ok(allTransactions);
   }
 
   private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
@@ -438,174 +290,10 @@ export class RoutescanApiClient extends BaseApiClient {
     } as RawBalanceData);
   }
 
-  private async getAddressTransactions(params: {
-    address: string;
-  }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const { address } = params;
-
-    if (!this.isValidEvmAddress(address)) {
-      return err(new Error(`Invalid EVM address: ${address}`));
-    }
-
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-
-    const result = await this.getNormalTransactions(address);
-
-    if (result.isErr()) {
-      this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
-      return err(result.error);
-    }
-
-    return this.normalizeTransactions(result.value, address, 'transactions');
-  }
-
-  private async getAddressInternalTransactions(params: {
-    address: string;
-  }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const { address } = params;
-
-    if (!this.isValidEvmAddress(address)) {
-      return err(new Error(`Invalid EVM address: ${address}`));
-    }
-
-    this.logger.debug(`Fetching raw address internal transactions - Address: ${maskAddress(address)}`);
-
-    const result = await this.fetchAddressInternalTransactions(address);
-
-    if (result.isErr()) {
-      this.logger.error(
-        `Failed to get raw address internal transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(
-          result.error
-        )}`
-      );
-      return err(result.error);
-    }
-
-    return this.normalizeTransactions(result.value, address, 'internal transactions');
-  }
-
-  private async getAddressTokenTransactions(params: {
-    address: string;
-    contractAddress?: string | undefined;
-    limit?: number | undefined;
-  }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const { address, contractAddress } = params;
-    const result = await this.getTokenTransfers(address, contractAddress);
-
-    if (result.isErr()) {
-      return err(result.error);
-    }
-
-    return this.normalizeTransactions(result.value, address, 'token transactions');
-  }
-
-  private async getTokenTransfers(
-    address: string,
-    contractAddress?: string
-  ): Promise<Result<RoutescanTokenTransfer[], Error>> {
-    const allTransactions: RoutescanTokenTransfer[] = [];
-    let page = 1;
-
-    while (true) {
-      // API constraint: page * offset <= 10000, so optimize accordingly
-      const maxOffset = Math.floor(10000 / page);
-      if (maxOffset < 1) break; // Can't fetch more pages
-
-      const params = new URLSearchParams({
-        action: 'tokentx',
-        address: address,
-        endblock: '99999999',
-        module: 'account',
-        offset: maxOffset.toString(),
-        page: page.toString(),
-        sort: 'asc',
-        startblock: '0',
-      });
-
-      if (contractAddress) {
-        params.append('contractaddress', contractAddress);
-      }
-
-      if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
-        params.append('apikey', this.apiKey);
-      }
-
-      const result = await this.httpClient.get(`?${params.toString()}`, {
-        schema: RoutescanTokenTransfersResponseSchema,
-      });
-
-      if (result.isErr()) {
-        this.logger.error(`Failed to fetch token transfers page ${page} - Error: ${getErrorMessage(result.error)}`);
-        return err(result.error);
-      }
-
-      const res = result.value;
-
-      if (res.status !== '1') {
-        // If no results found, break the loop
-        if (res.message === 'No transactions found') {
-          break;
-        }
-        return err(new ServiceError(`Routescan API error: ${res.message}`, this.name, 'getTokenTransfers'));
-      }
-
-      // Handle case where result is a string (error message) instead of array
-      if (typeof res.result === 'string') {
-        return err(new ServiceError(`Routescan API error: ${res.result}`, this.name, 'getTokenTransfers'));
-      }
-
-      const transactions = res.result || [];
-      allTransactions.push(...transactions);
-
-      // If we got less than the max offset, we've reached the end
-      if (transactions.length < maxOffset) {
-        break;
-      }
-
-      page++;
-    }
-
-    return ok(allTransactions);
-  }
-
   private isValidEvmAddress(address: string): boolean {
     // EVM addresses are 42 characters (0x + 40 hex characters)
     const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
     return ethAddressRegex.test(address);
-  }
-
-  private normalizeTransactions(
-    rawTransactions: (RoutescanTransaction | RoutescanInternalTransaction | RoutescanTokenTransfer)[],
-    address: string,
-    transactionType: string
-  ): Result<TransactionWithRawData<EvmTransaction>[], Error> {
-    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-      this.logger.debug(`No raw ${transactionType} found - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
-    for (const rawTx of rawTransactions) {
-      const mapResult = mapRoutescanTransaction(rawTx, this.chainConfig.nativeCurrency);
-
-      if (mapResult.isErr()) {
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized ${transactionType} - Address: ${maskAddress(address)}, Count: ${transactions.length}`
-    );
-    return ok(transactions);
   }
 
   private streamAddressTransactions(

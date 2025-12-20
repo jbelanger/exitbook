@@ -1327,6 +1327,34 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('transfer');
   });
+
+  test('drops zero-value contract interaction with no movements or fees', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      createTransaction({
+        amount: '0',
+        feeAmount: '0',
+        from: USER_ADDRESS,
+        functionName: 'approve',
+        id: '0xapprove2',
+        methodId: '0x095ea7b3',
+        timestamp: Date.now(),
+        to: CONTRACT_ADDRESS,
+        type: 'contract_call',
+      }),
+    ];
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value).toHaveLength(0);
+  });
 });
 
 describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {

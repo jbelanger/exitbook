@@ -9,7 +9,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import type { RawBalanceData, StreamingBatchResult, TransactionWithRawData } from '../../../../core/types/index.js';
+import type { RawBalanceData, StreamingBatchResult } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import type { EvmTransaction } from '../../types.js';
 
@@ -80,10 +80,6 @@ export class ThetaScanApiClient extends BaseApiClient {
     );
 
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return (await this.getAddressTransactions({
-          address: operation.address,
-        })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
           address: operation.address,
@@ -124,31 +120,6 @@ export class ThetaScanApiClient extends BaseApiClient {
     };
   }
 
-  private async getNormalTransactions(address: string): Promise<Result<ThetaScanTransaction[], Error>> {
-    const params = new URLSearchParams({
-      address: address,
-    });
-
-    const url = `/transactions/?${params.toString()}`;
-    this.logger.info(`ThetaScan API Request: ${this.baseUrl}${url}`);
-
-    const result = await this.httpClient.get(url);
-
-    if (result.isErr()) {
-      this.logger.error(
-        `Failed to fetch transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
-      return err(result.error);
-    }
-
-    // ThetaScan returns a direct array of transactions
-    const transactions = result.value as ThetaScanTransaction[];
-
-    this.logger.info(`Fetched ${Array.isArray(transactions) ? transactions.length : 0} transactions from ThetaScan`);
-
-    return ok(Array.isArray(transactions) ? transactions : []);
-  }
-
   private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
@@ -183,55 +154,6 @@ export class ThetaScanApiClient extends BaseApiClient {
       decimals: 18,
       symbol: 'TFUEL',
     } as RawBalanceData);
-  }
-
-  private async getAddressTransactions(params: {
-    address: string;
-  }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const { address } = params;
-
-    if (!this.isValidEthAddress(address)) {
-      return err(new Error(`Invalid Theta address: ${address}`));
-    }
-
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-
-    const result = await this.getNormalTransactions(address);
-
-    if (result.isErr()) {
-      this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
-      return err(result.error);
-    }
-
-    const rawTransactions = result.value;
-
-    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-      this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
-    for (const rawTx of rawTransactions) {
-      const mapResult = mapThetaScanTransaction(rawTx);
-
-      if (mapResult.isErr()) {
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
-    );
-    return ok(transactions);
   }
 
   private async getAddressTokenBalances(params: {

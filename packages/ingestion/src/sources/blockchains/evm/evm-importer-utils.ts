@@ -4,12 +4,14 @@ import type { RawTransactionInput } from '@exitbook/core';
 /**
  * Maps EvmTransaction.type to transactionTypeHint for database storage
  */
-function mapTransactionTypeToHint(type: EvmTransaction['type']): 'normal' | 'internal' | 'token' {
+function mapTransactionTypeToHint(type: EvmTransaction['type']): 'normal' | 'internal' | 'token' | 'beacon_withdrawal' {
   switch (type) {
     case 'internal':
       return 'internal';
     case 'token_transfer':
       return 'token';
+    case 'beacon_withdrawal':
+      return 'beacon_withdrawal';
     case 'transfer':
     case 'contract_call':
     default:
@@ -37,7 +39,7 @@ export function mapToRawTransactions(
   transactions: TransactionWithRawData<EvmTransaction>[],
   providerName: string,
   sourceAddress: string,
-  _transactionTypeHint: 'normal' | 'internal' | 'token'
+  _transactionTypeHint: 'normal' | 'internal' | 'token' | 'beacon_withdrawal'
 ): RawTransactionInput[] {
   return transactions.map((txWithRaw) => ({
     providerName,

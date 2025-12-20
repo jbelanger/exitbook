@@ -37,6 +37,15 @@ export interface ITransactionRepository {
   ): Promise<Result<number, Error>>;
 
   /**
+   * Save multiple transactions in a single database transaction.
+   * Returns the total saved count and number of duplicates skipped via conflict handling.
+   */
+  saveBatch(
+    transactions: Omit<UniversalTransactionData, 'id' | 'accountId'>[],
+    accountId: number
+  ): Promise<Result<{ duplicates: number; saved: number; }, Error>>;
+
+  /**
    * Find a transaction by its ID.
    */
   findById(id: number): Promise<Result<UniversalTransactionData | undefined, Error>>;

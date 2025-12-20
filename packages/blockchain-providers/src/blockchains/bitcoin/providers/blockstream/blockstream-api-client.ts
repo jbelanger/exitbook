@@ -9,7 +9,6 @@ import type {
   ProviderOperation,
   RawBalanceData,
   StreamingBatchResult,
-  TransactionWithRawData,
 } from '../../../../core/index.js';
 import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
@@ -110,10 +109,6 @@ export class BlockstreamApiClient extends BaseApiClient {
     );
 
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return (await this.getAddressTransactions({
-          address: operation.address,
-        })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
           address: operation.address,
@@ -208,101 +203,6 @@ export class BlockstreamApiClient extends BaseApiClient {
     );
 
     return ok(createRawBalanceData(totalBalanceSats, balanceBTC, this.chainConfig.nativeCurrency));
-  }
-
-  /**
-   * Get raw transaction data without transformation for wallet-aware parsing
-   */
-  private async getAddressTransactions(params: {
-    address: string;
-  }): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
-    const { address } = params;
-
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-    this.logger.info(`Fetching transactions for ${maskAddress(address)}`);
-
-    const addressInfoResult = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`, {
-      schema: BlockstreamAddressInfoSchema,
-    });
-
-    if (addressInfoResult.isErr()) {
-      this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(addressInfoResult.error)}`
-      );
-      return err(addressInfoResult.error);
-    }
-
-    const addressInfo = addressInfoResult.value;
-
-    if (addressInfo.chain_stats.tx_count === 0 && addressInfo.mempool_stats.tx_count === 0) {
-      this.logger.debug(`No raw transactions found for address - Address: ${maskAddress(address)}`);
-      this.logger.info('No transactions found');
-      return ok([]);
-    }
-
-    const allTransactions: TransactionWithRawData<BitcoinTransaction>[] = [];
-    let lastSeenTxid: string | undefined;
-    let hasMore = true;
-    let batchCount = 0;
-    const maxBatches = 50;
-
-    while (hasMore && batchCount < maxBatches) {
-      const endpoint = lastSeenTxid ? `/address/${address}/txs/chain/${lastSeenTxid}` : `/address/${address}/txs`;
-
-      const txResult = await this.httpClient.get<BlockstreamTransaction[]>(endpoint, {
-        schema: z.array(BlockstreamTransactionSchema),
-      });
-
-      if (txResult.isErr()) {
-        this.logger.error(
-          `Failed to get raw address transactions batch - Address: ${maskAddress(address)}, Error: ${getErrorMessage(txResult.error)}`
-        );
-        return err(txResult.error);
-      }
-
-      const rawTransactions = txResult.value;
-
-      if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-        hasMore = false;
-        break;
-      }
-
-      this.logger.debug(
-        `Retrieved raw transaction batch - Address: ${maskAddress(address)}, BatchSize: ${rawTransactions.length}, Batch: ${batchCount + 1}`
-      );
-      this.logger.info(
-        `Retrieved batch ${batchCount + 1}: ${allTransactions.length + rawTransactions.length} total transactions`
-      );
-
-      const validRawTransactions = rawTransactions.filter((tx): tx is BlockstreamTransaction => tx !== null);
-      for (const rawTx of validRawTransactions) {
-        const mapResult = mapBlockstreamTransaction(rawTx, this.chainConfig);
-
-        if (mapResult.isErr()) {
-          const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-          this.logger.error(
-            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
-          );
-          return err(new Error(`Provider data validation failed: ${errorMessage}`));
-        }
-
-        allTransactions.push({
-          raw: rawTx,
-          normalized: mapResult.value,
-        });
-      }
-
-      lastSeenTxid = rawTransactions.length > 0 ? rawTransactions[rawTransactions.length - 1]?.txid : undefined;
-      hasMore = rawTransactions.length === 25;
-      batchCount++;
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${allTransactions.length}, BatchesProcessed: ${batchCount}`
-    );
-    this.logger.info(`Retrieved ${allTransactions.length} transactions in ${batchCount} batches`);
-
-    return ok(allTransactions);
   }
 
   private streamAddressTransactions(

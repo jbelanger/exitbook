@@ -212,6 +212,7 @@ export class BlockchainProviderManager {
       'getAddressTransactions',
       'getAddressInternalTransactions',
       'getAddressTokenTransactions',
+      'getAddressBeaconWithdrawals',
     ];
     const isStreamingOperation = (op: ProviderOperation): op is StreamingOperation =>
       STREAMING_OPERATIONS.includes(op.type as StreamingOperation['type']);

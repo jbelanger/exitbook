@@ -194,5 +194,25 @@ describe('evm-importer-utils', () => {
       expect(result).toHaveLength(1);
       expect(result[0]!.transactionTypeHint).toBe('internal'); // Should be 'internal', not 'normal'
     });
+
+    test('should map beacon_withdrawal type to beacon_withdrawal hint', () => {
+      const transactions = [
+        createTransaction(
+          {
+            id: 'beacon-withdrawal-12345',
+            type: 'beacon_withdrawal',
+            providerName: 'etherscan',
+            from: '0x0000000000000000000000000000000000000000',
+            to: '0xrecipient',
+          },
+          { withdrawalIndex: '12345', validatorIndex: '67890' }
+        ),
+      ];
+
+      const result = mapToRawTransactions(transactions, 'etherscan', '0xrecipient', 'beacon_withdrawal');
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.transactionTypeHint).toBe('beacon_withdrawal');
+    });
   });
 });

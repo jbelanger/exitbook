@@ -31,13 +31,12 @@ import type {
   JsonRpcResponse,
   RawBalanceData,
   StreamingBatchResult,
-  TransactionWithRawData,
 } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import { isNativeToken } from '../../balance-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
-import { deduplicateTransactionHashes, mergeReceiptsIntoTransfers } from '../../receipt-utils.js';
+import { deduplicateTransactionHashes } from '../../receipt-utils.js';
 import type { EvmTransaction } from '../../types.js';
 
 import { extractAlchemyNetworkName } from './alchemy.mapper-utils.js';
@@ -54,13 +53,7 @@ import {
   baseUrl: 'https://eth-mainnet.g.alchemy.com/v2', // Default for Ethereum
   blockchain: 'ethereum',
   capabilities: {
-    supportedOperations: [
-      'getAddressTransactions',
-      'getAddressInternalTransactions',
-      'getAddressTokenTransactions',
-      'getAddressBalances',
-      'getAddressTokenBalances',
-    ],
+    supportedOperations: ['getAddressInfo'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
     replayWindow: { blocks: 2 },
@@ -185,22 +178,10 @@ export class AlchemyApiClient extends BaseApiClient {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {
-      case 'getAddressTransactions': {
+      case 'getAddressInfo': {
         const { address } = operation;
-        this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-        return (await this.getAddressTransactions(address)) as Result<T, Error>;
-      }
-      case 'getAddressInternalTransactions': {
-        const { address } = operation;
-        this.logger.debug(`Fetching raw address internal transactions - Address: ${maskAddress(address)}`);
-        return (await this.getAddressInternalTransactions(address)) as Result<T, Error>;
-      }
-      case 'getAddressTokenTransactions': {
-        const { address, contractAddress } = operation;
-        this.logger.debug(
-          `Fetching token transactions - Address: ${maskAddress(address)}, Contract: ${contractAddress || 'all'}`
-        );
-        return (await this.getAddressTokenTransactions(address, contractAddress)) as Result<T, Error>;
+        this.logger.debug(`Fetching address info - Address: ${maskAddress(address)}`);
+        return (await this.getAddressInfo(address)) as Result<T, Error>;
       }
       case 'getAddressBalances': {
         const { address } = operation;
@@ -266,105 +247,30 @@ export class AlchemyApiClient extends BaseApiClient {
     return extractAlchemyNetworkName(this.baseUrl, this.blockchain);
   }
 
-  private async getAssetTransfers(
-    address: string,
-    category: string[] = ['external', 'internal', 'erc20', 'erc721', 'erc1155'],
-    contractAddress?: string
-  ): Promise<Result<AlchemyAssetTransfer[], Error>> {
-    const allTransfers: AlchemyAssetTransfer[] = [];
+  private async getAddressInfo(address: string): Promise<Result<{ code: string; isContract: boolean }, Error>> {
+    const result = await this.httpClient.post<JsonRpcResponse<string>>(`/${this.apiKey}`, {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'eth_getCode',
+      params: [address, 'latest'],
+    });
 
-    // Get transfers FROM address (outgoing transactions)
-    const fromParams: AlchemyAssetTransferParams = {
-      category,
-      excludeZeroValue: false,
-      fromAddress: address,
-      fromBlock: '0x0', // Explicit fromBlock for complete historical data
-      maxCount: '0x3e8', // 1000 in hex
-      toBlock: 'latest', // Explicit toBlock for latest data
-      withMetadata: true,
-    };
-    if (contractAddress) {
-      fromParams.contractAddresses = [contractAddress];
-    }
-    const fromTransfersResult = await this.getAssetTransfersPaginated(fromParams);
-
-    if (fromTransfersResult.isErr()) {
-      return err(fromTransfersResult.error);
+    if (result.isErr()) {
+      this.logger.error(`Failed to fetch address code - Error: ${getErrorMessage(result.error)}`);
+      return err(result.error);
     }
 
-    // Get transfers TO address (incoming transactions)
-    const toParams: AlchemyAssetTransferParams = {
-      category,
-      excludeZeroValue: false,
-      fromBlock: '0x0', // Explicit fromBlock for complete historical data
-      maxCount: '0x3e8', // 1000 in hex
-      toAddress: address,
-      toBlock: 'latest', // Explicit toBlock for latest data
-      withMetadata: true,
-    };
-    if (contractAddress) {
-      toParams.contractAddresses = [contractAddress];
-    }
-    const toTransfersResult = await this.getAssetTransfersPaginated(toParams);
-
-    if (toTransfersResult.isErr()) {
-      return err(toTransfersResult.error);
+    const response = result.value;
+    if (typeof response.result !== 'string') {
+      this.logger.warn({ response: response.result, address: maskAddress(address) }, 'Unexpected eth_getCode response');
+      return err(new Error('Invalid eth_getCode response'));
     }
 
-    allTransfers.push(...fromTransfersResult.value, ...toTransfersResult.value);
+    const code = response.result;
+    const normalized = code.toLowerCase();
+    const isContract = normalized !== '0x' && normalized !== '0x0';
 
-    return ok(allTransfers);
-  }
-
-  private async getAssetTransfersPaginated(
-    params: AlchemyAssetTransferParams
-  ): Promise<Result<AlchemyAssetTransfer[], Error>> {
-    const transfers: AlchemyAssetTransfer[] = [];
-    let pageKey: string | undefined;
-    let pageCount = 0;
-    const maxPages = 10; // Safety limit to prevent infinite loops
-
-    do {
-      const requestParams: AlchemyAssetTransferParams = { ...params };
-      if (pageKey) {
-        requestParams.pageKey = pageKey;
-      }
-
-      const result = await this.httpClient.post(
-        `/${this.apiKey}`,
-        {
-          id: 1,
-          jsonrpc: '2.0',
-          method: 'alchemy_getAssetTransfers',
-          params: [requestParams],
-        },
-        { schema: AlchemyAssetTransfersJsonRpcResponseSchema }
-      );
-
-      if (result.isErr()) {
-        this.logger.error(`Failed to fetch asset transfers - Error: ${getErrorMessage(result.error)}`);
-        return err(result.error);
-      }
-
-      const response = result.value;
-      const responseTransfers = response.result?.transfers || [];
-      transfers.push(...responseTransfers);
-
-      pageKey = response.result?.pageKey;
-      pageCount++;
-
-      this.logger.debug(
-        `Fetched page ${pageCount}: ${responseTransfers.length} transfers${pageKey ? ' (more pages available)' : ' (last page)'}`
-      );
-
-      // Safety check to prevent infinite pagination
-      if (pageCount >= maxPages) {
-        this.logger.warn(`Reached maximum page limit (${maxPages}), stopping pagination`);
-        break;
-      }
-    } while (pageKey);
-
-    return ok(transfers);
+    return ok({ code, isContract });
   }
 
   /**
@@ -428,112 +334,6 @@ export class AlchemyApiClient extends BaseApiClient {
 
     this.logger.debug(`Successfully fetched all ${receiptMap.size} receipts`);
     return ok(receiptMap);
-  }
-
-  private async getAddressInternalTransactions(
-    address: string
-  ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const result = await this.getAssetTransfers(address, ['internal']);
-
-    if (result.isErr()) {
-      this.logger.error(
-        `Failed to fetch raw internal transactions for ${address} - Error: ${getErrorMessage(result.error)}`
-      );
-      return err(result.error);
-    }
-
-    const rawTransactions = result.value;
-
-    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-      this.logger.debug(`No raw internal transactions found - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    // Fetch transaction receipts for gas fee data (REQUIRED for accurate reporting)
-    const txHashes = rawTransactions.map((tx) => tx.hash);
-    const receiptsResult = await this.getTransactionReceipts(txHashes);
-
-    if (receiptsResult.isErr()) {
-      this.logger.error(`Failed to fetch receipts - ${getErrorMessage(receiptsResult.error)}`);
-      return err(receiptsResult.error);
-    }
-
-    // Merge receipt data into transfers
-    mergeReceiptsIntoTransfers(rawTransactions, receiptsResult.value, this.chainConfig.nativeCurrency);
-
-    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
-    for (const rawTx of rawTransactions) {
-      const mapResult = mapAlchemyTransaction(rawTx);
-
-      if (mapResult.isErr()) {
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized internal transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
-    );
-    return ok(transactions);
-  }
-
-  private async getAddressTransactions(
-    address: string
-  ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const result = await this.getAssetTransfers(address, ['external']);
-
-    if (result.isErr()) {
-      this.logger.error(
-        `Failed to fetch raw address transactions for ${address} - Error: ${getErrorMessage(result.error)}`
-      );
-      return err(result.error);
-    }
-
-    const rawTransactions = result.value;
-
-    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-      this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    // Fetch transaction receipts for gas fee data (REQUIRED for accurate reporting)
-    const txHashes = rawTransactions.map((tx) => tx.hash);
-    const receiptsResult = await this.getTransactionReceipts(txHashes);
-
-    if (receiptsResult.isErr()) {
-      this.logger.error(`Failed to fetch receipts - ${getErrorMessage(receiptsResult.error)}`);
-      return err(receiptsResult.error);
-    }
-
-    // Merge receipt data into transfers
-    mergeReceiptsIntoTransfers(rawTransactions, receiptsResult.value, this.chainConfig.nativeCurrency);
-
-    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
-    for (const rawTx of rawTransactions) {
-      const mapResult = mapAlchemyTransaction(rawTx);
-
-      if (mapResult.isErr()) {
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
-    );
-    return ok(transactions);
   }
 
   private async getAddressBalances(address: string): Promise<Result<RawBalanceData, Error>> {
@@ -644,60 +444,6 @@ export class AlchemyApiClient extends BaseApiClient {
 
     this.logger.debug(`Found ${balances.length} token balances for ${address}`);
     return ok(balances);
-  }
-
-  private async getAddressTokenTransactions(
-    address: string,
-    contractAddress?: string
-  ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const result = await this.getAssetTransfers(address, ['erc20', 'erc721', 'erc1155'], contractAddress);
-
-    if (result.isErr()) {
-      this.logger.error(
-        `Failed to fetch raw token transactions for ${address} - Error: ${getErrorMessage(result.error)}`
-      );
-      return err(result.error);
-    }
-
-    const rawTransactions = result.value;
-
-    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-      this.logger.debug(`No raw token transactions found - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    // Fetch transaction receipts for gas fee data (REQUIRED for accurate reporting)
-    const txHashes = rawTransactions.map((tx) => tx.hash);
-    const receiptsResult = await this.getTransactionReceipts(txHashes);
-
-    if (receiptsResult.isErr()) {
-      this.logger.error(`Failed to fetch receipts - ${getErrorMessage(receiptsResult.error)}`);
-      return err(receiptsResult.error);
-    }
-
-    // Merge receipt data into transfers
-    mergeReceiptsIntoTransfers(rawTransactions, receiptsResult.value, this.chainConfig.nativeCurrency);
-
-    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
-    for (const rawTx of rawTransactions) {
-      const mapResult = mapAlchemyTransaction(rawTx);
-
-      if (mapResult.isErr()) {
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized token transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
-    );
-    return ok(transactions);
   }
 
   private streamAddressTransactions(

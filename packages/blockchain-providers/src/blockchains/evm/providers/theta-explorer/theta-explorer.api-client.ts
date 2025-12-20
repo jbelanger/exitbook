@@ -9,7 +9,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import type { StreamingBatchResult, TransactionWithRawData } from '../../../../core/types/index.js';
+import type { StreamingBatchResult } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import type { EvmTransaction } from '../../types.js';
 
@@ -72,17 +72,12 @@ export class ThetaExplorerApiClient extends BaseApiClient {
     };
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
+  execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {
-      case 'getAddressTransactions': {
-        const { address } = operation;
-        this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-        return (await this.getAddressTransactions(address)) as Result<T, Error>;
-      }
       default:
-        return err(new Error(`Unsupported operation: ${operation.type}`));
+        return Promise.resolve(err(new Error(`Unsupported operation: ${operation.type}`)));
     }
   }
 
@@ -110,90 +105,6 @@ export class ThetaExplorerApiClient extends BaseApiClient {
         return data && typeof data.total_supply === 'number';
       },
     };
-  }
-
-  private async getAddressTransactions(
-    address: string
-  ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
-    const result = await this.getTransactions(address);
-
-    if (result.isErr()) {
-      this.logger.error(
-        `Failed to fetch raw address transactions for ${address} - Error: ${getErrorMessage(result.error)}`
-      );
-      return err(result.error);
-    }
-
-    const rawTransactions = result.value;
-
-    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-      this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    const transactions: TransactionWithRawData<EvmTransaction>[] = [];
-    for (const rawTx of rawTransactions) {
-      const mapResult = mapThetaExplorerTransaction(rawTx);
-
-      if (mapResult.isErr()) {
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
-    );
-    return ok(transactions);
-  }
-
-  private async getTransactions(address: string): Promise<Result<ThetaTransaction[], Error>> {
-    const transactions: ThetaTransaction[] = [];
-    let currentPage = 1;
-    const limitPerPage = 100;
-    let hasMorePages = true;
-
-    while (hasMorePages) {
-      const params = new URLSearchParams({
-        limitNumber: limitPerPage.toString(),
-        pageNumber: currentPage.toString(),
-      });
-
-      const result = await this.httpClient.get<ThetaAccountTxResponse>(
-        `/accounttx/${address.toLowerCase()}?${params.toString()}`
-      );
-
-      if (result.isErr()) {
-        // Theta Explorer returns 404 when no transactions are found for a type
-        if (result.error.message.includes('HTTP 404')) {
-          this.logger.debug(`No transactions found for ${maskAddress(address)}`);
-          break;
-        }
-        return err(result.error);
-      }
-
-      const response = result.value;
-      const pageTxs = response.body || [];
-      transactions.push(...pageTxs);
-
-      this.logger.debug(`Fetched page ${currentPage}/${response.totalPageNumber}: ${pageTxs.length} transactions`);
-
-      hasMorePages = currentPage < response.totalPageNumber;
-      currentPage++;
-
-      if (currentPage > 100) {
-        this.logger.warn('Reached maximum page limit (100), stopping pagination');
-        break;
-      }
-    }
-
-    return ok(transactions);
   }
 
   private streamAddressTransactions(

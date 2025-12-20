@@ -41,7 +41,7 @@ export const EvmAddressSchema = z.string().transform((val) => normalizeEvmAddres
  */
 export const EvmTransactionSchema = NormalizedTransactionBaseSchema.extend({
   // EVM-specific transaction data
-  type: z.enum(['transfer', 'token_transfer', 'internal', 'contract_call']),
+  type: z.enum(['transfer', 'token_transfer', 'internal', 'contract_call', 'beacon_withdrawal']),
   status: z.enum(['success', 'failed', 'pending']),
   timestamp: z.number().positive('Timestamp must be positive'),
   providerName: z.string().min(1, 'Provider Name must not be empty'),

@@ -131,10 +131,11 @@ export function transformTokenTransfer(
     amount: rawData.value,
     blockHeight: parseInt(rawData.blockNumber),
     blockId: rawData.blockHash,
-    currency: rawData.tokenSymbol,
+    // Use contract address for currency to keep eventId stable across providers.
+    currency: tokenAddress ?? rawData.contractAddress,
     eventId: generateUniqueTransactionEventId({
       amount: rawData.value,
-      currency: rawData.tokenSymbol,
+      currency: tokenAddress ?? rawData.contractAddress,
       from,
       id: rawData.hash,
       timestamp,

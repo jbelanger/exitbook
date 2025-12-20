@@ -20,7 +20,9 @@ export type ProviderOperationParams =
       type: 'getAddressTokenTransactions';
     }
   | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressTokenBalances' }
-  | { contractAddress: string; type: 'getTokenMetadata' };
+  | { contractAddress: string; type: 'getTokenMetadata' }
+  | { address: string; limit?: number | undefined; type: 'getAddressBeaconWithdrawals' }
+  | { address: string; type: 'getAddressInfo' };
 
 export type ProviderOperation = {
   getCacheKey?: (params: ProviderOperationParams) => string;
@@ -32,6 +34,7 @@ type StreamingOperationParams = Extract<
   | { type: 'getAddressTransactions' }
   | { type: 'getAddressInternalTransactions' }
   | { type: 'getAddressTokenTransactions' }
+  | { type: 'getAddressBeaconWithdrawals' }
 >;
 
 type OneShotOperationParams = Exclude<ProviderOperationParams, StreamingOperationParams>;
@@ -48,7 +51,9 @@ export type ProviderOperationType =
   | 'getAddressTokenTransactions'
   | 'getAddressTokenBalances'
   | 'getAddressInternalTransactions'
-  | 'getTokenMetadata';
+  | 'getTokenMetadata'
+  | 'getAddressBeaconWithdrawals'
+  | 'getAddressInfo';
 
 /**
  * Result from failover execution that includes provenance

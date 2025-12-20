@@ -9,7 +9,6 @@ import type {
   ProviderOperation,
   RawBalanceData,
   StreamingBatchResult,
-  TransactionWithRawData,
 } from '../../../../core/index.js';
 import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
@@ -116,8 +115,6 @@ export class TatumBCashApiClient extends BaseApiClient {
     );
 
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return (await this.getAddressTransactions(operation.address)) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances(operation.address)) as Result<T, Error>;
       case 'hasAddressTransactions':
@@ -203,69 +200,6 @@ export class TatumBCashApiClient extends BaseApiClient {
     );
 
     return ok(createRawBalanceData(balanceSats, balanceBTC, this.chainConfig.nativeCurrency));
-  }
-
-  /**
-   * Get raw address transactions - no transformation, just raw Tatum API data
-   */
-  async getAddressTransactions(
-    address: string,
-    params?: {
-      pageSize?: number | undefined;
-      skip?: number | undefined;
-    }
-  ): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-
-    const normalizedAddress = this.normalizeAddressForApi(address);
-    const queryParams = {
-      pageSize: Math.min(params?.pageSize || 50, 50),
-      skip: params?.skip || 0,
-    };
-
-    const result = await this.makeRequest<TatumBCashTransaction[]>(
-      `/transaction/address/${normalizedAddress}`,
-      queryParams,
-      z.array(TatumBCashTransactionSchema)
-    );
-
-    if (result.isErr()) {
-      this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
-      return err(result.error);
-    }
-
-    const rawTransactions = result.value;
-
-    if (!Array.isArray(rawTransactions)) {
-      this.logger.debug(`No transactions found - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    // Normalize transactions immediately using mapper
-    const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
-    for (const rawTx of rawTransactions) {
-      const mapResult = mapTatumBCashTransaction(rawTx, this.chainConfig);
-
-      if (mapResult.isErr()) {
-        // Fail fast - provider returned invalid data
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-    }
-
-    this.logger.debug(
-      `Retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
-    );
-
-    return ok(transactions);
   }
 
   override getHealthCheckConfig() {
