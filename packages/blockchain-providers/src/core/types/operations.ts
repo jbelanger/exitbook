@@ -64,6 +64,26 @@ export interface FailoverExecutionResult<T> {
 }
 
 /**
+ * Statistics about batch processing
+ */
+export interface BatchStats {
+  /**
+   * Number of items fetched from provider
+   */
+  fetched: number;
+
+  /**
+   * Number of items filtered by in-memory deduplication
+   */
+  deduplicated: number;
+
+  /**
+   * Number of items yielded to caller (fetched - deduplicated)
+   */
+  yielded: number;
+}
+
+/**
  * Result from streaming failover execution with cursor state
  * Used by executeWithFailover to yield batches with provenance and cursor
  */
@@ -72,4 +92,5 @@ export interface FailoverStreamingExecutionResult<T> {
   providerName: string;
   cursor: CursorState;
   isComplete: boolean;
+  stats: BatchStats;
 }

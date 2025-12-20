@@ -58,6 +58,8 @@ describe('EvmImporter', () => {
             totalFetched: normalData.length,
             metadata: { providerName: 'alchemy', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       })
       .mockImplementationOnce(async function* () {
@@ -70,6 +72,8 @@ describe('EvmImporter', () => {
             totalFetched: internalData.length,
             metadata: { providerName: 'alchemy', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       })
       .mockImplementationOnce(async function* () {
@@ -82,6 +86,8 @@ describe('EvmImporter', () => {
             totalFetched: tokenData.length,
             metadata: { providerName: 'alchemy', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
   };

@@ -149,6 +149,8 @@ describe('CardanoTransactionImporter', () => {
               isComplete: true,
             },
           },
+          isComplete: true,
+          stats: { fetched: 1, deduplicated: 0, yielded: 1 },
         });
       });
 
@@ -202,6 +204,8 @@ describe('CardanoTransactionImporter', () => {
               isComplete: true,
             },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
 
@@ -245,6 +249,8 @@ describe('CardanoTransactionImporter', () => {
               isComplete: true,
             },
           },
+          isComplete: true,
+          stats: { fetched: 3, deduplicated: 0, yielded: 3 },
         });
       });
 
@@ -320,6 +326,8 @@ describe('CardanoTransactionImporter', () => {
               isComplete: true,
             },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
 

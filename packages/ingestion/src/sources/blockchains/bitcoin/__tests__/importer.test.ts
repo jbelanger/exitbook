@@ -153,6 +153,12 @@ describe('BitcoinTransactionImporter', () => {
               isComplete: true,
             },
           },
+          isComplete: true,
+          stats: {
+            fetched: 1,
+            deduplicated: 0,
+            yielded: 1,
+          },
         });
       });
 
@@ -206,6 +212,8 @@ describe('BitcoinTransactionImporter', () => {
               isComplete: true,
             },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
 
@@ -249,6 +257,8 @@ describe('BitcoinTransactionImporter', () => {
               isComplete: true,
             },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
 
@@ -321,9 +331,10 @@ describe('BitcoinTransactionImporter', () => {
             metadata: {
               providerName: 'blockstream.info',
               updatedAt: Date.now(),
-              isComplete: true,
             },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
 

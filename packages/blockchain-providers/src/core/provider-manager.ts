@@ -243,6 +243,11 @@ export class BlockchainProviderManager {
           },
         },
         isComplete: true,
+        stats: {
+          fetched: 1,
+          deduplicated: 0,
+          yielded: 1,
+        },
       });
     }
   }
@@ -618,20 +623,34 @@ export class BlockchainProviderManager {
 
           // Deduplicate (especially important after failover with replay window)
           // Note: deduplicateTransactions mutates deduplicationWindow in place for performance
+          const fetchedCount = batch.data.length;
           const deduplicated = deduplicateTransactions(
             batch.data as { normalized: NormalizedTransactionBase }[],
             deduplicationWindow,
             DEDUP_WINDOW_SIZE
           );
+          const deduplicatedCount = fetchedCount - deduplicated.length;
 
           // Critical: Always yield completion batches, even with zero data after dedup
           // Otherwise importer never receives "complete" signal when last page contains only duplicates
           if (deduplicated.length > 0 || batch.isComplete) {
+            // Log dedup stats when duplicates were found
+            if (deduplicatedCount > 0) {
+              logger.info(
+                `Filtered ${deduplicatedCount} duplicate(s) via in-memory dedup (${deduplicated.length} yielded, ${fetchedCount} fetched)`
+              );
+            }
+
             yield ok({
               data: deduplicated as T[],
               providerName: provider.name,
               cursor: batch.cursor,
               isComplete: batch.isComplete,
+              stats: {
+                fetched: fetchedCount,
+                deduplicated: deduplicatedCount,
+                yielded: deduplicated.length,
+              },
             });
           }
 

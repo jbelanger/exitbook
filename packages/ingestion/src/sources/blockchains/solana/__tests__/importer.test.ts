@@ -51,6 +51,8 @@ describe('SolanaTransactionImporter', () => {
           totalFetched: data.length,
           metadata: { providerName: 'helius', updatedAt: Date.now(), isComplete: true },
         },
+        isComplete: true,
+        stats: { fetched: 0, deduplicated: 0, yielded: 0 },
       });
     });
   };
