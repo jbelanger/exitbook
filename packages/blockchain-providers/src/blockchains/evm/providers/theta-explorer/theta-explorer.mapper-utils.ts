@@ -2,7 +2,7 @@ import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 import { type Result, ok, err } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../core/index.js';
+import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
 import { withValidation } from '../../../../core/index.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
@@ -168,11 +168,21 @@ function mapThetaExplorerTransactionInternal(rawData: ThetaTransaction): Result<
   // - THETA transfers are mapped as token_transfer, so amounts should be normalized (not wei)
   // - TFUEL transfers are mapped as native transfer, so amounts should stay in wei
   const amountFormatted = formatThetaAmount(amount, isTheta, THETA_DECIMALS);
+  const transactionType = isTheta ? 'token_transfer' : 'transfer';
 
   const transaction: EvmTransaction = {
     amount: amountFormatted,
     blockHeight,
     currency,
+    eventId: generateUniqueTransactionEventId({
+      amount: amountFormatted,
+      currency,
+      from,
+      id: rawData.hash,
+      timestamp,
+      to,
+      type: transactionType,
+    }),
     from,
     id: rawData.hash,
     providerName: 'theta-explorer',
@@ -181,7 +191,7 @@ function mapThetaExplorerTransactionInternal(rawData: ThetaTransaction): Result<
     to,
     tokenSymbol: isTheta ? 'THETA' : 'TFUEL',
     tokenType: 'native',
-    type: isTheta ? 'token_transfer' : 'transfer',
+    type: transactionType,
   };
 
   return ok(transaction);

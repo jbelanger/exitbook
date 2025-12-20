@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isZero,
   toDecimal,
-  deduplicateByTransactionId,
+  deduplicateByEventId,
   analyzeFundFlowFromNormalized,
   determineOperationFromFundFlow,
 } from '../processor-utils.js';
@@ -33,6 +33,19 @@ const EXTERNAL_ADDRESS = 'inj1external0000000000000000000000000000';
 const CONTRACT_ADDRESS = 'inj1contract0000000000000000000000000000';
 
 describe('Cosmos Processor Utils', () => {
+  const createTransaction = (overrides: Partial<CosmosTransaction> = {}): CosmosTransaction => ({
+    amount: '0',
+    currency: 'INJ',
+    eventId: 'event1',
+    from: USER_ADDRESS,
+    id: 'tx1',
+    providerName: 'injective-explorer',
+    status: 'success' as const,
+    timestamp: Date.now(),
+    to: EXTERNAL_ADDRESS,
+    ...overrides,
+  });
+
   describe('isZero', () => {
     it('should return true for zero string', () => {
       expect(isZero('0')).toBe(true);
@@ -81,100 +94,76 @@ describe('Cosmos Processor Utils', () => {
     });
   });
 
-  describe('deduplicateByTransactionId', () => {
-    it('should keep first occurrence of duplicate IDs', () => {
+  describe('deduplicateByEventId', () => {
+    it('should keep first occurrence of duplicate eventIds', () => {
       const transactions: CosmosTransaction[] = [
-        {
+        createTransaction({
           amount: '1000',
-          currency: 'INJ',
-          from: USER_ADDRESS,
+          eventId: 'event1',
           id: 'tx1',
           providerName: 'provider1',
-          status: 'success',
-          timestamp: Date.now(),
-          to: EXTERNAL_ADDRESS,
-        },
-        {
+        }),
+        createTransaction({
           amount: '2000',
-          currency: 'INJ',
-          from: USER_ADDRESS,
-          id: 'tx1', // Duplicate
+          eventId: 'event1', // Duplicate
+          id: 'tx2',
           providerName: 'provider2',
-          status: 'success',
-          timestamp: Date.now(),
-          to: EXTERNAL_ADDRESS,
-        },
-        {
+        }),
+        createTransaction({
           amount: '3000',
-          currency: 'INJ',
-          from: USER_ADDRESS,
+          eventId: 'event2',
           id: 'tx2',
           providerName: 'provider3',
-          status: 'success',
-          timestamp: Date.now(),
-          to: EXTERNAL_ADDRESS,
-        },
+        }),
       ];
 
-      const result = deduplicateByTransactionId(transactions);
+      const result = deduplicateByEventId(transactions);
 
       expect(result).toHaveLength(2);
-      expect(result[0]?.id).toBe('tx1');
+      expect(result[0]?.eventId).toBe('event1');
       expect(result[0]?.amount).toBe('1000'); // First occurrence kept
-      expect(result[1]?.id).toBe('tx2');
+      expect(result[1]?.eventId).toBe('event2');
     });
 
     it('should handle empty array', () => {
-      const result = deduplicateByTransactionId([]);
+      const result = deduplicateByEventId([]);
       expect(result).toHaveLength(0);
     });
 
     it('should handle array with no duplicates', () => {
       const transactions: CosmosTransaction[] = [
-        {
+        createTransaction({
           amount: '1000',
-          currency: 'INJ',
-          from: USER_ADDRESS,
+          eventId: 'event1',
           id: 'tx1',
           providerName: 'provider1',
-          status: 'success',
-          timestamp: Date.now(),
-          to: EXTERNAL_ADDRESS,
-        },
-        {
+        }),
+        createTransaction({
           amount: '2000',
-          currency: 'INJ',
-          from: USER_ADDRESS,
+          eventId: 'event2',
           id: 'tx2',
           providerName: 'provider2',
-          status: 'success',
-          timestamp: Date.now(),
-          to: EXTERNAL_ADDRESS,
-        },
+        }),
       ];
 
-      const result = deduplicateByTransactionId(transactions);
+      const result = deduplicateByEventId(transactions);
       expect(result).toHaveLength(2);
     });
   });
 
   describe('analyzeFundFlowFromNormalized', () => {
     it('should analyze incoming native transfer', () => {
-      const transaction: CosmosTransaction = {
+      const transaction = createTransaction({
         amount: '1500000000000000000', // 1.5 INJ
         blockHeight: 100,
-        currency: 'INJ',
         feeAmount: '500000000000000',
         feeCurrency: 'INJ',
         from: EXTERNAL_ADDRESS,
         id: 'tx123',
         messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
         tokenType: 'native',
-      };
+      });
 
       const fundFlow = analyzeFundFlowFromNormalized(
         transaction,
@@ -198,21 +187,16 @@ describe('Cosmos Processor Utils', () => {
     });
 
     it('should analyze outgoing native transfer', () => {
-      const transaction: CosmosTransaction = {
+      const transaction = createTransaction({
         amount: '2000000000000000000', // 2 INJ
         blockHeight: 101,
-        currency: 'INJ',
         feeAmount: '500000000000000',
         feeCurrency: 'INJ',
-        from: USER_ADDRESS,
         id: 'tx456',
         messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
         tokenType: 'native',
-      };
+      });
 
       const fundFlow = analyzeFundFlowFromNormalized(
         transaction,
@@ -229,21 +213,16 @@ describe('Cosmos Processor Utils', () => {
     });
 
     it('should analyze self-transfer with both inflows and outflows', () => {
-      const transaction: CosmosTransaction = {
+      const transaction = createTransaction({
         amount: '500000000000000000', // 0.5 INJ
         blockHeight: 102,
-        currency: 'INJ',
         feeAmount: '500000000000000',
         feeCurrency: 'INJ',
-        from: USER_ADDRESS,
         id: 'tx789',
         messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
         tokenType: 'native',
-      };
+      });
 
       const fundFlow = analyzeFundFlowFromNormalized(
         transaction,
@@ -260,7 +239,7 @@ describe('Cosmos Processor Utils', () => {
     });
 
     it('should handle token transfers with metadata', () => {
-      const transaction: CosmosTransaction = {
+      const transaction = createTransaction({
         amount: '1000000000', // 1000 USDT (normalized, 6 decimals)
         blockHeight: 103,
         currency: 'USDT',
@@ -269,15 +248,12 @@ describe('Cosmos Processor Utils', () => {
         from: EXTERNAL_ADDRESS,
         id: 'tx101',
         messageType: '/cosmwasm.wasm.v1.MsgExecuteContract',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
         tokenAddress: 'inj1usdt000000000000000000000000000000000',
         tokenDecimals: 6,
         tokenSymbol: 'USDT',
         tokenType: 'cw20',
-      };
+      });
 
       const fundFlow = analyzeFundFlowFromNormalized(
         transaction,
@@ -293,11 +269,10 @@ describe('Cosmos Processor Utils', () => {
     });
 
     it('should detect Peggy bridge transfer', () => {
-      const transaction: CosmosTransaction = {
+      const transaction = createTransaction({
         amount: '1000000000000000000', // 1 INJ
         blockHeight: 200,
         bridgeType: 'peggy',
-        currency: 'INJ',
         ethereumReceiver: '0xuser000000000000000000000000000000000000',
         ethereumSender: '0xexternal00000000000000000000000000000000',
         eventNonce: '12345',
@@ -306,12 +281,9 @@ describe('Cosmos Processor Utils', () => {
         from: EXTERNAL_ADDRESS,
         id: 'tx301',
         messageType: '/injective.peggy.v1.MsgSendToInjective',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
         tokenType: 'native',
-      };
+      });
 
       const fundFlow = analyzeFundFlowFromNormalized(
         transaction,
@@ -325,7 +297,7 @@ describe('Cosmos Processor Utils', () => {
     });
 
     it('should detect IBC transfer', () => {
-      const transaction: CosmosTransaction = {
+      const transaction = createTransaction({
         amount: '5000000', // 5 OSMO
         blockHeight: 202,
         bridgeType: 'ibc',
@@ -335,14 +307,11 @@ describe('Cosmos Processor Utils', () => {
         from: EXTERNAL_ADDRESS,
         id: 'tx303',
         messageType: '/ibc.applications.transfer.v1.MsgTransfer',
-        providerName: 'injective-explorer',
         sourceChannel: 'channel-8',
         sourcePort: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
         tokenType: 'ibc',
-      };
+      });
 
       const fundFlow = analyzeFundFlowFromNormalized(
         transaction,
@@ -358,21 +327,16 @@ describe('Cosmos Processor Utils', () => {
     });
 
     it('should handle zero amount transactions', () => {
-      const transaction: CosmosTransaction = {
+      const transaction = createTransaction({
         amount: '0',
         blockHeight: 105,
-        currency: 'INJ',
         feeAmount: '500000000000000',
         feeCurrency: 'INJ',
-        from: USER_ADDRESS,
         id: 'tx201',
         messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
         tokenType: 'native',
-      };
+      });
 
       const fundFlow = analyzeFundFlowFromNormalized(
         transaction,
@@ -386,7 +350,7 @@ describe('Cosmos Processor Utils', () => {
     });
 
     it('should use native currency from chain config when currency is undefined', () => {
-      const transaction: CosmosTransaction = {
+      const transaction = createTransaction({
         amount: '5000000', // 5 OSMO
         blockHeight: 301,
         currency: 'OSMO',
@@ -396,11 +360,9 @@ describe('Cosmos Processor Utils', () => {
         id: 'tx402',
         messageType: '/cosmos.bank.v1beta1.MsgSend',
         providerName: 'mintscan',
-        status: 'success',
-        timestamp: Date.now(),
         to: 'osmo1user000000000000000000000000000000000',
         tokenType: 'native',
-      };
+      });
 
       const fundFlow = analyzeFundFlowFromNormalized(
         transaction,
@@ -416,21 +378,16 @@ describe('Cosmos Processor Utils', () => {
     });
 
     it('should handle contract interaction', () => {
-      const transaction: CosmosTransaction = {
+      const transaction = createTransaction({
         amount: '0',
         blockHeight: 107,
-        currency: 'INJ',
         feeAmount: '500000000000000',
         feeCurrency: 'INJ',
-        from: USER_ADDRESS,
         id: 'tx203',
         messageType: '/cosmwasm.wasm.v1.MsgExecuteContract',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         tokenAddress: 'inj1contract0000000000000000000000000000',
-      };
+      });
 
       const fundFlow = analyzeFundFlowFromNormalized(
         transaction,
@@ -442,20 +399,16 @@ describe('Cosmos Processor Utils', () => {
     });
 
     it('should handle missing fee data gracefully', () => {
-      const transaction: CosmosTransaction = {
+      const transaction = createTransaction({
         amount: '1000000000000000000',
         blockHeight: 402,
-        currency: 'INJ',
         from: EXTERNAL_ADDRESS,
         id: 'tx503',
         messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
         tokenType: 'native',
         // No feeAmount field
-      };
+      });
 
       const fundFlow = analyzeFundFlowFromNormalized(
         transaction,

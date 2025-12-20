@@ -4,7 +4,6 @@ import type {
   BlockchainProviderManager,
   TransactionWithRawData,
 } from '@exitbook/blockchain-providers';
-import { generateUniqueTransactionEventId } from '@exitbook/blockchain-providers';
 import type { CursorState } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -92,15 +91,7 @@ export class BitcoinTransactionImporter implements IImporter {
 
       // Map to raw transactions
       const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
-        eventId: generateUniqueTransactionEventId({
-          amount: txWithRaw.normalized.outputs[0]?.value || '0',
-          currency: txWithRaw.normalized.currency,
-          from: txWithRaw.normalized.inputs[0]?.address || '',
-          id: txWithRaw.normalized.id,
-          timestamp: txWithRaw.normalized.timestamp,
-          to: txWithRaw.normalized.outputs[0]?.address,
-          type: 'transfer',
-        }),
+        eventId: txWithRaw.normalized.eventId,
         blockchainTransactionHash: txWithRaw.normalized.id,
         normalizedData: txWithRaw.normalized,
         providerName: providerBatch.providerName,

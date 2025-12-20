@@ -8,6 +8,8 @@
 import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
+import { NormalizedTransactionBaseSchema } from '../../core/schemas/normalized-transaction.js';
+
 /**
  * Solana address schema with validation but NO case transformation.
  *
@@ -144,8 +146,17 @@ export const SolanaInstructionSchema = z.object({
 
 /**
  * Schema for normalized Solana transaction
+ *
+ * Extends NormalizedTransactionBaseSchema to ensure consistent identity handling.
+ * The eventId field is computed by providers during normalization.
+ *
+ * Note: We currently treat one on-chain signature as the raw/event granularity for Solana.
+ * If/when we emit multiple raw events per signature (e.g., per instruction / inner instruction,
+ * per token account change, etc.), eventId must incorporate a stable discriminator such as
+ * instruction index + inner instruction index + account index.
  */
-export const SolanaTransactionSchema = z.object({
+export const SolanaTransactionSchema = NormalizedTransactionBaseSchema.extend({
+  // Solana-specific transaction data
   accountChanges: z.array(SolanaAccountChangeSchema).optional(),
   amount: DecimalStringSchema,
   blockHeight: z.number().optional(),
@@ -155,7 +166,6 @@ export const SolanaTransactionSchema = z.object({
   feeAmount: DecimalStringSchema.optional(),
   feeCurrency: z.string().optional(),
   from: SolanaAddressSchema, // From address - case-sensitive
-  id: z.string().min(1, 'Transaction ID must not be empty'),
   innerInstructions: z.array(SolanaInstructionSchema).optional(),
   instructions: z.array(SolanaInstructionSchema).optional(),
   logMessages: z.array(z.string()).optional(),

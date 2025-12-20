@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDenom, generatePeggyId, isTransactionRelevant } from '../utils.js';
+import { formatDenom, generatePeggyEventRootId, isTransactionRelevant } from '../utils.js';
 
 describe('mapper-utils', () => {
   describe('isTransactionRelevant', () => {
@@ -84,46 +84,46 @@ describe('mapper-utils', () => {
     });
   });
 
-  describe('generatePeggyId', () => {
+  describe('generatePeggyEventRootId', () => {
     const txHash = '0xabcdef123456';
 
     it('should use event nonce when available', () => {
-      const result = generatePeggyId('12345', [1, 2], txHash);
+      const result = generatePeggyEventRootId('12345', [1, 2], txHash);
       expect(result).toBe('peggy-deposit-12345');
     });
 
     it('should use first claim id when event nonce is undefined', () => {
-      const result = generatePeggyId(undefined, [67, 89], txHash);
+      const result = generatePeggyEventRootId(undefined, [67, 89], txHash);
       expect(result).toBe('peggy-deposit-67');
     });
 
     it('should use transaction hash when both event nonce and claim id are unavailable', () => {
-      const result = generatePeggyId(undefined, [], txHash);
+      const result = generatePeggyEventRootId(undefined, [], txHash);
       expect(result).toBe(txHash);
     });
 
     it('should use transaction hash when claim id is undefined', () => {
-      const result = generatePeggyId(undefined, undefined, txHash);
+      const result = generatePeggyEventRootId(undefined, undefined, txHash);
       expect(result).toBe(txHash);
     });
 
     it('should prefer event nonce over claim id', () => {
-      const result = generatePeggyId('999', [123], txHash);
+      const result = generatePeggyEventRootId('999', [123], txHash);
       expect(result).toBe('peggy-deposit-999');
     });
 
     it('should handle string event nonces', () => {
-      const result = generatePeggyId('event-123-abc', [1], txHash);
+      const result = generatePeggyEventRootId('event-123-abc', [1], txHash);
       expect(result).toBe('peggy-deposit-event-123-abc');
     });
 
     it('should handle large claim id numbers', () => {
-      const result = generatePeggyId(undefined, [999999999], txHash);
+      const result = generatePeggyEventRootId(undefined, [999999999], txHash);
       expect(result).toBe('peggy-deposit-999999999');
     });
 
     it('should handle empty claim id array', () => {
-      const result = generatePeggyId(undefined, [], txHash);
+      const result = generatePeggyEventRootId(undefined, [], txHash);
       expect(result).toBe(txHash);
     });
   });

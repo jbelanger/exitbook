@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
+import { generateUniqueTransactionEventId } from '../../../../../core/index.ts';
 import { yoctoNearToNearString } from '../../../utils.ts';
 import {
   calculateTotalDeposit,
   calculateTotalGasBurnt,
   determineTransactionStatus,
   mapNearBlocksActions,
+  mapNearBlocksFtTransactionToTransaction,
   mapNearBlocksTransaction,
   parseNearBlocksTimestamp,
 } from '../mapper-utils.js';
-import type { NearBlocksTransaction } from '../nearblocks.schemas.js';
+import type { NearBlocksFtTransaction, NearBlocksTransaction } from '../nearblocks.schemas.js';
 
 describe('nearblocks/mapper-utils', () => {
   describe('yoctoNearToNearString', () => {
@@ -258,6 +260,16 @@ describe('nearblocks/mapper-utils', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
+        const expectedEventId = generateUniqueTransactionEventId({
+          amount: '100000000000000000000',
+          currency: 'NEAR',
+          from: 'alice.near',
+          id: 'AbCdEf123456',
+          timestamp: 1640000000000,
+          to: 'bob.near',
+          type: 'transfer',
+        });
+
         expect(result.value).toEqual({
           actions: [
             {
@@ -271,6 +283,7 @@ describe('nearblocks/mapper-utils', () => {
           amount: '100000000000000000000',
           blockHeight: 100000,
           currency: 'NEAR',
+          eventId: expectedEventId,
           feeAmount: '0.005',
           feeCurrency: 'NEAR',
           from: 'alice.near',
@@ -296,10 +309,21 @@ describe('nearblocks/mapper-utils', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
+        const expectedEventId = generateUniqueTransactionEventId({
+          amount: '0',
+          currency: 'NEAR',
+          from: 'alice.near',
+          id: 'TxHash123',
+          timestamp: 1640000000000,
+          to: 'bob.near',
+          type: 'contract_call',
+        });
+
         expect(result.value).toEqual({
           actions: [],
           amount: '0',
           currency: 'NEAR',
+          eventId: expectedEventId,
           from: 'alice.near',
           id: 'TxHash123',
           providerName: 'nearblocks',
@@ -327,6 +351,88 @@ describe('nearblocks/mapper-utils', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.status).toBe('failed');
+      }
+    });
+
+    it('should disambiguate FT transfers by receipt_id in eventId', () => {
+      const baseFtTx: NearBlocksFtTransaction = {
+        affected_account_id: 'alice.near',
+        block_timestamp: '1640000000000000000',
+        delta_amount: '-100',
+        ft: {
+          contract: 'usdc.fakes.near',
+          decimals: 2,
+          symbol: 'USDC',
+        },
+        involved_account_id: 'bob.near',
+        receipt_id: 'receipt-1',
+        transaction_hash: 'TxHash1',
+      };
+
+      const result1 = mapNearBlocksFtTransactionToTransaction(baseFtTx, 'alice.near', 'nearblocks');
+      expect(result1.isOk()).toBe(true);
+      if (result1.isOk()) {
+        expect(result1.value.id).toBe('TxHash1');
+        expect(result1.value.type).toBe('token_transfer');
+        expect(result1.value.tokenTransfers?.[0]?.contractAddress).toBe('usdc.fakes.near');
+
+        expect(result1.value.eventId).toBe(
+          generateUniqueTransactionEventId({
+            amount: '1',
+            currency: 'usdc.fakes.near',
+            from: 'alice.near',
+            id: 'TxHash1',
+            timestamp: 1640000000000,
+            to: 'bob.near',
+            tokenAddress: 'usdc.fakes.near',
+            traceId: 'receipt-1',
+            type: 'token_transfer',
+          })
+        );
+      }
+
+      const result2 = mapNearBlocksFtTransactionToTransaction(
+        { ...baseFtTx, receipt_id: 'receipt-2' },
+        'alice.near',
+        'nearblocks'
+      );
+      expect(result2.isOk()).toBe(true);
+      if (result1.isOk() && result2.isOk()) {
+        expect(result2.value.eventId).not.toBe(result1.value.eventId);
+      }
+    });
+
+    it('should fall back to receipt_id when transaction_hash is missing (never timestamp)', () => {
+      const ftTx: NearBlocksFtTransaction = {
+        affected_account_id: 'alice.near',
+        block_timestamp: '1640000000000000000',
+        delta_amount: '-100',
+        ft: {
+          contract: 'usdc.fakes.near',
+          decimals: 2,
+          symbol: 'USDC',
+        },
+        involved_account_id: 'bob.near',
+        receipt_id: 'receipt-no-hash',
+      };
+
+      const result = mapNearBlocksFtTransactionToTransaction(ftTx, 'alice.near', 'nearblocks');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.id).toBe('receipt-no-hash');
+        expect(result.value.eventId).toBe(
+          generateUniqueTransactionEventId({
+            amount: '1',
+            currency: 'usdc.fakes.near',
+            from: 'alice.near',
+            id: 'receipt-no-hash',
+            timestamp: 1640000000000,
+            to: 'bob.near',
+            tokenAddress: 'usdc.fakes.near',
+            traceId: 'receipt-no-hash',
+            type: 'token_transfer',
+          })
+        );
       }
     });
 

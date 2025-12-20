@@ -1,6 +1,8 @@
 import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
+import { NormalizedTransactionBaseSchema } from '../../core/schemas/normalized-transaction.js';
+
 /**
  * Cosmos address schema with automatic lowercase normalization
  *
@@ -31,10 +33,14 @@ export const CosmosAddressSchema = z
  * - IBC transfers
  * - Bridge operations (Peggy, Gravity Bridge)
  * - CosmWasm contract interactions
+ *
+ * Extends NormalizedTransactionBaseSchema to ensure consistent identity handling.
+ * The eventId field is computed by providers during normalization using
+ * generateUniqueTransactionEventId() with Cosmos-specific discriminating fields
+ * (e.g., message index, event attributes for transactions with multiple messages).
  */
-export const CosmosTransactionSchema = z.object({
+export const CosmosTransactionSchema = NormalizedTransactionBaseSchema.extend({
   // Core transaction data
-  id: z.string().min(1, 'Transaction ID must not be empty'),
   timestamp: z.number().positive('Timestamp must be positive'),
   status: z.enum(['success', 'failed', 'pending']),
 

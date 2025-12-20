@@ -9,6 +9,7 @@ import { err, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { BlockchainProviderManager } from '../provider-manager.js';
+import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.ts';
 import type {
   FailoverStreamingExecutionResult,
   IBlockchainProvider,
@@ -39,7 +40,7 @@ class MockProvider implements Partial<IBlockchainProvider> {
     burstLimit: 10,
   };
 
-  private batches: StreamingBatchResult<unknown>[] = [];
+  private batches: StreamingBatchResult<NormalizedTransactionBase>[] = [];
   private shouldFail = false;
   private failAfterBatch = -1;
 
@@ -58,7 +59,7 @@ class MockProvider implements Partial<IBlockchainProvider> {
     };
   }
 
-  setBatches(batches: StreamingBatchResult<unknown>[]) {
+  setBatches(batches: StreamingBatchResult<NormalizedTransactionBase>[]) {
     this.batches = batches;
   }
 
@@ -67,7 +68,7 @@ class MockProvider implements Partial<IBlockchainProvider> {
     this.failAfterBatch = afterBatch;
   }
 
-  async *executeStreaming<T>(
+  async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
     _operation: ProviderOperation,
     _cursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
@@ -136,7 +137,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
           data: [
             {
               raw: {},
-              normalized: { id: 'tx-2' },
+              normalized: { id: 'tx-2', eventId: 'event-2' },
             },
           ],
           cursor: {
@@ -177,7 +178,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       // Provider 3 only supports timestamp, not blockNumber
       provider3.setBatches([
         {
-          data: [{ raw: {}, normalized: { id: 'tx-2' } }],
+          data: [{ raw: {}, normalized: { id: 'tx-2', eventId: 'event-2' } }],
           cursor: {
             primary: { type: 'timestamp', value: Date.now() },
             lastTransactionId: 'tx-2',
@@ -221,7 +222,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       // Provider 3 supports timestamp (available in alternatives)
       provider3.setBatches([
         {
-          data: [{ raw: {}, normalized: { id: 'tx-2' } }],
+          data: [{ raw: {}, normalized: { id: 'tx-2', eventId: 'event-2' } }],
           cursor: {
             primary: { type: 'timestamp', value: Date.now() + 1000 },
             lastTransactionId: 'tx-2',
@@ -261,7 +262,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       const provider2WithPageToken = new MockProvider('provider-2', ['pageToken'], 'pageToken');
       provider2WithPageToken.setBatches([
         {
-          data: [{ raw: {}, normalized: { id: 'tx-2' } }],
+          data: [{ raw: {}, normalized: { id: 'tx-2', eventId: 'event-2' } }],
           cursor: {
             primary: { type: 'pageToken', value: 'token-456', providerName: 'provider-2' },
             lastTransactionId: 'tx-2',
@@ -302,7 +303,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       provider2.setBatches([
         {
-          data: [{ raw: {}, normalized: { id: 'tx-1' } }],
+          data: [{ raw: {}, normalized: { id: 'tx-1', eventId: 'event-1' } }],
           cursor: {
             primary: { type: 'blockNumber', value: 1000 },
             lastTransactionId: 'tx-1',
@@ -378,7 +379,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
 
       provider2.setBatches([
         {
-          data: [{ raw: {}, normalized: { id: 'tx-1' } }],
+          data: [{ raw: {}, normalized: { id: 'tx-1', eventId: 'event-1' } }],
           cursor: {
             primary: { type: 'blockNumber', value: 1001 },
             lastTransactionId: 'tx-1',
@@ -415,9 +416,9 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       provider1.setBatches([
         {
           data: [
-            { raw: {}, normalized: { id: 'tx-1' } },
-            { raw: {}, normalized: { id: 'tx-2' } },
-            { raw: {}, normalized: { id: 'tx-1' } }, // Duplicate
+            { raw: {}, normalized: { id: 'tx-1', eventId: 'event-1' } },
+            { raw: {}, normalized: { id: 'tx-2', eventId: 'event-2' } },
+            { raw: {}, normalized: { id: 'tx-1', eventId: 'event-1' } }, // Duplicate
           ],
           cursor: {
             primary: { type: 'blockNumber', value: 1000 },
@@ -449,7 +450,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
     it('should seed deduplication set with last transaction ID on resume', async () => {
       const cursor: CursorState = {
         primary: { type: 'blockNumber', value: 1000 },
-        lastTransactionId: 'tx-1', // This should be in dedup set
+        lastTransactionId: 'event-1', // This should be in dedup set
         totalFetched: 1,
         metadata: { providerName: 'provider-1', updatedAt: Date.now() },
       };
@@ -457,8 +458,8 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       provider1.setBatches([
         {
           data: [
-            { raw: {}, normalized: { id: 'tx-1' } }, // Should be filtered (in dedup set)
-            { raw: {}, normalized: { id: 'tx-2' } }, // Should pass
+            { raw: {}, normalized: { id: 'tx-1', eventId: 'event-1' } }, // Should be filtered (in dedup set)
+            { raw: {}, normalized: { id: 'tx-2', eventId: 'event-2' } }, // Should pass
           ],
           cursor: {
             primary: { type: 'blockNumber', value: 1001 },
@@ -476,8 +477,8 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
         address: '0x123',
       };
 
-      const results: FailoverStreamingExecutionResult<TransactionWithRawData<{ id: string }>>[] = [];
-      for await (const result of manager.executeWithFailover<TransactionWithRawData<{ id: string }>>(
+      const results: FailoverStreamingExecutionResult<TransactionWithRawData<NormalizedTransactionBase>>[] = [];
+      for await (const result of manager.executeWithFailover<TransactionWithRawData<NormalizedTransactionBase>>(
         'ethereum',
         operation,
         cursor
@@ -506,8 +507,8 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       provider2.setBatches([
         {
           data: [
-            { raw: {}, normalized: { id: 'tx-1' } }, // Should be filtered (in dedup set from cursor)
-            { raw: {}, normalized: { id: 'tx-2' } }, // Should pass
+            { raw: {}, normalized: { id: 'tx-1', eventId: 'event-1' } }, // Should be filtered (in dedup set from cursor)
+            { raw: {}, normalized: { id: 'tx-2', eventId: 'event-2' } }, // Should pass
           ],
           cursor: {
             primary: { type: 'blockNumber', value: 1001 },
@@ -599,10 +600,12 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
         address: '0x123',
       };
 
-      const results: FailoverStreamingExecutionResult<TransactionWithRawData<unknown>>[] = [];
+      const results: FailoverStreamingExecutionResult<TransactionWithRawData<NormalizedTransactionBase>>[] = [];
       for await (const result of manager.executeWithFailover('ethereum', operation)) {
         if (result.isOk()) {
-          results.push(result.value as FailoverStreamingExecutionResult<TransactionWithRawData<unknown>>);
+          results.push(
+            result.value as FailoverStreamingExecutionResult<TransactionWithRawData<NormalizedTransactionBase>>
+          );
         }
       }
 
@@ -634,7 +637,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
     it('should update circuit breaker on success', async () => {
       provider1.setBatches([
         {
-          data: [{ raw: {}, normalized: { id: 'tx-1' } }],
+          data: [{ raw: {}, normalized: { id: 'tx-1', eventId: 'event-1' } }],
           cursor: {
             primary: { type: 'blockNumber', value: 1000 },
             lastTransactionId: 'tx-1',

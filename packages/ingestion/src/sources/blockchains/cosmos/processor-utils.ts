@@ -36,20 +36,20 @@ export function toDecimal(value: string): Decimal {
 }
 
 /**
- * Deduplicates transactions by ID, keeping the first occurrence.
+ * Deduplicates transactions by eventId, keeping the first occurrence.
  *
  * Pure function that handles validator consensus transactions (e.g., Peggy deposits)
  * where multiple validators submit the same claim as separate blockchain transactions.
  * Each validator submits their own transaction, but they all represent the same
- * logical event (identified by event_nonce or similar mechanism).
+ * logical event (identified by event_nonce or similar mechanism) and should share the same eventId.
  */
-export function deduplicateByTransactionId(transactions: CosmosTransaction[]): CosmosTransaction[] {
+export function deduplicateByEventId(transactions: CosmosTransaction[]): CosmosTransaction[] {
   const seen = new Set<string>();
   const deduplicated: CosmosTransaction[] = [];
 
   for (const tx of transactions) {
-    if (!seen.has(tx.id)) {
-      seen.add(tx.id);
+    if (!seen.has(tx.eventId)) {
+      seen.add(tx.eventId);
       deduplicated.push(tx);
     }
   }

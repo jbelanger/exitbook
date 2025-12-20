@@ -18,6 +18,40 @@ const USER_ADDRESS = 'user.near';
 const EXTERNAL_ADDRESS = 'external.near';
 const CONTRACT_ADDRESS = 'token.near';
 
+function createTransaction(overrides: Partial<NearTransaction> = {}): NearTransaction {
+  return {
+    amount: '0',
+    currency: 'NEAR',
+    from: USER_ADDRESS,
+    id: 'tx-' + Math.random().toString(36).substring(7),
+    eventId: 'event-' + Math.random().toString(36).substring(7),
+    providerName: 'nearblocks',
+    type: 'transfer',
+    status: 'success',
+    timestamp: Date.now(),
+    to: EXTERNAL_ADDRESS,
+    ...overrides,
+  };
+}
+
+function createFundFlow(overrides: Partial<NearFundFlow> = {}): NearFundFlow {
+  return {
+    actionCount: 1,
+    actionTypes: ['Transfer'],
+    feeAbsorbedByMovement: false,
+    feeAmount: '0.0001',
+    feeCurrency: 'NEAR',
+    feePaidByUser: true,
+    hasContractCall: false,
+    hasStaking: false,
+    hasTokenTransfers: false,
+    inflows: [],
+    outflows: [],
+    primary: { amount: '0', asset: 'NEAR' },
+    ...overrides,
+  };
+}
+
 describe('NEAR Processor Utils - Detection Functions', () => {
   test('detectNearStakingActions identifies stake action', () => {
     const actions = [
@@ -126,15 +160,8 @@ describe('NEAR Processor Utils - Detection Functions', () => {
 
 describe('NEAR Processor Utils - Token Transfer Extraction', () => {
   test('extractNearTokenTransfers parses NEP-141 token transfers', () => {
-    const tx: NearTransaction = {
-      amount: '0',
-      currency: 'NEAR',
-      from: USER_ADDRESS,
+    const tx = createTransaction({
       id: 'tx1',
-      providerName: 'nearblocks',
-      type: 'transfer',
-      status: 'success',
-      timestamp: Date.now(),
       to: CONTRACT_ADDRESS,
       tokenTransfers: [
         {
@@ -146,7 +173,7 @@ describe('NEAR Processor Utils - Token Transfer Extraction', () => {
           to: EXTERNAL_ADDRESS,
         },
       ],
-    };
+    });
 
     const movements = extractNearTokenTransfers(tx)._unsafeUnwrap();
 
@@ -158,17 +185,10 @@ describe('NEAR Processor Utils - Token Transfer Extraction', () => {
   });
 
   test('extractNearTokenTransfers returns empty array when no token transfers', () => {
-    const tx: NearTransaction = {
+    const tx = createTransaction({
       amount: '1000000000000000000000000',
-      currency: 'NEAR',
-      from: USER_ADDRESS,
       id: 'tx1',
-      providerName: 'nearblocks',
-      type: 'transfer',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-    };
+    });
 
     const movements = extractNearTokenTransfers(tx)._unsafeUnwrap();
 
@@ -229,7 +249,7 @@ describe('NEAR Processor Utils - Zero Detection', () => {
 
 describe('NEAR Processor Utils - Fund Flow Analysis', () => {
   test('analyzeNearFundFlow detects incoming NEAR transfer', () => {
-    const tx: NearTransaction = {
+    const tx = createTransaction({
       accountChanges: [
         {
           account: USER_ADDRESS,
@@ -238,16 +258,11 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
         },
       ],
       amount: '1000000000000000000000000',
-      currency: 'NEAR',
       feeAmount: '0.0001',
       from: EXTERNAL_ADDRESS,
       id: 'tx1',
-      providerName: 'nearblocks',
-      type: 'transfer',
-      status: 'success',
-      timestamp: Date.now(),
       to: USER_ADDRESS,
-    };
+    });
 
     const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
@@ -263,7 +278,7 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
   });
 
   test('analyzeNearFundFlow detects outgoing NEAR transfer', () => {
-    const tx: NearTransaction = {
+    const tx = createTransaction({
       accountChanges: [
         {
           account: USER_ADDRESS,
@@ -272,16 +287,9 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
         },
       ],
       amount: '5000000000000000000000000',
-      currency: 'NEAR',
       feeAmount: '0.1', // 0.1 NEAR fee
-      from: USER_ADDRESS,
       id: 'tx2',
-      providerName: 'nearblocks',
-      type: 'transfer',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-    };
+    });
 
     const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
@@ -297,18 +305,13 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
   });
 
   test('analyzeNearFundFlow synthesizes NEAR inflow when accountChanges are missing', () => {
-    const tx: NearTransaction = {
+    const tx = createTransaction({
       amount: '63364000000000000000000000', // 63.364 NEAR in yocto
-      currency: 'NEAR',
       feeAmount: '0',
       from: EXTERNAL_ADDRESS,
       id: 'txSyntheticIn',
-      providerName: 'nearblocks',
-      status: 'success',
-      timestamp: Date.now(),
       to: USER_ADDRESS,
-      type: 'transfer',
-    };
+    });
 
     const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
@@ -323,18 +326,11 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
   });
 
   test('analyzeNearFundFlow synthesizes NEAR outflow when accountChanges are missing', () => {
-    const tx: NearTransaction = {
+    const tx = createTransaction({
       amount: '50000000000000000000000000', // 50 NEAR
-      currency: 'NEAR',
       feeAmount: '0',
-      from: USER_ADDRESS,
       id: 'txSyntheticOut',
-      providerName: 'nearblocks',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-      type: 'transfer',
-    };
+    });
 
     const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
@@ -349,7 +345,7 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
   });
 
   test('analyzeNearFundFlow handles token transfers', () => {
-    const tx: NearTransaction = {
+    const tx = createTransaction({
       actions: [
         {
           actionType: 'FunctionCall',
@@ -357,15 +353,8 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
           methodName: 'ft_transfer',
         },
       ],
-      amount: '0',
-      currency: 'NEAR',
       feeAmount: '0.0001',
-      from: USER_ADDRESS,
       id: 'tx3',
-      providerName: 'nearblocks',
-      type: 'transfer',
-      status: 'success',
-      timestamp: Date.now(),
       to: CONTRACT_ADDRESS,
       tokenTransfers: [
         {
@@ -377,7 +366,7 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
           to: EXTERNAL_ADDRESS,
         },
       ],
-    };
+    });
 
     const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
@@ -394,20 +383,12 @@ describe('NEAR Processor Utils - Fund Flow Analysis', () => {
 
 describe('NEAR Processor Utils - Operation Classification', () => {
   test('classifyNearOperationFromFundFlow identifies stake operation', () => {
-    const fundFlow: NearFundFlow = {
-      actionCount: 1,
+    const fundFlow = createFundFlow({
       actionTypes: ['Stake'],
-      feeAbsorbedByMovement: false,
-      feeAmount: '0.0001',
-      feeCurrency: 'NEAR',
-      feePaidByUser: true,
-      hasContractCall: false,
       hasStaking: true,
-      hasTokenTransfers: false,
-      inflows: [],
       outflows: [{ amount: '10', asset: 'NEAR' }],
       primary: { amount: '10', asset: 'NEAR' },
-    };
+    });
 
     const classification = classifyNearOperationFromFundFlow(fundFlow, []);
 
@@ -416,20 +397,13 @@ describe('NEAR Processor Utils - Operation Classification', () => {
   });
 
   test('classifyNearOperationFromFundFlow identifies unstake operation', () => {
-    const fundFlow: NearFundFlow = {
-      actionCount: 1,
+    const fundFlow = createFundFlow({
       actionTypes: ['Unstake'],
-      feeAbsorbedByMovement: false,
-      feeAmount: '0.0001',
-      feeCurrency: 'NEAR',
       feePaidByUser: false,
-      hasContractCall: false,
       hasStaking: true,
-      hasTokenTransfers: false,
       inflows: [{ amount: '10', asset: 'NEAR' }],
-      outflows: [],
       primary: { amount: '10', asset: 'NEAR' },
-    };
+    });
 
     const classification = classifyNearOperationFromFundFlow(fundFlow, []);
 
@@ -438,20 +412,12 @@ describe('NEAR Processor Utils - Operation Classification', () => {
   });
 
   test('classifyNearOperationFromFundFlow identifies swap', () => {
-    const fundFlow: NearFundFlow = {
-      actionCount: 1,
+    const fundFlow = createFundFlow({
       actionTypes: ['FunctionCall'],
-      feeAbsorbedByMovement: false,
-      feeAmount: '0.0001',
-      feeCurrency: 'NEAR',
-      feePaidByUser: true,
-      hasContractCall: false,
-      hasStaking: false,
-      hasTokenTransfers: false,
       inflows: [{ amount: '100', asset: 'USDC', decimals: 6 }],
       outflows: [{ amount: '1', asset: 'NEAR' }],
       primary: { amount: '100', asset: 'USDC', decimals: 6 },
-    };
+    });
 
     const classification = classifyNearOperationFromFundFlow(fundFlow, []);
 
@@ -460,20 +426,11 @@ describe('NEAR Processor Utils - Operation Classification', () => {
   });
 
   test('classifyNearOperationFromFundFlow identifies deposit', () => {
-    const fundFlow: NearFundFlow = {
-      actionCount: 1,
-      actionTypes: ['Transfer'],
-      feeAbsorbedByMovement: false,
-      feeAmount: '0.0001',
-      feeCurrency: 'NEAR',
+    const fundFlow = createFundFlow({
       feePaidByUser: false,
-      hasContractCall: false,
-      hasStaking: false,
-      hasTokenTransfers: false,
       inflows: [{ amount: '5', asset: 'NEAR' }],
-      outflows: [],
       primary: { amount: '5', asset: 'NEAR' },
-    };
+    });
 
     const classification = classifyNearOperationFromFundFlow(fundFlow, []);
 
@@ -482,20 +439,10 @@ describe('NEAR Processor Utils - Operation Classification', () => {
   });
 
   test('classifyNearOperationFromFundFlow identifies withdrawal', () => {
-    const fundFlow: NearFundFlow = {
-      actionCount: 1,
-      actionTypes: ['Transfer'],
-      feeAbsorbedByMovement: false,
-      feeAmount: '0.0001',
-      feeCurrency: 'NEAR',
-      feePaidByUser: true,
-      hasContractCall: false,
-      hasStaking: false,
-      hasTokenTransfers: false,
-      inflows: [],
+    const fundFlow = createFundFlow({
       outflows: [{ amount: '5', asset: 'NEAR' }],
       primary: { amount: '5', asset: 'NEAR' },
-    };
+    });
 
     const classification = classifyNearOperationFromFundFlow(fundFlow, []);
 
@@ -504,20 +451,11 @@ describe('NEAR Processor Utils - Operation Classification', () => {
   });
 
   test('classifyNearOperationFromFundFlow identifies fee-only transaction', () => {
-    const fundFlow: NearFundFlow = {
-      actionCount: 1,
+    const fundFlow = createFundFlow({
       actionTypes: ['FunctionCall'],
       feeAbsorbedByMovement: true,
-      feeAmount: '0.0001',
-      feeCurrency: 'NEAR',
-      feePaidByUser: true,
       hasContractCall: true,
-      hasStaking: false,
-      hasTokenTransfers: false,
-      inflows: [],
-      outflows: [],
-      primary: { amount: '0', asset: 'NEAR' },
-    };
+    });
 
     const classification = classifyNearOperationFromFundFlow(fundFlow, []);
 
@@ -528,77 +466,45 @@ describe('NEAR Processor Utils - Operation Classification', () => {
 
 describe('NEAR Processor Utils - Transaction Type Determination', () => {
   test('determineNearTransactionType identifies stake', () => {
-    const fundFlow: NearFundFlow = {
-      actionCount: 1,
+    const fundFlow = createFundFlow({
       actionTypes: ['Stake'],
-      feeAbsorbedByMovement: false,
-      feeAmount: '0.0001',
-      feeCurrency: 'NEAR',
-      feePaidByUser: true,
-      hasContractCall: false,
       hasStaking: true,
-      hasTokenTransfers: false,
-      inflows: [],
       outflows: [{ amount: '10', asset: 'NEAR' }],
       primary: { amount: '10', asset: 'NEAR' },
-    };
+    });
 
     expect(determineNearTransactionType(fundFlow)).toBe('Stake');
   });
 
   test('determineNearTransactionType identifies unstake', () => {
-    const fundFlow: NearFundFlow = {
-      actionCount: 1,
+    const fundFlow = createFundFlow({
       actionTypes: ['Unstake'],
-      feeAbsorbedByMovement: false,
-      feeAmount: '0.0001',
-      feeCurrency: 'NEAR',
       feePaidByUser: false,
-      hasContractCall: false,
       hasStaking: true,
-      hasTokenTransfers: false,
       inflows: [{ amount: '10', asset: 'NEAR' }],
-      outflows: [],
       primary: { amount: '10', asset: 'NEAR' },
-    };
+    });
 
     expect(determineNearTransactionType(fundFlow)).toBe('Unstake');
   });
 
   test('determineNearTransactionType identifies token transfer', () => {
-    const fundFlow: NearFundFlow = {
-      actionCount: 1,
+    const fundFlow = createFundFlow({
       actionTypes: ['FunctionCall'],
-      feeAbsorbedByMovement: false,
-      feeAmount: '0.0001',
-      feeCurrency: 'NEAR',
-      feePaidByUser: true,
       hasContractCall: true,
-      hasStaking: false,
       hasTokenTransfers: true,
-      inflows: [],
       outflows: [{ amount: '100', asset: 'USDC', decimals: 6 }],
       primary: { amount: '100', asset: 'USDC', decimals: 6 },
-    };
+    });
 
     expect(determineNearTransactionType(fundFlow)).toBe('Token Transfer');
   });
 
   test('determineNearTransactionType identifies contract call', () => {
-    const fundFlow: NearFundFlow = {
-      actionCount: 1,
+    const fundFlow = createFundFlow({
       actionTypes: ['FunctionCall'],
-      feeAbsorbedByMovement: false,
-      feeAmount: '0.0001',
-      feeCurrency: 'NEAR',
-      feePaidByUser: true,
       hasContractCall: true,
-      hasStaking: false,
-      hasTokenTransfers: false,
-      inflows: [],
-      outflows: [],
-      primary: { amount: '0', asset: 'NEAR' },
-    };
+    });
 
     expect(determineNearTransactionType(fundFlow)).toBe('Contract Call');
   });
@@ -608,7 +514,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
   test('handles simple inbound NEAR transfer with activity direction INBOUND', () => {
     // Regression test for Phase 2 enrichment: Verify processor correctly handles
     // accountChanges from /activity endpoint for incoming transfers
-    const tx: NearTransaction = {
+    const tx = createTransaction({
       accountChanges: [
         {
           account: USER_ADDRESS,
@@ -623,16 +529,11 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
         },
       ],
       amount: '5000000000000000000000000',
-      currency: 'NEAR',
       feeAmount: '0.0001',
       from: EXTERNAL_ADDRESS,
       id: 'inbound_tx',
-      providerName: 'nearblocks',
-      type: 'transfer',
-      status: 'success',
-      timestamp: Date.now(),
       to: USER_ADDRESS,
-    };
+    });
 
     const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
@@ -657,7 +558,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
   test('handles outbound NEAR transfer with fee deduction from activity OUTBOUND', () => {
     // Regression test for Phase 2 enrichment: Verify processor correctly deducts fees
     // from NEAR outflows when accountChanges show net balance reduction
-    const tx: NearTransaction = {
+    const tx = createTransaction({
       accountChanges: [
         {
           account: USER_ADDRESS,
@@ -672,16 +573,9 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
         },
       ],
       amount: '3000000000000000000000000',
-      currency: 'NEAR',
       feeAmount: '0.1', // 0.1 NEAR fee
-      from: USER_ADDRESS,
       id: 'outbound_tx',
-      providerName: 'nearblocks',
-      type: 'transfer',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-    };
+    });
 
     const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
@@ -708,7 +602,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
   test('handles token swap with tokenTransfers inflow/outflow and NEAR fee-only activity', () => {
     // Regression test for Phase 2 enrichment: Verify processor correctly handles
     // multi-asset swaps with token transfers from /ft-txns and NEAR fees from /activity
-    const tx: NearTransaction = {
+    const tx = createTransaction({
       accountChanges: [
         {
           account: USER_ADDRESS,
@@ -723,15 +617,8 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
           methodName: 'swap',
         },
       ],
-      amount: '0', // No NEAR transferred, only fee
-      currency: 'NEAR',
       feeAmount: '0.1', // 0.1 NEAR fee
-      from: USER_ADDRESS,
       id: 'swap_tx',
-      providerName: 'nearblocks',
-      type: 'transfer',
-      status: 'success',
-      timestamp: Date.now(),
       to: 'ref-finance.near',
       tokenTransfers: [
         {
@@ -751,7 +638,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
           to: USER_ADDRESS,
         },
       ],
-    };
+    });
 
     const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
@@ -788,7 +675,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
   test('handles fee-only transaction with accountChanges but no token transfers', () => {
     // Regression test: Verify processor handles contract calls that only incur fees
     // without any asset movements (e.g., failed swaps, view calls with fees)
-    const tx: NearTransaction = {
+    const tx = createTransaction({
       accountChanges: [
         {
           account: USER_ADDRESS,
@@ -803,17 +690,10 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
           methodName: 'attempt_swap',
         },
       ],
-      amount: '0',
-      currency: 'NEAR',
       feeAmount: '0.001', // Small fee
-      from: USER_ADDRESS,
       id: 'fee_only_tx',
-      providerName: 'nearblocks',
-      type: 'transfer',
-      status: 'success',
-      timestamp: Date.now(),
       to: 'dex.near',
-    };
+    });
 
     const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
@@ -836,7 +716,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
 
   test('handles transaction with multiple accountChanges for same user', () => {
     // Edge case: Multiple balance changes for the same account in complex transactions
-    const tx: NearTransaction = {
+    const tx = createTransaction({
       accountChanges: [
         {
           account: USER_ADDRESS,
@@ -850,15 +730,10 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
         },
       ],
       amount: '4000000000000000000000000',
-      currency: 'NEAR',
       from: EXTERNAL_ADDRESS,
       id: 'multi_change_tx',
-      providerName: 'nearblocks',
-      type: 'transfer',
-      status: 'success',
-      timestamp: Date.now(),
       to: USER_ADDRESS,
-    };
+    });
 
     const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 
@@ -876,7 +751,7 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
 
   test('handles transaction with no accountChanges (degraded mode)', () => {
     // Edge case: When enrichment data is unavailable, processor should not crash
-    const tx: NearTransaction = {
+    const tx = createTransaction({
       // No accountChanges or tokenTransfers
       actions: [
         {
@@ -885,15 +760,8 @@ describe('NEAR Processor Utils - Phase 2 Enrichment Regression Tests', () => {
         },
       ],
       amount: '1000000000000000000000000',
-      currency: 'NEAR',
-      from: USER_ADDRESS,
       id: 'degraded_tx',
-      providerName: 'nearblocks',
-      type: 'transfer',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-    };
+    });
 
     const result = analyzeNearFundFlow(tx, { primaryAddress: USER_ADDRESS, userAddresses: [USER_ADDRESS] });
 

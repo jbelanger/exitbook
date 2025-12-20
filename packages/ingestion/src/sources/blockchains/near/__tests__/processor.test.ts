@@ -22,12 +22,37 @@ function createProcessor() {
   return new NearTransactionProcessor(mockTokenMetadataService);
 }
 
+function createTransaction(overrides: Partial<NearTransaction> = {}): NearTransaction {
+  return {
+    accountChanges: [
+      {
+        account: USER_ADDRESS,
+        postBalance: nearToYocto('1'),
+        preBalance: nearToYocto('0'),
+      },
+    ],
+    amount: nearToYocto('1'),
+    currency: 'NEAR',
+    eventId: 'event1',
+    feeAmount: '0.001',
+    feeCurrency: 'NEAR',
+    from: EXTERNAL_ADDRESS,
+    id: 'tx1',
+    providerName: 'nearblocks',
+    type: 'transfer',
+    status: 'success',
+    timestamp: Date.now(),
+    to: USER_ADDRESS,
+    ...overrides,
+  };
+}
+
 describe('NearTransactionProcessor - Fund Flow Direction', () => {
   test('classifies incoming NEAR transfer as deposit', async () => {
     const processor = createProcessor();
 
     const normalizedData: NearTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -35,18 +60,8 @@ describe('NearTransactionProcessor - Fund Flow Direction', () => {
             preBalance: nearToYocto('1'),
           },
         ],
-        amount: nearToYocto('1'),
-        currency: 'NEAR',
-        feeAmount: '0.001',
-        feeCurrency: 'NEAR',
-        from: EXTERNAL_ADDRESS,
         id: 'tx1abc',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
-        to: USER_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -76,7 +91,7 @@ describe('NearTransactionProcessor - Fund Flow Direction', () => {
     const balances = calculateBalanceChange('10', '5', '0.001');
 
     const normalizedData: NearTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -85,17 +100,11 @@ describe('NearTransactionProcessor - Fund Flow Direction', () => {
           },
         ],
         amount: balances.amountSent,
-        currency: 'NEAR',
         feeAmount: balances.feeAmount,
-        feeCurrency: 'NEAR',
         from: USER_ADDRESS,
         id: 'tx2def',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -126,7 +135,7 @@ describe('NearTransactionProcessor - Fund Flow Direction', () => {
     const balances = calculateBalanceChange('1', '0', '0.001');
 
     const normalizedData: NearTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -142,17 +151,11 @@ describe('NearTransactionProcessor - Fund Flow Direction', () => {
           },
         ],
         amount: nearToYocto('0'),
-        currency: 'NEAR',
         feeAmount: balances.feeAmount,
-        feeCurrency: 'NEAR',
         from: USER_ADDRESS,
         id: 'tx3ghi',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -184,7 +187,7 @@ describe('NearTransactionProcessor - Staking Operations', () => {
     const balances = calculateBalanceChange('100', '10', '0.001');
 
     const normalizedData: NearTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -199,16 +202,11 @@ describe('NearTransactionProcessor - Staking Operations', () => {
           },
         ],
         amount: nearToYocto('10'),
-        currency: 'NEAR',
         feeAmount: balances.feeAmount,
         from: USER_ADDRESS,
         id: 'tx4stake',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
         to: VALIDATOR_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -235,7 +233,7 @@ describe('NearTransactionProcessor - Staking Operations', () => {
     const processor = createProcessor();
 
     const normalizedData: NearTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -249,16 +247,10 @@ describe('NearTransactionProcessor - Staking Operations', () => {
           },
         ],
         amount: nearToYocto('10'),
-        currency: 'NEAR',
-        feeAmount: '0.001',
         from: VALIDATOR_ADDRESS,
         id: 'tx5unstake',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -287,7 +279,7 @@ describe('NearTransactionProcessor - Token Transfers', () => {
     const processor = createProcessor();
 
     const normalizedData: NearTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -303,14 +295,8 @@ describe('NearTransactionProcessor - Token Transfers', () => {
           },
         ],
         amount: nearToYocto('0'),
-        currency: 'NEAR',
-        feeAmount: '0.001',
         from: USER_ADDRESS,
         id: 'tx6token',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         tokenTransfers: [
           {
@@ -322,7 +308,7 @@ describe('NearTransactionProcessor - Token Transfers', () => {
             to: EXTERNAL_ADDRESS,
           },
         ],
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -353,7 +339,7 @@ describe('NearTransactionProcessor - Token Transfers', () => {
     const balances = calculateBalanceChange('1', '0', '0.001');
 
     const normalizedData: NearTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -369,14 +355,9 @@ describe('NearTransactionProcessor - Token Transfers', () => {
           },
         ],
         amount: nearToYocto('0'),
-        currency: 'NEAR',
         feeAmount: balances.feeAmount,
         from: USER_ADDRESS,
         id: 'tx7swap',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         tokenTransfers: [
           {
@@ -396,7 +377,7 @@ describe('NearTransactionProcessor - Token Transfers', () => {
             to: USER_ADDRESS,
           },
         ],
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -427,7 +408,7 @@ describe('NearTransactionProcessor - Multiple Actions', () => {
     const balances = calculateBalanceChange('10', '2', '0.001');
 
     const normalizedData: NearTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -446,16 +427,11 @@ describe('NearTransactionProcessor - Multiple Actions', () => {
           },
         ],
         amount: balances.amountSent,
-        currency: 'NEAR',
         feeAmount: balances.feeAmount,
         from: USER_ADDRESS,
         id: 'tx10batch',
-        providerName: 'nearblocks',
-        type: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {

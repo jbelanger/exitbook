@@ -7,6 +7,8 @@
 import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
+import { NormalizedTransactionBaseSchema } from '../../core/schemas/normalized-transaction.js';
+
 /**
  * NEAR address (account ID) schema with validation
  *
@@ -71,8 +73,15 @@ export const NearTokenTransferSchema = z.object({
 
 /**
  * Schema for normalized NEAR transaction
+ *
+ * Extends NormalizedTransactionBaseSchema to ensure consistent identity handling.
+ * The eventId field is computed by providers during normalization using
+ * generateUniqueTransactionEventId() with NEAR-specific discriminating fields
+ * (e.g., receipt ID for FT transfers; action index / receipt ID if a single tx hash
+ * is later expanded into multiple per-action/per-receipt events).
  */
-export const NearTransactionSchema = z.object({
+export const NearTransactionSchema = NormalizedTransactionBaseSchema.extend({
+  // NEAR-specific transaction data
   accountChanges: z.array(NearAccountChangeSchema).optional(),
   actions: z.array(NearActionSchema).optional(),
   amount: DecimalStringSchema,
@@ -82,7 +91,6 @@ export const NearTransactionSchema = z.object({
   feeAmount: DecimalStringSchema.optional(),
   feeCurrency: z.string().optional(),
   from: NearAccountIdSchema,
-  id: z.string().min(1, 'Transaction ID must not be empty'),
   providerName: z.string().min(1, 'Provider name must not be empty'),
   status: z.enum(['success', 'failed', 'pending']),
   timestamp: z.number().positive('Timestamp must be positive'),

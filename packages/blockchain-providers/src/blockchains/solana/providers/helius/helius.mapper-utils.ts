@@ -1,11 +1,17 @@
 import { isErrorWithMessage } from '@exitbook/core';
 import { type Result, err } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../core/index.ts';
+import { type NormalizationError } from '../../../../core/index.ts';
 import { validateOutput } from '../../../../core/index.ts';
 import type { SolanaTransaction } from '../../schemas.ts';
 import { SolanaTransactionSchema } from '../../schemas.ts';
-import { lamportsToSol, extractAccountChanges, extractTokenChanges, determinePrimaryTransfer } from '../../utils.ts';
+import {
+  lamportsToSol,
+  extractAccountChanges,
+  extractTokenChanges,
+  determinePrimaryTransfer,
+  generateSolanaTransactionEventId,
+} from '../../utils.ts';
 
 import type { HeliusTransaction } from './helius.schemas.js';
 
@@ -33,16 +39,23 @@ export function mapHeliusTransaction(rawData: HeliusTransaction): Result<SolanaT
     const tokenChanges = extractTokenChanges(rawData.meta.preTokenBalances, rawData.meta.postTokenBalances, true);
 
     const { primaryAmount, primaryCurrency } = determinePrimaryTransfer(accountChanges, tokenChanges);
+    const amount = primaryAmount ?? '0';
+    const currency = primaryCurrency ?? 'SOL';
+    const from = accountKeys?.[0] || '';
+    const to = accountKeys?.[1] || '';
+    const timestamp =
+      typeof rawData.blockTime === 'number' ? rawData.blockTime * 1000 : (rawData.blockTime?.getTime() ?? 0);
 
     const solanaTransaction: SolanaTransaction = {
       accountChanges,
-      amount: primaryAmount ?? '0',
+      amount,
       blockHeight: rawData.slot,
       blockId: signature,
-      currency: primaryCurrency ?? 'SOL',
+      currency,
+      eventId: generateSolanaTransactionEventId({ signature }),
       feeAmount: fee.toString(),
       feeCurrency: 'SOL',
-      from: accountKeys?.[0] || '',
+      from,
       id: signature,
       instructions: (rawData.transaction.message.instructions || []).map((instruction) => ({
         accounts: [],
@@ -54,8 +67,8 @@ export function mapHeliusTransaction(rawData: HeliusTransaction): Result<SolanaT
       signature,
       slot: rawData.slot,
       status: rawData.meta.err ? 'failed' : 'success',
-      timestamp: typeof rawData.blockTime === 'number' ? rawData.blockTime * 1000 : (rawData.blockTime?.getTime() ?? 0),
-      to: accountKeys?.[1] || '',
+      timestamp,
+      to,
       tokenChanges,
     };
 

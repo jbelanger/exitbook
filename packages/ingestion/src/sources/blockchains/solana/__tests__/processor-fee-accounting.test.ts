@@ -20,12 +20,31 @@ function createProcessor() {
   return new SolanaTransactionProcessor(mockTokenMetadataService);
 }
 
+function createTransaction(overrides: Partial<SolanaTransaction>): SolanaTransaction {
+  return {
+    id: 'default-sig',
+    eventId: 'default-event',
+    providerName: 'helius',
+    status: 'success',
+    timestamp: Date.now(),
+    slot: 100000,
+    from: EXTERNAL_ADDRESS,
+    to: USER_ADDRESS,
+    amount: '0',
+    currency: 'SOL',
+    feeAmount: '0.000005',
+    feeCurrency: 'SOL',
+    accountChanges: [],
+    ...overrides,
+  };
+}
+
 describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
   test('deducts fee when user sends SOL (outgoing transfer)', async () => {
     const processor = createProcessor();
 
     const normalizedData: SolanaTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -34,17 +53,10 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         amount: '1000000000', // 1 SOL sent
-        currency: 'SOL',
-        feeAmount: '0.000005', // 0.000005 SOL fee
-        feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sig1abc',
-        providerName: 'helius',
-        slot: 100000,
-        status: 'success',
-        timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -71,7 +83,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: SolanaTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -80,17 +92,11 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         amount: '1000000000', // 1 SOL received
-        currency: 'SOL',
-        feeAmount: '0.000005', // 0.000005 SOL fee (paid by sender)
-        feeCurrency: 'SOL',
         from: EXTERNAL_ADDRESS, // External sender (not user)
         id: 'sig2def',
-        providerName: 'helius',
         slot: 100001,
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -116,7 +122,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: SolanaTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -124,18 +130,11 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
             preBalance: '1000000',
           },
         ],
-        amount: '0', // Self-transfer (net zero)
-        currency: 'SOL',
-        feeAmount: '0.000005', // 0.000005 SOL fee
-        feeCurrency: 'SOL',
         from: USER_ADDRESS,
         id: 'sig3ghi',
-        providerName: 'helius',
         slot: 100002,
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -163,7 +162,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: SolanaTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -171,10 +170,6 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
             preBalance: '1000000',
           },
         ],
-        amount: '0', // No transfer, just program interaction
-        currency: 'SOL',
-        feeAmount: '0.000005', // 0.000005 SOL fee
-        feeCurrency: 'SOL',
         from: USER_ADDRESS, // User initiates interaction
         id: 'sig4jkl',
         instructions: [
@@ -182,12 +177,9 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
             programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', // SPL Token Program
           },
         ],
-        providerName: 'helius',
         slot: 100003,
-        status: 'success',
-        timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -211,17 +203,12 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: SolanaTransaction[] = [
-      {
+      createTransaction({
         amount: '1000000', // 1 USDC received
         currency: 'USDC',
-        feeAmount: '0.000005', // 0.000005 SOL fee (paid by minter/airdropper)
-        feeCurrency: 'SOL',
         from: CONTRACT_ADDRESS, // Contract/minter is sender
         id: 'sig5mno',
-        providerName: 'helius',
         slot: 100004,
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS, // User receives tokens
         tokenAccount: TOKEN_ACCOUNT,
         tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC mint
@@ -238,7 +225,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         ],
         tokenDecimals: 6,
         tokenSymbol: 'USDC',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -264,20 +251,14 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: SolanaTransaction[] = [
-      {
-        accountChanges: [], // Failed transaction may have no balance changes
+      createTransaction({
         amount: '2000000000', // 2 SOL (failed send)
-        currency: 'SOL',
-        feeAmount: '0.000005', // 0.000005 SOL fee (still consumed on failure)
-        feeCurrency: 'SOL',
         from: USER_ADDRESS, // User initiated transaction
         id: 'sig6pqr',
-        providerName: 'helius',
         slot: 100005,
         status: 'failed',
-        timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -302,7 +283,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: SolanaTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -311,9 +292,6 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         amount: '500000000', // 0.5 SOL sent
-        currency: 'SOL',
-        feeAmount: '0.000005', // 0.000005 SOL fee
-        feeCurrency: 'SOL',
         from: USER_ADDRESS, // User initiates swap
         id: 'sigSwap1',
         instructions: [
@@ -321,10 +299,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
             programId: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', // Jupiter v6
           },
         ],
-        providerName: 'helius',
         slot: 100006,
-        status: 'success',
-        timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         tokenChanges: [
           {
@@ -337,7 +312,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
             symbol: 'USDC',
           },
         ],
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -365,7 +340,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const mixedCaseUser = 'UsEr1111111111111111111111111111111111111111';
 
     const normalizedData: SolanaTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -374,17 +349,11 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         amount: '1000000000',
-        currency: 'SOL',
-        feeAmount: '0.000005',
-        feeCurrency: 'SOL',
         from: mixedCaseUser.toUpperCase(), // Different case but same address
         id: 'sig7stu',
-        providerName: 'helius',
         slot: 100007,
-        status: 'success',
-        timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -407,7 +376,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: SolanaTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -416,9 +385,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         amount: '100000', // 0.0001 SOL reward
-        currency: 'SOL',
         feeAmount: '0', // No fee for rewards (validator pays)
-        feeCurrency: 'SOL',
         from: CONTRACT_ADDRESS, // Validator/staking program
         id: 'sigReward1',
         instructions: [
@@ -426,12 +393,9 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
             programId: 'Stake11111111111111111111111111111111111112',
           },
         ],
-        providerName: 'helius',
         slot: 100008,
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -457,7 +421,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: SolanaTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -466,9 +430,6 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         amount: '500000000', // 0.5 SOL staked
-        currency: 'SOL',
-        feeAmount: '0.000005', // 0.000005 SOL fee
-        feeCurrency: 'SOL',
         from: USER_ADDRESS, // User initiates staking
         id: 'sigStake1',
         instructions: [
@@ -476,12 +437,9 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
             programId: 'Stake11111111111111111111111111111111111112',
           },
         ],
-        providerName: 'helius',
         slot: 100009,
-        status: 'success',
-        timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -510,7 +468,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const derivedAddress2 = 'derived22222222222222222222222222222222222222';
 
     const normalizedData: SolanaTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: derivedAddress1,
@@ -519,17 +477,11 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         amount: '1000000000',
-        currency: 'SOL',
-        feeAmount: '0.000005',
-        feeCurrency: 'SOL',
         from: EXTERNAL_ADDRESS, // Someone else sends to derived wallet
         id: 'sig8vwx',
-        providerName: 'helius',
         slot: 100010,
-        status: 'success',
-        timestamp: Date.now(),
         to: derivedAddress1,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -556,7 +508,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const derivedAddress2 = 'derived22222222222222222222222222222222222222';
 
     const normalizedData: SolanaTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: derivedAddress1,
@@ -565,17 +517,11 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         amount: '1000000000',
-        currency: 'SOL',
-        feeAmount: '0.000005',
-        feeCurrency: 'SOL',
         from: derivedAddress1, // Derived wallet sends
         id: 'sig9xyz',
-        providerName: 'helius',
         slot: 100011,
-        status: 'success',
-        timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -599,7 +545,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: SolanaTransaction[] = [
-      {
+      createTransaction({
         accountChanges: [
           {
             account: USER_ADDRESS,
@@ -608,15 +554,9 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
           },
         ],
         amount: '500000000',
-        currency: 'SOL',
-        feeAmount: '0.000005', // 0.000005 SOL fee
-        feeCurrency: 'SOL',
         from: USER_ADDRESS, // User initiates liquidity provision
         id: 'sigDefi1',
-        providerName: 'helius',
         slot: 100012,
-        status: 'success',
-        timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         tokenChanges: [
           {
@@ -638,7 +578,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
             symbol: 'LP-SOL-USDC',
           },
         ],
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -662,17 +602,12 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
     const processor = createProcessor();
 
     const normalizedData: SolanaTransaction[] = [
-      {
+      createTransaction({
         amount: '1', // 1 NFT
         currency: 'NFT',
-        feeAmount: '0.000005', // Fee paid by minter
-        feeCurrency: 'SOL',
         from: CONTRACT_ADDRESS, // Candy machine/minter
         id: 'sigNFT1',
-        providerName: 'helius',
         slot: 100013,
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
         tokenAccount: TOKEN_ACCOUNT,
         tokenAddress: 'NFTMint1111111111111111111111111111111111111',
@@ -689,7 +624,7 @@ describe('SolanaTransactionProcessor - Fee Accounting (Issue #78)', () => {
         ],
         tokenDecimals: 0,
         tokenSymbol: 'NFT',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {

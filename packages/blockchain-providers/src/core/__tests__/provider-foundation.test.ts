@@ -12,6 +12,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vi
 import { initializeProviders } from '../../initialize.js';
 import { BlockchainProviderManager } from '../provider-manager.js';
 import { ProviderRegistry } from '../registry/provider-registry.js';
+import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.ts';
 import type { OneShotOperation, ProviderInfo, StreamingBatchResult } from '../types/index.js';
 import {
   ProviderError,
@@ -90,7 +91,7 @@ class MockProvider implements IBlockchainProvider {
     });
   }
 
-  async *executeStreaming<T>(
+  async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
     operation: ProviderOperation,
     _cursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
@@ -113,11 +114,8 @@ class MockProvider implements IBlockchainProvider {
         // Return empty array of transactions in TransactionWithRawData format
         data = [] as T[];
         break;
-      case 'getAddressBalances':
-        data = [{ balance: 100, currency: 'ETH' }] as T[];
-        break;
       default:
-        data = [{ success: true }] as T[];
+        data = [];
     }
 
     // Yield single batch with completion marker
@@ -135,7 +133,7 @@ class MockProvider implements IBlockchainProvider {
           isComplete: true,
         },
       },
-    } as StreamingBatchResult<T>);
+    } as unknown as StreamingBatchResult<T>);
   }
 
   extractCursors(_transaction: unknown): PaginationCursor[] {

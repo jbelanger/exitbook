@@ -142,7 +142,7 @@ describe('injective-explorer mapper-utils', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const normalized = result.value;
-        expect(normalized.id).toBe('peggy-deposit-12345');
+        expect(normalized.id).toBe('0xpeggy123');
         expect(normalized).toMatchObject({
           amount: '1',
           currency: 'INJ',
@@ -190,7 +190,54 @@ describe('injective-explorer mapper-utils', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const normalized = result.value;
-        expect(normalized.id).toBe('peggy-deposit-999');
+        expect(normalized.id).toBe('0xpeggy456');
+      }
+    });
+
+    it('should generate stable eventId for Peggy deposits across validator txs', () => {
+      const tx1: InjectiveTransaction = {
+        block_number: 54321,
+        block_timestamp: new Date('2025-02-01T12:00:00.000Z'),
+        claim_id: [100, 200],
+        code: 0,
+        data: undefined,
+        gas_fee: {
+          amount: [{ amount: '2000000000000000', denom: 'inj' }],
+          gas_limit: 300000,
+        },
+        gas_used: 250000,
+        gas_wanted: 300000,
+        hash: '0xvalidatorA',
+        messages: [
+          {
+            type: '/injective.peggy.v1.MsgDepositClaim',
+            value: {
+              amount: '1000000000000000000',
+              cosmos_receiver: 'inj1user123456789',
+              ethereum_receiver: '0xethReceiver',
+              ethereum_sender: '0xeth123',
+              event_nonce: '12345',
+              token_contract: '0xtoken123',
+            },
+          },
+        ],
+        tx_type: 'peggy',
+      };
+
+      const tx2: InjectiveTransaction = {
+        ...tx1,
+        block_number: 54325,
+        block_timestamp: new Date('2025-02-01T12:05:00.000Z'),
+        hash: '0xvalidatorB',
+      };
+
+      const r1 = mapInjectiveExplorerTransaction(tx1, userAddress);
+      const r2 = mapInjectiveExplorerTransaction(tx2, userAddress);
+
+      expect(r1.isOk()).toBe(true);
+      expect(r2.isOk()).toBe(true);
+      if (r1.isOk() && r2.isOk()) {
+        expect(r1.value.eventId).toBe(r2.value.eventId);
       }
     });
 
@@ -269,7 +316,7 @@ describe('injective-explorer mapper-utils', () => {
       if (result.isErr()) {
         expect(result.error.type).toBe('skip');
         if (result.error.type === 'skip') {
-          expect(result.error.reason).toContain('not relevant');
+          expect(result.error.reason).toContain('No relevant transfer messages found');
         }
       }
     });
@@ -336,7 +383,7 @@ describe('injective-explorer mapper-utils', () => {
       if (result.isErr()) {
         expect(result.error.type).toBe('skip');
         if (result.error.type === 'skip') {
-          expect(result.error.reason).toContain('Unsupported message type');
+          expect(result.error.reason).toContain('No relevant transfer messages found');
         }
       }
     });
@@ -480,7 +527,7 @@ describe('injective-explorer mapper-utils', () => {
       if (result.isErr()) {
         expect(result.error.type).toBe('skip');
         if (result.error.type === 'skip') {
-          expect(result.error.reason).toContain('Contract execution not relevant');
+          expect(result.error.reason).toContain('No relevant transfer messages found');
         }
       }
     });

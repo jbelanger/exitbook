@@ -120,6 +120,7 @@ export function createRawTransactionWithMetadata<T>(
 export class BitcoinTransactionBuilder {
   private tx: BitcoinTransaction = {
     id: 'tx1abc',
+    eventId: '0xdefaulteventid',
     blockHeight: 800000,
     timestamp: TEST_TIMESTAMPS.now,
     currency: 'BTC',
@@ -183,6 +184,7 @@ export class BitcoinTransactionBuilder {
 export class CosmosTransactionBuilder {
   private tx: CosmosTransaction = {
     id: 'tx123',
+    eventId: '0xdefaulteventid',
     blockHeight: 100,
     timestamp: TEST_TIMESTAMPS.now,
     from: 'inj1user000000000000000000000000000000000',
@@ -265,6 +267,7 @@ export class CosmosTransactionBuilder {
 export class EvmTransactionBuilder {
   private tx: EvmTransaction = {
     id: '0x123',
+    eventId: '0xdefaulteventid',
     type: 'transfer',
     blockHeight: 1000000,
     timestamp: TEST_TIMESTAMPS.now,
@@ -336,6 +339,7 @@ export class EvmTransactionBuilder {
 export class SolanaTransactionBuilder {
   private tx: SolanaTransaction = {
     id: 'sig1abc',
+    eventId: '0xdefaulteventid',
     slot: 100000,
     timestamp: TEST_TIMESTAMPS.now,
     from: 'user1111111111111111111111111111111111111111',

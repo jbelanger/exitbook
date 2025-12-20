@@ -1,13 +1,17 @@
 import { parseDecimal } from '@exitbook/core';
+import { getLogger } from '@exitbook/logger';
 import { err, type Result } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../core/index.js';
+import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
 import { validateOutput } from '../../../../core/index.js';
 import type { SUBSTRATE_CHAINS } from '../../chain-registry.js';
 import { SubstrateTransactionSchema } from '../../schemas.js';
 import type { SubstrateTransaction } from '../../types.js';
+import { trySubstrateAddressToAccountIdHex } from '../../utils.js';
 
 import type { SubscanTransfer } from './subscan.schemas.js';
+
+const logger = getLogger('SubscanMapper');
 
 /**
  * Converts a Subscan transfer to a SubstrateTransaction
@@ -36,10 +40,30 @@ export function convertSubscanTransaction(
   const amountPlanck = amountHuman.times(decimalsMultiplier);
 
   const feePlanck = parseDecimal(transfer.fee || '0');
+  const amount = amountPlanck.toFixed(0);
+  const timestamp = transfer.block_timestamp.getTime();
+  const eventIdx = transfer.event_idx ?? undefined;
+  const transferId = transfer.transfer_id ?? undefined;
+
+  const eventDiscriminator =
+    eventIdx !== undefined
+      ? `event_idx:${eventIdx}`
+      : transferId !== undefined
+        ? `transfer_id:${transferId}`
+        : undefined;
+  if (!eventDiscriminator) {
+    logger.warn(
+      { hash: transfer.hash, extrinsicIndex: transfer.extrinsic_index },
+      'Subscan transfer missing event discriminator (event_idx/transfer_id); eventId may collide for batch extrinsics'
+    );
+  }
+
+  const fromIdentity = trySubstrateAddressToAccountIdHex(transfer.from) ?? transfer.from;
+  const toIdentity = trySubstrateAddressToAccountIdHex(transfer.to) ?? transfer.to;
 
   const transaction: SubstrateTransaction = {
     // Value information
-    amount: amountPlanck.toFixed(0),
+    amount,
     // Block context
     blockHeight: transfer.block_num,
     blockId: transfer.hash, // Use transaction hash as block identifier
@@ -48,6 +72,16 @@ export function convertSubscanTransaction(
     chainName: chainConfig.chainName,
     currency: nativeCurrency,
 
+    eventId: generateUniqueTransactionEventId({
+      amount,
+      currency: nativeCurrency,
+      from: fromIdentity,
+      id: transfer.hash,
+      timestamp,
+      to: toIdentity,
+      traceId: eventDiscriminator ? `${transfer.extrinsic_index}|${eventDiscriminator}` : transfer.extrinsic_index,
+      type: 'transfer',
+    }),
     // Substrate-specific information
     extrinsicIndex: transfer.extrinsic_index,
     // Fee information
@@ -65,7 +99,7 @@ export function convertSubscanTransaction(
     ss58Format: chainConfig.ss58Format,
     status: transfer.success ? 'success' : 'failed',
 
-    timestamp: transfer.block_timestamp.getTime(),
+    timestamp,
 
     to: transfer.to,
   };

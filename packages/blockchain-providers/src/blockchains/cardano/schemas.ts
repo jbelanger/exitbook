@@ -7,6 +7,8 @@
 import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
+import { NormalizedTransactionBaseSchema } from '../../core/schemas/normalized-transaction.js';
+
 import { normalizeCardanoAddress } from './utils.js';
 
 /**
@@ -72,14 +74,19 @@ export const CardanoTransactionOutputSchema = z.object({
 
 /**
  * Schema for normalized Cardano transaction
+ *
+ * Extends NormalizedTransactionBaseSchema to ensure consistent identity handling.
+ * The eventId field is computed by providers during normalization using
+ * generateUniqueTransactionEventId() with Cardano-specific discriminating fields
+ * (e.g., output index and asset unit for transactions with multiple outputs/assets).
  */
-export const CardanoTransactionSchema = z.object({
+export const CardanoTransactionSchema = NormalizedTransactionBaseSchema.extend({
+  // Cardano-specific transaction data
   blockHeight: z.number().optional(),
   blockId: z.string().optional(),
   currency: z.literal('ADA'),
   feeAmount: DecimalStringSchema.optional(),
   feeCurrency: z.string().optional(),
-  id: z.string().min(1, 'Transaction ID must not be empty'),
   inputs: z.array(CardanoTransactionInputSchema).min(1, 'Transaction must have at least one input'),
   outputs: z.array(CardanoTransactionOutputSchema).min(1, 'Transaction must have at least one output'),
   providerName: z.string().min(1, 'Provider Name must not be empty'),

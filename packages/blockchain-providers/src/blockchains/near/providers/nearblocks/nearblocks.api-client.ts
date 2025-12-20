@@ -3,6 +3,7 @@ import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import type {
+  NormalizedTransactionBase,
   ProviderConfig,
   ProviderOperation,
   RawBalanceData,
@@ -21,9 +22,8 @@ import { isValidNearAccountId } from '../../utils.ts';
 
 import {
   mapNearBlocksActivityToAccountChange,
-  mapNearBlocksFtTransactionToTokenTransfer,
+  mapNearBlocksFtTransactionToTransaction,
   mapNearBlocksTransaction,
-  parseNearBlocksTimestamp,
 } from './mapper-utils.js';
 import {
   NearBlocksAccountSchema,
@@ -130,7 +130,7 @@ export class NearBlocksApiClient extends BaseApiClient {
     }
   }
 
-  async *executeStreaming<T>(
+  async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
@@ -531,37 +531,17 @@ export class NearBlocksApiClient extends BaseApiClient {
     const transactions: TransactionWithRawData<NearTransaction>[] = [];
 
     for (const ftTx of ftTxs) {
-      const tokenTransferResult = mapNearBlocksFtTransactionToTokenTransfer(ftTx, address);
+      const transactionResult = mapNearBlocksFtTransactionToTransaction(ftTx, address, this.name);
 
-      if (tokenTransferResult.isErr()) {
+      if (transactionResult.isErr()) {
         const errorMessage =
-          tokenTransferResult.error.type === 'error'
-            ? tokenTransferResult.error.message
-            : tokenTransferResult.error.reason;
-        this.logger.warn(
-          `Failed to map FT transaction to token transfer - TxHash: ${ftTx.transaction_hash}, Error: ${errorMessage}`
-        );
+          transactionResult.error.type === 'error' ? transactionResult.error.message : transactionResult.error.reason;
+        this.logger.warn(`Failed to map FT transaction - TxHash: ${ftTx.transaction_hash}, Error: ${errorMessage}`);
         continue;
       }
 
-      const tokenTransfer = tokenTransferResult.value;
-
-      // Create a synthetic NearTransaction for this token transfer
-      const transaction: NearTransaction = {
-        amount: tokenTransfer.amount,
-        currency: tokenTransfer.symbol || tokenTransfer.contractAddress,
-        from: tokenTransfer.from,
-        id: ftTx.transaction_hash || `ft-${ftTx.block_timestamp}`,
-        providerName: this.name,
-        status: 'success',
-        timestamp: parseNearBlocksTimestamp(ftTx.block_timestamp),
-        to: tokenTransfer.to,
-        tokenTransfers: [tokenTransfer],
-        type: 'token_transfer',
-      };
-
       transactions.push({
-        normalized: transaction,
+        normalized: transactionResult.value,
         raw: ftTx,
       });
     }
@@ -1037,10 +1017,12 @@ export class NearBlocksApiClient extends BaseApiClient {
           };
         }
 
-        return ok({
-          raw,
-          normalized,
-        });
+        return ok([
+          {
+            raw,
+            normalized,
+          },
+        ]);
       },
       extractCursors: (tx) => this.extractCursors(tx),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),
@@ -1104,39 +1086,21 @@ export class NearBlocksApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        const tokenTransferResult = mapNearBlocksFtTransactionToTokenTransfer(raw, address);
+        const transactionResult = mapNearBlocksFtTransactionToTransaction(raw, address, this.name);
 
-        if (tokenTransferResult.isErr()) {
+        if (transactionResult.isErr()) {
           const errorMessage =
-            tokenTransferResult.error.type === 'error'
-              ? tokenTransferResult.error.message
-              : tokenTransferResult.error.reason;
-          this.logger.warn(
-            `Failed to map FT transaction to token transfer - TxHash: ${raw.transaction_hash}, Error: ${errorMessage}`
-          );
+            transactionResult.error.type === 'error' ? transactionResult.error.message : transactionResult.error.reason;
+          this.logger.warn(`Failed to map FT transaction - TxHash: ${raw.transaction_hash}, Error: ${errorMessage}`);
           return err(new Error(`Failed to map FT transaction: ${errorMessage}`));
         }
 
-        const tokenTransfer = tokenTransferResult.value;
-
-        // Create a synthetic NearTransaction for this token transfer
-        const transaction: NearTransaction = {
-          amount: tokenTransfer.amount,
-          currency: tokenTransfer.symbol || tokenTransfer.contractAddress,
-          from: tokenTransfer.from,
-          id: raw.transaction_hash || `ft-${raw.block_timestamp}`,
-          providerName: this.name,
-          status: 'success',
-          timestamp: parseNearBlocksTimestamp(raw.block_timestamp),
-          to: tokenTransfer.to,
-          tokenTransfers: [tokenTransfer],
-          type: 'token_transfer',
-        };
-
-        return ok({
-          raw,
-          normalized: transaction,
-        });
+        return ok([
+          {
+            raw,
+            normalized: transactionResult.value,
+          },
+        ]);
       },
       extractCursors: (tx) => this.extractCursors(tx),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),

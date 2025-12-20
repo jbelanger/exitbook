@@ -20,18 +20,23 @@ describe('Cursor Utils', () => {
     };
 
     it('should build cursor state with pageToken', () => {
-      const transactions: TransactionWithRawData<{ blockHeight: number; id: string; timestamp: number }>[] = [
+      const transactions: TransactionWithRawData<{
+        blockHeight: number;
+        eventId: string;
+        id: string;
+        timestamp: number;
+      }>[] = [
         {
           raw: {},
-          normalized: { id: 'tx-1', blockHeight: 15000000, timestamp: 1640000000000 },
+          normalized: { id: 'tx-1', eventId: 'event-1', blockHeight: 15000000, timestamp: 1640000000000 },
         },
         {
           raw: {},
-          normalized: { id: 'tx-2', blockHeight: 15000001, timestamp: 1640000001000 },
+          normalized: { id: 'tx-2', eventId: 'event-2', blockHeight: 15000001, timestamp: 1640000001000 },
         },
       ];
 
-      const config: CursorStateConfig<{ blockHeight: number; id: string; timestamp: number }> = {
+      const config: CursorStateConfig<{ blockHeight: number; eventId: string; id: string; timestamp: number }> = {
         transactions,
         extractCursors: mockExtractCursors,
         totalFetched: 200,
@@ -48,7 +53,7 @@ describe('Cursor Utils', () => {
           { type: 'blockNumber', value: 15000001 },
           { type: 'timestamp', value: 1640000001000 },
         ],
-        lastTransactionId: 'tx-2',
+        lastTransactionId: 'event-2',
         totalFetched: 200,
         metadata: {
           providerName: 'moralis',
@@ -59,14 +64,19 @@ describe('Cursor Utils', () => {
     });
 
     it('should build cursor state without pageToken (using blockNumber fallback)', () => {
-      const transactions: TransactionWithRawData<{ blockHeight: number; id: string; timestamp: number }>[] = [
+      const transactions: TransactionWithRawData<{
+        blockHeight: number;
+        eventId: string;
+        id: string;
+        timestamp: number;
+      }>[] = [
         {
           raw: {},
-          normalized: { id: 'tx-1', blockHeight: 15000000, timestamp: 1640000000000 },
+          normalized: { id: 'tx-1', eventId: 'event-1', blockHeight: 15000000, timestamp: 1640000000000 },
         },
       ];
 
-      const config: CursorStateConfig<{ blockHeight: number; id: string; timestamp: number }> = {
+      const config: CursorStateConfig<{ blockHeight: number; eventId: string; id: string; timestamp: number }> = {
         transactions,
         extractCursors: mockExtractCursors,
         totalFetched: 100,
@@ -83,7 +93,7 @@ describe('Cursor Utils', () => {
           { type: 'blockNumber', value: 15000000 },
           { type: 'timestamp', value: 1640000000000 },
         ],
-        lastTransactionId: 'tx-1',
+        lastTransactionId: 'event-1',
         totalFetched: 100,
         metadata: {
           providerName: 'moralis',
@@ -95,22 +105,27 @@ describe('Cursor Utils', () => {
     it('should use last transaction for cursor extraction', () => {
       const extractCursorsSpy = vi.fn(mockExtractCursors);
 
-      const transactions: TransactionWithRawData<{ blockHeight: number; id: string; timestamp: number }>[] = [
+      const transactions: TransactionWithRawData<{
+        blockHeight: number;
+        eventId: string;
+        id: string;
+        timestamp: number;
+      }>[] = [
         {
           raw: {},
-          normalized: { id: 'tx-1', blockHeight: 15000000, timestamp: 1640000000000 },
+          normalized: { id: 'tx-1', eventId: 'event-1', blockHeight: 15000000, timestamp: 1640000000000 },
         },
         {
           raw: {},
-          normalized: { id: 'tx-2', blockHeight: 15000001, timestamp: 1640000001000 },
+          normalized: { id: 'tx-2', eventId: 'event-2', blockHeight: 15000001, timestamp: 1640000001000 },
         },
         {
           raw: {},
-          normalized: { id: 'tx-3', blockHeight: 15000002, timestamp: 1640000002000 },
+          normalized: { id: 'tx-3', eventId: 'event-3', blockHeight: 15000002, timestamp: 1640000002000 },
         },
       ];
 
-      const config: CursorStateConfig<{ blockHeight: number; id: string; timestamp: number }> = {
+      const config: CursorStateConfig<{ blockHeight: number; eventId: string; id: string; timestamp: number }> = {
         transactions,
         extractCursors: extractCursorsSpy,
         totalFetched: 300,
@@ -125,20 +140,21 @@ describe('Cursor Utils', () => {
       expect(extractCursorsSpy).toHaveBeenCalledTimes(1);
       expect(extractCursorsSpy).toHaveBeenCalledWith({
         id: 'tx-3',
+        eventId: 'event-3',
         blockHeight: 15000002,
         timestamp: 1640000002000,
       });
     });
 
     it('should handle zero blockNumber fallback when no cursors extracted', () => {
-      const transactions: TransactionWithRawData<{ id: string }>[] = [
+      const transactions: TransactionWithRawData<{ eventId: string; id: string }>[] = [
         {
           raw: {},
-          normalized: { id: 'tx-1' },
+          normalized: { id: 'tx-1', eventId: 'event-1' },
         },
       ];
 
-      const config: CursorStateConfig<{ id: string }> = {
+      const config: CursorStateConfig<{ eventId: string; id: string }> = {
         transactions,
         extractCursors: () => [], // No cursors available
         totalFetched: 1,
@@ -153,14 +169,19 @@ describe('Cursor Utils', () => {
     });
 
     it('should namespace customMetadata to prevent collision with core fields', () => {
-      const transactions: TransactionWithRawData<{ blockHeight: number; id: string; timestamp: number }>[] = [
+      const transactions: TransactionWithRawData<{
+        blockHeight: number;
+        eventId: string;
+        id: string;
+        timestamp: number;
+      }>[] = [
         {
           raw: {},
-          normalized: { id: 'tx-1', blockHeight: 15000000, timestamp: 1640000000000 },
+          normalized: { id: 'tx-1', eventId: 'event-1', blockHeight: 15000000, timestamp: 1640000000000 },
         },
       ];
 
-      const config: CursorStateConfig<{ blockHeight: number; id: string; timestamp: number }> = {
+      const config: CursorStateConfig<{ blockHeight: number; eventId: string; id: string; timestamp: number }> = {
         transactions,
         extractCursors: mockExtractCursors,
         totalFetched: 100,
@@ -193,14 +214,19 @@ describe('Cursor Utils', () => {
     });
 
     it('should omit custom key when customMetadata is omitted', () => {
-      const transactions: TransactionWithRawData<{ blockHeight: number; id: string; timestamp: number }>[] = [
+      const transactions: TransactionWithRawData<{
+        blockHeight: number;
+        eventId: string;
+        id: string;
+        timestamp: number;
+      }>[] = [
         {
           raw: {},
-          normalized: { id: 'tx-1', blockHeight: 15000000, timestamp: 1640000000000 },
+          normalized: { id: 'tx-1', eventId: 'event-1', blockHeight: 15000000, timestamp: 1640000000000 },
         },
       ];
 
-      const config: CursorStateConfig<{ blockHeight: number; id: string; timestamp: number }> = {
+      const config: CursorStateConfig<{ blockHeight: number; eventId: string; id: string; timestamp: number }> = {
         transactions,
         extractCursors: mockExtractCursors,
         totalFetched: 100,

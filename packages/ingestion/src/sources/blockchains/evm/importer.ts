@@ -144,6 +144,7 @@ export class EvmImporter implements IImporter {
       const providerBatch = providerBatchResult.value;
       // Provider batch data is TransactionWithRawData[] from executeWithFailover
       const transactionsWithRaw = providerBatch.data;
+      this.logger.debug(`EVM importer received ${transactionsWithRaw.length} transactions from provider batch`);
 
       // Use pure function for mapping
       const rawTransactions = mapToRawTransactions(

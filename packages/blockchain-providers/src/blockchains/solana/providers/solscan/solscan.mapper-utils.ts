@@ -1,7 +1,7 @@
 import { isErrorWithMessage } from '@exitbook/core';
 import { type Result, err } from 'neverthrow';
 
-import type { NormalizationError } from '../../../../core/index.ts';
+import { type NormalizationError } from '../../../../core/index.ts';
 import { validateOutput } from '../../../../core/index.ts';
 import type { SolanaTransaction, SolanaTokenChange } from '../../schemas.ts';
 import { SolanaTransactionSchema } from '../../schemas.ts';
@@ -10,6 +10,7 @@ import {
   extractAccountChangesFromSolscan,
   determinePrimaryTransfer,
   determineRecipient,
+  generateSolanaTransactionEventId,
 } from '../../utils.ts';
 
 import type { SolscanTransaction } from './solscan.schemas.js';
@@ -35,6 +36,7 @@ export function mapSolscanTransaction(rawData: SolscanTransaction): Result<Solan
 
     const feePayerAccount = rawData.signer?.[0] || '';
     const recipient = rawData.inputAccount ? determineRecipient(rawData.inputAccount, feePayerAccount) : '';
+    const timestamp = rawData.blockTime?.getTime() ?? 0;
 
     const solanaTransaction: SolanaTransaction = {
       accountChanges,
@@ -42,6 +44,7 @@ export function mapSolscanTransaction(rawData: SolscanTransaction): Result<Solan
       blockHeight: rawData.slot,
       blockId: rawData.txHash,
       currency: primaryCurrency,
+      eventId: generateSolanaTransactionEventId({ signature: rawData.txHash }),
       feeAmount: fee.toString(),
       feeCurrency: 'SOL',
       from: feePayerAccount,
@@ -58,7 +61,7 @@ export function mapSolscanTransaction(rawData: SolscanTransaction): Result<Solan
       signature: rawData.txHash,
       slot: rawData.slot,
       status: rawData.status === 'Success' ? 'success' : 'failed',
-      timestamp: rawData.blockTime?.getTime() ?? 0,
+      timestamp,
       to: recipient,
       tokenChanges,
     };

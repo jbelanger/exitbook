@@ -46,6 +46,7 @@ const mockCosmosTransaction = {
   timestamp: Date.now(),
   to: 'inj1def...',
   id: 'tx123',
+  eventId: '0'.repeat(64),
   status: 'pending',
   providerName: 'cosmos',
 } as CosmosTransaction;

@@ -7,6 +7,7 @@ import { getLogger } from '@exitbook/logger';
 import { err, errAsync, ok, type Result } from 'neverthrow';
 
 import { ProviderRegistry } from '../registry/provider-registry.js';
+import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.ts';
 import { createStreamingIterator, type StreamingAdapterOptions } from '../streaming/streaming-adapter.js';
 import type {
   IBlockchainProvider,
@@ -100,7 +101,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
    * Execute operation with streaming pagination
    * Default implementation throws error - providers should implement when ready for Phase 1+
    */
-  async *executeStreaming<T>(
+  async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
     _operation: ProviderOperation,
     _cursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
@@ -472,7 +473,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
    *   translate persisted CursorState into the provider’s pagination dialect
    *   (signatures, page numbers, before/slot, etc.).
    */
-  protected streamWithPagination<Raw, Tx extends { id: string }>(
+  protected streamWithPagination<Raw, Tx extends NormalizedTransactionBase = NormalizedTransactionBase>(
     config: Omit<
       StreamingAdapterOptions<Raw, Tx>,
       'providerName' | 'logger' | 'extractCursors' | 'applyReplayWindow'

@@ -1,4 +1,7 @@
+import { getLogger } from '@exitbook/logger';
 import { decodeAddress, encodeAddress, isAddress } from '@polkadot/util-crypto';
+
+const logger = getLogger('SubstrateUtils');
 
 /**
  * Address validation for SS58 format
@@ -16,6 +19,46 @@ export function isValidSS58Address(address: string, ss58Format?: number): boolea
  */
 export function encodeSS58Address(publicKey: Uint8Array, ss58Format: number): string {
   return encodeAddress(publicKey, ss58Format);
+}
+
+/**
+ * Convert an SS58 address into a canonical account id hex string (0x-prefixed).
+ *
+ * This is useful for identity/dedup flows (e.g., eventId generation) because:
+ * - SS58 format prefixes can vary across providers/chains for the same public key
+ * - base58 encoding is case-sensitive
+ *
+ * @public
+ */
+export function trySubstrateAddressToAccountIdHex(address: string): string | undefined {
+  const trimmed = address.trim();
+  if (/^0x[0-9a-fA-F]+$/.test(trimmed)) {
+    return `0x${trimmed.slice(2).toLowerCase()}`;
+  }
+
+  // If the string doesn't even look like a valid SS58 address, don't warn.
+  if (!isAddress(trimmed)) {
+    return undefined;
+  }
+
+  try {
+    const publicKey = decodeAddress(trimmed);
+    return `0x${Buffer.from(publicKey).toString('hex')}`;
+  } catch (error) {
+    logger.warn({ address: trimmed, error }, 'Failed to decode SS58 address; falling back to raw address for identity');
+    return undefined;
+  }
+}
+
+/**
+ * Normalize a provider-supplied hex account id to a canonical 0x-prefixed lowercase string.
+ *
+ * @public
+ */
+export function normalizeSubstrateAccountIdHex(hex: string): string {
+  const trimmed = hex.trim();
+  const withoutPrefix = trimmed.startsWith('0x') || trimmed.startsWith('0X') ? trimmed.slice(2) : trimmed;
+  return `0x${withoutPrefix.toLowerCase()}`;
 }
 
 /**

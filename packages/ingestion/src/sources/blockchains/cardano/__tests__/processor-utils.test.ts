@@ -9,9 +9,52 @@ import {
   normalizeCardanoAmount,
   parseCardanoAssetUnit,
 } from '../processor-utils.js';
+import type { CardanoFundFlow, CardanoMovement } from '../types.js';
 
 const USER_ADDRESS = 'addr1qyuser111111111111111111111111111111111111111111111111111111';
 const EXTERNAL_ADDRESS = 'addr1qyexternal11111111111111111111111111111111111111111111111111';
+
+function createTransaction(overrides: Partial<CardanoTransaction> = {}): CardanoTransaction {
+  return {
+    blockHeight: 9000000,
+    currency: 'ADA',
+    feeAmount: '0.17',
+    feeCurrency: 'ADA',
+    id: 'tx-default',
+    eventId: '0xdefaultevent',
+    inputs: [],
+    outputs: [],
+    providerName: 'blockfrost',
+    status: 'success',
+    timestamp: Date.now(),
+    ...overrides,
+  };
+}
+
+function createFundFlow(overrides: Partial<CardanoFundFlow> = {}): CardanoFundFlow {
+  const defaultMovement: CardanoMovement = {
+    amount: '0',
+    asset: 'ADA',
+    unit: 'lovelace',
+  };
+
+  return {
+    classificationUncertainty: undefined,
+    feeAmount: '0.17',
+    feeCurrency: 'ADA',
+    feePaidByUser: false,
+    fromAddress: EXTERNAL_ADDRESS,
+    inflows: [],
+    inputCount: 1,
+    isIncoming: false,
+    isOutgoing: false,
+    outflows: [],
+    outputCount: 1,
+    primary: defaultMovement,
+    toAddress: USER_ADDRESS,
+    ...overrides,
+  };
+}
 
 describe('convertLovelaceToAda', () => {
   test('converts lovelace to ADA correctly', () => {
@@ -115,11 +158,7 @@ describe('consolidateCardanoMovements', () => {
 
 describe('analyzeCardanoFundFlow', () => {
   test('analyzes outgoing ADA transaction correctly', () => {
-    const normalizedTx: CardanoTransaction = {
-      blockHeight: 9000000,
-      currency: 'ADA',
-      feeAmount: '0.17',
-      feeCurrency: 'ADA',
+    const normalizedTx = createTransaction({
       id: 'tx1abc',
       inputs: [
         {
@@ -146,10 +185,7 @@ describe('analyzeCardanoFundFlow', () => {
           outputIndex: 0,
         },
       ],
-      providerName: 'blockfrost',
-      status: 'success',
-      timestamp: Date.now(),
-    };
+    });
 
     const result = analyzeCardanoFundFlow(normalizedTx, {
       primaryAddress: USER_ADDRESS,
@@ -172,11 +208,8 @@ describe('analyzeCardanoFundFlow', () => {
   });
 
   test('analyzes incoming ADA transaction correctly', () => {
-    const normalizedTx: CardanoTransaction = {
+    const normalizedTx = createTransaction({
       blockHeight: 9000001,
-      currency: 'ADA',
-      feeAmount: '0.17',
-      feeCurrency: 'ADA',
       id: 'tx2def',
       inputs: [
         {
@@ -203,10 +236,7 @@ describe('analyzeCardanoFundFlow', () => {
           outputIndex: 0,
         },
       ],
-      providerName: 'blockfrost',
-      status: 'success',
-      timestamp: Date.now(),
-    };
+    });
 
     const result = analyzeCardanoFundFlow(normalizedTx, {
       primaryAddress: USER_ADDRESS,
@@ -229,11 +259,8 @@ describe('analyzeCardanoFundFlow', () => {
   });
 
   test('handles transaction with change correctly', () => {
-    const normalizedTx: CardanoTransaction = {
+    const normalizedTx = createTransaction({
       blockHeight: 9000003,
-      currency: 'ADA',
-      feeAmount: '0.17',
-      feeCurrency: 'ADA',
       id: 'tx3ghi',
       inputs: [
         {
@@ -270,10 +297,7 @@ describe('analyzeCardanoFundFlow', () => {
           outputIndex: 1,
         },
       ],
-      providerName: 'blockfrost',
-      status: 'success',
-      timestamp: Date.now(),
-    };
+    });
 
     const result = analyzeCardanoFundFlow(normalizedTx, {
       primaryAddress: USER_ADDRESS,
@@ -300,11 +324,8 @@ describe('analyzeCardanoFundFlow', () => {
     const policyId = '1234567890abcdef1234567890abcdef1234567890abcdef12345678';
     const tokenUnit = policyId + '4d494c4b';
 
-    const normalizedTx: CardanoTransaction = {
+    const normalizedTx = createTransaction({
       blockHeight: 9000004,
-      currency: 'ADA',
-      feeAmount: '0.17',
-      feeCurrency: 'ADA',
       id: 'tx4jkl',
       inputs: [
         {
@@ -355,10 +376,7 @@ describe('analyzeCardanoFundFlow', () => {
           outputIndex: 1,
         },
       ],
-      providerName: 'blockfrost',
-      status: 'success',
-      timestamp: Date.now(),
-    };
+    });
 
     const result = analyzeCardanoFundFlow(normalizedTx, {
       primaryAddress: USER_ADDRESS,
@@ -376,11 +394,8 @@ describe('analyzeCardanoFundFlow', () => {
   });
 
   test('performs case-insensitive address matching', () => {
-    const normalizedTx: CardanoTransaction = {
+    const normalizedTx = createTransaction({
       blockHeight: 9000005,
-      currency: 'ADA',
-      feeAmount: '0.17',
-      feeCurrency: 'ADA',
       id: 'tx5mno',
       inputs: [
         {
@@ -407,10 +422,7 @@ describe('analyzeCardanoFundFlow', () => {
           outputIndex: 0,
         },
       ],
-      providerName: 'blockfrost',
-      status: 'success',
-      timestamp: Date.now(),
-    };
+    });
 
     const result = analyzeCardanoFundFlow(normalizedTx, {
       primaryAddress: USER_ADDRESS.toLowerCase(),
@@ -427,84 +439,53 @@ describe('analyzeCardanoFundFlow', () => {
 
 describe('determineCardanoTransactionType', () => {
   test('classifies incoming-only as deposit', () => {
-    const fundFlow = {
-      classificationUncertainty: undefined,
-      feeAmount: '0.17',
-      feeCurrency: 'ADA',
-      feePaidByUser: false,
-      fromAddress: EXTERNAL_ADDRESS,
+    const fundFlow = createFundFlow({
       inflows: [{ amount: '2', asset: 'ADA', unit: 'lovelace' }],
-      inputCount: 1,
       isIncoming: true,
-      isOutgoing: false,
-      outflows: [],
-      outputCount: 1,
       primary: { amount: '2', asset: 'ADA', unit: 'lovelace' },
-      toAddress: USER_ADDRESS,
-    };
+    });
 
     const type = determineCardanoTransactionType(fundFlow);
     expect(type).toBe('transfer');
   });
 
   test('classifies outgoing-only as withdrawal', () => {
-    const fundFlow = {
-      classificationUncertainty: undefined,
-      feeAmount: '0.17',
-      feeCurrency: 'ADA',
+    const fundFlow = createFundFlow({
       feePaidByUser: true,
       fromAddress: USER_ADDRESS,
-      inflows: [],
-      inputCount: 1,
-      isIncoming: false,
       isOutgoing: true,
       outflows: [{ amount: '2.17', asset: 'ADA', unit: 'lovelace' }],
-      outputCount: 1,
       primary: { amount: '2.17', asset: 'ADA', unit: 'lovelace' },
       toAddress: EXTERNAL_ADDRESS,
-    };
+    });
 
     const type = determineCardanoTransactionType(fundFlow);
     expect(type).toBe('transfer');
   });
 
   test('classifies both incoming and outgoing as transfer', () => {
-    const fundFlow = {
-      classificationUncertainty: undefined,
-      feeAmount: '0.17',
-      feeCurrency: 'ADA',
+    const fundFlow = createFundFlow({
       feePaidByUser: true,
       fromAddress: USER_ADDRESS,
       inflows: [{ amount: '3', asset: 'ADA', unit: 'lovelace' }],
-      inputCount: 1,
       isIncoming: true,
       isOutgoing: true,
       outflows: [{ amount: '5.17', asset: 'ADA', unit: 'lovelace' }],
       outputCount: 2,
       primary: { amount: '5.17', asset: 'ADA', unit: 'lovelace' },
       toAddress: EXTERNAL_ADDRESS,
-    };
+    });
 
     const type = determineCardanoTransactionType(fundFlow);
     expect(type).toBe('transfer');
   });
 
   test('classifies zero movements as fee', () => {
-    const fundFlow = {
-      classificationUncertainty: undefined,
-      feeAmount: '0.17',
-      feeCurrency: 'ADA',
+    const fundFlow = createFundFlow({
       feePaidByUser: true,
       fromAddress: USER_ADDRESS,
-      inflows: [],
-      inputCount: 1,
-      isIncoming: false,
-      isOutgoing: false,
-      outflows: [],
-      outputCount: 1,
-      primary: { amount: '0', asset: 'ADA', unit: 'lovelace' },
       toAddress: USER_ADDRESS,
-    };
+    });
 
     const type = determineCardanoTransactionType(fundFlow);
     expect(type).toBe('transfer');

@@ -2,7 +2,12 @@ import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig, ProviderOperation, StreamingBatchResult } from '../../../../core/index.js';
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderOperation,
+  StreamingBatchResult,
+} from '../../../../core/index.js';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/index.js';
 import {
   createStreamingIterator,
@@ -210,7 +215,7 @@ export class SubscanApiClient extends BaseApiClient {
     }
   }
 
-  async *executeStreaming<T>(
+  async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
     operation: ProviderOperation,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<T>, Error>> {
@@ -495,10 +500,12 @@ export class SubscanApiClient extends BaseApiClient {
           return err(new Error(`Provider data validation failed: ${error.message}`));
         }
 
-        return ok({
-          raw,
-          normalized: mapResult.value,
-        });
+        return ok([
+          {
+            raw,
+            normalized: mapResult.value,
+          },
+        ]);
       },
       extractCursors: (tx) => this.extractCursors(tx),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),

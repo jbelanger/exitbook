@@ -1,51 +1,52 @@
 import type { EvmTransaction, TransactionWithRawData } from '@exitbook/blockchain-providers';
-import { generateUniqueTransactionEventId } from '@exitbook/blockchain-providers';
 import type { RawTransactionInput } from '@exitbook/core';
 
 /**
- * Map provider transactions to external transaction format
- * Pure function - no side effects, testable in isolation
+ * Maps EvmTransaction.type to transactionTypeHint for database storage
+ */
+function mapTransactionTypeToHint(type: EvmTransaction['type']): 'normal' | 'internal' | 'token' {
+  switch (type) {
+    case 'internal':
+      return 'internal';
+    case 'token_transfer':
+      return 'token';
+    case 'transfer':
+    case 'contract_call':
+    default:
+      return 'normal';
+  }
+}
+
+/**
+ * Map provider transactions to raw transaction format for database storage.
+ * Pure function - no side effects, testable in isolation.
  *
- * EVM-Specific Deduplication Limitations:
- * - logIndex: Only provided by Moralis (not Routescan/Alchemy). Cannot be used for
- *   deduplication across providers. Multiple token transfers in the same transaction
- *   with identical parameters will be treated as duplicates.
- *
- * - traceId: Only provided by Routescan (not Alchemy/Moralis). Cannot be used for
- *   deduplication across providers. Multiple internal transactions in the same
- *   transaction with identical parameters will be treated as duplicates.
- *
- * These fields are excluded from eventId generation to ensure deterministic IDs
- * across all EVM providers. Other blockchains may include these fields if all
- * their providers consistently supply them.
+ * The eventId is pre-computed by the provider during normalization, eliminating
+ * the need for downstream code to understand provider-specific deduplication logic.
+ * Each provider computes eventId using chain-appropriate discriminating fields
+ * (logIndex, traceId, output index, etc.) to ensure unique identification of
+ * events within a transaction.
  *
  * @param transactions - Array of transactions with raw data from provider
  * @param providerName - Name of the provider that fetched the data
  * @param sourceAddress - Address being imported
- * @param transactionTypeHint - Type of transaction (normal, internal, token)
+ * @param transactionTypeHint - Type of transaction (normal, internal, token) - only used as fallback
  * @returns Array of raw transactions ready for database storage
  */
 export function mapToRawTransactions(
   transactions: TransactionWithRawData<EvmTransaction>[],
   providerName: string,
   sourceAddress: string,
-  transactionTypeHint: 'normal' | 'internal' | 'token'
+  _transactionTypeHint: 'normal' | 'internal' | 'token'
 ): RawTransactionInput[] {
   return transactions.map((txWithRaw) => ({
     providerName,
-    eventId: generateUniqueTransactionEventId({
-      amount: txWithRaw.normalized.amount,
-      currency: txWithRaw.normalized.currency,
-      from: txWithRaw.normalized.from,
-      id: txWithRaw.normalized.id,
-      timestamp: txWithRaw.normalized.timestamp,
-      to: txWithRaw.normalized.to,
-      tokenAddress: txWithRaw.normalized.tokenAddress,
-      // Note: traceId and logIndex intentionally excluded (see function docs)
-      type: txWithRaw.normalized.type,
-    }),
+    eventId: txWithRaw.normalized.eventId,
     blockchainTransactionHash: txWithRaw.normalized.id,
-    transactionTypeHint,
+    // Use the actual transaction type instead of the blanket hint
+    // This ensures internal transactions from Moralis (which includes them in the normal stream)
+    // are correctly tagged as 'internal' instead of 'normal'
+    transactionTypeHint: mapTransactionTypeToHint(txWithRaw.normalized.type),
     sourceAddress,
     normalizedData: txWithRaw.normalized,
     providerData: txWithRaw.raw,

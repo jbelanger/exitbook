@@ -33,26 +33,36 @@ function createOsmosisProcessor() {
   return new CosmosProcessor(OSMOSIS_CONFIG);
 }
 
+function createTransaction(overrides: Partial<CosmosTransaction> = {}): CosmosTransaction {
+  return {
+    amount: '1000000000000000000',
+    blockHeight: 100,
+    currency: 'INJ',
+    feeAmount: '500000000000000',
+    feeCurrency: 'INJ',
+    from: EXTERNAL_ADDRESS,
+    id: 'tx123',
+    eventId: '0xdefaulteventid',
+    messageType: '/cosmos.bank.v1beta1.MsgSend',
+    providerName: 'injective-explorer',
+    status: 'success',
+    timestamp: 1700000000000,
+    to: USER_ADDRESS,
+    tokenType: 'native',
+    ...overrides,
+  };
+}
+
 describe('CosmosProcessor - Fund Flow Direction', () => {
   test('classifies incoming native transfer as deposit', async () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '1500000000000000000', // 1.5 INJ
-        blockHeight: 100,
-        currency: 'INJ',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: EXTERNAL_ADDRESS,
-        id: 'tx123',
-        messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
-        tokenType: 'native',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -84,21 +94,13 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '2000000000000000000', // 2 INJ
         blockHeight: 101,
-        currency: 'INJ',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: USER_ADDRESS,
         id: 'tx456',
-        messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        tokenType: 'native',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -130,21 +132,13 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '500000000000000000', // 0.5 INJ
         blockHeight: 102,
-        currency: 'INJ',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: USER_ADDRESS,
         id: 'tx789',
-        messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
-        tokenType: 'native',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -172,24 +166,19 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '1000000000', // 1000 USDT (normalized, 6 decimals)
         blockHeight: 103,
         currency: 'USDT',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: EXTERNAL_ADDRESS,
         id: 'tx101',
         messageType: '/cosmwasm.wasm.v1.MsgExecuteContract',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
         tokenAddress: 'inj1usdt000000000000000000000000000000000',
         tokenDecimals: 6,
         tokenSymbol: 'USDT',
         tokenType: 'cw20',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -212,24 +201,19 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '5000000000', // 5000 USDT
         blockHeight: 104,
         currency: 'USDT',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: USER_ADDRESS,
         id: 'tx102',
         messageType: '/cosmwasm.wasm.v1.MsgExecuteContract',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
         tokenAddress: 'inj1usdt000000000000000000000000000000000',
         tokenDecimals: 6,
         tokenSymbol: 'USDT',
         tokenType: 'cw20',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -254,21 +238,13 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '0',
         blockHeight: 105,
-        currency: 'INJ',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: USER_ADDRESS,
         id: 'tx201',
-        messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        tokenType: 'native',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -292,21 +268,13 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '0.000001', // 0.000001 INJ (small amount)
         blockHeight: 106,
-        currency: 'INJ',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: EXTERNAL_ADDRESS,
         id: 'tx202',
-        messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
-        tokenType: 'native',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -330,21 +298,15 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '0',
         blockHeight: 107,
-        currency: 'INJ',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: USER_ADDRESS,
         id: 'tx203',
         messageType: '/cosmwasm.wasm.v1.MsgExecuteContract',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         tokenAddress: 'inj1contract0000000000000000000000000000',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -368,21 +330,14 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '1000000000000000000',
         blockHeight: 108,
-        currency: 'INJ',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: USER_ADDRESS,
         id: 'tx204',
-        messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
         status: 'failed',
-        timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        tokenType: 'native',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -409,25 +364,18 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '1000000000000000000', // 1 INJ
         blockHeight: 200,
         bridgeType: 'peggy',
-        currency: 'INJ',
         ethereumReceiver: '0xuser000000000000000000000000000000000000',
         ethereumSender: '0xexternal00000000000000000000000000000000',
         eventNonce: '12345',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: EXTERNAL_ADDRESS,
         id: 'tx301',
         messageType: '/injective.peggy.v1.MsgSendToInjective',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
-        tokenType: 'native',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -453,25 +401,18 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '2000000000000000000', // 2 INJ
         blockHeight: 201,
         bridgeType: 'peggy',
-        currency: 'INJ',
         ethereumReceiver: '0xexternal00000000000000000000000000000000',
         ethereumSender: '0xuser000000000000000000000000000000000000',
         eventNonce: '12346',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: USER_ADDRESS,
         id: 'tx302',
         messageType: '/injective.peggy.v1.MsgSendToEthereum',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        tokenType: 'native',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -497,24 +438,19 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '5000000', // 5 OSMO
         blockHeight: 202,
         bridgeType: 'ibc',
         currency: 'OSMO',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: EXTERNAL_ADDRESS,
         id: 'tx303',
         messageType: '/ibc.applications.transfer.v1.MsgTransfer',
-        providerName: 'injective-explorer',
         sourceChannel: 'channel-8',
         sourcePort: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
         tokenType: 'ibc',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -541,24 +477,19 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '3000000', // 3 OSMO
         blockHeight: 203,
         bridgeType: 'ibc',
         currency: 'OSMO',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: USER_ADDRESS,
         id: 'tx304',
         messageType: '/ibc.applications.transfer.v1.MsgTransfer',
-        providerName: 'injective-explorer',
         sourceChannel: 'channel-8',
         sourcePort: 'transfer',
-        status: 'success',
-        timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
         tokenType: 'ibc',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -587,21 +518,13 @@ describe('CosmosProcessor - Multi-Chain Support', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '1000000000000000000',
         blockHeight: 300,
-        currency: 'INJ',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: EXTERNAL_ADDRESS,
         id: 'tx401',
-        messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
-        tokenType: 'native',
-      },
+      }),
     ];
     const result = await processor.process(normalizedData, {
       primaryAddress: USER_ADDRESS,
@@ -623,7 +546,7 @@ describe('CosmosProcessor - Multi-Chain Support', () => {
     const processor = createOsmosisProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '5000000', // 5 OSMO
         blockHeight: 301,
         currency: 'OSMO',
@@ -631,13 +554,9 @@ describe('CosmosProcessor - Multi-Chain Support', () => {
         feeCurrency: 'OSMO',
         from: EXTERNAL_ADDRESS,
         id: 'tx402',
-        messageType: '/cosmos.bank.v1beta1.MsgSend',
         providerName: 'mintscan',
-        status: 'success',
-        timestamp: Date.now(),
         to: 'osmo1user000000000000000000000000000000000',
-        tokenType: 'native',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -666,19 +585,13 @@ describe('CosmosProcessor - Edge Cases', () => {
 
     // Normalized data has lowercase addresses (as produced by CosmosAddressSchema)
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '1000000000000000000',
         blockHeight: 401,
-        currency: 'INJ',
         from: EXTERNAL_ADDRESS,
         id: 'tx502',
-        messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS.toLowerCase(), // Normalized by schema
-        tokenType: 'native',
-      },
+      }),
     ];
 
     // Pass normalized (lowercase) addresses in context - addresses are normalized before reaching processor
@@ -703,20 +616,14 @@ describe('CosmosProcessor - Edge Cases', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '1000000000000000000',
         blockHeight: 402,
-        currency: 'INJ',
         from: EXTERNAL_ADDRESS,
         id: 'tx503',
-        messageType: '/cosmos.bank.v1beta1.MsgSend',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: USER_ADDRESS,
-        tokenType: 'native',
-        // No feeAmount field
-      },
+        feeAmount: undefined,
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -739,17 +646,15 @@ describe('CosmosProcessor - Edge Cases', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '1000000000000000000',
-        currency: 'INJ',
+        blockHeight: undefined,
         from: EXTERNAL_ADDRESS,
         id: 'tx504',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
+        messageType: undefined,
         to: USER_ADDRESS,
-        // Missing: blockHeight, blockId, tokenType, messageType, etc.
-      },
+        tokenType: undefined,
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -774,21 +679,14 @@ describe('CosmosProcessor - Classification Uncertainty', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '500000000000000000', // 0.5 INJ sent
         blockHeight: 500,
-        currency: 'INJ',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: USER_ADDRESS,
         id: 'tx601',
         messageType: '/cosmwasm.wasm.v1.MsgExecuteContract',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
-        tokenType: 'native',
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -816,21 +714,15 @@ describe('CosmosProcessor - Classification Uncertainty', () => {
     const processor = createInjectiveProcessor();
 
     const normalizedData: CosmosTransaction[] = [
-      {
+      createTransaction({
         amount: '0',
         blockHeight: 501,
-        currency: 'INJ',
-        feeAmount: '500000000000000',
-        feeCurrency: 'INJ',
         from: USER_ADDRESS,
         id: 'tx602',
         messageType: '/cosmwasm.wasm.v1.MsgExecuteContract',
-        providerName: 'injective-explorer',
-        status: 'success',
-        timestamp: Date.now(),
         to: CONTRACT_ADDRESS,
         tokenAddress: 'inj1contract0000000000000000000000000000',
-      },
+      }),
     ];
     const result = await processor.process(normalizedData, {
       primaryAddress: USER_ADDRESS,

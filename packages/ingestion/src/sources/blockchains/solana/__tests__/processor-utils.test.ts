@@ -710,6 +710,7 @@ describe('Solana Processor Utils', () => {
       currency: 'SOL',
       from: userAddress,
       id: 'tx1',
+      eventId: 'event1',
       providerName: 'helius',
       status: 'success',
       timestamp: Date.now(),

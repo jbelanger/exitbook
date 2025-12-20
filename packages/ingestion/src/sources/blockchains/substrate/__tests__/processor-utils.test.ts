@@ -42,6 +42,71 @@ const BITTENSOR_CONFIG: SubstrateChainConfig = {
   ss58Format: 42,
 };
 
+// Helper function to create transaction objects with defaults
+function createTransaction(overrides: Partial<SubstrateTransaction> = {}): SubstrateTransaction {
+  return {
+    amount: '0',
+    blockHeight: 15000000,
+    blockId: '0xabc123',
+    call: 'transfer',
+    chainName: 'polkadot',
+    currency: 'DOT',
+    eventId: 'default_event_id',
+    feeAmount: '156250000',
+    feeCurrency: 'DOT',
+    from: POLKADOT_ADDRESS,
+    id: '0x123abc',
+    module: 'balances',
+    providerName: 'subscan',
+    status: 'success',
+    timestamp: Date.now(),
+    to: EXTERNAL_ADDRESS,
+    ...overrides,
+  };
+}
+
+// Helper function to create session context with defaults
+function createSessionContext(overrides: Partial<{ primaryAddress: string; userAddresses: string[] }> = {}) {
+  return {
+    primaryAddress: POLKADOT_ADDRESS,
+    userAddresses: [POLKADOT_ADDRESS],
+    ...overrides,
+  };
+}
+
+// Helper function to create fund flow objects with defaults
+function createFundFlow(overrides: Partial<SubstrateFundFlow> = {}): SubstrateFundFlow {
+  return {
+    call: 'transfer',
+    chainName: 'polkadot',
+    eventCount: 1,
+    extrinsicCount: 1,
+    feeAmount: '0.015625',
+    feeCurrency: 'DOT',
+    fromAddress: POLKADOT_ADDRESS,
+    hasGovernance: false,
+    hasMultisig: false,
+    hasProxy: false,
+    hasStaking: false,
+    hasUtilityBatch: false,
+    inflows: [],
+    module: 'balances',
+    outflows: [],
+    primary: { amount: '0', asset: 'DOT' },
+    toAddress: EXTERNAL_ADDRESS,
+    ...overrides,
+  };
+}
+
+// Helper function to analyze fund flow with defaults
+function getFundFlow(
+  transaction: SubstrateTransaction,
+  sessionContext = createSessionContext(),
+  config = POLKADOT_CONFIG
+) {
+  return analyzeFundFlowFromNormalized(transaction, sessionContext, config)._unsafeUnwrap();
+}
+
 describe('enrichSourceContext', () => {
   test('enriches Polkadot address with SS58 variants', () => {
     const result = enrichSourceContext(POLKADOT_ADDRESS);
@@ -154,30 +219,12 @@ describe('normalizeAmount', () => {
 
 describe('analyzeFundFlowFromNormalized', () => {
   test('analyzes outgoing transfer correctly', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '10000000000', // 1 DOT in planck
-      blockHeight: 15000000,
-      blockId: '0xabc123',
-      call: 'transfer',
-      chainName: 'polkadot',
-      currency: 'DOT',
       feeAmount: '156250000', // 0.015625 DOT in planck
-      feeCurrency: 'DOT',
-      from: POLKADOT_ADDRESS,
-      id: '0x123abc',
-      module: 'balances',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-    };
+    });
 
-    const sessionContext = {
-      primaryAddress: POLKADOT_ADDRESS,
-      userAddresses: [POLKADOT_ADDRESS],
-    };
-
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
+    const fundFlow = getFundFlow(transaction);
 
     expect(fundFlow.outflows).toHaveLength(1);
     expect(fundFlow.outflows[0]?.amount).toBe('1');
@@ -191,30 +238,13 @@ describe('analyzeFundFlowFromNormalized', () => {
   });
 
   test('analyzes incoming transfer correctly', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '20000000000', // 2 DOT in planck
-      blockHeight: 15000001,
-      blockId: '0xdef456',
-      call: 'transfer',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      feeCurrency: 'DOT',
       from: EXTERNAL_ADDRESS,
-      id: '0x456def',
-      module: 'balances',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
-    const sessionContext = {
-      primaryAddress: POLKADOT_ADDRESS,
-      userAddresses: [POLKADOT_ADDRESS],
-    };
-
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
+    const fundFlow = getFundFlow(transaction);
 
     expect(fundFlow.inflows).toHaveLength(1);
     expect(fundFlow.inflows[0]?.amount).toBe('2');
@@ -227,30 +257,12 @@ describe('analyzeFundFlowFromNormalized', () => {
   });
 
   test('analyzes self-transfer correctly', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '5000000000', // 0.5 DOT in planck
-      blockHeight: 15000002,
-      blockId: '0xghi789',
-      call: 'transfer',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      feeCurrency: 'DOT',
-      from: POLKADOT_ADDRESS,
-      id: '0x789ghi',
-      module: 'balances',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
-    const sessionContext = {
-      primaryAddress: POLKADOT_ADDRESS,
-      userAddresses: [POLKADOT_ADDRESS],
-    };
-
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
+    const fundFlow = getFundFlow(transaction);
 
     expect(fundFlow.inflows).toHaveLength(1);
     expect(fundFlow.inflows[0]?.amount).toBe('0.5');
@@ -262,30 +274,13 @@ describe('analyzeFundFlowFromNormalized', () => {
   });
 
   test('detects staking transactions', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '10000000000', // 1 DOT
-      blockHeight: 15000003,
-      blockId: '0xjkl012',
       call: 'bond',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      feeCurrency: 'DOT',
-      from: POLKADOT_ADDRESS,
-      id: '0x012jkl',
       module: 'staking',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
-      to: POLKADOT_ADDRESS,
-    };
+    });
 
-    const sessionContext = {
-      primaryAddress: POLKADOT_ADDRESS,
-      userAddresses: [POLKADOT_ADDRESS],
-    };
-
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
+    const fundFlow = getFundFlow(transaction);
 
     expect(fundFlow.hasStaking).toBe(true);
     expect(fundFlow.module).toBe('staking');
@@ -293,43 +288,23 @@ describe('analyzeFundFlowFromNormalized', () => {
   });
 
   test('detects governance transactions', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '100000000000', // 10 DOT
-      blockHeight: 15000004,
-      blockId: '0xmno345',
       call: 'vote',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      feeCurrency: 'DOT',
-      from: POLKADOT_ADDRESS,
-      id: '0x345mno',
       module: 'democracy',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: EXTERNAL_ADDRESS,
-    };
+    });
 
-    const sessionContext = {
-      primaryAddress: POLKADOT_ADDRESS,
-      userAddresses: [POLKADOT_ADDRESS],
-    };
-
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
+    const fundFlow = getFundFlow(transaction);
 
     expect(fundFlow.hasGovernance).toBe(true);
     expect(fundFlow.module).toBe('democracy');
   });
 
   test('detects utility batch transactions', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '0',
-      blockHeight: 15000005,
-      blockId: '0xpqr678',
       call: 'batch_all',
-      chainName: 'polkadot',
-      currency: 'DOT',
       events: [
         { data: [], method: 'Transfer', section: 'balances' },
         { data: [], method: 'Transfer', section: 'balances' },
@@ -339,22 +314,11 @@ describe('analyzeFundFlowFromNormalized', () => {
         { data: [], method: 'Transfer', section: 'balances' },
       ],
       feeAmount: '312500000',
-      feeCurrency: 'DOT',
-      from: POLKADOT_ADDRESS,
-      id: '0x678pqr',
       module: 'utility',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
-    const sessionContext = {
-      primaryAddress: POLKADOT_ADDRESS,
-      userAddresses: [POLKADOT_ADDRESS],
-    };
-
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
+    const fundFlow = getFundFlow(transaction);
 
     expect(fundFlow.hasUtilityBatch).toBe(true);
     expect(fundFlow.eventCount).toBe(6);
@@ -362,90 +326,41 @@ describe('analyzeFundFlowFromNormalized', () => {
   });
 
   test('detects proxy transactions', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '0',
-      blockHeight: 15000006,
-      blockId: '0xstu901',
       call: 'proxy',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      feeCurrency: 'DOT',
-      from: POLKADOT_ADDRESS,
-      id: '0x901stu',
       module: 'proxy',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS_2,
-    };
+    });
 
-    const sessionContext = {
-      primaryAddress: POLKADOT_ADDRESS,
-      userAddresses: [POLKADOT_ADDRESS],
-    };
-
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
+    const fundFlow = getFundFlow(transaction);
 
     expect(fundFlow.hasProxy).toBe(true);
     expect(fundFlow.module).toBe('proxy');
   });
 
   test('detects multisig transactions', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '0',
-      blockHeight: 15000007,
-      blockId: '0xvwx234',
       call: 'as_multi',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      feeCurrency: 'DOT',
-      from: POLKADOT_ADDRESS,
-      id: '0x234vwx',
       module: 'multisig',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-    };
+    });
 
-    const sessionContext = {
-      primaryAddress: POLKADOT_ADDRESS,
-      userAddresses: [POLKADOT_ADDRESS],
-    };
-
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
+    const fundFlow = getFundFlow(transaction);
 
     expect(fundFlow.hasMultisig).toBe(true);
     expect(fundFlow.module).toBe('multisig');
   });
 
   test('handles zero amount transactions', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '0',
-      blockHeight: 15000008,
-      blockId: '0xyzab567',
       call: 'nominate',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      feeCurrency: 'DOT',
-      from: POLKADOT_ADDRESS,
-      id: '0x567yzab',
       module: 'staking',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
-    const sessionContext = {
-      primaryAddress: POLKADOT_ADDRESS,
-      userAddresses: [POLKADOT_ADDRESS],
-    };
-
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
+    const fundFlow = getFundFlow(transaction);
 
     expect(fundFlow.inflows).toHaveLength(0);
     expect(fundFlow.outflows).toHaveLength(0);
@@ -458,30 +373,17 @@ describe('analyzeFundFlowFromNormalized', () => {
     const genericAddress = '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
     const polkadotAddress = '15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5';
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '10000000000',
-      blockHeight: 15000009,
-      blockId: '0xcdef890',
-      call: 'transfer',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      feeCurrency: 'DOT',
       from: polkadotAddress,
-      id: '0x890cdef',
-      module: 'balances',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-    };
+    });
 
-    const sessionContext = {
+    const sessionContext = createSessionContext({
       primaryAddress: genericAddress,
       userAddresses: [genericAddress, polkadotAddress],
-    };
+    });
 
-    const fundFlow = analyzeFundFlowFromNormalized(transaction, sessionContext, POLKADOT_CONFIG)._unsafeUnwrap();
+    const fundFlow = getFundFlow(transaction, sessionContext);
 
     expect(fundFlow.outflows).toHaveLength(1);
     expect(fundFlow.outflows[0]?.amount).toBe('1');
@@ -490,41 +392,21 @@ describe('analyzeFundFlowFromNormalized', () => {
 
 describe('determineOperationFromFundFlow', () => {
   test('classifies staking bond as stake', () => {
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'bond',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
       hasStaking: true,
-      hasUtilityBatch: false,
-      inflows: [],
       module: 'staking',
       outflows: [{ amount: '10', asset: 'DOT' }],
       primary: { amount: '10', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '100000000000',
-      blockHeight: 15000000,
       call: 'bond',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0x123',
       module: 'staking',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -533,41 +415,19 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies staking unbond as unstake', () => {
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'unbond',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
       hasStaking: true,
-      hasUtilityBatch: false,
-      inflows: [],
       module: 'staking',
-      outflows: [],
-      primary: { amount: '0', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '0',
-      blockHeight: 15000001,
       call: 'unbond',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0x456',
       module: 'staking',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -576,41 +436,21 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies staking withdraw as unstake', () => {
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'withdraw_unbonded',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
       hasStaking: true,
-      hasUtilityBatch: false,
       inflows: [{ amount: '10', asset: 'DOT' }],
       module: 'staking',
-      outflows: [],
       primary: { amount: '10', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '100000000000',
-      blockHeight: 15000002,
       call: 'withdraw_unbonded',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0x789',
       module: 'staking',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -619,41 +459,28 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies staking reward as reward', () => {
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'bond',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
       feeAmount: '0',
-      feeCurrency: 'DOT',
       fromAddress: EXTERNAL_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
       hasStaking: true,
-      hasUtilityBatch: false,
       inflows: [{ amount: '0.5', asset: 'DOT' }],
       module: 'staking',
       outflows: [],
       primary: { amount: '0.5', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '5000000000',
       blockHeight: 15000003,
       call: 'bond',
-      chainName: 'polkadot',
-      currency: 'DOT',
       feeAmount: '0',
       from: EXTERNAL_ADDRESS,
       id: '0xabc',
       module: 'staking',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -662,41 +489,19 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies nominate with info note', () => {
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'nominate',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
       hasStaking: true,
-      hasUtilityBatch: false,
-      inflows: [],
       module: 'staking',
-      outflows: [],
-      primary: { amount: '0', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '0',
-      blockHeight: 15000004,
       call: 'nominate',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0xdef',
       module: 'staking',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -708,41 +513,19 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies governance proposal', () => {
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'propose',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
       hasGovernance: true,
-      hasMultisig: false,
-      hasProxy: false,
-      hasStaking: false,
-      hasUtilityBatch: false,
-      inflows: [],
       module: 'democracy',
       outflows: [{ amount: '100', asset: 'DOT' }],
       primary: { amount: '100', asset: 'DOT' },
-      toAddress: EXTERNAL_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '1000000000000',
-      blockHeight: 15000005,
       call: 'propose',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0xghi',
       module: 'democracy',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -751,41 +534,19 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies governance vote', () => {
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'vote',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
       hasGovernance: true,
-      hasMultisig: false,
-      hasProxy: false,
-      hasStaking: false,
-      hasUtilityBatch: false,
-      inflows: [],
       module: 'democracy',
       outflows: [{ amount: '10', asset: 'DOT' }],
       primary: { amount: '10', asset: 'DOT' },
-      toAddress: EXTERNAL_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '100000000000',
-      blockHeight: 15000006,
       call: 'vote',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0xjkl',
       module: 'democracy',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -794,41 +555,25 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies governance refund', () => {
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'refund',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
       feeAmount: '0',
-      feeCurrency: 'DOT',
       fromAddress: EXTERNAL_ADDRESS,
       hasGovernance: true,
-      hasMultisig: false,
-      hasProxy: false,
-      hasStaking: false,
-      hasUtilityBatch: false,
       inflows: [{ amount: '10', asset: 'DOT' }],
       module: 'democracy',
-      outflows: [],
       primary: { amount: '10', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '100000000000',
-      blockHeight: 15000007,
       call: 'refund',
-      chainName: 'polkadot',
-      currency: 'DOT',
       feeAmount: '0',
       from: EXTERNAL_ADDRESS,
-      id: '0xmno',
       module: 'democracy',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -837,43 +582,29 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies utility batch with warning note', () => {
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'batch_all',
-      chainName: 'polkadot',
       classificationUncertainty:
         'Utility batch with 6 events. May contain multiple operations that need separate accounting.',
       eventCount: 6,
-      extrinsicCount: 1,
       feeAmount: '0.03125',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
-      hasStaking: false,
       hasUtilityBatch: true,
       inflows: [{ amount: '2', asset: 'DOT' }],
       module: 'utility',
       outflows: [{ amount: '5', asset: 'DOT' }],
       primary: { amount: '5', asset: 'DOT' },
-      toAddress: EXTERNAL_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '0',
       blockHeight: 15000008,
       call: 'batch_all',
-      chainName: 'polkadot',
-      currency: 'DOT',
       feeAmount: '312500000',
       from: POLKADOT_ADDRESS,
       id: '0xpqr',
       module: 'utility',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: EXTERNAL_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -885,41 +616,19 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies proxy operation with info note', () => {
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'proxy',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
       hasProxy: true,
-      hasStaking: false,
-      hasUtilityBatch: false,
-      inflows: [],
       module: 'proxy',
-      outflows: [],
-      primary: { amount: '0', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS_2,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '0',
-      blockHeight: 15000009,
       call: 'proxy',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0xstu',
       module: 'proxy',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS_2,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -931,41 +640,19 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies multisig operation with info note', () => {
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'as_multi',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
       hasMultisig: true,
-      hasProxy: false,
-      hasStaking: false,
-      hasUtilityBatch: false,
-      inflows: [],
       module: 'multisig',
       outflows: [{ amount: '1', asset: 'DOT' }],
       primary: { amount: '1', asset: 'DOT' },
-      toAddress: EXTERNAL_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '10000000000',
-      blockHeight: 15000010,
       call: 'as_multi',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0xvwx',
       module: 'multisig',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -977,41 +664,18 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies fee-only transaction', () => {
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'remark',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
-      hasStaking: false,
-      hasUtilityBatch: false,
-      inflows: [],
       module: 'system',
-      outflows: [],
-      primary: { amount: '0', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '0',
-      blockHeight: 15000011,
       call: 'remark',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0xyzab',
       module: 'system',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -1020,41 +684,18 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies simple deposit', () => {
-    const fundFlow: SubstrateFundFlow = {
-      call: 'transfer',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
+    const fundFlow = createFundFlow({
       fromAddress: EXTERNAL_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
-      hasStaking: false,
-      hasUtilityBatch: false,
       inflows: [{ amount: '5', asset: 'DOT' }],
-      module: 'balances',
-      outflows: [],
       primary: { amount: '5', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '50000000000',
-      blockHeight: 15000012,
-      call: 'transfer',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
       from: EXTERNAL_ADDRESS,
-      id: '0xcdef',
-      module: 'balances',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -1063,41 +704,14 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies simple withdrawal', () => {
-    const fundFlow: SubstrateFundFlow = {
-      call: 'transfer',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
-      hasStaking: false,
-      hasUtilityBatch: false,
-      inflows: [],
-      module: 'balances',
+    const fundFlow = createFundFlow({
       outflows: [{ amount: '3', asset: 'DOT' }],
       primary: { amount: '3', asset: 'DOT' },
-      toAddress: EXTERNAL_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '30000000000',
-      blockHeight: 15000013,
-      call: 'transfer',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0xghij',
-      module: 'balances',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -1106,41 +720,17 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies self-transfer', () => {
-    const fundFlow: SubstrateFundFlow = {
-      call: 'transfer',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
-      hasStaking: false,
-      hasUtilityBatch: false,
+    const fundFlow = createFundFlow({
       inflows: [{ amount: '1', asset: 'DOT' }],
-      module: 'balances',
       outflows: [{ amount: '1', asset: 'DOT' }],
       primary: { amount: '1', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '10000000000',
-      blockHeight: 15000014,
-      call: 'transfer',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0xklmn',
-      module: 'balances',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -1149,19 +739,8 @@ describe('determineOperationFromFundFlow', () => {
   });
 
   test('classifies unknown transaction with warning note', () => {
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'unknown_call',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
-      hasStaking: false,
-      hasUtilityBatch: false,
       inflows: [
         { amount: '2', asset: 'DOT' },
         { amount: '1', asset: 'KSM' },
@@ -1169,24 +748,13 @@ describe('determineOperationFromFundFlow', () => {
       module: 'unknown_module',
       outflows: [{ amount: '3', asset: 'DOT' }],
       primary: { amount: '3', asset: 'DOT' },
-      toAddress: EXTERNAL_ADDRESS,
-    };
+    });
 
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '0',
-      blockHeight: 15000015,
       call: 'unknown_call',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0xopqr',
       module: 'unknown_module',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-    };
+    });
 
     const classification = determineOperationFromFundFlow(fundFlow, transaction);
 
@@ -1200,41 +768,14 @@ describe('determineOperationFromFundFlow', () => {
 
 describe('shouldRecordFeeEntry', () => {
   test('returns true when user has outflows', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '10000000000',
-      blockHeight: 15000000,
-      call: 'transfer',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0x123',
-      module: 'balances',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
-      to: EXTERNAL_ADDRESS,
-    };
+    });
 
-    const fundFlow: SubstrateFundFlow = {
-      call: 'transfer',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
-      hasStaking: false,
-      hasUtilityBatch: false,
-      inflows: [],
-      module: 'balances',
+    const fundFlow = createFundFlow({
       outflows: [{ amount: '1', asset: 'DOT' }],
       primary: { amount: '1', asset: 'DOT' },
-      toAddress: EXTERNAL_ADDRESS,
-    };
+    });
 
     const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
@@ -1242,41 +783,19 @@ describe('shouldRecordFeeEntry', () => {
   });
 
   test('returns true for user-initiated unbond', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '0',
-      blockHeight: 15000001,
       call: 'unbond',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0x456',
       module: 'staking',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'unbond',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
       hasStaking: true,
-      hasUtilityBatch: false,
-      inflows: [],
       module: 'staking',
-      outflows: [],
-      primary: { amount: '0', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
     const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
@@ -1284,41 +803,21 @@ describe('shouldRecordFeeEntry', () => {
   });
 
   test('returns true for user-initiated withdraw', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '10000000000',
-      blockHeight: 15000002,
       call: 'withdraw_unbonded',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0x789',
       module: 'staking',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'withdraw_unbonded',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
       hasStaking: true,
-      hasUtilityBatch: false,
       inflows: [{ amount: '1', asset: 'DOT' }],
       module: 'staking',
-      outflows: [],
       primary: { amount: '1', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
     const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
@@ -1326,41 +825,19 @@ describe('shouldRecordFeeEntry', () => {
   });
 
   test('returns true for user-initiated nominate', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '0',
-      blockHeight: 15000003,
       call: 'nominate',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0xabc',
       module: 'staking',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'nominate',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
       hasStaking: true,
-      hasUtilityBatch: false,
-      inflows: [],
       module: 'staking',
-      outflows: [],
-      primary: { amount: '0', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
     const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
@@ -1368,41 +845,19 @@ describe('shouldRecordFeeEntry', () => {
   });
 
   test('returns true for user-initiated chill', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '0',
-      blockHeight: 15000004,
       call: 'chill',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0xdef',
       module: 'staking',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'chill',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
       hasStaking: true,
-      hasUtilityBatch: false,
-      inflows: [],
       module: 'staking',
-      outflows: [],
-      primary: { amount: '0', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
     const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
@@ -1410,41 +865,18 @@ describe('shouldRecordFeeEntry', () => {
   });
 
   test('returns true when from address matches user', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '0',
-      blockHeight: 15000005,
       call: 'remark',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
-      from: POLKADOT_ADDRESS,
-      id: '0xghi',
       module: 'system',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'remark',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
-      fromAddress: POLKADOT_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
-      hasStaking: false,
-      hasUtilityBatch: false,
-      inflows: [],
       module: 'system',
-      outflows: [],
-      primary: { amount: '0', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
     const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
@@ -1452,41 +884,18 @@ describe('shouldRecordFeeEntry', () => {
   });
 
   test('returns false for incoming transfer', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '10000000000',
-      blockHeight: 15000006,
-      call: 'transfer',
-      chainName: 'polkadot',
-      currency: 'DOT',
-      feeAmount: '156250000',
       from: EXTERNAL_ADDRESS,
-      id: '0xjkl',
-      module: 'balances',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
-    const fundFlow: SubstrateFundFlow = {
-      call: 'transfer',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
-      feeAmount: '0.015625',
-      feeCurrency: 'DOT',
+    const fundFlow = createFundFlow({
       fromAddress: EXTERNAL_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
-      hasStaking: false,
-      hasUtilityBatch: false,
       inflows: [{ amount: '1', asset: 'DOT' }],
-      module: 'balances',
-      outflows: [],
       primary: { amount: '1', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
     const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 
@@ -1494,41 +903,25 @@ describe('shouldRecordFeeEntry', () => {
   });
 
   test('returns false for staking reward', () => {
-    const transaction: SubstrateTransaction = {
+    const transaction = createTransaction({
       amount: '5000000000',
-      blockHeight: 15000007,
       call: 'bond',
-      chainName: 'polkadot',
-      currency: 'DOT',
       feeAmount: '0',
       from: EXTERNAL_ADDRESS,
-      id: '0xmno',
       module: 'staking',
-      providerName: 'subscan',
-      status: 'success',
-      timestamp: Date.now(),
       to: POLKADOT_ADDRESS,
-    };
+    });
 
-    const fundFlow: SubstrateFundFlow = {
+    const fundFlow = createFundFlow({
       call: 'bond',
-      chainName: 'polkadot',
-      eventCount: 1,
-      extrinsicCount: 1,
       feeAmount: '0',
-      feeCurrency: 'DOT',
       fromAddress: EXTERNAL_ADDRESS,
-      hasGovernance: false,
-      hasMultisig: false,
-      hasProxy: false,
       hasStaking: true,
-      hasUtilityBatch: false,
       inflows: [{ amount: '0.5', asset: 'DOT' }],
       module: 'staking',
-      outflows: [],
       primary: { amount: '0.5', asset: 'DOT' },
       toAddress: POLKADOT_ADDRESS,
-    };
+    });
 
     const userPaidFee = shouldRecordFeeEntry(transaction, fundFlow, POLKADOT_ADDRESS);
 

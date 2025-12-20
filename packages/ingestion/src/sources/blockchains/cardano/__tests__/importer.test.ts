@@ -129,6 +129,7 @@ describe('CardanoTransactionImporter', () => {
         blockHeight: 9000000,
         currency: 'ADA',
         id: 'tx1abc',
+        eventId: '0'.repeat(64),
         inputs: mockCardanoTx.inputs,
         outputs: mockCardanoTx.outputs,
       };

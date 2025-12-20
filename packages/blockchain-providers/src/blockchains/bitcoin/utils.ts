@@ -4,12 +4,36 @@ import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
 import { err, ok, type Result } from 'neverthrow';
 
+import { generateUniqueTransactionEventId } from '../../core/index.js';
 import type { BlockchainProviderManager } from '../../core/provider-manager.js';
 
 import { getNetworkForChain } from './network-registry.js';
 import type { AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from './types.js';
 
 const logger = getLogger('BitcoinUtils');
+
+/**
+ * Deterministic event identity for Bitcoin-like chains.
+ *
+ * Important: raw storage dedup is keyed by `(account_id, event_id)` and the raw layer
+ * is append-only (no upserts). This means `eventId` MUST NOT depend on fields that
+ * can change between imports (e.g., "pending vs confirmed" timestamp).
+ *
+ * For Bitcoin-like chains, we currently treat "one normalized transaction" as the
+ * event granularity, so the canonical discriminant is the on-chain txid plus the
+ * chain's native currency.
+ */
+export function generateBitcoinTransactionEventId(params: { currency: string; txid: string }): string {
+  return generateUniqueTransactionEventId({
+    amount: '0',
+    currency: params.currency,
+    from: '',
+    id: params.txid,
+    timestamp: 0,
+    traceId: 'utxo-tx',
+    type: 'transfer',
+  });
+}
 
 /**
  * Normalize Bitcoin address based on address type.

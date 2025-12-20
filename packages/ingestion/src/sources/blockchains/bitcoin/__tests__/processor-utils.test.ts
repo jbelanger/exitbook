@@ -7,13 +7,26 @@ const USER_ADDRESS = 'bc1quser1111111111111111111111111111111';
 const ANOTHER_ADDRESS = 'bc1qderived1111111111111111111111111111';
 const EXTERNAL_ADDRESS = 'bc1qexternal111111111111111111111111111';
 
+function createTransaction(overrides: Partial<BitcoinTransaction> = {}): BitcoinTransaction {
+  return {
+    blockHeight: 800000,
+    currency: 'BTC',
+    feeAmount: '0.0001',
+    feeCurrency: 'BTC',
+    id: 'tx-default',
+    eventId: '0xdefaulteventid',
+    inputs: [],
+    outputs: [],
+    providerName: 'blockstream.info',
+    status: 'success',
+    timestamp: 1700000000000,
+    ...overrides,
+  };
+}
+
 describe('analyzeBitcoinFundFlow', () => {
   test('analyzes outgoing transaction correctly', () => {
-    const normalizedTx: BitcoinTransaction = {
-      blockHeight: 800000,
-      currency: 'BTC',
-      feeAmount: '0.0001',
-      feeCurrency: 'BTC',
+    const normalizedTx = createTransaction({
       id: 'tx1abc',
       inputs: [
         {
@@ -30,10 +43,7 @@ describe('analyzeBitcoinFundFlow', () => {
           value: '100000000', // 1.0 BTC
         },
       ],
-      providerName: 'blockstream.info',
-      status: 'success',
-      timestamp: Date.now(),
-    };
+    });
 
     const result = analyzeBitcoinFundFlow(normalizedTx, {
       primaryAddress: USER_ADDRESS,
@@ -53,11 +63,8 @@ describe('analyzeBitcoinFundFlow', () => {
   });
 
   test('analyzes incoming transaction correctly', () => {
-    const normalizedTx: BitcoinTransaction = {
+    const normalizedTx = createTransaction({
       blockHeight: 800001,
-      currency: 'BTC',
-      feeAmount: '0.0001',
-      feeCurrency: 'BTC',
       id: 'tx2def',
       inputs: [
         {
@@ -75,9 +82,7 @@ describe('analyzeBitcoinFundFlow', () => {
         },
       ],
       providerName: 'mempool.space',
-      status: 'success',
-      timestamp: Date.now(),
-    };
+    });
 
     const result = analyzeBitcoinFundFlow(normalizedTx, {
       primaryAddress: USER_ADDRESS,
@@ -97,11 +102,9 @@ describe('analyzeBitcoinFundFlow', () => {
   });
 
   test('handles transaction with change correctly', () => {
-    const normalizedTx: BitcoinTransaction = {
+    const normalizedTx = createTransaction({
       blockHeight: 800003,
-      currency: 'BTC',
       feeAmount: '0.00015',
-      feeCurrency: 'BTC',
       id: 'tx4jkl',
       inputs: [
         {
@@ -124,9 +127,7 @@ describe('analyzeBitcoinFundFlow', () => {
         },
       ],
       providerName: 'mempool.space',
-      status: 'success',
-      timestamp: Date.now(),
-    };
+    });
 
     const result = analyzeBitcoinFundFlow(normalizedTx, {
       primaryAddress: USER_ADDRESS,
@@ -145,11 +146,9 @@ describe('analyzeBitcoinFundFlow', () => {
   });
 
   test('handles per-address processing (no derivedAddresses)', () => {
-    const normalizedTx: BitcoinTransaction = {
+    const normalizedTx = createTransaction({
       blockHeight: 800006,
-      currency: 'BTC',
       feeAmount: '0.00012',
-      feeCurrency: 'BTC',
       id: 'tx7stu',
       inputs: [
         {
@@ -166,10 +165,7 @@ describe('analyzeBitcoinFundFlow', () => {
           value: '100000000', // 1.0 BTC sent
         },
       ],
-      providerName: 'blockstream.info',
-      status: 'success',
-      timestamp: Date.now(),
-    };
+    });
 
     // Per-address model: Process from DERIVED_ADDRESS_1's perspective only
     const result = analyzeBitcoinFundFlow(normalizedTx, {
@@ -188,11 +184,8 @@ describe('analyzeBitcoinFundFlow', () => {
   });
 
   test('performs case-insensitive address matching', () => {
-    const normalizedTx: BitcoinTransaction = {
+    const normalizedTx = createTransaction({
       blockHeight: 800008,
-      currency: 'BTC',
-      feeAmount: '0.0001',
-      feeCurrency: 'BTC',
       id: 'tx9yza',
       inputs: [
         {
@@ -209,10 +202,7 @@ describe('analyzeBitcoinFundFlow', () => {
           value: '100000000',
         },
       ],
-      providerName: 'blockstream.info',
-      status: 'success',
-      timestamp: Date.now(),
-    };
+    });
 
     const result = analyzeBitcoinFundFlow(normalizedTx, {
       primaryAddress: USER_ADDRESS.toLowerCase(),

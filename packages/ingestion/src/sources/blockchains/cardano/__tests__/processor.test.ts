@@ -1,4 +1,8 @@
-import type { CardanoTransaction } from '@exitbook/blockchain-providers';
+import type {
+  CardanoTransaction,
+  CardanoTransactionInput,
+  CardanoTransactionOutput,
+} from '@exitbook/blockchain-providers';
 import { describe, expect, test } from 'vitest';
 
 import { CardanoTransactionProcessor } from '../processor.js';
@@ -10,46 +14,62 @@ function createProcessor() {
   return new CardanoTransactionProcessor();
 }
 
+function createInput(
+  address: string,
+  amounts: { quantity: string; unit: string }[] | string,
+  unit = 'lovelace',
+  overrides: Partial<CardanoTransactionInput> = {}
+): CardanoTransactionInput {
+  return {
+    address,
+    amounts: typeof amounts === 'string' ? [{ quantity: amounts, unit }] : amounts,
+    outputIndex: 0,
+    txHash: 'prev-tx',
+    ...overrides,
+  };
+}
+
+function createOutput(
+  address: string,
+  amounts: { quantity: string; unit: string }[] | string,
+  unit = 'lovelace',
+  overrides: Partial<CardanoTransactionOutput> = {}
+): CardanoTransactionOutput {
+  return {
+    address,
+    amounts: typeof amounts === 'string' ? [{ quantity: amounts, unit }] : amounts,
+    outputIndex: 0,
+    ...overrides,
+  };
+}
+
+function createTransaction(overrides: Partial<CardanoTransaction> = {}): CardanoTransaction {
+  return {
+    blockHeight: 9000000,
+    currency: 'ADA',
+    feeAmount: '0.17',
+    feeCurrency: 'ADA',
+    id: 'tx-default',
+    inputs: [createInput(EXTERNAL_ADDRESS, '2170000')],
+    outputs: [createOutput(USER_ADDRESS, '2000000')],
+    providerName: 'blockfrost',
+    status: 'success',
+    timestamp: Date.now(),
+    ...overrides,
+  } as CardanoTransaction;
+}
+
 describe('CardanoTransactionProcessor', () => {
   test('incoming transfer - user receives ADA, does NOT pay fee', async () => {
     const processor = createProcessor();
 
     const normalizedData: CardanoTransaction[] = [
-      {
-        blockHeight: 9000000,
-        currency: 'ADA',
-        feeAmount: '0.17', // Paid by sender
-        feeCurrency: 'ADA',
+      createTransaction({
         id: 'tx1abc',
-        inputs: [
-          {
-            address: EXTERNAL_ADDRESS,
-            amounts: [
-              {
-                quantity: '2170000', // 2.17 ADA in lovelace
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-            txHash: 'prev1',
-          },
-        ],
-        outputs: [
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '2000000', // 2.0 ADA
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-          },
-        ],
-        providerName: 'blockfrost',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+        eventId: '0xevent1abc',
+        inputs: [createInput(EXTERNAL_ADDRESS, '2170000', 'lovelace', { txHash: 'prev1' })],
+        outputs: [createOutput(USER_ADDRESS, '2000000')],
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -76,41 +96,12 @@ describe('CardanoTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: CardanoTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 9000001,
-        currency: 'ADA',
-        feeAmount: '0.17',
-        feeCurrency: 'ADA',
         id: 'tx2def',
-        inputs: [
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '2170000', // 2.17 ADA
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-            txHash: 'prev2',
-          },
-        ],
-        outputs: [
-          {
-            address: EXTERNAL_ADDRESS,
-            amounts: [
-              {
-                quantity: '2000000', // 2.0 ADA sent
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-          },
-        ],
-        providerName: 'blockfrost',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+        inputs: [createInput(USER_ADDRESS, '2170000', 'lovelace', { txHash: 'prev2' })],
+        outputs: [createOutput(EXTERNAL_ADDRESS, '2000000')],
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -139,41 +130,12 @@ describe('CardanoTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: CardanoTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 9000002,
-        currency: 'ADA',
-        feeAmount: '0.17',
-        feeCurrency: 'ADA',
         id: 'tx3ghi',
-        inputs: [
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '5170000', // 5.17 ADA
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-            txHash: 'prev3',
-          },
-        ],
-        outputs: [
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '5000000', // 5.0 ADA back to self
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-          },
-        ],
-        providerName: 'blockfrost',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+        inputs: [createInput(USER_ADDRESS, '5170000', 'lovelace', { txHash: 'prev3' })],
+        outputs: [createOutput(USER_ADDRESS, '5000000')],
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -198,51 +160,15 @@ describe('CardanoTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: CardanoTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 9000003,
-        currency: 'ADA',
-        feeAmount: '0.17',
-        feeCurrency: 'ADA',
         id: 'tx4jkl',
-        inputs: [
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '10170000', // 10.17 ADA
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-            txHash: 'prev4',
-          },
-        ],
+        inputs: [createInput(USER_ADDRESS, '10170000', 'lovelace', { txHash: 'prev4' })],
         outputs: [
-          {
-            address: EXTERNAL_ADDRESS,
-            amounts: [
-              {
-                quantity: '3000000', // 3.0 ADA sent
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-          },
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '7000000', // 7.0 ADA change
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 1,
-          },
+          createOutput(EXTERNAL_ADDRESS, '3000000'),
+          createOutput(USER_ADDRESS, '7000000', 'lovelace', { outputIndex: 1 }),
         ],
-        providerName: 'blockfrost',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -273,52 +199,15 @@ describe('CardanoTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: CardanoTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 9000004,
-        currency: 'ADA',
-        feeAmount: '0.17',
-        feeCurrency: 'ADA',
         id: 'tx5mno',
         inputs: [
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '3000000', // 3.0 ADA
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-            txHash: 'prev5a',
-          },
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '2170000', // 2.17 ADA
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 1,
-            txHash: 'prev5b',
-          },
+          createInput(USER_ADDRESS, '3000000', 'lovelace', { txHash: 'prev5a' }),
+          createInput(USER_ADDRESS, '2170000', 'lovelace', { outputIndex: 1, txHash: 'prev5b' }),
         ],
-        outputs: [
-          {
-            address: EXTERNAL_ADDRESS,
-            amounts: [
-              {
-                quantity: '5000000', // 5.0 ADA sent
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-          },
-        ],
-        providerName: 'blockfrost',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+        outputs: [createOutput(EXTERNAL_ADDRESS, '5000000')],
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -345,51 +234,15 @@ describe('CardanoTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: CardanoTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 9000005,
-        currency: 'ADA',
-        feeAmount: '0.17',
-        feeCurrency: 'ADA',
         id: 'tx6pqr',
-        inputs: [
-          {
-            address: EXTERNAL_ADDRESS,
-            amounts: [
-              {
-                quantity: '10170000', // 10.17 ADA
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-            txHash: 'prev6',
-          },
-        ],
+        inputs: [createInput(EXTERNAL_ADDRESS, '10170000', 'lovelace', { txHash: 'prev6' })],
         outputs: [
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '5000000', // 5.0 ADA to user
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-          },
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '5000000', // 5.0 ADA to user
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 1,
-          },
+          createOutput(USER_ADDRESS, '5000000'),
+          createOutput(USER_ADDRESS, '5000000', 'lovelace', { outputIndex: 1 }),
         ],
-        providerName: 'blockfrost',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -416,49 +269,27 @@ describe('CardanoTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: CardanoTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 9000006,
-        currency: 'ADA',
-        feeAmount: '0.17',
-        feeCurrency: 'ADA',
         id: 'tx7stu',
         inputs: [
-          {
-            address: EXTERNAL_ADDRESS,
-            amounts: [
-              {
-                quantity: '2170000', // 2.17 ADA
-                unit: 'lovelace',
-              },
-              {
-                quantity: '1000', // 1000 tokens
-                unit: 'policy1.token1',
-              },
+          createInput(
+            EXTERNAL_ADDRESS,
+            [
+              { quantity: '2170000', unit: 'lovelace' },
+              { quantity: '1000', unit: 'policy1.token1' },
             ],
-            outputIndex: 0,
-            txHash: 'prev7',
-          },
+            'lovelace',
+            { txHash: 'prev7' }
+          ),
         ],
         outputs: [
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '2000000', // 2.0 ADA
-                unit: 'lovelace',
-              },
-              {
-                quantity: '1000', // 1000 tokens
-                unit: 'policy1.token1',
-              },
-            ],
-            outputIndex: 0,
-          },
+          createOutput(USER_ADDRESS, [
+            { quantity: '2000000', unit: 'lovelace' },
+            { quantity: '1000', unit: 'policy1.token1' },
+          ]),
         ],
-        providerName: 'blockfrost',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -483,51 +314,15 @@ describe('CardanoTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: CardanoTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 9000007,
-        currency: 'ADA',
-        feeAmount: '0.17',
-        feeCurrency: 'ADA',
         id: 'tx8vwx',
-        inputs: [
-          {
-            address: EXTERNAL_ADDRESS,
-            amounts: [
-              {
-                quantity: '5170000', // 5.17 ADA
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-            txHash: 'prev8',
-          },
-        ],
+        inputs: [createInput(EXTERNAL_ADDRESS, '5170000', 'lovelace', { txHash: 'prev8' })],
         outputs: [
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '2000000', // 2.0 ADA
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-          },
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '3000000', // 3.0 ADA (same asset, different output)
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 1,
-          },
+          createOutput(USER_ADDRESS, '2000000'),
+          createOutput(USER_ADDRESS, '3000000', 'lovelace', { outputIndex: 1 }),
         ],
-        providerName: 'blockfrost',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -551,49 +346,27 @@ describe('CardanoTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: CardanoTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 9000008,
-        currency: 'ADA',
-        feeAmount: '0.17', // Fee in ADA only
-        feeCurrency: 'ADA',
         id: 'tx9xyz',
         inputs: [
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '2170000', // 2.17 ADA
-                unit: 'lovelace',
-              },
-              {
-                quantity: '500', // 500 tokens
-                unit: 'policy1.token1',
-              },
+          createInput(
+            USER_ADDRESS,
+            [
+              { quantity: '2170000', unit: 'lovelace' },
+              { quantity: '500', unit: 'policy1.token1' },
             ],
-            outputIndex: 0,
-            txHash: 'prev9',
-          },
+            'lovelace',
+            { txHash: 'prev9' }
+          ),
         ],
         outputs: [
-          {
-            address: EXTERNAL_ADDRESS,
-            amounts: [
-              {
-                quantity: '2000000', // 2.0 ADA
-                unit: 'lovelace',
-              },
-              {
-                quantity: '500', // 500 tokens
-                unit: 'policy1.token1',
-              },
-            ],
-            outputIndex: 0,
-          },
+          createOutput(EXTERNAL_ADDRESS, [
+            { quantity: '2000000', unit: 'lovelace' },
+            { quantity: '500', unit: 'policy1.token1' },
+          ]),
         ],
-        providerName: 'blockfrost',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -620,41 +393,13 @@ describe('CardanoTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: CardanoTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 9000009,
-        currency: 'ADA',
-        feeAmount: '0.17',
-        feeCurrency: 'ADA',
         id: 'tx10abc',
-        inputs: [
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '2170000',
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-            txHash: 'prev10',
-          },
-        ],
-        outputs: [
-          {
-            address: EXTERNAL_ADDRESS,
-            amounts: [
-              {
-                quantity: '2000000',
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-          },
-        ],
-        providerName: 'blockfrost',
         status: 'failed',
-        timestamp: Date.now(),
-      },
+        inputs: [createInput(USER_ADDRESS, '2170000', 'lovelace', { txHash: 'prev10' })],
+        outputs: [createOutput(EXTERNAL_ADDRESS, '2000000')],
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
@@ -679,76 +424,19 @@ describe('CardanoTransactionProcessor', () => {
     const processor = createProcessor();
 
     const normalizedData: CardanoTransaction[] = [
-      {
+      createTransaction({
         blockHeight: 9000011,
-        currency: 'ADA',
-        feeAmount: '0.17',
-        feeCurrency: 'ADA',
         id: 'tx12a',
-        inputs: [
-          {
-            address: EXTERNAL_ADDRESS,
-            amounts: [
-              {
-                quantity: '2170000',
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-            txHash: 'prev12a',
-          },
-        ],
-        outputs: [
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '2000000',
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-          },
-        ],
-        providerName: 'blockfrost',
-        status: 'success',
-        timestamp: Date.now(),
-      },
-      {
+        inputs: [createInput(EXTERNAL_ADDRESS, '2170000', 'lovelace', { txHash: 'prev12a' })],
+        outputs: [createOutput(USER_ADDRESS, '2000000')],
+      }),
+      createTransaction({
         blockHeight: 9000012,
-        currency: 'ADA',
         feeAmount: '0.20',
-        feeCurrency: 'ADA',
         id: 'tx12b',
-        inputs: [
-          {
-            address: USER_ADDRESS,
-            amounts: [
-              {
-                quantity: '5200000',
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-            txHash: 'prev12b',
-          },
-        ],
-        outputs: [
-          {
-            address: EXTERNAL_ADDRESS,
-            amounts: [
-              {
-                quantity: '5000000',
-                unit: 'lovelace',
-              },
-            ],
-            outputIndex: 0,
-          },
-        ],
-        providerName: 'blockfrost',
-        status: 'success',
-        timestamp: Date.now(),
-      },
+        inputs: [createInput(USER_ADDRESS, '5200000', 'lovelace', { txHash: 'prev12b' })],
+        outputs: [createOutput(EXTERNAL_ADDRESS, '5000000')],
+      }),
     ];
 
     const result = await processor.process(normalizedData, {
