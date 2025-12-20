@@ -178,6 +178,29 @@ async function handleBalanceSuccess(
 ) {
   const account = verificationResult.account;
 
+  // Check beacon withdrawal status using cursor state (no DB query needed)
+  // Flagged early during import via cursor metadata
+  let beaconStatus: {
+    beaconWithdrawalsSkippedReason?: 'no-provider-support' | 'api-error' | 'unsupported-chain';
+    includesBeaconWithdrawals?: boolean;
+  } = {};
+
+  const isExchange = account.accountType === 'exchange-api' || account.accountType === 'exchange-csv';
+  if (!isExchange) {
+    if (account.sourceName.toLowerCase() === 'ethereum') {
+      const cursor = account.lastCursor?.['beacon_withdrawal'];
+      if (cursor?.metadata?.fetchStatus === 'failed') {
+        beaconStatus = { includesBeaconWithdrawals: false, beaconWithdrawalsSkippedReason: 'api-error' };
+      } else if (!cursor || cursor?.metadata?.fetchStatus === 'skipped') {
+        beaconStatus = { includesBeaconWithdrawals: false, beaconWithdrawalsSkippedReason: 'no-provider-support' };
+      } else if (cursor.totalFetched > 0) {
+        beaconStatus = { includesBeaconWithdrawals: true };
+      }
+    } else {
+      beaconStatus = { beaconWithdrawalsSkippedReason: 'unsupported-chain' };
+    }
+  }
+
   // Display results in text mode
   if (output.isTextMode()) {
     //output.info(`Balance verification completed for account ${account.id} (${account.sourceName})`);
@@ -201,6 +224,20 @@ async function handleBalanceSuccess(
     }
     if (account.providerName) {
       output.log(`  Provider: ${account.providerName}`);
+    }
+
+    // Beacon withdrawal status for Ethereum accounts
+    if (beaconStatus.includesBeaconWithdrawals !== undefined) {
+      output.log(`  Beacon Withdrawals: ${beaconStatus.includesBeaconWithdrawals ? 'Included' : 'Not Found'}`);
+      if (!beaconStatus.includesBeaconWithdrawals && beaconStatus.beaconWithdrawalsSkippedReason) {
+        const reason =
+          beaconStatus.beaconWithdrawalsSkippedReason === 'no-provider-support'
+            ? 'Provider does not support beacon withdrawals'
+            : beaconStatus.beaconWithdrawalsSkippedReason === 'api-error'
+              ? 'Beacon withdrawal fetch failed (check API key/provider)'
+              : 'Chain does not support beacon withdrawals';
+        output.log(`    Note: ${reason}`);
+      }
     }
 
     // Summary
@@ -269,40 +306,6 @@ async function handleBalanceSuccess(
   }
 
   // Prepare result data for JSON mode
-  const isExchange = account.accountType === 'exchange-api' || account.accountType === 'exchange-csv';
-
-  // Check beacon withdrawal completeness for Ethereum blockchain accounts
-  let includesBeaconWithdrawals: boolean | undefined;
-  let beaconWithdrawalsSkippedReason: 'no-provider-support' | 'api-error' | 'unsupported-chain' | undefined;
-
-  if (!isExchange && account.sourceName.toLowerCase() === 'ethereum') {
-    // Check if there are any beacon withdrawal transactions
-    const hasBeaconWithdrawalsResult = await transactionRepository.hasTransactionsOfType(
-      account.id,
-      'beacon_withdrawal'
-    );
-
-    if (hasBeaconWithdrawalsResult.isOk()) {
-      includesBeaconWithdrawals = hasBeaconWithdrawalsResult.value;
-
-      // If no beacon withdrawals found, check if a fetch was attempted
-      if (!includesBeaconWithdrawals) {
-        // Check if a beacon_withdrawal fetch was attempted by looking at the lastCursor
-        const hasBeaconWithdrawalCursor = account.lastCursor && 'beacon_withdrawal' in account.lastCursor;
-
-        if (!hasBeaconWithdrawalCursor) {
-          // No fetch attempted - provider doesn't support it
-          beaconWithdrawalsSkippedReason = 'no-provider-support';
-        }
-        // If hasBeaconWithdrawalCursor is true, fetch was attempted but no withdrawals found
-        // This is a valid state - user genuinely has no beacon withdrawals
-        // Don't set beaconWithdrawalsSkippedReason in this case
-      }
-    }
-  } else if (!isExchange) {
-    // Non-Ethereum blockchain - withdrawals not applicable
-    beaconWithdrawalsSkippedReason = 'unsupported-chain';
-  }
 
   const resultData: BalanceCommandResult = {
     status: verificationResult.status,
@@ -329,8 +332,8 @@ async function handleBalanceSuccess(
     },
     meta: {
       timestamp: new Date(verificationResult.timestamp).toISOString(),
-      includesBeaconWithdrawals,
-      beaconWithdrawalsSkippedReason,
+      includesBeaconWithdrawals: beaconStatus.includesBeaconWithdrawals,
+      beaconWithdrawalsSkippedReason: beaconStatus.beaconWithdrawalsSkippedReason,
     },
     suggestion: verificationResult.suggestion,
   };

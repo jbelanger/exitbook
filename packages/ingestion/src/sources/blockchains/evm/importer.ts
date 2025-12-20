@@ -106,38 +106,8 @@ export class EvmImporter implements IImporter {
       }
 
       // Stream beacon withdrawals (Ethereum mainnet only, if supported)
-      // Per Product Decision #3: Warn on errors instead of failing the entire import
-      if (this.shouldFetchBeaconWithdrawals()) {
-        this.logger.info('Fetching beacon chain withdrawals...');
-        const withdrawalCursor = params.cursor?.['beacon_withdrawal'];
-        let hasWithdrawalError = false;
-
-        for await (const batchResult of this.streamTransactionType(
-          address,
-          'beacon_withdrawal',
-          'getAddressBeaconWithdrawals',
-          withdrawalCursor
-        )) {
-          if (batchResult.isErr()) {
-            // Don't fail the import - log warning and continue
-            // This handles missing/invalid API keys gracefully
-            const errorMsg = batchResult.error.message;
-            this.logger.warn(
-              `⚠️  Failed to fetch beacon withdrawals: ${errorMsg}\n` +
-                `Your ETH balance may be incorrect if this address receives validator withdrawals.\n` +
-                `If using Etherscan, ensure ETHERSCAN_API_KEY is set in .env (free at https://etherscan.io/apis)`
-            );
-            hasWithdrawalError = true;
-            // Don't yield the error - skip beacon withdrawals and continue with other transaction types
-            break;
-          }
-
-          yield batchResult;
-        }
-
-        if (!hasWithdrawalError) {
-          this.logger.info('Beacon withdrawal fetch completed successfully');
-        }
+      if (this.chainConfig.chainName === 'ethereum') {
+        yield* this.streamBeaconWithdrawals(address, params.cursor?.['beacon_withdrawal']);
       }
 
       this.logger.info(`${this.chainConfig.chainName} streaming import completed`);
@@ -218,32 +188,98 @@ export class EvmImporter implements IImporter {
   }
 
   /**
-   * Determines if beacon withdrawals should be fetched.
-   *
-   * Withdrawals are skipped if:
-   * - Chain is not Ethereum mainnet
-   * - No provider supports getAddressBeaconWithdrawals operation
-   *
-   * @param params - Import parameters
-   * @returns true if withdrawals should be fetched
+   * Stream beacon withdrawals for Ethereum addresses.
+   * Handles three cases:
+   * 1. No provider support - yields skipped marker
+   * 2. Fetch error - yields failed marker with warning
+   * 3. Success - yields batches or empty success marker if no withdrawals found
    */
-  private shouldFetchBeaconWithdrawals(): boolean {
-    // Only Ethereum mainnet has beacon withdrawals
-    if (this.chainConfig.chainName !== 'ethereum') {
-      return false;
-    }
-
-    // Check if any provider supports beacon withdrawals
+  private async *streamBeaconWithdrawals(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     const providers = this.providerManager.getProviders(this.chainConfig.chainName);
-    const hasWithdrawalSupport = providers.some((provider) =>
-      provider.capabilities.supportedOperations.includes('getAddressBeaconWithdrawals')
+    const hasSupport = providers.some((p) =>
+      p.capabilities.supportedOperations.includes('getAddressBeaconWithdrawals')
     );
 
-    if (!hasWithdrawalSupport) {
-      this.logger.debug('No provider supports beacon withdrawals for this chain');
-      return false;
+    if (!hasSupport) {
+      this.logger.debug('Skipping beacon withdrawals (no provider support)');
+      yield ok(
+        this.createBeaconStatusBatch('SKIPPED', 'skipped', {
+          reason: 'no-provider-support',
+          warning:
+            'Skipping beacon withdrawals (no provider support or missing Etherscan API key). ' +
+            'Your ETH balance may be incorrect if this address receives validator withdrawals. ' +
+            'Set ETHERSCAN_API_KEY in .env to enable.',
+        })
+      );
+      return;
     }
 
-    return true;
+    this.logger.info('Fetching beacon chain withdrawals...');
+    let batchCount = 0;
+
+    for await (const batchResult of this.streamTransactionType(
+      address,
+      'beacon_withdrawal',
+      'getAddressBeaconWithdrawals',
+      resumeCursor
+    )) {
+      if (batchResult.isErr()) {
+        const errorMsg = batchResult.error.message;
+        this.logger.warn(`Beacon withdrawal fetch failed: ${errorMsg}`);
+        yield ok(
+          this.createBeaconStatusBatch('FETCH_FAILED', 'failed', {
+            errorMessage: errorMsg,
+            warning:
+              `Failed to fetch beacon withdrawals: ${errorMsg}. ` +
+              `Your ETH balance may be incorrect if this address receives validator withdrawals. ` +
+              `If using Etherscan, ensure ETHERSCAN_API_KEY is set in .env (free at https://etherscan.io/apis)`,
+          })
+        );
+        return;
+      }
+
+      yield batchResult;
+      batchCount++;
+    }
+
+    if (batchCount === 0) {
+      this.logger.info('Beacon withdrawal fetch completed (0 withdrawals found)');
+      const providerName = providers[0]?.name || this.chainConfig.chainName;
+      yield ok(this.createBeaconStatusBatch('NO_WITHDRAWALS', undefined, { providerName }));
+    } else {
+      this.logger.info('Beacon withdrawal fetch completed successfully');
+    }
+  }
+
+  /**
+   * Create a beacon withdrawal status batch (for skipped/failed/empty cases)
+   */
+  private createBeaconStatusBatch(
+    lastTransactionId: string,
+    fetchStatus?: 'skipped' | 'failed',
+    opts?: { errorMessage?: string; providerName?: string; reason?: string; warning?: string }
+  ): ImportBatchResult {
+    return {
+      rawTransactions: [],
+      operationType: 'beacon_withdrawal',
+      cursor: {
+        primary: { type: 'blockNumber', value: 0 },
+        lastTransactionId,
+        totalFetched: 0,
+        metadata: {
+          providerName: opts?.providerName || this.chainConfig.chainName,
+          updatedAt: Date.now(),
+          isComplete: true,
+          ...(fetchStatus && { fetchStatus }),
+          ...(opts?.reason && { reason: opts.reason }),
+          ...(opts?.errorMessage && { errorMessage: opts.errorMessage }),
+        },
+      },
+      isComplete: true,
+      ...(opts?.warning && { warnings: [opts.warning] }),
+    };
   }
 }
