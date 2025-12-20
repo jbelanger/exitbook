@@ -105,10 +105,11 @@ export function selectPrimaryEvmMovement(movements: EvmMovement[], criteria: Sel
 /**
  * Determines transaction operation classification based purely on fund flow structure.
  *
- * Pure function that applies 7 conservative pattern matching rules to classify transactions.
+ * Pure function that applies pattern matching rules to classify transactions.
  * Only classifies patterns we're confident about - complex cases receive informational notes.
  *
  * Pattern matching rules:
+ * 0. Beacon withdrawal (Ethereum consensus layer withdrawal with 32 ETH threshold)
  * 1. Contract interaction with zero value (approvals, staking, state changes)
  * 2. Fee-only transaction (zero value with no fund movements)
  * 3. Single asset swap (one asset out, different asset in)
@@ -117,10 +118,43 @@ export function selectPrimaryEvmMovement(movements: EvmMovement[], criteria: Sel
  * 6. Self-transfer (same asset in and out)
  * 7. Complex multi-asset transaction (multiple inflows/outflows - uncertain)
  */
-export function determineEvmOperationFromFundFlow(fundFlow: EvmFundFlow): OperationClassification {
+export function determineEvmOperationFromFundFlow(
+  fundFlow: EvmFundFlow,
+  txGroup: EvmTransaction[]
+): OperationClassification {
   const { inflows, outflows } = fundFlow;
   const amount = parseDecimal(fundFlow.primary.amount || '0').abs();
   const isZero = amount.isZero();
+
+  // Pattern 0: Beacon withdrawal (Ethereum post-Shanghai consensus layer withdrawals)
+  // Apply smart tax classification based on 32 ETH threshold (Product Decision #1)
+  const hasBeaconWithdrawal = txGroup.some((tx) => tx.type === 'beacon_withdrawal');
+  if (hasBeaconWithdrawal) {
+    // 32 ETH threshold (amounts in fundFlow are already normalized to display units)
+    const ETH_32_THRESHOLD = parseDecimal('32');
+    const isPrincipalReturn = amount.gte(ETH_32_THRESHOLD);
+
+    return {
+      operation: {
+        category: 'staking',
+        type: isPrincipalReturn ? 'deposit' : 'reward',
+      },
+      notes: [
+        {
+          type: 'consensus_withdrawal',
+          message: isPrincipalReturn
+            ? 'Full withdrawal (≥32 ETH) - likely principal return. Verify if rewards are included.'
+            : 'Partial withdrawal (<32 ETH) - staking reward',
+          severity: isPrincipalReturn ? 'warning' : 'info',
+          metadata: {
+            amount: amount.toFixed(),
+            needsReview: isPrincipalReturn,
+            taxClassification: isPrincipalReturn ? 'non-taxable (principal return)' : 'taxable (income)',
+          },
+        },
+      ],
+    };
+  }
 
   // Pattern 1: Contract interaction with zero value
   // Approvals, staking operations, state changes - classified as transfer with note

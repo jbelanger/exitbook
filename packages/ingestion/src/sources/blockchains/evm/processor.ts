@@ -73,7 +73,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       const fundFlow = fundFlowResult.value;
 
       // Determine transaction type and operation classification based on fund flow analysis
-      const classification = determineEvmOperationFromFundFlow(fundFlow);
+      const classification = determineEvmOperationFromFundFlow(fundFlow, txGroup);
 
       const primaryTx = selectPrimaryEvmTransaction(txGroup, fundFlow);
       if (!primaryTx) {
