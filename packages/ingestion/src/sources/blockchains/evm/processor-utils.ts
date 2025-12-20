@@ -12,6 +12,19 @@ import type { EvmFundFlow, EvmMovement } from './types.js';
 
 const logger = getLogger('evm-processor-utils');
 
+/**
+ * Tax Classification Rules
+ */
+
+/**
+ * 32 ETH threshold for classifying beacon withdrawals.
+ * - Withdrawals >= 32 ETH: Likely full validator withdrawal (principal return, non-taxable)
+ * - Withdrawals < 32 ETH: Likely partial withdrawal (staking rewards, taxable income)
+ *
+ * Referenced in Product Decision #1
+ */
+const BEACON_WITHDRAWAL_PRINCIPAL_THRESHOLD = parseDecimal('32');
+
 export interface SelectionCriteria {
   nativeCurrency: string;
 }
@@ -130,9 +143,8 @@ export function determineEvmOperationFromFundFlow(
   // Apply smart tax classification based on 32 ETH threshold (Product Decision #1)
   const hasBeaconWithdrawal = txGroup.some((tx) => tx.type === 'beacon_withdrawal');
   if (hasBeaconWithdrawal) {
-    // 32 ETH threshold (amounts in fundFlow are already normalized to display units)
-    const ETH_32_THRESHOLD = parseDecimal('32');
-    const isPrincipalReturn = amount.gte(ETH_32_THRESHOLD);
+    // Check if withdrawal amount exceeds the principal threshold
+    const isPrincipalReturn = amount.gte(BEACON_WITHDRAWAL_PRINCIPAL_THRESHOLD);
 
     // Extract withdrawal metadata from the beacon withdrawal transaction
     const beaconTx = txGroup.find((tx) => tx.type === 'beacon_withdrawal');
