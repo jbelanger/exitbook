@@ -492,9 +492,16 @@ export function analyzeEvmFundFlow(
   // Get fee from the parent transaction (NOT from token_transfer events)
   // A single on-chain transaction has only ONE fee, but providers may duplicate it across
   // the parent transaction and child events (token transfers, internal calls).
-  // We take the fee from the first non-token_transfer transaction to avoid double-counting.
-  const parentTx = txGroup.find((tx) => tx.type !== 'token_transfer') || txGroup[0];
-  const feeWei = parentTx?.feeAmount ? parseDecimal(parentTx.feeAmount) : parseDecimal('0');
+  // CRITICAL: Prioritize transactions with a NON-ZERO feeAmount. Some providers
+  // (like Routescan) may include internal transactions without fee fields, and others
+  // (like Moralis) explicitly set internal feeAmount to "0". Array ordering isn't
+  // guaranteed, so we must pick the fee-bearing event first.
+  const feeSourceTx =
+    txGroup.find((tx) => tx.type !== 'token_transfer' && tx.feeAmount && !isZeroDecimal(tx.feeAmount)) || // Parent tx WITH non-zero fee
+    txGroup.find((tx) => tx.type !== 'token_transfer' && tx.feeAmount) || // Parent tx WITH fee field (possibly zero)
+    txGroup.find((tx) => tx.type !== 'token_transfer') || // Any parent transaction
+    txGroup[0]; // Fallback
+  const feeWei = feeSourceTx?.feeAmount ? parseDecimal(feeSourceTx.feeAmount) : parseDecimal('0');
   const feeAmount = feeWei.dividedBy(parseDecimal('10').pow(chainConfig.nativeDecimals)).toFixed();
 
   // Track uncertainty for complex transactions
@@ -507,6 +514,7 @@ export function analyzeEvmFundFlow(
     classificationUncertainty,
     feeAmount,
     feeCurrency: chainConfig.nativeCurrency,
+    feePayerAddress: feeSourceTx?.from,
     fromAddress,
     hasContractInteraction,
     hasInternalTransactions,

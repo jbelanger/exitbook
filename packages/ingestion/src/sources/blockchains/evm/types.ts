@@ -26,6 +26,7 @@ export interface EvmFundFlow {
   // Fee information (always in native currency)
   feeAmount: string; // Total fee in native currency
   feeCurrency: string; // Native currency symbol (ETH, AVAX, etc.)
+  feePayerAddress?: string | undefined; // Address that paid the network fee (parent tx sender)
 
   // Address information (always present in fund flow)
   fromAddress: string;

@@ -1,4 +1,10 @@
-import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
+import {
+  maskAddress,
+  ProviderError,
+  type BlockchainProviderManager,
+  type EvmChainConfig,
+  type EvmTransaction,
+} from '@exitbook/blockchain-providers';
 import { parseDecimal } from '@exitbook/core';
 import { err, okAsync, ok, type Result } from 'neverthrow';
 
@@ -21,9 +27,11 @@ import {
 export class EvmTransactionProcessor extends BaseTransactionProcessor {
   // Override to make tokenMetadataService required (guaranteed by factory)
   declare protected readonly tokenMetadataService: ITokenMetadataService;
+  private readonly addressInfoCache = new Map<string, boolean>();
 
   constructor(
     private readonly chainConfig: EvmChainConfig,
+    private readonly providerManager: BlockchainProviderManager,
     tokenMetadataService: ITokenMetadataService
   ) {
     super(chainConfig.chainName, tokenMetadataService);
@@ -40,6 +48,8 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     }
 
     const transactionGroups = groupEvmTransactionsByHash(normalizedData as EvmTransaction[]);
+
+    const accountIsContract = context.primaryAddress ? await this.resolveIsContract(context.primaryAddress) : undefined;
 
     this.logger.debug(
       `Created ${transactionGroups.size} transaction groups for correlation on ${this.chainConfig.chainName}`
@@ -82,7 +92,11 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
       // 2. They initiated a contract interaction with no outflows (approval, state change, etc.)
       // Addresses already normalized to lowercase via EvmAddressSchema
       const userInitiatedTransaction = (fundFlow.fromAddress || '') === context.primaryAddress;
-      const shouldRecordFeeEntry = fundFlow.outflows.length > 0 || userInitiatedTransaction;
+      const feePayerMatches = (fundFlow.feePayerAddress || '') === context.primaryAddress;
+      let shouldRecordFeeEntry = fundFlow.outflows.length > 0 || userInitiatedTransaction;
+      if (accountIsContract === true) {
+        shouldRecordFeeEntry = feePayerMatches;
+      }
 
       const universalTransaction: ProcessedTransaction = {
         externalId: primaryTx.id,
@@ -238,5 +252,42 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
     this.logger.debug('Successfully enriched token metadata from cache/provider');
     return ok();
+  }
+
+  private async resolveIsContract(address: string): Promise<boolean | undefined> {
+    const cached = this.addressInfoCache.get(address);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const result = await this.providerManager.executeWithFailoverOnce<{ code: string; isContract: boolean }>(
+      this.chainConfig.chainName,
+      {
+        type: 'getAddressInfo',
+        address,
+        getCacheKey: (params) =>
+          `getAddressInfo:${this.chainConfig.chainName}:${(params as { address: string }).address}`,
+      }
+    );
+
+    if (result.isErr()) {
+      const error = result.error;
+      if (error instanceof ProviderError) {
+        this.logger.warn(
+          { address: maskAddress(address), code: error.code, error: error.message },
+          'Failed to resolve address type for fee attribution'
+        );
+      } else {
+        this.logger.warn(
+          { address: maskAddress(address), error },
+          'Failed to resolve address type for fee attribution'
+        );
+      }
+      return undefined;
+    }
+
+    const isContract = result.value.data.isContract;
+    this.addressInfoCache.set(address, isContract);
+    return isContract;
   }
 }

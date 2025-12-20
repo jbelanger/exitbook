@@ -24,7 +24,7 @@ export function registerSolanaChain(): void {
         preferredProvider: providerName,
       }),
 
-    createProcessor: (tokenMetadataService?: ITokenMetadataService) => {
+    createProcessor: (_providerManager, tokenMetadataService?: ITokenMetadataService) => {
       if (!tokenMetadataService) {
         return err(new Error('TokenMetadataService is required for Solana processor'));
       }

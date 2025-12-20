@@ -1,9 +1,12 @@
+import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
 import { describe, expect, it } from 'vitest';
 
+import type { ProcessingContext } from '../../../../shared/types/processors.ts';
 import {
+  analyzeEvmFundFlow,
   consolidateEvmMovementsByAsset,
-  selectPrimaryEvmMovement,
   determineEvmOperationFromFundFlow,
+  selectPrimaryEvmMovement,
 } from '../processor-utils.js';
 import type { EvmFundFlow, EvmMovement } from '../types.js';
 
@@ -148,6 +151,62 @@ describe('selectPrimaryEvmMovement', () => {
     const result = selectPrimaryEvmMovement(movements, { nativeCurrency: 'ETH' });
 
     expect(result).toEqual({ asset: 'ETH', amount: '1' });
+  });
+});
+
+describe('analyzeEvmFundFlow', () => {
+  it('prefers non-zero feeAmount when internal events report zero fees', () => {
+    const chainConfig: EvmChainConfig = {
+      chainId: 1,
+      chainName: 'ethereum',
+      nativeCurrency: 'ETH',
+      nativeDecimals: 18,
+    };
+    const context: ProcessingContext = {
+      primaryAddress: '0xaaa',
+      userAddresses: ['0xaaa'],
+    };
+
+    const txGroup: EvmTransaction[] = [
+      {
+        amount: '0',
+        currency: 'ETH',
+        eventId: 'evt-internal',
+        feeAmount: '0',
+        feeCurrency: 'ETH',
+        from: '0xaaa',
+        id: '0xhash',
+        providerName: 'routescan',
+        status: 'success',
+        timestamp: 1,
+        to: '0xbbb',
+        traceId: 'internal-0',
+        type: 'internal',
+      },
+      {
+        amount: '0',
+        currency: 'ETH',
+        eventId: 'evt-contract',
+        feeAmount: '1000000000000000000',
+        feeCurrency: 'ETH',
+        from: '0xaaa',
+        id: '0xhash',
+        methodId: '0x12345678',
+        providerName: 'routescan',
+        status: 'success',
+        timestamp: 1,
+        to: '0xccc',
+        type: 'contract_call',
+      },
+    ];
+
+    const result = analyzeEvmFundFlow(txGroup, context, chainConfig);
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw new Error(result.error);
+    }
+
+    expect(result.value.feeAmount).toBe('1');
   });
 });
 

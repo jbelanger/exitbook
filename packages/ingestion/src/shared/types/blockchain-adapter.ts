@@ -15,7 +15,10 @@ export interface BlockchainAdapter {
   blockchain: string;
   normalizeAddress: (address: string) => Result<string, Error>;
   createImporter: (providerManager: BlockchainProviderManager, providerName?: string) => IImporter;
-  createProcessor: (tokenMetadataService?: ITokenMetadataService) => Result<ITransactionProcessor, Error>;
+  createProcessor: (
+    providerManager: BlockchainProviderManager,
+    tokenMetadataService?: ITokenMetadataService
+  ) => Result<ITransactionProcessor, Error>;
 
   /**
    * Indicates whether this blockchain uses the UTXO model (Bitcoin, Cardano).

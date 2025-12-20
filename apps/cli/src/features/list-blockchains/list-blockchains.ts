@@ -148,10 +148,25 @@ function displayTextOutput(blockchains: BlockchainInfo[], summary: BlockchainLis
       });
       logger.info(`   Providers: ${providerNames.join(', ')}`);
 
-      // Show which providers need API keys
+      // Show provider operations in detailed mode
+      if (detailed) {
+        for (const provider of blockchain.providers) {
+          logger.info(`     ${provider.name}: ${provider.capabilities.join(', ')}`);
+        }
+      }
+
+      // Show which providers need API keys with health check
       const needsApiKey = blockchain.providers.filter((p) => p.requiresApiKey);
       if (needsApiKey.length > 0) {
-        logger.info(`   ⚠️  Requires API keys: ${needsApiKey.map((p) => p.name).join(', ')}`);
+        const apiKeyDetails = needsApiKey.map((p) => {
+          if (p.apiKeyEnvVar) {
+            const isConfigured = !!process.env[p.apiKeyEnvVar];
+            const status = isConfigured ? '✓' : '✗';
+            return `${p.name} (${p.apiKeyEnvVar} ${status})`;
+          }
+          return p.name;
+        });
+        logger.info(`   ⚠️  Requires API keys: ${apiKeyDetails.join(', ')}`);
       }
     } else {
       logger.info('   Providers: (none registered)');
@@ -173,6 +188,39 @@ function displayTextOutput(blockchains: BlockchainInfo[], summary: BlockchainLis
   logger.info(`  ✓ No API key needed: ${summary.noApiKey} providers`);
   logger.info(`  ⚠️  API key required: ${summary.requireApiKey} providers`);
   logger.info('');
+
+  // API key health check summary
+  const missingKeys: string[] = [];
+  const configuredKeys: string[] = [];
+
+  for (const blockchain of blockchains) {
+    for (const provider of blockchain.providers) {
+      if (provider.requiresApiKey && provider.apiKeyEnvVar) {
+        const isConfigured = !!process.env[provider.apiKeyEnvVar];
+        if (isConfigured) {
+          if (!configuredKeys.includes(provider.apiKeyEnvVar)) {
+            configuredKeys.push(provider.apiKeyEnvVar);
+          }
+        } else {
+          if (!missingKeys.includes(provider.apiKeyEnvVar)) {
+            missingKeys.push(provider.apiKeyEnvVar);
+          }
+        }
+      }
+    }
+  }
+
+  if (missingKeys.length > 0 || configuredKeys.length > 0) {
+    logger.info('API Key Health:');
+    if (configuredKeys.length > 0) {
+      logger.info(`  ✓ Configured: ${configuredKeys.join(', ')}`);
+    }
+    if (missingKeys.length > 0) {
+      logger.info(`  ✗ Missing: ${missingKeys.join(', ')}`);
+    }
+    logger.info('');
+  }
+
   logger.info('Usage examples:');
   logger.info('  pnpm run dev import --blockchain bitcoin --address bc1q...');
   logger.info('  pnpm run dev import --blockchain ethereum --address 0x742d35Cc...');

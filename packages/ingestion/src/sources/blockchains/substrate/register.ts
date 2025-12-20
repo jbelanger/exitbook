@@ -29,7 +29,8 @@ export function registerSubstrateChains(): void {
           preferredProvider: providerName,
         }),
 
-      createProcessor: (_tokenMetadataService?: ITokenMetadataService) => ok(new SubstrateProcessor(config)),
+      createProcessor: (_providerManager, _tokenMetadataService?: ITokenMetadataService) =>
+        ok(new SubstrateProcessor(config)),
     });
   }
 }

@@ -74,6 +74,7 @@ export function registerCardanoChain(): void {
     createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
       new CardanoTransactionImporter(providerManager, { preferredProvider: providerName }),
 
-    createProcessor: (_tokenMetadataService?: ITokenMetadataService) => ok(new CardanoTransactionProcessor()),
+    createProcessor: (_providerManager, _tokenMetadataService?: ITokenMetadataService) =>
+      ok(new CardanoTransactionProcessor()),
   });
 }

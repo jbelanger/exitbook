@@ -1,3 +1,4 @@
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getErrorMessage, type RawTransaction } from '@exitbook/core';
 import type { AccountRepository, IRawDataRepository, ITransactionRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/logger';
@@ -26,6 +27,7 @@ export class TransactionProcessService {
     private rawDataRepository: IRawDataRepository,
     private accountRepository: AccountRepository,
     private transactionRepository: ITransactionRepository,
+    private providerManager: BlockchainProviderManager,
     private tokenMetadataService: ITokenMetadataService
   ) {
     this.logger = getLogger('TransactionProcessService');
@@ -340,7 +342,7 @@ export class TransactionProcessService {
       if (!adapter) {
         return err(new Error(`Unknown blockchain: ${sourceName}`));
       }
-      return adapter.createProcessor(this.tokenMetadataService);
+      return adapter.createProcessor(this.providerManager, this.tokenMetadataService);
     } else {
       const adapter = getExchangeAdapter(sourceName);
       if (!adapter) {

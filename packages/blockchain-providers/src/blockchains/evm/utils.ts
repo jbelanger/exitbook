@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 /**
  * Normalize EVM address to lowercase for consistent storage and comparison.
  *
@@ -14,6 +16,61 @@ export function normalizeEvmAddress(address: string | null | undefined): string 
     return undefined;
   }
   return address.toLowerCase();
+}
+
+/**
+ * Minimum fields required for generating unique beacon withdrawal event IDs.
+ * All fields are mandatory to ensure uniqueness across all withdrawals.
+ */
+export interface BeaconWithdrawalFields {
+  withdrawalIndex: string; // Unique withdrawal index across all time
+  validatorIndex: string; // Validator that generated this withdrawal
+  address: string; // Recipient address
+  amountWei: string; // Withdrawal amount in Wei (must be already converted from Gwei if needed)
+  blockNumber: string; // Block containing this withdrawal
+  timestamp: string; // Withdrawal timestamp
+  nativeCurrency: string; // Chain native currency (e.g., 'ETH')
+}
+
+/**
+ * Generates a unique, deterministic event ID for beacon chain withdrawals.
+ * Unlike standard transactions, beacon withdrawals require all fields to ensure uniqueness
+ * since multiple withdrawals can occur in the same block with similar amounts.
+ *
+ * Fields included in hash (all mandatory):
+ * - withdrawalIndex: Unique index for this withdrawal across all time
+ * - validatorIndex: Validator that generated this withdrawal
+ * - address: Recipient address (normalized to lowercase)
+ * - amountWei: Withdrawal amount in Wei
+ * - blockNumber: Block containing this withdrawal
+ * - timestamp: Withdrawal timestamp
+ * - nativeCurrency: Chain native currency (e.g., 'ETH')
+ *
+ * @param fields - Complete beacon withdrawal fields
+ * @returns SHA-256 hash of all withdrawal fields (lowercase hex)
+ */
+export function generateBeaconWithdrawalEventId(fields: BeaconWithdrawalFields): string {
+  // Normalize address to lowercase for consistency
+  const normalizedAddress = fields.address.toLowerCase();
+
+  // Build deterministic string from all withdrawal fields
+  // Order matters for deterministic hashing
+  const parts = [
+    fields.withdrawalIndex,
+    fields.validatorIndex,
+    normalizedAddress,
+    fields.amountWei,
+    fields.blockNumber,
+    fields.timestamp,
+    fields.nativeCurrency,
+  ];
+
+  const dataString = parts.join('|');
+
+  // Generate SHA-256 hash
+  const hash = createHash('sha256').update(dataString).digest('hex');
+
+  return hash;
 }
 
 /**

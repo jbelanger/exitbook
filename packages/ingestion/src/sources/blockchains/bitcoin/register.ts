@@ -24,7 +24,8 @@ export function registerBitcoinChains(): void {
       isUTXOChain: true,
       createImporter: (providerManager, preferredProvider) =>
         new BitcoinTransactionImporter(config, providerManager, { preferredProvider }),
-      createProcessor: (_tokenMetadataService?: ITokenMetadataService) => ok(new BitcoinTransactionProcessor(config)),
+      createProcessor: (_providerManager, _tokenMetadataService?: ITokenMetadataService) =>
+        ok(new BitcoinTransactionProcessor(config)),
 
       isExtendedPublicKey: (address: string) => BitcoinUtils.isXpub(address),
 

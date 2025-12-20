@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
-import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
+import type { BlockchainProviderManager, EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
 import { ok } from 'neverthrow';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -24,6 +24,17 @@ const USER_ADDRESS = '0xuser00000000000000000000000000000000000000';
 const EXTERNAL_ADDRESS = '0xexternal000000000000000000000000000000000';
 const CONTRACT_ADDRESS = '0xcontract00000000000000000000000000000000';
 
+function createMockProviderManager(isContract = false): BlockchainProviderManager {
+  return {
+    executeWithFailoverOnce: vi.fn().mockResolvedValue(
+      ok({
+        data: { isContract },
+        providerName: 'mock',
+      })
+    ),
+  } as unknown as BlockchainProviderManager;
+}
+
 function createMockTokenMetadataService(): ITokenMetadataService {
   return {
     enrichBatch: vi.fn().mockResolvedValue(ok()),
@@ -31,12 +42,20 @@ function createMockTokenMetadataService(): ITokenMetadataService {
   } as unknown as ITokenMetadataService;
 }
 
-function createEthereumProcessor() {
-  return new EvmTransactionProcessor(ETHEREUM_CONFIG, createMockTokenMetadataService());
+function createEthereumProcessor(providerManager?: BlockchainProviderManager) {
+  return new EvmTransactionProcessor(
+    ETHEREUM_CONFIG,
+    providerManager ?? createMockProviderManager(),
+    createMockTokenMetadataService()
+  );
 }
 
-function createAvalancheProcessor() {
-  return new EvmTransactionProcessor(AVALANCHE_CONFIG, createMockTokenMetadataService());
+function createAvalancheProcessor(providerManager?: BlockchainProviderManager) {
+  return new EvmTransactionProcessor(
+    AVALANCHE_CONFIG,
+    providerManager ?? createMockProviderManager(),
+    createMockTokenMetadataService()
+  );
 }
 
 function createTransaction(overrides: Partial<EvmTransaction> = {}): EvmTransaction {
@@ -316,6 +335,48 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
 
     // User initiated contract interaction, so they paid the fee
     expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed() ?? '0').toBe('0.00015');
+  });
+
+  test('does NOT deduct fee when contract account did not pay gas', async () => {
+    const providerManager = createMockProviderManager(true);
+    const processor = createEthereumProcessor(providerManager);
+
+    const baseTimestamp = Date.now();
+    const normalizedData: EvmTransaction[] = [
+      createTransaction({
+        amount: '0',
+        feeAmount: '21000000000000',
+        from: EXTERNAL_ADDRESS,
+        id: '0xhash-contract-fee',
+        timestamp: baseTimestamp,
+        to: CONTRACT_ADDRESS,
+        type: 'contract_call',
+      }),
+      createTransaction({
+        amount: '1000000000000000000',
+        feeAmount: undefined,
+        from: CONTRACT_ADDRESS,
+        id: '0xhash-contract-fee',
+        timestamp: baseTimestamp,
+        to: EXTERNAL_ADDRESS,
+        traceId: 'trace-1',
+        type: 'internal',
+      }),
+    ];
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: CONTRACT_ADDRESS,
+      userAddresses: [CONTRACT_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.fees.find((f) => f.scope === 'network')).toBeUndefined();
   });
 
   test('does NOT deduct fee for incoming token transfers (airdrop/mint scenario)', async () => {
@@ -1392,7 +1453,11 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
   });
 
   test('enriches token metadata when symbol looks like contract address', async () => {
-    const processor = new EvmTransactionProcessor(ETHEREUM_CONFIG, mockTokenMetadataService);
+    const processor = new EvmTransactionProcessor(
+      ETHEREUM_CONFIG,
+      createMockProviderManager(),
+      mockTokenMetadataService
+    );
 
     const normalizedData: EvmTransaction[] = [
       createTransaction({
@@ -1439,7 +1504,11 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
   });
 
   test('skips enrichment when symbol is already readable', async () => {
-    const processor = new EvmTransactionProcessor(ETHEREUM_CONFIG, mockTokenMetadataService);
+    const processor = new EvmTransactionProcessor(
+      ETHEREUM_CONFIG,
+      createMockProviderManager(),
+      mockTokenMetadataService
+    );
 
     const normalizedData: EvmTransaction[] = [
       createTransaction({
@@ -1467,7 +1536,11 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
   });
 
   test('enriches decimals when missing from transaction', async () => {
-    const processor = new EvmTransactionProcessor(ETHEREUM_CONFIG, mockTokenMetadataService);
+    const processor = new EvmTransactionProcessor(
+      ETHEREUM_CONFIG,
+      createMockProviderManager(),
+      mockTokenMetadataService
+    );
 
     const normalizedData: EvmTransaction[] = [
       createTransaction({
@@ -1503,7 +1576,11 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
   });
 
   test('handles multiple token transfers with enrichment', async () => {
-    const processor = new EvmTransactionProcessor(ETHEREUM_CONFIG, mockTokenMetadataService);
+    const processor = new EvmTransactionProcessor(
+      ETHEREUM_CONFIG,
+      createMockProviderManager(),
+      mockTokenMetadataService
+    );
 
     const normalizedData: EvmTransaction[] = [
       createTransaction({

@@ -3,10 +3,10 @@ import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import type { NormalizationError } from '../../../../core/index.js';
-import { generateUniqueTransactionEventId, validateOutput } from '../../../../core/index.js';
+import { validateOutput } from '../../../../core/index.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
-import { normalizeEvmAddress } from '../../utils.js';
+import { generateBeaconWithdrawalEventId, normalizeEvmAddress } from '../../utils.js';
 
 import {
   BEACON_CHAIN_ADDRESS,
@@ -76,14 +76,14 @@ export function mapEtherscanWithdrawalToEvmTransaction(
       blockHeight: parseInt(rawData.blockNumber),
       blockId: undefined, // Withdrawals don't have block hash in Etherscan API
       currency: nativeCurrency,
-      eventId: generateUniqueTransactionEventId({
-        amount: amountWei,
-        currency: nativeCurrency,
-        from: BEACON_CHAIN_ADDRESS,
-        id: syntheticTxId,
-        timestamp,
-        to,
-        type: 'beacon_withdrawal',
+      eventId: generateBeaconWithdrawalEventId({
+        withdrawalIndex: rawData.withdrawalIndex,
+        validatorIndex: rawData.validatorIndex,
+        address: rawData.address,
+        amountWei,
+        blockNumber: rawData.blockNumber,
+        timestamp: rawData.timestamp,
+        nativeCurrency,
       }),
       feeAmount: '0', // Withdrawals have no gas fees
       feeCurrency: nativeCurrency,

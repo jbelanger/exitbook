@@ -41,7 +41,7 @@ import type { EtherscanBeaconWithdrawal } from './etherscan.schemas.js';
   defaultConfig: {
     rateLimit: {
       requestsPerSecond: 3,
-      requestsPerMinute: 68,
+      requestsPerMinute: 180,
       requestsPerHour: 4000,
     },
     retries: 3,
@@ -214,9 +214,13 @@ export class EtherscanApiClient extends BaseApiClient {
             this.logger.error('Cannot advance pagination: no withdrawals in page');
             return err(new Error('Cannot advance pagination: no withdrawals in page'));
           }
-          const nextStartBlock = parseInt(lastWithdrawal.blockNumber, 10) + 1;
-          nextPageToken = `1:${nextStartBlock}`;
-          this.logger.debug(`Completed page ${currentPage} cycle, resetting to page 1 from block ${nextStartBlock}`);
+          // Do NOT increment the block here: the 10k boundary can cut mid-block.
+          // Advancing by +1 would skip remaining withdrawals from the same block.
+          const nextStartBlockInclusive = parseInt(lastWithdrawal.blockNumber, 10);
+          nextPageToken = `1:${nextStartBlockInclusive}`;
+          this.logger.debug(
+            `Completed page ${currentPage} cycle, resetting to page 1 from block ${nextStartBlockInclusive} (dedup will drop duplicates)`
+          );
         } else {
           // Continue within current cycle
           nextPageToken = startBlock !== undefined ? `${currentPage + 1}:${startBlock}` : String(currentPage + 1);

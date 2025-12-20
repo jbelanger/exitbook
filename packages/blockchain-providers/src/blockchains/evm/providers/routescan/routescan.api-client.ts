@@ -79,6 +79,9 @@ const CHAIN_ID_MAP: Record<string, number> = {
   zeroone: 27827,
 };
 
+const ROUTESCAN_PAGE_SIZE = 10000;
+const ROUTESCAN_BLOCK_CURSOR_PREFIX = 'block:';
+
 @RegisterApiClient({
   baseUrl: 'https://api.routescan.io/v2/network/mainnet/evm/1/etherscan/api',
   blockchain: 'ethereum',
@@ -133,6 +136,7 @@ export class RoutescanApiClient extends BaseApiClient {
     // Override base URL with chain-specific URL
     this.reinitializeHttpClient({
       baseUrl: `https://api.routescan.io/v2/network/mainnet/evm/${this.routescanChainId}/etherscan/api`,
+      timeout: 30000,
     });
 
     this.logger.debug(
@@ -303,35 +307,19 @@ export class RoutescanApiClient extends BaseApiClient {
     const fetchPage = async (
       ctx: StreamingPageContext
     ): Promise<Result<StreamingPage<RoutescanTransaction>, Error>> => {
-      // Parse page token to extract page number
-      const page = ctx.pageToken ? parseInt(ctx.pageToken, 10) : 1;
-
-      // API constraint: page * offset <= 10000
-      const maxOffset = Math.floor(10000 / page);
-      if (maxOffset < 1) {
-        // Reached pagination limit
-        return ok({
-          items: [],
-          nextPageToken: undefined,
-          isComplete: true,
-        });
-      }
+      const startBlock = this.getStartBlock(ctx);
+      const page = 1;
 
       const params = new URLSearchParams({
         action: 'txlist',
         address: address,
         endblock: '99999999',
         module: 'account',
-        offset: maxOffset.toString(),
+        offset: ROUTESCAN_PAGE_SIZE.toString(),
         page: page.toString(),
         sort: 'asc',
-        startblock: '0',
+        startblock: String(startBlock),
       });
-
-      // Apply replay window from cursor if provided
-      if (ctx.replayedCursor?.type === 'blockNumber') {
-        params.set('startblock', String(ctx.replayedCursor.value));
-      }
 
       if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
         params.append('apikey', this.apiKey);
@@ -368,8 +356,16 @@ export class RoutescanApiClient extends BaseApiClient {
       }
 
       const transactions = res.result || [];
-      const hasMore = transactions.length >= maxOffset;
-      const nextPageToken = hasMore ? String(page + 1) : undefined;
+      const hasMore = transactions.length >= ROUTESCAN_PAGE_SIZE;
+      const lastTx = transactions[transactions.length - 1];
+      const lastBlock = lastTx ? Number(lastTx.blockNumber) : undefined;
+      const nextPageToken = hasMore ? this.getNextPageTokenFromLastBlock(lastBlock) : undefined;
+
+      if (hasMore && nextPageToken === undefined) {
+        this.logger.warn(
+          `Routescan pagination could not determine next block cursor; stopping early for ${maskAddress(address)}.`
+        );
+      }
 
       return ok({
         items: transactions,
@@ -414,35 +410,19 @@ export class RoutescanApiClient extends BaseApiClient {
     const fetchPage = async (
       ctx: StreamingPageContext
     ): Promise<Result<StreamingPage<RoutescanInternalTransaction>, Error>> => {
-      // Parse page token to extract page number
-      const page = ctx.pageToken ? parseInt(ctx.pageToken, 10) : 1;
-
-      // API constraint: page * offset <= 10000
-      const maxOffset = Math.floor(10000 / page);
-      if (maxOffset < 1) {
-        // Reached pagination limit
-        return ok({
-          items: [],
-          nextPageToken: undefined,
-          isComplete: true,
-        });
-      }
+      const startBlock = this.getStartBlock(ctx);
+      const page = 1;
 
       const params = new URLSearchParams({
         action: 'txlistinternal',
         address: address,
         endblock: '99999999',
         module: 'account',
-        offset: maxOffset.toString(),
+        offset: ROUTESCAN_PAGE_SIZE.toString(),
         page: page.toString(),
         sort: 'asc',
-        startblock: '0',
+        startblock: String(startBlock),
       });
-
-      // Apply replay window from cursor if provided
-      if (ctx.replayedCursor?.type === 'blockNumber') {
-        params.set('startblock', String(ctx.replayedCursor.value));
-      }
 
       if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
         params.append('apikey', this.apiKey);
@@ -483,8 +463,16 @@ export class RoutescanApiClient extends BaseApiClient {
       }
 
       const transactions = res.result || [];
-      const hasMore = transactions.length >= maxOffset;
-      const nextPageToken = hasMore ? String(page + 1) : undefined;
+      const hasMore = transactions.length >= ROUTESCAN_PAGE_SIZE;
+      const lastTx = transactions[transactions.length - 1];
+      const lastBlock = lastTx ? Number(lastTx.blockNumber) : undefined;
+      const nextPageToken = hasMore ? this.getNextPageTokenFromLastBlock(lastBlock) : undefined;
+
+      if (hasMore && nextPageToken === undefined) {
+        this.logger.warn(
+          `Routescan pagination could not determine next block cursor; stopping early for ${maskAddress(address)}.`
+        );
+      }
 
       return ok({
         items: transactions,
@@ -530,38 +518,22 @@ export class RoutescanApiClient extends BaseApiClient {
     const fetchPage = async (
       ctx: StreamingPageContext
     ): Promise<Result<StreamingPage<RoutescanTokenTransfer>, Error>> => {
-      // Parse page token to extract page number
-      const page = ctx.pageToken ? parseInt(ctx.pageToken, 10) : 1;
-
-      // API constraint: page * offset <= 10000
-      const maxOffset = Math.floor(10000 / page);
-      if (maxOffset < 1) {
-        // Reached pagination limit
-        return ok({
-          items: [],
-          nextPageToken: undefined,
-          isComplete: true,
-        });
-      }
+      const startBlock = this.getStartBlock(ctx);
+      const page = 1;
 
       const params = new URLSearchParams({
         action: 'tokentx',
         address: address,
         endblock: '99999999',
         module: 'account',
-        offset: maxOffset.toString(),
+        offset: ROUTESCAN_PAGE_SIZE.toString(),
         page: page.toString(),
         sort: 'asc',
-        startblock: '0',
+        startblock: String(startBlock),
       });
 
       if (contractAddress) {
         params.append('contractaddress', contractAddress);
-      }
-
-      // Apply replay window from cursor if provided
-      if (ctx.replayedCursor?.type === 'blockNumber') {
-        params.set('startblock', String(ctx.replayedCursor.value));
       }
 
       if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
@@ -601,8 +573,16 @@ export class RoutescanApiClient extends BaseApiClient {
       }
 
       const transactions = res.result || [];
-      const hasMore = transactions.length >= maxOffset;
-      const nextPageToken = hasMore ? String(page + 1) : undefined;
+      const hasMore = transactions.length >= ROUTESCAN_PAGE_SIZE;
+      const lastTx = transactions[transactions.length - 1];
+      const lastBlock = lastTx ? Number(lastTx.blockNumber) : undefined;
+      const nextPageToken = hasMore ? this.getNextPageTokenFromLastBlock(lastBlock) : undefined;
+
+      if (hasMore && nextPageToken === undefined) {
+        this.logger.warn(
+          `Routescan pagination could not determine next block cursor; stopping early for ${maskAddress(address)}.`
+        );
+      }
 
       return ok({
         items: transactions,
@@ -638,5 +618,50 @@ export class RoutescanApiClient extends BaseApiClient {
       dedupWindowSize: 500,
       logger: this.logger,
     });
+  }
+
+  private parseStartBlockFromPageToken(pageToken?: string): number | undefined {
+    if (!pageToken) return undefined;
+
+    if (pageToken.startsWith(ROUTESCAN_BLOCK_CURSOR_PREFIX)) {
+      const rawValue = pageToken.slice(ROUTESCAN_BLOCK_CURSOR_PREFIX.length);
+      const parsed = Number(rawValue);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+
+    // Legacy numeric page tokens are no longer supported due to API limits.
+    // We fall back to block-based cursors to avoid overlapping pages.
+    if (/^\d+$/.test(pageToken)) {
+      this.logger.warn(
+        `Ignoring legacy numeric page token for Routescan pagination; falling back to block-based cursor. Token: ${pageToken}`
+      );
+    }
+
+    return undefined;
+  }
+
+  private getStartBlock(ctx: StreamingPageContext): number {
+    const tokenBlock = this.parseStartBlockFromPageToken(ctx.pageToken);
+    if (tokenBlock !== undefined) return tokenBlock;
+
+    if (ctx.replayedCursor?.type === 'blockNumber') {
+      return ctx.replayedCursor.value;
+    }
+
+    const resumeBlock = ctx.resumeCursor?.alternatives?.find((cursor) => cursor.type === 'blockNumber');
+    if (resumeBlock) {
+      return resumeBlock.value;
+    }
+
+    return 0;
+  }
+
+  private getNextPageTokenFromLastBlock(lastBlock: number | undefined): string | undefined {
+    if (!Number.isFinite(lastBlock)) {
+      return undefined;
+    }
+
+    const nextBlock = Number(lastBlock) + 1;
+    return `${ROUTESCAN_BLOCK_CURSOR_PREFIX}${nextBlock}`;
   }
 }
