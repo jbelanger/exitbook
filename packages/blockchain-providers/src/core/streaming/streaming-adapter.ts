@@ -171,11 +171,10 @@ export function createStreamingIterator<Raw, Tx extends NormalizedTransactionBas
             totalFetched,
             providerName,
             pageToken,
-            isComplete: true,
             customMetadata: page.customMetadata,
           });
 
-          yield ok({ data: [], cursor: cursorState });
+          yield ok({ data: [], cursor: cursorState, isComplete: true });
           return;
         }
 
@@ -186,19 +185,19 @@ export function createStreamingIterator<Raw, Tx extends NormalizedTransactionBas
 
       totalFetched += deduped.length;
 
+      const isComplete = page.isComplete ?? !page.nextPageToken;
       const cursorState = buildCursorState({
         transactions: deduped,
         extractCursors: (tx) => extractCursors(tx),
         totalFetched,
         providerName,
         pageToken: page.nextPageToken || undefined,
-        isComplete: page.isComplete ?? !page.nextPageToken,
         customMetadata: page.customMetadata,
       });
       logger?.debug?.(
         `Yielding batch with ${deduped.length} transactions after deduplication from ${mappedBatch.length} mapped`
       );
-      yield ok({ data: deduped, cursor: cursorState });
+      yield ok({ data: deduped, cursor: cursorState, isComplete });
 
       pageToken = page.nextPageToken || undefined;
       pageNumber += 1;

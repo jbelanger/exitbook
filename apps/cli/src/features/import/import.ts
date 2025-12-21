@@ -176,6 +176,7 @@ async function executeImportCommand(rawOptions: unknown): Promise<void> {
       rawDataRepository,
       accountRepository,
       transactionRepository,
+      providerManager,
       tokenMetadataService
     );
 

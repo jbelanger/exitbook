@@ -93,16 +93,16 @@ export function mapMoralisTokenTransfer(rawData: MoralisTokenTransfer): Result<E
     }
   }
 
-  // Use token_symbol if Moralis provides it, otherwise fall back to contract address for currency
-  // The processor will enrich contract addresses with metadata from the token repository
-  const currency = rawData.token_symbol || rawData.address;
+  const tokenAddress = normalizeEvmAddress(rawData.address);
+  // Use contract address for currency to keep eventId stable across providers.
+  // The processor will enrich contract addresses with metadata from the token repository.
+  const currency = tokenAddress ?? rawData.address;
   const tokenSymbol = rawData.token_symbol || undefined;
 
   // Parse log_index for unique ID generation
   const logIndex = parseInt(rawData.log_index);
   const from = normalizeEvmAddress(rawData.from_address) ?? '';
   const to = normalizeEvmAddress(rawData.to_address);
-  const tokenAddress = normalizeEvmAddress(rawData.address);
 
   const transaction: EvmTransaction = {
     amount: valueRaw,
@@ -114,7 +114,7 @@ export function mapMoralisTokenTransfer(rawData: MoralisTokenTransfer): Result<E
       currency,
       from,
       id: rawData.transaction_hash,
-      logIndex,
+      //logIndex, -- activate only when all providers provides it
       timestamp,
       to,
       tokenAddress,

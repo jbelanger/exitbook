@@ -63,7 +63,7 @@ describe('MoralisApiClient Streaming E2E', () => {
           // Verify cursor metadata
           expect(batch.cursor.metadata?.providerName).toBe('moralis');
           expect(batch.cursor.metadata?.updatedAt).toBeGreaterThan(0);
-          expect(typeof batch.cursor.metadata?.isComplete).toBe('boolean');
+          expect(typeof batch.isComplete).toBe('boolean');
 
           // Limit test to avoid API credit usage
           if (batchCount >= maxBatches) {
@@ -325,7 +325,7 @@ describe('MoralisApiClient Streaming E2E', () => {
 
         if (lastBatch) {
           // Last batch should be marked as complete
-          expect(lastBatch.cursor.metadata?.isComplete).toBe(true);
+          expect(lastBatch.isComplete).toBe(true);
         }
       }, 60000);
     });
@@ -529,7 +529,7 @@ describe('MoralisApiClient Streaming E2E', () => {
 
           // Verify completion metadata
           expect(batch.cursor.metadata?.providerName).toBe('moralis');
-          expect(batch.cursor.metadata?.isComplete).toBe(true);
+          expect(batch.isComplete).toBe(true);
           expect(batch.cursor.metadata?.updatedAt).toBeGreaterThan(0);
         }
 
@@ -569,7 +569,7 @@ describe('MoralisApiClient Streaming E2E', () => {
 
           // Should still yield empty batch with completion marker
           expect(batch.data).toEqual([]);
-          expect(batch.cursor.metadata?.isComplete).toBe(true);
+          expect(batch.isComplete).toBe(true);
         }
 
         // Should yield exactly one batch on resume
@@ -750,7 +750,7 @@ describe('MoralisApiClient Streaming E2E', () => {
           // (empty batches after deduplication should not be yielded)
           if (batch.data.length === 0) {
             // Only the last batch (when complete) is allowed to be empty
-            expect(batch.cursor.metadata?.isComplete).toBe(true);
+            expect(batch.isComplete).toBe(true);
           }
 
           batchCount++;

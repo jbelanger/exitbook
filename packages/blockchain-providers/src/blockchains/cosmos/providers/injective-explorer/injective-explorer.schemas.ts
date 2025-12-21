@@ -34,8 +34,8 @@ export const InjectiveMultiSendIOSchema = z.object({
 export const InjectiveGasFeeSchema = z.object({
   amount: z.array(InjectiveAmountSchema).min(1, 'Gas fee must have at least one amount'),
   gas_limit: z.number().nonnegative('Gas limit must be non-negative'),
-  granter: z.preprocess((val) => (val === '' ? undefined : val), CosmosAddressSchema.optional()),
-  payer: z.preprocess((val) => (val === '' ? undefined : val), CosmosAddressSchema.optional()),
+  granter: z.preprocess((val) => (val === '' ? undefined : val), CosmosAddressSchema.nullish()),
+  payer: z.preprocess((val) => (val === '' ? undefined : val), CosmosAddressSchema.nullish()),
 });
 
 /**
@@ -44,36 +44,36 @@ export const InjectiveGasFeeSchema = z.object({
  */
 export const InjectiveMessageValueSchema = z.object({
   // Common fields across message types
-  amount: z.union([z.array(InjectiveAmountSchema), z.string(), InjectiveAmountSchema]).optional(),
-  block_height: z.string().optional(),
-  cosmos_receiver: CosmosAddressSchema.optional(),
-  data: z.string().optional(),
-  ethereum_receiver: CosmosAddressSchema.optional(),
-  ethereum_sender: CosmosAddressSchema.optional(),
-  event_nonce: z.string().optional(), // For Peggy bridge deposits
-  from_address: CosmosAddressSchema.optional(),
-  injective_receiver: CosmosAddressSchema.optional(),
-  memo: z.string().optional(),
-  orchestrator: CosmosAddressSchema.optional(),
-  receiver: CosmosAddressSchema.optional(),
-  sender: CosmosAddressSchema.optional(),
-  source_channel: z.string().optional(),
-  source_port: z.string().optional(),
-  timeout_height: z.any().optional(), // Can be various types
-  timeout_timestamp: z.string().optional(),
-  to_address: CosmosAddressSchema.optional(),
-  token: InjectiveAmountSchema.optional(),
-  token_contract: CosmosAddressSchema.optional(),
+  amount: z.union([z.array(InjectiveAmountSchema), z.string(), InjectiveAmountSchema]).nullish(),
+  block_height: z.string().nullish(),
+  cosmos_receiver: CosmosAddressSchema.nullish(),
+  data: z.string().nullish(),
+  ethereum_receiver: CosmosAddressSchema.nullish(),
+  ethereum_sender: CosmosAddressSchema.nullish(),
+  event_nonce: z.string().nullish(), // For Peggy bridge deposits
+  from_address: CosmosAddressSchema.nullish(),
+  injective_receiver: CosmosAddressSchema.nullish(),
+  memo: z.string().nullish(),
+  orchestrator: CosmosAddressSchema.nullish(),
+  receiver: CosmosAddressSchema.nullish(),
+  sender: CosmosAddressSchema.nullish(),
+  source_channel: z.string().nullish(),
+  source_port: z.string().nullish(),
+  timeout_height: z.any().nullish(), // Can be various types
+  timeout_timestamp: z.string().nullish(),
+  to_address: CosmosAddressSchema.nullish(),
+  token: InjectiveAmountSchema.nullish(),
+  token_contract: CosmosAddressSchema.nullish(),
   // CosmWasm contract execution fields
-  contract: CosmosAddressSchema.optional(),
-  msg: z.any().optional(), // Can be object or JSON string
-  funds: z.union([z.array(InjectiveAmountSchema), z.string()]).optional(), // Array for MsgExecuteContract, string for MsgExecuteContractCompat
+  contract: CosmosAddressSchema.nullish(),
+  msg: z.any().nullish(), // Can be object or JSON string
+  funds: z.union([z.array(InjectiveAmountSchema), z.string()]).nullish(), // Array for MsgExecuteContract, string for MsgExecuteContractCompat
   // Peggy bridge withdrawal fields
-  eth_dest: CosmosAddressSchema.optional(),
-  bridge_fee: InjectiveAmountSchema.optional(),
+  eth_dest: CosmosAddressSchema.nullish(),
+  bridge_fee: InjectiveAmountSchema.nullish(),
   // MsgMultiSend fields
-  inputs: z.array(InjectiveMultiSendIOSchema).optional(),
-  outputs: z.array(InjectiveMultiSendIOSchema).optional(),
+  inputs: z.array(InjectiveMultiSendIOSchema).nullish(),
+  outputs: z.array(InjectiveMultiSendIOSchema).nullish(),
 });
 
 /**
@@ -88,20 +88,20 @@ export const InjectiveMessageSchema = z.object({
  * Schema for Injective transaction log events
  */
 export const InjectiveEventAttributeSchema = z.object({
-  index: z.boolean().optional(),
-  key: z.string().optional(),
-  msg_index: z.string().optional(),
-  value: z.string().optional(),
+  index: z.boolean().nullish(),
+  key: z.string().nullish(),
+  msg_index: z.string().nullish(),
+  value: z.string().nullish(),
 });
 
 export const InjectiveEventSchema = z.object({
-  attributes: z.array(InjectiveEventAttributeSchema).optional(),
-  type: z.string().optional(),
+  attributes: z.array(InjectiveEventAttributeSchema).nullish(),
+  type: z.string().nullish(),
 });
 
 export const InjectiveTransactionLogSchema = z.object({
-  events: z.array(InjectiveEventSchema).optional(),
-  msg_index: z.string().optional(),
+  events: z.array(InjectiveEventSchema).nullish(),
+  msg_index: z.string().nullish(),
 });
 
 /**
@@ -110,30 +110,26 @@ export const InjectiveTransactionLogSchema = z.object({
 export const InjectiveTransactionSchema = z.object({
   block_number: z.number().nonnegative('Block number must be non-negative'),
   block_timestamp: timestampToDate,
-  block_unix_timestamp: z.number().optional(),
-  claim_id: z.array(z.number()).optional(),
+  block_unix_timestamp: z.number().nullish(),
+  claim_id: z.array(z.number()).nullish(),
   code: z.number().nonnegative('Transaction code must be non-negative'),
-  codespace: z.string().optional(),
-  data: z
-    .string()
-    .nullable()
-    .optional()
-    .transform((val) => val ?? undefined),
-  error_log: z.string().optional(),
-  extension_options: z.array(z.unknown()).optional(),
+  codespace: z.string().nullish(),
+  data: z.string().nullish(),
+  error_log: z.string().nullish(),
+  extension_options: z.array(z.unknown()).nullish(),
   gas_fee: InjectiveGasFeeSchema,
   gas_used: z.number().nonnegative('Gas used must be non-negative'),
   gas_wanted: z.number().nonnegative('Gas wanted must be non-negative'),
   hash: z.string().min(1, 'Transaction hash must not be empty'),
-  id: z.string().optional(), // Can be empty, use hash instead
-  info: z.string().optional(),
-  logs: z.array(InjectiveTransactionLogSchema).optional(),
-  memo: z.string().optional(),
+  id: z.string().nullish(), // Can be empty, use hash instead
+  info: z.string().nullish(),
+  logs: z.array(InjectiveTransactionLogSchema).nullish(),
+  memo: z.string().nullish(),
   messages: z.array(InjectiveMessageSchema).min(1, 'Transaction must have at least one message'),
-  non_critical_extension_options: z.array(z.unknown()).optional(),
-  signatures: z.array(z.unknown()).optional(),
-  timeout_height: z.number().nonnegative('Timeout height must be non-negative').optional(),
-  tx_number: z.number().optional(),
+  non_critical_extension_options: z.array(z.unknown()).nullish(),
+  signatures: z.array(z.unknown()).nullish(),
+  timeout_height: z.number().nonnegative('Timeout height must be non-negative').nullish(),
+  tx_number: z.number().nullish(),
   tx_type: z.string().min(1, 'Transaction type must not be empty'),
 });
 
@@ -151,7 +147,7 @@ export const InjectiveBalanceSchema = z.object({
 export const InjectiveBalanceResponseSchema = z.object({
   balances: z.array(InjectiveBalanceSchema),
   pagination: z.object({
-    next_key: z.string().optional(),
+    next_key: z.string().nullish(),
     total: z.string().regex(/^\d+$/, 'Pagination total must be numeric string'),
   }),
 });
@@ -163,11 +159,11 @@ export const InjectiveApiResponseSchema = z.object({
   data: z.array(InjectiveTransactionSchema),
   paging: z
     .object({
-      from: z.number().optional(),
-      to: z.number().optional(),
+      from: z.number().nullish(),
+      to: z.number().nullish(),
       total: z.number().nonnegative('Total must be non-negative'),
     })
-    .optional(),
+    .nullish(),
 });
 
 // Type exports inferred from schemas

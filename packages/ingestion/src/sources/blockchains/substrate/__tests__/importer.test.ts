@@ -100,8 +100,10 @@ describe('SubstrateImporter', () => {
           primary: { type: 'blockNumber' as const, value: 0 },
           lastTransactionId: '',
           totalFetched: data.length,
-          metadata: { providerName, updatedAt: Date.now(), isComplete: true },
+          metadata: { providerName, updatedAt: Date.now() },
         },
+        isComplete: true,
+        stats: { fetched: 0, deduplicated: 0, yielded: 0 },
       });
     });
   };
@@ -544,6 +546,8 @@ describe('SubstrateImporter', () => {
               totalFetched: 1,
               metadata: { providerName: 'subscan', updatedAt: Date.now(), isComplete: true },
             },
+            isComplete: true,
+            stats: { fetched: 0, deduplicated: 0, yielded: 0 },
           });
         })
         .mockImplementationOnce(async function* () {
@@ -561,6 +565,8 @@ describe('SubstrateImporter', () => {
               totalFetched: 1,
               metadata: { providerName: 'taostats', updatedAt: Date.now(), isComplete: true },
             },
+            isComplete: true,
+            stats: { fetched: 0, deduplicated: 0, yielded: 0 },
           });
         });
 

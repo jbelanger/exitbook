@@ -18,7 +18,7 @@ export const SolscanInputAccountSchema = z.object({
  * Schema for Solscan parsed instruction structure
  */
 export const SolscanParsedInstructionSchema = z.object({
-  params: z.record(z.string(), z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).nullish(),
   program: z.string().min(1, 'Program must not be empty'),
   programId: SolanaAddressSchema, // Program address - case-sensitive
   type: z.string().min(1, 'Type must not be empty'),
@@ -62,8 +62,8 @@ export const SolscanRawTransactionDataSchema = SolscanTransactionSchema;
  * Schema for Solscan API response wrapper (generic)
  */
 export const SolscanResponseSchema = z.object({
-  data: z.unknown().optional(),
-  message: z.string().optional(),
+  data: z.unknown().nullish(),
+  message: z.string().nullish(),
   success: z.boolean(),
 });
 
@@ -76,28 +76,28 @@ export const SolscanAccountBalanceDataSchema = z.object({
 
 export const SolscanAccountBalanceResponseSchema = z.object({
   success: z.boolean(),
-  message: z.string().optional(),
-  data: SolscanAccountBalanceDataSchema.optional(),
+  message: z.string().nullish(),
+  data: SolscanAccountBalanceDataSchema.nullish(),
 });
 
 export const SolscanAccountTransactionsDataSchema = z.union([
   z.array(SolscanTransactionSchema),
   z.object({
-    data: z.array(SolscanTransactionSchema).optional(),
-    items: z.array(SolscanTransactionSchema).optional(),
+    data: z.array(SolscanTransactionSchema).nullish(),
+    items: z.array(SolscanTransactionSchema).nullish(),
   }),
 ]);
 
 export const SolscanAccountTransactionsResponseSchema = z.object({
   success: z.boolean(),
-  message: z.string().optional(),
-  data: SolscanAccountTransactionsDataSchema.optional(),
+  message: z.string().nullish(),
+  data: SolscanAccountTransactionsDataSchema.nullish(),
 });
 
 export const SolscanLegacyTransactionsResponseSchema = z.object({
   success: z.boolean(),
-  message: z.string().optional(),
-  data: z.array(SolscanTransactionSchema).optional(),
+  message: z.string().nullish(),
+  data: z.array(SolscanTransactionSchema).nullish(),
 });
 
 // Type exports inferred from schemas

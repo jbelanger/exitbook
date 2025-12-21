@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
 import type { AssetMovement, FeeMovement, TransactionStatus, UniversalTransactionData } from '@exitbook/core';
 import { AssetMovementSchema, FeeMovementSchema, TransactionNoteSchema, wrapError } from '@exitbook/core';
-import type { Selectable, Updateable } from 'kysely';
+import type { Insertable, Selectable, Updateable } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { z } from 'zod';
@@ -55,73 +55,16 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     accountId: number
   ): Promise<Result<number, Error>> {
     try {
-      // Validate notes before saving
-      if (transaction.notes !== undefined) {
-        const notesValidation = z.array(TransactionNoteSchema).safeParse(transaction.notes);
-        if (!notesValidation.success) {
-          return err(new Error(`Invalid notes: ${notesValidation.error.message}`));
-        }
+      const valuesResult = this.buildInsertValues(transaction, accountId);
+      if (valuesResult.isErr()) {
+        return err(valuesResult.error);
       }
 
-      // Normalize movements: ensure gross/net fields exist
-      const normalizedInflows: AssetMovement[] = [];
-      for (const inflow of transaction.movements.inflows ?? []) {
-        const result = normalizeMovement(inflow);
-        if (result.isErr()) {
-          return err(result.error);
-        }
-        normalizedInflows.push(result.value);
-      }
-
-      const normalizedOutflows: AssetMovement[] = [];
-      for (const outflow of transaction.movements.outflows ?? []) {
-        const result = normalizeMovement(outflow);
-        if (result.isErr()) {
-          return err(result.error);
-        }
-        normalizedOutflows.push(result.value);
-      }
-
-      // Serialize fees array
-      const feesJson =
-        transaction.fees && transaction.fees.length > 0 ? this.serializeToJson(transaction.fees) : undefined;
+      const values = valuesResult.value;
 
       const result = await this.db
         .insertInto('transactions')
-        .values({
-          created_at: this.getCurrentDateTimeForDB(),
-          external_id: transaction.externalId || generateDeterministicTransactionHash(transaction),
-          from_address: transaction.from,
-          account_id: accountId,
-          notes_json:
-            transaction.notes && transaction.notes.length > 0 ? this.serializeToJson(transaction.notes) : undefined,
-          is_spam: transaction.isSpam ?? false,
-          excluded_from_accounting: transaction.excludedFromAccounting ?? transaction.isSpam ?? false,
-          source_name: transaction.source,
-          source_type: transaction.blockchain ? 'blockchain' : 'exchange',
-          to_address: transaction.to,
-          transaction_datetime: transaction.datetime
-            ? new Date(transaction.datetime).toISOString()
-            : new Date().toISOString(),
-          transaction_status: transaction.status,
-
-          // Serialize normalized movements
-          movements_inflows: normalizedInflows.length > 0 ? this.serializeToJson(normalizedInflows) : undefined,
-          movements_outflows: normalizedOutflows.length > 0 ? this.serializeToJson(normalizedOutflows) : undefined,
-
-          // Serialize fees array
-          fees: feesJson,
-
-          // Enhanced operation classification
-          operation_category: transaction.operation?.category,
-          operation_type: transaction.operation?.type,
-
-          // Blockchain metadata
-          blockchain_name: transaction.blockchain?.name,
-          blockchain_block_height: transaction.blockchain?.block_height,
-          blockchain_transaction_hash: transaction.blockchain?.transaction_hash,
-          blockchain_is_confirmed: transaction.blockchain?.is_confirmed,
-        })
+        .values(values)
         .onConflict((oc) =>
           // For blockchain transactions, conflict on unique index (account_id, blockchain_transaction_hash)
           // For exchange transactions, we don't have a unique constraint, so this won't trigger
@@ -134,12 +77,12 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       // Find and return the existing transaction's ID
       if (!result) {
         // For blockchain transactions, look up by blockchain_transaction_hash
-        if (transaction.blockchain?.transaction_hash) {
+        if (values.blockchain_transaction_hash) {
           const existing = await this.db
             .selectFrom('transactions')
             .select('id')
             .where('account_id', '=', accountId)
-            .where('blockchain_transaction_hash', '=', transaction.blockchain.transaction_hash)
+            .where('blockchain_transaction_hash', '=', values.blockchain_transaction_hash)
             .executeTakeFirst();
 
           if (existing) {
@@ -155,6 +98,69 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       return ok(result.id);
     } catch (error) {
       return wrapError(error, 'Failed to save transaction');
+    }
+  }
+
+  async saveBatch(
+    transactions: Omit<UniversalTransactionData, 'id' | 'accountId'>[],
+    accountId: number
+  ): Promise<Result<{ duplicates: number; saved: number }, Error>> {
+    if (transactions.length === 0) {
+      return ok({ saved: 0, duplicates: 0 });
+    }
+
+    const createdAt = this.getCurrentDateTimeForDB();
+    const insertValues: Insertable<TransactionsTable>[] = [];
+
+    for (const [index, transaction] of transactions.entries()) {
+      const valuesResult = this.buildInsertValues(transaction, accountId, createdAt);
+      if (valuesResult.isErr()) {
+        return err(new Error(`Transaction index-${index}: ${valuesResult.error.message}`));
+      }
+      insertValues.push(valuesResult.value);
+    }
+
+    try {
+      const result = await this.withTransaction(async (trx) => {
+        let saved = 0;
+        let duplicates = 0;
+
+        for (const values of insertValues) {
+          const insertResult = await trx
+            .insertInto('transactions')
+            .values(values)
+            .onConflict((oc) => oc.doNothing())
+            .returning('id')
+            .executeTakeFirst();
+
+          if (!insertResult) {
+            if (values.blockchain_transaction_hash) {
+              const existing = await trx
+                .selectFrom('transactions')
+                .select('id')
+                .where('account_id', '=', accountId)
+                .where('blockchain_transaction_hash', '=', values.blockchain_transaction_hash)
+                .executeTakeFirst();
+
+              if (existing) {
+                saved++;
+                duplicates++;
+                continue;
+              }
+            }
+
+            throw new Error('Transaction insert skipped due to conflict, but existing transaction not found');
+          }
+
+          saved++;
+        }
+
+        return { saved, duplicates };
+      });
+
+      return ok(result);
+    } catch (error) {
+      return wrapError(error, 'Failed to save transaction batch');
     }
   }
 
@@ -369,6 +375,27 @@ export class TransactionRepository extends BaseRepository implements ITransactio
   }
 
   /**
+   * Check if account has any beacon withdrawal transactions
+   * Used to determine beacon withdrawal completeness for balance reports
+   * Beacon withdrawals are identified by the presence of 'consensus_withdrawal' in notes
+   */
+  async hasTransactionsOfType(accountId: number, _noteType: string): Promise<Result<boolean, Error>> {
+    try {
+      // Query for transactions with consensus_withdrawal in notes
+      // This is a simple heuristic - beacon withdrawals have notes with type='consensus_withdrawal'
+      const result = await this.db
+        .selectFrom('transactions')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .where('account_id', '=', accountId)
+        .where('notes_json', 'like', '%consensus_withdrawal%')
+        .executeTakeFirst();
+      return ok((result?.count ?? 0) > 0);
+    } catch (error) {
+      return wrapError(error, 'Failed to check for beacon withdrawal transactions');
+    }
+  }
+
+  /**
    * Delete transactions by account IDs
    * Deletes transactions WHERE account_id IN (accountIds)
    */
@@ -391,6 +418,74 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     } catch (error) {
       return wrapError(error, 'Failed to delete all transactions');
     }
+  }
+
+  private buildInsertValues(
+    transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
+    accountId: number,
+    createdAt?: string
+  ): Result<Insertable<TransactionsTable>, Error> {
+    // Validate notes before saving
+    if (transaction.notes !== undefined) {
+      const notesValidation = z.array(TransactionNoteSchema).safeParse(transaction.notes);
+      if (!notesValidation.success) {
+        return err(new Error(`Invalid notes: ${notesValidation.error.message}`));
+      }
+    }
+
+    // Normalize movements: ensure gross/net fields exist
+    const normalizedInflows: AssetMovement[] = [];
+    for (const inflow of transaction.movements.inflows ?? []) {
+      const result = normalizeMovement(inflow);
+      if (result.isErr()) {
+        return err(result.error);
+      }
+      normalizedInflows.push(result.value);
+    }
+
+    const normalizedOutflows: AssetMovement[] = [];
+    for (const outflow of transaction.movements.outflows ?? []) {
+      const result = normalizeMovement(outflow);
+      if (result.isErr()) {
+        return err(result.error);
+      }
+      normalizedOutflows.push(result.value);
+    }
+
+    return ok({
+      created_at: createdAt ?? this.getCurrentDateTimeForDB(),
+      external_id: transaction.externalId || generateDeterministicTransactionHash(transaction),
+      from_address: transaction.from ?? null,
+      account_id: accountId,
+      notes_json:
+        (transaction.notes && transaction.notes.length > 0 ? this.serializeToJson(transaction.notes) : null) ?? null,
+      is_spam: transaction.isSpam ?? false,
+      excluded_from_accounting: transaction.excludedFromAccounting ?? transaction.isSpam ?? false,
+      source_name: transaction.source,
+      source_type: transaction.blockchain ? 'blockchain' : 'exchange',
+      to_address: transaction.to ?? null,
+      transaction_datetime: transaction.datetime
+        ? new Date(transaction.datetime).toISOString()
+        : new Date().toISOString(),
+      transaction_status: transaction.status,
+
+      // Serialize normalized movements
+      movements_inflows: (normalizedInflows.length > 0 ? this.serializeToJson(normalizedInflows) : null) ?? null,
+      movements_outflows: (normalizedOutflows.length > 0 ? this.serializeToJson(normalizedOutflows) : null) ?? null,
+
+      // Serialize fees array
+      fees: (transaction.fees && transaction.fees.length > 0 ? this.serializeToJson(transaction.fees) : null) ?? null,
+
+      // Enhanced operation classification
+      operation_category: transaction.operation?.category ?? null,
+      operation_type: transaction.operation?.type ?? null,
+
+      // Blockchain metadata
+      blockchain_name: transaction.blockchain?.name ?? null,
+      blockchain_block_height: transaction.blockchain?.block_height ?? null,
+      blockchain_transaction_hash: transaction.blockchain?.transaction_hash ?? null,
+      blockchain_is_confirmed: transaction.blockchain?.is_confirmed ?? null,
+    });
   }
 
   /**

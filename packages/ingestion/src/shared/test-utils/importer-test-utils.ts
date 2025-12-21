@@ -9,6 +9,7 @@ import type { IImporter, ImportParams } from '../../shared/types/importers.js';
 export interface ImportRunResult {
   rawTransactions: RawTransactionInput[];
   cursorUpdates: Record<string, CursorState>;
+  warnings?: string[] | undefined;
 }
 
 export async function consumeImportStream(
@@ -17,6 +18,7 @@ export async function consumeImportStream(
 ): Promise<Result<ImportRunResult, Error>> {
   const allTransactions: RawTransactionInput[] = [];
   const cursorUpdates: Record<string, CursorState> = {};
+  const allWarnings: string[] = [];
 
   for await (const batchResult of importer.importStreaming(params)) {
     if (batchResult.isErr()) {
@@ -26,11 +28,16 @@ export async function consumeImportStream(
     const batch = batchResult.value;
     allTransactions.push(...batch.rawTransactions);
     cursorUpdates[batch.operationType] = batch.cursor;
+
+    if (batch.warnings && batch.warnings.length > 0) {
+      allWarnings.push(...batch.warnings);
+    }
   }
 
   return ok({
     rawTransactions: allTransactions,
     cursorUpdates,
+    warnings: allWarnings.length > 0 ? allWarnings : undefined,
   });
 }
 

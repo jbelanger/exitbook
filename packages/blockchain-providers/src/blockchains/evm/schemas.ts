@@ -28,6 +28,16 @@ export const EvmAddressSchema = z.string().transform((val) => normalizeEvmAddres
  * Validates transactions from all EVM-compatible chains (Ethereum, Avalanche, etc.)
  * Supports the superset of features across all chains.
  *
+ * Transaction types:
+ * - transfer: Regular native currency transfer
+ * - token_transfer: ERC20/ERC721/ERC1155 token transfer
+ * - internal: Internal transaction (contract-to-contract or contract-to-EOA)
+ * - contract_call: Contract interaction with no value transfer
+ * - beacon_withdrawal: Consensus layer withdrawal (Ethereum post-Shanghai only)
+ *   - Validator rewards or exited stake withdrawn to execution layer
+ *   - No transaction hash (uses withdrawal index as identifier)
+ *   - Always successful, no fees, from beacon chain (0x000...000)
+ *
  * Extends NormalizedTransactionBaseSchema to ensure consistent identity handling.
  * The eventId field is computed by providers during normalization using
  * generateUniqueTransactionEventId() with chain-specific discriminating fields.
@@ -41,7 +51,7 @@ export const EvmAddressSchema = z.string().transform((val) => normalizeEvmAddres
  */
 export const EvmTransactionSchema = NormalizedTransactionBaseSchema.extend({
   // EVM-specific transaction data
-  type: z.enum(['transfer', 'token_transfer', 'internal', 'contract_call']),
+  type: z.enum(['transfer', 'token_transfer', 'internal', 'contract_call', 'beacon_withdrawal']),
   status: z.enum(['success', 'failed', 'pending']),
   timestamp: z.number().positive('Timestamp must be positive'),
   providerName: z.string().min(1, 'Provider Name must not be empty'),
@@ -76,6 +86,10 @@ export const EvmTransactionSchema = NormalizedTransactionBaseSchema.extend({
 
   // Internal transaction tracking
   traceId: z.string().optional(),
+
+  // Beacon withdrawal metadata (Ethereum post-Shanghai only)
+  withdrawalIndex: z.string().optional(),
+  validatorIndex: z.string().optional(),
 });
 
 // Type exports inferred from schemas (single source of truth)

@@ -1,9 +1,12 @@
+import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
 import { describe, expect, it } from 'vitest';
 
+import type { ProcessingContext } from '../../../../shared/types/processors.ts';
 import {
+  analyzeEvmFundFlow,
   consolidateEvmMovementsByAsset,
-  selectPrimaryEvmMovement,
   determineEvmOperationFromFundFlow,
+  selectPrimaryEvmMovement,
 } from '../processor-utils.js';
 import type { EvmFundFlow, EvmMovement } from '../types.js';
 
@@ -151,7 +154,194 @@ describe('selectPrimaryEvmMovement', () => {
   });
 });
 
+describe('analyzeEvmFundFlow', () => {
+  it('prefers non-zero feeAmount when internal events report zero fees', () => {
+    const chainConfig: EvmChainConfig = {
+      chainId: 1,
+      chainName: 'ethereum',
+      nativeCurrency: 'ETH',
+      nativeDecimals: 18,
+    };
+    const context: ProcessingContext = {
+      primaryAddress: '0xaaa',
+      userAddresses: ['0xaaa'],
+    };
+
+    const txGroup: EvmTransaction[] = [
+      {
+        amount: '0',
+        currency: 'ETH',
+        eventId: 'evt-internal',
+        feeAmount: '0',
+        feeCurrency: 'ETH',
+        from: '0xaaa',
+        id: '0xhash',
+        providerName: 'routescan',
+        status: 'success',
+        timestamp: 1,
+        to: '0xbbb',
+        traceId: 'internal-0',
+        type: 'internal',
+      },
+      {
+        amount: '0',
+        currency: 'ETH',
+        eventId: 'evt-contract',
+        feeAmount: '1000000000000000000',
+        feeCurrency: 'ETH',
+        from: '0xaaa',
+        id: '0xhash',
+        methodId: '0x12345678',
+        providerName: 'routescan',
+        status: 'success',
+        timestamp: 1,
+        to: '0xccc',
+        type: 'contract_call',
+      },
+    ];
+
+    const result = analyzeEvmFundFlow(txGroup, context, chainConfig);
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw new Error(result.error);
+    }
+
+    expect(result.value.feeAmount).toBe('1');
+  });
+});
+
 describe('determineEvmOperationFromFundFlow', () => {
+  describe('Pattern 0: Beacon withdrawal', () => {
+    it('classifies small withdrawal (<32 ETH) as staking reward', () => {
+      const fundFlow: EvmFundFlow = {
+        inflows: [{ asset: 'ETH', amount: '0.05' }], // 0.05 ETH withdrawal
+        outflows: [],
+        primary: { asset: 'ETH', amount: '0.05' },
+        feeAmount: '0',
+        feeCurrency: 'ETH',
+        fromAddress: '0x0000000000000000000000000000000000000000', // Beacon chain
+        toAddress: '0x123',
+        transactionCount: 1,
+        hasContractInteraction: false,
+        hasInternalTransactions: false,
+        hasTokenTransfers: false,
+      };
+
+      const beaconTx: EvmTransaction = {
+        id: 'beacon-withdrawal-12345',
+        eventId: 'beacon-withdrawal-12345-evt',
+        type: 'beacon_withdrawal',
+        status: 'success',
+        timestamp: 1234567890,
+        providerName: 'etherscan',
+        from: '0x0000000000000000000000000000000000000000',
+        to: '0x123',
+        amount: '50000000000000000', // 0.05 ETH in Wei
+        currency: 'ETH',
+        gasPrice: '0',
+        gasUsed: '0',
+        feeAmount: '0',
+        feeCurrency: 'ETH',
+        tokenType: 'native',
+      };
+
+      const result = determineEvmOperationFromFundFlow(fundFlow, [beaconTx]);
+
+      expect(result.operation).toEqual({ category: 'staking', type: 'reward' });
+      expect(result.notes).toHaveLength(1);
+      expect(result.notes?.[0]?.type).toBe('consensus_withdrawal');
+      expect(result.notes?.[0]?.severity).toBe('info');
+      expect(result.notes?.[0]?.message).toContain('Partial withdrawal');
+      expect(result.notes?.[0]?.metadata?.needsReview).toBe(false);
+      expect(result.notes?.[0]?.metadata?.taxClassification).toContain('taxable');
+    });
+
+    it('classifies large withdrawal (≥32 ETH) as principal return with warning', () => {
+      const fundFlow: EvmFundFlow = {
+        inflows: [{ asset: 'ETH', amount: '32.5' }], // 32.5 ETH withdrawal (full exit)
+        outflows: [],
+        primary: { asset: 'ETH', amount: '32.5' },
+        feeAmount: '0',
+        feeCurrency: 'ETH',
+        fromAddress: '0x0000000000000000000000000000000000000000',
+        toAddress: '0x123',
+        transactionCount: 1,
+        hasContractInteraction: false,
+        hasInternalTransactions: false,
+        hasTokenTransfers: false,
+      };
+
+      const beaconTx: EvmTransaction = {
+        id: 'beacon-withdrawal-67890',
+        eventId: 'beacon-withdrawal-67890-evt',
+        type: 'beacon_withdrawal',
+        status: 'success',
+        timestamp: 1234567890,
+        providerName: 'etherscan',
+        from: '0x0000000000000000000000000000000000000000',
+        to: '0x123',
+        amount: '32500000000000000000', // 32.5 ETH in Wei
+        currency: 'ETH',
+        gasPrice: '0',
+        gasUsed: '0',
+        feeAmount: '0',
+        feeCurrency: 'ETH',
+        tokenType: 'native',
+      };
+
+      const result = determineEvmOperationFromFundFlow(fundFlow, [beaconTx]);
+
+      expect(result.operation).toEqual({ category: 'staking', type: 'deposit' });
+      expect(result.notes).toHaveLength(1);
+      expect(result.notes?.[0]?.type).toBe('consensus_withdrawal');
+      expect(result.notes?.[0]?.severity).toBe('warning');
+      expect(result.notes?.[0]?.message).toContain('Full withdrawal');
+      expect(result.notes?.[0]?.message).toContain('≥32 ETH');
+      expect(result.notes?.[0]?.metadata?.needsReview).toBe(true);
+      expect(result.notes?.[0]?.metadata?.taxClassification).toContain('non-taxable');
+    });
+
+    it('classifies exactly 32 ETH as principal return', () => {
+      const fundFlow: EvmFundFlow = {
+        inflows: [{ asset: 'ETH', amount: '32' }],
+        outflows: [],
+        primary: { asset: 'ETH', amount: '32' },
+        feeAmount: '0',
+        feeCurrency: 'ETH',
+        fromAddress: '0x0000000000000000000000000000000000000000',
+        toAddress: '0x123',
+        transactionCount: 1,
+        hasContractInteraction: false,
+        hasInternalTransactions: false,
+        hasTokenTransfers: false,
+      };
+
+      const beaconTx: EvmTransaction = {
+        id: 'beacon-withdrawal-32000',
+        eventId: 'beacon-withdrawal-32000-evt',
+        type: 'beacon_withdrawal',
+        status: 'success',
+        timestamp: 1234567890,
+        providerName: 'etherscan',
+        from: '0x0000000000000000000000000000000000000000',
+        to: '0x123',
+        amount: '32000000000000000000', // Exactly 32 ETH
+        currency: 'ETH',
+        gasPrice: '0',
+        gasUsed: '0',
+        feeAmount: '0',
+        feeCurrency: 'ETH',
+        tokenType: 'native',
+      };
+
+      const result = determineEvmOperationFromFundFlow(fundFlow, [beaconTx]);
+
+      expect(result.operation).toEqual({ category: 'staking', type: 'deposit' });
+      expect(result.notes?.[0]?.severity).toBe('warning');
+      expect(result.notes?.[0]?.metadata?.needsReview).toBe(true);
+    });
+  });
+
   describe('Pattern 1: Contract interaction with zero value', () => {
     it('classifies approval as transfer with note', () => {
       const fundFlow: EvmFundFlow = {
@@ -168,7 +358,7 @@ describe('determineEvmOperationFromFundFlow', () => {
         hasTokenTransfers: false,
       };
 
-      const result = determineEvmOperationFromFundFlow(fundFlow);
+      const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
       expect(result.notes?.[0]?.type).toBe('contract_interaction');
@@ -190,7 +380,7 @@ describe('determineEvmOperationFromFundFlow', () => {
         hasTokenTransfers: true,
       };
 
-      const result = determineEvmOperationFromFundFlow(fundFlow);
+      const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
       expect(result.notes?.[0]?.type).toBe('contract_interaction');
@@ -213,7 +403,7 @@ describe('determineEvmOperationFromFundFlow', () => {
         hasTokenTransfers: false,
       };
 
-      const result = determineEvmOperationFromFundFlow(fundFlow);
+      const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'fee', type: 'fee' });
       expect(result.notes).toBeUndefined();
@@ -236,7 +426,7 @@ describe('determineEvmOperationFromFundFlow', () => {
         hasTokenTransfers: true,
       };
 
-      const result = determineEvmOperationFromFundFlow(fundFlow);
+      const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'trade', type: 'swap' });
       expect(result.notes).toBeUndefined();
@@ -259,7 +449,7 @@ describe('determineEvmOperationFromFundFlow', () => {
         hasTokenTransfers: false,
       };
 
-      const result = determineEvmOperationFromFundFlow(fundFlow);
+      const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'deposit' });
       expect(result.notes).toBeUndefined();
@@ -283,7 +473,7 @@ describe('determineEvmOperationFromFundFlow', () => {
         hasTokenTransfers: true,
       };
 
-      const result = determineEvmOperationFromFundFlow(fundFlow);
+      const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'deposit' });
     });
@@ -305,7 +495,7 @@ describe('determineEvmOperationFromFundFlow', () => {
         hasTokenTransfers: false,
       };
 
-      const result = determineEvmOperationFromFundFlow(fundFlow);
+      const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
       expect(result.notes).toBeUndefined();
@@ -329,7 +519,7 @@ describe('determineEvmOperationFromFundFlow', () => {
         hasTokenTransfers: true,
       };
 
-      const result = determineEvmOperationFromFundFlow(fundFlow);
+      const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
     });
@@ -351,7 +541,7 @@ describe('determineEvmOperationFromFundFlow', () => {
         hasTokenTransfers: false,
       };
 
-      const result = determineEvmOperationFromFundFlow(fundFlow);
+      const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
       expect(result.notes).toBeUndefined();
@@ -382,7 +572,7 @@ describe('determineEvmOperationFromFundFlow', () => {
           'Complex transaction with 2 outflow(s) and 2 inflow(s). May be liquidity provision, batch operation, or multi-asset swap.',
       };
 
-      const result = determineEvmOperationFromFundFlow(fundFlow);
+      const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
       expect(result.notes?.[0]?.type).toBe('classification_uncertain');
@@ -410,7 +600,7 @@ describe('determineEvmOperationFromFundFlow', () => {
         hasTokenTransfers: false,
       };
 
-      const result = determineEvmOperationFromFundFlow(fundFlow);
+      const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
       expect(result.notes?.[0]?.type).toBe('classification_failed');

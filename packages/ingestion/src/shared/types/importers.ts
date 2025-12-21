@@ -49,6 +49,8 @@ export interface ImportBatchResult {
   cursor: CursorState;
   // Whether this operation type has completed (no more batches for this operation)
   isComplete: boolean;
+  // Warnings about partial data or skipped operations (e.g., missing API keys, unsupported features)
+  warnings?: string[] | undefined;
 }
 
 /**

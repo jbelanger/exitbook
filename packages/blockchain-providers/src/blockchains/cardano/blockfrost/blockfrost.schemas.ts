@@ -52,11 +52,11 @@ export const BlockfrostUtxoInputSchema = z
     amount: z.array(BlockfrostAssetAmountSchema).min(1, 'Input must have at least one asset'),
     tx_hash: z.string().min(1, 'Input transaction hash must not be empty'),
     output_index: z.number().nonnegative('Output index must be non-negative'),
-    data_hash: z.string().nullable().optional(),
-    inline_datum: z.string().nullable().optional(),
-    reference_script_hash: z.string().nullable().optional(),
-    collateral: z.boolean().optional(),
-    reference: z.boolean().optional(),
+    data_hash: z.string().nullish(),
+    inline_datum: z.string().nullish(),
+    reference_script_hash: z.string().nullish(),
+    collateral: z.boolean().nullish(),
+    reference: z.boolean().nullish(),
   })
   .strict();
 
@@ -77,12 +77,12 @@ export const BlockfrostUtxoOutputSchema = z
     address: CardanoAddressSchema,
     amount: z.array(BlockfrostAssetAmountSchema).min(1, 'Output must have at least one asset'),
     output_index: z.number().nonnegative('Output index must be non-negative'),
-    data_hash: z.string().nullable().optional(),
-    inline_datum: z.string().nullable().optional(),
-    reference_script_hash: z.string().nullable().optional(),
-    collateral: z.boolean().optional(),
-    reference: z.boolean().optional(),
-    consumed_by_tx: z.string().nullable().optional(),
+    data_hash: z.string().nullish(),
+    inline_datum: z.string().nullish(),
+    reference_script_hash: z.string().nullish(),
+    collateral: z.boolean().nullish(),
+    reference: z.boolean().nullish(),
+    consumed_by_tx: z.string().nullish(),
   })
   .strict();
 
@@ -112,8 +112,8 @@ export const BlockfrostTransactionDetailsSchema = z
     index: z.number().nonnegative('Transaction index must be non-negative'),
     fees: z.string().regex(/^\d+$/, 'Fee must be a numeric string (lovelace)'),
     size: z.number().nonnegative('Transaction size must be non-negative'),
-    invalid_before: z.string().nullable().optional(),
-    invalid_hereafter: z.string().nullable().optional(),
+    invalid_before: z.string().nullish(),
+    invalid_hereafter: z.string().nullish(),
     utxo_count: z.number().nonnegative('UTXO count must be non-negative'),
     withdrawal_count: z.number().nonnegative('Withdrawal count must be non-negative'),
     mir_cert_count: z.number().nonnegative('MIR cert count must be non-negative'),
@@ -131,8 +131,8 @@ export const BlockfrostTransactionDetailsSchema = z
           quantity: z.string(),
         })
       )
-      .optional(),
-    deposit: z.string().regex(/^\d+$/, 'Deposit must be a numeric string (lovelace)').optional(),
+      .nullish(),
+    deposit: z.string().regex(/^\d+$/, 'Deposit must be a numeric string (lovelace)').nullish(),
   })
   .strict();
 
@@ -157,7 +157,7 @@ export const BlockfrostAddressSchema = z
   .object({
     address: CardanoAddressSchema,
     amount: z.array(BlockfrostAssetAmountSchema),
-    stake_address: z.string().nullable().optional(),
+    stake_address: z.string().nullish(),
     type: z.enum(['byron', 'shelley', 'stake', 'pointer']),
     script: z.boolean(),
   })

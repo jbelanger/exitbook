@@ -2,6 +2,7 @@
 // All functions are pure - no side effects
 
 import type { ProviderInfo } from '@exitbook/blockchain-providers';
+import { ProviderRegistry } from '@exitbook/blockchain-providers';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -107,13 +108,18 @@ export function getBlockchainLayer(blockchain: string): string | undefined {
  * Convert provider info to summary.
  */
 export function providerToSummary(provider: ProviderInfo, detailed: boolean): ProviderSummary {
-  const capabilities = provider.capabilities.supportedOperations.map((op) => {
-    // Shorten operation names for display
-    if (op.includes('Transaction')) return 'txs';
-    if (op.includes('Balance')) return 'balance';
-    if (op.includes('Token')) return 'tokens';
-    return op;
-  });
+  // Shorten operation names for display
+  const capabilities = Array.from(
+    new Set(
+      provider.capabilities.supportedOperations.map((op) => {
+        if (op.includes('Balance')) return 'balance';
+        if (op.includes('Transaction')) return 'txs';
+        if (op.includes('Withdrawal')) return 'withdrawals';
+        if (op.includes('Token')) return 'tokens';
+        return op;
+      })
+    )
+  );
 
   const summary: ProviderSummary = {
     name: provider.name,
@@ -125,6 +131,14 @@ export function providerToSummary(provider: ProviderInfo, detailed: boolean): Pr
   if (detailed && provider.defaultConfig?.rateLimit) {
     const rl = provider.defaultConfig.rateLimit;
     summary.rateLimit = `${rl.requestsPerSecond}/sec`;
+  }
+
+  if (provider.requiresApiKey) {
+    // Get API key env var from provider metadata
+    const metadata = ProviderRegistry.getMetadata(provider.blockchain, provider.name);
+    if (metadata?.apiKeyEnvVar) {
+      summary.apiKeyEnvVar = metadata.apiKeyEnvVar;
+    }
   }
 
   return summary;

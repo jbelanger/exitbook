@@ -17,19 +17,19 @@ export const ThetaCoinsSchema = z.object({
 export const ThetaAccountSchema = z.object({
   address: EvmAddressSchema,
   coins: ThetaCoinsSchema,
-  sequence: z.string().optional(),
-  signature: z.string().optional(),
+  sequence: z.string().nullish(),
+  signature: z.string().nullish(),
 });
 
 /**
  * Schema for send transaction data (type 2)
  */
 export const ThetaSendTransactionDataSchema = z.object({
-  fee: ThetaCoinsSchema.optional(),
-  inputs: z.array(ThetaAccountSchema).optional(),
-  outputs: z.array(ThetaAccountSchema).optional(),
-  source: ThetaAccountSchema.optional(),
-  target: ThetaAccountSchema.optional(),
+  fee: ThetaCoinsSchema.nullish(),
+  inputs: z.array(ThetaAccountSchema).nullish(),
+  outputs: z.array(ThetaAccountSchema).nullish(),
+  source: ThetaAccountSchema.nullish(),
+  target: ThetaAccountSchema.nullish(),
 });
 
 /**
@@ -75,7 +75,7 @@ export const ThetaTransactionSchema = z.object({
   block_height: z.string().regex(/^\d+$/, 'Block height must be numeric string'),
   data: ThetaTransactionDataSchema,
   hash: z.string().min(1, 'Transaction hash must not be empty'),
-  number: z.number().optional(),
+  number: z.number().nullish(),
   timestamp: timestampToDate,
   type: ThetaTransactionTypeSchema,
 });

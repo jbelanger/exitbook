@@ -30,7 +30,8 @@ export function registerCosmosChains(): void {
           preferredProvider: providerName,
         }),
 
-      createProcessor: (_tokenMetadataService?: ITokenMetadataService) => ok(new CosmosProcessor(config)),
+      createProcessor: (_providerManager, _tokenMetadataService?: ITokenMetadataService) =>
+        ok(new CosmosProcessor(config)),
     });
   }
 }

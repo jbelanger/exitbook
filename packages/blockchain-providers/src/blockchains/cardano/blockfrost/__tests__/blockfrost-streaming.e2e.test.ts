@@ -89,7 +89,7 @@ describe('BlockfrostApiClient Streaming E2E', () => {
           // Verify cursor metadata
           expect(batch.cursor.metadata?.providerName).toBe('blockfrost');
           expect(batch.cursor.metadata?.updatedAt).toBeGreaterThan(0);
-          expect(typeof batch.cursor.metadata?.isComplete).toBe('boolean');
+          expect(typeof batch.isComplete).toBe('boolean');
 
           // Limit test to avoid API credit usage
           if (batchCount >= maxBatches) {
@@ -373,7 +373,7 @@ describe('BlockfrostApiClient Streaming E2E', () => {
 
         if (lastBatch) {
           // Last batch should be marked as complete
-          expect(lastBatch.cursor.metadata?.isComplete).toBe(true);
+          expect(lastBatch.isComplete).toBe(true);
         }
       },
       60000

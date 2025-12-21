@@ -9,7 +9,6 @@ import type {
   ProviderOperation,
   RawBalanceData,
   StreamingBatchResult,
-  TransactionWithRawData,
 } from '../../../../core/index.js';
 import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
@@ -108,10 +107,6 @@ export class MempoolSpaceApiClient extends BaseApiClient {
     );
 
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return (await this.getAddressTransactions({
-          address: operation.address,
-        })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
           address: operation.address,
@@ -206,54 +201,6 @@ export class MempoolSpaceApiClient extends BaseApiClient {
     );
 
     return ok(createRawBalanceData(totalBalanceSats, balanceBTC, this.chainConfig.nativeCurrency));
-  }
-
-  private async getAddressTransactions(params: {
-    address: string;
-  }): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
-    const { address } = params;
-
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-
-    const result = await this.httpClient.get<MempoolTransaction[]>(`/address/${address}/txs`, {
-      schema: z.array(MempoolTransactionSchema),
-    });
-
-    if (result.isErr()) {
-      this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
-      return err(result.error);
-    }
-
-    const rawTransactions = result.value;
-
-    if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-      this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
-    for (const rawTx of rawTransactions) {
-      const mapResult = mapMempoolSpaceTransaction(rawTx, this.chainConfig);
-
-      if (mapResult.isErr()) {
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
-    );
-
-    return ok(transactions);
   }
 
   private streamAddressTransactions(

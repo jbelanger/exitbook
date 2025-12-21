@@ -113,6 +113,7 @@ async function executeProcessCommand(rawOptions: unknown): Promise<void> {
       rawDataRepository,
       accountRepository,
       transactionRepository,
+      providerManager,
       tokenMetadataService
     );
     const clearService = new ClearService(

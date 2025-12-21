@@ -12,6 +12,19 @@ import type { EvmFundFlow, EvmMovement } from './types.js';
 
 const logger = getLogger('evm-processor-utils');
 
+/**
+ * Tax Classification Rules
+ */
+
+/**
+ * 32 ETH threshold for classifying beacon withdrawals.
+ * - Withdrawals >= 32 ETH: Likely full validator withdrawal (principal return, non-taxable)
+ * - Withdrawals < 32 ETH: Likely partial withdrawal (staking rewards, taxable income)
+ *
+ * Referenced in Product Decision #1
+ */
+const BEACON_WITHDRAWAL_PRINCIPAL_THRESHOLD = parseDecimal('32');
+
 export interface SelectionCriteria {
   nativeCurrency: string;
 }
@@ -105,10 +118,11 @@ export function selectPrimaryEvmMovement(movements: EvmMovement[], criteria: Sel
 /**
  * Determines transaction operation classification based purely on fund flow structure.
  *
- * Pure function that applies 7 conservative pattern matching rules to classify transactions.
+ * Pure function that applies pattern matching rules to classify transactions.
  * Only classifies patterns we're confident about - complex cases receive informational notes.
  *
  * Pattern matching rules:
+ * 0. Beacon withdrawal (Ethereum consensus layer withdrawal with 32 ETH threshold)
  * 1. Contract interaction with zero value (approvals, staking, state changes)
  * 2. Fee-only transaction (zero value with no fund movements)
  * 3. Single asset swap (one asset out, different asset in)
@@ -117,10 +131,59 @@ export function selectPrimaryEvmMovement(movements: EvmMovement[], criteria: Sel
  * 6. Self-transfer (same asset in and out)
  * 7. Complex multi-asset transaction (multiple inflows/outflows - uncertain)
  */
-export function determineEvmOperationFromFundFlow(fundFlow: EvmFundFlow): OperationClassification {
+export function determineEvmOperationFromFundFlow(
+  fundFlow: EvmFundFlow,
+  txGroup: EvmTransaction[]
+): OperationClassification {
   const { inflows, outflows } = fundFlow;
   const amount = parseDecimal(fundFlow.primary.amount || '0').abs();
   const isZero = amount.isZero();
+
+  // Pattern 0: Beacon withdrawal (Ethereum post-Shanghai consensus layer withdrawals)
+  // Apply smart tax classification based on 32 ETH threshold (Product Decision #1)
+  const hasBeaconWithdrawal = txGroup.some((tx) => tx.type === 'beacon_withdrawal');
+  if (hasBeaconWithdrawal) {
+    // Check if withdrawal amount exceeds the principal threshold
+    const isPrincipalReturn = amount.gte(BEACON_WITHDRAWAL_PRINCIPAL_THRESHOLD);
+
+    // Extract withdrawal metadata from the beacon withdrawal transaction
+    const beaconTx = txGroup.find((tx) => tx.type === 'beacon_withdrawal');
+    const withdrawalMetadata: Record<string, unknown> = {
+      amount: amount.toFixed(),
+      needsReview: isPrincipalReturn,
+      taxClassification: isPrincipalReturn ? 'non-taxable (principal return)' : 'taxable (income)',
+    };
+
+    // Include withdrawal-specific metadata if available
+    if (beaconTx) {
+      if (beaconTx.withdrawalIndex !== undefined) {
+        withdrawalMetadata.withdrawalIndex = beaconTx.withdrawalIndex;
+      }
+      if (beaconTx.validatorIndex !== undefined) {
+        withdrawalMetadata.validatorIndex = beaconTx.validatorIndex;
+      }
+      if (beaconTx.blockHeight !== undefined) {
+        withdrawalMetadata.blockHeight = beaconTx.blockHeight;
+      }
+    }
+
+    return {
+      operation: {
+        category: 'staking',
+        type: isPrincipalReturn ? 'deposit' : 'reward',
+      },
+      notes: [
+        {
+          type: 'consensus_withdrawal',
+          message: isPrincipalReturn
+            ? 'Full withdrawal (≥32 ETH) - likely principal return. Verify if rewards are included.'
+            : 'Partial withdrawal (<32 ETH) - staking reward',
+          severity: isPrincipalReturn ? 'warning' : 'info',
+          metadata: withdrawalMetadata,
+        },
+      ],
+    };
+  }
 
   // Pattern 1: Contract interaction with zero value
   // Approvals, staking operations, state changes - classified as transfer with note
@@ -492,9 +555,16 @@ export function analyzeEvmFundFlow(
   // Get fee from the parent transaction (NOT from token_transfer events)
   // A single on-chain transaction has only ONE fee, but providers may duplicate it across
   // the parent transaction and child events (token transfers, internal calls).
-  // We take the fee from the first non-token_transfer transaction to avoid double-counting.
-  const parentTx = txGroup.find((tx) => tx.type !== 'token_transfer') || txGroup[0];
-  const feeWei = parentTx?.feeAmount ? parseDecimal(parentTx.feeAmount) : parseDecimal('0');
+  // CRITICAL: Prioritize transactions with a NON-ZERO feeAmount. Some providers
+  // (like Routescan) may include internal transactions without fee fields, and others
+  // (like Moralis) explicitly set internal feeAmount to "0". Array ordering isn't
+  // guaranteed, so we must pick the fee-bearing event first.
+  const feeSourceTx =
+    txGroup.find((tx) => tx.type !== 'token_transfer' && tx.feeAmount && !isZeroDecimal(tx.feeAmount)) || // Parent tx WITH non-zero fee
+    txGroup.find((tx) => tx.type !== 'token_transfer' && tx.feeAmount) || // Parent tx WITH fee field (possibly zero)
+    txGroup.find((tx) => tx.type !== 'token_transfer') || // Any parent transaction
+    txGroup[0]; // Fallback
+  const feeWei = feeSourceTx?.feeAmount ? parseDecimal(feeSourceTx.feeAmount) : parseDecimal('0');
   const feeAmount = feeWei.dividedBy(parseDecimal('10').pow(chainConfig.nativeDecimals)).toFixed();
 
   // Track uncertainty for complex transactions
@@ -507,6 +577,7 @@ export function analyzeEvmFundFlow(
     classificationUncertainty,
     feeAmount,
     feeCurrency: chainConfig.nativeCurrency,
+    feePayerAddress: feeSourceTx?.from,
     fromAddress,
     hasContractInteraction,
     hasInternalTransactions,

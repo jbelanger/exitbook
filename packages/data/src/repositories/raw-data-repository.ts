@@ -3,10 +3,10 @@ import type { ProcessingStatus } from '@exitbook/core';
 import { RawTransactionInputSchema, wrapError, type RawTransactionInput, type RawTransaction } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
-import type { Selectable } from 'kysely';
+import type { Selectable, Transaction } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { RawTransactionTable } from '../schema/database-schema.ts';
+import type { DatabaseSchema, RawTransactionTable } from '../schema/database-schema.ts';
 
 /**
  * Filter options for loading raw data from repository
@@ -18,6 +18,8 @@ export interface LoadRawDataFilters {
   processingStatus?: ProcessingStatus | undefined;
   providerName?: string | undefined;
   since?: number | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
 }
 
 /**
@@ -81,6 +83,19 @@ export interface IRawDataRepository {
    * Delete all raw data.
    */
   deleteAll(): Promise<Result<number, Error>>;
+
+  /**
+   * Load recent event IDs for deduplication window seeding.
+   * Returns the most recent N event IDs for an account, ordered by creation time descending.
+   * Used to initialize the deduplication window when resuming imports.
+   */
+  loadRecentEventIds(accountId: number, limit: number): Promise<Result<string[], Error>>;
+
+  /**
+   * Get distinct account IDs that have pending raw data.
+   * Efficient query that doesn't load all raw data into memory.
+   */
+  getAccountsWithPendingData(): Promise<Result<number[], Error>>;
 }
 
 /**
@@ -117,6 +132,14 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
       query = query.orderBy('created_at', 'desc');
 
+      if (filters?.limit !== undefined) {
+        query = query.limit(filters.limit);
+      }
+
+      if (filters?.offset !== undefined) {
+        query = query.offset(filters.offset);
+      }
+
       const rows = await query.execute();
 
       // Convert rows to domain models, failing fast on any parse errors
@@ -137,19 +160,21 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
   async markAsProcessed(rawTransactionIds: number[]): Promise<Result<void, Error>> {
     try {
+      if (rawTransactionIds.length === 0) {
+        return ok();
+      }
+
       await this.withTransaction(async (trx) => {
         const processedAt = this.getCurrentDateTimeForDB();
 
-        for (const id of rawTransactionIds) {
-          await trx
-            .updateTable('raw_transactions')
-            .set({
-              processed_at: processedAt,
-              processing_status: 'processed',
-            })
-            .where('id', '=', id)
-            .execute();
-        }
+        await trx
+          .updateTable('raw_transactions')
+          .set({
+            processed_at: processedAt,
+            processing_status: 'processed',
+          })
+          .where('id', 'in', rawTransactionIds)
+          .execute();
       });
 
       return ok();
@@ -172,6 +197,8 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     try {
       const result = await this.withTransaction(async (trx) => {
         try {
+          const normalizedDataJson = JSON.stringify(item.normalizedData);
+          const providerDataJson = JSON.stringify(item.providerData);
           const insertResult = await trx
             .insertInto('raw_transactions')
             .values({
@@ -179,12 +206,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
               event_id: item.eventId,
               account_id: accountId,
               blockchain_transaction_hash: item.blockchainTransactionHash ?? null,
-              normalized_data: JSON.stringify(item.normalizedData),
+              normalized_data: normalizedDataJson,
               processing_status: 'pending',
               provider_name: item.providerName,
               source_address: item.sourceAddress ?? null,
               transaction_type_hint: item.transactionTypeHint ?? null,
-              provider_data: JSON.stringify(item.providerData),
+              provider_data: providerDataJson,
             })
             .execute();
 
@@ -197,6 +224,9 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             errorMessage.includes('idx_raw_tx_account_blockchain_hash') ||
             errorMessage.includes('idx_raw_tx_account_event_id')
           ) {
+            if (this.isEventIdConstraintViolation(errorMessage)) {
+              await this.warnOnEventIdCollision(trx, accountId, item);
+            }
             // Skip duplicate - return 0 to indicate nothing was inserted
             return 0;
           }
@@ -239,6 +269,8 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
         for (const item of items) {
           try {
+            const normalizedDataJson = JSON.stringify(item.normalizedData);
+            const providerDataJson = JSON.stringify(item.providerData);
             const insertResult = await trx
               .insertInto('raw_transactions')
               .values({
@@ -246,12 +278,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
                 event_id: item.eventId ?? null,
                 account_id: accountId,
                 blockchain_transaction_hash: item.blockchainTransactionHash ?? null,
-                normalized_data: JSON.stringify(item.normalizedData),
+                normalized_data: normalizedDataJson,
                 processing_status: 'pending',
                 provider_name: item.providerName,
                 source_address: item.sourceAddress ?? null,
                 transaction_type_hint: item.transactionTypeHint ?? null,
-                provider_data: JSON.stringify(item.providerData),
+                provider_data: providerDataJson,
               })
               .execute();
 
@@ -266,6 +298,9 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
               errorMessage.includes('idx_raw_tx_account_blockchain_hash') ||
               errorMessage.includes('idx_raw_tx_account_event_id')
             ) {
+              if (this.isEventIdConstraintViolation(errorMessage)) {
+                await this.warnOnEventIdCollision(trx, accountId, item);
+              }
               // Skip duplicate - this is expected for blockchain transactions shared across derived addresses or re-imported exchange data
               continue;
             }
@@ -365,6 +400,121 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       return ok(Number(result.numDeletedRows));
     } catch (error) {
       return wrapError(error, 'Failed to delete all raw data');
+    }
+  }
+
+  async loadRecentEventIds(accountId: number, limit: number): Promise<Result<string[], Error>> {
+    try {
+      const rows = await this.db
+        .selectFrom('raw_transactions')
+        .select('event_id')
+        .where('account_id', '=', accountId)
+        .orderBy('created_at', 'desc')
+        .limit(limit)
+        .execute();
+
+      return ok(rows.map((row) => row.event_id));
+    } catch (error) {
+      return wrapError(error, 'Failed to load recent event IDs');
+    }
+  }
+
+  async getAccountsWithPendingData(): Promise<Result<number[], Error>> {
+    try {
+      const rows = await this.db
+        .selectFrom('raw_transactions')
+        .select('account_id')
+        .distinct()
+        .where('processing_status', '=', 'pending')
+        .execute();
+
+      return ok(rows.map((row) => row.account_id));
+    } catch (error) {
+      return wrapError(error, 'Failed to get accounts with pending data');
+    }
+  }
+
+  private isEventIdConstraintViolation(errorMessage: string): boolean {
+    return (
+      errorMessage.includes('idx_raw_tx_account_event_id') ||
+      (errorMessage.includes('raw_transactions.account_id') && errorMessage.includes('raw_transactions.event_id'))
+    );
+  }
+
+  private stableStringify(value: unknown): string {
+    const normalize = (input: unknown): unknown => {
+      if (Array.isArray(input)) {
+        return input.map(normalize);
+      }
+      if (input && typeof input === 'object') {
+        const record = input as Record<string, unknown>;
+        const sortedKeys = Object.keys(record).sort();
+        const result: Record<string, unknown> = {};
+        for (const key of sortedKeys) {
+          result[key] = normalize(record[key]);
+        }
+        return result;
+      }
+      return input;
+    };
+
+    return JSON.stringify(normalize(value));
+  }
+
+  private async warnOnEventIdCollision(
+    trx: Transaction<DatabaseSchema>,
+    accountId: number,
+    item: RawTransactionInput
+  ): Promise<void> {
+    try {
+      const existing = await trx
+        .selectFrom('raw_transactions')
+        .select(['event_id', 'provider_name', 'blockchain_transaction_hash', 'normalized_data'])
+        .where('account_id', '=', accountId)
+        .where('event_id', '=', item.eventId)
+        .executeTakeFirst();
+
+      if (!existing) {
+        this.logger.warn(
+          { accountId, eventId: item.eventId, providerName: item.providerName },
+          'Duplicate eventId constraint hit but existing row not found'
+        );
+        return;
+      }
+
+      const existingNormalizedResult = this.parseJson<unknown>(existing.normalized_data);
+      if (existingNormalizedResult.isErr()) {
+        this.logger.warn(
+          { accountId, eventId: item.eventId, error: existingNormalizedResult.error },
+          'Failed to parse existing normalized_data during eventId collision check'
+        );
+        return;
+      }
+
+      const existingNormalized = existingNormalizedResult.value;
+      const incomingNormalized = item.normalizedData;
+
+      const existingNormalizedStable = this.stableStringify(existingNormalized);
+      const incomingNormalizedStable = this.stableStringify(incomingNormalized);
+
+      if (existingNormalizedStable !== incomingNormalizedStable) {
+        this.logger.warn(
+          {
+            accountId,
+            eventId: item.eventId,
+            existingProviderName: existing.provider_name,
+            incomingProviderName: item.providerName,
+            existingBlockchainTransactionHash: existing.blockchain_transaction_hash ?? null,
+            incomingBlockchainTransactionHash: item.blockchainTransactionHash ?? null,
+          },
+          'EventId collision detected with differing normalized data'
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        { accountId, eventId: item.eventId, error },
+        'Failed to inspect eventId collision after unique constraint violation'
+      );
     }
   }
 

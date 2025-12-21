@@ -24,7 +24,6 @@ import type {
   ProviderOperation,
   RawBalanceData,
   StreamingBatchResult,
-  TransactionWithRawData,
 } from '../../../../core/index.js';
 import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.js';
 import {
@@ -124,10 +123,6 @@ export class BlockCypherApiClient extends BaseApiClient {
     );
 
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return (await this.getAddressTransactions({
-          address: operation.address,
-        })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
           address: operation.address,
@@ -313,85 +308,6 @@ export class BlockCypherApiClient extends BaseApiClient {
     );
 
     return ok(createRawBalanceData(balanceSats, balanceBTC, this.chainConfig.nativeCurrency));
-  }
-
-  /**
-   * Get raw transaction data without transformation for wallet-aware parsing
-   */
-  private async getAddressTransactions(params: {
-    address: string;
-  }): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
-    const { address } = params;
-
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-
-    const result = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}?limit=50`), {
-      schema: BlockCypherAddressSchema,
-    });
-
-    if (result.isErr()) {
-      this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
-      return err(result.error);
-    }
-
-    const addressInfo = result.value;
-
-    if (!addressInfo.txrefs || addressInfo.txrefs.length === 0) {
-      this.logger.debug(`No raw transactions found for address - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    this.logger.debug(
-      `Retrieved transaction references - Address: ${maskAddress(address)}, Count: ${addressInfo.txrefs.length}`
-    );
-
-    // Extract unique transaction hashes
-    const uniqueTxHashes = [...new Set(addressInfo.txrefs?.map((ref) => ref.tx_hash) ?? [])];
-
-    // Fetch detailed raw transaction data sequentially and normalize immediately
-    // Rate limiting is handled by the provider manager's rate limiter
-    const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
-
-    for (const txHash of uniqueTxHashes) {
-      const txResult = await this.fetchCompleteTransaction(txHash);
-
-      if (txResult.isErr()) {
-        this.logger.warn(
-          `Failed to fetch raw transaction details - TxHash: ${txHash}, Error: ${getErrorMessage(txResult.error)}`
-        );
-        continue;
-      }
-
-      const rawTx = txResult.value;
-
-      // Normalize transaction immediately using mapper
-      const mapResult = mapBlockCypherTransaction(rawTx, this.chainConfig);
-
-      if (mapResult.isErr()) {
-        // Fail fast - provider returned invalid data
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-    }
-
-    const filteredTransactions: TransactionWithRawData<BitcoinTransaction>[] = transactions;
-
-    // Sort by timestamp (newest first)
-    filteredTransactions.sort((a, b) => b.normalized.timestamp - a.normalized.timestamp);
-
-    this.logger.debug(
-      `Successfully retrieved and normalized address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`
-    );
-
-    return ok(filteredTransactions);
   }
 
   private streamAddressTransactions(

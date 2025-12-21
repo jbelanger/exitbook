@@ -70,7 +70,7 @@ describe('TatumDogecoinApiClient Streaming E2E', () => {
           // Verify cursor metadata
           expect(batch.cursor.metadata?.providerName).toBe('tatum');
           expect(batch.cursor.metadata?.updatedAt).toBeGreaterThan(0);
-          expect(typeof batch.cursor.metadata?.isComplete).toBe('boolean');
+          expect(typeof batch.isComplete).toBe('boolean');
 
           // Limit test to avoid API credit usage
           if (batchCount >= maxBatches) {
@@ -129,7 +129,7 @@ describe('TatumDogecoinApiClient Streaming E2E', () => {
           }
 
           // Primary cursor should be pageToken when more data available, blockNumber when complete
-          if (batch.cursor.metadata?.isComplete) {
+          if (batch.isComplete) {
             // On final page, primary cursor falls back to blockNumber
             expect(['pageToken', 'blockNumber']).toContain(cursor.primary.type);
           } else {
@@ -278,7 +278,7 @@ describe('TatumDogecoinApiClient Streaming E2E', () => {
 
         if (lastBatch) {
           // Last batch should be marked as complete
-          expect(lastBatch.cursor.metadata?.isComplete).toBe(true);
+          expect(lastBatch.isComplete).toBe(true);
         }
       },
       60000

@@ -1,24 +1,14 @@
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import type {
-  ProviderConfig,
-  ProviderOperation,
-  JsonRpcResponse,
-  RawBalanceData,
-  TransactionWithRawData,
-} from '../../../../core/index.ts';
+import type { ProviderConfig, ProviderOperation, JsonRpcResponse, RawBalanceData } from '../../../../core/index.ts';
 import { RegisterApiClient, BaseApiClient, maskAddress } from '../../../../core/index.ts';
 import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.ts';
-import type { SolanaTransaction, SolanaSignature } from '../../schemas.ts';
 import { isValidSolanaAddress } from '../../utils.ts';
 
-import { mapSolanaRPCTransaction } from './solana-rpc.mapper-utils.js';
-import type { SolanaRPCTransaction, SolanaTokenAccountsResponse } from './solana-rpc.schemas.js';
+import type { SolanaTokenAccountsResponse } from './solana-rpc.schemas.js';
 import {
   SolanaRPCBalanceJsonRpcResponseSchema,
-  SolanaRPCSignaturesJsonRpcResponseSchema,
-  SolanaRPCTransactionJsonRpcResponseSchema,
   SolanaRPCTokenAccountsJsonRpcResponseSchema,
 } from './solana-rpc.schemas.js';
 
@@ -26,7 +16,7 @@ import {
   baseUrl: 'https://api.mainnet-beta.solana.com',
   blockchain: 'solana',
   capabilities: {
-    supportedOperations: ['getAddressTransactions', 'getAddressBalances', 'getAddressTokenBalances'],
+    supportedOperations: ['getAddressBalances', 'getAddressTokenBalances'],
   },
   defaultConfig: {
     rateLimit: {
@@ -53,10 +43,6 @@ export class SolanaRPCApiClient extends BaseApiClient {
     );
 
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return (await this.getAddressTransactions({
-          address: operation.address,
-        })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
           address: operation.address,
@@ -127,109 +113,6 @@ export class SolanaRPCApiClient extends BaseApiClient {
     );
 
     return ok(balanceData);
-  }
-
-  private async getAddressTransactions(params: {
-    address: string;
-  }): Promise<Result<TransactionWithRawData<SolanaTransaction>[], Error>> {
-    const { address } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      return err(new Error(`Invalid Solana address: ${address}`));
-    }
-
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-
-    const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>(
-      '/',
-      {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'getSignaturesForAddress',
-        params: [
-          address,
-          {
-            limit: 50,
-          },
-        ],
-      },
-      { schema: SolanaRPCSignaturesJsonRpcResponseSchema }
-    );
-
-    if (signaturesResult.isErr()) {
-      this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(signaturesResult.error)}`
-      );
-      return err(signaturesResult.error);
-    }
-
-    const signaturesResponse = signaturesResult.value;
-
-    if (!signaturesResponse?.result) {
-      this.logger.debug(`No signatures found - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    const rawTransactions: SolanaRPCTransaction[] = [];
-    const signatures = signaturesResponse.result.slice(0, 25);
-
-    this.logger.debug(`Retrieved signatures - Address: ${maskAddress(address)}, Count: ${signatures.length}`);
-
-    for (const sig of signatures) {
-      const txResult = await this.httpClient.post<JsonRpcResponse<SolanaRPCTransaction>>(
-        '/',
-        {
-          id: 1,
-          jsonrpc: '2.0',
-          method: 'getTransaction',
-          params: [
-            sig.signature,
-            {
-              encoding: 'json',
-              maxSupportedTransactionVersion: 0,
-            },
-          ],
-        },
-        { schema: SolanaRPCTransactionJsonRpcResponseSchema }
-      );
-
-      if (txResult.isErr()) {
-        this.logger.debug(
-          `Failed to fetch transaction details - Signature: ${sig.signature}, Error: ${getErrorMessage(txResult.error)}`
-        );
-        continue;
-      }
-
-      const txResponse = txResult.value;
-
-      if (txResponse?.result) {
-        rawTransactions.push(txResponse.result);
-      }
-    }
-
-    rawTransactions.sort((a, b) => b.blockTime.getTime() - a.blockTime.getTime());
-
-    const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
-    for (const rawTx of rawTransactions) {
-      const mapResult = mapSolanaRPCTransaction(rawTx);
-
-      if (mapResult.isErr()) {
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      transactions.push({
-        normalized: mapResult.value,
-        raw: rawTx,
-      });
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
-    );
-
-    return ok(transactions);
   }
 
   private async getAddressTokenBalances(params: {

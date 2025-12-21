@@ -8,22 +8,12 @@ import { BitcoinAddressSchema } from '../../schemas.js';
  * Litecoin endpoint returns values as strings (in LTC, not satoshis)
  */
 export const TatumLitecoinCoinSchema = z.object({
-  address: BitcoinAddressSchema.nullable()
-    .optional()
-    .transform((val) => val ?? undefined),
+  address: BitcoinAddressSchema.nullish(),
   coinbase: z.boolean(),
   height: z.number(),
-  reqSigs: z
-    .number()
-    .nullish()
-    .optional()
-    .transform((val) => val ?? undefined),
+  reqSigs: z.number().nullish(),
   script: z.string(),
-  type: z
-    .string()
-    .nullish()
-    .optional()
-    .transform((val) => val ?? undefined),
+  type: z.string().nullish(),
   value: DecimalStringSchema, // String in LTC (e.g., "0.0989946")
   version: z.number(),
 });
@@ -40,26 +30,18 @@ export const TatumLitecoinPrevoutSchema = z.object({
  * Schema for Tatum Litecoin transaction input
  */
 export const TatumLitecoinInputSchema = z.object({
-  coin: TatumLitecoinCoinSchema.nullable()
-    .optional()
-    .transform((val) => val ?? undefined),
-  prevout: TatumLitecoinPrevoutSchema.nullable()
-    .optional()
-    .transform((val) => val ?? undefined),
+  coin: TatumLitecoinCoinSchema.nullish(),
+  prevout: TatumLitecoinPrevoutSchema.nullish(),
   script: z.string(),
   sequence: z.number(),
-  witness: z.string().optional(),
+  witness: z.string().nullish(),
 });
 
 /**
  * Schema for Tatum Litecoin transaction output scriptPubKey
  */
 export const TatumLitecoinScriptPubKeySchema = z.object({
-  reqSigs: z
-    .number()
-    .nullish()
-    .optional()
-    .transform((val) => val ?? undefined),
+  reqSigs: z.number().nullish(),
   type: z.string(),
 });
 
@@ -67,9 +49,7 @@ export const TatumLitecoinScriptPubKeySchema = z.object({
  * Schema for Tatum Litecoin transaction output
  */
 export const TatumLitecoinOutputSchema = z.object({
-  address: BitcoinAddressSchema.nullable()
-    .optional()
-    .transform((val) => val ?? undefined),
+  address: BitcoinAddressSchema.nullish(),
   script: z.string(),
   scriptPubKey: TatumLitecoinScriptPubKeySchema,
   value: DecimalStringSchema, // String in LTC (e.g., "0.0015")
@@ -83,21 +63,21 @@ export const TatumLitecoinTransactionSchema = z.object({
   block: z.string(),
   blockNumber: z.number().nonnegative(),
   fee: DecimalStringSchema, // String in LTC (e.g., "0.00001682")
-  flag: z.number().optional(),
+  flag: z.number().nullish(),
   hash: z.string().min(1, 'Transaction hash must not be empty'),
-  hex: z.string().optional(),
+  hex: z.string().nullish(),
   index: z.number().nonnegative(),
   inputs: z.array(TatumLitecoinInputSchema).min(1, 'Transaction must have at least one input'),
   locktime: z.number().nonnegative(),
-  mtime: z.number().optional(),
+  mtime: z.number().nullish(),
   outputs: z.array(TatumLitecoinOutputSchema).min(1, 'Transaction must have at least one output'),
-  ps: z.number().optional(),
-  rate: DecimalStringSchema.optional(),
-  size: z.number().positive().optional(),
+  ps: z.number().nullish(),
+  rate: DecimalStringSchema.nullish(),
+  size: z.number().positive().nullish(),
   time: z.number().positive('Time must be positive'),
   version: z.number(),
-  vsize: z.number().positive().optional(),
-  weight: z.number().positive().optional(),
+  vsize: z.number().positive().nullish(),
+  weight: z.number().positive().nullish(),
   witnessHash: z.string(),
 });
 

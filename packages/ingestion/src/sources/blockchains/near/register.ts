@@ -26,7 +26,7 @@ export function registerNearChain(): void {
         preferredProvider: providerName,
       }),
 
-    createProcessor: (tokenMetadataService?: ITokenMetadataService) => {
+    createProcessor: (_providerManager, tokenMetadataService?: ITokenMetadataService) => {
       if (!tokenMetadataService) {
         return err(new Error('TokenMetadataService is required for NEAR processor'));
       }

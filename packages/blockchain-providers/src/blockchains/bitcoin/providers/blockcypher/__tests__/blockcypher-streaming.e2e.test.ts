@@ -68,7 +68,7 @@ describe('BlockCypherApiClient Streaming E2E', () => {
         // Verify cursor metadata
         expect(batch.cursor.metadata?.providerName).toBe('blockcypher');
         expect(batch.cursor.metadata?.updatedAt).toBeGreaterThan(0);
-        expect(typeof batch.cursor.metadata?.isComplete).toBe('boolean');
+        expect(typeof batch.isComplete).toBe('boolean');
 
         // Limit test to avoid API usage (very low rate limit)
         if (batchCount >= maxBatches) {
@@ -328,7 +328,7 @@ describe('BlockCypherApiClient Streaming E2E', () => {
 
       if (lastBatch) {
         // Last batch should be marked as complete
-        expect(lastBatch.cursor.metadata?.isComplete).toBe(true);
+        expect(lastBatch.isComplete).toBe(true);
       }
     }, 60000);
   });
@@ -509,7 +509,7 @@ describe('BlockCypherApiClient Streaming E2E', () => {
         // (empty batches after deduplication should not be yielded)
         if (batch.data.length === 0) {
           // Only the last batch (when complete) is allowed to be empty
-          expect(batch.cursor.metadata?.isComplete).toBe(true);
+          expect(batch.isComplete).toBe(true);
         }
 
         batchCount++;

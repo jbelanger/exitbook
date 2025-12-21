@@ -120,7 +120,11 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
    * (contract addresses for blockchains, symbol-only for exchanges, etc.)
    */
   private postProcessTransactions(transactions: ProcessedTransaction[]): Result<ProcessedTransaction[], string> {
-    const { invalid, valid } = validateProcessedTransactions(transactions).unwrapOr({ invalid: [], valid: [] });
+    const filteredTransactions = this.dropZeroValueContractInteractions(transactions);
+    const { invalid, valid } = validateProcessedTransactions(filteredTransactions).unwrapOr({
+      invalid: [],
+      valid: [],
+    });
 
     // STRICT MODE: Fail if any transactions are invalid
     if (invalid.length > 0) {
@@ -128,17 +132,60 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
 
       this.logger.error(
         `CRITICAL: ${invalid.length} invalid transactions from ${this.sourceName}Processor. ` +
-          `Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${transactions.length}. ` +
+          `Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${filteredTransactions.length}. ` +
           `Errors: ${errorSummary}`
       );
 
       return err(
-        `${invalid.length}/${transactions.length} transactions failed validation. ` +
+        `${invalid.length}/${filteredTransactions.length} transactions failed validation. ` +
           `This would corrupt portfolio calculations. Errors: ${errorSummary}`
       );
     }
 
     return ok(valid);
+  }
+
+  private dropZeroValueContractInteractions(transactions: ProcessedTransaction[]): ProcessedTransaction[] {
+    if (transactions.length === 0) {
+      return transactions;
+    }
+
+    const kept: ProcessedTransaction[] = [];
+    let droppedCount = 0;
+    for (const transaction of transactions) {
+      if (this.shouldDropZeroValueContractInteraction(transaction)) {
+        droppedCount += 1;
+        continue;
+      }
+      kept.push(transaction);
+    }
+
+    if (droppedCount > 0) {
+      this.logger.warn(
+        {
+          source: this.sourceName,
+          droppedCount,
+          total: transactions.length,
+        },
+        'Dropped zero-value contract interactions with no movements or fees'
+      );
+    }
+
+    return kept;
+  }
+
+  private shouldDropZeroValueContractInteraction(transaction: ProcessedTransaction): boolean {
+    const notes = transaction.notes;
+    if (!notes || !notes.some((note) => note.type === 'contract_interaction')) {
+      return false;
+    }
+
+    const inflows = transaction.movements.inflows ?? [];
+    const outflows = transaction.movements.outflows ?? [];
+    const hasMovements = inflows.length > 0 || outflows.length > 0;
+    const hasFees = transaction.fees.length > 0;
+
+    return !hasMovements && !hasFees;
   }
 
   private formatZodErrors(errors: unknown): string {

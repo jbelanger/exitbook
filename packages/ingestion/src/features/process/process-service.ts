@@ -1,15 +1,24 @@
-import { getErrorMessage } from '@exitbook/core';
+import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { getErrorMessage, type RawTransaction } from '@exitbook/core';
 import type { AccountRepository, IRawDataRepository, ITransactionRepository } from '@exitbook/data';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
-import { err, ok, Result } from 'neverthrow';
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
 
 import { getBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
 import { getExchangeAdapter } from '../../shared/types/exchange-adapter.js';
-import type { ProcessResult, ProcessingContext } from '../../shared/types/processors.js';
+import type {
+  ProcessResult,
+  ProcessingContext,
+  ProcessedTransaction,
+  ITransactionProcessor,
+} from '../../shared/types/processors.js';
 import type { ITokenMetadataService } from '../token-metadata/token-metadata-service.interface.js';
 
-import { extractUniqueAccountIds } from './process-service-utils.js';
+const TRANSACTION_SAVE_BATCH_SIZE = 500;
+const RAW_DATA_MARK_BATCH_SIZE = 500;
+const RAW_DATA_LOAD_CHUNK_SIZE = 1000; // For blockchain accounts, process in chunks to avoid loading 100k+ tx in memory
 
 export class TransactionProcessService {
   private logger: Logger;
@@ -18,6 +27,7 @@ export class TransactionProcessService {
     private rawDataRepository: IRawDataRepository,
     private accountRepository: AccountRepository,
     private transactionRepository: ITransactionRepository,
+    private providerManager: BlockchainProviderManager,
     private tokenMetadataService: ITokenMetadataService
   ) {
     this.logger = getLogger('TransactionProcessService');
@@ -30,26 +40,19 @@ export class TransactionProcessService {
     this.logger.info('Processing all accounts with pending records');
 
     try {
-      // Load all pending raw data
-      const pendingDataResult = await this.rawDataRepository.load({
-        processingStatus: 'pending',
-      });
-
-      if (pendingDataResult.isErr()) {
-        return err(pendingDataResult.error);
+      const accountIdsResult = await this.rawDataRepository.getAccountsWithPendingData();
+      if (accountIdsResult.isErr()) {
+        return err(accountIdsResult.error);
       }
 
-      const pendingData = pendingDataResult.value;
+      const accountIds = accountIdsResult.value;
 
-      if (pendingData.length === 0) {
+      if (accountIds.length === 0) {
         this.logger.info('No pending raw data found to process');
         return ok({ errors: [], failed: 0, processed: 0 });
       }
 
-      // Extract unique account IDs with pending data
-      const accountIds = extractUniqueAccountIds(pendingData);
-
-      this.logger.debug(`Found ${pendingData.length} pending records across ${accountIds.length} accounts`);
+      this.logger.debug(`Found pending records across ${accountIds.length} accounts`);
 
       // Process each account
       let totalProcessed = 0;
@@ -95,13 +98,138 @@ export class TransactionProcessService {
       }
 
       const account = accountResult.value;
-      const sourceName = account.sourceName.toLowerCase();
       const sourceType = account.accountType;
 
-      // Load all pending raw data for this account
+      // For blockchain accounts, use chunked processing to avoid loading 100k+ transactions into memory
+      if (sourceType === 'blockchain') {
+        return this.processAccountTransactionsChunked(accountId, account);
+      }
+
+      // Exchange processing - load all pending data at once
+      return this.processExchangeAccountTransactions(accountId, account);
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      this.logger.error(`CRITICAL: Unexpected processing failure for account ${accountId}: ${errorMessage}`);
+      return err(new Error(`Unexpected processing failure for account ${accountId}: ${errorMessage}`));
+    }
+  }
+
+  /**
+   * Process exchange account transactions (all at once).
+   */
+  private async processExchangeAccountTransactions(
+    accountId: number,
+    account: { accountType: string; identifier: string; sourceName: string; userId?: number | undefined }
+  ): Promise<Result<ProcessResult, Error>> {
+    const sourceName = account.sourceName.toLowerCase();
+
+    const rawDataItemsResult = await this.rawDataRepository.load({
+      processingStatus: 'pending',
+      accountId,
+    });
+
+    if (rawDataItemsResult.isErr()) {
+      return err(rawDataItemsResult.error);
+    }
+
+    const rawDataItems = rawDataItemsResult.value;
+
+    if (rawDataItems.length === 0) {
+      this.logger.warn(`No pending raw data found for account ${accountId}`);
+      return ok({ errors: [], failed: 0, processed: 0 });
+    }
+
+    this.logger.debug(`Processing ${rawDataItems.length} pending items for account ${accountId} (${sourceName})`);
+
+    const processingContext = await this.getProcessingContext(account, accountId);
+    const normalizedRawDataItems = this.normalizeRawData(rawDataItems, account.accountType);
+
+    const processorResult = this.getProcessor(sourceName, account.accountType);
+    if (processorResult.isErr()) {
+      return err(processorResult.error);
+    }
+    const processor = processorResult.value;
+
+    // Process raw data into universal transactions
+    const transactionsResult = await processor.process(normalizedRawDataItems, processingContext);
+
+    if (transactionsResult.isErr()) {
+      this.logger.error(`CRITICAL: Processing failed for account ${accountId} - ${transactionsResult.error}`);
+      return err(
+        new Error(
+          `Cannot proceed: Account ${accountId} processing failed. ${transactionsResult.error}. ` +
+            `This would corrupt portfolio calculations by losing transactions from this account.`
+        )
+      );
+    }
+
+    const transactions = transactionsResult.value;
+    this.logger.debug(`Processed ${transactions.length} transactions for account ${accountId}`);
+
+    // Save transactions
+    const saveResult = await this.saveTransactions(transactions, accountId);
+    if (saveResult.isErr()) {
+      return err(saveResult.error);
+    }
+    const { saved, duplicates } = saveResult.value;
+
+    if (duplicates > 0) {
+      this.logger.debug(`Account ${accountId}: ${duplicates} duplicate transactions were skipped during save`);
+    }
+
+    // Mark raw data items as processed
+    const markResult = await this.markRawDataAsProcessed(rawDataItems);
+    if (markResult.isErr()) {
+      return err(markResult.error);
+    }
+
+    const skippedCount = rawDataItems.length - transactions.length;
+    const accountLabel = `Account ${accountId} (${sourceName})`.padEnd(25);
+    if (skippedCount > 0) {
+      this.logger.info(`• ${accountLabel}: Correlated ${rawDataItems.length} items into ${saved} transactions.`);
+    } else {
+      this.logger.info(`• ${accountLabel}: Processed ${rawDataItems.length} items.`);
+    }
+
+    return ok({
+      errors: [],
+      failed: 0,
+      processed: saved,
+    });
+  }
+
+  /**
+   * Process blockchain account transactions in chunks to avoid loading 100k+ transactions into memory.
+   */
+  private async processAccountTransactionsChunked(
+    accountId: number,
+    account: { accountType: string; identifier: string; sourceName: string; userId?: number | undefined }
+  ): Promise<Result<ProcessResult, Error>> {
+    const sourceName = account.sourceName.toLowerCase();
+    let totalSaved = 0;
+    let totalProcessed = 0;
+    let chunkNumber = 0;
+
+    // Build processing context once (used for all chunks)
+    const processingContext = await this.getProcessingContext(account, accountId);
+
+    // Create processor once (reused for all chunks)
+    const processorResult = this.getProcessor(sourceName, account.accountType);
+    if (processorResult.isErr()) {
+      return err(processorResult.error);
+    }
+    const processor = processorResult.value;
+
+    // Process in chunks until no more pending data
+    while (true) {
+      chunkNumber++;
+      const offset = 0; // Always load from start since we mark as processed after each chunk
+
       const rawDataItemsResult = await this.rawDataRepository.load({
         processingStatus: 'pending',
         accountId,
+        limit: RAW_DATA_LOAD_CHUNK_SIZE,
+        offset,
       });
 
       if (rawDataItemsResult.isErr()) {
@@ -110,162 +238,185 @@ export class TransactionProcessService {
 
       const rawDataItems = rawDataItemsResult.value;
 
+      // No more pending data
       if (rawDataItems.length === 0) {
-        this.logger.warn(`No pending raw data found for account ${accountId}`);
-        return ok({ errors: [], failed: 0, processed: 0 });
+        break;
       }
 
-      this.logger.debug(`Processing ${rawDataItems.length} pending items for account ${accountId} (${sourceName})`);
+      this.logger.debug(
+        `Processing chunk ${chunkNumber}: ${rawDataItems.length} items for account ${accountId} (${sourceName})`
+      );
 
-      // Build processing context for blockchain processors
-      // For blockchain accounts, include primary address and user addresses for fund-flow analysis
-      const processingContext: ProcessingContext = {
-        primaryAddress: '',
-        userAddresses: [],
-      };
-
-      if (sourceType === 'blockchain') {
-        // Set the primary address (the account being processed)
-        processingContext.primaryAddress = account.identifier;
-
-        // For blockchain accounts, augment context with all user addresses for fund-flow analysis
-        // This enables processors to distinguish internal transfers (between user's own accounts)
-        // from external transfers (to/from third parties)
-        if (account.userId) {
-          const userAccountsResult = await this.accountRepository.findByUser(account.userId);
-          if (userAccountsResult.isOk()) {
-            const userAccounts = userAccountsResult.value;
-            // Get all addresses for this blockchain from the user's accounts (including current account)
-            const userAddresses = userAccounts
-              .filter((acc) => acc.sourceName === account.sourceName)
-              .map((acc) => acc.identifier);
-
-            if (userAddresses.length > 0) {
-              processingContext.userAddresses = userAddresses;
-
-              this.logger.debug(
-                `Account ${accountId}: Augmented context with ${userAddresses.length} user addresses for multi-address fund-flow analysis`
-              );
-            }
-          }
-        }
-      }
-
-      // Prepare raw data items for processing
-      const normalizedRawDataItems: unknown[] = [];
-
-      for (const item of rawDataItems) {
-        let normalizedData: unknown = item.normalizedData;
-
-        if (!normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0) {
-          normalizedData = item.providerData;
-        }
-
-        if (sourceType === 'exchange-api' || sourceType === 'exchange-csv') {
-          const dataPackage = {
-            raw: item.providerData,
-            normalized: normalizedData,
-            eventId: item.eventId || '',
-          };
-          normalizedRawDataItems.push(dataPackage);
-        } else {
-          normalizedRawDataItems.push(normalizedData);
-        }
-      }
-
-      // Create processor based on source type
-      let processor;
-      if (sourceType === 'blockchain') {
-        const adapter = getBlockchainAdapter(sourceName);
-        if (!adapter) {
-          return err(new Error(`Unknown blockchain: ${sourceName}`));
-        }
-        const processorResult = adapter.createProcessor(this.tokenMetadataService);
-        if (processorResult.isErr()) {
-          return err(processorResult.error);
-        }
-        processor = processorResult.value;
-      } else {
-        const adapter = getExchangeAdapter(sourceName);
-        if (!adapter) {
-          return err(new Error(`Unknown exchange: ${sourceName}`));
-        }
-        processor = adapter.createProcessor();
-      }
+      const normalizedRawDataItems = this.normalizeRawData(rawDataItems, account.accountType);
 
       // Process raw data into universal transactions
       const transactionsResult = await processor.process(normalizedRawDataItems, processingContext);
 
       if (transactionsResult.isErr()) {
-        this.logger.error(`CRITICAL: Processing failed for account ${accountId} - ${transactionsResult.error}`);
+        this.logger.error(
+          `CRITICAL: Processing failed for account ${accountId} chunk ${chunkNumber} - ${transactionsResult.error}`
+        );
         return err(
           new Error(
-            `Cannot proceed: Account ${accountId} processing failed. ${transactionsResult.error}. ` +
+            `Cannot proceed: Account ${accountId} processing failed at chunk ${chunkNumber}. ${transactionsResult.error}. ` +
               `This would corrupt portfolio calculations by losing transactions from this account.`
           )
         );
       }
 
       const transactions = transactionsResult.value;
+      totalProcessed += rawDataItems.length;
 
-      this.logger.debug(`Processed ${transactions.length} transactions for account ${accountId}`);
+      // Save transactions
+      const saveResult = await this.saveTransactions(transactions, accountId);
+      if (saveResult.isErr()) {
+        return err(saveResult.error);
+      }
+      const { saved, duplicates } = saveResult.value;
 
-      // Save transactions to database
-      this.logger.debug(`Saving ${transactions.length} processed transactions...`);
-      const saveResults = await Promise.all(
-        transactions.map((transaction) => this.transactionRepository.save(transaction, accountId))
-      );
+      totalSaved += saved;
 
-      const combinedResult = Result.combineWithAllErrors(saveResults);
-      if (combinedResult.isErr()) {
-        const errors = combinedResult.error;
-        const failed = errors.length;
-        const errorMessages = errors.map((err, index) => {
-          const txId = `index-${index}`;
-          return `Transaction ${txId}: ${err.message}`;
-        });
-
-        this.logger.error(
-          `CRITICAL: ${failed}/${transactions.length} transactions failed to save:\n${errorMessages.map((msg, i) => `  ${i + 1}. ${msg}`).join('\n')}`
+      if (duplicates > 0) {
+        this.logger.debug(
+          `Account ${accountId} chunk ${chunkNumber}: ${duplicates} duplicate blockchain transactions were skipped during save`
         );
+      }
 
+      // Mark raw data items as processed
+      const markResult = await this.markRawDataAsProcessed(rawDataItems);
+      if (markResult.isErr()) {
+        return err(markResult.error);
+      }
+
+      // If we got fewer items than the chunk size, we're done
+      if (rawDataItems.length < RAW_DATA_LOAD_CHUNK_SIZE) {
+        break;
+      }
+    }
+
+    const accountLabel = `Account ${accountId} (${sourceName})`.padEnd(25);
+    this.logger.info(`• ${accountLabel}: Processed ${totalProcessed} items in ${chunkNumber} chunks.`);
+
+    return ok({
+      errors: [],
+      failed: 0,
+      processed: totalSaved,
+    });
+  }
+
+  private async getProcessingContext(
+    account: { accountType: string; identifier: string; sourceName: string; userId?: number | undefined },
+    accountId: number
+  ): Promise<ProcessingContext> {
+    const processingContext: ProcessingContext = {
+      primaryAddress: '',
+      userAddresses: [],
+    };
+
+    if (account.accountType === 'blockchain') {
+      processingContext.primaryAddress = account.identifier;
+
+      if (account.userId) {
+        const userAccountsResult = await this.accountRepository.findByUser(account.userId);
+        if (userAccountsResult.isOk()) {
+          const userAccounts = userAccountsResult.value;
+          const userAddresses = userAccounts
+            .filter((acc) => acc.sourceName === account.sourceName)
+            .map((acc) => acc.identifier);
+
+          if (userAddresses.length > 0) {
+            processingContext.userAddresses = userAddresses;
+            this.logger.debug(
+              `Account ${accountId}: Augmented context with ${userAddresses.length} user addresses for multi-address fund-flow analysis`
+            );
+          }
+        }
+      }
+    }
+    return processingContext;
+  }
+
+  private getProcessor(sourceName: string, sourceType: string): Result<ITransactionProcessor, Error> {
+    if (sourceType === 'blockchain') {
+      const adapter = getBlockchainAdapter(sourceName);
+      if (!adapter) {
+        return err(new Error(`Unknown blockchain: ${sourceName}`));
+      }
+      return adapter.createProcessor(this.providerManager, this.tokenMetadataService);
+    } else {
+      const adapter = getExchangeAdapter(sourceName);
+      if (!adapter) {
+        return err(new Error(`Unknown exchange: ${sourceName}`));
+      }
+      return ok(adapter.createProcessor());
+    }
+  }
+
+  private normalizeRawData(rawDataItems: RawTransaction[], sourceType: string): unknown[] {
+    const normalizedRawDataItems: unknown[] = [];
+
+    for (const item of rawDataItems) {
+      let normalizedData: unknown = item.normalizedData;
+
+      if (!normalizedData || Object.keys(normalizedData as Record<string, never>).length === 0) {
+        normalizedData = item.providerData;
+      }
+
+      if (sourceType === 'exchange-api' || sourceType === 'exchange-csv') {
+        const dataPackage = {
+          raw: item.providerData,
+          normalized: normalizedData,
+          eventId: item.eventId || '',
+        };
+        normalizedRawDataItems.push(dataPackage);
+      } else {
+        normalizedRawDataItems.push(normalizedData);
+      }
+    }
+    return normalizedRawDataItems;
+  }
+
+  private async saveTransactions(
+    transactions: ProcessedTransaction[],
+    accountId: number
+  ): Promise<Result<{ duplicates: number; saved: number }, Error>> {
+    let savedCount = 0;
+    let duplicateCount = 0;
+
+    this.logger.debug(`Saving ${transactions.length} processed transactions...`);
+
+    for (let start = 0; start < transactions.length; start += TRANSACTION_SAVE_BATCH_SIZE) {
+      const batch = transactions.slice(start, start + TRANSACTION_SAVE_BATCH_SIZE);
+      const saveResult = await this.transactionRepository.saveBatch(batch, accountId);
+
+      if (saveResult.isErr()) {
+        const errorMessage = `CRITICAL: Failed to save transactions batch starting at index ${start} for account ${accountId}: ${saveResult.error.message}`;
+        this.logger.error(errorMessage);
         return err(
           new Error(
-            `Cannot proceed: ${failed}/${transactions.length} transactions failed to save to database. ` +
-              `This would corrupt portfolio calculations. Errors: ${errorMessages.join('; ')}`
+            `Cannot proceed: Failed to save processed transactions to database. ` +
+              `This would corrupt portfolio calculations. Error: ${saveResult.error.message}`
           )
         );
       }
 
-      const savedCount = combinedResult.value.length;
+      savedCount += saveResult.value.saved;
+      duplicateCount += saveResult.value.duplicates;
+    }
 
-      // Mark raw data items as processed
-      const allRawDataIds = rawDataItems.map((item) => item.id);
-      const markAsProcessedResult = await this.rawDataRepository.markAsProcessed(allRawDataIds);
+    return ok({ saved: savedCount, duplicates: duplicateCount });
+  }
+
+  private async markRawDataAsProcessed(rawDataItems: { id: number }[]): Promise<Result<void, Error>> {
+    const allRawDataIds = rawDataItems.map((item) => item.id);
+    for (let start = 0; start < allRawDataIds.length; start += RAW_DATA_MARK_BATCH_SIZE) {
+      const batchIds = allRawDataIds.slice(start, start + RAW_DATA_MARK_BATCH_SIZE);
+      const markAsProcessedResult = await this.rawDataRepository.markAsProcessed(batchIds);
 
       if (markAsProcessedResult.isErr()) {
         return err(markAsProcessedResult.error);
       }
-
-      const skippedCount = rawDataItems.length - transactions.length;
-      const accountLabel = `Account ${accountId} (${sourceName})`.padEnd(25);
-      if (skippedCount > 0) {
-        this.logger.info(`• ${accountLabel}: Correlated ${rawDataItems.length} items into ${savedCount} transactions.`);
-      } else {
-        this.logger.info(`• ${accountLabel}: Processed ${rawDataItems.length} items.`);
-      }
-
-      // this.logger.info(`Processed ${savedCount} transactions for account ${accountId} (${sourceName})`);
-
-      return ok({
-        errors: [],
-        failed: 0,
-        processed: savedCount,
-      });
-    } catch (error) {
-      const errorMessage = getErrorMessage(error);
-      this.logger.error(`CRITICAL: Unexpected processing failure for account ${accountId}: ${errorMessage}`);
-      return err(new Error(`Unexpected processing failure for account ${accountId}: ${errorMessage}`));
     }
+    return ok(undefined);
   }
 }

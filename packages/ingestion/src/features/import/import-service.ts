@@ -150,6 +150,7 @@ export class ImportExecutor {
     }
 
     const startTime = Date.now();
+    const allWarnings: string[] = [];
 
     try {
       // Stream batches from importer
@@ -166,6 +167,14 @@ export class ImportExecutor {
         }
 
         const batch = batchResult.value;
+
+        // Collect warnings from batch (e.g., partial data, skipped operations)
+        if (batch.warnings && batch.warnings.length > 0) {
+          allWarnings.push(...batch.warnings);
+          for (const warning of batch.warnings) {
+            this.logger.warn(`⚠️  Import warning: ${warning}`);
+          }
+        }
 
         // Save batch to database
         this.logger.debug(`Saving ${batch.rawTransactions.length} ${batch.operationType} transactions...`);
@@ -226,6 +235,13 @@ export class ImportExecutor {
       } else {
         this.logger.info(
           `Import completed for ${sourceName}: ${totalImported} items saved, ${totalSkipped} duplicates skipped`
+        );
+      }
+
+      // Log summary of warnings if any occurred
+      if (allWarnings.length > 0) {
+        this.logger.warn(
+          `⚠️  Import completed with ${allWarnings.length} warning(s). Data may be incomplete. Review warnings above for details.`
         );
       }
 

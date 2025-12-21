@@ -17,10 +17,11 @@ import { mapToRawTransactions } from './evm-importer-utils.js';
  * Generic EVM transaction importer that fetches raw transaction data from blockchain APIs.
  * Works with any EVM-compatible chain (Ethereum, Avalanche, Polygon, BSC, etc.).
  *
- * Fetches three types of transactions in parallel:
+ * Fetches multiple types of transactions:
  * - Normal (external) transactions
  * - Internal transactions (contract calls)
  * - Token transfers (ERC-20/721/1155)
+ * - Beacon withdrawals (Ethereum mainnet only, if supported by provider)
  *
  * Uses provider manager for failover between multiple API providers.
  */
@@ -52,7 +53,7 @@ export class EvmImporter implements IImporter {
 
   /**
    * Streaming import implementation
-   * Streams NORMAL + INTERNAL + TOKEN batches without accumulating everything in memory
+   * Streams NORMAL + INTERNAL + TOKEN + BEACON_WITHDRAWALS batches without accumulating everything in memory
    */
   async *importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     if (!params.address) {
@@ -104,6 +105,11 @@ export class EvmImporter implements IImporter {
         yield batchResult;
       }
 
+      // Stream beacon withdrawals (Ethereum mainnet only, if supported)
+      if (this.chainConfig.chainName === 'ethereum') {
+        yield* this.streamBeaconWithdrawals(address, params.cursor?.['beacon_withdrawal']);
+      }
+
       this.logger.info(`${this.chainConfig.chainName} streaming import completed`);
     } catch (error) {
       this.logger.error(`Failed to stream transactions for address ${address}: ${getErrorMessage(error)}`);
@@ -117,12 +123,22 @@ export class EvmImporter implements IImporter {
    */
   private async *streamTransactionType(
     address: string,
-    operationType: 'normal' | 'internal' | 'token',
-    providerOperationType: 'getAddressTransactions' | 'getAddressInternalTransactions' | 'getAddressTokenTransactions',
+    operationType: 'normal' | 'internal' | 'token' | 'beacon_withdrawal',
+    providerOperationType:
+      | 'getAddressTransactions'
+      | 'getAddressInternalTransactions'
+      | 'getAddressTokenTransactions'
+      | 'getAddressBeaconWithdrawals',
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
     const cacheKeyPrefix =
-      operationType === 'normal' ? 'normal-txs' : operationType === 'internal' ? 'internal-txs' : 'token-txs';
+      operationType === 'normal'
+        ? 'normal-txs'
+        : operationType === 'internal'
+          ? 'internal-txs'
+          : operationType === 'token'
+            ? 'token-txs'
+            : 'beacon-withdrawals';
 
     const iterator = this.providerManager.executeWithFailover<TransactionWithRawData<EvmTransaction>>(
       this.chainConfig.chainName,
@@ -144,7 +160,15 @@ export class EvmImporter implements IImporter {
       const providerBatch = providerBatchResult.value;
       // Provider batch data is TransactionWithRawData[] from executeWithFailover
       const transactionsWithRaw = providerBatch.data;
-      this.logger.debug(`EVM importer received ${transactionsWithRaw.length} transactions from provider batch`);
+
+      // Log batch stats including in-memory deduplication
+      if (providerBatch.stats.deduplicated > 0) {
+        this.logger.info(
+          `Provider batch stats: ${providerBatch.stats.fetched} fetched, ${providerBatch.stats.deduplicated} deduplicated by provider, ${providerBatch.stats.yielded} yielded`
+        );
+      } else {
+        this.logger.debug(`EVM importer received ${transactionsWithRaw.length} transactions from provider batch`);
+      }
 
       // Use pure function for mapping
       const rawTransactions = mapToRawTransactions(
@@ -158,8 +182,104 @@ export class EvmImporter implements IImporter {
         rawTransactions: rawTransactions,
         operationType,
         cursor: providerBatch.cursor,
-        isComplete: providerBatch.cursor.metadata?.isComplete ?? false,
+        isComplete: providerBatch.isComplete,
       });
     }
+  }
+
+  /**
+   * Stream beacon withdrawals for Ethereum addresses.
+   * Handles three cases:
+   * 1. No provider support - yields skipped marker
+   * 2. Fetch error - yields failed marker with warning
+   * 3. Success - yields batches or empty success marker if no withdrawals found
+   */
+  private async *streamBeaconWithdrawals(
+    address: string,
+    resumeCursor?: CursorState
+  ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
+    const providers = this.providerManager.getProviders(this.chainConfig.chainName);
+    const hasSupport = providers.some((p) =>
+      p.capabilities.supportedOperations.includes('getAddressBeaconWithdrawals')
+    );
+
+    if (!hasSupport) {
+      this.logger.debug('Skipping beacon withdrawals (no provider support)');
+      yield ok(
+        this.createBeaconStatusBatch('SKIPPED', 'skipped', {
+          reason: 'no-provider-support',
+          warning:
+            'Skipping beacon withdrawals (no provider support or missing Etherscan API key). ' +
+            'Your ETH balance may be incorrect if this address receives validator withdrawals. ' +
+            'Set ETHERSCAN_API_KEY in .env to enable.',
+        })
+      );
+      return;
+    }
+
+    this.logger.info('Fetching beacon chain withdrawals...');
+    let batchCount = 0;
+
+    for await (const batchResult of this.streamTransactionType(
+      address,
+      'beacon_withdrawal',
+      'getAddressBeaconWithdrawals',
+      resumeCursor
+    )) {
+      if (batchResult.isErr()) {
+        const errorMsg = batchResult.error.message;
+        this.logger.warn(`Beacon withdrawal fetch failed: ${errorMsg}`);
+        yield ok(
+          this.createBeaconStatusBatch('FETCH_FAILED', 'failed', {
+            errorMessage: errorMsg,
+            warning:
+              `Failed to fetch beacon withdrawals: ${errorMsg}. ` +
+              `Your ETH balance may be incorrect if this address receives validator withdrawals. ` +
+              `If using Etherscan, ensure ETHERSCAN_API_KEY is set in .env (free at https://etherscan.io/apis)`,
+          })
+        );
+        return;
+      }
+
+      yield batchResult;
+      batchCount++;
+    }
+
+    if (batchCount === 0) {
+      this.logger.info('Beacon withdrawal fetch completed (0 withdrawals found)');
+      const providerName = providers[0]?.name || this.chainConfig.chainName;
+      yield ok(this.createBeaconStatusBatch('NO_WITHDRAWALS', undefined, { providerName }));
+    } else {
+      this.logger.info('Beacon withdrawal fetch completed successfully');
+    }
+  }
+
+  /**
+   * Create a beacon withdrawal status batch (for skipped/failed/empty cases)
+   */
+  private createBeaconStatusBatch(
+    lastTransactionId: string,
+    fetchStatus?: 'skipped' | 'failed',
+    opts?: { errorMessage?: string; providerName?: string; reason?: string; warning?: string }
+  ): ImportBatchResult {
+    return {
+      rawTransactions: [],
+      operationType: 'beacon_withdrawal',
+      cursor: {
+        primary: { type: 'blockNumber', value: 0 },
+        lastTransactionId,
+        totalFetched: 0,
+        metadata: {
+          providerName: opts?.providerName || this.chainConfig.chainName,
+          updatedAt: Date.now(),
+          isComplete: true,
+          ...(fetchStatus && { fetchStatus }),
+          ...(opts?.reason && { reason: opts.reason }),
+          ...(opts?.errorMessage && { errorMessage: opts.errorMessage }),
+        },
+      },
+      isComplete: true,
+      ...(opts?.warning && { warnings: [opts.warning] }),
+    };
   }
 }

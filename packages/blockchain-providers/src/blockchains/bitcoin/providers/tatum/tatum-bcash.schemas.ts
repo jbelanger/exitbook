@@ -15,18 +15,18 @@ export const TatumBCashScriptSigSchema = z.object({
  * Schema for Tatum BCash transaction input (vin)
  */
 export const TatumBCashVinSchema = z.object({
-  coinbase: z.string().optional(),
-  scriptSig: TatumBCashScriptSigSchema.optional(),
+  coinbase: z.string().nullish(),
+  scriptSig: TatumBCashScriptSigSchema.nullish(),
   sequence: z.number(),
-  txid: z.string().optional(),
-  vout: z.number().optional(),
+  txid: z.string().nullish(),
+  vout: z.number().nullish(),
 });
 
 /**
  * Schema for Tatum BCash scriptPubKey
  */
 export const TatumBCashScriptPubKeySchema = z.object({
-  addresses: z.array(BitcoinAddressSchema).optional(),
+  addresses: z.array(BitcoinAddressSchema).nullish(),
   asm: z.string(),
   hex: z.string(),
   type: z.string(),
@@ -46,13 +46,13 @@ export const TatumBCashVoutSchema = z.object({
  * BCash endpoint returns a different structure than Bitcoin/Dogecoin/Litecoin
  */
 export const TatumBCashTransactionSchema = z.object({
-  blockhash: z.string().optional(),
-  blockheight: z.number().nonnegative().optional(),
-  blocktime: z.number().positive().optional(),
-  confirmations: z.number().nonnegative().optional(),
+  blockhash: z.string().nullish(),
+  blockheight: z.number().nonnegative().nullish(),
+  blocktime: z.number().positive().nullish(),
+  confirmations: z.number().nonnegative().nullish(),
   locktime: z.number().nonnegative(),
-  size: z.number().positive().optional(),
-  time: z.number().positive().optional(),
+  size: z.number().positive().nullish(),
+  time: z.number().positive().nullish(),
   txid: z.string().min(1, 'Transaction hash must not be empty'),
   version: z.number(),
   vin: z.array(TatumBCashVinSchema).min(1, 'Transaction must have at least one input'),

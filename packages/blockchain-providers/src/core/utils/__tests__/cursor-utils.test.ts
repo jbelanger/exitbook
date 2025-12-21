@@ -42,7 +42,6 @@ describe('Cursor Utils', () => {
         totalFetched: 200,
         providerName: 'moralis',
         pageToken: 'next-page-token',
-        isComplete: false,
       };
 
       const cursorState = buildCursorState(config);
@@ -57,7 +56,6 @@ describe('Cursor Utils', () => {
         totalFetched: 200,
         metadata: {
           providerName: 'moralis',
-          isComplete: false,
         },
       });
       expect(cursorState.metadata?.updatedAt).toBeGreaterThan(0);
@@ -82,7 +80,6 @@ describe('Cursor Utils', () => {
         totalFetched: 100,
         providerName: 'moralis',
         pageToken: undefined,
-        isComplete: true,
       };
 
       const cursorState = buildCursorState(config);
@@ -97,7 +94,6 @@ describe('Cursor Utils', () => {
         totalFetched: 100,
         metadata: {
           providerName: 'moralis',
-          isComplete: true,
         },
       });
     });
@@ -131,7 +127,6 @@ describe('Cursor Utils', () => {
         totalFetched: 300,
         providerName: 'moralis',
         pageToken: 'token',
-        isComplete: false,
       };
 
       buildCursorState(config);
@@ -160,7 +155,6 @@ describe('Cursor Utils', () => {
         totalFetched: 1,
         providerName: 'moralis',
         pageToken: undefined,
-        isComplete: true,
       };
 
       const cursorState = buildCursorState(config);
@@ -187,7 +181,6 @@ describe('Cursor Utils', () => {
         totalFetched: 100,
         providerName: 'nearblocks',
         pageToken: 'page-2',
-        isComplete: false,
         customMetadata: {
           prevBalances: { account1: '1000' },
           activitiesCursor: 'cursor-abc',
@@ -200,7 +193,7 @@ describe('Cursor Utils', () => {
       // Custom metadata should be namespaced under 'custom'
       expect(cursorState.metadata).toMatchObject({
         providerName: 'nearblocks',
-        isComplete: false,
+
         custom: {
           prevBalances: { account1: '1000' },
           activitiesCursor: 'cursor-abc',
@@ -210,7 +203,6 @@ describe('Cursor Utils', () => {
 
       // Ensure custom metadata doesn't clobber core fields
       expect(cursorState.metadata?.providerName).toBe('nearblocks');
-      expect(cursorState.metadata?.isComplete).toBe(false);
     });
 
     it('should omit custom key when customMetadata is omitted', () => {
@@ -232,7 +224,6 @@ describe('Cursor Utils', () => {
         totalFetched: 100,
         providerName: 'moralis',
         pageToken: undefined,
-        isComplete: true,
         // customMetadata omitted
       };
 
@@ -242,7 +233,6 @@ describe('Cursor Utils', () => {
       expect(cursorState.metadata?.custom).toBeUndefined();
       expect(cursorState.metadata).toMatchObject({
         providerName: 'moralis',
-        isComplete: true,
       });
     });
   });
@@ -261,7 +251,6 @@ describe('Cursor Utils', () => {
         totalFetched: 0,
         metadata: {
           providerName: 'moralis',
-          isComplete: true,
         },
       });
       expect(cursor.metadata?.updatedAt).toBeGreaterThan(0);
@@ -285,15 +274,6 @@ describe('Cursor Utils', () => {
 
       expect(cursor.lastTransactionId).toBe('account-123:balances:empty');
       expect(cursor.metadata?.providerName).toBe('routescan');
-    });
-
-    it('should always mark as complete', () => {
-      const cursor = createEmptyCompletionCursor({
-        providerName: 'test',
-        operationType: 'test-op',
-      });
-
-      expect(cursor.metadata?.isComplete).toBe(true);
     });
 
     it('should have zero totalFetched', () => {

@@ -11,7 +11,7 @@ import { EvmAddressSchema } from '../../schemas.js';
  * Schema for Alchemy raw contract structure
  */
 export const AlchemyRawContractSchema = z.object({
-  address: EvmAddressSchema.nullable().optional(),
+  address: EvmAddressSchema.nullish(),
   decimal: hexOrNumericToNumericOptional,
   value: hexOrNumericToNumericOptional,
 });
@@ -28,15 +28,15 @@ export const AlchemyMetadataSchema = z.object({
  */
 export const AlchemyAssetTransferParamsSchema = z.object({
   category: z.array(z.string().min(1, 'Category entry must not be empty')),
-  contractAddresses: z.array(EvmAddressSchema).optional(),
+  contractAddresses: z.array(EvmAddressSchema).nullish(),
   excludeZeroValue: z.boolean(),
-  fromAddress: EvmAddressSchema.optional(),
-  fromBlock: z.string().min(1, 'From block must not be empty').optional(),
+  fromAddress: EvmAddressSchema.nullish(),
+  fromBlock: z.string().min(1, 'From block must not be empty').nullish(),
   maxCount: z.string().min(1, 'Max count must not be empty'),
-  order: z.string().optional(),
-  pageKey: z.string().optional(),
-  toAddress: EvmAddressSchema.optional(),
-  toBlock: z.string().min(1, 'To block must not be empty').optional(),
+  order: z.string().nullish(),
+  pageKey: z.string().nullish(),
+  toAddress: EvmAddressSchema.nullish(),
+  toBlock: z.string().min(1, 'To block must not be empty').nullish(),
   withMetadata: z.boolean(),
 });
 
@@ -44,36 +44,33 @@ export const AlchemyAssetTransferParamsSchema = z.object({
  * Schema for Alchemy asset transfer structure
  */
 export const AlchemyAssetTransferSchema = z.object({
-  asset: z.union([z.string(), z.null()]).optional(),
+  asset: z.string().nullish(),
   blockNum: z.string().regex(/^(0x)?[\da-fA-F]+$/, 'Block number must be hex string'),
   category: z.string().min(1, 'Category must not be empty'),
   erc1155Metadata: z
-    .union([
-      z.array(
-        z.object({
-          tokenId: z.string().optional(),
-          value: hexOrNumericToNumericOptional,
-        })
-      ),
-      z.null(),
-    ])
-    .optional(),
-  erc721TokenId: z.union([z.string(), z.null()]).optional(),
+    .array(
+      z.object({
+        tokenId: z.string().nullish(),
+        value: hexOrNumericToNumericOptional,
+      })
+    )
+    .nullish(),
+  erc721TokenId: z.string().nullish(),
   from: EvmAddressSchema,
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   metadata: AlchemyMetadataSchema,
-  rawContract: AlchemyRawContractSchema.optional(),
-  to: EvmAddressSchema.nullable().optional(),
-  tokenId: z.union([z.string(), z.null()]).optional(),
-  uniqueId: z.string().optional(),
+  rawContract: AlchemyRawContractSchema.nullish(),
+  to: EvmAddressSchema.nullish(),
+  tokenId: z.string().nullish(),
+  uniqueId: z.string().nullish(),
   value: hexOrNumericToNumericOptional,
 
   // Receipt data (added by API client after fetching from eth_getTransactionReceipt)
-  _gasUsed: z.string().optional(),
-  _effectiveGasPrice: z.string().optional(),
+  _gasUsed: z.string().nullish(),
+  _effectiveGasPrice: z.string().nullish(),
 
   // Native currency for the chain (added by API client for gas fee calculation)
-  _nativeCurrency: z.string().optional(),
+  _nativeCurrency: z.string().nullish(),
 });
 
 /**
@@ -85,7 +82,7 @@ export const AlchemyAssetTransferArraySchema = z.array(AlchemyAssetTransferSchem
  * Schema for Alchemy asset transfers response
  */
 export const AlchemyAssetTransfersResponseSchema = z.object({
-  pageKey: z.string().optional(),
+  pageKey: z.string().nullish(),
   transfers: z.array(AlchemyAssetTransferSchema),
 });
 
@@ -94,9 +91,9 @@ export const AlchemyAssetTransfersResponseSchema = z.object({
  */
 export const AlchemyTokenMetadataSchema = z.object({
   decimals: z.number().min(0, 'Decimals must be non-negative'),
-  logo: z.string().optional(),
-  name: z.string().optional(),
-  symbol: z.string().optional(),
+  logo: z.string().nullish(),
+  name: z.string().nullish(),
+  symbol: z.string().nullish(),
 });
 
 /**
@@ -124,10 +121,10 @@ export const AlchemyPortfolioTokenMetadataSchema = z.object({
 export const AlchemyPortfolioTokenBalanceSchema = z.object({
   address: EvmAddressSchema,
   network: z.string(),
-  tokenAddress: EvmAddressSchema.nullable(),
+  tokenAddress: EvmAddressSchema.nullish(),
   tokenBalance: z.string(),
-  tokenMetadata: AlchemyPortfolioTokenMetadataSchema.optional(),
-  tokenPrices: z.array(AlchemyPortfolioTokenPriceSchema).optional(),
+  tokenMetadata: AlchemyPortfolioTokenMetadataSchema.nullish(),
+  tokenPrices: z.array(AlchemyPortfolioTokenPriceSchema).nullish(),
 });
 
 /**
@@ -152,9 +149,9 @@ export const AlchemyPortfolioAddressSchema = z.object({
  */
 export const AlchemyPortfolioBalanceRequestSchema = z.object({
   addresses: z.array(AlchemyPortfolioAddressSchema),
-  includeNativeToken: z.boolean().optional(),
-  withMetadata: z.boolean().optional(),
-  withPrices: z.boolean().optional(),
+  includeNativeToken: z.boolean().nullish(),
+  withMetadata: z.boolean().nullish(),
+  withPrices: z.boolean().nullish(),
 });
 
 /**
@@ -166,39 +163,39 @@ export const AlchemyTransactionReceiptSchema = z.object({
   blockNumber: z.string().regex(/^0x[\da-fA-F]+$/, 'Block number must be hex string'),
   contractAddress: EvmAddressSchema.nullish(),
   cumulativeGasUsed: hexOrNumericToNumericRequired,
-  effectiveGasPrice: hexOrNumericToNumericRequired.optional(), // Only available post-EIP-1559
+  effectiveGasPrice: hexOrNumericToNumericRequired.nullish(), // Only available post-EIP-1559
   from: EvmAddressSchema,
   gasUsed: hexOrNumericToNumericRequired,
-  logs: z.array(z.any()).optional(),
-  logsBloom: z.string().optional(),
+  logs: z.array(z.any()).nullish(),
+  logsBloom: z.string().nullish(),
   status: z.string().regex(/^0x[01]$/, 'Status must be 0x0 or 0x1'),
-  to: EvmAddressSchema.nullable(),
+  to: EvmAddressSchema.nullish(),
   transactionHash: z.string(),
   transactionIndex: z.string().regex(/^0x[\da-fA-F]+$/, 'Transaction index must be hex string'),
   type: z
     .string()
     .regex(/^0x[\da-fA-F]+$/, 'Type must be hex string')
-    .optional(),
+    .nullish(),
 });
 
 /**
  * JSON-RPC wrapper schema for eth_getTransactionReceipt
  */
 export const AlchemyTransactionReceiptResponseSchema = z.object({
-  jsonrpc: z.string().optional(),
-  id: z.union([z.string(), z.number()]).optional(),
-  result: AlchemyTransactionReceiptSchema.nullable(),
-  error: z.object({ code: z.number(), message: z.string() }).optional(),
+  jsonrpc: z.string().nullish(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  result: AlchemyTransactionReceiptSchema.nullish(),
+  error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 
 /**
  * JSON-RPC wrapper schema for alchemy_getAssetTransfers
  */
 export const AlchemyAssetTransfersJsonRpcResponseSchema = z.object({
-  jsonrpc: z.string().optional(),
-  id: z.union([z.string(), z.number()]).optional(),
-  result: AlchemyAssetTransfersResponseSchema.optional(),
-  error: z.object({ code: z.number(), message: z.string() }).optional(),
+  jsonrpc: z.string().nullish(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  result: AlchemyAssetTransfersResponseSchema.nullish(),
+  error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 
 // Type exports inferred from schemas

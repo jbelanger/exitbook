@@ -89,6 +89,13 @@ export class BitcoinTransactionImporter implements IImporter {
       const providerBatch = providerBatchResult.value;
       const transactionsWithRaw = providerBatch.data;
 
+      // Log batch stats including in-memory deduplication
+      if (providerBatch.stats.deduplicated > 0) {
+        this.logger.info(
+          `Provider batch stats: ${providerBatch.stats.fetched} fetched, ${providerBatch.stats.deduplicated} deduplicated by provider, ${providerBatch.stats.yielded} yielded`
+        );
+      }
+
       // Map to raw transactions
       const rawTransactions = transactionsWithRaw.map((txWithRaw) => ({
         eventId: txWithRaw.normalized.eventId,
@@ -103,7 +110,7 @@ export class BitcoinTransactionImporter implements IImporter {
         rawTransactions: rawTransactions,
         operationType: 'normal',
         cursor: providerBatch.cursor,
-        isComplete: providerBatch.cursor.metadata?.isComplete ?? false,
+        isComplete: providerBatch.isComplete,
       });
     }
   }

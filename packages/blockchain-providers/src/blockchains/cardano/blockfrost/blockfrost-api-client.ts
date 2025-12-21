@@ -11,12 +11,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../core/streaming/streaming-adapter.js';
-import type {
-  ProviderOperation,
-  RawBalanceData,
-  StreamingBatchResult,
-  TransactionWithRawData,
-} from '../../../core/types/index.js';
+import type { ProviderOperation, RawBalanceData, StreamingBatchResult } from '../../../core/types/index.js';
 import { maskAddress } from '../../../core/utils/address-utils.js';
 import type { CardanoTransaction } from '../schemas.js';
 import { createRawBalanceData } from '../utils.js';
@@ -108,11 +103,6 @@ export class BlockfrostApiClient extends BaseApiClient {
     );
 
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return (await this.getAddressTransactions({
-          address: operation.address,
-          limit: 'limit' in operation ? (operation.limit as number) : undefined,
-        })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
           address: operation.address,
@@ -247,121 +237,6 @@ export class BlockfrostApiClient extends BaseApiClient {
     );
 
     return ok(hasTransactions);
-  }
-
-  /**
-   * Get raw transaction data for an address using three-call pattern.
-   *
-   * Step 1: Fetch transaction hashes from /addresses/{address}/transactions
-   * Step 2: For each transaction hash, fetch complete transaction details from /txs/{hash}
-   * Step 3: For each transaction hash, fetch detailed UTXO data from /txs/{hash}/utxos
-   *
-   * Handles pagination automatically (100 transactions per page).
-   * Combines transaction details and UTXO data before passing to mapper for normalization.
-   *
-   * @param params - Parameters containing the Cardano address and optional limit
-   * @returns Result containing array of transactions with raw and normalized data
-   */
-  private async getAddressTransactions(params: {
-    address: string;
-    limit?: number | undefined;
-  }): Promise<Result<TransactionWithRawData<CardanoTransaction>[], Error>> {
-    const { address, limit } = params;
-
-    this.logger.debug(
-      `Fetching raw address transactions - Address: ${maskAddress(address)}, Limit: ${limit ?? 'none'}`
-    );
-
-    // Step 1: Fetch all transaction hashes for the address
-    const txHashesResult = await this.fetchTransactionHashes(address, limit);
-
-    if (txHashesResult.isErr()) {
-      this.logger.error(
-        `Failed to fetch transaction hashes - Address: ${maskAddress(address)}, Error: ${getErrorMessage(txHashesResult.error)}`
-      );
-      return err(txHashesResult.error);
-    }
-
-    const txHashes = txHashesResult.value;
-
-    if (txHashes.length === 0) {
-      this.logger.debug(`No transactions found for address - Address: ${maskAddress(address)}`);
-      return ok([]);
-    }
-
-    this.logger.debug(
-      `Retrieved ${txHashes.length} transaction hashes - Address: ${maskAddress(address)}, fetching transaction details and UTXO data...`
-    );
-
-    // Step 2 & 3: Fetch transaction details and UTXO data for each transaction
-    const allTransactions: TransactionWithRawData<CardanoTransaction>[] = [];
-
-    for (const txHashEntry of txHashes) {
-      const txHash = txHashEntry.tx_hash;
-
-      // Fetch complete transaction details (including fees, block hash, status)
-      const detailsResult = await this.httpClient.get(`/txs/${txHash}`, {
-        headers: { project_id: this.apiKey },
-        schema: BlockfrostTransactionDetailsSchema,
-      });
-
-      if (detailsResult.isErr()) {
-        this.logger.error(
-          `Failed to fetch transaction details - TxHash: ${txHash}, Address: ${maskAddress(address)}, Error: ${getErrorMessage(detailsResult.error)}`
-        );
-        return err(detailsResult.error);
-      }
-
-      const txDetails = detailsResult.value;
-
-      // Fetch UTXO details for this transaction
-      const utxoResult = await this.httpClient.get(`/txs/${txHash}/utxos`, {
-        headers: { project_id: this.apiKey },
-        schema: BlockfrostTransactionUtxosSchema,
-      });
-
-      if (utxoResult.isErr()) {
-        this.logger.error(
-          `Failed to fetch UTXO data for transaction - TxHash: ${txHash}, Address: ${maskAddress(address)}, Error: ${getErrorMessage(utxoResult.error)}`
-        );
-        return err(utxoResult.error);
-      }
-
-      const rawUtxo = utxoResult.value;
-
-      // Combine UTXO data with transaction metadata
-      const combinedData: BlockfrostTransactionWithMetadata = {
-        ...rawUtxo,
-        block_height: txDetails.block_height,
-        block_time: txDetails.block_time,
-        block_hash: txDetails.block,
-        fees: txDetails.fees,
-        tx_index: txHashEntry.tx_index,
-        valid_contract: txDetails.valid_contract,
-      };
-
-      // Map and validate the combined data
-      const mapResult = mapBlockfrostTransaction(combinedData);
-
-      if (mapResult.isErr()) {
-        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
-        this.logger.error(
-          `Provider data validation failed - TxHash: ${txHash}, Address: ${maskAddress(address)}, Error: ${errorMessage}`
-        );
-        return err(new Error(`Provider data validation failed: ${errorMessage}`));
-      }
-
-      allTransactions.push({
-        raw: combinedData,
-        normalized: mapResult.value,
-      });
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${allTransactions.length}`
-    );
-
-    return ok(allTransactions);
   }
 
   /**

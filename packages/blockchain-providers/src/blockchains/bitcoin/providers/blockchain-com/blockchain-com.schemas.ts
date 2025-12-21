@@ -7,10 +7,10 @@ import { BitcoinAddressSchema } from '../../schemas.js';
  */
 export const BlockchainComPrevOutSchema = z
   .object({
-    addr: BitcoinAddressSchema.optional(),
+    addr: BitcoinAddressSchema.nullish(),
     n: z.number(),
     script: z.string(),
-    spending_outpoints: z.array(z.object({ n: z.number(), tx_index: z.number() })).optional(),
+    spending_outpoints: z.array(z.object({ n: z.number(), tx_index: z.number() })).nullish(),
     spent: z.boolean(),
     tx_index: z.number(),
     type: z.number(),
@@ -23,11 +23,11 @@ export const BlockchainComPrevOutSchema = z
  */
 export const BlockchainComInputSchema = z
   .object({
-    index: z.number().optional(),
-    prev_out: BlockchainComPrevOutSchema.optional(),
+    index: z.number().nullish(),
+    prev_out: BlockchainComPrevOutSchema.nullish(),
     script: z.string(),
-    sequence: z.number().optional(),
-    witness: z.string().optional(),
+    sequence: z.number().nullish(),
+    witness: z.string().nullish(),
   })
   .strict();
 
@@ -36,10 +36,10 @@ export const BlockchainComInputSchema = z
  */
 export const BlockchainComOutputSchema = z
   .object({
-    addr: BitcoinAddressSchema.optional(),
+    addr: BitcoinAddressSchema.nullish(),
     n: z.number(),
     script: z.string(),
-    spending_outpoints: z.array(z.object({ n: z.number(), tx_index: z.number() })).optional(),
+    spending_outpoints: z.array(z.object({ n: z.number(), tx_index: z.number() })).nullish(),
     spent: z.boolean(),
     tx_index: z.number(),
     type: z.number(),
@@ -52,24 +52,16 @@ export const BlockchainComOutputSchema = z
  */
 export const BlockchainComTransactionSchema = z
   .object({
-    balance: z.number().optional(),
-    block_height: z
-      .number()
-      .nullable()
-      .optional()
-      .transform((val) => val ?? undefined),
-    block_index: z
-      .number()
-      .nullable()
-      .optional()
-      .transform((val) => val ?? undefined),
+    balance: z.number().nullish(),
+    block_height: z.number().nullish(),
+    block_index: z.number().nullish(),
     double_spend: z.boolean(),
     fee: z.number().nonnegative('Fee must be non-negative'),
     hash: z.string().min(1, 'Transaction hash must not be empty'),
     inputs: z.array(BlockchainComInputSchema).min(1, 'Transaction must have at least one input'),
     lock_time: z.number().nonnegative(),
     out: z.array(BlockchainComOutputSchema).min(1, 'Transaction must have at least one output'),
-    rbf: z.boolean().optional(),
+    rbf: z.boolean().nullish(),
     relayed_by: z.string(),
     result: z.number(),
     size: z.number().positive('Size must be positive'),
@@ -78,7 +70,7 @@ export const BlockchainComTransactionSchema = z
     ver: z.number(),
     vin_sz: z.number().nonnegative(),
     vout_sz: z.number().nonnegative(),
-    weight: z.number().optional(),
+    weight: z.number().nullish(),
   })
   .strict();
 

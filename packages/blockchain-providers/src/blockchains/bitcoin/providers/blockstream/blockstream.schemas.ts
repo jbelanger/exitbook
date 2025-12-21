@@ -7,9 +7,9 @@ import { BitcoinAddressSchema } from '../../schemas.js';
  * Schema for Blockstream.info transaction status
  */
 export const BlockstreamTransactionStatusSchema = z.object({
-  block_hash: z.string().optional(),
-  block_height: z.number().optional(),
-  block_time: timestampToDate.optional(),
+  block_hash: z.string().nullish(),
+  block_height: z.number().nullish(),
+  block_time: timestampToDate.nullish(),
   confirmed: z.boolean(),
 });
 
@@ -20,7 +20,7 @@ export const BlockstreamInputSchema = z.object({
   is_coinbase: z.boolean(),
   prevout: z.object({
     scriptpubkey: z.string(),
-    scriptpubkey_address: BitcoinAddressSchema.optional(),
+    scriptpubkey_address: BitcoinAddressSchema.nullish(),
     scriptpubkey_asm: z.string(),
     scriptpubkey_type: z.string(),
     value: z.number().nonnegative('Prevout value must be non-negative'),
@@ -30,7 +30,7 @@ export const BlockstreamInputSchema = z.object({
   sequence: z.number(),
   txid: z.string().min(1, 'Input txid must not be empty'),
   vout: z.number().nonnegative(),
-  witness: z.array(z.string()).optional(),
+  witness: z.array(z.string()).nullish(),
 });
 
 /**
@@ -38,7 +38,7 @@ export const BlockstreamInputSchema = z.object({
  */
 export const BlockstreamOutputSchema = z.object({
   scriptpubkey: z.string(),
-  scriptpubkey_address: BitcoinAddressSchema.optional(),
+  scriptpubkey_address: BitcoinAddressSchema.nullish(),
   scriptpubkey_asm: z.string(),
   scriptpubkey_type: z.string(),
   value: z.number().nonnegative('Output value must be non-negative'),

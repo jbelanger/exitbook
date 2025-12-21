@@ -83,8 +83,10 @@ describe('CosmosImporter', () => {
           primary: { type: 'blockNumber' as const, value: 0 },
           lastTransactionId: '',
           totalFetched: data.length,
-          metadata: { providerName, updatedAt: Date.now(), isComplete: true },
+          metadata: { providerName, updatedAt: Date.now() },
         },
+        isComplete: true,
+        stats: { fetched: 0, deduplicated: 0, yielded: 0 },
       });
     });
   };

@@ -14,7 +14,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import type { RawBalanceData, TransactionWithRawData } from '../../../../core/types/index.js';
+import type { RawBalanceData } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import { convertToMainUnit, createRawBalanceData } from '../../balance-utils.js';
 import type { SubstrateChainConfig } from '../../chain-config.interface.js';
@@ -202,10 +202,6 @@ export class SubscanApiClient extends BaseApiClient {
     );
 
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return (await this.getAddressTransactions({
-          address: operation.address,
-        })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
           address: operation.address,
@@ -295,111 +291,6 @@ export class SubscanApiClient extends BaseApiClient {
         this.chainConfig.nativeCurrency
       )
     );
-  }
-
-  private async getAddressTransactions(params: {
-    address: string;
-  }): Promise<Result<TransactionWithRawData<SubstrateTransaction>[], Error>> {
-    const { address } = params;
-
-    // Validate address format
-    if (!isValidSS58Address(address)) {
-      return err(new Error(`Invalid SS58 address for ${this.blockchain}: ${address}`));
-    }
-
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-
-    const transfers: SubscanTransfer[] = [];
-    let page = 0;
-    const maxPages = 100; // Safety limit to prevent infinite loops
-    const rowsPerPage = 100;
-    let hasMorePages = true;
-
-    while (hasMorePages && page < maxPages) {
-      const body: Record<string, unknown> = {
-        address: address,
-        page: page,
-        row: rowsPerPage,
-      };
-
-      const result = await this.httpClient.post<SubscanTransfersResponse>('/api/v2/scan/transfers', body, {
-        schema: SubscanTransfersResponseSchema,
-      });
-
-      if (result.isErr()) {
-        this.logger.error(
-          `Failed to fetch raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-        );
-        return err(result.error);
-      }
-
-      const response = result.value;
-
-      // Check for API errors
-      if (response.code !== 0) {
-        const error = new Error(`Subscan API error: ${response.message || `Code ${response.code}`}`);
-        this.logger.error(
-          `Failed to fetch raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
-        );
-        return err(error);
-      }
-
-      const pageTransfers = response.data?.transfers || [];
-
-      transfers.push(...pageTransfers);
-      page++;
-
-      // Check if there are more pages
-      // Subscan doesn't return a cursor, so we check if we got a full page
-      hasMorePages = pageTransfers.length === rowsPerPage;
-
-      this.logger.debug(
-        `Fetched page ${page}: ${pageTransfers.length} transfers${hasMorePages ? ' (more pages available)' : ' (last page)'}`
-      );
-
-      // Safety check to prevent infinite pagination
-      if (page >= maxPages) {
-        this.logger.warn(`Reached maximum page limit (${maxPages}), stopping pagination`);
-        break;
-      }
-    }
-
-    // Normalize transactions using pure mapping function
-    const relevantAddresses = new Set([address]);
-    const transactions: TransactionWithRawData<SubstrateTransaction>[] = [];
-    for (const rawTx of transfers) {
-      const mapResult = convertSubscanTransaction(
-        rawTx,
-        relevantAddresses,
-        this.chainConfig,
-        this.chainConfig.nativeCurrency,
-        this.chainConfig.nativeDecimals
-      );
-
-      // Skip transactions that aren't relevant to this address or have validation errors
-      if (mapResult.isErr()) {
-        const error = mapResult.error;
-        if (error.type === 'skip') {
-          continue;
-        }
-        // error.type === 'error'
-        this.logger.error(
-          `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${error.message}`
-        );
-        return err(new Error(`Provider data validation failed: ${error.message}`));
-      }
-
-      transactions.push({
-        raw: rawTx,
-        normalized: mapResult.value,
-      });
-    }
-
-    this.logger.debug(
-      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}, PagesProcessed: ${page}`
-    );
-
-    return ok(transactions);
   }
 
   /**

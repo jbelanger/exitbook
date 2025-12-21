@@ -65,6 +65,8 @@ describe('NearTransactionImporter', () => {
             totalFetched: normalData.length,
             metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       })
       .mockImplementationOnce(async function* () {
@@ -77,6 +79,8 @@ describe('NearTransactionImporter', () => {
             totalFetched: tokenData.length,
             metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
   };
@@ -95,6 +99,8 @@ describe('NearTransactionImporter', () => {
           totalFetched: 0,
           metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
         },
+        isComplete: true,
+        stats: { fetched: 0, deduplicated: 0, yielded: 0 },
       });
     });
   });
@@ -143,6 +149,8 @@ describe('NearTransactionImporter', () => {
             totalFetched: 2,
             metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
       // Mock token transactions call
@@ -156,6 +164,8 @@ describe('NearTransactionImporter', () => {
             totalFetched: 0,
             metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
 
@@ -231,6 +241,8 @@ describe('NearTransactionImporter', () => {
             totalFetched: 3,
             metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
       const result = await consumeImportStream(importer, {
@@ -258,6 +270,8 @@ describe('NearTransactionImporter', () => {
             totalFetched: 1,
             metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
       const result = await consumeImportStream(importer, {
@@ -283,6 +297,8 @@ describe('NearTransactionImporter', () => {
             totalFetched: 1,
             metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
       const result = await consumeImportStream(importer, {
@@ -330,6 +346,8 @@ describe('NearTransactionImporter', () => {
             totalFetched: 0,
             metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
       // Token transactions fail
@@ -463,6 +481,8 @@ describe('NearTransactionImporter', () => {
             totalFetched: 2,
             metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
 
@@ -494,6 +514,8 @@ describe('NearTransactionImporter', () => {
             totalFetched: 1,
             metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
       const result1 = await consumeImportStream(importer, {

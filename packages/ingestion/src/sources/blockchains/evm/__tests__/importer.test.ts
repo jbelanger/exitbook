@@ -58,6 +58,8 @@ describe('EvmImporter', () => {
             totalFetched: normalData.length,
             metadata: { providerName: 'alchemy', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       })
       .mockImplementationOnce(async function* () {
@@ -70,6 +72,8 @@ describe('EvmImporter', () => {
             totalFetched: internalData.length,
             metadata: { providerName: 'alchemy', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       })
       .mockImplementationOnce(async function* () {
@@ -82,6 +86,8 @@ describe('EvmImporter', () => {
             totalFetched: tokenData.length,
             metadata: { providerName: 'alchemy', updatedAt: Date.now(), isComplete: true },
           },
+          isComplete: true,
+          stats: { fetched: 0, deduplicated: 0, yielded: 0 },
         });
       });
   };
@@ -283,6 +289,70 @@ describe('EvmImporter', () => {
       if (result.isErr()) {
         expect(result.error.message).toBe('Address required for ethereum transaction import');
       }
+    });
+
+    test('should yield warning batch when beacon withdrawals fail', async () => {
+      const importer = createImporter();
+      const address = '0x1234567890123456789012345678901234567890';
+
+      // Add beacon withdrawal support to mock provider
+      const providers = mockProviderManager.getProviders('ethereum');
+      if (providers.length > 0) {
+        providers[0]!.capabilities.supportedOperations = ['getAddressBeaconWithdrawals'];
+      }
+
+      // Setup mocks: normal, internal, token succeed; beacon withdrawals fail
+      setupDefaultMocks([], [], []);
+
+      // Fourth call (beacon withdrawals) fails
+      mockProviderManager.executeWithFailover.mockImplementationOnce(async function* () {
+        yield errAsync(
+          new ProviderError('Invalid API Key provided', 'ALL_PROVIDERS_FAILED', {
+            blockchain: 'ethereum',
+            lastError: 'Invalid API Key provided',
+          })
+        );
+      });
+
+      const result = await consumeImportStream(importer, {
+        sourceName: 'evm',
+        sourceType: 'blockchain' as const,
+        address,
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        // Should have empty raw transactions (beacon withdrawals failed)
+        expect(result.value.rawTransactions).toHaveLength(0);
+
+        // Should have warning batch with valid cursor
+        expect(result.value.warnings).toBeDefined();
+        expect(result.value.warnings?.length).toBeGreaterThan(0);
+
+        // Verify warning message includes helpful context
+        const warning = result.value.warnings?.[0];
+        expect(warning).toContain('Failed to fetch beacon withdrawals');
+        expect(warning).toContain('Invalid API Key provided');
+        expect(warning).toContain('ETHERSCAN_API_KEY');
+
+        // Verify cursor structure is valid
+        const beaconCursor = result.value.cursorUpdates['beacon_withdrawal'];
+        expect(beaconCursor).toBeDefined();
+        expect(beaconCursor?.primary.type).toBe('blockNumber');
+        expect(beaconCursor?.lastTransactionId).toBe('FETCH_FAILED');
+        expect(beaconCursor?.metadata?.fetchStatus).toBe('failed');
+        expect(beaconCursor?.metadata?.errorMessage).toContain('Invalid API Key provided');
+      }
+
+      // Verify executeWithFailover was called 4 times (normal, internal, token, beacon_withdrawal)
+      expect(mockProviderManager.executeWithFailover).toHaveBeenCalledTimes(4);
+
+      // Verify the fourth call was for beacon withdrawals
+      const executeCalls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
+        mockProviderManager.executeWithFailover.mock.calls;
+      const [, beaconOperation] = executeCalls[3]!;
+      assertOperationType(beaconOperation, 'getAddressBeaconWithdrawals');
+      expect(beaconOperation.address).toBe(address);
     });
   });
 

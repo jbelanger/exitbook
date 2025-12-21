@@ -30,11 +30,11 @@ export function registerEvmChains(): void {
           preferredProvider: providerName,
         }),
 
-      createProcessor: (tokenMetadataService?: ITokenMetadataService) => {
+      createProcessor: (providerManager: BlockchainProviderManager, tokenMetadataService?: ITokenMetadataService) => {
         if (!tokenMetadataService) {
           return err(new Error('TokenMetadataService is required for EVM processor'));
         }
-        return ok(new EvmTransactionProcessor(config, tokenMetadataService));
+        return ok(new EvmTransactionProcessor(config, providerManager, tokenMetadataService));
       },
     });
   }
