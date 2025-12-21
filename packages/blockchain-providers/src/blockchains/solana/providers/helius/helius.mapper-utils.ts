@@ -36,7 +36,11 @@ export function mapHeliusTransaction(rawData: HeliusTransaction): Result<SolanaT
 
     const accountChanges = extractAccountChanges(rawData.meta.preBalances, rawData.meta.postBalances, accountKeys);
 
-    const tokenChanges = extractTokenChanges(rawData.meta.preTokenBalances, rawData.meta.postTokenBalances, true);
+    const tokenChanges = extractTokenChanges(
+      rawData.meta.preTokenBalances ?? undefined,
+      rawData.meta.postTokenBalances ?? undefined,
+      true
+    );
 
     const { primaryAmount, primaryCurrency } = determinePrimaryTransfer(accountChanges, tokenChanges);
     const amount = primaryAmount ?? '0';

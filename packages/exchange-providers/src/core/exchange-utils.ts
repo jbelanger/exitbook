@@ -125,10 +125,10 @@ export function processItems<TRaw, TValidated>(
  */
 export function processCCXTBalance(
   ccxtBalance: Record<string, unknown>,
-  normalizeAsset?: (asset: string) => string
+  normalizeAsset?: (assetSymbol: string) => string
 ): Record<string, string> {
   const balances: Record<string, string> = {};
-  const normalize = normalizeAsset ?? ((asset: string) => asset);
+  const normalize = normalizeAsset ?? ((assetSymbol: string) => assetSymbol);
 
   for (const [currency, amounts] of Object.entries(ccxtBalance)) {
     if (currency === 'info' || currency === 'timestamp' || currency === 'datetime') {

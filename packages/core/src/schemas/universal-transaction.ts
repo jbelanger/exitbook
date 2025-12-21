@@ -67,7 +67,7 @@ export const PriceAtTxTimeSchema = z.object({
 // Asset movement schema
 export const AssetMovementSchema = z
   .object({
-    asset: z.string().min(1, 'Asset must not be empty'),
+    assetSymbol: z.string().min(1, 'Asset symbol must not be empty'),
 
     // Amount fields
     grossAmount: DecimalSchema, // Amount venue debited/credited (REQUIRED)
@@ -144,7 +144,7 @@ export const AssetMovementSchema = z
  * - This ensures accurate balance tracking across different blockchain architectures
  */
 export const FeeMovementSchema = z.object({
-  asset: z.string().min(1, 'Asset must not be empty'),
+  assetSymbol: z.string().min(1, 'Asset symbol must not be empty'),
   amount: DecimalSchema,
 
   // Fee semantics (required)

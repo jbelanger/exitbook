@@ -28,7 +28,7 @@ export class ExchangeEntryBuilder {
     correlationId: 'REF001',
     timestamp: TEST_TIMESTAMPS.jan2024,
     type: 'test',
-    asset: 'USD',
+    assetSymbol: 'USD',
     amount: '0',
     status: 'success',
   };
@@ -53,8 +53,8 @@ export class ExchangeEntryBuilder {
     return this;
   }
 
-  withAsset(asset: string): this {
-    this.entry.asset = asset;
+  withAssetSymbol(assetSymbol: string): this {
+    this.entry.assetSymbol = assetSymbol;
     return this;
   }
 

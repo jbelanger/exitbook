@@ -116,7 +116,7 @@ describe('transformFrankfurterResponse', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toEqual({
-        asset,
+        assetSymbol: asset,
         timestamp,
         price: parseDecimal('1.0856'),
         currency: targetCurrency,
@@ -164,7 +164,7 @@ describe('transformFrankfurterResponse', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.asset.toString()).toBe('CAD');
+      expect(result.value.assetSymbol.toString()).toBe('CAD');
       expect(result.value.price).toEqual(parseDecimal('0.7456'));
     }
   });
@@ -184,7 +184,7 @@ describe('transformFrankfurterResponse', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.asset.toString()).toBe('GBP');
+      expect(result.value.assetSymbol.toString()).toBe('GBP');
       expect(result.value.price).toEqual(parseDecimal('1.2734'));
     }
   });

@@ -37,7 +37,7 @@ export interface FeeGapIssue {
   timestamp: string;
   issue_type: FeeGapType;
   description: string;
-  asset?: string | undefined;
+  assetSymbol?: string | undefined;
   amount?: string | undefined;
   suggestion?: string | undefined;
 }
@@ -78,7 +78,7 @@ export interface LinkGapIssue {
   source: string;
   blockchain?: string | undefined;
   timestamp: string;
-  asset: string;
+  assetSymbol: string;
   missingAmount: string;
   totalAmount: string;
   confirmedCoveragePercent: string;
@@ -93,7 +93,7 @@ export interface LinkGapIssue {
  * Link gap summary per asset.
  */
 export interface LinkGapAssetSummary {
-  asset: string;
+  assetSymbol: string;
   inflowOccurrences: number;
   inflowMissingAmount: string;
   outflowOccurrences: number;
@@ -173,7 +173,7 @@ function detectFeeIssuesInTransaction(tx: UniversalTransactionData): FeeGapIssue
       timestamp: tx.datetime,
       issue_type: 'fee_without_price',
       description: 'Network fee exists but has no price data',
-      asset: networkFee?.asset,
+      assetSymbol: networkFee?.assetSymbol,
       amount: networkFee?.amount.toFixed(),
       suggestion: 'Run `exitbook prices fetch` to populate missing prices',
     });
@@ -187,7 +187,7 @@ function detectFeeIssuesInTransaction(tx: UniversalTransactionData): FeeGapIssue
       timestamp: tx.datetime,
       issue_type: 'fee_without_price',
       description: 'Platform fee exists but has no price data',
-      asset: platformFee?.asset,
+      assetSymbol: platformFee?.assetSymbol,
       amount: platformFee?.amount.toFixed(),
       suggestion: 'Run `exitbook prices fetch` to populate missing prices',
     });
@@ -234,7 +234,7 @@ function detectFeeIssuesInTransaction(tx: UniversalTransactionData): FeeGapIssue
           timestamp: tx.datetime,
           issue_type: 'fee_in_movements',
           description: 'Transaction note mentions fees but movement is not in fee fields',
-          asset: outflow.asset,
+          assetSymbol: outflow.assetSymbol,
           amount: outflow.grossAmount.toFixed(),
           suggestion: 'Review processor to map this outflow to appropriate fee field',
         });
@@ -249,11 +249,11 @@ function detectFeeIssuesInTransaction(tx: UniversalTransactionData): FeeGapIssue
  * Check if two movements represent the same asset movement.
  */
 function isSameMovement(
-  movement: { asset: string; grossAmount: Decimal },
-  feeMovement: { amount: Decimal; asset: string } | undefined
+  movement: { assetSymbol: string; grossAmount: Decimal },
+  feeMovement: { amount: Decimal; assetSymbol: string } | undefined
 ): boolean {
   if (!feeMovement) return false;
-  return movement.asset === feeMovement.asset && movement.grossAmount.equals(feeMovement.amount);
+  return movement.assetSymbol === feeMovement.assetSymbol && movement.grossAmount.equals(feeMovement.amount);
 }
 
 /**
@@ -321,14 +321,14 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
           continue;
         }
 
-        const assetKey = inflow.asset.toUpperCase();
+        const assetKey = inflow.assetSymbol.toUpperCase();
         const current = inflowTotals.get(assetKey) ?? new Decimal(0);
         inflowTotals.set(assetKey, current.plus(amount));
       }
 
       for (const [assetKey, totalAmount] of inflowTotals.entries()) {
         const confirmedForTx = (confirmedLinksByTarget.get(tx.id) ?? []).filter(
-          (link) => link.asset.toUpperCase() === assetKey
+          (link) => link.assetSymbol.toUpperCase() === assetKey
         );
 
         const confirmedAmount = confirmedForTx.reduce((sum, link) => sum.plus(link.targetAmount), new Decimal(0));
@@ -344,7 +344,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
         }
 
         const suggestedForTx = (suggestedLinksByTarget.get(tx.id) ?? []).filter(
-          (link) => link.asset.toUpperCase() === assetKey
+          (link) => link.assetSymbol.toUpperCase() === assetKey
         );
 
         let highestSuggestedConfidencePercent: string | undefined;
@@ -368,7 +368,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
           source: tx.source,
           blockchain: tx.blockchain?.name,
           timestamp: tx.datetime,
-          asset: assetKey,
+          assetSymbol: assetKey,
           missingAmount: uncoveredAmount.toFixed(),
           totalAmount: totalAmount.toFixed(),
           confirmedCoveragePercent: coveragePercent.toFixed(),
@@ -398,14 +398,14 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
           continue;
         }
 
-        const assetKey = outflow.asset.toUpperCase();
+        const assetKey = outflow.assetSymbol.toUpperCase();
         const current = outflowTotals.get(assetKey) ?? new Decimal(0);
         outflowTotals.set(assetKey, current.plus(amount));
       }
 
       for (const [assetKey, totalAmount] of outflowTotals.entries()) {
         const confirmedForTx = (confirmedLinksBySource.get(tx.id) ?? []).filter(
-          (link) => link.asset.toUpperCase() === assetKey
+          (link) => link.assetSymbol.toUpperCase() === assetKey
         );
 
         const confirmedAmount = confirmedForTx.reduce((sum, link) => sum.plus(link.sourceAmount), new Decimal(0));
@@ -421,7 +421,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
         }
 
         const suggestedForTx = (suggestedLinksBySource.get(tx.id) ?? []).filter(
-          (link) => link.asset.toUpperCase() === assetKey
+          (link) => link.assetSymbol.toUpperCase() === assetKey
         );
 
         let highestSuggestedConfidencePercent: string | undefined;
@@ -445,7 +445,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
           source: tx.source,
           blockchain: tx.blockchain?.name,
           timestamp: tx.datetime,
-          asset: assetKey,
+          assetSymbol: assetKey,
           missingAmount: uncoveredAmount.toFixed(),
           totalAmount: totalAmount.toFixed(),
           confirmedCoveragePercent: coveragePercent.toFixed(),
@@ -468,7 +468,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
 
   const assetSummaries: LinkGapAssetSummary[] = Array.from(assetTotals.entries())
     .map(([asset, data]) => ({
-      asset,
+      assetSymbol: asset,
       inflowOccurrences: data.inflow.occurrences,
       inflowMissingAmount: data.inflow.missingAmount.toFixed(),
       outflowOccurrences: data.outflow.occurrences,
@@ -478,7 +478,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
     .sort((a, b) => {
       const aTotal = a.inflowOccurrences + a.outflowOccurrences;
       const bTotal = b.inflowOccurrences + b.outflowOccurrences;
-      return bTotal - aTotal || a.asset.localeCompare(b.asset);
+      return bTotal - aTotal || a.assetSymbol.localeCompare(b.assetSymbol);
     });
 
   return {
@@ -566,8 +566,8 @@ function formatFeeGapIssue(issue: FeeGapIssue): string {
   lines.push(`  Time: ${issue.timestamp}`);
   lines.push(`  Issue: ${issue.description}`);
 
-  if (issue.asset && issue.amount) {
-    lines.push(`  Amount: ${issue.amount} ${issue.asset}`);
+  if (issue.assetSymbol && issue.amount) {
+    lines.push(`  Amount: ${issue.amount} ${issue.assetSymbol}`);
   }
 
   if (issue.suggestion) {
@@ -611,12 +611,12 @@ export function formatLinkGapAnalysis(analysis: LinkGapAnalysis): string {
     for (const assetSummary of analysis.summary.assets) {
       if (assetSummary.inflowOccurrences > 0) {
         lines.push(
-          `  ${assetSummary.asset}: ${assetSummary.inflowOccurrences} inflow(s) missing ${assetSummary.inflowMissingAmount} ${assetSummary.asset}`
+          `  ${assetSummary.assetSymbol}: ${assetSummary.inflowOccurrences} inflow(s) missing ${assetSummary.inflowMissingAmount} ${assetSummary.assetSymbol}`
         );
       }
       if (assetSummary.outflowOccurrences > 0) {
         lines.push(
-          `  ${assetSummary.asset}: ${assetSummary.outflowOccurrences} outflow(s) unmatched for ${assetSummary.outflowMissingAmount} ${assetSummary.asset}`
+          `  ${assetSummary.assetSymbol}: ${assetSummary.outflowOccurrences} outflow(s) unmatched for ${assetSummary.outflowMissingAmount} ${assetSummary.assetSymbol}`
         );
       }
     }
@@ -632,12 +632,12 @@ export function formatLinkGapAnalysis(analysis: LinkGapAnalysis): string {
       lines.push('');
       const directionLabel = issue.direction === 'inflow' ? 'IN' : 'OUT';
       lines.push(
-        `[${issue.asset}][${directionLabel}] TX #${issue.transactionId} (${issue.blockchain ?? issue.source})`
+        `[${issue.assetSymbol}][${directionLabel}] TX #${issue.transactionId} (${issue.blockchain ?? issue.source})`
       );
       lines.push(`  Time: ${issue.timestamp}`);
       const movementLabel = issue.direction === 'inflow' ? 'inflow' : 'outflow';
       lines.push(
-        `  Missing: ${issue.missingAmount} ${issue.asset} of ${issue.totalAmount} ${issue.asset} ${movementLabel}`
+        `  Missing: ${issue.missingAmount} ${issue.assetSymbol} of ${issue.totalAmount} ${issue.assetSymbol} ${movementLabel}`
       );
       lines.push(`  Confirmed Coverage: ${issue.confirmedCoveragePercent}%`);
       lines.push(`  Operation: ${issue.operationCategory}/${issue.operationType}`);

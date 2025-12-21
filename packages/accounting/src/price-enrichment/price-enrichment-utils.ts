@@ -77,7 +77,7 @@ function applyExchangeExecutionPrices(transactions: UniversalTransactionData[]):
       const tradePrices = calculatePriceFromTrade(trade);
 
       if (tradePrices.length > 0) {
-        const pricesMap = new Map(tradePrices.map((p) => [p.asset, p.priceAtTxTime]));
+        const pricesMap = new Map(tradePrices.map((p) => [p.assetSymbol, p.priceAtTxTime]));
         currentInflows = enrichMovementsWithPrices(inflows, pricesMap);
         currentOutflows = enrichMovementsWithPrices(outflows, pricesMap);
       }
@@ -88,7 +88,7 @@ function applyExchangeExecutionPrices(transactions: UniversalTransactionData[]):
     const fiatIdentityPrices = stampFiatIdentityPrices(allMovements, timestamp);
 
     if (fiatIdentityPrices.length > 0) {
-      const fiatPricesMap = new Map(fiatIdentityPrices.map((p) => [p.asset, p.priceAtTxTime]));
+      const fiatPricesMap = new Map(fiatIdentityPrices.map((p) => [p.assetSymbol, p.priceAtTxTime]));
       currentInflows = enrichMovementsWithPrices(currentInflows, fiatPricesMap);
       currentOutflows = enrichMovementsWithPrices(currentOutflows, fiatPricesMap);
     }
@@ -147,7 +147,7 @@ function deriveInflowPricesFromOutflows(
 
     const ratioPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [
       {
-        asset: trade.inflow.asset,
+        asset: trade.inflow.assetSymbol,
         priceAtTxTime: {
           price: {
             amount: derivedPrice,
@@ -209,8 +209,8 @@ function recalculateCryptoSwapRatios(
     }
 
     // Check if this is a crypto-crypto swap (neither side is fiat/stable)
-    const inflowCurrency = Currency.create(trade.inflow.asset);
-    const outflowCurrency = Currency.create(trade.outflow.asset);
+    const inflowCurrency = Currency.create(trade.inflow.assetSymbol);
+    const outflowCurrency = Currency.create(trade.outflow.assetSymbol);
 
     if (inflowCurrency.isFiatOrStablecoin() || outflowCurrency.isFiatOrStablecoin()) {
       continue; // Keep fiat-based prices (they're already execution prices)
@@ -226,7 +226,7 @@ function recalculateCryptoSwapRatios(
 
     const ratioPrices: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [
       {
-        asset: trade.inflow.asset,
+        asset: trade.inflow.assetSymbol,
         priceAtTxTime: {
           price: {
             amount: derivedPrice,
@@ -349,7 +349,7 @@ export function propagatePricesAcrossLinks(
 
       // Find matching target movement by asset
       for (const targetMovement of targetInflows) {
-        if (targetMovement.asset === sourceMovement.asset) {
+        if (targetMovement.assetSymbol === sourceMovement.assetSymbol) {
           // Check if amounts are reasonably close (allow up to 10% difference for fees)
           const sourceAmount = sourceMovement.grossAmount.toNumber();
           const targetAmount = targetMovement.grossAmount.toNumber();
@@ -364,7 +364,7 @@ export function propagatePricesAcrossLinks(
             };
 
             targetMovementPrices.push({
-              asset: targetMovement.asset,
+              asset: targetMovement.assetSymbol,
               priceAtTxTime: propagatedPrice,
             });
 
@@ -433,8 +433,8 @@ export function enrichFeePricesFromMovements(transactions: UniversalTransactionD
     // Build price lookup map by asset from movements
     const pricesByAsset = new Map<string, PriceAtTxTime>();
     for (const movement of allMovements) {
-      if (movement.priceAtTxTime && !pricesByAsset.has(movement.asset)) {
-        pricesByAsset.set(movement.asset, movement.priceAtTxTime);
+      if (movement.priceAtTxTime && !pricesByAsset.has(movement.assetSymbol)) {
+        pricesByAsset.set(movement.assetSymbol, movement.priceAtTxTime);
       }
     }
 
@@ -452,7 +452,7 @@ export function enrichFeePricesFromMovements(transactions: UniversalTransactionD
       }
 
       // Try to copy price from movement with same asset
-      const price = pricesByAsset.get(fee.asset);
+      const price = pricesByAsset.get(fee.assetSymbol);
       if (price) {
         feesModified = true;
         return { ...fee, priceAtTxTime: price };
@@ -470,7 +470,7 @@ export function enrichFeePricesFromMovements(transactions: UniversalTransactionD
 
       // Check if this is a fiat currency
       try {
-        const currency = Currency.create(fee.asset);
+        const currency = Currency.create(fee.assetSymbol);
         if (!currency.isFiat()) {
           return fee;
         }

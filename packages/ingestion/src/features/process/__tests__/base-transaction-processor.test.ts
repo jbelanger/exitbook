@@ -14,11 +14,11 @@ class TestProcessor extends BaseTransactionProcessor {
 
   // Member testDetectScamForAsset helper
   public async testDetectScamForAsset(
-    asset: string,
+    assetSymbol: string,
     contractAddress?: string,
     transactionContext?: { amount: number; isAirdrop: boolean }
   ) {
-    return this.detectScamForAsset(asset, contractAddress, transactionContext);
+    return this.detectScamForAsset(assetSymbol, contractAddress, transactionContext);
   }
 
   protected processInternal(_normalizedData: unknown[], _context: ProcessingContext) {

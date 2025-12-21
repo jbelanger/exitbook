@@ -83,7 +83,7 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
     expect(transaction.movements.inflows).toBeDefined();
     if (!transaction.movements.inflows) return;
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows[0]?.asset).toBe('INJ');
+    expect(transaction.movements.inflows[0]?.assetSymbol).toBe('INJ');
     expect(transaction.movements.inflows[0]?.netAmount?.toFixed()).toBe('1500000000000000000');
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.operation.category).toBe('transfer');
@@ -122,7 +122,7 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows).toBeDefined();
     if (!transaction.movements.outflows) return;
-    expect(transaction.movements.outflows[0]?.asset).toBe('INJ');
+    expect(transaction.movements.outflows[0]?.assetSymbol).toBe('INJ');
     expect(transaction.movements.outflows[0]?.netAmount?.toFixed()).toBe('2000000000000000000');
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');

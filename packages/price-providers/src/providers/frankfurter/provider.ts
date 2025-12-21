@@ -131,13 +131,13 @@ export class FrankfurterProvider extends BasePriceProvider {
    */
   protected async fetchPriceInternal(query: PriceQuery): Promise<Result<PriceData, Error>> {
     try {
-      const { asset, currency, timestamp } = query;
+      const { assetSymbol: assetSymbol, currency, timestamp } = query;
 
       // Validate: asset must be a supported fiat currency
-      if (!asset.isFiat() || !isSupportedCurrency(asset.toString())) {
+      if (!assetSymbol.isFiat() || !isSupportedCurrency(assetSymbol.toString())) {
         return err(
           new Error(
-            `Frankfurter only supports fiat currencies: ${FRANKFURTER_SUPPORTED_CURRENCIES.join(', ')}, got ${asset.toString()}`
+            `Frankfurter only supports fiat currencies: ${FRANKFURTER_SUPPORTED_CURRENCIES.join(', ')}, got ${assetSymbol.toString()}`
           )
         );
       }
@@ -148,9 +148,9 @@ export class FrankfurterProvider extends BasePriceProvider {
       }
 
       // Special case: USD to USD
-      if (asset.toString() === 'USD') {
+      if (assetSymbol.toString() === 'USD') {
         return ok({
-          asset,
+          assetSymbol: assetSymbol,
           timestamp,
           price: parseDecimal('1'),
           currency,
@@ -170,13 +170,13 @@ export class FrankfurterProvider extends BasePriceProvider {
       }
 
       // 2. Fetch from API
-      const priceData = await this.fetchFromApi(asset, timestamp, currency);
+      const priceData = await this.fetchFromApi(assetSymbol, timestamp, currency);
       if (priceData.isErr()) {
         return err(priceData.error);
       }
 
       // 3. Cache the result using shared helper
-      await this.saveToCache(priceData.value, `${asset.toString()}_USD`);
+      await this.saveToCache(priceData.value, `${assetSymbol.toString()}_USD`);
 
       return ok(priceData.value);
     } catch (error) {
@@ -190,7 +190,11 @@ export class FrankfurterProvider extends BasePriceProvider {
    * Frankfurter (like ECB) only publishes rates on business days.
    * For weekend/holiday requests, walk back to find the most recent available rate.
    */
-  private async fetchFromApi(asset: Currency, timestamp: Date, currency: Currency): Promise<Result<PriceData, Error>> {
+  private async fetchFromApi(
+    assetSymbol: Currency,
+    timestamp: Date,
+    currency: Currency
+  ): Promise<Result<PriceData, Error>> {
     const maxAttempts = 7; // Try up to a week back
     let attemptDate = new Date(timestamp);
     let lastError: Error | undefined;
@@ -200,14 +204,14 @@ export class FrankfurterProvider extends BasePriceProvider {
 
       // Build query parameters
       const params = new URLSearchParams({
-        from: asset.toString(),
+        from: assetSymbol.toString(),
         to: currency.toString(),
       });
 
       const isOriginalDate = attempt === 0;
       this.logger.debug(
         {
-          asset: asset.toString(),
+          assetSymbol: assetSymbol.toString(),
           currency: currency.toString(),
           requestedDate: formatFrankfurterDate(timestamp),
           attemptDate: dateStr,
@@ -243,7 +247,7 @@ export class FrankfurterProvider extends BasePriceProvider {
 
       // Transform response to PriceData
       const now = new Date();
-      const priceDataResult = transformFrankfurterResponse(parseResult.data, asset, currency, attemptDate, now);
+      const priceDataResult = transformFrankfurterResponse(parseResult.data, assetSymbol, currency, attemptDate, now);
 
       if (priceDataResult.isOk()) {
         // Successfully found a rate
@@ -253,7 +257,7 @@ export class FrankfurterProvider extends BasePriceProvider {
         if (!isOriginalDate) {
           this.logger.info(
             {
-              asset: asset.toString(),
+              assetSymbol: assetSymbol.toString(),
               requestedDate: formatFrankfurterDate(timestamp),
               actualDate: dateStr,
               daysBack: attempt,
@@ -280,7 +284,7 @@ export class FrankfurterProvider extends BasePriceProvider {
     // Exhausted all attempts
     return err(
       new Error(
-        `No FX rate found for ${asset.toString()} within ${maxAttempts} days of ${formatFrankfurterDate(timestamp)}. ` +
+        `No FX rate found for ${assetSymbol.toString()} within ${maxAttempts} days of ${formatFrankfurterDate(timestamp)}. ` +
           `Last error: ${lastError?.message || 'unknown'}`
       )
     );

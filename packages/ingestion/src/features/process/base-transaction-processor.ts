@@ -59,13 +59,13 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
    * Detect scam for a specific asset with optional contract address.
    * Called by blockchain processors that have contract address information.
    *
-   * @param asset - Token symbol (e.g., "USDC")
+   * @param assetSymbol - Token symbol (e.g., "USDC")
    * @param contractAddress - Optional contract address for metadata lookup
    * @param transactionContext - Optional context about the transaction (amount, isAirdrop)
    * @returns TransactionNote if scam detected, undefined otherwise
    */
   protected async detectScamForAsset(
-    asset: string,
+    assetSymbol: string,
     contractAddress?: string,
     transactionContext?: { amount: number; isAirdrop: boolean }
   ): Promise<TransactionNote | undefined> {
@@ -74,7 +74,7 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
       const metadataResult = await this.tokenMetadataService.getOrFetch(this.sourceName, contractAddress);
       if (metadataResult.isErr()) {
         this.logger.warn(
-          { asset, contractAddress, error: metadataResult.error.message, source: this.sourceName },
+          { assetSymbol, contractAddress, error: metadataResult.error.message, source: this.sourceName },
           'Failed to fetch token metadata for scam detection'
         );
       } else if (metadataResult.value) {
@@ -83,7 +83,7 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
         if (scamNote) {
           this.logger.warn(
             {
-              asset,
+              assetSymbol,
               contractAddress,
               detectionSource: scamNote.metadata?.detectionSource,
               indicators: scamNote.metadata?.indicators,
@@ -97,12 +97,15 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
     }
 
     // Tier 2: Symbol-only detection (fallback when no contract address or metadata service)
-    const scamResult = detectScamFromSymbol(asset);
+    const scamResult = detectScamFromSymbol(assetSymbol);
     if (scamResult.isScam) {
-      this.logger.warn({ asset, reason: scamResult.reason, source: 'symbol' }, 'Scam token detected via symbol check');
+      this.logger.warn(
+        { assetSymbol, reason: scamResult.reason, source: 'symbol' },
+        'Scam token detected via symbol check'
+      );
       return {
-        message: `⚠️ Potential scam token (${asset}): ${scamResult.reason}`,
-        metadata: { scamReason: scamResult.reason, scamAsset: asset, detectionSource: 'symbol' },
+        message: `⚠️ Potential scam token (${assetSymbol}): ${scamResult.reason}`,
+        metadata: { scamReason: scamResult.reason, scamAsset: assetSymbol, detectionSource: 'symbol' },
         severity: 'warning' as const,
         type: 'SCAM_TOKEN',
       };

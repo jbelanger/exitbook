@@ -279,7 +279,7 @@ export class TransactionLinkingService {
               id: uuidv4(),
               sourceTransactionId: tx1.id,
               targetTransactionId: tx2.id,
-              asset: asset1,
+              assetSymbol: asset1,
               sourceAmount: amount1,
               targetAmount: amount2,
               linkType: 'blockchain_internal',
@@ -319,8 +319,8 @@ export class TransactionLinkingService {
     const outflows = tx.movements.outflows ?? [];
     const inflows = tx.movements.inflows ?? [];
 
-    if (outflows.length > 0 && outflows[0]) return outflows[0].asset;
-    if (inflows.length > 0 && inflows[0]) return inflows[0].asset;
+    if (outflows.length > 0 && outflows[0]) return outflows[0].assetSymbol;
+    if (inflows.length > 0 && inflows[0]) return inflows[0].assetSymbol;
 
     return;
   }

@@ -68,7 +68,7 @@ describe('CryptoCompare Provider E2E', () => {
 
   it('should fetch current Bitcoin price in USD', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       timestamp: new Date(), // Current time - uses current price API
     });
@@ -77,7 +77,7 @@ describe('CryptoCompare Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('BTC');
+      expect(priceData.assetSymbol.toString()).toBe('BTC');
       expect(priceData.currency.toString()).toBe('USD');
       expect(priceData.price).toBeGreaterThan(0);
       expect(priceData.price).toBeGreaterThan(10000); // BTC is typically > $10k
@@ -88,7 +88,7 @@ describe('CryptoCompare Provider E2E', () => {
 
   it('should fetch current Ethereum price in EUR', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('ETH'),
+      assetSymbol: Currency.create('ETH'),
       currency: Currency.create('EUR'),
       timestamp: new Date(),
     });
@@ -97,7 +97,7 @@ describe('CryptoCompare Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('ETH');
+      expect(priceData.assetSymbol.toString()).toBe('ETH');
       expect(priceData.currency.toString()).toBe('EUR');
       expect(priceData.price).toBeGreaterThan(0);
       expect(priceData.price).toBeGreaterThan(500); // ETH is typically > €500
@@ -112,7 +112,7 @@ describe('CryptoCompare Provider E2E', () => {
     historicalDate.setUTCHours(12, 0, 0, 0); // Noon UTC
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       timestamp: historicalDate,
     });
@@ -125,7 +125,7 @@ describe('CryptoCompare Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('BTC');
+      expect(priceData.assetSymbol.toString()).toBe('BTC');
       expect(priceData.currency.toString()).toBe('USD');
       expect(priceData.price).toBeGreaterThan(0);
       expect(priceData.price).toBeGreaterThan(1000); // BTC should be > $1000
@@ -140,7 +140,7 @@ describe('CryptoCompare Provider E2E', () => {
     historicalDate.setUTCHours(12, 0, 0, 0); // Noon UTC
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       timestamp: historicalDate,
     });
@@ -153,7 +153,7 @@ describe('CryptoCompare Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('BTC');
+      expect(priceData.assetSymbol.toString()).toBe('BTC');
       expect(priceData.currency.toString()).toBe('USD');
       expect(priceData.price).toBeGreaterThan(0);
       expect(priceData.price).toBeGreaterThan(1000); // BTC should be > $1000
@@ -168,7 +168,7 @@ describe('CryptoCompare Provider E2E', () => {
     historicalDate.setUTCHours(0, 0, 0, 0); // Start of day UTC
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       timestamp: historicalDate,
     });
@@ -181,7 +181,7 @@ describe('CryptoCompare Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('BTC');
+      expect(priceData.assetSymbol.toString()).toBe('BTC');
       expect(priceData.currency.toString()).toBe('USD');
       expect(priceData.price).toBeGreaterThan(0);
       expect(priceData.price).toBeGreaterThan(1000); // BTC should be > $1000
@@ -196,7 +196,7 @@ describe('CryptoCompare Provider E2E', () => {
     queryDate.setUTCHours(12, 0, 0, 0); // Noon UTC
 
     const query = {
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       timestamp: queryDate,
     };
@@ -235,7 +235,7 @@ describe('CryptoCompare Provider E2E', () => {
 
     for (const symbol of currencies) {
       const result = await provider.fetchPrice({
-        asset: Currency.create(symbol),
+        assetSymbol: Currency.create(symbol),
         currency: Currency.create('USD'),
         timestamp: now,
       });
@@ -247,7 +247,7 @@ describe('CryptoCompare Provider E2E', () => {
       expect(result.isOk()).toBe(true);
 
       if (result.isOk()) {
-        expect(result.value.asset.toString()).toBe(symbol);
+        expect(result.value.assetSymbol.toString()).toBe(symbol);
         expect(result.value.price).toBeGreaterThan(0);
       }
 

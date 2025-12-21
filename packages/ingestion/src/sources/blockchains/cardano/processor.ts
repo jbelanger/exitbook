@@ -77,7 +77,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
             inflows: fundFlow.inflows.map((inflow) => {
               const amount = parseDecimal(inflow.amount);
               return {
-                asset: inflow.asset,
+                assetSymbol: inflow.asset,
                 grossAmount: amount,
                 netAmount: amount, // Inflows: no fee adjustment needed
               };
@@ -90,7 +90,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
                 outflow.asset === 'ADA' && shouldRecordFeeEntry ? grossAmount.minus(feeAmount) : grossAmount;
 
               return {
-                asset: outflow.asset,
+                assetSymbol: outflow.asset,
                 grossAmount, // Includes fee (total that left wallet)
                 netAmount, // Actual transfer amount (excludes fee)
               };
@@ -100,7 +100,7 @@ export class CardanoTransactionProcessor extends BaseTransactionProcessor {
           fees: shouldRecordFeeEntry
             ? [
                 {
-                  asset: fundFlow.feeCurrency,
+                  assetSymbol: fundFlow.feeCurrency,
                   amount: feeAmount,
                   scope: 'network',
                   settlement: 'on-chain',

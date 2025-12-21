@@ -8,7 +8,7 @@ describe('createAcquisitionLot', () => {
   test('should create a new acquisition lot with correct properties', () => {
     const params = {
       acquisitionTransactionId: 1,
-      asset: 'BTC',
+      assetSymbol: 'BTC',
       calculationId: 'calc-123',
       costBasisPerUnit: parseDecimal('50000'),
       id: 'lot-123',
@@ -22,7 +22,7 @@ describe('createAcquisitionLot', () => {
     expect(lot.id).toBe('lot-123');
     expect(lot.calculationId).toBe('calc-123');
     expect(lot.acquisitionTransactionId).toBe(1);
-    expect(lot.asset).toBe('BTC');
+    expect(lot.assetSymbol).toBe('BTC');
     expect(lot.quantity.toString()).toBe('2');
     expect(lot.costBasisPerUnit.toString()).toBe('50000');
     expect(lot.totalCostBasis.toString()).toBe('100000');
@@ -35,7 +35,7 @@ describe('createAcquisitionLot', () => {
   test('should calculate total cost basis correctly', () => {
     const lot = createAcquisitionLot({
       acquisitionTransactionId: 1,
-      asset: 'ETH',
+      assetSymbol: 'ETH',
       calculationId: 'calc-123',
       costBasisPerUnit: parseDecimal('3000.50'),
       id: 'lot-123',

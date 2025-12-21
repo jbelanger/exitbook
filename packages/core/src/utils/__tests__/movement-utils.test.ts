@@ -13,7 +13,7 @@ describe('computePrimaryMovement', () => {
   it('returns single inflow as primary with direction "in"', () => {
     const inflows: AssetMovement[] = [
       {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: parseDecimal('1.5'),
       },
     ];
@@ -21,7 +21,7 @@ describe('computePrimaryMovement', () => {
     const result = computePrimaryMovement(inflows, []);
 
     expect(result).toEqual({
-      asset: 'BTC',
+      assetSymbol: 'BTC',
       amount: parseDecimal('1.5'),
       direction: 'in',
     });
@@ -30,7 +30,7 @@ describe('computePrimaryMovement', () => {
   it('returns single outflow as primary with direction "out"', () => {
     const outflows: AssetMovement[] = [
       {
-        asset: 'ETH',
+        assetSymbol: 'ETH',
         grossAmount: parseDecimal('2.5'),
       },
     ];
@@ -38,7 +38,7 @@ describe('computePrimaryMovement', () => {
     const result = computePrimaryMovement([], outflows);
 
     expect(result).toEqual({
-      asset: 'ETH',
+      assetSymbol: 'ETH',
       amount: parseDecimal('2.5'),
       direction: 'out',
     });
@@ -47,15 +47,15 @@ describe('computePrimaryMovement', () => {
   it('returns largest inflow when multiple inflows and no outflows', () => {
     const inflows: AssetMovement[] = [
       {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: parseDecimal('0.5'),
       },
       {
-        asset: 'ETH',
+        assetSymbol: 'ETH',
         grossAmount: parseDecimal('10'),
       },
       {
-        asset: 'USDT',
+        assetSymbol: 'USDT',
         grossAmount: parseDecimal('1000'),
       },
     ];
@@ -63,7 +63,7 @@ describe('computePrimaryMovement', () => {
     const result = computePrimaryMovement(inflows, []);
 
     expect(result).toEqual({
-      asset: 'USDT',
+      assetSymbol: 'USDT',
       amount: parseDecimal('1000'),
       direction: 'in',
     });
@@ -72,15 +72,15 @@ describe('computePrimaryMovement', () => {
   it('returns largest outflow when multiple outflows and no inflows', () => {
     const outflows: AssetMovement[] = [
       {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: parseDecimal('0.1'),
       },
       {
-        asset: 'ETH',
+        assetSymbol: 'ETH',
         grossAmount: parseDecimal('5'),
       },
       {
-        asset: 'USDC',
+        assetSymbol: 'USDC',
         grossAmount: parseDecimal('100'),
       },
     ];
@@ -88,7 +88,7 @@ describe('computePrimaryMovement', () => {
     const result = computePrimaryMovement([], outflows);
 
     expect(result).toEqual({
-      asset: 'USDC',
+      assetSymbol: 'USDC',
       amount: parseDecimal('100'),
       direction: 'out',
     });
@@ -97,13 +97,13 @@ describe('computePrimaryMovement', () => {
   it('returns largest movement when both inflows and outflows exist (inflow larger)', () => {
     const inflows: AssetMovement[] = [
       {
-        asset: 'USDT',
+        assetSymbol: 'USDT',
         grossAmount: parseDecimal('1000'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: parseDecimal('0.5'),
       },
     ];
@@ -111,7 +111,7 @@ describe('computePrimaryMovement', () => {
     const result = computePrimaryMovement(inflows, outflows);
 
     expect(result).toEqual({
-      asset: 'USDT',
+      assetSymbol: 'USDT',
       amount: parseDecimal('1000'),
       direction: 'in',
     });
@@ -120,13 +120,13 @@ describe('computePrimaryMovement', () => {
   it('returns largest movement when both inflows and outflows exist (outflow larger)', () => {
     const inflows: AssetMovement[] = [
       {
-        asset: 'USDT',
+        assetSymbol: 'USDT',
         grossAmount: parseDecimal('100'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: parseDecimal('500'),
       },
     ];
@@ -134,7 +134,7 @@ describe('computePrimaryMovement', () => {
     const result = computePrimaryMovement(inflows, outflows);
 
     expect(result).toEqual({
-      asset: 'BTC',
+      assetSymbol: 'BTC',
       amount: parseDecimal('500'),
       direction: 'out',
     });
@@ -143,13 +143,13 @@ describe('computePrimaryMovement', () => {
   it('returns inflow when amounts are equal (inflow has priority)', () => {
     const inflows: AssetMovement[] = [
       {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: parseDecimal('1'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
-        asset: 'ETH',
+        assetSymbol: 'ETH',
         grossAmount: parseDecimal('1'),
       },
     ];
@@ -157,7 +157,7 @@ describe('computePrimaryMovement', () => {
     const result = computePrimaryMovement(inflows, outflows);
 
     expect(result).toEqual({
-      asset: 'BTC',
+      assetSymbol: 'BTC',
       amount: parseDecimal('1'),
       direction: 'in',
     });
@@ -167,13 +167,13 @@ describe('computePrimaryMovement', () => {
     // Buying 1 BTC for 50,000 USDT
     const inflows: AssetMovement[] = [
       {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: parseDecimal('1'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
-        asset: 'USDT',
+        assetSymbol: 'USDT',
         grossAmount: parseDecimal('50000'),
       },
     ];
@@ -182,7 +182,7 @@ describe('computePrimaryMovement', () => {
 
     // USDT amount is larger numerically, so it becomes primary
     expect(result).toEqual({
-      asset: 'USDT',
+      assetSymbol: 'USDT',
       amount: parseDecimal('50000'),
       direction: 'out',
     });
@@ -192,21 +192,21 @@ describe('computePrimaryMovement', () => {
     // Multiple inflows and outflows
     const inflows: AssetMovement[] = [
       {
-        asset: 'ETH',
+        assetSymbol: 'ETH',
         grossAmount: parseDecimal('10'),
       },
       {
-        asset: 'USDC',
+        assetSymbol: 'USDC',
         grossAmount: parseDecimal('100'),
       },
     ];
     const outflows: AssetMovement[] = [
       {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: parseDecimal('0.5'),
       },
       {
-        asset: 'USDT',
+        assetSymbol: 'USDT',
         grossAmount: parseDecimal('5000'),
       },
     ];
@@ -215,7 +215,7 @@ describe('computePrimaryMovement', () => {
 
     // USDT outflow (5000) is the largest
     expect(result).toEqual({
-      asset: 'USDT',
+      assetSymbol: 'USDT',
       amount: parseDecimal('5000'),
       direction: 'out',
     });
@@ -224,7 +224,7 @@ describe('computePrimaryMovement', () => {
   it('handles decimal amounts correctly', () => {
     const inflows: AssetMovement[] = [
       {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: parseDecimal('0.00000001'), // 1 satoshi
       },
     ];
@@ -232,7 +232,7 @@ describe('computePrimaryMovement', () => {
     const result = computePrimaryMovement(inflows, []);
 
     expect(result).toEqual({
-      asset: 'BTC',
+      assetSymbol: 'BTC',
       amount: parseDecimal('0.00000001'),
       direction: 'in',
     });
@@ -241,7 +241,7 @@ describe('computePrimaryMovement', () => {
   it('handles very large amounts', () => {
     const inflows: AssetMovement[] = [
       {
-        asset: 'SHIB',
+        assetSymbol: 'SHIB',
         grossAmount: parseDecimal('1000000000000'),
       },
     ];
@@ -249,7 +249,7 @@ describe('computePrimaryMovement', () => {
     const result = computePrimaryMovement(inflows, []);
 
     expect(result).toEqual({
-      asset: 'SHIB',
+      assetSymbol: 'SHIB',
       amount: parseDecimal('1000000000000'),
       direction: 'in',
     });

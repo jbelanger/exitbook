@@ -266,7 +266,7 @@ describe('TransactionRepository - scam token filtering', () => {
           transaction_datetime: new Date().toISOString(),
           is_spam: false,
           excluded_from_accounting: false,
-          movements_inflows: JSON.stringify([{ asset: 'ETH', grossAmount: '1.0', netAmount: '1.0' }]),
+          movements_inflows: JSON.stringify([{ assetSymbol: 'ETH', grossAmount: '1.0', netAmount: '1.0' }]),
           operation_type: 'transfer' as const,
           created_at: new Date().toISOString(),
         })
@@ -288,7 +288,7 @@ describe('TransactionRepository - scam token filtering', () => {
           notes_json: JSON.stringify([{ type: 'SCAM_TOKEN', message: 'Scam token detected', severity: 'error' }]),
           is_spam: true,
           excluded_from_accounting: true, // Scam tokens excluded
-          movements_inflows: JSON.stringify([{ asset: 'SCAM', grossAmount: '1000.0', netAmount: '1000.0' }]),
+          movements_inflows: JSON.stringify([{ assetSymbol: 'SCAM', grossAmount: '1000.0', netAmount: '1000.0' }]),
           operation_type: 'transfer' as const,
           created_at: new Date().toISOString(),
         })
@@ -413,7 +413,7 @@ describe('TransactionRepository - isSpam field', () => {
       movements: {
         inflows: [
           {
-            asset: 'SCAM',
+            assetSymbol: 'SCAM',
             grossAmount: parseDecimal('1000'),
             netAmount: parseDecimal('1000'),
           },
@@ -458,7 +458,7 @@ describe('TransactionRepository - isSpam field', () => {
       movements: {
         inflows: [
           {
-            asset: 'ETH',
+            assetSymbol: 'ETH',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('1'),
           },
@@ -496,7 +496,7 @@ describe('TransactionRepository - isSpam field', () => {
       movements: {
         inflows: [
           {
-            asset: 'ETH',
+            assetSymbol: 'ETH',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('1'),
           },
@@ -657,8 +657,8 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
         operation_type: 'swap',
         is_spam: false,
         excluded_from_accounting: false,
-        movements_inflows: JSON.stringify([{ asset: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
-        fees: JSON.stringify([{ asset: 'BTC', amount: '0.0001', scope: 'network', settlement: 'on-chain' }]),
+        movements_inflows: JSON.stringify([{ assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
+        fees: JSON.stringify([{ assetSymbol: 'BTC', amount: '0.0001', scope: 'network', settlement: 'on-chain' }]),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -677,7 +677,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       movements: {
         inflows: [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
             priceAtTxTime: {
@@ -692,7 +692,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       },
       fees: [
         {
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('0.0001'),
           scope: 'network',
           settlement: 'on-chain',
@@ -713,7 +713,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
     // Verify movements and fees were persisted correctly
     const tx = await db.selectFrom('transactions').selectAll().where('id', '=', 1).executeTakeFirst();
     const inflows = JSON.parse(tx!.movements_inflows as string) as {
-      asset: string;
+      assetSymbol: string;
       grossAmount: string;
       netAmount: string;
       priceAtTxTime?: {
@@ -725,7 +725,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
     }[];
     const fees = JSON.parse(tx!.fees as string) as {
       amount: string;
-      asset: string;
+      assetSymbol: string;
       priceAtTxTime?: {
         fetchedAt: string;
         granularity: string;
@@ -761,7 +761,7 @@ describe('TransactionRepository - updateMovementsWithPrices', () => {
       movements: {
         inflows: [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('1.0'),
             priceAtTxTime: {
@@ -856,7 +856,7 @@ describe.skip('TransactionRepository - deduplication across sessions (deprecated
           transaction_datetime: new Date('2024-01-01').toISOString(),
           is_spam: false,
           excluded_from_accounting: false,
-          movements_inflows: JSON.stringify([{ asset: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
+          movements_inflows: JSON.stringify([{ assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
           operation_type: 'deposit' as const,
           created_at: new Date('2024-01-01').toISOString(),
         })
@@ -886,7 +886,7 @@ describe.skip('TransactionRepository - deduplication across sessions (deprecated
           transaction_datetime: new Date('2024-01-02').toISOString(),
           is_spam: false,
           excluded_from_accounting: false,
-          movements_inflows: JSON.stringify([{ asset: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
+          movements_inflows: JSON.stringify([{ assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' }]),
           operation_type: 'deposit' as const,
           created_at: new Date('2024-01-02').toISOString(),
         })

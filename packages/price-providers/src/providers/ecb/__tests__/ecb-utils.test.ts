@@ -97,7 +97,7 @@ describe('transformECBResponse', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toEqual({
-        asset,
+        assetSymbol: asset,
         timestamp,
         price: parseDecimal('1.0856'),
         currency,

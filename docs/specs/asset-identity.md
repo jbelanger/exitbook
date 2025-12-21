@@ -44,19 +44,17 @@ Today, assets are keyed by symbol only. Tokens with the same symbol (across chai
 
 ## Definitions
 
-### Asset Identity
+### Asset Identity Fields (Minimal)
 
 ```ts
-export interface AssetIdentity {
-  assetId: string; // Unique key used for math & storage
-  assetSymbol: string; // Display symbol (e.g., USDC)
-  assetNamespace: 'blockchain' | 'exchange' | 'fiat';
-  assetRef: string; // Contract/mint/denom/currency code
-  chain?: string | undefined;
-  exchange?: string | undefined;
-  network?: string | undefined; // Transfer network (exchange deposits/withdrawals)
-}
+// Minimal fields required everywhere
+assetId: string; // Unique key used for math & storage
+assetSymbol: string; // Display symbol (e.g., USDC)
 ```
+
+Additional metadata (contract/mint/denom/network) should be fetched from
+TokenMetadata or derived by parsing `assetId`. Do not duplicate token metadata
+on movements/fees beyond what is needed for display.
 
 ### Asset ID Format (Proposed)
 
@@ -94,7 +92,7 @@ Example: `blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48` (USDC 
 
 - Prices must be associated to `assetId`, not `assetSymbol`.
 - Price providers may still accept symbols; introduce a `pricingKey` mapping:
-  - On-chain tokens: prefer contract/mint where provider supports it.
+  - On-chain tokens: prefer contract/mint where provider supports it (lookup via `assetId` -> TokenMetadata).
   - Otherwise, fall back to symbol with warnings for ambiguous symbols.
 
 ### Cost Basis / Lots
@@ -104,7 +102,7 @@ Example: `blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48` (USDC 
 
 ## Data Model Changes (High-Level)
 
-- `AssetMovement` and `FeeMovement` include `assetId` + optional metadata.
+- `AssetMovement` and `FeeMovement` include `assetId` + `assetSymbol` (no duplicated token metadata).
 - Persist `assetId` in `movements_*` and `fees` JSON blobs.
 - Update initial schema migration (`001_initial_schema.ts`) accordingly.
 

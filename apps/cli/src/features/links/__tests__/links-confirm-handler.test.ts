@@ -66,7 +66,7 @@ describe('LinksConfirmHandler', () => {
     id,
     sourceTransactionId: 1,
     targetTransactionId: 2,
-    asset: 'BTC',
+    assetSymbol: 'BTC',
     sourceAmount: parseDecimal('1.0'),
     targetAmount: parseDecimal('1.0'),
     linkType: 'exchange_to_blockchain',

@@ -7,7 +7,7 @@ import type { Result } from 'neverthrow';
  */
 export interface PriceQuery {
   /** Asset symbol (e.g., 'BTC', 'ETH') */
-  asset: Currency;
+  assetSymbol: Currency;
   /** Timestamp for price lookup */
   timestamp: Date;
   /** Target currency (default: 'USD') */
@@ -33,7 +33,7 @@ export type PriceGranularity = 'exact' | HistoricalGranularity;
  * Normalized price data from any provider
  */
 export interface PriceData {
-  asset: Currency;
+  assetSymbol: Currency;
   timestamp: Date;
   price: Decimal;
   /**
@@ -114,7 +114,7 @@ export interface ProviderCapabilities {
    * - Bank of Canada: ['CAD'] = only Canadian dollar
    * - CoinGecko: undefined = synced from API, supports top 5000+ coins
    *
-   * For query { asset: 'EUR', currency: 'USD', timestamp: ... }:
+   * For query { assetSymbol: 'EUR', currency: 'USD', timestamp: ... }:
    * - supportedAssetTypes must include 'fiat'
    * - supportedAssets must include 'EUR' (or be undefined for universal provider)
    */

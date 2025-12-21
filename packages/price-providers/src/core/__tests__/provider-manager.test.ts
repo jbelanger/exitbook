@@ -50,7 +50,7 @@ describe('PriceProviderManager', () => {
     } = {}
   ): IPriceProvider {
     const defaultPrice: PriceData = {
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       fetchedAt: new Date('2024-01-15T12:00:00Z'),
       price: parseDecimal('50000'),
@@ -102,7 +102,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([provider1, provider2]);
 
       const query: PriceQuery = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date(),
         currency: Currency.create('USD'),
       };
@@ -120,14 +120,14 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([provider]);
 
       const result = await manager.fetchPrice({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date('2024-01-15T12:00:00Z'),
         currency: Currency.create('USD'),
       });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.data.asset.toString()).toBe('BTC');
+        expect(result.value.data.assetSymbol.toString()).toBe('BTC');
         expect(result.value.providerName).toBe('test');
       }
     });
@@ -137,7 +137,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([provider]);
 
       const query: PriceQuery = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date('2024-01-15T12:00:00Z'),
         currency: Currency.create('USD'),
       };
@@ -154,7 +154,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([provider]);
 
       const query: PriceQuery = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date('2024-01-15T12:00:00Z'),
         currency: Currency.create('USD'),
       };
@@ -177,7 +177,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([failing, working]);
 
       const result = await manager.fetchPrice({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date(),
         currency: Currency.create('USD'),
       });
@@ -198,7 +198,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([p1, p2]);
 
       const result = await manager.fetchPrice({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date(),
         currency: Currency.create('USD'),
       });
@@ -221,7 +221,7 @@ describe('PriceProviderManager', () => {
       // Fail p1 multiple times with different timestamps to avoid caching
       for (let i = 0; i < 5; i++) {
         const query: PriceQuery = {
-          asset: Currency.create('BTC'),
+          assetSymbol: Currency.create('BTC'),
           timestamp: new Date(2024, 0, i + 1),
           currency: Currency.create('USD'),
         };
@@ -233,7 +233,7 @@ describe('PriceProviderManager', () => {
 
       // Next request should skip p1 (open circuit) and use p2
       const result = await manager.fetchPrice({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date(2024, 0, 10),
         currency: Currency.create('USD'),
       });
@@ -250,7 +250,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([provider]);
 
       await manager.fetchPrice({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date(),
         currency: Currency.create('USD'),
       });
@@ -269,7 +269,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([provider]);
 
       await manager.fetchPrice({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date(),
         currency: Currency.create('USD'),
       });
@@ -284,7 +284,7 @@ describe('PriceProviderManager', () => {
     it('should convert USDT-denominated price to USD', async () => {
       // Provider returns BTC price in USDT
       const btcInUsdt: PriceData = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         currency: Currency.create('USDT'), // Stablecoin
         fetchedAt: new Date('2024-01-15T12:00:00Z'),
         price: parseDecimal('50000'),
@@ -294,7 +294,7 @@ describe('PriceProviderManager', () => {
 
       // USDT is priced at $0.99 (slight de-peg)
       const usdtInUsd: PriceData = {
-        asset: Currency.create('USDT'),
+        assetSymbol: Currency.create('USDT'),
         currency: Currency.create('USD'),
         fetchedAt: new Date('2024-01-15T12:00:00Z'),
         price: parseDecimal('0.99'),
@@ -304,10 +304,10 @@ describe('PriceProviderManager', () => {
 
       const provider = {
         fetchPrice: vi.fn(async (query: PriceQuery) => {
-          if (query.asset.toString() === 'BTC') {
+          if (query.assetSymbol.toString() === 'BTC') {
             return ok(btcInUsdt);
           }
-          if (query.asset.toString() === 'USDT') {
+          if (query.assetSymbol.toString() === 'USDT') {
             return okAsync(usdtInUsd);
           }
           return err(new Error('Unknown asset'));
@@ -332,7 +332,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([provider]);
 
       const result = await manager.fetchPrice({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date('2024-01-15T12:00:00Z'),
         currency: Currency.create('USD'),
       });
@@ -352,7 +352,7 @@ describe('PriceProviderManager', () => {
     it('should not convert when pricing a stablecoin itself', async () => {
       // Pricing USDT directly in USD
       const usdtInUsd: PriceData = {
-        asset: Currency.create('USDT'),
+        assetSymbol: Currency.create('USDT'),
         currency: Currency.create('USDT'), // Same as asset
         fetchedAt: new Date('2024-01-15T12:00:00Z'),
         price: parseDecimal('1.0'),
@@ -367,7 +367,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([provider]);
 
       const result = await manager.fetchPrice({
-        asset: Currency.create('USDT'),
+        assetSymbol: Currency.create('USDT'),
         timestamp: new Date('2024-01-15T12:00:00Z'),
         currency: Currency.create('USD'),
       });
@@ -386,7 +386,7 @@ describe('PriceProviderManager', () => {
     it('should assume 1:1 parity when stablecoin rate unavailable', async () => {
       // Provider returns BTC price in USDC
       const btcInUsdc: PriceData = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         currency: Currency.create('USDC'), // Stablecoin
         fetchedAt: new Date('2024-01-15T12:00:00Z'),
         price: parseDecimal('50000'),
@@ -396,10 +396,10 @@ describe('PriceProviderManager', () => {
 
       const provider = {
         fetchPrice: vi.fn(async (query: PriceQuery) => {
-          if (query.asset.toString() === 'BTC') {
+          if (query.assetSymbol.toString() === 'BTC') {
             return okAsync(btcInUsdc);
           }
-          if (query.asset.toString() === 'USDC') {
+          if (query.assetSymbol.toString() === 'USDC') {
             return err(new Error('USDC rate not available'));
           }
           return err(new Error('Unknown asset'));
@@ -424,7 +424,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([provider]);
 
       const result = await manager.fetchPrice({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date('2024-01-15T12:00:00Z'),
         currency: Currency.create('USD'),
       });

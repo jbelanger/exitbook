@@ -76,7 +76,7 @@ export function matchDisposalToSortedLots(disposal: DisposalRequest, sortedLots:
   // This is an error condition that should be handled by the caller
   if (remainingQuantity.gt(0)) {
     throw new Error(
-      `Insufficient acquisition lots for disposal. Asset: ${disposal.asset}, ` +
+      `Insufficient acquisition lots for disposal. Asset: ${disposal.assetSymbol}, ` +
         `Disposal quantity: ${disposal.quantity.toString()}, ` +
         `Unmatched quantity: ${remainingQuantity.toString()}`
     );

@@ -41,7 +41,7 @@ describe('gaps-view-utils', () => {
           externalId: 'tx-1',
           fees: [
             {
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               amount: parseDecimal('0.0001'),
               scope: 'network',
               settlement: 'on-chain',
@@ -56,7 +56,7 @@ describe('gaps-view-utils', () => {
       expect(analysis.summary.total_issues).toBe(1);
       expect(analysis.summary.by_type.fee_without_price).toBe(1);
       expect(analysis.issues[0]!.issue_type).toBe('fee_without_price');
-      expect(analysis.issues[0]!.asset).toBe('BTC');
+      expect(analysis.issues[0]!.assetSymbol).toBe('BTC');
       expect(analysis.issues[0]!.amount).toBe('0.0001');
     });
 
@@ -67,7 +67,7 @@ describe('gaps-view-utils', () => {
           externalId: 'tx-1',
           fees: [
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               amount: parseDecimal('2.50'),
               scope: 'platform',
               settlement: 'balance',
@@ -81,7 +81,7 @@ describe('gaps-view-utils', () => {
 
       expect(analysis.summary.total_issues).toBe(1);
       expect(analysis.summary.by_type.fee_without_price).toBe(1);
-      expect(analysis.issues[0]!.asset).toBe('USD');
+      expect(analysis.issues[0]!.assetSymbol).toBe('USD');
     });
 
     it('should detect missing fee fields when operation is fee', () => {
@@ -97,7 +97,7 @@ describe('gaps-view-utils', () => {
             inflows: [],
             outflows: [
               {
-                asset: 'ETH',
+                assetSymbol: 'ETH',
                 grossAmount: parseDecimal('0.01'),
               },
             ],
@@ -121,13 +121,13 @@ describe('gaps-view-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1.0'),
               },
             ],
             outflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.001'),
               },
             ],
@@ -147,7 +147,7 @@ describe('gaps-view-utils', () => {
       expect(analysis.summary.total_issues).toBe(1);
       expect(analysis.summary.by_type.fee_in_movements).toBe(1);
       expect(analysis.issues[0]!.issue_type).toBe('fee_in_movements');
-      expect(analysis.issues[0]!.asset).toBe('BTC');
+      expect(analysis.issues[0]!.assetSymbol).toBe('BTC');
     });
 
     it('should not flag outflow if it matches fee field', () => {
@@ -159,14 +159,14 @@ describe('gaps-view-utils', () => {
             inflows: [],
             outflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.0001'),
               },
             ],
           },
           fees: [
             {
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               amount: parseDecimal('0.0001'),
               scope: 'network',
               settlement: 'on-chain',
@@ -199,7 +199,7 @@ describe('gaps-view-utils', () => {
           externalId: 'tx-1',
           fees: [
             {
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               amount: parseDecimal('0.0001'),
               scope: 'network',
               settlement: 'on-chain',
@@ -227,14 +227,14 @@ describe('gaps-view-utils', () => {
           externalId: 'tx-1',
           fees: [
             {
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               amount: parseDecimal('0.0001'),
               scope: 'network',
               settlement: 'on-chain',
               priceAtTxTime: undefined,
             },
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               amount: parseDecimal('2.50'),
               scope: 'platform',
               settlement: 'balance',
@@ -274,7 +274,7 @@ describe('gaps-view-utils', () => {
         movements: {
           inflows: [
             {
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               grossAmount: parseDecimal('0.8'),
               netAmount: parseDecimal('0.8'),
             },
@@ -302,7 +302,7 @@ describe('gaps-view-utils', () => {
           inflows: [],
           outflows: [
             {
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               grossAmount: parseDecimal('0.5'),
               netAmount: parseDecimal('0.5'),
             },
@@ -324,7 +324,7 @@ describe('gaps-view-utils', () => {
           inflows: [],
           outflows: [
             {
-              asset: 'ETH',
+              assetSymbol: 'ETH',
               grossAmount: parseDecimal('5'),
               netAmount: parseDecimal('5'),
             },
@@ -347,12 +347,12 @@ describe('gaps-view-utils', () => {
       expect(analysis.summary.uncovered_inflows).toBe(1);
       expect(analysis.summary.unmatched_outflows).toBe(0);
       expect(analysis.summary.affected_assets).toBe(1);
-      expect(analysis.issues[0]!.asset).toBe('BTC');
+      expect(analysis.issues[0]!.assetSymbol).toBe('BTC');
       expect(analysis.issues[0]!.missingAmount).toBe('0.8');
       expect(analysis.issues[0]!.totalAmount).toBe('0.8');
       expect(analysis.issues[0]!.direction).toBe('inflow');
       expect(analysis.summary.assets[0]).toStrictEqual({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         inflowOccurrences: 1,
         inflowMissingAmount: '0.8',
         outflowOccurrences: 0,
@@ -367,7 +367,7 @@ describe('gaps-view-utils', () => {
           id: 'link-1',
           sourceTransactionId: 5,
           targetTransactionId: 11,
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           sourceAmount: parseDecimal('0.8'),
           targetAmount: parseDecimal('0.8'),
           linkType: 'exchange_to_blockchain',
@@ -426,12 +426,12 @@ describe('gaps-view-utils', () => {
       expect(analysis.summary.unmatched_outflows).toBe(1);
       expect(analysis.summary.affected_assets).toBe(1);
       const issue = analysis.issues[0]!;
-      expect(issue.asset).toBe('BTC');
+      expect(issue.assetSymbol).toBe('BTC');
       expect(issue.missingAmount).toBe('0.5');
       expect(issue.totalAmount).toBe('0.5');
       expect(issue.direction).toBe('outflow');
       expect(analysis.summary.assets[0]).toStrictEqual({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         inflowOccurrences: 0,
         inflowMissingAmount: '0',
         outflowOccurrences: 1,
@@ -447,7 +447,7 @@ describe('gaps-view-utils', () => {
           id: 'link-out-1',
           sourceTransactionId: withdrawal.id ?? 0,
           targetTransactionId: 42,
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           sourceAmount: parseDecimal('0.5'),
           targetAmount: parseDecimal('0.5'),
           linkType: 'blockchain_to_blockchain',
@@ -486,12 +486,12 @@ describe('gaps-view-utils', () => {
       expect(analysis.summary.unmatched_outflows).toBe(1);
       expect(analysis.summary.affected_assets).toBe(1);
       const issue = analysis.issues[0]!;
-      expect(issue.asset).toBe('ETH');
+      expect(issue.assetSymbol).toBe('ETH');
       expect(issue.direction).toBe('outflow');
       expect(issue.missingAmount).toBe('5');
       expect(issue.totalAmount).toBe('5');
       expect(analysis.summary.assets[0]).toStrictEqual({
-        asset: 'ETH',
+        assetSymbol: 'ETH',
         inflowOccurrences: 0,
         inflowMissingAmount: '0',
         outflowOccurrences: 1,
@@ -507,7 +507,7 @@ describe('gaps-view-utils', () => {
           id: 'link-ex-1',
           sourceTransactionId: withdrawal.id ?? 0,
           targetTransactionId: 77,
-          asset: 'ETH',
+          assetSymbol: 'ETH',
           sourceAmount: parseDecimal('5'),
           targetAmount: parseDecimal('5'),
           linkType: 'exchange_to_blockchain',
@@ -544,7 +544,7 @@ describe('gaps-view-utils', () => {
           externalId: 'tx-1',
           fees: [
             {
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               amount: parseDecimal('0.0001'),
               scope: 'network',
               settlement: 'on-chain',
@@ -611,7 +611,7 @@ describe('gaps-view-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.3'),
                 netAmount: parseDecimal('0.3'),
               },
@@ -678,7 +678,7 @@ describe('gaps-view-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'ETH',
+                assetSymbol: 'ETH',
                 grossAmount: parseDecimal('2.1'),
                 netAmount: parseDecimal('2.1'),
               },
@@ -716,7 +716,7 @@ describe('gaps-view-utils', () => {
             inflows: [],
             outflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1.25'),
                 netAmount: parseDecimal('1.25'),
               },
@@ -750,7 +750,7 @@ describe('gaps-view-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.2'),
                 netAmount: parseDecimal('0.2'),
               },
@@ -769,7 +769,7 @@ describe('gaps-view-utils', () => {
           id: 'link-101',
           sourceTransactionId: 11,
           targetTransactionId: 101,
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           sourceAmount: parseDecimal('0.2'),
           targetAmount: parseDecimal('0.2'),
           linkType: 'exchange_to_blockchain',

@@ -45,8 +45,8 @@ export function mapCurrencyToBinanceQuote(currency: Currency): string[] {
  * Binance format: BTCUSDT, ETHUSDT, etc.
  * No separator between base and quote
  */
-export function buildBinanceSymbol(asset: Currency, quoteAsset: string): string {
-  return `${asset.toString()}${quoteAsset}`;
+export function buildBinanceSymbol(assetSymbol: Currency, quoteAsset: string): string {
+  return `${assetSymbol.toString()}${quoteAsset}`;
 }
 
 /**
@@ -85,7 +85,7 @@ export function extractClosePriceFromKline(kline: BinanceKline): string {
  */
 export function transformBinanceKlineResponse(
   kline: BinanceKline,
-  asset: Currency,
+  assetSymbol: Currency,
   requestedTimestamp: Date,
   currency: Currency,
   fetchedAt: Date,
@@ -95,7 +95,7 @@ export function transformBinanceKlineResponse(
   const rawPrice = extractClosePriceFromKline(kline);
 
   // Validate price using shared helper
-  const priceResult = validateRawPrice(rawPrice, asset, 'Binance');
+  const priceResult = validateRawPrice(rawPrice, assetSymbol, 'Binance');
   if (priceResult.isErr()) {
     return err(priceResult.error);
   }
@@ -104,7 +104,7 @@ export function transformBinanceKlineResponse(
   const roundedTimestamp = roundTimestampByGranularity(requestedTimestamp, granularity);
 
   return ok({
-    asset,
+    assetSymbol,
     timestamp: roundedTimestamp,
     price: priceResult.value,
     currency,

@@ -21,8 +21,8 @@ export class LinkIndex {
     this.targetMap = new Map();
 
     for (const link of links) {
-      const sourceKey = this.buildSourceKey(link.sourceTransactionId, link.asset, link.sourceAmount);
-      const targetKey = buildTargetKey(link.targetTransactionId, link.asset);
+      const sourceKey = this.buildSourceKey(link.sourceTransactionId, link.assetSymbol, link.sourceAmount);
+      const targetKey = buildTargetKey(link.targetTransactionId, link.assetSymbol);
 
       if (!this.sourceMap.has(sourceKey)) {
         this.sourceMap.set(sourceKey, []);
@@ -40,8 +40,8 @@ export class LinkIndex {
    * Find next unconsumed link for a source outflow transaction.
    * Returns first available link matching txId + asset + amount.
    */
-  findBySource(txId: number, asset: string, amount: Decimal): TransactionLink | undefined {
-    const key = this.buildSourceKey(txId, asset, amount);
+  findBySource(txId: number, assetSymbol: string, amount: Decimal): TransactionLink | undefined {
+    const key = this.buildSourceKey(txId, assetSymbol, amount);
     const links = this.sourceMap.get(key);
     return links && links.length > 0 ? (links[0] ?? undefined) : undefined;
   }
@@ -50,8 +50,8 @@ export class LinkIndex {
    * Find next unconsumed link for a target inflow transaction.
    * Returns first available link matching txId + asset.
    */
-  findByTarget(txId: number, asset: string): TransactionLink | undefined {
-    const key = buildTargetKey(txId, asset);
+  findByTarget(txId: number, assetSymbol: string): TransactionLink | undefined {
+    const key = buildTargetKey(txId, assetSymbol);
     const links = this.targetMap.get(key);
     return links && links.length > 0 ? (links[0] ?? undefined) : undefined;
   }
@@ -61,7 +61,7 @@ export class LinkIndex {
    * Removes link from sourceMap but leaves it in targetMap for inflow processing.
    */
   consumeSourceLink(link: TransactionLink): void {
-    const key = this.buildSourceKey(link.sourceTransactionId, link.asset, link.sourceAmount);
+    const key = this.buildSourceKey(link.sourceTransactionId, link.assetSymbol, link.sourceAmount);
     const links = this.sourceMap.get(key);
     if (links) {
       const index = links.findIndex((l) => l.id === link.id);
@@ -79,7 +79,7 @@ export class LinkIndex {
    * Removes link from targetMap after inflow processing.
    */
   consumeTargetLink(link: TransactionLink): void {
-    const key = buildTargetKey(link.targetTransactionId, link.asset);
+    const key = buildTargetKey(link.targetTransactionId, link.assetSymbol);
     const links = this.targetMap.get(key);
     if (links) {
       const index = links.findIndex((l) => l.id === link.id);
@@ -92,14 +92,14 @@ export class LinkIndex {
     }
   }
 
-  private buildSourceKey(txId: number, asset: string, amount: Decimal): string {
-    return `${txId}:${asset}:${amount.toFixed()}`;
+  private buildSourceKey(txId: number, assetSymbol: string, amount: Decimal): string {
+    return `${txId}:${assetSymbol}:${amount.toFixed()}`;
   }
 }
 
 /**
  * Build target key for looking up links by target transaction and asset.
  */
-function buildTargetKey(txId: number, asset: string): string {
-  return `${txId}:${asset}`;
+function buildTargetKey(txId: number, assetSymbol: string): string {
+  return `${txId}:${assetSymbol}`;
 }

@@ -25,7 +25,7 @@ export class StandardFxRateProvider implements IFxRateProvider {
     // ProviderManager scores candidates per request (asset support, health, granularity)
     // so EUR typically hits ECB first, CAD hits Bank of Canada, with Frankfurter as fallback.
     const fxRateResult = await this.priceManager.fetchPrice({
-      asset: sourceCurrency,
+      assetSymbol: sourceCurrency,
       currency: CurrencyClass.create('USD'),
       timestamp,
     });
@@ -49,7 +49,7 @@ export class StandardFxRateProvider implements IFxRateProvider {
     // To get USD → target, we fetch target → USD and invert the rate
     // Example: CAD → USD = 0.74, so USD → CAD = 1/0.74 = 1.35
     const fxRateResult = await this.priceManager.fetchPrice({
-      asset: targetCurrency,
+      assetSymbol: targetCurrency,
       currency: CurrencyClass.create('USD'),
       timestamp,
     });

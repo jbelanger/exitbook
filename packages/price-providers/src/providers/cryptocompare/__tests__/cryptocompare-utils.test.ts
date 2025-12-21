@@ -32,7 +32,7 @@ describe('transformPriceResponse', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toEqual({
-        asset,
+        assetSymbol: asset,
         timestamp,
         price: parseDecimal('30000'),
         currency,
@@ -211,7 +211,7 @@ describe('transformHistoricalResponse', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toEqual({
-        asset,
+        assetSymbol: asset,
         timestamp: new Date(2000 * 1000 - 20 * 1000), // Rounded to minute (1970-01-01T00:33:00Z)
         price: parseDecimal('108'), // close price at time 2000
         currency,

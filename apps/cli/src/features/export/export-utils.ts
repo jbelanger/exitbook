@@ -123,13 +123,13 @@ export function convertToCSV(transactions: UniversalTransactionData[]): string {
       tx.operation.category || '',
       tx.operation.type || '',
       tx.datetime || '',
-      primary?.asset || '',
+      primary?.assetSymbol || '',
       primary?.amount.toFixed() || '',
       primary?.direction || '',
       networkFee?.amount.toFixed() || '',
-      networkFee?.asset || '',
+      networkFee?.assetSymbol || '',
       platformFee?.amount.toFixed() || '',
-      platformFee?.asset || '',
+      platformFee?.assetSymbol || '',
       tx.status || '',
     ];
 

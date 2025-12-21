@@ -14,7 +14,7 @@ export interface ViewPricesParams extends CommonViewFilters {
  * Price coverage info for a single asset.
  */
 export interface PriceCoverageInfo {
-  asset: string;
+  assetSymbol: string;
   total_transactions: number;
   with_price: number;
   missing_price: number;
@@ -49,7 +49,7 @@ export function formatPriceCoverageForDisplay(coverage: PriceCoverageInfo): stri
   const coverageStr = formatCoveragePercentage(coverage.coverage_percentage);
   const icon = coverage.coverage_percentage === 100 ? '✓' : coverage.missing_price > 0 ? '⚠' : '•';
 
-  lines.push(`${icon} ${coverage.asset}`);
+  lines.push(`${icon} ${coverage.assetSymbol}`);
   lines.push(`   Total: ${coverage.total_transactions} transactions`);
   lines.push(`   With price: ${coverage.with_price}`);
   lines.push(`   Missing: ${coverage.missing_price}`);

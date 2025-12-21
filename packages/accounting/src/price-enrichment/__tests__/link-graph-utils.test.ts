@@ -27,7 +27,7 @@ function createTx(
     timestamp: Date.parse(options.datetime ?? '2023-01-01T00:00:00Z'),
     status: 'success',
     movements: {
-      inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.0') }],
+      inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }],
     },
     fees: [],
     operation: { category: 'transfer', type: 'deposit' },
@@ -57,7 +57,7 @@ function createLink(
     id: `link-${sourceName}-${targetId}`,
     sourceTransactionId: sourceName,
     targetTransactionId: targetId,
-    asset: 'BTC',
+    assetSymbol: 'BTC',
     sourceAmount: parseDecimal('1.0'),
     targetAmount: parseDecimal('1.0'),
     linkType: 'exchange_to_blockchain',

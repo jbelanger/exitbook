@@ -76,7 +76,7 @@ describe('Frankfurter Provider E2E', () => {
   describe('EUR conversions', () => {
     it('should fetch EUR/USD exchange rate for recent date', async () => {
       const result = await provider.fetchPrice({
-        asset: Currency.create('EUR'),
+        assetSymbol: Currency.create('EUR'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
@@ -85,7 +85,7 @@ describe('Frankfurter Provider E2E', () => {
 
       if (result.isOk()) {
         const priceData = result.value;
-        expect(priceData.asset.toString()).toBe('EUR');
+        expect(priceData.assetSymbol.toString()).toBe('EUR');
         expect(priceData.currency.toString()).toBe('USD');
         expect(priceData.price).toBeGreaterThan(0);
         expect(priceData.price).toBeGreaterThan(0.5);
@@ -99,7 +99,7 @@ describe('Frankfurter Provider E2E', () => {
   describe('CAD conversions', () => {
     it('should fetch CAD/USD exchange rate for recent date', async () => {
       const result = await provider.fetchPrice({
-        asset: Currency.create('CAD'),
+        assetSymbol: Currency.create('CAD'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
@@ -108,7 +108,7 @@ describe('Frankfurter Provider E2E', () => {
 
       if (result.isOk()) {
         const priceData = result.value;
-        expect(priceData.asset.toString()).toBe('CAD');
+        expect(priceData.assetSymbol.toString()).toBe('CAD');
         expect(priceData.currency.toString()).toBe('USD');
         expect(priceData.price).toBeGreaterThan(0);
         expect(priceData.price).toBeGreaterThan(0.5); // CAD typically worth more than 0.5 USD
@@ -122,7 +122,7 @@ describe('Frankfurter Provider E2E', () => {
   describe('GBP conversions', () => {
     it('should fetch GBP/USD exchange rate for recent date', async () => {
       const result = await provider.fetchPrice({
-        asset: Currency.create('GBP'),
+        assetSymbol: Currency.create('GBP'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
@@ -131,7 +131,7 @@ describe('Frankfurter Provider E2E', () => {
 
       if (result.isOk()) {
         const priceData = result.value;
-        expect(priceData.asset.toString()).toBe('GBP');
+        expect(priceData.assetSymbol.toString()).toBe('GBP');
         expect(priceData.currency.toString()).toBe('USD');
         expect(priceData.price).toBeGreaterThan(1.0); // GBP typically worth more than 1 USD
         expect(priceData.price).toBeLessThan(2.0); // GBP typically worth less than 2 USD
@@ -144,7 +144,7 @@ describe('Frankfurter Provider E2E', () => {
   describe('JPY conversions', () => {
     it('should fetch JPY/USD exchange rate for recent date', async () => {
       const result = await provider.fetchPrice({
-        asset: Currency.create('JPY'),
+        assetSymbol: Currency.create('JPY'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
@@ -153,7 +153,7 @@ describe('Frankfurter Provider E2E', () => {
 
       if (result.isOk()) {
         const priceData = result.value;
-        expect(priceData.asset.toString()).toBe('JPY');
+        expect(priceData.assetSymbol.toString()).toBe('JPY');
         expect(priceData.currency.toString()).toBe('USD');
         expect(priceData.price).toBeGreaterThan(0);
         expect(priceData.price).toBeLessThan(1); // JPY typically worth less than 1 USD
@@ -166,7 +166,7 @@ describe('Frankfurter Provider E2E', () => {
   describe('CHF conversions', () => {
     it('should fetch CHF/USD exchange rate for recent date', async () => {
       const result = await provider.fetchPrice({
-        asset: Currency.create('CHF'),
+        assetSymbol: Currency.create('CHF'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
@@ -175,7 +175,7 @@ describe('Frankfurter Provider E2E', () => {
 
       if (result.isOk()) {
         const priceData = result.value;
-        expect(priceData.asset.toString()).toBe('CHF');
+        expect(priceData.assetSymbol.toString()).toBe('CHF');
         expect(priceData.currency.toString()).toBe('USD');
         expect(priceData.price).toBeGreaterThan(0.5);
         expect(priceData.price).toBeLessThan(1.5);
@@ -188,7 +188,7 @@ describe('Frankfurter Provider E2E', () => {
   describe('Special cases', () => {
     it('should handle USD/USD as 1.0', async () => {
       const result = await provider.fetchPrice({
-        asset: Currency.create('USD'),
+        assetSymbol: Currency.create('USD'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
@@ -197,7 +197,7 @@ describe('Frankfurter Provider E2E', () => {
 
       if (result.isOk()) {
         const priceData = result.value;
-        expect(priceData.asset.toString()).toBe('USD');
+        expect(priceData.assetSymbol.toString()).toBe('USD');
         expect(priceData.currency.toString()).toBe('USD');
         expect(priceData.price).toBe(1.0);
         expect(priceData.source).toBe('frankfurter');
@@ -207,7 +207,7 @@ describe('Frankfurter Provider E2E', () => {
     it('should handle weekend dates (use previous business day)', async () => {
       // Saturday, January 13, 2024
       const result = await provider.fetchPrice({
-        asset: Currency.create('EUR'),
+        assetSymbol: Currency.create('EUR'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-13T00:00:00Z'),
       });
@@ -216,7 +216,7 @@ describe('Frankfurter Provider E2E', () => {
 
       if (result.isOk()) {
         const priceData = result.value;
-        expect(priceData.asset.toString()).toBe('EUR');
+        expect(priceData.assetSymbol.toString()).toBe('EUR');
         expect(priceData.currency.toString()).toBe('USD');
         expect(priceData.price).toBeGreaterThan(0);
         expect(priceData.granularity).toBe('day');
@@ -228,7 +228,7 @@ describe('Frankfurter Provider E2E', () => {
     it('should fetch historical rates from early 2000s', async () => {
       // Frankfurter has data back to 1999, but using 2000 for more reliable test
       const result = await provider.fetchPrice({
-        asset: Currency.create('EUR'),
+        assetSymbol: Currency.create('EUR'),
         currency: Currency.create('USD'),
         timestamp: new Date('2000-01-03T00:00:00Z'), // First business day of 2000
       });
@@ -237,7 +237,7 @@ describe('Frankfurter Provider E2E', () => {
 
       if (result.isOk()) {
         const priceData = result.value;
-        expect(priceData.asset.toString()).toBe('EUR');
+        expect(priceData.assetSymbol.toString()).toBe('EUR');
         expect(priceData.currency.toString()).toBe('USD');
         expect(priceData.price).toBeGreaterThan(0);
         expect(priceData.source).toBe('frankfurter');
@@ -246,7 +246,7 @@ describe('Frankfurter Provider E2E', () => {
 
     it('should fetch rates from 2020 (COVID period)', async () => {
       const result = await provider.fetchPrice({
-        asset: Currency.create('CAD'),
+        assetSymbol: Currency.create('CAD'),
         currency: Currency.create('USD'),
         timestamp: new Date('2020-06-30T00:00:00Z'),
       });
@@ -255,7 +255,7 @@ describe('Frankfurter Provider E2E', () => {
 
       if (result.isOk()) {
         const priceData = result.value;
-        expect(priceData.asset.toString()).toBe('CAD');
+        expect(priceData.assetSymbol.toString()).toBe('CAD');
         expect(priceData.currency.toString()).toBe('USD');
         expect(priceData.price).toBeGreaterThan(0);
       }
@@ -265,7 +265,7 @@ describe('Frankfurter Provider E2E', () => {
   describe('Error handling', () => {
     it('should return error for unsupported crypto currency', async () => {
       const result = await provider.fetchPrice({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
@@ -279,7 +279,7 @@ describe('Frankfurter Provider E2E', () => {
 
     it('should return error for non-USD target currency', async () => {
       const result = await provider.fetchPrice({
-        asset: Currency.create('EUR'),
+        assetSymbol: Currency.create('EUR'),
         currency: Currency.create('CAD'),
         timestamp: new Date('2024-01-15T00:00:00Z'),
       });
@@ -295,7 +295,7 @@ describe('Frankfurter Provider E2E', () => {
   describe('Caching', () => {
     it('should cache results and return from cache on second request', async () => {
       const query = {
-        asset: Currency.create('EUR'),
+        assetSymbol: Currency.create('EUR'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00Z'),
       };

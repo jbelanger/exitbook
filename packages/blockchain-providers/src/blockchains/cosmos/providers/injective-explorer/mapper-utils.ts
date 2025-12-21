@@ -238,7 +238,7 @@ export function mapInjectiveExplorerTransaction(
 
   const isPeggyDeposit = messageType === '/injective.peggy.v1.MsgDepositClaim';
   const eventRootId = isPeggyDeposit
-    ? generatePeggyEventRootId(eventNonce, rawData.claim_id, transactionHash)
+    ? generatePeggyEventRootId(eventNonce, rawData.claim_id ?? undefined, transactionHash)
     : transactionHash;
   const traceId = isPeggyDeposit ? eventRootId : `msg:${selectedMessageIndex}`;
   // Peggy deposit claims are submitted by multiple validators as separate txs (different timestamps / hashes).
@@ -249,7 +249,7 @@ export function mapInjectiveExplorerTransaction(
     amount,
     blockHeight: rawData.block_number,
     bridgeType,
-    claimId: rawData.claim_id,
+    claimId: rawData.claim_id ?? undefined,
     currency,
     ethereumReceiver,
     ethereumSender,
@@ -271,7 +271,7 @@ export function mapInjectiveExplorerTransaction(
     gasUsed: rawData.gas_used,
     gasWanted: rawData.gas_wanted,
     id: transactionHash,
-    memo: rawData.memo,
+    memo: rawData.memo ?? undefined,
     messageType,
     providerName: 'injective-explorer',
     sourceChannel,

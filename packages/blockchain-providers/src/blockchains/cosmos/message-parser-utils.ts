@@ -263,8 +263,8 @@ export function parseIbcTransferMessage(message: InjectiveMessage, decimals = 18
     currency,
     tokenType: 'ibc',
     tokenSymbol: currency,
-    sourceChannel: message.value.source_channel,
-    sourcePort: message.value.source_port,
+    sourceChannel: message.value.source_channel ?? undefined,
+    sourcePort: message.value.source_port ?? undefined,
   };
 }
 
@@ -489,7 +489,7 @@ export function parsePeggyDepositClaimMessage(
     eventNonce: messageValue.event_nonce,
     ethereumSender: messageValue.ethereum_sender,
     ethereumReceiver: messageValue.ethereum_receiver,
-    tokenAddress: messageValue.token_contract,
+    tokenAddress: messageValue.token_contract ?? undefined,
   };
 }
 

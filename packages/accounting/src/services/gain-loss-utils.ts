@@ -24,7 +24,7 @@ export function calculateGainLoss(
     let totalDisallowedLosses = 0;
 
     for (const assetResult of assetResults) {
-      const { asset, lots, disposals } = assetResult;
+      const { assetSymbol: asset, lots, disposals } = assetResult;
 
       // Skip assets with no lots and no disposals (e.g., fiat currencies)
       if (lots.length === 0 && disposals.length === 0) {
@@ -60,7 +60,7 @@ export function calculateGainLoss(
 
         disposalGainLosses.push({
           disposalId: disposal.id,
-          asset,
+          assetSymbol: asset,
           disposalDate: disposal.disposalDate,
           acquisitionDate: lot.acquisitionDate,
           holdingPeriodDays: disposal.holdingPeriodDays,
@@ -147,13 +147,13 @@ export function checkLossDisallowance(
  * Aggregate gain/loss for a single asset
  */
 export function aggregateAssetGainLoss(
-  asset: string,
+  assetSymbol: string,
   disposals: DisposalGainLoss[]
 ): Result<AssetGainLossSummary, Error> {
   // Handle case where there are no disposals (asset only acquired, never sold)
   if (disposals.length === 0) {
     return ok({
-      asset,
+      assetSymbol,
       totalProceeds: new Decimal(0),
       totalCostBasis: new Decimal(0),
       totalCapitalGainLoss: new Decimal(0),
@@ -166,7 +166,7 @@ export function aggregateAssetGainLoss(
 
   const firstDisposal = disposals[0];
   if (!firstDisposal) {
-    return err(new Error(`Cannot access first disposal for asset ${asset}`));
+    return err(new Error(`Cannot access first disposal for asset ${assetSymbol}`));
   }
 
   // Start with zero Decimals from first disposal
@@ -204,7 +204,7 @@ export function aggregateAssetGainLoss(
   }
 
   return ok({
-    asset,
+    assetSymbol,
     totalProceeds,
     totalCostBasis,
     totalCapitalGainLoss,

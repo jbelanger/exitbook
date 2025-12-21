@@ -197,8 +197,8 @@ export class ThetaScanApiClient extends BaseApiClient {
 
       if (balanceData) {
         // Convert to RawBalanceData format
-        let balanceDecimal: string;
-        if (balanceData.token_decimals !== undefined) {
+        let balanceDecimal: string | undefined;
+        if (balanceData.token_decimals !== undefined && balanceData.token_decimals !== null) {
           // Convert from smallest units to decimal
           balanceDecimal = parseDecimal(balanceData.balance?.toString() || '0')
             .div(parseDecimal('10').pow(balanceData.token_decimals))
@@ -210,7 +210,7 @@ export class ThetaScanApiClient extends BaseApiClient {
 
         balances.push({
           rawAmount: String(balanceData.balance || '0'),
-          decimals: balanceData.token_decimals,
+          decimals: balanceData.token_decimals ?? undefined,
           decimalAmount: balanceDecimal,
           symbol: balanceData.token_symbol ?? undefined,
           contractAddress: balanceData.contract_address,

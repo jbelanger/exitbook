@@ -69,7 +69,7 @@ describe('Bank of Canada Provider E2E', () => {
 
   it('should fetch CAD/USD exchange rate for recent date', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('CAD'),
+      assetSymbol: Currency.create('CAD'),
       currency: Currency.create('USD'),
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });
@@ -78,7 +78,7 @@ describe('Bank of Canada Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('CAD');
+      expect(priceData.assetSymbol.toString()).toBe('CAD');
       expect(priceData.currency.toString()).toBe('USD');
       expect(priceData.price.greaterThan(0)).toBe(true);
       expect(priceData.price.greaterThan(0.5)).toBe(true); // CAD typically worth more than 0.5 USD
@@ -90,7 +90,7 @@ describe('Bank of Canada Provider E2E', () => {
 
   it('should fetch historical CAD/USD exchange rate from 2023', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('CAD'),
+      assetSymbol: Currency.create('CAD'),
       currency: Currency.create('USD'),
       timestamp: new Date('2023-06-15T00:00:00Z'),
     });
@@ -99,7 +99,7 @@ describe('Bank of Canada Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('CAD');
+      expect(priceData.assetSymbol.toString()).toBe('CAD');
       expect(priceData.currency.toString()).toBe('USD');
       expect(priceData.price.greaterThan(0)).toBe(true);
       expect(priceData.source).toBe('bank-of-canada');
@@ -109,7 +109,7 @@ describe('Bank of Canada Provider E2E', () => {
 
   it('should fetch historical CAD/USD exchange rate from 2020', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('CAD'),
+      assetSymbol: Currency.create('CAD'),
       currency: Currency.create('USD'),
       timestamp: new Date('2020-01-15T00:00:00Z'),
     });
@@ -118,7 +118,7 @@ describe('Bank of Canada Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('CAD');
+      expect(priceData.assetSymbol.toString()).toBe('CAD');
       expect(priceData.currency.toString()).toBe('USD');
       expect(priceData.price.greaterThan(0)).toBe(true);
       expect(priceData.source).toBe('bank-of-canada');
@@ -130,7 +130,7 @@ describe('Bank of Canada Provider E2E', () => {
 
     // First request - should fetch from API
     const firstResult = await provider.fetchPrice({
-      asset: Currency.create('CAD'),
+      assetSymbol: Currency.create('CAD'),
       currency: Currency.create('USD'),
       timestamp,
     });
@@ -139,7 +139,7 @@ describe('Bank of Canada Provider E2E', () => {
 
     // Second request - should use cache
     const secondResult = await provider.fetchPrice({
-      asset: Currency.create('CAD'),
+      assetSymbol: Currency.create('CAD'),
       currency: Currency.create('USD'),
       timestamp,
     });
@@ -154,7 +154,7 @@ describe('Bank of Canada Provider E2E', () => {
 
   it('should return error for non-CAD asset', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('EUR'),
+      assetSymbol: Currency.create('EUR'),
       currency: Currency.create('USD'),
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });
@@ -168,7 +168,7 @@ describe('Bank of Canada Provider E2E', () => {
 
   it('should return error for cryptocurrency (not CAD)', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });
@@ -182,7 +182,7 @@ describe('Bank of Canada Provider E2E', () => {
 
   it('should return error for non-USD target currency', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('CAD'),
+      assetSymbol: Currency.create('CAD'),
       currency: Currency.create('EUR'),
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });
@@ -216,7 +216,7 @@ describe('Bank of Canada Provider E2E', () => {
     // Bank of Canada doesn't publish rates on weekends
     // Saturday, January 13, 2024
     const result = await provider.fetchPrice({
-      asset: Currency.create('CAD'),
+      assetSymbol: Currency.create('CAD'),
       currency: Currency.create('USD'),
       timestamp: new Date('2024-01-13T00:00:00Z'),
     });
@@ -228,7 +228,7 @@ describe('Bank of Canada Provider E2E', () => {
 
   it('should correctly invert USD/CAD to CAD/USD', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('CAD'),
+      assetSymbol: Currency.create('CAD'),
       currency: Currency.create('USD'),
       timestamp: new Date('2024-01-15T00:00:00Z'),
     });

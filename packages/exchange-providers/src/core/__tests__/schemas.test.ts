@@ -5,7 +5,7 @@ import { ExchangeLedgerEntrySchema } from '../schemas.js';
 describe('ExchangeLedgerEntrySchema', () => {
   const validEntry = {
     amount: '100',
-    asset: 'BTC',
+    assetSymbol: 'BTC',
     correlationId: 'REF001',
     id: 'ENTRY001',
     timestamp: 1704067200000, // Jan 1, 2024 in milliseconds
@@ -113,7 +113,7 @@ describe('ExchangeLedgerEntrySchema', () => {
     test('rejects empty asset', () => {
       const result = ExchangeLedgerEntrySchema.safeParse({
         ...validEntry,
-        asset: '',
+        assetSymbol: '',
       });
 
       expect(result.success).toBe(false);

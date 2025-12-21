@@ -61,7 +61,7 @@ export function buildBalanceMismatchExplanation(params: {
       let touched = false;
 
       for (const inflow of tx.movements.inflows ?? []) {
-        if (inflow.asset !== asset) continue;
+        if (inflow.assetSymbol !== asset) continue;
         touched = true;
         inflowTotal = inflowTotal.plus(inflow.grossAmount);
         inflows.push({
@@ -74,7 +74,7 @@ export function buildBalanceMismatchExplanation(params: {
       }
 
       for (const outflow of tx.movements.outflows ?? []) {
-        if (outflow.asset !== asset) continue;
+        if (outflow.assetSymbol !== asset) continue;
         touched = true;
         outflowTotal = outflowTotal.plus(outflow.grossAmount);
         outflows.push({
@@ -87,7 +87,7 @@ export function buildBalanceMismatchExplanation(params: {
       }
 
       for (const fee of tx.fees ?? []) {
-        if (fee.asset !== asset) continue;
+        if (fee.assetSymbol !== asset) continue;
         if (fee.settlement !== 'balance') continue;
         touched = true;
         feeTotal = feeTotal.plus(fee.amount);

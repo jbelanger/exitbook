@@ -50,8 +50,8 @@ export function mapNearBlocksActions(
   actions?: {
     action: string;
     args?: Record<string, unknown> | string | null | undefined;
-    deposit?: string | undefined;
-    fee?: string | undefined;
+    deposit?: string | null | undefined;
+    fee?: string | null | undefined;
     method?: string | null | undefined;
   }[]
 ): NearAction[] {
@@ -62,7 +62,7 @@ export function mapNearBlocksActions(
   return actions.map((action) => ({
     actionType: action.action,
     args: typeof action.args === 'object' && action.args !== null ? action.args : undefined,
-    deposit: action.deposit,
+    deposit: action.deposit ?? undefined,
     methodName: action.method ?? undefined,
     receiverId: undefined,
   }));
@@ -71,7 +71,7 @@ export function mapNearBlocksActions(
 /**
  * Calculate total deposit amount from actions
  */
-export function calculateTotalDeposit(actions?: { deposit?: string | undefined }[]): string {
+export function calculateTotalDeposit(actions?: { deposit?: string | null | undefined }[]): string {
   if (!actions || actions.length === 0) {
     return '0';
   }
@@ -131,10 +131,10 @@ export function mapNearBlocksActivityToAccountChange(
   // We need to use delta_nonstaked_amount (when available) to compute the correct pre/post balances
   const postBalanceYocto = validatedActivity.absolute_nonstaked_amount;
 
-  let signedDeltaYocto: string;
+  let signedDeltaYocto: string | undefined;
   if (validatedActivity.delta_nonstaked_amount !== undefined) {
     // Use the delta provided by the API (already signed)
-    signedDeltaYocto = validatedActivity.delta_nonstaked_amount;
+    signedDeltaYocto = validatedActivity.delta_nonstaked_amount ?? undefined;
   } else {
     // Fallback: when delta data is missing we cannot safely infer the previous
     // balance. Emit a zero delta instead of assuming the entire balance moved.
@@ -233,7 +233,7 @@ export function mapNearBlocksFtTransactionToTokenTransfer(
     contractAddress: validatedFtTx.ft.contract,
     decimals: validatedFtTx.ft.decimals,
     from,
-    symbol: validatedFtTx.ft.symbol,
+    symbol: validatedFtTx.ft.symbol ?? undefined,
     to,
   };
 
@@ -312,10 +312,10 @@ export function mapNearBlocksTransaction(rawData: NearBlocksTransaction): Result
   const validatedRawData = rawData;
 
   const timestamp = parseNearBlocksTimestamp(validatedRawData.block_timestamp);
-  const status = determineTransactionStatus(validatedRawData.outcomes);
-  const actions = mapNearBlocksActions(validatedRawData.actions);
-  const totalDeposit = calculateTotalDeposit(validatedRawData.actions);
-  const totalGasBurnt = calculateTotalGasBurnt(validatedRawData.receipt_outcome);
+  const status = determineTransactionStatus(validatedRawData.outcomes ?? undefined);
+  const actions = mapNearBlocksActions(validatedRawData.actions ?? undefined);
+  const totalDeposit = calculateTotalDeposit(validatedRawData.actions ?? undefined);
+  const totalGasBurnt = calculateTotalGasBurnt(validatedRawData.receipt_outcome ?? undefined);
 
   // Fallback: use aggregated transaction fee when receipt outcome is missing
   let feeYocto = totalGasBurnt;

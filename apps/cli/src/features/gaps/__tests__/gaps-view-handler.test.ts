@@ -76,7 +76,7 @@ describe('GapsViewHandler', () => {
           externalId: 'tx-1',
           fees: [
             {
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               amount: parseDecimal('0.0001'),
               scope: 'network',
               settlement: 'on-chain',
@@ -95,7 +95,7 @@ describe('GapsViewHandler', () => {
             inflows: [],
             outflows: [
               {
-                asset: 'ETH',
+                assetSymbol: 'ETH',
                 grossAmount: parseDecimal('0.01'),
               },
             ],
@@ -126,7 +126,7 @@ describe('GapsViewHandler', () => {
           externalId: 'tx-1',
           fees: [
             {
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               amount: parseDecimal('0.0001'),
               scope: 'network',
               settlement: 'on-chain',
@@ -205,7 +205,7 @@ describe('GapsViewHandler', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.5'),
                 netAmount: parseDecimal('0.5'),
               },
@@ -235,7 +235,7 @@ describe('GapsViewHandler', () => {
         const gapsResult = result._unsafeUnwrap();
         expect(gapsResult.category).toBe('links');
         expect(gapsResult.analysis.summary.total_issues).toBe(1);
-        expect(gapsResult.analysis.issues[0]!.asset).toBe('BTC');
+        expect(gapsResult.analysis.issues[0]!.assetSymbol).toBe('BTC');
       });
 
       it('should treat confirmed links as covered', async () => {
@@ -250,7 +250,7 @@ describe('GapsViewHandler', () => {
             id: 'link-1',
             sourceTransactionId: 1,
             targetTransactionId: 10,
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             sourceAmount: parseDecimal('0.5'),
             targetAmount: parseDecimal('0.5'),
             linkType: 'exchange_to_blockchain',

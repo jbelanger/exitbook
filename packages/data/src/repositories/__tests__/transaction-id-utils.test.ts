@@ -13,10 +13,10 @@ describe('generateDeterministicTransactionHash', () => {
       source: 'kucoin',
       status: 'closed',
       movements: {
-        inflows: [{ asset: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') }],
-        outflows: [{ asset: 'USDT', grossAmount: new Decimal('20000'), netAmount: new Decimal('20000') }],
+        inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') }],
+        outflows: [{ assetSymbol: 'USDT', grossAmount: new Decimal('20000'), netAmount: new Decimal('20000') }],
       },
-      fees: [{ asset: 'USDT', amount: new Decimal('10'), scope: 'platform', settlement: 'balance' }],
+      fees: [{ assetSymbol: 'USDT', amount: new Decimal('10'), scope: 'platform', settlement: 'balance' }],
       operation: { category: 'trade', type: 'buy' },
     };
 
@@ -35,8 +35,8 @@ describe('generateDeterministicTransactionHash', () => {
       source: 'kucoin',
       status: 'closed',
       movements: {
-        inflows: [{ asset: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') }],
-        outflows: [{ asset: 'USDT', grossAmount: new Decimal('20000'), netAmount: new Decimal('20000') }],
+        inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') }],
+        outflows: [{ assetSymbol: 'USDT', grossAmount: new Decimal('20000'), netAmount: new Decimal('20000') }],
       },
       fees: [],
       operation: { category: 'trade', type: 'buy' },
@@ -61,7 +61,7 @@ describe('generateDeterministicTransactionHash', () => {
       source: 'kucoin',
       status: 'closed',
       movements: {
-        inflows: [{ asset: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') }],
+        inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') }],
         outflows: [],
       },
       fees: [],
@@ -71,7 +71,7 @@ describe('generateDeterministicTransactionHash', () => {
     const tx2: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       ...tx1,
       movements: {
-        inflows: [{ asset: 'BTC', grossAmount: new Decimal('0.6'), netAmount: new Decimal('0.6') }],
+        inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('0.6'), netAmount: new Decimal('0.6') }],
         outflows: [],
       },
     };
@@ -91,8 +91,8 @@ describe('generateDeterministicTransactionHash', () => {
       status: 'closed',
       movements: {
         inflows: [
-          { asset: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') },
-          { asset: 'ETH', grossAmount: new Decimal('2'), netAmount: new Decimal('2') },
+          { assetSymbol: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') },
+          { assetSymbol: 'ETH', grossAmount: new Decimal('2'), netAmount: new Decimal('2') },
         ],
         outflows: [],
       },
@@ -104,8 +104,8 @@ describe('generateDeterministicTransactionHash', () => {
       ...tx1,
       movements: {
         inflows: [
-          { asset: 'ETH', grossAmount: new Decimal('2'), netAmount: new Decimal('2') },
-          { asset: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') },
+          { assetSymbol: 'ETH', grossAmount: new Decimal('2'), netAmount: new Decimal('2') },
+          { assetSymbol: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') },
         ],
         outflows: [],
       },
@@ -125,7 +125,7 @@ describe('generateDeterministicTransactionHash', () => {
       source: 'kucoin',
       status: 'closed',
       movements: {
-        inflows: [{ asset: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') }],
+        inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') }],
         outflows: [],
       },
       fees: [],
@@ -134,7 +134,7 @@ describe('generateDeterministicTransactionHash', () => {
 
     const tx2: Omit<UniversalTransactionData, 'id' | 'accountId'> = {
       ...tx1,
-      fees: [{ asset: 'BTC', amount: new Decimal('0.001'), scope: 'network', settlement: 'balance' }],
+      fees: [{ assetSymbol: 'BTC', amount: new Decimal('0.001'), scope: 'network', settlement: 'balance' }],
     };
 
     const hash1 = generateDeterministicTransactionHash(tx1);
@@ -153,7 +153,7 @@ describe('generateDeterministicTransactionHash', () => {
       from: 'bc1qaddress1',
       to: 'bc1qaddress2',
       movements: {
-        inflows: [{ asset: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') }],
+        inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') }],
         outflows: [],
       },
       fees: [],
@@ -199,7 +199,7 @@ describe('generateDeterministicTransactionHash', () => {
       source: 'kucoin',
       status: 'closed',
       movements: {
-        inflows: [{ asset: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') }],
+        inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('0.5'), netAmount: new Decimal('0.5') }],
         outflows: [],
       },
       fees: [],
@@ -226,7 +226,7 @@ describe('generateDeterministicTransactionHash', () => {
       status: 'success',
       movements: {
         inflows: [],
-        outflows: [{ asset: 'BTC', grossAmount: new Decimal('1.0'), netAmount: new Decimal('0.999') }],
+        outflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('1.0'), netAmount: new Decimal('0.999') }],
       },
       fees: [],
       operation: { category: 'transfer', type: 'withdrawal' },
@@ -236,7 +236,7 @@ describe('generateDeterministicTransactionHash', () => {
       ...tx1,
       movements: {
         inflows: [],
-        outflows: [{ asset: 'BTC', grossAmount: new Decimal('1.0') }], // No netAmount
+        outflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('1.0') }], // No netAmount
       },
     };
 

@@ -82,7 +82,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
             inflows: fundFlow.inflows.map((inflow) => {
               const amount = parseDecimal(inflow.amount);
               return {
-                asset: inflow.asset,
+                assetSymbol: inflow.asset,
                 grossAmount: amount,
                 netAmount: amount,
               };
@@ -90,7 +90,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
             outflows: fundFlow.outflows.map((outflow) => {
               const amount = parseDecimal(outflow.amount);
               return {
-                asset: outflow.asset,
+                assetSymbol: outflow.asset,
                 grossAmount: amount,
                 netAmount: amount,
               };
@@ -101,7 +101,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
             shouldRecordFeeEntry && !parseDecimal(normalizedTx.feeAmount || '0').isZero()
               ? [
                   {
-                    asset: normalizedTx.feeCurrency || 'SOL',
+                    assetSymbol: normalizedTx.feeCurrency || 'SOL',
                     amount: parseDecimal(normalizedTx.feeAmount || '0'),
                     scope: 'network',
                     settlement: 'balance',

@@ -11,7 +11,7 @@ const logger = getLogger('cost-basis-validation-utils');
 export interface PricedEntity {
   transactionId: string;
   datetime: string;
-  asset: string;
+  assetSymbol: string;
   currency: string | undefined;
   kind: 'inflow' | 'outflow' | 'fee';
   hasPrice: boolean;
@@ -72,7 +72,7 @@ export function collectPricedEntities(transactions: UniversalTransactionData[]):
       entities.push({
         transactionId: txId,
         datetime,
-        asset: movement.asset,
+        assetSymbol: movement.assetSymbol,
         currency: priceData?.price?.currency?.toString(),
         kind: 'inflow',
         hasPrice,
@@ -99,7 +99,7 @@ export function collectPricedEntities(transactions: UniversalTransactionData[]):
       entities.push({
         transactionId: txId,
         datetime,
-        asset: movement.asset,
+        assetSymbol: movement.assetSymbol,
         currency: priceData?.price?.currency?.toString(),
         kind: 'outflow',
         hasPrice,
@@ -126,7 +126,7 @@ export function collectPricedEntities(transactions: UniversalTransactionData[]):
       entities.push({
         transactionId: txId,
         datetime,
-        asset: fee.asset,
+        assetSymbol: fee.assetSymbol,
         currency: priceData?.price?.currency?.toString(),
         kind: 'fee',
         hasPrice,
@@ -163,13 +163,13 @@ export function validatePriceCompleteness(entities: PricedEntity[]): PriceValida
 
       // Skip fiat currencies - they don't need prices for cost basis calculation
       try {
-        const currency = Currency.create(e.asset);
+        const currency = Currency.create(e.assetSymbol);
         if (currency.isFiat()) {
           return false;
         }
       } catch (error) {
         logger.warn(
-          { error, asset: e.asset },
+          { error, assetSymbol: e.assetSymbol },
           'Failed to create Currency, assuming crypto and checking price requirement'
         );
         // If currency creation fails, treat as crypto (needs price)
@@ -180,7 +180,7 @@ export function validatePriceCompleteness(entities: PricedEntity[]): PriceValida
     .map((entity) => ({
       entity,
       issueType: 'missing_price' as const,
-      message: `Missing price for ${entity.kind} ${entity.asset} in transaction ${entity.transactionId}`,
+      message: `Missing price for ${entity.kind} ${entity.assetSymbol} in transaction ${entity.transactionId}`,
     }));
 }
 
@@ -194,7 +194,7 @@ export function validatePriceCurrency(entities: PricedEntity[]): PriceValidation
     .map((entity) => ({
       entity,
       issueType: 'non_usd_currency' as const,
-      message: `Price in ${entity.currency} instead of USD for ${entity.kind} ${entity.asset} in transaction ${entity.transactionId}`,
+      message: `Price in ${entity.currency} instead of USD for ${entity.kind} ${entity.assetSymbol} in transaction ${entity.transactionId}`,
     }));
 }
 
@@ -215,7 +215,7 @@ export function validateFxAuditTrail(entities: PricedEntity[]): PriceValidationI
     .map((entity) => ({
       entity,
       issueType: 'missing_fx_trail' as const,
-      message: `Incomplete FX audit trail for ${entity.kind} ${entity.asset} in transaction ${entity.transactionId}`,
+      message: `Incomplete FX audit trail for ${entity.kind} ${entity.assetSymbol} in transaction ${entity.transactionId}`,
     }));
 }
 
@@ -280,7 +280,7 @@ export function formatValidationError(result: PriceValidationResult): string {
   const examples = exampleIssues
     .map((issue) => {
       const e = issue.entity;
-      return `  - Tx ${e.transactionId} (${e.datetime}) [${e.kind}] ${e.asset} | Currency: ${e.currency ?? 'none'} | FX: ${e.hasFxMetadata ? 'complete' : e.fxMetadata ? 'incomplete' : 'none'}`;
+      return `  - Tx ${e.transactionId} (${e.datetime}) [${e.kind}] ${e.assetSymbol} | Currency: ${e.currency ?? 'none'} | FX: ${e.hasFxMetadata ? 'complete' : e.fxMetadata ? 'incomplete' : 'none'}`;
     })
     .join('\n');
 

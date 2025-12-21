@@ -63,7 +63,7 @@ describe('transformBoCResponse', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       // CAD/USD = 1 / 1.3500 = 0.7407407407407407...
-      expect(result.value.asset).toBe(asset);
+      expect(result.value.assetSymbol).toBe(asset);
       expect(result.value.timestamp).toEqual(timestamp);
       expect(result.value.currency).toBe(currency);
       expect(result.value.source).toBe('bank-of-canada');

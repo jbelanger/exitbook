@@ -14,7 +14,7 @@ import type { PriceData } from '../index.js';
  * Accepts number or string for price and converts to Decimal
  */
 export function createTestPriceData(params: {
-  asset: Currency;
+  assetSymbol: Currency;
   currency: Currency;
   fetchedAt: Date;
   granularity?: PriceGranularity | undefined;

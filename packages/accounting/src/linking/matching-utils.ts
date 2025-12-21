@@ -192,7 +192,7 @@ export function buildMatchCriteria(
   target: TransactionCandidate,
   config: MatchingConfig
 ): MatchCriteria {
-  const assetMatch = source.asset === target.asset;
+  const assetMatch = source.assetSymbol === target.assetSymbol;
   const amountSimilarity = calculateAmountSimilarity(source.amount, target.amount);
   const timingHours = calculateTimeDifferenceHours(source.timestamp, target.timestamp);
   const timingValid = isTimingValid(source.timestamp, target.timestamp, config);
@@ -227,7 +227,7 @@ export function findPotentialMatches(
     if (source.id === target.id) continue;
 
     // Quick filters
-    if (source.asset !== target.asset) continue;
+    if (source.assetSymbol !== target.assetSymbol) continue;
     if (source.direction !== 'out' || target.direction !== 'in') continue;
 
     // Build criteria
@@ -385,7 +385,7 @@ export function convertToCandidates(transactions: UniversalTransactionData[]): T
         sourceName: tx.source,
         sourceType: tx.blockchain ? 'blockchain' : 'exchange',
         timestamp: new Date(tx.datetime),
-        asset: inflow.asset,
+        assetSymbol: inflow.assetSymbol,
         amount: inflow.netAmount ?? inflow.grossAmount,
         direction: 'in',
         fromAddress: tx.from,
@@ -402,7 +402,7 @@ export function convertToCandidates(transactions: UniversalTransactionData[]): T
         sourceName: tx.source,
         sourceType: tx.blockchain ? 'blockchain' : 'exchange',
         timestamp: new Date(tx.datetime),
-        asset: outflow.asset,
+        assetSymbol: outflow.assetSymbol,
         amount: outflow.netAmount ?? outflow.grossAmount,
         direction: 'out',
         fromAddress: tx.from,
@@ -512,7 +512,7 @@ export function createTransactionLink(
   now: Date
 ): Result<TransactionLink, Error> {
   // Extract amounts from match
-  const asset = match.sourceTransaction.asset;
+  const assetSymbol = match.sourceTransaction.assetSymbol;
   const sourceAmount = match.sourceTransaction.amount;
   const targetAmount = match.targetTransaction.amount;
 
@@ -530,7 +530,7 @@ export function createTransactionLink(
     id,
     sourceTransactionId: match.sourceTransaction.id,
     targetTransactionId: match.targetTransaction.id,
-    asset,
+    assetSymbol: assetSymbol,
     sourceAmount,
     targetAmount,
     linkType: match.linkType,

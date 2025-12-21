@@ -97,9 +97,9 @@ export function extractAssetsNeedingPrices(tx: UniversalTransactionData): Result
 
     if (needsPrice) {
       // Skip fiat currencies - they don't need price fetching
-      const currency = Currency.create(movement.asset);
+      const currency = Currency.create(movement.assetSymbol);
       if (!currency.isFiat()) {
-        assetsNeedingPrices.add(movement.asset);
+        assetsNeedingPrices.add(movement.assetSymbol);
       }
     }
   }
@@ -110,9 +110,9 @@ export function extractAssetsNeedingPrices(tx: UniversalTransactionData): Result
 
     if (needsPrice) {
       // Skip fiat currencies - they don't need price fetching
-      const currency = Currency.create(fee.asset);
+      const currency = Currency.create(fee.assetSymbol);
       if (!currency.isFiat()) {
-        assetsNeedingPrices.add(fee.asset);
+        assetsNeedingPrices.add(fee.assetSymbol);
       }
     }
   }
@@ -126,7 +126,7 @@ export function extractAssetsNeedingPrices(tx: UniversalTransactionData): Result
  */
 export function createPriceQuery(
   tx: UniversalTransactionData,
-  asset: string,
+  assetSymbol: string,
   targetCurrency = 'USD'
 ): Result<PriceQuery, Error> {
   if (!tx.datetime) {
@@ -140,7 +140,7 @@ export function createPriceQuery(
   }
 
   return ok({
-    asset: Currency.create(asset),
+    assetSymbol: Currency.create(assetSymbol),
     timestamp,
     currency: Currency.create(targetCurrency),
   });

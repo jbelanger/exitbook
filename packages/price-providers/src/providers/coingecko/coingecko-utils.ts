@@ -60,7 +60,7 @@ export function formatCoinGeckoDate(date: Date): string {
  */
 export function transformHistoricalResponse(
   response: CoinGeckoHistoricalPriceResponse,
-  asset: Currency,
+  assetSymbol: Currency,
   timestamp: Date,
   currency: Currency,
   fetchedAt: Date
@@ -69,7 +69,7 @@ export function transformHistoricalResponse(
 
   // Validate price using shared helper
   const context = `CoinGecko (coin: ${response.id}) on ${timestamp.toISOString().split('T')[0]}`;
-  const priceResult = validateRawPrice(rawPrice, asset, context);
+  const priceResult = validateRawPrice(rawPrice, assetSymbol, context);
   if (priceResult.isErr()) {
     return err(priceResult.error);
   }
@@ -78,7 +78,7 @@ export function transformHistoricalResponse(
   const roundedTimestamp = roundTimestampByGranularity(timestamp, granularity);
 
   return ok({
-    asset: asset,
+    assetSymbol: assetSymbol,
     timestamp: roundedTimestamp,
     price: priceResult.value,
     currency: currency,
@@ -96,21 +96,21 @@ export function transformHistoricalResponse(
 export function transformSimplePriceResponse(
   response: CoinGeckoSimplePriceResponse,
   coinId: string,
-  asset: Currency,
+  assetSymbol: Currency,
   timestamp: Date,
   currency: Currency,
   fetchedAt: Date
 ): Result<PriceData, Error> {
   const coinData = response[coinId];
   if (!coinData) {
-    return err(new Error(`Coin ID ${coinId} for asset ${asset.toString()} not found in response`));
+    return err(new Error(`Coin ID ${coinId} for asset ${assetSymbol.toString()} not found in response`));
   }
 
   const rawPrice = coinData[currency.toLowerCase()];
 
   // Validate price using shared helper
   const context = `CoinGecko (coin: ${coinId})`;
-  const priceResult = validateRawPrice(rawPrice, asset, context);
+  const priceResult = validateRawPrice(rawPrice, assetSymbol, context);
   if (priceResult.isErr()) {
     return err(priceResult.error);
   }
@@ -119,7 +119,7 @@ export function transformSimplePriceResponse(
   const roundedTimestamp = roundTimestampByGranularity(timestamp, granularity);
 
   return ok({
-    asset: asset,
+    assetSymbol,
     timestamp: roundedTimestamp,
     price: priceResult.value,
     currency: currency,

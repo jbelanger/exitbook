@@ -554,7 +554,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // User sent TAO -> user pays fee
       expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed()).toBe('0.1');
-      expect(transaction.fees.find((f) => f.scope === 'network')?.asset.toString()).toBe('TAO');
+      expect(transaction.fees.find((f) => f.scope === 'network')?.assetSymbol.toString()).toBe('TAO');
     });
   });
 

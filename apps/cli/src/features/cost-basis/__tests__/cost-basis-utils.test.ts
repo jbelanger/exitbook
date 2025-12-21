@@ -472,8 +472,8 @@ describe('Cost Basis Utils', () => {
     it('should return true when all crypto movements have prices', () => {
       const tx: UniversalTransactionData = {
         movements: {
-          inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' }],
-          outflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: '3000.00' }],
+          inflows: [{ assetSymbol: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' }],
+          outflows: [{ assetSymbol: 'ETH', amount: '10.0', priceAtTxTime: '3000.00' }],
         },
       } as unknown as UniversalTransactionData;
 
@@ -483,7 +483,7 @@ describe('Cost Basis Utils', () => {
     it('should return false when crypto inflow is missing price', () => {
       const tx: UniversalTransactionData = {
         movements: {
-          inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: undefined }],
+          inflows: [{ assetSymbol: 'BTC', amount: '1.0', priceAtTxTime: undefined }],
           outflows: [],
         },
       } as unknown as UniversalTransactionData;
@@ -495,7 +495,7 @@ describe('Cost Basis Utils', () => {
       const tx: UniversalTransactionData = {
         movements: {
           inflows: [],
-          outflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: undefined }],
+          outflows: [{ assetSymbol: 'ETH', amount: '10.0', priceAtTxTime: undefined }],
         },
       } as unknown as UniversalTransactionData;
 
@@ -505,8 +505,8 @@ describe('Cost Basis Utils', () => {
     it('should return true when only fiat movements (no price needed)', () => {
       const tx: UniversalTransactionData = {
         movements: {
-          inflows: [{ asset: 'USD', amount: '1000.0', priceAtTxTime: undefined }],
-          outflows: [{ asset: 'CAD', amount: '1300.0', priceAtTxTime: undefined }],
+          inflows: [{ assetSymbol: 'USD', amount: '1000.0', priceAtTxTime: undefined }],
+          outflows: [{ assetSymbol: 'CAD', amount: '1300.0', priceAtTxTime: undefined }],
         },
       } as unknown as UniversalTransactionData;
 
@@ -517,8 +517,8 @@ describe('Cost Basis Utils', () => {
       const tx: UniversalTransactionData = {
         movements: {
           inflows: [
-            { asset: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' },
-            { asset: 'USD', amount: '50000.0', priceAtTxTime: undefined },
+            { assetSymbol: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' },
+            { assetSymbol: 'USD', amount: '50000.0', priceAtTxTime: undefined },
           ],
           outflows: [],
         },
@@ -531,8 +531,8 @@ describe('Cost Basis Utils', () => {
       const tx: UniversalTransactionData = {
         movements: {
           inflows: [
-            { asset: 'BTC', amount: '1.0', priceAtTxTime: undefined },
-            { asset: 'USD', amount: '50000.0', priceAtTxTime: undefined },
+            { assetSymbol: 'BTC', amount: '1.0', priceAtTxTime: undefined },
+            { assetSymbol: 'USD', amount: '50000.0', priceAtTxTime: undefined },
           ],
           outflows: [],
         },
@@ -558,13 +558,13 @@ describe('Cost Basis Utils', () => {
       const transactions: UniversalTransactionData[] = [
         {
           movements: {
-            inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' }],
+            inflows: [{ assetSymbol: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' }],
             outflows: [],
           },
         } as unknown as UniversalTransactionData,
         {
           movements: {
-            inflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: '3000.00' }],
+            inflows: [{ assetSymbol: 'ETH', amount: '10.0', priceAtTxTime: '3000.00' }],
             outflows: [],
           },
         } as unknown as UniversalTransactionData,
@@ -583,19 +583,19 @@ describe('Cost Basis Utils', () => {
       const transactions: UniversalTransactionData[] = [
         {
           movements: {
-            inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' }],
+            inflows: [{ assetSymbol: 'BTC', amount: '1.0', priceAtTxTime: '50000.00' }],
             outflows: [],
           },
         } as unknown as UniversalTransactionData,
         {
           movements: {
-            inflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: undefined }],
+            inflows: [{ assetSymbol: 'ETH', amount: '10.0', priceAtTxTime: undefined }],
             outflows: [],
           },
         } as unknown as UniversalTransactionData,
         {
           movements: {
-            inflows: [{ asset: 'SOL', amount: '100.0', priceAtTxTime: '150.00' }],
+            inflows: [{ assetSymbol: 'SOL', amount: '100.0', priceAtTxTime: '150.00' }],
             outflows: [],
           },
         } as unknown as UniversalTransactionData,
@@ -614,13 +614,13 @@ describe('Cost Basis Utils', () => {
       const transactions: UniversalTransactionData[] = [
         {
           movements: {
-            inflows: [{ asset: 'BTC', amount: '1.0', priceAtTxTime: undefined }],
+            inflows: [{ assetSymbol: 'BTC', amount: '1.0', priceAtTxTime: undefined }],
             outflows: [],
           },
         } as unknown as UniversalTransactionData,
         {
           movements: {
-            inflows: [{ asset: 'ETH', amount: '10.0', priceAtTxTime: undefined }],
+            inflows: [{ assetSymbol: 'ETH', amount: '10.0', priceAtTxTime: undefined }],
             outflows: [],
           },
         } as unknown as UniversalTransactionData,
@@ -639,13 +639,13 @@ describe('Cost Basis Utils', () => {
       const transactions: UniversalTransactionData[] = [
         {
           movements: {
-            inflows: [{ asset: 'USD', amount: '1000.0', priceAtTxTime: undefined }],
+            inflows: [{ assetSymbol: 'USD', amount: '1000.0', priceAtTxTime: undefined }],
             outflows: [],
           },
         } as unknown as UniversalTransactionData,
         {
           movements: {
-            inflows: [{ asset: 'CAD', amount: '1300.0', priceAtTxTime: undefined }],
+            inflows: [{ assetSymbol: 'CAD', amount: '1300.0', priceAtTxTime: undefined }],
             outflows: [],
           },
         } as unknown as UniversalTransactionData,

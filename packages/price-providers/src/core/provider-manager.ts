@@ -91,7 +91,7 @@ export class PriceProviderManager {
     const cached = this.requestCache.get(cacheKey);
 
     if (cached && ProviderManagerUtils.isCacheValid(cached.expiry, now)) {
-      logger.debug({ asset: query.asset, currency: query.currency }, 'Price found in cache');
+      logger.debug({ assetSymbol: query.assetSymbol, currency: query.currency }, 'Price found in cache');
       return ok({
         data: cached.data,
         providerName: cached.data.source,
@@ -107,7 +107,7 @@ export class PriceProviderManager {
 
     // Convert stablecoin-denominated prices to USD
     // Skip if we're pricing a stablecoin itself (avoid recursion)
-    if (result.value.data.currency.isStablecoin() && !query.asset.isStablecoin()) {
+    if (result.value.data.currency.isStablecoin() && !query.assetSymbol.isStablecoin()) {
       return await this.convertStablecoinPriceToUSD(result.value, query.timestamp);
     }
 
@@ -175,8 +175,8 @@ export class PriceProviderManager {
 
     // Extract timestamp and asset info from query for provider selection
     const timestamp = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.timestamp;
-    const assetSymbol = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.asset.toString();
-    const isFiat = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.asset.isFiat();
+    const assetSymbol = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.assetSymbol.toString();
+    const isFiat = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.assetSymbol.isFiat();
 
     // Select providers
     const scoredProviders = ProviderManagerUtils.selectProvidersForOperation(
@@ -252,7 +252,7 @@ export class PriceProviderManager {
         logger.debug(
           {
             provider: metadata.name,
-            asset: assetSymbol,
+            assetSymbol: assetSymbol,
             responseTime,
             attemptNumber,
             totalProviders: scoredProviders.length,
@@ -291,7 +291,7 @@ export class PriceProviderManager {
         logger.info(
           {
             provider: metadata.name,
-            asset: assetSymbol,
+            assetSymbol: assetSymbol,
             attemptNumber,
             totalProviders: scoredProviders.length,
             errorType: lastError.name,
@@ -302,7 +302,7 @@ export class PriceProviderManager {
         // If this was the last provider, log a summary
         if (isLastProvider) {
           logger.warn(
-            { asset: assetSymbol, totalProviders: scoredProviders.length },
+            { assetSymbol: assetSymbol, totalProviders: scoredProviders.length },
             `All ${scoredProviders.length} provider(s) failed for ${assetSymbol || 'asset'}`
           );
         }
@@ -404,7 +404,7 @@ export class PriceProviderManager {
 
     logger.debug(
       {
-        asset: priceData.asset.toString(),
+        assetSymbol: priceData.assetSymbol.toString(),
         stablecoin: stablecoin.toString(),
         originalPrice: priceData.price.toFixed(),
         originalProvider: providerName,
@@ -416,7 +416,7 @@ export class PriceProviderManager {
     // This tries ALL providers with automatic failover
     // Safe because we check !query.asset.isStablecoin() before calling this method
     const stablecoinPriceResult = await this.fetchPrice({
-      asset: stablecoin,
+      assetSymbol: stablecoin,
       currency: Currency.create('USD'),
       timestamp,
     });
@@ -443,7 +443,7 @@ export class PriceProviderManager {
       logger.warn(
         {
           stablecoin: stablecoin.toString(),
-          asset: priceData.asset.toString(),
+          assetSymbol: priceData.assetSymbol.toString(),
           error: stablecoinPriceResult.error.message,
         },
         'Failed to fetch stablecoin rate, assuming 1:1 parity with USD'

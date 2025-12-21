@@ -7,7 +7,7 @@ export interface DisposalGainLoss {
   /** Disposal ID */
   disposalId: string;
   /** Asset symbol */
-  asset: string;
+  assetSymbol: string;
   /** Disposal date */
   disposalDate: Date;
   /** Acquisition date (from lot) */
@@ -35,7 +35,7 @@ export interface DisposalGainLoss {
  */
 export interface AssetGainLossSummary {
   /** Asset symbol */
-  asset: string;
+  assetSymbol: string;
   /** Total proceeds from all disposals */
   totalProceeds: Decimal;
   /** Total cost basis from all disposals */

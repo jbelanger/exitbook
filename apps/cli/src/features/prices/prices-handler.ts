@@ -235,7 +235,7 @@ export class PricesFetchHandler {
 
         // Enrich fees with prices (applying same priority rules as movements)
         const enrichedFees = tx.fees.map((fee) => {
-          const newPrice = pricesMap.get(fee.asset);
+          const newPrice = pricesMap.get(fee.assetSymbol);
           if (!newPrice) {
             return fee;
           }

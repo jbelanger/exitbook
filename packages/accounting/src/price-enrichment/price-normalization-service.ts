@@ -114,7 +114,7 @@ export class PriceNormalizationService {
           logger.warn(
             {
               txId: tx.id,
-              asset: movement.asset,
+              asset: movement.assetSymbol,
               priceCurrency: movement.priceAtTxTime?.price.currency.toString(),
             },
             'Found crypto currency in price field (unexpected - prices should be in fiat)'

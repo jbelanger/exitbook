@@ -65,7 +65,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
             inflows: fundFlow.inflows.map((i) => {
               const amount = parseDecimal(i.amount);
               return {
-                asset: i.asset,
+                assetSymbol: i.asset,
                 grossAmount: amount,
                 netAmount: amount,
               };
@@ -73,7 +73,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
             outflows: fundFlow.outflows.map((o) => {
               const amount = parseDecimal(o.amount);
               return {
-                asset: o.asset,
+                assetSymbol: o.asset,
                 grossAmount: amount,
                 netAmount: amount,
               };
@@ -83,7 +83,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
             shouldRecordFee && !parseDecimal(fundFlow.feeAmount).isZero()
               ? [
                   {
-                    asset: fundFlow.feeCurrency,
+                    assetSymbol: fundFlow.feeCurrency,
                     amount: parseDecimal(fundFlow.feeAmount),
                     scope: 'network',
                     settlement: 'balance',

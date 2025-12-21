@@ -50,7 +50,7 @@ describe('formatCoveragePercentage', () => {
 
 describe('formatPriceCoverageForDisplay', () => {
   const createCoverageInfo = (overrides: Partial<PriceCoverageInfo> = {}): PriceCoverageInfo => ({
-    asset: 'BTC',
+    assetSymbol: 'BTC',
     total_transactions: 100,
     with_price: 90,
     missing_price: 10,
@@ -105,7 +105,7 @@ describe('formatPriceCoverageForDisplay', () => {
   });
 
   it('should format asset name correctly', () => {
-    const coverage = createCoverageInfo({ asset: 'ETH' });
+    const coverage = createCoverageInfo({ assetSymbol: 'ETH' });
 
     const result = formatPriceCoverageForDisplay(coverage);
 
@@ -198,7 +198,7 @@ describe('formatPriceCoverageForDisplay', () => {
   });
 
   it('should handle long asset names', () => {
-    const coverage = createCoverageInfo({ asset: 'VERYLONGASSETNAME' });
+    const coverage = createCoverageInfo({ assetSymbol: 'VERYLONGASSETNAME' });
 
     const result = formatPriceCoverageForDisplay(coverage);
 
@@ -225,7 +225,7 @@ describe('formatPriceCoverageListForDisplay', () => {
   };
 
   const createCoverageInfo = (overrides: Partial<PriceCoverageInfo> = {}): PriceCoverageInfo => ({
-    asset: 'BTC',
+    assetSymbol: 'BTC',
     total_transactions: 100,
     with_price: 90,
     missing_price: 10,
@@ -247,7 +247,7 @@ describe('formatPriceCoverageListForDisplay', () => {
   });
 
   it('should format single asset coverage', () => {
-    const coverages = [createCoverageInfo({ asset: 'BTC' })];
+    const coverages = [createCoverageInfo({ assetSymbol: 'BTC' })];
     const result = createResult(coverages);
 
     const output = formatPriceCoverageListForDisplay(result);
@@ -264,10 +264,10 @@ describe('formatPriceCoverageListForDisplay', () => {
 
   it('should format multiple asset coverages', () => {
     const coverages = [
-      createCoverageInfo({ asset: 'BTC', total_transactions: 100, with_price: 90, missing_price: 10 }),
-      createCoverageInfo({ asset: 'ETH', total_transactions: 200, with_price: 180, missing_price: 20 }),
+      createCoverageInfo({ assetSymbol: 'BTC', total_transactions: 100, with_price: 90, missing_price: 10 }),
+      createCoverageInfo({ assetSymbol: 'ETH', total_transactions: 200, with_price: 180, missing_price: 20 }),
       createCoverageInfo({
-        asset: 'SOL',
+        assetSymbol: 'SOL',
         total_transactions: 50,
         with_price: 50,
         missing_price: 0,
@@ -315,7 +315,7 @@ describe('formatPriceCoverageListForDisplay', () => {
   });
 
   it('should format with header and footer separators', () => {
-    const coverages = [createCoverageInfo({ asset: 'BTC' })];
+    const coverages = [createCoverageInfo({ assetSymbol: 'BTC' })];
     const result = createResult(coverages);
 
     const output = formatPriceCoverageListForDisplay(result);
@@ -326,7 +326,7 @@ describe('formatPriceCoverageListForDisplay', () => {
   });
 
   it('should have blank lines for readability', () => {
-    const coverages = [createCoverageInfo({ asset: 'BTC' })];
+    const coverages = [createCoverageInfo({ assetSymbol: 'BTC' })];
     const result = createResult(coverages);
 
     const output = formatPriceCoverageListForDisplay(result);
@@ -337,7 +337,7 @@ describe('formatPriceCoverageListForDisplay', () => {
   it('should format 100% coverage correctly', () => {
     const coverages = [
       createCoverageInfo({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         total_transactions: 100,
         with_price: 100,
         missing_price: 0,
@@ -355,7 +355,7 @@ describe('formatPriceCoverageListForDisplay', () => {
   it('should format 0% coverage correctly', () => {
     const coverages = [
       createCoverageInfo({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         total_transactions: 100,
         with_price: 0,
         missing_price: 100,
@@ -371,7 +371,7 @@ describe('formatPriceCoverageListForDisplay', () => {
   });
 
   it('should separate multiple assets with blank lines', () => {
-    const coverages = [createCoverageInfo({ asset: 'BTC' }), createCoverageInfo({ asset: 'ETH' })];
+    const coverages = [createCoverageInfo({ assetSymbol: 'BTC' }), createCoverageInfo({ assetSymbol: 'ETH' })];
     const result = createResult(coverages);
 
     const output = formatPriceCoverageListForDisplay(result);
@@ -382,8 +382,8 @@ describe('formatPriceCoverageListForDisplay', () => {
 
   it('should calculate correct overall coverage with mixed assets', () => {
     const coverages = [
-      createCoverageInfo({ asset: 'BTC', total_transactions: 100, with_price: 100, missing_price: 0 }),
-      createCoverageInfo({ asset: 'ETH', total_transactions: 100, with_price: 50, missing_price: 50 }),
+      createCoverageInfo({ assetSymbol: 'BTC', total_transactions: 100, with_price: 100, missing_price: 0 }),
+      createCoverageInfo({ assetSymbol: 'ETH', total_transactions: 100, with_price: 50, missing_price: 50 }),
     ];
     const result = createResult(coverages);
 
@@ -396,7 +396,7 @@ describe('formatPriceCoverageListForDisplay', () => {
   it('should handle large numbers in summary', () => {
     const coverages = [
       createCoverageInfo({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         total_transactions: 10000,
         with_price: 9500,
         missing_price: 500,
@@ -413,7 +413,7 @@ describe('formatPriceCoverageListForDisplay', () => {
   });
 
   it('should format complete text output structure', () => {
-    const coverages = [createCoverageInfo({ asset: 'BTC' })];
+    const coverages = [createCoverageInfo({ assetSymbol: 'BTC' })];
     const result = createResult(coverages);
 
     const output = formatPriceCoverageListForDisplay(result);

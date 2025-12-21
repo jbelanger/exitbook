@@ -24,14 +24,14 @@ export function mapBlockchainComTransaction(
   const timestamp = rawData.time * 1000;
 
   const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input, _index) => ({
-    address: input.prev_out?.addr,
+    address: input.prev_out?.addr ?? undefined,
     txid: '',
     value: input.prev_out?.value ? input.prev_out.value.toString() : '0',
     vout: input.prev_out?.n,
   }));
 
   const outputs: BitcoinTransactionOutput[] = rawData.out.map((output, _index) => ({
-    address: output.addr,
+    address: output.addr ?? undefined,
     index: output.n,
     value: output.value.toString(),
   }));

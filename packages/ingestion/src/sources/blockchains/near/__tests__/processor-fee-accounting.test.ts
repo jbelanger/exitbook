@@ -216,9 +216,9 @@ describe('NearTransactionProcessor - Fee Accounting (Issue #78)', () => {
     // User sent token and paid NEAR fee
     expect(transaction.fees).toHaveLength(1);
     expect(transaction.fees[0]?.amount.toFixed()).toBe('0.0001');
-    expect(transaction.fees[0]?.asset).toBe('NEAR');
+    expect(transaction.fees[0]?.assetSymbol).toBe('NEAR');
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows?.[0]?.asset).toBe('USDC');
+    expect(transaction.movements.outflows?.[0]?.assetSymbol).toBe('USDC');
     expect(transaction.movements.outflows?.[0]?.netAmount?.toFixed()).toBe('1');
   });
 

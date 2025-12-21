@@ -66,7 +66,7 @@ describe('transformHistoricalResponse', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toEqual({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date('2024-01-01T00:00:00Z'), // Rounded to day
         price: parseDecimal('30123.45'),
         currency: Currency.create('USD'),
@@ -186,7 +186,7 @@ describe('transformSimplePriceResponse', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toEqual({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp,
         price: parseDecimal('30123.45'),
         currency: Currency.create('USD'),

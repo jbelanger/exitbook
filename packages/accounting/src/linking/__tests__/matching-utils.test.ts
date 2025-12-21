@@ -132,7 +132,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date(),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -145,7 +145,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         externalId: 'txabc',
         timestamp: new Date(),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qxyz123',
@@ -163,7 +163,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date(),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -176,7 +176,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         externalId: 'txabc',
         timestamp: new Date(),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qdifferent',
@@ -194,7 +194,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date(),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -207,7 +207,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         externalId: 'txabc',
         timestamp: new Date(),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: undefined,
@@ -225,7 +225,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date(),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -238,7 +238,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         externalId: 'txabc',
         timestamp: new Date(),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qxyz123',
@@ -331,7 +331,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -344,7 +344,7 @@ describe('matching-utils', () => {
         sourceType: 'blockchain',
         externalId: 'txabc',
         timestamp: new Date('2024-01-01T13:00:00Z'),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('0.99'),
         direction: 'in',
         fromAddress: 'bc1qxyz123',
@@ -369,7 +369,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -383,7 +383,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('0.99'),
           direction: 'in',
           fromAddress: 'bc1qxyz123',
@@ -395,7 +395,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           externalId: 'txdef',
           timestamp: new Date('2024-01-01T14:00:00Z'),
-          asset: 'ETH', // Different asset
+          assetSymbol: 'ETH', // Different asset
           amount: parseDecimal('0.99'),
           direction: 'in',
           fromAddress: undefined,
@@ -417,7 +417,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -431,7 +431,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('0.3'), // Very different amount
           direction: 'in',
           fromAddress: undefined,
@@ -452,7 +452,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -466,7 +466,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T20:00:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('0.95'), // Good match but later
           direction: 'in',
           fromAddress: undefined,
@@ -478,7 +478,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           externalId: 'txdef',
           timestamp: new Date('2024-01-01T13:00:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('0.99'), // Better match, sooner
           direction: 'in',
           fromAddress: undefined,
@@ -541,7 +541,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T14:00:00Z'), // Withdrawal at 14:00
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -555,7 +555,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T12:00:00Z'), // Deposit at 12:00 (BEFORE withdrawal)
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('1.0'), // Perfect amount match
           direction: 'in',
           fromAddress: undefined,
@@ -576,7 +576,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -590,7 +590,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-04T12:00:00Z'), // 72 hours later (outside 48h window)
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
           direction: 'in',
           fromAddress: undefined,
@@ -613,7 +613,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -627,7 +627,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('0.90'), // 90% similarity (below 95% threshold)
           direction: 'in',
           fromAddress: undefined,
@@ -648,7 +648,7 @@ describe('matching-utils', () => {
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('1.0'),
         direction: 'out',
         fromAddress: undefined,
@@ -662,7 +662,7 @@ describe('matching-utils', () => {
           sourceType: 'blockchain',
           externalId: 'txabc',
           timestamp: new Date('2024-01-01T13:00:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('0.95'), // Exactly 95% (meets threshold)
           direction: 'in',
           fromAddress: undefined,
@@ -889,8 +889,8 @@ describe('matching-utils', () => {
           from: undefined,
           to: undefined,
           movements: {
-            inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.0') }],
-            outflows: [{ asset: 'USD', grossAmount: parseDecimal('50000') }],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') }],
+            outflows: [{ assetSymbol: 'USD', grossAmount: parseDecimal('50000') }],
           },
         },
       ] as UniversalTransactionData[]; // Updated type assertion
@@ -903,7 +903,7 @@ describe('matching-utils', () => {
         externalId: 'tx-1',
         sourceName: 'kraken',
         sourceType: 'exchange',
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         direction: 'in',
       });
       expect(candidates[1]).toMatchObject({
@@ -911,7 +911,7 @@ describe('matching-utils', () => {
         externalId: 'tx-1',
         sourceName: 'kraken',
         sourceType: 'exchange',
-        asset: 'USD',
+        assetSymbol: 'USD',
         direction: 'out',
       });
     });
@@ -940,7 +940,7 @@ describe('matching-utils', () => {
             type: 'transfer',
           },
           movements: {
-            inflows: [{ asset: 'BTC', grossAmount: parseDecimal('0.5') }],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.5') }],
             outflows: [],
           },
         },
@@ -967,10 +967,10 @@ describe('matching-utils', () => {
           datetime: '2024-01-01T12:00:00Z',
           movements: {
             inflows: [
-              { asset: 'BTC', grossAmount: parseDecimal('1.0') },
-              { asset: 'ETH', grossAmount: parseDecimal('10.0') },
+              { assetSymbol: 'BTC', grossAmount: parseDecimal('1.0') },
+              { assetSymbol: 'ETH', grossAmount: parseDecimal('10.0') },
             ],
-            outflows: [{ asset: 'USD', grossAmount: parseDecimal('60000') }],
+            outflows: [{ assetSymbol: 'USD', grossAmount: parseDecimal('60000') }],
           },
         },
       ] as UniversalTransactionData[];
@@ -1011,7 +1011,7 @@ describe('matching-utils', () => {
           sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
           direction: 'out',
         },
@@ -1020,7 +1020,7 @@ describe('matching-utils', () => {
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('0.9995'),
           direction: 'in',
         },
@@ -1029,7 +1029,7 @@ describe('matching-utils', () => {
           sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-02T12:00:00Z'),
-          asset: 'ETH',
+          assetSymbol: 'ETH',
           amount: parseDecimal('10.0'),
           direction: 'out',
         },
@@ -1050,7 +1050,7 @@ describe('matching-utils', () => {
           sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
           direction: 'neutral',
         },
@@ -1059,7 +1059,7 @@ describe('matching-utils', () => {
           sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
           direction: 'out',
         },
@@ -1083,8 +1083,8 @@ describe('matching-utils', () => {
     it('should deduplicate matches (one source per target)', () => {
       const matches: PotentialMatch[] = [
         {
-          sourceTransaction: { id: 1, asset: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
-          targetTransaction: { id: 2, asset: 'BTC', amount: parseDecimal('0.9995') } as TransactionCandidate,
+          sourceTransaction: { id: 1, assetSymbol: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
+          targetTransaction: { id: 2, assetSymbol: 'BTC', amount: parseDecimal('0.9995') } as TransactionCandidate,
           confidenceScore: parseDecimal('0.98'),
           matchCriteria: {
             assetMatch: true,
@@ -1095,8 +1095,8 @@ describe('matching-utils', () => {
           linkType: 'exchange_to_blockchain',
         },
         {
-          sourceTransaction: { id: 3, asset: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
-          targetTransaction: { id: 2, asset: 'BTC', amount: parseDecimal('0.9995') } as TransactionCandidate,
+          sourceTransaction: { id: 3, assetSymbol: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
+          targetTransaction: { id: 2, assetSymbol: 'BTC', amount: parseDecimal('0.9995') } as TransactionCandidate,
           confidenceScore: parseDecimal('0.85'),
           matchCriteria: {
             assetMatch: true,
@@ -1118,8 +1118,8 @@ describe('matching-utils', () => {
     it('should auto-confirm high confidence matches', () => {
       const matches: PotentialMatch[] = [
         {
-          sourceTransaction: { id: 1, asset: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
-          targetTransaction: { id: 2, asset: 'BTC', amount: parseDecimal('0.9995') } as TransactionCandidate,
+          sourceTransaction: { id: 1, assetSymbol: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
+          targetTransaction: { id: 2, assetSymbol: 'BTC', amount: parseDecimal('0.9995') } as TransactionCandidate,
           confidenceScore: parseDecimal('0.98'),
           matchCriteria: {
             assetMatch: true,
@@ -1143,8 +1143,8 @@ describe('matching-utils', () => {
     it('should suggest low confidence matches', () => {
       const matches: PotentialMatch[] = [
         {
-          sourceTransaction: { id: 1, asset: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
-          targetTransaction: { id: 2, asset: 'BTC', amount: parseDecimal('0.95') } as TransactionCandidate,
+          sourceTransaction: { id: 1, assetSymbol: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
+          targetTransaction: { id: 2, assetSymbol: 'BTC', amount: parseDecimal('0.95') } as TransactionCandidate,
           confidenceScore: parseDecimal('0.85'),
           matchCriteria: {
             assetMatch: true,
@@ -1165,8 +1165,8 @@ describe('matching-utils', () => {
     it('should handle multiple independent matches', () => {
       const matches: PotentialMatch[] = [
         {
-          sourceTransaction: { id: 1, asset: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
-          targetTransaction: { id: 2, asset: 'BTC', amount: parseDecimal('0.9995') } as TransactionCandidate,
+          sourceTransaction: { id: 1, assetSymbol: 'BTC', amount: parseDecimal('1.0') } as TransactionCandidate,
+          targetTransaction: { id: 2, assetSymbol: 'BTC', amount: parseDecimal('0.9995') } as TransactionCandidate,
           confidenceScore: parseDecimal('0.98'),
           matchCriteria: {
             assetMatch: true,
@@ -1177,8 +1177,8 @@ describe('matching-utils', () => {
           linkType: 'exchange_to_blockchain',
         },
         {
-          sourceTransaction: { id: 3, asset: 'ETH', amount: parseDecimal('10.0') } as TransactionCandidate,
-          targetTransaction: { id: 4, asset: 'ETH', amount: parseDecimal('9.98') } as TransactionCandidate,
+          sourceTransaction: { id: 3, assetSymbol: 'ETH', amount: parseDecimal('10.0') } as TransactionCandidate,
+          targetTransaction: { id: 4, assetSymbol: 'ETH', amount: parseDecimal('9.98') } as TransactionCandidate,
           confidenceScore: parseDecimal('0.97'),
           matchCriteria: {
             assetMatch: true,
@@ -1208,7 +1208,7 @@ describe('matching-utils', () => {
           sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
           direction: 'out',
         },
@@ -1217,7 +1217,7 @@ describe('matching-utils', () => {
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('0.9995'),
           direction: 'in',
         },
@@ -1242,7 +1242,7 @@ describe('matching-utils', () => {
         expect(link.id).toBe(id);
         expect(link.sourceTransactionId).toBe(1);
         expect(link.targetTransactionId).toBe(2);
-        expect(link.asset).toBe('BTC');
+        expect(link.assetSymbol).toBe('BTC');
         expect(link.sourceAmount.toFixed()).toBe('1');
         expect(link.targetAmount.toFixed()).toBe('0.9995');
         expect(link.status).toBe('confirmed');
@@ -1261,7 +1261,7 @@ describe('matching-utils', () => {
           sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
           direction: 'out',
         },
@@ -1270,7 +1270,7 @@ describe('matching-utils', () => {
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('0.95'),
           direction: 'in',
         },
@@ -1302,7 +1302,7 @@ describe('matching-utils', () => {
           sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
           direction: 'out',
         },
@@ -1311,7 +1311,7 @@ describe('matching-utils', () => {
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('1.5'),
           direction: 'in',
         },
@@ -1340,7 +1340,7 @@ describe('matching-utils', () => {
           sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
           direction: 'out',
         },
@@ -1349,7 +1349,7 @@ describe('matching-utils', () => {
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('0.85'),
           direction: 'in',
         },
@@ -1378,7 +1378,7 @@ describe('matching-utils', () => {
           sourceName: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T12:00:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
           direction: 'out',
         },
@@ -1387,7 +1387,7 @@ describe('matching-utils', () => {
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('0.95'),
           direction: 'in',
         },

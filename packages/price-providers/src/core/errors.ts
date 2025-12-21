@@ -9,7 +9,7 @@
 export class CoinNotFoundError extends Error {
   constructor(
     message: string,
-    public readonly asset: string,
+    public readonly assetSymbol: string,
     public readonly provider: string,
     public readonly details?: {
       currency?: string;
@@ -30,7 +30,7 @@ export class CoinNotFoundError extends Error {
 export class PriceDataUnavailableError extends Error {
   constructor(
     message: string,
-    public readonly asset: string,
+    public readonly assetSymbol: string,
     public readonly provider: string,
     public readonly reason: 'date-out-of-range' | 'rate-limit' | 'tier-limitation' | 'other',
     public readonly details?: {

@@ -77,7 +77,7 @@ describe('CoinGecko Provider E2E', () => {
   it('should have synced coin list from CoinGecko API', async () => {
     // Verify sync happened in beforeAll by checking we can fetch BTC
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       timestamp: new Date(),
     });
@@ -87,7 +87,7 @@ describe('CoinGecko Provider E2E', () => {
 
   it('should fetch current Bitcoin price in USD', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       timestamp: new Date(), // Current time - uses simple price API
     });
@@ -96,7 +96,7 @@ describe('CoinGecko Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('BTC');
+      expect(priceData.assetSymbol.toString()).toBe('BTC');
       expect(priceData.currency.toString()).toBe('USD');
       expect(priceData.price).toBeGreaterThan(0);
       expect(priceData.price).toBeGreaterThan(10000); // BTC is typically > $10k
@@ -112,7 +112,7 @@ describe('CoinGecko Provider E2E', () => {
     historicalDate.setUTCHours(0, 0, 0, 0); // Reset to start of day (UTC)
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       timestamp: historicalDate,
     });
@@ -125,7 +125,7 @@ describe('CoinGecko Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('BTC');
+      expect(priceData.assetSymbol.toString()).toBe('BTC');
       expect(priceData.currency.toString()).toBe('USD');
       expect(priceData.price).toBeGreaterThan(0);
       expect(priceData.price).toBeGreaterThan(1000); // BTC should be > $1000
@@ -137,7 +137,7 @@ describe('CoinGecko Provider E2E', () => {
 
   it('should fetch current Ethereum price in EUR', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('ETH'),
+      assetSymbol: Currency.create('ETH'),
       currency: Currency.create('EUR'),
       timestamp: new Date(),
     });
@@ -146,7 +146,7 @@ describe('CoinGecko Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('ETH');
+      expect(priceData.assetSymbol.toString()).toBe('ETH');
       expect(priceData.currency.toString()).toBe('EUR');
       expect(priceData.price).toBeGreaterThan(0);
       expect(priceData.price).toBeGreaterThan(500); // ETH is typically > €500
@@ -161,7 +161,7 @@ describe('CoinGecko Provider E2E', () => {
     queryDate.setUTCHours(0, 0, 0, 0); // Use UTC to match cache rounding
 
     const query = {
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       timestamp: queryDate,
     };
@@ -196,7 +196,7 @@ describe('CoinGecko Provider E2E', () => {
 
   it('should return error for unknown asset', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('NOTAREALCOIN123'),
+      assetSymbol: Currency.create('NOTAREALCOIN123'),
       currency: Currency.create('USD'),
       timestamp: new Date(),
     });
@@ -216,7 +216,7 @@ describe('CoinGecko Provider E2E', () => {
 
     // Should still be able to fetch prices
     const priceResult = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       timestamp: new Date(),
     });

@@ -133,7 +133,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],
@@ -161,7 +161,7 @@ describe('export-utils', () => {
           timestamp: Date.parse('2024-01-01T12:00:00Z'),
           status: 'success',
           movements: {
-            inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.5') }],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
             outflows: [],
           },
           fees: [],
@@ -180,7 +180,7 @@ describe('export-utils', () => {
           status: 'success',
           movements: {
             inflows: [],
-            outflows: [{ asset: 'ETH', grossAmount: parseDecimal('10.0') }],
+            outflows: [{ assetSymbol: 'ETH', grossAmount: parseDecimal('10.0') }],
           },
           fees: [],
           operation: {
@@ -209,7 +209,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],
@@ -241,7 +241,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],
@@ -258,7 +258,7 @@ describe('export-utils', () => {
       const tx = parsed[0] as {
         fees: { total?: unknown };
         id: string;
-        movements: { primary: { amount: string; asset: string; direction: string } };
+        movements: { primary: { amount: string; assetSymbol: string; direction: string } };
         operation: { category: string; type: string };
         source: string;
       };
@@ -280,7 +280,7 @@ describe('export-utils', () => {
           timestamp: Date.parse('2024-01-01T12:00:00Z'),
           status: 'success',
           movements: {
-            inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.5') }],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
             outflows: [],
           },
           fees: [],
@@ -299,7 +299,7 @@ describe('export-utils', () => {
           status: 'success',
           movements: {
             inflows: [],
-            outflows: [{ asset: 'ETH', grossAmount: parseDecimal('10.0') }],
+            outflows: [{ assetSymbol: 'ETH', grossAmount: parseDecimal('10.0') }],
           },
           fees: [],
           operation: {
@@ -327,7 +327,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],
@@ -371,7 +371,7 @@ describe('export-utils', () => {
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
         movements: {
-          inflows: [{ asset: 'BTC', grossAmount: parseDecimal('1.5') }],
+          inflows: [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
         fees: [],

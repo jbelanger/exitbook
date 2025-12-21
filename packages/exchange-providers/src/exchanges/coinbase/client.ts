@@ -340,7 +340,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                       correlationId,
                       timestamp,
                       type: validatedData.type,
-                      asset: validatedData.currency,
+                      assetSymbol: validatedData.currency,
                       amount: signedAmount,
                       fee: feeAmount,
                       feeCurrency,

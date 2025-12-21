@@ -64,7 +64,7 @@ describe('ManualPriceService', () => {
       const service = new ManualPriceService(testDbPath);
 
       const result = await service.savePrice({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         date: new Date('2024-01-15T10:30:00Z'),
         price: new Decimal(45000),
       });
@@ -82,7 +82,7 @@ describe('ManualPriceService', () => {
       if (priceResult.isOk()) {
         expect(priceResult.value).toBeDefined();
         expect(priceResult.value?.price.toFixed()).toBe('45000');
-        expect(priceResult.value?.asset.toString()).toBe('BTC');
+        expect(priceResult.value?.assetSymbol.toString()).toBe('BTC');
         expect(priceResult.value?.currency.toString()).toBe('USD');
         expect(priceResult.value?.source).toBe('manual');
         expect(priceResult.value?.granularity).toBe('exact');
@@ -93,7 +93,7 @@ describe('ManualPriceService', () => {
       const service = new ManualPriceService(testDbPath);
 
       const result = await service.savePrice({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         date: new Date('2024-01-15T10:30:00Z'),
         price: new Decimal(42000),
         currency: 'EUR',
@@ -119,7 +119,7 @@ describe('ManualPriceService', () => {
       const service = new ManualPriceService(testDbPath);
 
       const result = await service.savePrice({
-        asset: 'ETH',
+        assetSymbol: 'ETH',
         date: new Date('2024-01-15T10:30:00Z'),
         price: new Decimal(2500),
         source: 'manual-cli',
@@ -144,7 +144,7 @@ describe('ManualPriceService', () => {
       const service = new ManualPriceService('/invalid/path/that/does/not/exist/db.sqlite');
 
       const result = await service.savePrice({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         date: new Date('2024-01-15T10:30:00Z'),
         price: new Decimal(45000),
       });
@@ -181,7 +181,7 @@ describe('ManualPriceService', () => {
       if (rateResult.isOk()) {
         expect(rateResult.value).toBeDefined();
         expect(rateResult.value?.price.toFixed()).toBe('1.08');
-        expect(rateResult.value?.asset.toString()).toBe('EUR');
+        expect(rateResult.value?.assetSymbol.toString()).toBe('EUR');
         expect(rateResult.value?.currency.toString()).toBe('USD');
         expect(rateResult.value?.source).toBe('user-provided');
         expect(rateResult.value?.granularity).toBe('exact');
@@ -254,7 +254,7 @@ describe('ManualPriceService', () => {
 
       // First call
       const result1 = await service.savePrice({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         date: new Date('2024-01-15T10:30:00Z'),
         price: new Decimal(45000),
       });
@@ -263,7 +263,7 @@ describe('ManualPriceService', () => {
 
       // Second call should reuse connection
       const result2 = await service.savePrice({
-        asset: 'ETH',
+        assetSymbol: 'ETH',
         date: new Date('2024-01-15T10:30:00Z'),
         price: new Decimal(2500),
       });

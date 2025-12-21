@@ -30,7 +30,7 @@ export function formatECBDate(date: Date): string {
  */
 export function transformECBResponse(
   response: ECBExchangeRateResponse,
-  asset: Currency,
+  assetSymbol: Currency,
   timestamp: Date,
   currency: Currency,
   fetchedAt: Date
@@ -65,7 +65,7 @@ export function transformECBResponse(
   // Get observations (time series data)
   const observations = series.observations;
   if (!observations || Object.keys(observations).length === 0) {
-    return err(new Error(`No exchange rate data found for ${asset.toString()} on ${formatECBDate(timestamp)}`));
+    return err(new Error(`No exchange rate data found for ${assetSymbol.toString()} on ${formatECBDate(timestamp)}`));
   }
 
   // ECB typically returns one observation for a specific date
@@ -87,7 +87,7 @@ export function transformECBResponse(
   }
 
   return ok({
-    asset,
+    assetSymbol,
     timestamp,
     price: parseDecimal(rate.toString()),
     currency,

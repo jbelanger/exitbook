@@ -60,18 +60,20 @@ export function extractTradeMovements(
  * - Buy 100 XLM with 50 CAD: CAD = 1 CAD/CAD, XLM = 0.5 CAD/XLM
  *   (Then Stage 1 converts: 1 CAD → 0.75 USD, 0.5 CAD → 0.375 USD)
  */
-export function calculatePriceFromTrade(movements: TradeMovements): { asset: string; priceAtTxTime: PriceAtTxTime }[] {
+export function calculatePriceFromTrade(
+  movements: TradeMovements
+): { assetSymbol: string; priceAtTxTime: PriceAtTxTime }[] {
   const { inflow, outflow, timestamp } = movements;
 
-  const inflowCurrency = Currency.create(inflow.asset);
-  const outflowCurrency = Currency.create(outflow.asset);
+  const inflowCurrency = Currency.create(inflow.assetSymbol);
+  const outflowCurrency = Currency.create(outflow.assetSymbol);
 
   const inflowIsUSD = inflowCurrency.toString() === 'USD';
   const outflowIsUSD = outflowCurrency.toString() === 'USD';
   const inflowIsFiat = inflowCurrency.isFiat();
   const outflowIsFiat = outflowCurrency.isFiat();
 
-  const results: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
+  const results: { assetSymbol: string; priceAtTxTime: PriceAtTxTime }[] = [];
 
   // Case 1: USD trades (highest priority - most authoritative)
   if (inflowIsUSD || outflowIsUSD) {
@@ -81,7 +83,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
       results.push(
         {
-          asset: inflow.asset,
+          assetSymbol: inflow.assetSymbol,
           priceAtTxTime: {
             price: { amount: price, currency: outflowCurrency },
             source: 'exchange-execution',
@@ -90,7 +92,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
           },
         },
         {
-          asset: outflow.asset, // USD
+          assetSymbol: outflow.assetSymbol, // USD
           priceAtTxTime: {
             price: { amount: parseDecimal('1'), currency: outflowCurrency },
             source: 'exchange-execution',
@@ -107,7 +109,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
       results.push(
         {
-          asset: outflow.asset,
+          assetSymbol: outflow.assetSymbol,
           priceAtTxTime: {
             price: { amount: price, currency: inflowCurrency },
             source: 'exchange-execution',
@@ -116,7 +118,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
           },
         },
         {
-          asset: inflow.asset, // USD
+          assetSymbol: inflow.assetSymbol, // USD
           priceAtTxTime: {
             price: { amount: parseDecimal('1'), currency: inflowCurrency },
             source: 'exchange-execution',
@@ -144,7 +146,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
     results.push(
       {
-        asset: inflow.asset,
+        assetSymbol: inflow.assetSymbol,
         priceAtTxTime: {
           price: { amount: fiatPrice, currency: inflowCurrency },
           source: 'fiat-execution-tentative',
@@ -153,7 +155,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
         },
       },
       {
-        asset: outflow.asset,
+        assetSymbol: outflow.assetSymbol,
         priceAtTxTime: {
           price: { amount: cryptoPrice, currency: inflowCurrency },
           source: 'fiat-execution-tentative',
@@ -176,7 +178,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 
     results.push(
       {
-        asset: outflow.asset,
+        assetSymbol: outflow.assetSymbol,
         priceAtTxTime: {
           price: { amount: fiatPrice, currency: outflowCurrency },
           source: 'fiat-execution-tentative',
@@ -185,7 +187,7 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
         },
       },
       {
-        asset: inflow.asset,
+        assetSymbol: inflow.assetSymbol,
         priceAtTxTime: {
           price: { amount: cryptoPrice, currency: outflowCurrency },
           source: 'fiat-execution-tentative',
@@ -217,8 +219,8 @@ export function calculatePriceFromTrade(movements: TradeMovements): { asset: str
 export function stampFiatIdentityPrices(
   movements: AssetMovement[],
   timestamp: number
-): { asset: string; priceAtTxTime: PriceAtTxTime }[] {
-  const results: { asset: string; priceAtTxTime: PriceAtTxTime }[] = [];
+): { assetSymbol: string; priceAtTxTime: PriceAtTxTime }[] {
+  const results: { assetSymbol: string; priceAtTxTime: PriceAtTxTime }[] = [];
 
   for (const movement of movements) {
     // Skip if already has price
@@ -226,7 +228,7 @@ export function stampFiatIdentityPrices(
       continue;
     }
 
-    const currency = Currency.create(movement.asset);
+    const currency = Currency.create(movement.assetSymbol);
 
     // Only stamp prices on fiat currencies
     if (!currency.isFiat()) {
@@ -236,7 +238,7 @@ export function stampFiatIdentityPrices(
     const isUSD = currency.toString() === 'USD';
 
     results.push({
-      asset: movement.asset,
+      assetSymbol: movement.assetSymbol,
       priceAtTxTime: {
         price: { amount: parseDecimal('1'), currency },
         // USD gets 'exchange-execution' (final), non-USD gets 'fiat-execution-tentative' (will be normalized)

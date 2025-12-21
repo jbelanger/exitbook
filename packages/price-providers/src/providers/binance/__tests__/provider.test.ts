@@ -11,7 +11,7 @@ const {
   mockIsBinanceCoinNotFoundError,
 } = vi.hoisted(() => ({
   mockSelectBinanceInterval: vi.fn<(timestamp: Date) => { granularity: 'minute' | 'hour' | 'day'; interval: string }>(),
-  mockBuildBinanceSymbol: vi.fn<(asset: unknown, quote: string) => string>(),
+  mockBuildBinanceSymbol: vi.fn<(assetSymbol: unknown, quote: string) => string>(),
   mockMapCurrencyToBinanceQuote: vi.fn<(currency: unknown) => string[]>(),
   mockBuildBinanceKlinesParams: vi.fn<(symbol: string, interval: string, timestamp: Date) => Record<string, string>>(),
   mockTransformBinanceKlineResponse: vi.fn(),
@@ -94,7 +94,7 @@ describe('BinanceProvider', () => {
 
   it('returns cached price without hitting the API', async () => {
     const cachedPrice: PriceData = createTestPriceData({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       price: 43000,
       timestamp: defaultTimestamp,
@@ -106,7 +106,7 @@ describe('BinanceProvider', () => {
     priceRepoMocks.getPrice.mockResolvedValueOnce(ok(cachedPrice));
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('btc'),
+      assetSymbol: Currency.create('btc'),
       currency: Currency.create('usdt'),
       timestamp: defaultTimestamp,
     });
@@ -138,7 +138,7 @@ describe('BinanceProvider', () => {
     ];
 
     const expectedPrice: PriceData = createTestPriceData({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       price: 43050,
       timestamp: defaultTimestamp,
@@ -161,7 +161,7 @@ describe('BinanceProvider', () => {
     httpClientGet.mockResolvedValueOnce(ok(klineResponse));
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       timestamp: defaultTimestamp,
     });
@@ -215,7 +215,7 @@ describe('BinanceProvider', () => {
     ];
 
     const expectedPrice: PriceData = createTestPriceData({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       fetchedAt: new Date(),
       granularity: 'minute',
@@ -228,7 +228,7 @@ describe('BinanceProvider', () => {
     mockTransformBinanceKlineResponse.mockReturnValue(ok(expectedPrice));
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       timestamp: defaultTimestamp,
     });
@@ -258,7 +258,7 @@ describe('BinanceProvider', () => {
     httpClientGet.mockResolvedValue(ok(errorResponse));
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       timestamp: defaultTimestamp,
     });
@@ -291,7 +291,7 @@ describe('BinanceProvider', () => {
     httpClientGet.mockResolvedValueOnce(ok(errorResponse));
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       timestamp: defaultTimestamp,
     });
@@ -319,7 +319,7 @@ describe('BinanceProvider', () => {
     httpClientGet.mockResolvedValueOnce(ok([]));
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       timestamp: defaultTimestamp,
     });
@@ -365,7 +365,7 @@ describe('BinanceProvider', () => {
     httpClientGet.mockResolvedValueOnce(ok(klineResponse));
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       timestamp: defaultTimestamp,
     });
@@ -390,7 +390,7 @@ describe('BinanceProvider', () => {
     httpClientGet.mockResolvedValueOnce(ok(invalidResponse));
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       timestamp: defaultTimestamp,
     });

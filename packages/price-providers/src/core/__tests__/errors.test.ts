@@ -16,7 +16,7 @@ describe('CoinNotFoundError', () => {
 
     expect(error.name).toBe('CoinNotFoundError');
     expect(error.message).toBe('Coin not found');
-    expect(error.asset).toBe('BTC');
+    expect(error.assetSymbol).toBe('BTC');
     expect(error.provider).toBe('coingecko');
     expect(error.details?.suggestion).toBe('Try syncing coin list');
     expect(error.details?.timestamp).toEqual(new Date('2024-01-01'));
@@ -28,7 +28,7 @@ describe('CoinNotFoundError', () => {
 
     expect(error.name).toBe('CoinNotFoundError');
     expect(error.message).toBe('Coin not found');
-    expect(error.asset).toBe('ETH');
+    expect(error.assetSymbol).toBe('ETH');
     expect(error.provider).toBe('cryptocompare');
     expect(error.details).toBeUndefined();
   });

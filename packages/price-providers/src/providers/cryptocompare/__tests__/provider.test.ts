@@ -78,7 +78,7 @@ describe('CryptoCompareProvider', () => {
   describe('fetchPrice', () => {
     it('returns cached price without hitting the API', async () => {
       const cachedPrice: PriceData = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         currency: Currency.create('USD'),
         price: parseDecimal('30123.45'),
         timestamp: defaultTimestamp,
@@ -89,7 +89,7 @@ describe('CryptoCompareProvider', () => {
       priceRepoMocks.getPrice.mockResolvedValueOnce(ok(cachedPrice));
 
       const result = await provider.fetchPrice({
-        asset: Currency.create('btc'),
+        assetSymbol: Currency.create('btc'),
         currency: Currency.create('usd'),
         timestamp: defaultTimestamp,
       });
@@ -110,7 +110,7 @@ describe('CryptoCompareProvider', () => {
       };
 
       const expectedPrice: PriceData = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         currency: Currency.create('USD'),
         price: parseDecimal('30200'),
         timestamp: defaultTimestamp,
@@ -122,7 +122,7 @@ describe('CryptoCompareProvider', () => {
       mockTransformPriceResponse.mockReturnValueOnce(ok(expectedPrice));
 
       const result = await provider.fetchPrice({
-        asset: Currency.create('btc'),
+        assetSymbol: Currency.create('btc'),
         currency: Currency.create('usd'),
         timestamp: defaultTimestamp,
       });
@@ -173,7 +173,7 @@ describe('CryptoCompareProvider', () => {
       };
 
       const expectedPrice: PriceData = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         currency: Currency.create('USD'),
         price: parseDecimal('9000'),
         timestamp: historicalTimestamp,
@@ -185,7 +185,7 @@ describe('CryptoCompareProvider', () => {
       mockTransformHistoricalResponse.mockReturnValueOnce(ok(expectedPrice));
 
       const result = await provider.fetchPrice({
-        asset: Currency.create('btc'),
+        assetSymbol: Currency.create('btc'),
         currency: Currency.create('usd'),
         timestamp: historicalTimestamp,
       });
@@ -218,7 +218,7 @@ describe('CryptoCompareProvider', () => {
       };
 
       const expectedPrice: PriceData = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         currency: Currency.create('USD'),
         price: parseDecimal('30200'),
         timestamp: defaultTimestamp,
@@ -230,7 +230,7 @@ describe('CryptoCompareProvider', () => {
       mockTransformPriceResponse.mockReturnValueOnce(ok(expectedPrice));
 
       const result = await provider.fetchPrice({
-        asset: Currency.create('btc'),
+        assetSymbol: Currency.create('btc'),
         timestamp: defaultTimestamp,
         currency: Currency.create('USD'),
       });

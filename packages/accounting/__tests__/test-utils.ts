@@ -40,9 +40,14 @@ export function createPriceAtTxTime(
 /**
  * Creates an AssetMovement object with price
  */
-export function createMovement(asset: string, amount: string, priceAmount: string, currency = 'USD'): AssetMovement {
+export function createMovement(
+  assetSymbol: string,
+  amount: string,
+  priceAmount: string,
+  currency = 'USD'
+): AssetMovement {
   return {
-    asset,
+    assetSymbol,
     grossAmount: parseDecimal(amount),
     priceAtTxTime: createPriceAtTxTime(priceAmount, currency),
   };
@@ -52,7 +57,7 @@ export function createMovement(asset: string, amount: string, priceAmount: strin
  * Creates a FeeMovement object with common defaults
  */
 export function createFee(
-  asset: string,
+  assetSymbol: string,
   amount: string,
   options?: {
     currency?: string;
@@ -62,7 +67,7 @@ export function createFee(
   }
 ): FeeMovement {
   return {
-    asset,
+    assetSymbol: assetSymbol,
     amount: parseDecimal(amount),
     scope: options?.scope ?? 'platform',
     settlement: options?.settlement ?? 'balance',
@@ -78,8 +83,8 @@ export function createFee(
 export function createTransaction(
   id: number,
   datetime: string,
-  inflows: { amount: string; asset: string; price: string }[],
-  outflows: { amount: string; asset: string; price: string }[] = [],
+  inflows: { amount: string; assetSymbol: string; price: string }[],
+  outflows: { amount: string; assetSymbol: string; price: string }[] = [],
   options?: {
     category?: 'trade' | 'transfer';
     fees?: FeeMovement[];
@@ -98,8 +103,8 @@ export function createTransaction(
     source: options?.source ?? 'test',
     status: 'success',
     movements: {
-      inflows: inflows.map((i) => createMovement(i.asset, i.amount, i.price)),
-      outflows: outflows.map((o) => createMovement(o.asset, o.amount, o.price)),
+      inflows: inflows.map((i) => createMovement(i.assetSymbol, i.amount, i.price)),
+      outflows: outflows.map((o) => createMovement(o.assetSymbol, o.amount, o.price)),
     },
     operation: {
       category: options?.category ?? 'trade',
@@ -115,13 +120,13 @@ export function createTransaction(
 export function createTransactionWithFee(
   id: number,
   datetime: string,
-  inflows: { amount: string; asset: string; price: string }[],
-  outflows: { amount: string; asset: string; price: string }[],
-  platformFee?: { amount: string; asset: string; price: string }
+  inflows: { amount: string; assetSymbol: string; price: string }[],
+  outflows: { amount: string; assetSymbol: string; price: string }[],
+  platformFee?: { amount: string; assetSymbol: string; price: string }
 ): UniversalTransactionData {
   const fees: FeeMovement[] = platformFee
     ? [
-        createFee(platformFee.asset, platformFee.amount, {
+        createFee(platformFee.assetSymbol, platformFee.amount, {
           priceAmount: platformFee.price,
         }),
       ]
@@ -135,7 +140,7 @@ export function createTransactionWithFee(
  */
 export function createLot(
   id: string,
-  asset: string,
+  assetSymbol: string,
   quantity: string,
   costBasisPerUnit: string,
   acquisitionDate: Date,
@@ -155,7 +160,7 @@ export function createLot(
     id,
     calculationId: options?.calculationId ?? 'calc1',
     acquisitionTransactionId: options?.acquisitionTransactionId ?? 1,
-    asset,
+    assetSymbol: assetSymbol,
     quantity: qty,
     costBasisPerUnit: costBasis,
     totalCostBasis: qty.mul(costBasis),

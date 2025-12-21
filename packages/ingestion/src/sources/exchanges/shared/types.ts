@@ -15,7 +15,7 @@ export interface ExchangeFundFlow {
   // Primary asset (for simplified consumption and single-asset display)
   primary: {
     amount: string; // Absolute amount of primary asset
-    asset: string; // Symbol of primary asset
+    assetSymbol: string; // Symbol of primary asset
   };
 
   // Fee information (aggregated across all correlated entries)

@@ -112,7 +112,7 @@ describe('schemas', () => {
         id: 'link-123',
         sourceTransactionId: 1,
         targetTransactionId: 2,
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         sourceAmount: parseDecimal('1.0'),
         targetAmount: parseDecimal('0.9995'),
         linkType: 'exchange_to_blockchain',
@@ -136,7 +136,7 @@ describe('schemas', () => {
       expect(result.id).toBe('link-123');
       expect(result.sourceTransactionId).toBe(1);
       expect(result.targetTransactionId).toBe(2);
-      expect(result.asset).toBe('BTC');
+      expect(result.assetSymbol).toBe('BTC');
       expect(result.sourceAmount).toBeInstanceOf(Decimal);
       expect(result.sourceAmount.toFixed()).toBe('1');
       expect(result.targetAmount).toBeInstanceOf(Decimal);
@@ -154,7 +154,7 @@ describe('schemas', () => {
         id: 'link-456',
         sourceTransactionId: 3,
         targetTransactionId: 4,
-        asset: 'ETH',
+        assetSymbol: 'ETH',
         sourceAmount: '10.0',
         targetAmount: '9.98',
         linkType: 'blockchain_to_blockchain',
@@ -207,7 +207,7 @@ describe('schemas', () => {
         sourceType: 'exchange',
         externalId: 'W123',
         timestamp: new Date('2024-01-01T12:00:00Z'),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: parseDecimal('1.5'),
         direction: 'out',
         fromAddress: 'addr123',
@@ -220,7 +220,7 @@ describe('schemas', () => {
       expect(result.sourceType).toBe('exchange');
       expect(result.externalId).toBe('W123');
       expect(result.timestamp).toBeInstanceOf(Date);
-      expect(result.asset).toBe('BTC');
+      expect(result.assetSymbol).toBe('BTC');
       expect(result.amount).toBeInstanceOf(Decimal);
       expect(result.amount.toFixed()).toBe('1.5');
       expect(result.direction).toBe('out');
@@ -232,7 +232,7 @@ describe('schemas', () => {
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T13:00:00Z'),
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: '1.5',
         direction: 'in',
         toAddress: 'bc1q...',
@@ -250,7 +250,7 @@ describe('schemas', () => {
         sourceName: 'test',
         sourceType: 'exchange',
         timestamp: new Date(),
-        asset: 'ETH',
+        assetSymbol: 'ETH',
         amount: parseDecimal('0.5'),
         direction: 'neutral',
       };
@@ -266,7 +266,7 @@ describe('schemas', () => {
           sourceName: 'test',
           sourceType: 'exchange',
           timestamp: new Date(),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
           direction: 'invalid',
         })
@@ -280,7 +280,7 @@ describe('schemas', () => {
           sourceName: 'test',
           sourceType: 'wallet',
           timestamp: new Date(),
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           amount: parseDecimal('1.0'),
           direction: 'in',
         })
@@ -294,7 +294,7 @@ describe('schemas', () => {
       sourceName: 'test',
       sourceType: 'exchange' as const,
       timestamp: new Date(),
-      asset: 'BTC',
+      assetSymbol: 'BTC',
       amount: parseDecimal('1.0'),
       direction: 'out' as const,
       ...overrides,
@@ -413,7 +413,7 @@ describe('schemas', () => {
       sourceName: 'test',
       sourceType: 'exchange' as const,
       timestamp: new Date(),
-      asset: 'BTC',
+      assetSymbol: 'BTC',
       amount: parseDecimal('1.0'),
       direction: 'out' as const,
     });
@@ -435,7 +435,7 @@ describe('schemas', () => {
       id,
       sourceTransactionId: sourceName,
       targetTransactionId: targetId,
-      asset: 'BTC',
+      assetSymbol: 'BTC',
       sourceAmount: parseDecimal('1.0'),
       targetAmount: parseDecimal('1.0'),
       linkType: 'exchange_to_blockchain' as const,
@@ -566,7 +566,7 @@ describe('schemas', () => {
         sourceName: 'test',
         sourceType: 'exchange' as const,
         timestamp: new Date(),
-        asset: 'SHIB',
+        assetSymbol: 'SHIB',
         amount: '1000000000000',
         direction: 'in' as const,
       };

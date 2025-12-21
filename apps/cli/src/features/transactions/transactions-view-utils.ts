@@ -10,7 +10,7 @@ import type { CommonViewFilters } from '../shared/view-utils.js';
  * Parameters for view transactions command.
  */
 export interface ViewTransactionsParams extends CommonViewFilters {
-  asset?: string | undefined;
+  assetSymbol?: string | undefined;
   operationType?: string | undefined;
   noPrice?: boolean | undefined;
 }
@@ -87,10 +87,10 @@ export function applyTransactionFilters(
   }
 
   // Filter by asset
-  if (params.asset) {
+  if (params.assetSymbol) {
     filtered = filtered.filter((tx) => {
-      const hasInflow = tx.movements.inflows?.some((m) => m.asset === params.asset);
-      const hasOutflow = tx.movements.outflows?.some((m) => m.asset === params.asset);
+      const hasInflow = tx.movements.inflows?.some((m) => m.assetSymbol === params.assetSymbol);
+      const hasOutflow = tx.movements.outflows?.some((m) => m.assetSymbol === params.assetSymbol);
       return hasInflow || hasOutflow;
     });
   }
@@ -123,7 +123,7 @@ export function formatTransactionForDisplay(tx: UniversalTransactionData): Forma
     transaction_datetime: tx.datetime,
     operation_category: tx.operation.category,
     operation_type: tx.operation.type,
-    movements_primary_asset: primary?.asset ?? undefined,
+    movements_primary_asset: primary?.assetSymbol ?? undefined,
     movements_primary_amount: primary?.amount.toFixed() ?? undefined,
     movements_primary_direction: primary?.direction ?? undefined,
     from_address: tx.from,

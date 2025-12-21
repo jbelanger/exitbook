@@ -9,7 +9,7 @@ export interface DisposalRequest {
   /** Transaction ID of the disposal */
   transactionId: number;
   /** Asset being disposed (e.g., 'BTC', 'ETH') */
-  asset: string;
+  assetSymbol: string;
   /** Quantity being disposed */
   quantity: Decimal;
   /** Date of disposal */

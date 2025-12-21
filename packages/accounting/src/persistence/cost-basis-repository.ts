@@ -91,7 +91,7 @@ export class CostBasisRepository extends BaseRepository {
           id: lot.id,
           calculation_id: lot.calculationId,
           acquisition_transaction_id: lot.acquisitionTransactionId,
-          asset: lot.asset,
+          asset: lot.assetSymbol,
           quantity: lot.quantity.toString(),
           cost_basis_per_unit: lot.costBasisPerUnit.toString(),
           total_cost_basis: lot.totalCostBasis.toString(),
@@ -126,7 +126,7 @@ export class CostBasisRepository extends BaseRepository {
         id: lot.id,
         calculation_id: lot.calculationId,
         acquisition_transaction_id: lot.acquisitionTransactionId,
-        asset: lot.asset,
+        asset: lot.assetSymbol,
         quantity: lot.quantity.toString(),
         cost_basis_per_unit: lot.costBasisPerUnit.toString(),
         total_cost_basis: lot.totalCostBasis.toString(),
@@ -175,9 +175,9 @@ export class CostBasisRepository extends BaseRepository {
   /**
    * Find lots by asset, optionally filtered by status
    */
-  async findLotsByAsset(asset: string, status?: LotStatus): Promise<Result<AcquisitionLot[], Error>> {
+  async findLotsByAsset(assetSymbol: string, status?: LotStatus): Promise<Result<AcquisitionLot[], Error>> {
     try {
-      let query = this.db.selectFrom('acquisition_lots').selectAll().where('asset', '=', asset);
+      let query = this.db.selectFrom('acquisition_lots').selectAll().where('asset', '=', assetSymbol);
 
       if (status) {
         query = query.where('status', '=', status);
@@ -199,7 +199,7 @@ export class CostBasisRepository extends BaseRepository {
 
       return ok(lots);
     } catch (error) {
-      this.logger.error({ error, asset, status }, 'Failed to find lots by asset');
+      this.logger.error({ error, assetSymbol: assetSymbol, status }, 'Failed to find lots by asset');
       return wrapError(error, 'Failed to find lots by asset');
     }
   }
@@ -207,12 +207,12 @@ export class CostBasisRepository extends BaseRepository {
   /**
    * Find all open lots for an asset (status = 'open' or 'partially_disposed')
    */
-  async findOpenLots(asset: string): Promise<Result<AcquisitionLot[], Error>> {
+  async findOpenLots(assetSymbol: string): Promise<Result<AcquisitionLot[], Error>> {
     try {
       const rows = await this.db
         .selectFrom('acquisition_lots')
         .selectAll()
-        .where('asset', '=', asset)
+        .where('asset', '=', assetSymbol)
         .where((eb) => eb.or([eb('status', '=', 'open'), eb('status', '=', 'partially_disposed')]))
         .orderBy('acquisition_date', 'asc')
         .execute();
@@ -228,7 +228,7 @@ export class CostBasisRepository extends BaseRepository {
 
       return ok(lots);
     } catch (error) {
-      this.logger.error({ error, asset }, 'Failed to find open lots');
+      this.logger.error({ error, assetSymbol }, 'Failed to find open lots');
       return wrapError(error, 'Failed to find open lots');
     }
   }
@@ -961,7 +961,7 @@ export class CostBasisRepository extends BaseRepository {
         id: row.id,
         calculationId: row.calculation_id,
         acquisitionTransactionId: row.acquisition_transaction_id,
-        asset: row.asset,
+        assetSymbol: row.asset,
         quantity: DecimalSchema.parse(row.quantity),
         costBasisPerUnit: DecimalSchema.parse(row.cost_basis_per_unit),
         totalCostBasis: DecimalSchema.parse(row.total_cost_basis),

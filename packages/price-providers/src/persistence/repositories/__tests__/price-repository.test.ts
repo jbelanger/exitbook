@@ -46,7 +46,7 @@ describe('PriceRepository', () => {
 
     it('should return cached price when found', async () => {
       const priceData: PriceData = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: parseDecimal('43000'),
@@ -66,14 +66,14 @@ describe('PriceRepository', () => {
       if (result.isOk()) {
         expect(result.value).toBeDefined();
         expect(result.value?.price).toEqual(parseDecimal('43000'));
-        expect(result.value?.asset.toString()).toBe('BTC');
+        expect(result.value?.assetSymbol.toString()).toBe('BTC');
         expect(result.value?.currency.toString()).toBe('USD');
       }
     });
 
     it('should round timestamp to day for lookup', async () => {
       const priceData: PriceData = {
-        asset: Currency.create('ETH'),
+        assetSymbol: Currency.create('ETH'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: parseDecimal('2500'),
@@ -109,7 +109,7 @@ describe('PriceRepository', () => {
 
     it('should be case-insensitive for asset and currency', async () => {
       const priceData: PriceData = {
-        asset: Currency.create('btc'),
+        assetSymbol: Currency.create('btc'),
         currency: Currency.create('usd'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: parseDecimal('43000'),
@@ -135,7 +135,7 @@ describe('PriceRepository', () => {
   describe('savePrice', () => {
     it('should save new price data', async () => {
       const priceData: PriceData = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: parseDecimal('43000'),
@@ -161,7 +161,7 @@ describe('PriceRepository', () => {
 
     it('should update existing price (upsert)', async () => {
       const priceData1: PriceData = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: parseDecimal('43000'),
@@ -172,7 +172,7 @@ describe('PriceRepository', () => {
       await repository.savePrice(priceData1);
 
       const priceData2: PriceData = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: parseDecimal('43500'),
@@ -197,7 +197,7 @@ describe('PriceRepository', () => {
 
     it('should save provider coin ID when provided', async () => {
       const priceData: PriceData = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: parseDecimal('43000'),
@@ -221,7 +221,7 @@ describe('PriceRepository', () => {
 
     it('should round timestamp to day before saving', async () => {
       const priceData: PriceData = {
-        asset: Currency.create('ETH'),
+        assetSymbol: Currency.create('ETH'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T14:30:45.123Z'),
         price: parseDecimal('2500'),
@@ -249,7 +249,7 @@ describe('PriceRepository', () => {
     it('should save multiple prices', async () => {
       const prices: PriceData[] = [
         {
-          asset: Currency.create('BTC'),
+          assetSymbol: Currency.create('BTC'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
           price: parseDecimal('43000'),
@@ -257,7 +257,7 @@ describe('PriceRepository', () => {
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         },
         {
-          asset: Currency.create('ETH'),
+          assetSymbol: Currency.create('ETH'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
           price: parseDecimal('2500'),
@@ -265,7 +265,7 @@ describe('PriceRepository', () => {
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         },
         {
-          asset: Currency.create('SOL'),
+          assetSymbol: Currency.create('SOL'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
           price: parseDecimal('100'),
@@ -280,7 +280,7 @@ describe('PriceRepository', () => {
 
       // Verify all prices were saved
       for (const price of prices) {
-        const getResult = await repository.getPrice(price.asset, price.currency, price.timestamp);
+        const getResult = await repository.getPrice(price.assetSymbol, price.currency, price.timestamp);
         expect(getResult.isOk()).toBe(true);
         if (getResult.isOk()) {
           expect(getResult.value?.price).toEqual(price.price);
@@ -291,7 +291,7 @@ describe('PriceRepository', () => {
     it('should handle batch save with provider coin IDs', async () => {
       const prices: PriceData[] = [
         {
-          asset: Currency.create('BTC'),
+          assetSymbol: Currency.create('BTC'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
           price: parseDecimal('43000'),
@@ -299,7 +299,7 @@ describe('PriceRepository', () => {
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         },
         {
-          asset: Currency.create('ETH'),
+          assetSymbol: Currency.create('ETH'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
           price: parseDecimal('2500'),
@@ -322,7 +322,7 @@ describe('PriceRepository', () => {
       const prices: PriceData[] = [];
       for (let i = 1; i <= 150; i++) {
         prices.push({
-          asset: Currency.create(`TOKEN${i}`),
+          assetSymbol: Currency.create(`TOKEN${i}`),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
           price: parseDecimal((i * 100).toString()),
@@ -342,7 +342,7 @@ describe('PriceRepository', () => {
       // Insert test data
       const prices: PriceData[] = [
         {
-          asset: Currency.create('BTC'),
+          assetSymbol: Currency.create('BTC'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-10T00:00:00.000Z'),
           price: parseDecimal('40000'),
@@ -350,7 +350,7 @@ describe('PriceRepository', () => {
           fetchedAt: new Date('2024-01-10T12:00:00.000Z'),
         },
         {
-          asset: Currency.create('BTC'),
+          assetSymbol: Currency.create('BTC'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-15T00:00:00.000Z'),
           price: parseDecimal('43000'),
@@ -358,7 +358,7 @@ describe('PriceRepository', () => {
           fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
         },
         {
-          asset: Currency.create('BTC'),
+          assetSymbol: Currency.create('BTC'),
           currency: Currency.create('USD'),
           timestamp: new Date('2024-01-20T00:00:00.000Z'),
           price: parseDecimal('45000'),
@@ -444,7 +444,7 @@ describe('PriceRepository', () => {
 
     it('should return true when price exists', async () => {
       const priceData: PriceData = {
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: parseDecimal('43000'),
@@ -464,7 +464,7 @@ describe('PriceRepository', () => {
 
     it('should round timestamp to day', async () => {
       const priceData: PriceData = {
-        asset: Currency.create('ETH'),
+        assetSymbol: Currency.create('ETH'),
         currency: Currency.create('USD'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: parseDecimal('2500'),

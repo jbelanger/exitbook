@@ -244,7 +244,7 @@ export function transactionHasAllPrices(tx: UniversalTransactionData, _requiredC
   const inflows = tx.movements.inflows || [];
   for (const inflow of inflows) {
     try {
-      const currency = Currency.create(inflow.asset);
+      const currency = Currency.create(inflow.assetSymbol);
       if (!currency.isFiat() && !inflow.priceAtTxTime) {
         return false;
       }
@@ -260,7 +260,7 @@ export function transactionHasAllPrices(tx: UniversalTransactionData, _requiredC
   const outflows = tx.movements.outflows || [];
   for (const outflow of outflows) {
     try {
-      const currency = Currency.create(outflow.asset);
+      const currency = Currency.create(outflow.assetSymbol);
       if (!currency.isFiat() && !outflow.priceAtTxTime) {
         return false;
       }

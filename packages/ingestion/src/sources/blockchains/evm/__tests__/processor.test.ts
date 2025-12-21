@@ -132,8 +132,8 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
 
     // Should track ALL assets (ETH and USDC), consolidated
     expect(transaction.movements.inflows).toHaveLength(2);
-    const usdcInflow = transaction.movements.inflows?.find((i) => i.asset === 'USDC');
-    const ethInflow = transaction.movements.inflows?.find((i) => i.asset === 'ETH');
+    const usdcInflow = transaction.movements.inflows?.find((i) => i.assetSymbol === 'USDC');
+    const ethInflow = transaction.movements.inflows?.find((i) => i.assetSymbol === 'ETH');
     expect(usdcInflow?.netAmount?.toFixed()).toBe('2.5'); // 2500000 / 10^6 = 2.5 USDC
     expect(ethInflow?.netAmount?.toFixed()).toBe('1.5'); // 1 ETH + 0.5 ETH consolidated
     expect(transaction.movements.outflows).toHaveLength(0);
@@ -552,7 +552,7 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     expect(transaction.movements.inflows).toBeDefined();
     if (!transaction.movements.inflows) return;
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows[0]?.asset).toBe('ETH');
+    expect(transaction.movements.inflows[0]?.assetSymbol).toBe('ETH');
     expect(transaction.movements.inflows[0]?.netAmount?.toFixed()).toBe('1.5');
     expect(transaction.movements.outflows).toHaveLength(0);
     expect(transaction.operation.category).toBe('transfer');
@@ -592,7 +592,7 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows).toBeDefined();
     if (!transaction.movements.outflows) return;
-    expect(transaction.movements.outflows[0]?.asset).toBe('ETH');
+    expect(transaction.movements.outflows[0]?.assetSymbol).toBe('ETH');
     expect(transaction.movements.outflows[0]?.netAmount?.toFixed()).toBe('2');
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
@@ -1227,13 +1227,13 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
 
     expect(transaction.movements.inflows).toBeDefined();
     if (!transaction.movements.inflows) return;
-    expect(transaction.movements.inflows[0]?.asset).toBe('USDC');
+    expect(transaction.movements.inflows[0]?.assetSymbol).toBe('USDC');
     expect(transaction.movements.inflows[0]?.netAmount?.toFixed()).toBe('1000'); // 1000000000 / 10^6 = 1000 USDC
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows).toBeDefined();
     if (!transaction.movements.outflows) return;
-    expect(transaction.movements.outflows[0]?.asset).toBe('ETH');
+    expect(transaction.movements.outflows[0]?.assetSymbol).toBe('ETH');
     expect(transaction.movements.outflows[0]?.netAmount?.toFixed()).toBe('0.5');
   });
 
@@ -1500,7 +1500,7 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
 
     // Verify enriched symbol is used in transaction
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows?.[0]?.asset).toBe('USDC');
+    expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('USDC');
   });
 
   test('skips enrichment when symbol is already readable', async () => {
@@ -1572,7 +1572,7 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
     if (!transaction) return;
 
     // Verify enriched metadata is used
-    expect(transaction.movements.inflows?.[0]?.asset).toBe('TOKEN');
+    expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('TOKEN');
   });
 
   test('handles multiple token transfers with enrichment', async () => {
@@ -1627,8 +1627,8 @@ describe('EvmTransactionProcessor - Token Metadata Enrichment', () => {
     if (!transaction) return;
 
     // Verify both enriched symbols are used
-    expect(transaction.movements.outflows?.[0]?.asset).toBe('USDC');
-    expect(transaction.movements.inflows?.[0]?.asset).toBe('DAI');
+    expect(transaction.movements.outflows?.[0]?.assetSymbol).toBe('USDC');
+    expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('DAI');
     expect(transaction.operation.type).toBe('swap');
   });
 });

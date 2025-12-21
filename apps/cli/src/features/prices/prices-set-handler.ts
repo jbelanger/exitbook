@@ -60,7 +60,7 @@ export class PricesSetHandler {
 
       // Save price using service
       const saveResult = await this.service.savePrice({
-        asset,
+        assetSymbol: asset,
         date: timestamp,
         price: priceValue,
         currency,

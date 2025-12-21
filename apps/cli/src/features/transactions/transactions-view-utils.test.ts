@@ -30,8 +30,7 @@ function createTestTransaction(overrides: Partial<UniversalTransactionData> = {}
       type: 'buy',
     },
     blockchain: undefined,
-    note: undefined,
-    metadata: undefined,
+    notes: undefined,
     excludedFromAccounting: false,
     ...overrides,
   };
@@ -76,28 +75,28 @@ describe('applyTransactionFilters', () => {
         createTestTransaction({
           id: 1,
           movements: {
-            inflows: [{ asset: 'BTC', grossAmount: new Decimal('1.0') }],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('1.0') }],
             outflows: [],
           },
         }),
         createTestTransaction({
           id: 2,
           movements: {
-            inflows: [{ asset: 'ETH', grossAmount: new Decimal('10.0') }],
+            inflows: [{ assetSymbol: 'ETH', grossAmount: new Decimal('10.0') }],
             outflows: [],
           },
         }),
         createTestTransaction({
           id: 3,
           movements: {
-            inflows: [{ asset: 'BTC', grossAmount: new Decimal('0.5') }],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('0.5') }],
             outflows: [],
           },
         }),
       ];
 
       const params: ViewTransactionsParams = {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
       };
 
       const result = applyTransactionFilters(transactions, params);
@@ -112,20 +111,20 @@ describe('applyTransactionFilters', () => {
           id: 1,
           movements: {
             inflows: [],
-            outflows: [{ asset: 'USD', grossAmount: new Decimal('1000.0') }],
+            outflows: [{ assetSymbol: 'USD', grossAmount: new Decimal('1000.0') }],
           },
         }),
         createTestTransaction({
           id: 2,
           movements: {
             inflows: [],
-            outflows: [{ asset: 'EUR', grossAmount: new Decimal('900.0') }],
+            outflows: [{ assetSymbol: 'EUR', grossAmount: new Decimal('900.0') }],
           },
         }),
       ];
 
       const params: ViewTransactionsParams = {
-        asset: 'USD',
+        assetSymbol: 'USD',
       };
 
       const result = applyTransactionFilters(transactions, params);
@@ -139,21 +138,21 @@ describe('applyTransactionFilters', () => {
         createTestTransaction({
           id: 1,
           movements: {
-            inflows: [{ asset: 'BTC', grossAmount: new Decimal('1.0') }],
-            outflows: [{ asset: 'USD', grossAmount: new Decimal('50000.0') }],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('1.0') }],
+            outflows: [{ assetSymbol: 'USD', grossAmount: new Decimal('50000.0') }],
           },
         }),
         createTestTransaction({
           id: 2,
           movements: {
-            inflows: [{ asset: 'ETH', grossAmount: new Decimal('10.0') }],
-            outflows: [{ asset: 'BTC', grossAmount: new Decimal('0.5') }],
+            inflows: [{ assetSymbol: 'ETH', grossAmount: new Decimal('10.0') }],
+            outflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('0.5') }],
           },
         }),
       ];
 
       const params: ViewTransactionsParams = {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
       };
 
       const result = applyTransactionFilters(transactions, params);
@@ -214,15 +213,15 @@ describe('applyTransactionFilters', () => {
         createTestTransaction({
           id: 1,
           movements: {
-            inflows: [{ asset: 'BTC', grossAmount: new Decimal('1.0') }],
-            outflows: [{ asset: 'USD', grossAmount: new Decimal('50000.0') }],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('1.0') }],
+            outflows: [{ assetSymbol: 'USD', grossAmount: new Decimal('50000.0') }],
           },
         }),
         createTestTransaction({
           id: 2,
           movements: {
             inflows: [],
-            outflows: [{ asset: 'USD', grossAmount: new Decimal('100.0') }],
+            outflows: [{ assetSymbol: 'USD', grossAmount: new Decimal('100.0') }],
           },
         }),
       ];
@@ -242,14 +241,14 @@ describe('applyTransactionFilters', () => {
         createTestTransaction({
           id: 1,
           movements: {
-            inflows: [{ asset: 'BTC', grossAmount: new Decimal('1.0') }],
-            outflows: [{ asset: 'USD', grossAmount: new Decimal('50000.0') }],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('1.0') }],
+            outflows: [{ assetSymbol: 'USD', grossAmount: new Decimal('50000.0') }],
           },
         }),
         createTestTransaction({
           id: 2,
           movements: {
-            inflows: [{ asset: 'BTC', grossAmount: new Decimal('0.5') }],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('0.5') }],
             outflows: [],
           },
         }),
@@ -271,13 +270,13 @@ describe('applyTransactionFilters', () => {
           id: 1,
           movements: {
             inflows: [],
-            outflows: [{ asset: 'USD', grossAmount: new Decimal('100.0') }],
+            outflows: [{ assetSymbol: 'USD', grossAmount: new Decimal('100.0') }],
           },
         }),
         createTestTransaction({
           id: 2,
           movements: {
-            inflows: [{ asset: 'BTC', grossAmount: new Decimal('1.0') }],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('1.0') }],
             outflows: [],
           },
         }),
@@ -299,8 +298,8 @@ describe('applyTransactionFilters', () => {
           datetime: '2024-01-10T10:00:00Z',
           operation: { category: 'trade', type: 'buy' },
           movements: {
-            inflows: [{ asset: 'BTC', grossAmount: new Decimal('1.0') }],
-            outflows: [{ asset: 'USD', grossAmount: new Decimal('50000.0') }],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('1.0') }],
+            outflows: [{ assetSymbol: 'USD', grossAmount: new Decimal('50000.0') }],
           },
         }),
         createTestTransaction({
@@ -308,8 +307,8 @@ describe('applyTransactionFilters', () => {
           datetime: '2024-01-12T10:00:00Z',
           operation: { category: 'trade', type: 'buy' },
           movements: {
-            inflows: [{ asset: 'ETH', grossAmount: new Decimal('10.0') }],
-            outflows: [{ asset: 'USD', grossAmount: new Decimal('30000.0') }],
+            inflows: [{ assetSymbol: 'ETH', grossAmount: new Decimal('10.0') }],
+            outflows: [{ assetSymbol: 'USD', grossAmount: new Decimal('30000.0') }],
           },
         }),
         createTestTransaction({
@@ -317,8 +316,8 @@ describe('applyTransactionFilters', () => {
           datetime: '2024-01-15T10:00:00Z',
           operation: { category: 'trade', type: 'buy' },
           movements: {
-            inflows: [{ asset: 'BTC', grossAmount: new Decimal('0.5') }],
-            outflows: [{ asset: 'USD', grossAmount: new Decimal('25000.0') }],
+            inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('0.5') }],
+            outflows: [{ assetSymbol: 'USD', grossAmount: new Decimal('25000.0') }],
           },
         }),
         createTestTransaction({
@@ -326,15 +325,15 @@ describe('applyTransactionFilters', () => {
           datetime: '2024-01-20T10:00:00Z',
           operation: { category: 'trade', type: 'sell' },
           movements: {
-            inflows: [{ asset: 'USD', grossAmount: new Decimal('55000.0') }],
-            outflows: [{ asset: 'BTC', grossAmount: new Decimal('1.0') }],
+            inflows: [{ assetSymbol: 'USD', grossAmount: new Decimal('55000.0') }],
+            outflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('1.0') }],
           },
         }),
       ];
 
       const params: ViewTransactionsParams = {
         until: '2024-01-15T23:59:59Z',
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         operationType: 'buy',
       };
 
@@ -355,7 +354,7 @@ describe('formatTransactionForDisplay', () => {
       datetime: '2024-01-15T10:30:00Z',
       operation: { category: 'trade', type: 'buy' },
       movements: {
-        inflows: [{ asset: 'BTC', grossAmount: new Decimal('1.5') }],
+        inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('1.5') }],
         outflows: [],
       },
     });
@@ -384,7 +383,7 @@ describe('formatTransactionForDisplay', () => {
       id: 456,
       movements: {
         inflows: [],
-        outflows: [{ asset: 'USD', grossAmount: new Decimal('50000.00') }],
+        outflows: [{ assetSymbol: 'USD', grossAmount: new Decimal('50000.00') }],
       },
     });
 
@@ -434,8 +433,8 @@ describe('formatTransactionForDisplay', () => {
     const tx = createTestTransaction({
       id: 111,
       movements: {
-        inflows: [{ asset: 'BTC', grossAmount: new Decimal('1.0') }],
-        outflows: [{ asset: 'USD', grossAmount: new Decimal('50000.0') }],
+        inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('1.0') }],
+        outflows: [{ assetSymbol: 'USD', grossAmount: new Decimal('50000.0') }],
       },
     });
 
@@ -467,7 +466,7 @@ describe('formatTransactionForDisplay', () => {
     const tx = createTestTransaction({
       id: 333,
       movements: {
-        inflows: [{ asset: 'BTC', grossAmount: new Decimal('0.00000001') }],
+        inflows: [{ assetSymbol: 'BTC', grossAmount: new Decimal('0.00000001') }],
         outflows: [],
       },
     });

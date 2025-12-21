@@ -24,10 +24,10 @@ export interface OperationClassification {
 export function selectPrimaryMovement(
   consolidatedInflows: MovementInput[],
   consolidatedOutflows: MovementInput[]
-): { amount: string; asset: string } {
+): { amount: string; assetSymbol: string } {
   let primary = {
     amount: '0',
-    asset: consolidatedInflows[0]?.asset || consolidatedOutflows[0]?.asset || 'UNKNOWN',
+    assetSymbol: consolidatedInflows[0]?.assetSymbol || consolidatedOutflows[0]?.assetSymbol || 'UNKNOWN',
   };
 
   const largestInflow = consolidatedInflows
@@ -47,7 +47,7 @@ export function selectPrimaryMovement(
   if (largestInflow) {
     primary = {
       amount: largestInflow.grossAmount,
-      asset: largestInflow.asset,
+      assetSymbol: largestInflow.assetSymbol,
     };
   } else {
     const largestOutflow = consolidatedOutflows
@@ -67,7 +67,7 @@ export function selectPrimaryMovement(
     if (largestOutflow) {
       primary = {
         amount: largestOutflow.grossAmount,
-        asset: largestOutflow.asset,
+        assetSymbol: largestOutflow.assetSymbol,
       };
     }
   }
@@ -89,19 +89,19 @@ export function consolidateExchangeMovements(movements: MovementInput[]): Moveme
   >();
 
   for (const movement of movements) {
-    const existing = assetMap.get(movement.asset);
+    const existing = assetMap.get(movement.assetSymbol);
     const amount = parseDecimal(movement.grossAmount);
     const grossAmount = movement.grossAmount ? parseDecimal(movement.grossAmount) : amount;
     const netAmount = movement.netAmount ? parseDecimal(movement.netAmount) : grossAmount;
 
     if (existing) {
-      assetMap.set(movement.asset, {
+      assetMap.set(movement.assetSymbol, {
         amount: existing.amount.plus(amount),
         grossAmount: existing.grossAmount.plus(grossAmount),
         netAmount: existing.netAmount.plus(netAmount),
       });
     } else {
-      assetMap.set(movement.asset, {
+      assetMap.set(movement.assetSymbol, {
         amount,
         grossAmount,
         netAmount,
@@ -109,8 +109,8 @@ export function consolidateExchangeMovements(movements: MovementInput[]): Moveme
     }
   }
 
-  return Array.from(assetMap.entries()).map(([asset, amounts]) => ({
-    asset,
+  return Array.from(assetMap.entries()).map(([assetSymbol, amounts]) => ({
+    assetSymbol,
     amount: amounts.amount.toFixed(),
     grossAmount: amounts.grossAmount.toFixed(),
     netAmount: amounts.netAmount?.toFixed(),
@@ -125,7 +125,7 @@ export function consolidateExchangeFees(fees: FeeInput[]): FeeInput[] {
   const feeMap = new Map<string, Omit<FeeInput, 'amount'> & { amount: Decimal }>();
 
   for (const fee of fees) {
-    const key = `${fee.asset}:${fee.scope}:${fee.settlement}`;
+    const key = `${fee.assetSymbol}:${fee.scope}:${fee.settlement}`;
     const existing = feeMap.get(key);
 
     if (existing) {
@@ -135,7 +135,7 @@ export function consolidateExchangeFees(fees: FeeInput[]): FeeInput[] {
       });
     } else {
       feeMap.set(key, {
-        asset: fee.asset,
+        assetSymbol: fee.assetSymbol,
         amount: parseDecimal(fee.amount),
         scope: fee.scope,
         settlement: fee.settlement,
@@ -144,7 +144,7 @@ export function consolidateExchangeFees(fees: FeeInput[]): FeeInput[] {
   }
 
   return Array.from(feeMap.values()).map((fee) => ({
-    asset: fee.asset,
+    assetSymbol: fee.assetSymbol,
     amount: fee.amount.toFixed(),
     scope: fee.scope,
     settlement: fee.settlement,
@@ -159,8 +159,8 @@ export function classifyExchangeOperationFromFundFlow(fundFlow: ExchangeFundFlow
 
   // Pattern 1: Single asset swap
   if (outflows.length === 1 && inflows.length === 1) {
-    const outAsset = outflows[0]?.asset;
-    const inAsset = inflows[0]?.asset;
+    const outAsset = outflows[0]?.assetSymbol;
+    const inAsset = inflows[0]?.assetSymbol;
 
     if (outAsset !== inAsset) {
       return {
@@ -194,8 +194,8 @@ export function classifyExchangeOperationFromFundFlow(fundFlow: ExchangeFundFlow
 
   // Pattern 4: Self-transfer (same asset in and out)
   if (outflows.length === 1 && inflows.length === 1) {
-    const outAsset = outflows[0]?.asset;
-    const inAsset = inflows[0]?.asset;
+    const outAsset = outflows[0]?.assetSymbol;
+    const inAsset = inflows[0]?.assetSymbol;
 
     if (outAsset === inAsset) {
       return {
@@ -226,8 +226,8 @@ export function classifyExchangeOperationFromFundFlow(fundFlow: ExchangeFundFlow
           message: fundFlow.classificationUncertainty,
           severity: 'info',
           metadata: {
-            inflows: inflows.map((i) => ({ amount: i.grossAmount, asset: i.asset })),
-            outflows: outflows.map((o) => ({ amount: o.grossAmount, asset: o.asset })),
+            inflows: inflows.map((i) => ({ amount: i.grossAmount, assetSymbol: i.assetSymbol })),
+            outflows: outflows.map((o) => ({ amount: o.grossAmount, assetSymbol: o.assetSymbol })),
           },
         },
       ],
@@ -245,8 +245,8 @@ export function classifyExchangeOperationFromFundFlow(fundFlow: ExchangeFundFlow
         message: 'Unable to determine transaction classification using confident patterns.',
         severity: 'warning',
         metadata: {
-          inflows: inflows.map((i) => ({ amount: i.grossAmount, asset: i.asset })),
-          outflows: outflows.map((o) => ({ amount: o.grossAmount, asset: o.asset })),
+          inflows: inflows.map((i) => ({ amount: i.grossAmount, assetSymbol: i.assetSymbol })),
+          outflows: outflows.map((o) => ({ amount: o.grossAmount, assetSymbol: o.assetSymbol })),
         },
       },
     ],
@@ -276,10 +276,10 @@ export function detectExchangeClassificationUncertainty(
 export function determinePrimaryDirection(
   inflows: MovementInput[],
   outflows: MovementInput[],
-  primaryAsset: string
+  primaryAssetSymbol: string
 ): 'inflow' | 'outflow' | 'neutral' {
-  const hasInflow = inflows.some((i) => i.asset === primaryAsset);
-  const hasOutflow = outflows.some((o) => o.asset === primaryAsset);
+  const hasInflow = inflows.some((i) => i.assetSymbol === primaryAssetSymbol);
+  const hasOutflow = outflows.some((o) => o.assetSymbol === primaryAssetSymbol);
 
   if (hasInflow && hasOutflow) return 'neutral';
   if (hasInflow) return 'inflow';

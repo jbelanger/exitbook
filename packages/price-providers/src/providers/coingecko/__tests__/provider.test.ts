@@ -96,7 +96,7 @@ describe('CoinGeckoProvider', () => {
 
   it('returns cached price without hitting the API', async () => {
     const cachedPrice: PriceData = createTestPriceData({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       price: 30123.45,
       timestamp: defaultTimestamp,
@@ -107,7 +107,7 @@ describe('CoinGeckoProvider', () => {
     priceRepoMocks.getPrice.mockResolvedValueOnce(ok(cachedPrice));
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('btc'),
+      assetSymbol: Currency.create('btc'),
       currency: Currency.create('usd'),
       timestamp: defaultTimestamp,
     });
@@ -130,7 +130,7 @@ describe('CoinGeckoProvider', () => {
     };
 
     const expectedPrice: PriceData = createTestPriceData({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       price: 30200,
       timestamp: defaultTimestamp,
@@ -142,7 +142,7 @@ describe('CoinGeckoProvider', () => {
     mockTransformSimplePriceResponse.mockReturnValueOnce(ok(expectedPrice));
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('btc'),
+      assetSymbol: Currency.create('btc'),
       currency: Currency.create('usd'),
       timestamp: defaultTimestamp,
     });
@@ -184,7 +184,7 @@ describe('CoinGeckoProvider', () => {
     };
 
     const expectedPrice: PriceData = createTestPriceData({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USD'),
       price: 9000,
       timestamp: historicalTimestamp,
@@ -196,7 +196,7 @@ describe('CoinGeckoProvider', () => {
     mockTransformHistoricalResponse.mockReturnValueOnce(ok(expectedPrice));
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('btc'),
+      assetSymbol: Currency.create('btc'),
       currency: Currency.create('usd'),
       timestamp: historicalTimestamp,
     });
@@ -227,7 +227,7 @@ describe('CoinGeckoProvider', () => {
     mockCanUseSimplePrice.mockReturnValue(true);
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('unknown'),
+      assetSymbol: Currency.create('unknown'),
       currency: Currency.create('usd'),
       timestamp: defaultTimestamp,
     });

@@ -388,7 +388,7 @@ export class BalanceService {
       const discrepancies = comparisons
         .filter((c) => c.status !== 'match')
         .map((c) => ({
-          asset: c.currency,
+          assetSymbol: c.currency,
           calculated: c.calculatedBalance,
           live: c.liveBalance,
           difference: c.difference,
@@ -450,8 +450,8 @@ export class BalanceService {
     for (const tx of excludedTransactions) {
       // Only count inflows (received scam tokens)
       for (const inflow of tx.movements.inflows ?? []) {
-        const existing = amounts[inflow.asset];
-        amounts[inflow.asset] = existing ? existing.plus(inflow.grossAmount) : inflow.grossAmount;
+        const existing = amounts[inflow.assetSymbol];
+        amounts[inflow.assetSymbol] = existing ? existing.plus(inflow.grossAmount) : inflow.grossAmount;
       }
     }
 

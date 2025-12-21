@@ -44,7 +44,7 @@ export interface LotMatcherConfig {
  */
 export interface AssetLotMatchResult {
   /** Asset symbol */
-  asset: string;
+  assetSymbol: string;
   /** Acquisition lots created */
   lots: AcquisitionLot[];
   /** Disposals matched to lots */
@@ -163,7 +163,7 @@ export class LotMatcher {
    * Match transactions for a single asset
    */
   private async matchAsset(
-    asset: string,
+    assetSymbol: string,
     transactions: UniversalTransactionData[],
     config: LotMatcherConfig,
     linkIndex: LinkIndex
@@ -174,10 +174,10 @@ export class LotMatcher {
       const lotTransfers: LotTransfer[] = [];
 
       // Skip fiat currencies - we only track cost basis for crypto assets
-      const assetCurrency = Currency.create(asset);
+      const assetCurrency = Currency.create(assetSymbol);
       if (assetCurrency.isFiat()) {
         return ok({
-          asset,
+          assetSymbol,
           lots: [],
           disposals: [],
           lotTransfers: [],
@@ -189,10 +189,10 @@ export class LotMatcher {
         // Check outflows (disposals or transfer sources)
         const outflows = tx.movements.outflows || [];
         for (const outflow of outflows) {
-          if (outflow.asset === asset) {
+          if (outflow.assetSymbol === assetSymbol) {
             // Check if this outflow is part of a confirmed transfer
             // Use netAmount for link matching (link index stores net values from convertToCandidates)
-            const link = linkIndex.findBySource(tx.id, outflow.asset, outflow.netAmount ?? outflow.grossAmount);
+            const link = linkIndex.findBySource(tx.id, outflow.assetSymbol, outflow.netAmount ?? outflow.grossAmount);
 
             if (link) {
               // Handle transfer source
@@ -220,12 +220,11 @@ export class LotMatcher {
 
         // Check inflows (acquisitions or transfer targets)
         const inflows = tx.movements.inflows || [];
-        const assetInflows = inflows.filter((inflow) => inflow.asset === asset);
+        const assetInflows = inflows.filter((inflow) => inflow.assetSymbol === assetSymbol);
 
         if (assetInflows.length > 0) {
           // Check if this transaction is a transfer target
-          const link = linkIndex.findByTarget(tx.id, asset);
-
+          const link = linkIndex.findByTarget(tx.id, assetSymbol);
           if (link) {
             // Aggregate all inflows of this asset for transfer targets
             // Use netAmount for consistency with link.targetAmount (net received amount)
@@ -266,7 +265,7 @@ export class LotMatcher {
       }
 
       return ok({
-        asset,
+        assetSymbol,
         lots,
         disposals,
         lotTransfers,
@@ -326,7 +325,7 @@ export class LotMatcher {
         this.logger.warn(
           {
             txId: tx.id,
-            asset: warning.data.asset,
+            assetSymbol: warning.data.asset,
             variancePct: warning.data.variancePct.toFixed(2),
             netTransferAmount: warning.data.netTransferAmount.toFixed(),
             linkTargetAmount: warning.data.linkTargetAmount.toFixed(),
@@ -340,7 +339,7 @@ export class LotMatcher {
           {
             txId: tx.id,
             linkId: warning.data.linkId,
-            asset: warning.data.asset,
+            assetSymbol: warning.data.asset,
             feeAmount: warning.data.feeAmount.toFixed(),
             date: tx.datetime,
           },
@@ -432,7 +431,7 @@ export class LotMatcher {
           {
             txId: warning.data.txId,
             linkId: warning.data.linkId,
-            feeAsset: warning.data.feeAsset,
+            feeassetSymbol: warning.data.feeAsset,
             feeAmount: warning.data.feeAmount.toFixed(),
             date: warning.data.date,
           },

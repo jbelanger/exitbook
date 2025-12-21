@@ -7,7 +7,7 @@ import type { RawTransactionWithMetadata } from './grouping.js';
  * Movement input with amount semantics (used before parsing to Decimal)
  */
 export interface MovementInput {
-  asset: string;
+  assetSymbol: string;
   grossAmount: string;
   netAmount?: string; // Defaults to grossAmount
 }
@@ -17,7 +17,7 @@ export interface MovementInput {
  */
 export interface FeeInput {
   amount: string;
-  asset: string;
+  assetSymbol: string;
   scope: 'network' | 'platform' | 'spread' | 'tax' | 'other';
   settlement: 'on-chain' | 'balance' | 'external';
 }
@@ -58,19 +58,19 @@ export const standardAmounts: InterpretationStrategy = {
   interpret(entry: RawTransactionWithMetadata, _group: RawTransactionWithMetadata[]): LedgerEntryInterpretation {
     const amount = parseDecimal(entry.normalized.amount);
     const absAmount = amount.abs();
-    const asset = entry.normalized.asset;
+    const assetSymbol = entry.normalized.assetSymbol;
 
     const feeCost =
       entry.normalized.fee && !parseDecimal(entry.normalized.fee).isZero()
         ? parseDecimal(entry.normalized.fee)
         : undefined;
-    const feeCurrency = entry.normalized.feeCurrency || asset;
+    const feeCurrency = entry.normalized.feeCurrency || assetSymbol;
 
     return {
       inflows: amount.isPositive()
         ? [
             {
-              asset,
+              assetSymbol,
               grossAmount: absAmount.toFixed(),
               netAmount: absAmount.toFixed(), // No on-chain fees, net = gross
             },
@@ -80,7 +80,7 @@ export const standardAmounts: InterpretationStrategy = {
       outflows: amount.isNegative()
         ? [
             {
-              asset,
+              assetSymbol,
               grossAmount: absAmount.toFixed(),
               netAmount: absAmount.toFixed(), // No on-chain fees, net = gross
             },
@@ -90,7 +90,7 @@ export const standardAmounts: InterpretationStrategy = {
       fees: feeCost
         ? [
             {
-              asset: feeCurrency,
+              assetSymbol: feeCurrency,
               amount: feeCost.toFixed(),
               scope: 'platform', // Standard exchange fees are platform revenue
               settlement: 'balance', // Charged from separate balance entry
@@ -148,9 +148,9 @@ export const coinbaseGrossAmounts: InterpretationStrategy<CoinbaseLedgerEntry> =
   ): LedgerEntryInterpretation {
     const amount = parseDecimal(entry.normalized.amount);
     const absAmount = amount.abs();
-    const asset = entry.normalized.asset;
+    const assetSymbol = entry.normalized.assetSymbol;
     const feeCost = entry.normalized.fee ? parseDecimal(entry.normalized.fee) : parseDecimal('0');
-    const feeCurrency = entry.normalized.feeCurrency || asset;
+    const feeCurrency = entry.normalized.feeCurrency || assetSymbol;
 
     // Deduplicate fees across group using RAW fee data (more accurate than parsed strings)
     const shouldIncludeFee = shouldIncludeFeeForCoinbaseEntry(entry, group);
@@ -168,7 +168,7 @@ export const coinbaseGrossAmounts: InterpretationStrategy<CoinbaseLedgerEntry> =
         inflows: [],
         outflows: [
           {
-            asset,
+            assetSymbol,
             grossAmount: absAmount.toFixed(), // Total before fee
             netAmount: netAmount.toFixed(), // After fee deduction
           },
@@ -176,7 +176,7 @@ export const coinbaseGrossAmounts: InterpretationStrategy<CoinbaseLedgerEntry> =
         fees: shouldIncludeFee
           ? [
               {
-                asset: feeCurrency,
+                assetSymbol: feeCurrency,
                 amount: feeCost.toFixed(),
                 scope: 'platform',
                 settlement: 'on-chain', // Fee is carved out of the transfer before broadcast
@@ -191,7 +191,7 @@ export const coinbaseGrossAmounts: InterpretationStrategy<CoinbaseLedgerEntry> =
       inflows: isInflow
         ? [
             {
-              asset,
+              assetSymbol,
               grossAmount: absAmount.toFixed(),
               netAmount: absAmount.toFixed(), // No on-chain fees
             },
@@ -200,7 +200,7 @@ export const coinbaseGrossAmounts: InterpretationStrategy<CoinbaseLedgerEntry> =
       outflows: !isInflow
         ? [
             {
-              asset,
+              assetSymbol,
               grossAmount: absAmount.toFixed(),
               netAmount: absAmount.toFixed(), // No on-chain fees
             },
@@ -210,7 +210,7 @@ export const coinbaseGrossAmounts: InterpretationStrategy<CoinbaseLedgerEntry> =
         shouldIncludeFee && !feeCost.isZero()
           ? [
               {
-                asset: feeCurrency,
+                assetSymbol: feeCurrency,
                 amount: feeCost.toFixed(),
                 scope: 'platform',
                 settlement: 'balance',

@@ -38,7 +38,7 @@ export abstract class BasePriceProvider implements IPriceProvider {
 
     // Validate time range (pure function - pass now explicitly)
     // Pass isFiat flag to allow historical dates for fiat currencies
-    const timeError = validateQueryTimeRange(query.timestamp, now, query.asset.isFiat());
+    const timeError = validateQueryTimeRange(query.timestamp, now, query.assetSymbol.isFiat());
     if (timeError) {
       return err(new Error(timeError));
     }
@@ -75,7 +75,7 @@ export abstract class BasePriceProvider implements IPriceProvider {
    * Shared cache-checking logic used by all providers (addresses recommendation #1)
    */
   protected async checkCache(query: PriceQuery, currency: Currency): Promise<Result<PriceData | undefined, Error>> {
-    const cachedResult = await this.priceRepo.getPrice(query.asset, currency, query.timestamp);
+    const cachedResult = await this.priceRepo.getPrice(query.assetSymbol, currency, query.timestamp);
 
     if (cachedResult.isErr()) {
       return err(cachedResult.error);
@@ -83,7 +83,7 @@ export abstract class BasePriceProvider implements IPriceProvider {
 
     if (cachedResult.value) {
       this.logger.debug(
-        { asset: query.asset.toString(), currency: currency.toString(), timestamp: query.timestamp },
+        { assetSymbol: query.assetSymbol.toString(), currency: currency.toString(), timestamp: query.timestamp },
         'Price found in cache'
       );
       return ok(cachedResult.value);
@@ -101,7 +101,7 @@ export abstract class BasePriceProvider implements IPriceProvider {
     const validationError = validatePriceData(priceData, new Date());
     if (validationError) {
       this.logger.warn(
-        { error: validationError, asset: priceData.asset.toString(), price: priceData.price.toFixed() },
+        { error: validationError, assetSymbol: priceData.assetSymbol.toString(), price: priceData.price.toFixed() },
         'Refusing to cache invalid price data'
       );
       return;

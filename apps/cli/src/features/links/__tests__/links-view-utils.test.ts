@@ -14,7 +14,7 @@ describe('links-view-utils', () => {
     id,
     sourceTransactionId: 1,
     targetTransactionId: 2,
-    asset: 'BTC',
+    assetSymbol: 'BTC',
     sourceAmount: parseDecimal('1.0'),
     targetAmount: parseDecimal('1.0'),
     linkType: 'exchange_to_blockchain',
@@ -47,7 +47,7 @@ describe('links-view-utils', () => {
     movements: {
       inflows: [
         {
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           grossAmount: parseDecimal('1.0'),
           netAmount: parseDecimal('0.999'),
         },
@@ -130,7 +130,7 @@ describe('links-view-utils', () => {
         to_address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
         movements_inflows: [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('0.999'),
           },

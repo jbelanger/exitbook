@@ -31,7 +31,7 @@ describe('cost-basis-validation-utils', () => {
         movements: {
           inflows: [
             {
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               grossAmount: new Decimal('1.0'),
               netAmount: new Decimal('1.0'),
               priceAtTxTime: {
@@ -43,7 +43,7 @@ describe('cost-basis-validation-utils', () => {
           ],
           outflows: [
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               grossAmount: new Decimal('50000'),
               netAmount: new Decimal('50000'),
               priceAtTxTime: {
@@ -56,7 +56,7 @@ describe('cost-basis-validation-utils', () => {
         },
         fees: [
           {
-            asset: 'USD',
+            assetSymbol: 'USD',
             amount: new Decimal('10'),
             scope: 'platform',
             settlement: 'balance',
@@ -74,21 +74,21 @@ describe('cost-basis-validation-utils', () => {
       expect(entities).toHaveLength(3);
       expect(entities[0]).toMatchObject({
         transactionId: '1',
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         kind: 'inflow',
         hasPrice: true,
         currency: 'USD',
       });
       expect(entities[1]).toMatchObject({
         transactionId: '1',
-        asset: 'USD',
+        assetSymbol: 'USD',
         kind: 'outflow',
         hasPrice: true,
         currency: 'USD',
       });
       expect(entities[2]).toMatchObject({
         transactionId: '1',
-        asset: 'USD',
+        assetSymbol: 'USD',
         kind: 'fee',
         hasPrice: true,
         currency: 'USD',
@@ -111,7 +111,7 @@ describe('cost-basis-validation-utils', () => {
         movements: {
           inflows: [
             {
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               grossAmount: new Decimal('1.0'),
               netAmount: new Decimal('1.0'),
               // No priceAtTxTime
@@ -147,7 +147,7 @@ describe('cost-basis-validation-utils', () => {
         movements: {
           inflows: [
             {
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               grossAmount: new Decimal('1.0'),
               netAmount: new Decimal('1.0'),
               priceAtTxTime: {
@@ -199,7 +199,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
                 // No price
@@ -215,7 +215,7 @@ describe('cost-basis-validation-utils', () => {
       expect(issues).toHaveLength(1);
       expect(issues[0]).toMatchObject({
         issueType: 'missing_price',
-        entity: { asset: 'BTC', kind: 'inflow' },
+        entity: { assetSymbol: 'BTC', kind: 'inflow' },
       });
     });
 
@@ -236,7 +236,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
                 priceAtTxTime: {
@@ -275,7 +275,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
                 priceAtTxTime: {
@@ -295,7 +295,7 @@ describe('cost-basis-validation-utils', () => {
       expect(issues).toHaveLength(1);
       expect(issues[0]).toMatchObject({
         issueType: 'non_usd_currency',
-        entity: { asset: 'BTC', currency: 'EUR', kind: 'inflow' },
+        entity: { assetSymbol: 'BTC', currency: 'EUR', kind: 'inflow' },
       });
     });
 
@@ -316,7 +316,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
                 priceAtTxTime: {
@@ -353,7 +353,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
                 priceAtTxTime: {
@@ -392,7 +392,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
                 priceAtTxTime: {
@@ -415,7 +415,7 @@ describe('cost-basis-validation-utils', () => {
       expect(issues).toHaveLength(1);
       expect(issues[0]).toMatchObject({
         issueType: 'missing_fx_trail',
-        entity: { asset: 'BTC', kind: 'inflow' },
+        entity: { assetSymbol: 'BTC', kind: 'inflow' },
       });
     });
 
@@ -436,7 +436,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
                 priceAtTxTime: {
@@ -476,7 +476,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
                 priceAtTxTime: {
@@ -507,7 +507,7 @@ describe('cost-basis-validation-utils', () => {
             entity: {
               transactionId: '1',
               datetime: '2024-01-15T10:00:00Z',
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               currency: undefined,
               kind: 'inflow',
               hasPrice: false,
@@ -520,7 +520,7 @@ describe('cost-basis-validation-utils', () => {
             entity: {
               transactionId: '2',
               datetime: '2024-01-16T10:00:00Z',
-              asset: 'ETH',
+              assetSymbol: 'ETH',
               currency: 'EUR',
               kind: 'outflow',
               hasPrice: true,
@@ -565,7 +565,7 @@ describe('cost-basis-validation-utils', () => {
             entity: {
               transactionId: '1',
               datetime: '2024-01-15T10:00:00Z',
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               currency: 'USD',
               kind: 'inflow',
               hasPrice: true,
@@ -614,7 +614,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
                 priceAtTxTime: {
@@ -626,7 +626,7 @@ describe('cost-basis-validation-utils', () => {
             ],
             outflows: [
               {
-                asset: 'USD',
+                assetSymbol: 'USD',
                 grossAmount: new Decimal('50000'),
                 netAmount: new Decimal('50000'),
                 priceAtTxTime: {
@@ -663,7 +663,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
                 // No price
@@ -700,7 +700,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
                 priceAtTxTime: {
@@ -741,7 +741,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
                 priceAtTxTime: {
@@ -785,7 +785,7 @@ describe('cost-basis-validation-utils', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: new Decimal('1.0'),
                 netAmount: new Decimal('1.0'),
                 // Missing price
@@ -793,7 +793,7 @@ describe('cost-basis-validation-utils', () => {
             ],
             outflows: [
               {
-                asset: 'ETH',
+                assetSymbol: 'ETH',
                 grossAmount: new Decimal('10.0'),
                 netAmount: new Decimal('10.0'),
                 priceAtTxTime: {
@@ -806,7 +806,7 @@ describe('cost-basis-validation-utils', () => {
           },
           fees: [
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               amount: new Decimal('10'),
               scope: 'platform',
               settlement: 'balance',

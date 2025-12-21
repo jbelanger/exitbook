@@ -19,7 +19,7 @@ function buildEntry(
       correlationId: 'corr-1',
       timestamp,
       type: 'advanced_trade_fill',
-      asset: 'USDC',
+      assetSymbol: 'USDC',
       amount: '61.902',
       status: 'success',
     },

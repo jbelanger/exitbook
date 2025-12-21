@@ -18,13 +18,13 @@ import type { PriceData, PriceQuery } from './types.js';
  * Validate a raw price value from an API response and convert to Decimal
  *
  * @param price - Raw price value (string, number, or undefined from API)
- * @param asset - Asset being priced
+ * @param assetSymbol - Asset being priced
  * @param context - Context for error message (e.g., provider name, coin ID)
  * @returns Ok with Decimal price if valid, Err if invalid
  */
 export function validateRawPrice(
   price: string | number | undefined,
-  asset: Currency,
+  assetSymbol: Currency,
   context: string
 ): Result<Decimal, Error> {
   // Convert number to string to preserve precision in decimal conversion
@@ -35,7 +35,7 @@ export function validateRawPrice(
 
   if (decimal.lessThanOrEqualTo(0)) {
     const reason = price === undefined ? 'not found' : `invalid (${price}, must be positive)`;
-    return err(new Error(`${context} price for ${asset.toString()}: ${reason}`));
+    return err(new Error(`${context} price for ${assetSymbol.toString()}: ${reason}`));
   }
 
   return ok(decimal);
@@ -140,7 +140,7 @@ export function createCacheKey(query: PriceQuery, defaultCurrency = 'USD'): stri
   const roundedDate = roundToDay(query.timestamp);
   const currency = query.currency ?? defaultCurrency;
 
-  return `${query.asset.toString()}:${currency.toString()}:${roundedDate.getTime()}`;
+  return `${query.assetSymbol.toString()}:${currency.toString()}:${roundedDate.getTime()}`;
 }
 
 /**
@@ -157,7 +157,7 @@ export function deduplicatePrices(prices: PriceData[]): PriceData[] {
   const map = new Map<string, PriceData>();
 
   for (const price of prices) {
-    const key = `${price.asset.toString()}:${price.currency.toString()}:${price.timestamp.getTime()}`;
+    const key = `${price.assetSymbol.toString()}:${price.currency.toString()}:${price.timestamp.getTime()}`;
     const existing = map.get(key);
 
     if (!existing || price.fetchedAt > existing.fetchedAt) {

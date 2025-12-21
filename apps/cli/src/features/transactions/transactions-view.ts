@@ -86,7 +86,7 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
     // Build params from options
     const params: ViewTransactionsParams = {
       source: options.source,
-      asset: options.asset,
+      assetSymbol: options.asset,
       since: options.since,
       until: options.until,
       operationType: options.operationType,
@@ -161,7 +161,7 @@ function handleViewTransactionsSuccess(
   // Prepare result data for JSON mode
   const filters: Record<string, unknown> = {};
   if (params.source) filters.source = params.source;
-  if (params.asset) filters.asset = params.asset;
+  if (params.assetSymbol) filters.asset = params.assetSymbol;
   if (params.since) filters.since = params.since;
   if (params.until) filters.until = params.until;
   if (params.operationType) filters.operationType = params.operationType;

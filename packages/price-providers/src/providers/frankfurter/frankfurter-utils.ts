@@ -29,21 +29,21 @@ export function formatFrankfurterDate(date: Date): string {
  * Pure function - all inputs explicitly passed
  *
  * @param response - Validated Frankfurter API response
- * @param asset - Source currency (e.g., EUR, CAD, GBP)
+ * @param assetSymbol - Source currency (e.g., EUR, CAD, GBP)
  * @param targetCurrency - Target currency (should be USD per our architecture)
  * @param timestamp - Original requested timestamp
  * @param fetchedAt - When the data was fetched
  */
 export function transformFrankfurterResponse(
   response: FrankfurterSingleDateResponse,
-  asset: Currency,
+  assetSymbol: Currency,
   targetCurrency: Currency,
   timestamp: Date,
   fetchedAt: Date
 ): Result<PriceData, Error> {
   // Validate response has rates
   if (!response.rates || Object.keys(response.rates).length === 0) {
-    return err(new Error(`No exchange rate data found for ${asset.toString()} on ${response.date}`));
+    return err(new Error(`No exchange rate data found for ${assetSymbol.toString()} on ${response.date}`));
   }
 
   // Get the rate for our target currency
@@ -57,7 +57,7 @@ export function transformFrankfurterResponse(
   }
 
   return ok({
-    asset,
+    assetSymbol,
     timestamp,
     price: parseDecimal(rate.toString()),
     currency: targetCurrency,

@@ -68,7 +68,7 @@ describe('Binance Provider E2E', () => {
 
   it('should fetch current Bitcoin price in USDT', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       timestamp: new Date(), // Current time - uses minute data
     });
@@ -77,7 +77,7 @@ describe('Binance Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('BTC');
+      expect(priceData.assetSymbol.toString()).toBe('BTC');
       expect(priceData.currency.toString()).toBe('USDT');
       expect(priceData.price).toBeGreaterThan(0);
       expect(priceData.price).toBeLessThan(200000); // Sanity check - BTC < $200k
@@ -91,7 +91,7 @@ describe('Binance Provider E2E', () => {
     oneWeekAgo.setDate(oneWeekAgo.getUTCDate() - 7);
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       timestamp: oneWeekAgo,
     });
@@ -100,7 +100,7 @@ describe('Binance Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('BTC');
+      expect(priceData.assetSymbol.toString()).toBe('BTC');
       expect(priceData.currency.toString()).toBe('USDT');
       expect(priceData.price).toBeGreaterThan(0);
       expect(priceData.source).toBe('binance');
@@ -110,7 +110,7 @@ describe('Binance Provider E2E', () => {
 
   it('should fetch Ethereum price in USD', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('ETH'),
+      assetSymbol: Currency.create('ETH'),
       currency: Currency.create('USD'),
       timestamp: new Date(),
     });
@@ -119,7 +119,7 @@ describe('Binance Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('ETH');
+      expect(priceData.assetSymbol.toString()).toBe('ETH');
       // Binance may return USDT as it's more common
       expect(['USD', 'USDT']).toContain(priceData.currency.toString());
       expect(priceData.price).toBeGreaterThan(0);
@@ -130,7 +130,7 @@ describe('Binance Provider E2E', () => {
 
   it('should fetch BNB price in USDT', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('BNB'),
+      assetSymbol: Currency.create('BNB'),
       currency: Currency.create('USDT'),
       timestamp: new Date(),
     });
@@ -139,7 +139,7 @@ describe('Binance Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('BNB');
+      expect(priceData.assetSymbol.toString()).toBe('BNB');
       expect(priceData.currency.toString()).toBe('USDT');
       expect(priceData.price).toBeGreaterThan(0);
       expect(priceData.source).toBe('binance');
@@ -151,7 +151,7 @@ describe('Binance Provider E2E', () => {
 
     // First request - should fetch from API
     const firstResult = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       timestamp,
     });
@@ -160,7 +160,7 @@ describe('Binance Provider E2E', () => {
 
     // Second request - should use cache
     const secondResult = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       timestamp,
     });
@@ -175,7 +175,7 @@ describe('Binance Provider E2E', () => {
 
   it('should return CoinNotFoundError for invalid symbol', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('INVALIDCOIN123'),
+      assetSymbol: Currency.create('INVALIDCOIN123'),
       currency: Currency.create('USDT'),
       timestamp: new Date(),
     });
@@ -192,7 +192,7 @@ describe('Binance Provider E2E', () => {
     const oldDate = new Date('2020-01-01T00:00:00Z');
 
     const result = await provider.fetchPrice({
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       currency: Currency.create('USDT'),
       timestamp: oldDate,
     });
@@ -201,7 +201,7 @@ describe('Binance Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('BTC');
+      expect(priceData.assetSymbol.toString()).toBe('BTC');
       expect(priceData.price).toBeGreaterThan(0);
       expect(priceData.granularity).toBe('day'); // Old data should use daily granularity
     }
@@ -209,7 +209,7 @@ describe('Binance Provider E2E', () => {
 
   it('should fetch price for altcoin with lower market cap', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('POL'), // POL (Polygon) - replaced MATIC which was rebranded
+      assetSymbol: Currency.create('POL'), // POL (Polygon) - replaced MATIC which was rebranded
       currency: Currency.create('USDT'),
       timestamp: new Date(),
     });
@@ -218,7 +218,7 @@ describe('Binance Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('POL');
+      expect(priceData.assetSymbol.toString()).toBe('POL');
       expect(priceData.currency.toString()).toBe('USDT');
       expect(priceData.price).toBeGreaterThan(0);
       expect(priceData.source).toBe('binance');

@@ -241,7 +241,7 @@ describe('processItems', () => {
       correlationId: parsed.id,
       timestamp: parsed.time,
       type: 'trade',
-      asset: 'BTC',
+      assetSymbol: 'BTC',
       amount: parsed.amount,
       status: 'success' as const,
     },
@@ -399,7 +399,7 @@ describe('processItems', () => {
     if (result.isOk()) {
       const normalized = result.value.transactions[0]!.normalizedData as ExchangeLedgerEntry;
       expect(normalized.id).toBe('tx-1');
-      expect(normalized.asset).toBe('BTC');
+      expect(normalized.assetSymbol).toBe('BTC');
       expect(normalized.amount).toBe('100');
     }
   });
@@ -520,7 +520,7 @@ describe('processCCXTBalance', () => {
       'ETH/USDT': { total: 10.0 },
     };
 
-    const normalizeAsset = (asset: string) => asset.replace(/[./].*$/, '');
+    const normalizeAsset = (assetSymbol: string) => assetSymbol.replace(/[./].*$/, '');
 
     const result = processCCXTBalance(ccxtBalance, normalizeAsset);
 
@@ -549,7 +549,7 @@ describe('processCCXTBalance', () => {
       'BTC-USD': { total: 2.0 },
     };
 
-    const normalizeAsset = (asset: string) => asset.toUpperCase().split('-')[0]!;
+    const normalizeAsset = (assetSymbol: string) => assetSymbol.toUpperCase().split('-')[0]!;
 
     const result = processCCXTBalance(ccxtBalance, normalizeAsset);
 

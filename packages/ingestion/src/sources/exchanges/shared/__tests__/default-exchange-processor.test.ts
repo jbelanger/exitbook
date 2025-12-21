@@ -15,7 +15,7 @@ import { DefaultExchangeProcessor } from '../default-exchange-processor.js';
 function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
   return {
     amount: '0',
-    asset: 'USD',
+    assetSymbol: 'USD',
     correlationId: 'REF001',
     id: 'ENTRY001',
     timestamp: 1704067200000,
@@ -59,7 +59,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
         .withId('E1')
         .withCorrelationId('SWAP001')
         .withAmount('-1000')
-        .withAsset('USD')
+        .withAssetSymbol('USD')
         .withFee('2.50')
         .withTimestamp(1704067200000)
         .build(),
@@ -67,7 +67,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
         .withId('E2')
         .withCorrelationId('SWAP001')
         .withAmount('0.025')
-        .withAsset('BTC')
+        .withAssetSymbol('BTC')
         .withFee('0')
         .withTimestamp(1704067200000)
         .build(),
@@ -78,8 +78,8 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     if (!transaction) return;
 
     expectOperation(transaction).hasCategory('trade').hasType('swap');
-    expectMovement(transaction).hasInflows(1).inflow(0).hasAsset('BTC').hasNetAmount('0.025');
-    expectMovement(transaction).hasOutflows(1).outflow(0).hasAsset('USD').hasNetAmount('1000');
+    expectMovement(transaction).hasInflows(1).inflow(0).hasAssetSymbol('BTC').hasNetAmount('0.025');
+    expectMovement(transaction).hasOutflows(1).outflow(0).hasAssetSymbol('USD').hasNetAmount('1000');
     expectFee(transaction, 'platform').toHaveAmount('2.5');
   });
 
@@ -91,7 +91,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
         .withId('E1')
         .withCorrelationId('DEP001')
         .withAmount('700.00')
-        .withAsset('CAD')
+        .withAssetSymbol('CAD')
         .withFee('3.49')
         .build(),
     ];
@@ -101,7 +101,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     if (!transaction) return;
 
     expectOperation(transaction).hasCategory('transfer').hasType('deposit');
-    expectMovement(transaction).hasInflows(1).inflow(0).hasAsset('CAD').hasNetAmount('700');
+    expectMovement(transaction).hasInflows(1).inflow(0).hasAssetSymbol('CAD').hasNetAmount('700');
     expectMovement(transaction).hasOutflows(0);
   });
 
@@ -111,7 +111,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     const entries: ExchangeLedgerEntry[] = [
       createTestEntry({
         amount: '-385.155',
-        asset: 'CAD',
+        assetSymbol: 'CAD',
         correlationId: 'WITH001',
         fee: '0.5',
         id: 'E1',
@@ -131,7 +131,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     expect(transaction.operation.type).toBe('withdrawal');
 
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('CAD');
+    expect(transaction.movements.outflows![0]?.assetSymbol).toBe('CAD');
     expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('385.155');
 
     expect(transaction.movements.inflows).toHaveLength(0);
@@ -143,13 +143,13 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     const entries: ExchangeLedgerEntry[] = [
       createTestEntry({
         amount: '-100',
-        asset: 'USDT',
+        assetSymbol: 'USDT',
         correlationId: 'TRANS001',
         id: 'E1',
       }),
       createTestEntry({
         amount: '100',
-        asset: 'USDT',
+        assetSymbol: 'USDT',
         correlationId: 'TRANS001',
         id: 'E2',
       }),
@@ -175,9 +175,9 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     const processor = new TestExchangeProcessor();
 
     const entries: ExchangeLedgerEntry[] = [
-      createTestEntry({ amount: '-100', asset: 'USD', correlationId: 'SWAP001', id: 'E1' }),
-      createTestEntry({ amount: '-50', asset: 'USD', correlationId: 'SWAP001', id: 'E2' }),
-      createTestEntry({ amount: '0.001', asset: 'BTC', correlationId: 'SWAP001', id: 'E3' }),
+      createTestEntry({ amount: '-100', assetSymbol: 'USD', correlationId: 'SWAP001', id: 'E1' }),
+      createTestEntry({ amount: '-50', assetSymbol: 'USD', correlationId: 'SWAP001', id: 'E2' }),
+      createTestEntry({ amount: '0.001', assetSymbol: 'BTC', correlationId: 'SWAP001', id: 'E3' }),
     ];
 
     const result = await processor.process(entries.map(wrapEntry));
@@ -190,11 +190,11 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     if (!transaction) return;
 
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('USD');
+    expect(transaction.movements.outflows![0]?.assetSymbol).toBe('USD');
     expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('150');
 
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
+    expect(transaction.movements.inflows![0]?.assetSymbol).toBe('BTC');
   });
 
   test('aggregates fees across multiple entries', async () => {
@@ -203,7 +203,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     const entries: ExchangeLedgerEntry[] = [
       createTestEntry({
         amount: '-100',
-        asset: 'USD',
+        assetSymbol: 'USD',
         correlationId: 'SWAP001',
         fee: '1.50',
         feeCurrency: 'USD',
@@ -211,7 +211,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
       }),
       createTestEntry({
         amount: '0.001',
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         correlationId: 'SWAP001',
         fee: '1.00',
         feeCurrency: 'USD',
@@ -229,17 +229,17 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     if (!transaction) return;
 
     expect(transaction.fees.find((f) => f.scope === 'platform')?.amount.toFixed()).toBe('2.5');
-    expect(transaction.fees.find((f) => f.scope === 'platform')?.asset.toString()).toBe('USD');
+    expect(transaction.fees.find((f) => f.scope === 'platform')?.assetSymbol.toString()).toBe('USD');
   });
 
   test('handles complex multi-asset transactions with uncertainty note', async () => {
     const processor = new TestExchangeProcessor();
 
     const entries: ExchangeLedgerEntry[] = [
-      createTestEntry({ amount: '-100', asset: 'USD', correlationId: 'COMPLEX001', id: 'E1' }),
-      createTestEntry({ amount: '-50', asset: 'EUR', correlationId: 'COMPLEX001', id: 'E2' }),
-      createTestEntry({ amount: '0.001', asset: 'BTC', correlationId: 'COMPLEX001', id: 'E3' }),
-      createTestEntry({ amount: '0.01', asset: 'ETH', correlationId: 'COMPLEX001', id: 'E4' }),
+      createTestEntry({ amount: '-100', assetSymbol: 'USD', correlationId: 'COMPLEX001', id: 'E1' }),
+      createTestEntry({ amount: '-50', assetSymbol: 'EUR', correlationId: 'COMPLEX001', id: 'E2' }),
+      createTestEntry({ amount: '0.001', assetSymbol: 'BTC', correlationId: 'COMPLEX001', id: 'E3' }),
+      createTestEntry({ amount: '0.01', assetSymbol: 'ETH', correlationId: 'COMPLEX001', id: 'E4' }),
     ];
 
     const result = await processor.process(entries.map(wrapEntry));
@@ -263,8 +263,8 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     const processor = new TestExchangeProcessor();
 
     const entries: ExchangeLedgerEntry[] = [
-      createTestEntry({ amount: '0', asset: 'USD', correlationId: 'ZERO001', id: 'E1' }),
-      createTestEntry({ amount: '100', asset: 'USD', correlationId: 'ZERO001', id: 'E2' }),
+      createTestEntry({ amount: '0', assetSymbol: 'USD', correlationId: 'ZERO001', id: 'E1' }),
+      createTestEntry({ amount: '100', assetSymbol: 'USD', correlationId: 'ZERO001', id: 'E2' }),
     ];
 
     const result = await processor.process(entries.map(wrapEntry));
@@ -284,9 +284,9 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     const processor = new TestExchangeProcessor();
 
     const entries: ExchangeLedgerEntry[] = [
-      createTestEntry({ amount: '100', asset: 'USD', correlationId: 'GOOD001', id: 'E1' }),
+      createTestEntry({ amount: '100', assetSymbol: 'USD', correlationId: 'GOOD001', id: 'E1' }),
       // This will create an empty group after zero-amount filtering
-      createTestEntry({ amount: '0', asset: 'USD', correlationId: 'BAD001', id: 'E2' }),
+      createTestEntry({ amount: '0', assetSymbol: 'USD', correlationId: 'BAD001', id: 'E2' }),
     ];
 
     const result = await processor.process(entries.map(wrapEntry));
@@ -298,7 +298,7 @@ describe('BaseExchangeProcessor - Fund Flow Analysis', () => {
     const processor = new TestExchangeProcessor();
 
     const entries: ExchangeLedgerEntry[] = [
-      createTestEntry({ amount: '100', asset: 'USD', correlationId: 'STATUS001', id: 'E1', status: 'pending' }),
+      createTestEntry({ amount: '100', assetSymbol: 'USD', correlationId: 'STATUS001', id: 'E1', status: 'pending' }),
     ];
 
     const result = await processor.process(entries.map(wrapEntry));
@@ -318,7 +318,7 @@ describe('BaseExchangeProcessor - Edge Cases', () => {
     const entries: ExchangeLedgerEntry[] = [
       {
         amount: '100',
-        asset: 'USD',
+        assetSymbol: 'USD',
         correlationId: 'TIME001',
         id: 'E1',
         timestamp: 1704067200000, // Milliseconds
@@ -341,8 +341,8 @@ describe('BaseExchangeProcessor - Edge Cases', () => {
     const processor = new TestExchangeProcessor();
 
     const entries: ExchangeLedgerEntry[] = [
-      createTestEntry({ amount: '-100', asset: 'USD', correlationId: 'PRIMARY001', id: 'PRIMARY_ID' }),
-      createTestEntry({ amount: '0.001', asset: 'BTC', correlationId: 'PRIMARY001', id: 'SECONDARY_ID' }),
+      createTestEntry({ amount: '-100', assetSymbol: 'USD', correlationId: 'PRIMARY001', id: 'PRIMARY_ID' }),
+      createTestEntry({ amount: '0.001', assetSymbol: 'BTC', correlationId: 'PRIMARY001', id: 'SECONDARY_ID' }),
     ];
 
     const result = await processor.process(entries.map(wrapEntry));

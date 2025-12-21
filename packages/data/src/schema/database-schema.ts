@@ -126,11 +126,11 @@ export interface TransactionsTable {
   excluded_from_accounting: boolean; // Skip from price enrichment and cost basis (e.g., scam tokens)
 
   // Structured movements
-  movements_inflows: JSONString | null; // Array<{asset: string, amount: Decimal}>
-  movements_outflows: JSONString | null; // Array<{asset: string, amount: Decimal}>
+  movements_inflows: JSONString | null; // Array<{assetSymbol: string, amount: Decimal}>
+  movements_outflows: JSONString | null; // Array<{assetSymbol: string, amount: Decimal}>
 
   // Structured fees (JSON: Array<FeeMovement>)
-  // Each fee: { asset, amount, scope, settlement, priceAtTxTime? }
+  // Each fee: { assetSymbol, amount, scope, settlement, priceAtTxTime? }
   fees: JSONString | null;
 
   // Enhanced operation classification

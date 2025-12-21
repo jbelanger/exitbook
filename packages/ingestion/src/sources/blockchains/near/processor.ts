@@ -90,7 +90,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
             inflows: fundFlow.inflows.map((inflow) => {
               const amount = parseDecimal(inflow.amount);
               return {
-                asset: inflow.asset,
+                assetSymbol: inflow.asset,
                 grossAmount: amount,
                 netAmount: amount,
               };
@@ -100,7 +100,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
               const netAmount = parseDecimal(outflow.amount);
               const grossAmount = outflow.grossAmount ? parseDecimal(outflow.grossAmount) : netAmount;
               return {
-                asset: outflow.asset,
+                assetSymbol: outflow.asset,
                 grossAmount,
                 netAmount,
               };
@@ -111,7 +111,7 @@ export class NearTransactionProcessor extends BaseTransactionProcessor {
             shouldRecordFeeEntry && !parseDecimal(normalizedTx.feeAmount || '0').isZero()
               ? [
                   {
-                    asset: normalizedTx.feeCurrency || 'NEAR',
+                    assetSymbol: normalizedTx.feeCurrency || 'NEAR',
                     amount: parseDecimal(normalizedTx.feeAmount || '0'),
                     scope: 'network',
                     settlement: 'balance',

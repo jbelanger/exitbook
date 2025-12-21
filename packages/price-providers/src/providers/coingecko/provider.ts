@@ -214,7 +214,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
       const providerId = providerIdResult.value;
 
       // 3. Get coin ID for symbol
-      const coinIdResult = await this.providerRepo.getCoinIdForSymbol(providerId, query.asset);
+      const coinIdResult = await this.providerRepo.getCoinIdForSymbol(providerId, query.assetSymbol);
       if (coinIdResult.isErr()) {
         return err(coinIdResult.error);
       }
@@ -223,9 +223,9 @@ export class CoinGeckoProvider extends BasePriceProvider {
       if (!coinId) {
         return err(
           new CoinNotFoundError(
-            `No CoinGecko coin ID found for symbol: ${query.asset.toString()}. ` +
+            `No CoinGecko coin ID found for symbol: ${query.assetSymbol.toString()}. ` +
               `The asset may not be in the top 5000 coins by market cap, or the coin list may need to be synced.`,
-            query.asset.toString(),
+            query.assetSymbol.toString(),
             'coingecko',
             {
               suggestion: 'Try deleting ./data/prices.db to force a fresh sync, or provide the price manually.',
@@ -237,7 +237,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
       }
 
       // 4. Fetch from API
-      const priceData = await this.fetchFromApi(coinId, query.asset, query.timestamp, currency);
+      const priceData = await this.fetchFromApi(coinId, query.assetSymbol, query.timestamp, currency);
       if (priceData.isErr()) {
         return err(priceData.error);
       }
@@ -388,7 +388,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
    */
   private async fetchFromApi(
     coinId: string,
-    asset: Currency,
+    assetSymbol: Currency,
     timestamp: Date,
     currency: Currency
   ): Promise<Result<PriceData, Error>> {
@@ -396,7 +396,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
 
     // Use simple price API for recent data (faster)
     if (canUseSimplePrice(timestamp)) {
-      this.logger.debug({ coinId, asset }, 'Using simple price API');
+      this.logger.debug({ coinId, assetSymbol: assetSymbol }, 'Using simple price API');
 
       // Build query params
       const params = new URLSearchParams({
@@ -424,7 +424,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
                 return err(
                   new CoinNotFoundError(
                     `CoinGecko does not have data for coin ID: ${coinId}`,
-                    asset.toString(),
+                    assetSymbol.toString(),
                     'coingecko',
                     { currency: currency.toString() }
                   )
@@ -446,7 +446,14 @@ export class CoinGeckoProvider extends BasePriceProvider {
       }
 
       // Transform
-      const priceDataResult = transformSimplePriceResponse(parseResult.data, coinId, asset, timestamp, currency, now);
+      const priceDataResult = transformSimplePriceResponse(
+        parseResult.data,
+        coinId,
+        assetSymbol,
+        timestamp,
+        currency,
+        now
+      );
       if (priceDataResult.isErr()) {
         return err(priceDataResult.error);
       }
@@ -454,14 +461,14 @@ export class CoinGeckoProvider extends BasePriceProvider {
     }
 
     // Use historical API for older data
-    this.logger.debug({ coinId, asset, timestamp }, 'Using historical price API');
+    this.logger.debug({ coinId, assetSymbol: assetSymbol, timestamp }, 'Using historical price API');
 
     // Check if this is an intraday request (has specific time, not midnight UTC)
     const isIntradayRequest =
       timestamp.getUTCHours() !== 0 || timestamp.getUTCMinutes() !== 0 || timestamp.getUTCSeconds() !== 0;
     if (isIntradayRequest) {
       this.logger.debug(
-        { asset: asset.toString(), timestamp },
+        { assetSymbol: assetSymbol.toString(), timestamp },
         'CoinGecko historical API only provides daily prices - intraday granularity not available'
       );
     }
@@ -499,7 +506,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
               return err(
                 new PriceDataUnavailableError(
                   `CoinGecko free tier limitation: ${errorMsg}`,
-                  asset.toString(),
+                  assetSymbol.toString(),
                   'coingecko',
                   'tier-limitation',
                   {
@@ -516,7 +523,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
               return err(
                 new CoinNotFoundError(
                   `CoinGecko does not have data for coin ID: ${coinId}`,
-                  asset.toString(),
+                  assetSymbol.toString(),
                   'coingecko',
                   { currency: currency.toString() }
                 )
@@ -538,7 +545,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
     }
 
     // Transform
-    const priceDataResult = transformHistoricalResponse(parseResult.data, asset, timestamp, currency, now);
+    const priceDataResult = transformHistoricalResponse(parseResult.data, assetSymbol, timestamp, currency, now);
     if (priceDataResult.isErr()) {
       return err(priceDataResult.error);
     }

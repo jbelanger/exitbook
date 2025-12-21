@@ -33,7 +33,9 @@ export class ViewPricesHandler {
     const { coverageMap, uniqueTransactionIds } = this.calculatePriceCoverage(transactions, params.asset);
 
     // Convert map to array and sort by asset name
-    const allCoverageArray = Array.from(coverageMap.values()).sort((a, b) => a.asset.localeCompare(b.asset));
+    const allCoverageArray = Array.from(coverageMap.values()).sort((a, b) =>
+      a.assetSymbol.localeCompare(b.assetSymbol)
+    );
 
     // Calculate summary statistics from ALL coverage data (before filtering)
     const summary = this.calculateSummary(allCoverageArray, uniqueTransactionIds);
@@ -64,7 +66,7 @@ export class ViewPricesHandler {
     const allMovements = getAllMovements(tx.movements);
 
     for (const movement of allMovements) {
-      const asset = movement.asset;
+      const asset = movement.assetSymbol;
 
       // Apply asset filter if provided
       if (assetFilter && asset !== assetFilter) {
@@ -112,7 +114,7 @@ export class ViewPricesHandler {
         // Get or create coverage entry for this asset
         if (!coverageMap.has(asset)) {
           coverageMap.set(asset, {
-            asset,
+            assetSymbol: asset,
             total_transactions: 0,
             with_price: 0,
             missing_price: 0,

@@ -40,7 +40,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     id: string,
     sourceTransactionId: number,
     targetTransactionId: number,
-    asset: string,
+    assetSymbol: string,
     sourceAmount: string,
     targetAmount: string,
     confidenceScore = '98.5'
@@ -48,7 +48,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     id,
     sourceTransactionId,
     targetTransactionId,
-    asset,
+    assetSymbol: assetSymbol,
     sourceAmount: parseDecimal(sourceAmount),
     targetAmount: parseDecimal(targetAmount),
     linkType: 'exchange_to_blockchain',
@@ -67,7 +67,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
   function createFeeMovement(
     scope: 'network' | 'platform' | 'spread' | 'tax' | 'other',
     settlement: 'on-chain' | 'balance' | 'external',
-    asset: string,
+    assetSymbol: string,
     amount: string,
     priceAmount?: string,
     priceCurrency = 'USD'
@@ -75,7 +75,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     const movement: FeeMovement = {
       scope,
       settlement,
-      asset,
+      assetSymbol: assetSymbol,
       amount: new Decimal(amount),
     };
 
@@ -124,7 +124,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'kraken',
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
         []
       );
 
@@ -135,7 +135,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
             priceAtTxTime: createPriceAtTxTime('60000'),
@@ -148,7 +148,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T11:30:00Z',
         'blockchain-wallet',
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
         []
       );
 
@@ -172,7 +172,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       }
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
         expect(btcResult!.lots).toHaveLength(2);
         expect(btcResult!.disposals).toHaveLength(1);
@@ -194,7 +194,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'kraken',
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
         []
       );
 
@@ -205,7 +205,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
             priceAtTxTime: createPriceAtTxTime('60000'),
@@ -218,7 +218,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'blockchain-wallet',
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
         []
       );
 
@@ -239,7 +239,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
 
         expect(btcResult!.lots).toHaveLength(2);
@@ -279,7 +279,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'kraken',
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
         []
       );
 
@@ -290,7 +290,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
             priceAtTxTime: createPriceAtTxTime('60000'),
@@ -303,7 +303,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'blockchain-wallet',
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
         []
       );
 
@@ -324,7 +324,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
 
         expect(btcResult!.lots).toHaveLength(2);
@@ -351,7 +351,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'kraken',
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
         []
       );
 
@@ -362,7 +362,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
             priceAtTxTime: createPriceAtTxTime('60000'),
@@ -378,7 +378,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'blockchain-wallet',
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
         []
       );
 
@@ -399,7 +399,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
 
         const transferLot = btcResult!.lots[1];
@@ -417,7 +417,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'kraken',
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
         []
       );
 
@@ -428,7 +428,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
             priceAtTxTime: createPriceAtTxTime('60000'),
@@ -441,7 +441,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'wallet',
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
         []
       );
 
@@ -452,7 +452,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('0.9995'),
             netAmount: parseDecimal('0.9992'),
             priceAtTxTime: createPriceAtTxTime('65000'),
@@ -465,7 +465,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         5,
         '2024-03-01T14:00:00Z',
         'coinbase',
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.9992'), priceAtTxTime: createPriceAtTxTime('65000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9992'), priceAtTxTime: createPriceAtTxTime('65000') }],
         []
       );
 
@@ -490,7 +490,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       }
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
 
         expect(btcResult!.lots).toHaveLength(3);
@@ -516,7 +516,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'exchange',
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
         []
       );
 
@@ -524,7 +524,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         2,
         '2024-01-01T00:00:00Z',
         'exchange',
-        [{ asset: 'ETH', grossAmount: parseDecimal('10'), priceAtTxTime: createPriceAtTxTime('3000') }],
+        [{ assetSymbol: 'ETH', grossAmount: parseDecimal('10'), priceAtTxTime: createPriceAtTxTime('3000') }],
         []
       );
 
@@ -534,8 +534,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         'exchange',
         [],
         [
-          { asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') },
-          { asset: 'ETH', grossAmount: parseDecimal('0.01'), priceAtTxTime: createPriceAtTxTime('3500') },
+          { assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') },
+          { assetSymbol: 'ETH', grossAmount: parseDecimal('0.01'), priceAtTxTime: createPriceAtTxTime('3500') },
         ],
         [createFeeMovement('network', 'on-chain', 'ETH', '0.01', '3500')]
       );
@@ -544,7 +544,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         4,
         '2024-02-01T14:00:00Z',
         'wallet',
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('60000') }],
         []
       );
 
@@ -565,8 +565,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
-        const ethResult = result.value.assetResults.find((r) => r.asset === 'ETH');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
+        const ethResult = result.value.assetResults.find((r) => r.assetSymbol === 'ETH');
 
         expect(btcResult).toBeDefined();
         expect(ethResult).toBeDefined();
@@ -588,7 +588,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'exchange',
-        [{ asset: 'BTC', grossAmount: parseDecimal('2'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('2'), priceAtTxTime: createPriceAtTxTime('50000') }],
         []
       );
 
@@ -599,13 +599,13 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.99975'),
             priceAtTxTime: createPriceAtTxTime('60000'),
           },
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.99975'),
             priceAtTxTime: createPriceAtTxTime('60000'),
@@ -618,7 +618,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'wallet-a',
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.99975'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.99975'), priceAtTxTime: createPriceAtTxTime('60000') }],
         []
       );
 
@@ -626,7 +626,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         4,
         '2024-02-01T14:00:00Z',
         'wallet-b',
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.99975'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.99975'), priceAtTxTime: createPriceAtTxTime('60000') }],
         []
       );
 
@@ -651,7 +651,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       }
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
 
         expect(btcResult!.lots).toHaveLength(3);
@@ -674,7 +674,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'exchange-a',
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
         []
       );
 
@@ -685,7 +685,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
             priceAtTxTime: createPriceAtTxTime('60000'),
@@ -699,8 +699,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         '2024-02-01T14:00:00Z',
         'exchange-b',
         [
-          { asset: 'BTC', grossAmount: parseDecimal('0.5'), priceAtTxTime: createPriceAtTxTime('60000') },
-          { asset: 'BTC', grossAmount: parseDecimal('0.4995'), priceAtTxTime: createPriceAtTxTime('60000') },
+          { assetSymbol: 'BTC', grossAmount: parseDecimal('0.5'), priceAtTxTime: createPriceAtTxTime('60000') },
+          { assetSymbol: 'BTC', grossAmount: parseDecimal('0.4995'), priceAtTxTime: createPriceAtTxTime('60000') },
         ],
         []
       );
@@ -722,7 +722,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
 
         expect(btcResult!.lots).toHaveLength(2);
@@ -741,7 +741,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'exchange',
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
         []
       );
 
@@ -752,7 +752,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
             priceAtTxTime: createPriceAtTxTime('60000'),
@@ -768,7 +768,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'wallet',
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
         []
       );
 
@@ -789,7 +789,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
 
         expect(btcResult!.disposals).toHaveLength(1);
@@ -809,7 +809,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'binance',
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
         []
       );
 
@@ -820,7 +820,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9875'),
             priceAtTxTime: createPriceAtTxTime('60000'),
@@ -833,7 +833,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'wallet',
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.9875'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9875'), priceAtTxTime: createPriceAtTxTime('60000') }],
         []
       );
 
@@ -857,7 +857,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       }
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
         expect(btcResult!.lotTransfers).toHaveLength(1);
       }
@@ -870,7 +870,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'binance',
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
         []
       );
 
@@ -881,7 +881,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.94'),
             priceAtTxTime: createPriceAtTxTime('60000'),
@@ -894,7 +894,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'wallet',
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.94'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.94'), priceAtTxTime: createPriceAtTxTime('60000') }],
         []
       );
 
@@ -931,7 +931,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'binance',
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
         []
       );
 
@@ -942,7 +942,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.98'),
             priceAtTxTime: createPriceAtTxTime('60000'),
@@ -955,7 +955,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'wallet',
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.98'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.98'), priceAtTxTime: createPriceAtTxTime('60000') }],
         []
       );
 
@@ -976,7 +976,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
         expect(btcResult!.lotTransfers).toHaveLength(1);
       }
@@ -989,7 +989,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         1,
         '2024-01-01T00:00:00Z',
         'kraken',
-        [{ asset: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('1'), priceAtTxTime: createPriceAtTxTime('50000') }],
         []
       );
 
@@ -1000,7 +1000,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         [],
         [
           {
-            asset: 'BTC',
+            assetSymbol: 'BTC',
             grossAmount: parseDecimal('1'),
             netAmount: parseDecimal('0.9995'),
             priceAtTxTime: createPriceAtTxTime('60000'),
@@ -1013,7 +1013,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         3,
         '2024-02-01T14:00:00Z',
         'wallet',
-        [{ asset: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
+        [{ assetSymbol: 'BTC', grossAmount: parseDecimal('0.9995'), priceAtTxTime: createPriceAtTxTime('60000') }],
         []
       );
 
@@ -1034,7 +1034,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
 
         const transferLot = btcResult!.lots[1];

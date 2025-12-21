@@ -20,7 +20,7 @@ import type { CryptoCompareHistoricalResponse, CryptoCompareOHLCV, CryptoCompare
  */
 export function transformPriceResponse(
   response: CryptoComparePriceResponse,
-  asset: Currency,
+  assetSymbol: Currency,
   timestamp: Date,
   currency: Currency,
   fetchedAt: Date
@@ -31,8 +31,8 @@ export function transformPriceResponse(
   if (rawPrice === undefined || rawPrice === 0) {
     return err(
       new CoinNotFoundError(
-        `CryptoCompare does not have current price data for ${asset.toString()}`,
-        asset.toString(),
+        `CryptoCompare does not have current price data for ${assetSymbol.toString()}`,
+        assetSymbol.toString(),
         'cryptocompare',
         { currency: currency.toString() }
       )
@@ -40,7 +40,7 @@ export function transformPriceResponse(
   }
 
   // Validate price using shared helper
-  const priceResult = validateRawPrice(rawPrice, asset, 'CryptoCompare');
+  const priceResult = validateRawPrice(rawPrice, assetSymbol, 'CryptoCompare');
   if (priceResult.isErr()) {
     return err(priceResult.error);
   }
@@ -49,7 +49,7 @@ export function transformPriceResponse(
   const roundedTimestamp = roundTimestampByGranularity(timestamp, granularity);
 
   return ok({
-    asset,
+    assetSymbol,
     timestamp: roundedTimestamp,
     price: priceResult.value,
     currency,
@@ -101,7 +101,7 @@ export function findClosestDataPoint(
  */
 export function transformHistoricalResponse(
   response: CryptoCompareHistoricalResponse,
-  asset: Currency,
+  assetSymbol: Currency,
   timestamp: Date,
   currency: Currency,
   fetchedAt: Date,
@@ -115,8 +115,8 @@ export function transformHistoricalResponse(
   if (!response.Data || !response.Data.Data || response.Data.Data.length === 0) {
     return err(
       new CoinNotFoundError(
-        `CryptoCompare has no historical data for ${asset.toString()}${response.Message ? `: ${response.Message}` : ''}`,
-        asset.toString(),
+        `CryptoCompare has no historical data for ${assetSymbol.toString()}${response.Message ? `: ${response.Message}` : ''}`,
+        assetSymbol.toString(),
         'cryptocompare',
         { currency: currency.toString() }
       )
@@ -129,8 +129,8 @@ export function transformHistoricalResponse(
   if (!dataPoint) {
     return err(
       new CoinNotFoundError(
-        `CryptoCompare has no data for ${asset.toString()} at ${timestamp.toISOString().split('T')[0]}`,
-        asset.toString(),
+        `CryptoCompare has no data for ${assetSymbol.toString()} at ${timestamp.toISOString().split('T')[0]}`,
+        assetSymbol.toString(),
         'cryptocompare',
         { currency: currency.toString(), timestamp }
       )
@@ -141,8 +141,8 @@ export function transformHistoricalResponse(
   if (dataPoint.close === 0) {
     return err(
       new CoinNotFoundError(
-        `CryptoCompare does not have price data for ${asset.toString()} on ${timestamp.toISOString().split('T')[0]}`,
-        asset.toString(),
+        `CryptoCompare does not have price data for ${assetSymbol.toString()} on ${timestamp.toISOString().split('T')[0]}`,
+        assetSymbol.toString(),
         'cryptocompare',
         { currency: currency.toString(), timestamp }
       )
@@ -152,7 +152,7 @@ export function transformHistoricalResponse(
   // Validate close price using shared helper
   const priceResult = validateRawPrice(
     dataPoint.close,
-    asset,
+    assetSymbol,
     `CryptoCompare at ${timestamp.toISOString().split('T')[0]}`
   );
   if (priceResult.isErr()) {
@@ -164,7 +164,7 @@ export function transformHistoricalResponse(
 
   // Use close price as the price for this timestamp
   return ok({
-    asset,
+    assetSymbol,
     timestamp: roundedTimestamp,
     price: priceResult.value,
     currency,
@@ -214,9 +214,9 @@ export function getHistoricalGranularity(timestamp: Date): 'minute' | 'hour' | '
 /**
  * Build query params for current price request
  */
-export function buildPriceParams(asset: Currency, currency: Currency, apiKey?: string): Record<string, string> {
+export function buildPriceParams(assetSymbol: Currency, currency: Currency, apiKey?: string): Record<string, string> {
   const params: Record<string, string> = {
-    fsym: asset.toString(),
+    fsym: assetSymbol.toString(),
     tsyms: currency.toString(),
   };
 
@@ -247,13 +247,13 @@ export function buildPriceMultiParams(assets: Currency[], currency: Currency, ap
  * Build query params for historical data request
  */
 export function buildHistoricalParams(
-  asset: Currency,
+  assetSymbol: Currency,
   currency: Currency,
   timestamp: Date,
   apiKey?: string
 ): Record<string, string> {
   const params: Record<string, string> = {
-    fsym: asset.toString(),
+    fsym: assetSymbol.toString(),
     tsym: currency.toString(),
     toTs: Math.floor(timestamp.getTime() / 1000).toString(),
     limit: '1', // Just fetch the specific point

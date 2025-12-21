@@ -175,13 +175,13 @@ export class CryptoCompareProvider extends BasePriceProvider {
       }
 
       // 2. Fetch from API
-      const priceData = await this.fetchFromApi(query.asset, query.timestamp, currency);
+      const priceData = await this.fetchFromApi(query.assetSymbol, query.timestamp, currency);
       if (priceData.isErr()) {
         return err(priceData.error);
       }
 
       // 3. Cache the result using shared helper (use asset symbol as "coin ID" for CryptoCompare)
-      await this.saveToCache(priceData.value, query.asset.toString());
+      await this.saveToCache(priceData.value, query.assetSymbol.toString());
 
       return ok(priceData.value);
     } catch (error) {
@@ -192,14 +192,18 @@ export class CryptoCompareProvider extends BasePriceProvider {
   /**
    * Fetch price from CryptoCompare API (current or historical)
    */
-  private async fetchFromApi(asset: Currency, timestamp: Date, currency: Currency): Promise<Result<PriceData, Error>> {
+  private async fetchFromApi(
+    assetSymbol: Currency,
+    timestamp: Date,
+    currency: Currency
+  ): Promise<Result<PriceData, Error>> {
     const now = new Date();
 
     // Use current price API for very recent data
     if (canUseCurrentPrice(timestamp)) {
-      this.logger.debug({ asset: asset.toString() }, 'Using current price API');
+      this.logger.debug({ assetSymbol: assetSymbol.toString() }, 'Using current price API');
 
-      const params = buildPriceParams(asset, currency, this.config.apiKey);
+      const params = buildPriceParams(assetSymbol, currency, this.config.apiKey);
       const searchParams = new URLSearchParams(params);
 
       const httpResult = await this.httpClient.get<unknown>(`/data/price?${searchParams.toString()}`);
@@ -214,7 +218,7 @@ export class CryptoCompareProvider extends BasePriceProvider {
       }
 
       // Transform
-      const priceDataResult = transformPriceResponse(parseResult.data, asset, timestamp, currency, now);
+      const priceDataResult = transformPriceResponse(parseResult.data, assetSymbol, timestamp, currency, now);
       if (priceDataResult.isErr()) {
         return err(priceDataResult.error);
       }
@@ -222,12 +226,12 @@ export class CryptoCompareProvider extends BasePriceProvider {
     }
 
     // Use historical API for older data
-    this.logger.debug({ asset: asset.toString(), timestamp }, 'Using historical price API');
+    this.logger.debug({ assetSymbol: assetSymbol.toString(), timestamp }, 'Using historical price API');
 
     const granularity = getHistoricalGranularity(timestamp);
     const endpoint = `/data/v2/histo${granularity}`;
 
-    const params = buildHistoricalParams(asset, currency, timestamp, this.config.apiKey);
+    const params = buildHistoricalParams(assetSymbol, currency, timestamp, this.config.apiKey);
     const searchParams = new URLSearchParams(params);
 
     const httpResult = await this.httpClient.get<unknown>(`${endpoint}?${searchParams.toString()}`);
@@ -253,8 +257,8 @@ export class CryptoCompareProvider extends BasePriceProvider {
       if (errorMessage.includes('market does not exist')) {
         return err(
           new CoinNotFoundError(
-            `CryptoCompare does not have data for ${asset.toString()}: ${errorMessage}`,
-            asset.toString(),
+            `CryptoCompare does not have data for ${assetSymbol.toString()}: ${errorMessage}`,
+            assetSymbol.toString(),
             'cryptocompare',
             { currency: currency.toString() }
           )
@@ -266,7 +270,14 @@ export class CryptoCompareProvider extends BasePriceProvider {
     }
 
     // Transform
-    const priceDataResult = transformHistoricalResponse(parseResult.data, asset, timestamp, currency, now, granularity);
+    const priceDataResult = transformHistoricalResponse(
+      parseResult.data,
+      assetSymbol,
+      timestamp,
+      currency,
+      now,
+      granularity
+    );
     if (priceDataResult.isErr()) {
       return err(priceDataResult.error);
     }

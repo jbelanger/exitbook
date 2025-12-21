@@ -36,7 +36,7 @@ describe('StandardFxRateProvider', () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(
         ok({
           data: {
-            asset: Currency.create('EUR'),
+            assetSymbol: Currency.create('EUR'),
             timestamp,
             currency: Currency.create('USD'),
             price: mockRate,
@@ -58,7 +58,7 @@ describe('StandardFxRateProvider', () => {
       }
 
       expect(mockPriceManager.fetchPrice).toHaveBeenCalledWith({
-        asset: Currency.create('EUR'),
+        assetSymbol: Currency.create('EUR'),
         currency: Currency.create('USD'),
         timestamp: new Date('2023-01-15T10:00:00Z'),
       });
@@ -72,7 +72,7 @@ describe('StandardFxRateProvider', () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(
         ok({
           data: {
-            asset: Currency.create('CAD'),
+            assetSymbol: Currency.create('CAD'),
             timestamp,
             currency: Currency.create('USD'),
             price: mockRate,
@@ -117,7 +117,7 @@ describe('StandardFxRateProvider', () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(
         ok({
           data: {
-            asset: Currency.create('CAD'),
+            assetSymbol: Currency.create('CAD'),
             timestamp,
             currency: Currency.create('USD'),
             price: mockRate,
@@ -142,7 +142,7 @@ describe('StandardFxRateProvider', () => {
 
       // Should fetch CAD → USD and then invert
       expect(mockPriceManager.fetchPrice).toHaveBeenCalledWith({
-        asset: Currency.create('CAD'),
+        assetSymbol: Currency.create('CAD'),
         currency: Currency.create('USD'),
         timestamp: new Date('2023-06-20T00:00:00Z'),
       });
@@ -157,7 +157,7 @@ describe('StandardFxRateProvider', () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(
         ok({
           data: {
-            asset: Currency.create('EUR'),
+            assetSymbol: Currency.create('EUR'),
             timestamp,
             currency: Currency.create('USD'),
             price: mockRate,
@@ -200,7 +200,7 @@ describe('StandardFxRateProvider', () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(
         ok({
           data: {
-            asset: Currency.create('CAD'),
+            assetSymbol: Currency.create('CAD'),
             timestamp,
             currency: Currency.create('USD'),
             price: mockRate,
@@ -230,7 +230,7 @@ describe('StandardFxRateProvider', () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(
         ok({
           data: {
-            asset: Currency.create('CAD'),
+            assetSymbol: Currency.create('CAD'),
             timestamp,
             currency: Currency.create('USD'),
             price: mockRate,
@@ -266,7 +266,7 @@ describe('StandardFxRateProvider', () => {
       vi.spyOn(mockPriceManager, 'fetchPrice').mockResolvedValue(
         ok({
           data: {
-            asset: cad,
+            assetSymbol: cad,
             timestamp,
             currency: Currency.create('USD'),
             price: cadToUsdRate,

@@ -77,7 +77,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
             inflows: fundFlow.inflows.map((inflow) => {
               const amount = parseDecimal(inflow.amount);
               return {
-                asset: inflow.asset,
+                assetSymbol: inflow.asset,
                 grossAmount: amount,
                 netAmount: amount,
               };
@@ -85,7 +85,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
             outflows: fundFlow.outflows.map((outflow) => {
               const amount = parseDecimal(outflow.amount);
               return {
-                asset: outflow.asset,
+                assetSymbol: outflow.asset,
                 grossAmount: amount,
                 netAmount: amount,
               };
@@ -97,7 +97,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
             shouldRecordFeeEntry && !parseDecimal(fundFlow.feeAmount).isZero()
               ? [
                   {
-                    asset: fundFlow.feeCurrency,
+                    assetSymbol: fundFlow.feeCurrency,
                     amount: parseDecimal(fundFlow.feeAmount),
                     scope: 'network',
                     settlement: 'balance',

@@ -116,7 +116,7 @@ export class ECBProvider extends BasePriceProvider {
    */
   protected async fetchPriceInternal(query: PriceQuery): Promise<Result<PriceData, Error>> {
     try {
-      const { asset, currency, timestamp } = query;
+      const { assetSymbol: asset, currency, timestamp } = query;
 
       // Validate: asset must be EUR (ECB only provides EUR as base currency)
       if (!asset.isFiat() || asset.toString() !== 'EUR') {
@@ -158,11 +158,15 @@ export class ECBProvider extends BasePriceProvider {
    * ECB only publishes rates on business days. For weekend/holiday requests,
    * walk back to find the most recent available rate.
    */
-  private async fetchFromApi(asset: Currency, timestamp: Date, currency: Currency): Promise<Result<PriceData, Error>> {
+  private async fetchFromApi(
+    assetSymbol: Currency,
+    timestamp: Date,
+    currency: Currency
+  ): Promise<Result<PriceData, Error>> {
     // ECB format: D.{FOREIGN_CURRENCY}.EUR gives "foreign currency per EUR"
     // We want EUR→USD, so we need D.USD.EUR (USD per EUR)
     // Therefore: swap the parameters (currency first, asset second)
-    const flowRef = buildECBFlowRef(currency.toString(), asset.toString());
+    const flowRef = buildECBFlowRef(currency.toString(), assetSymbol.toString());
     const maxAttempts = 7; // Try up to a week back
     let attemptDate = new Date(timestamp);
     let lastError: Error | undefined;
@@ -180,7 +184,7 @@ export class ECBProvider extends BasePriceProvider {
       const isOriginalDate = attempt === 0;
       this.logger.debug(
         {
-          asset: asset.toString(),
+          assetSymbol: assetSymbol.toString(),
           currency: currency.toString(),
           requestedDate: formatECBDate(timestamp),
           attemptDate: dateStr,
@@ -207,7 +211,7 @@ export class ECBProvider extends BasePriceProvider {
 
       // Transform response to PriceData
       const now = new Date();
-      const priceDataResult = transformECBResponse(parseResult.data, asset, attemptDate, currency, now);
+      const priceDataResult = transformECBResponse(parseResult.data, assetSymbol, attemptDate, currency, now);
 
       if (priceDataResult.isOk()) {
         // Successfully found a rate
@@ -217,7 +221,7 @@ export class ECBProvider extends BasePriceProvider {
         if (!isOriginalDate) {
           this.logger.info(
             {
-              asset: asset.toString(),
+              assetSymbol: assetSymbol.toString(),
               requestedDate: formatECBDate(timestamp),
               actualDate: dateStr,
               daysBack: attempt,
@@ -244,7 +248,7 @@ export class ECBProvider extends BasePriceProvider {
     // Exhausted all attempts
     return err(
       new Error(
-        `No FX rate found for ${asset.toString()} within ${maxAttempts} days of ${formatECBDate(timestamp)}. ` +
+        `No FX rate found for ${assetSymbol.toString()} within ${maxAttempts} days of ${formatECBDate(timestamp)}. ` +
           `Last error: ${lastError?.message || 'unknown'}`
       )
     );

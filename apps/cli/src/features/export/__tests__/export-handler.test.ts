@@ -1,5 +1,6 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
+import type { TransactionRepository } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
@@ -29,10 +30,10 @@ describe('ExportHandler', () => {
       getTransactions: vi.fn(),
     };
 
-    handler = new ExportHandler(mockTransactionRepository as unknown);
+    handler = new ExportHandler(mockTransactionRepository as unknown as TransactionRepository);
   });
 
-  const createMockTransaction = (id: number, source: string, asset: string): UniversalTransactionData => ({
+  const createMockTransaction = (id: number, source: string, assetSymbol: string): UniversalTransactionData => ({
     id: id,
     accountId: 1,
     externalId: `ext-${id}`,
@@ -41,7 +42,7 @@ describe('ExportHandler', () => {
     datetime: '2024-01-01T12:00:00Z',
     timestamp: Date.parse('2024-01-01T12:00:00Z'),
     status: 'success',
-    movements: { inflows: [{ asset, grossAmount: parseDecimal('1.0') }], outflows: [] },
+    movements: { inflows: [{ assetSymbol: assetSymbol, grossAmount: parseDecimal('1.0') }], outflows: [] },
     fees: [],
   });
 

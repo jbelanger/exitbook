@@ -15,60 +15,60 @@ describe('correlating-exchange-processor-utils', () => {
   describe('selectPrimaryMovement', () => {
     it('should select largest inflow when inflows exist', () => {
       const inflows: MovementInput[] = [
-        { asset: 'BTC', grossAmount: '0.5', netAmount: '0.5' },
-        { asset: 'ETH', grossAmount: '10.0', netAmount: '10.0' },
-        { asset: 'USD', grossAmount: '1.0', netAmount: '1.0' },
+        { assetSymbol: 'BTC', grossAmount: '0.5', netAmount: '0.5' },
+        { assetSymbol: 'ETH', grossAmount: '10.0', netAmount: '10.0' },
+        { assetSymbol: 'USD', grossAmount: '1.0', netAmount: '1.0' },
       ];
       const outflows: MovementInput[] = [];
 
       const result = selectPrimaryMovement(inflows, outflows);
 
-      expect(result).toEqual({ amount: '10.0', asset: 'ETH' });
+      expect(result).toEqual({ amount: '10.0', assetSymbol: 'ETH' });
     });
 
     it('should select largest outflow when no inflows', () => {
       const inflows: MovementInput[] = [];
       const outflows: MovementInput[] = [
-        { asset: 'BTC', grossAmount: '0.5', netAmount: '0.5' },
-        { asset: 'ETH', grossAmount: '10.0', netAmount: '10.0' },
-        { asset: 'USD', grossAmount: '1.0', netAmount: '1.0' },
+        { assetSymbol: 'BTC', grossAmount: '0.5', netAmount: '0.5' },
+        { assetSymbol: 'ETH', grossAmount: '10.0', netAmount: '10.0' },
+        { assetSymbol: 'USD', grossAmount: '1.0', netAmount: '1.0' },
       ];
 
       const result = selectPrimaryMovement(inflows, outflows);
 
-      expect(result).toEqual({ amount: '10.0', asset: 'ETH' });
+      expect(result).toEqual({ amount: '10.0', assetSymbol: 'ETH' });
     });
 
     it('should prefer inflow over outflow', () => {
-      const inflows: MovementInput[] = [{ asset: 'BTC', grossAmount: '1.0', netAmount: '1.0' }];
-      const outflows: MovementInput[] = [{ asset: 'ETH', grossAmount: '100.0', netAmount: '100.0' }];
+      const inflows: MovementInput[] = [{ assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' }];
+      const outflows: MovementInput[] = [{ assetSymbol: 'ETH', grossAmount: '100.0', netAmount: '100.0' }];
 
       const result = selectPrimaryMovement(inflows, outflows);
 
-      expect(result).toEqual({ amount: '1.0', asset: 'BTC' });
+      expect(result).toEqual({ amount: '1.0', assetSymbol: 'BTC' });
     });
 
     it('should skip zero amounts', () => {
       const inflows: MovementInput[] = [
-        { asset: 'DUST', grossAmount: '0', netAmount: '0' },
-        { asset: 'BTC', grossAmount: '0.5', netAmount: '0.5' },
+        { assetSymbol: 'DUST', grossAmount: '0', netAmount: '0' },
+        { assetSymbol: 'BTC', grossAmount: '0.5', netAmount: '0.5' },
       ];
       const outflows: MovementInput[] = [];
 
       const result = selectPrimaryMovement(inflows, outflows);
 
-      expect(result).toEqual({ amount: '0.5', asset: 'BTC' });
+      expect(result).toEqual({ amount: '0.5', assetSymbol: 'BTC' });
     });
 
     it('should return UNKNOWN when no movements', () => {
       const result = selectPrimaryMovement([], []);
 
-      expect(result).toEqual({ amount: '0', asset: 'UNKNOWN' });
+      expect(result).toEqual({ amount: '0', assetSymbol: 'UNKNOWN' });
     });
 
     it('should handle all zero amounts', () => {
-      const inflows: MovementInput[] = [{ asset: 'BTC', grossAmount: '0', netAmount: '0' }];
-      const outflows: MovementInput[] = [{ asset: 'ETH', grossAmount: '0', netAmount: '0' }];
+      const inflows: MovementInput[] = [{ assetSymbol: 'BTC', grossAmount: '0', netAmount: '0' }];
+      const outflows: MovementInput[] = [{ assetSymbol: 'ETH', grossAmount: '0', netAmount: '0' }];
 
       const result = selectPrimaryMovement(inflows, outflows);
 
@@ -79,22 +79,22 @@ describe('correlating-exchange-processor-utils', () => {
   describe('consolidateExchangeMovements', () => {
     it('should consolidate duplicate assets by summing amounts', () => {
       const movements: MovementInput[] = [
-        { asset: 'BTC', grossAmount: '1.0', netAmount: '1.0' },
-        { asset: 'BTC', grossAmount: '0.5', netAmount: '0.5' },
-        { asset: 'ETH', grossAmount: '10.0', netAmount: '9.5' },
+        { assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '1.0' },
+        { assetSymbol: 'BTC', grossAmount: '0.5', netAmount: '0.5' },
+        { assetSymbol: 'ETH', grossAmount: '10.0', netAmount: '9.5' },
       ];
 
       const result = consolidateExchangeMovements(movements);
 
       expect(result).toHaveLength(2);
       expect(result).toContainEqual({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: '1.5',
         grossAmount: '1.5',
         netAmount: '1.5',
       });
       expect(result).toContainEqual({
-        asset: 'ETH',
+        assetSymbol: 'ETH',
         amount: '10',
         grossAmount: '10',
         netAmount: '9.5',
@@ -102,13 +102,13 @@ describe('correlating-exchange-processor-utils', () => {
     });
 
     it('should handle single movement', () => {
-      const movements: MovementInput[] = [{ asset: 'BTC', grossAmount: '1.0', netAmount: '0.99' }];
+      const movements: MovementInput[] = [{ assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '0.99' }];
 
       const result = consolidateExchangeMovements(movements);
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: '1',
         grossAmount: '1',
         netAmount: '0.99',
@@ -123,15 +123,15 @@ describe('correlating-exchange-processor-utils', () => {
 
     it('should sum netAmount correctly when different from grossAmount', () => {
       const movements: MovementInput[] = [
-        { asset: 'BTC', grossAmount: '1.0', netAmount: '0.95' },
-        { asset: 'BTC', grossAmount: '2.0', netAmount: '1.9' },
+        { assetSymbol: 'BTC', grossAmount: '1.0', netAmount: '0.95' },
+        { assetSymbol: 'BTC', grossAmount: '2.0', netAmount: '1.9' },
       ];
 
       const result = consolidateExchangeMovements(movements);
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: '3',
         grossAmount: '3',
         netAmount: '2.85',
@@ -140,15 +140,15 @@ describe('correlating-exchange-processor-utils', () => {
 
     it('should default netAmount to grossAmount when not provided', () => {
       const movements: MovementInput[] = [
-        { asset: 'BTC', grossAmount: '1.0' },
-        { asset: 'BTC', grossAmount: '0.5' },
+        { assetSymbol: 'BTC', grossAmount: '1.0' },
+        { assetSymbol: 'BTC', grossAmount: '0.5' },
       ];
 
       const result = consolidateExchangeMovements(movements);
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: '1.5',
         grossAmount: '1.5',
         netAmount: '1.5',
@@ -159,22 +159,22 @@ describe('correlating-exchange-processor-utils', () => {
   describe('consolidateExchangeFees', () => {
     it('should consolidate fees by asset, scope, and settlement', () => {
       const fees: FeeInput[] = [
-        { asset: 'BTC', amount: '0.001', scope: 'platform', settlement: 'balance' },
-        { asset: 'BTC', amount: '0.002', scope: 'platform', settlement: 'balance' },
-        { asset: 'ETH', amount: '0.01', scope: 'network', settlement: 'on-chain' },
+        { assetSymbol: 'BTC', amount: '0.001', scope: 'platform', settlement: 'balance' },
+        { assetSymbol: 'BTC', amount: '0.002', scope: 'platform', settlement: 'balance' },
+        { assetSymbol: 'ETH', amount: '0.01', scope: 'network', settlement: 'on-chain' },
       ];
 
       const result = consolidateExchangeFees(fees);
 
       expect(result).toHaveLength(2);
       expect(result).toContainEqual({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: '0.003',
         scope: 'platform',
         settlement: 'balance',
       });
       expect(result).toContainEqual({
-        asset: 'ETH',
+        assetSymbol: 'ETH',
         amount: '0.01',
         scope: 'network',
         settlement: 'on-chain',
@@ -183,8 +183,8 @@ describe('correlating-exchange-processor-utils', () => {
 
     it('should not consolidate fees with different scope', () => {
       const fees: FeeInput[] = [
-        { asset: 'BTC', amount: '0.001', scope: 'platform', settlement: 'balance' },
-        { asset: 'BTC', amount: '0.002', scope: 'network', settlement: 'balance' },
+        { assetSymbol: 'BTC', amount: '0.001', scope: 'platform', settlement: 'balance' },
+        { assetSymbol: 'BTC', amount: '0.002', scope: 'network', settlement: 'balance' },
       ];
 
       const result = consolidateExchangeFees(fees);
@@ -194,8 +194,8 @@ describe('correlating-exchange-processor-utils', () => {
 
     it('should not consolidate fees with different settlement', () => {
       const fees: FeeInput[] = [
-        { asset: 'BTC', amount: '0.001', scope: 'platform', settlement: 'balance' },
-        { asset: 'BTC', amount: '0.002', scope: 'platform', settlement: 'on-chain' },
+        { assetSymbol: 'BTC', amount: '0.001', scope: 'platform', settlement: 'balance' },
+        { assetSymbol: 'BTC', amount: '0.002', scope: 'platform', settlement: 'on-chain' },
       ];
 
       const result = consolidateExchangeFees(fees);
@@ -210,13 +210,13 @@ describe('correlating-exchange-processor-utils', () => {
     });
 
     it('should handle single fee', () => {
-      const fees: FeeInput[] = [{ asset: 'BTC', amount: '0.001', scope: 'platform', settlement: 'balance' }];
+      const fees: FeeInput[] = [{ assetSymbol: 'BTC', amount: '0.001', scope: 'platform', settlement: 'balance' }];
 
       const result = consolidateExchangeFees(fees);
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         amount: '0.001',
         scope: 'platform',
         settlement: 'balance',
@@ -227,10 +227,10 @@ describe('correlating-exchange-processor-utils', () => {
   describe('classifyExchangeOperationFromFundFlow', () => {
     it('should classify single asset swap (different assets)', () => {
       const fundFlow: ExchangeFundFlow = {
-        inflows: [{ asset: 'BTC', grossAmount: '1.0' }],
-        outflows: [{ asset: 'USD', grossAmount: '50000' }],
+        inflows: [{ assetSymbol: 'BTC', grossAmount: '1.0' }],
+        outflows: [{ assetSymbol: 'USD', grossAmount: '50000' }],
         fees: [],
-        primary: { asset: 'BTC', amount: '1.0' },
+        primary: { assetSymbol: 'BTC', amount: '1.0' },
         correlationId: 'tx1',
         entryCount: 2,
         timestamp: Date.now(),
@@ -247,10 +247,10 @@ describe('correlating-exchange-processor-utils', () => {
 
     it('should classify simple deposit', () => {
       const fundFlow: ExchangeFundFlow = {
-        inflows: [{ asset: 'BTC', grossAmount: '1.0' }],
+        inflows: [{ assetSymbol: 'BTC', grossAmount: '1.0' }],
         outflows: [],
         fees: [],
-        primary: { asset: 'BTC', amount: '1.0' },
+        primary: { assetSymbol: 'BTC', amount: '1.0' },
         correlationId: 'tx1',
         entryCount: 1,
         timestamp: Date.now(),
@@ -267,9 +267,9 @@ describe('correlating-exchange-processor-utils', () => {
     it('should classify simple withdrawal', () => {
       const fundFlow: ExchangeFundFlow = {
         inflows: [],
-        outflows: [{ asset: 'BTC', grossAmount: '1.0' }],
+        outflows: [{ assetSymbol: 'BTC', grossAmount: '1.0' }],
         fees: [],
-        primary: { asset: 'BTC', amount: '1.0' },
+        primary: { assetSymbol: 'BTC', amount: '1.0' },
         correlationId: 'tx1',
         entryCount: 1,
         timestamp: Date.now(),
@@ -285,10 +285,10 @@ describe('correlating-exchange-processor-utils', () => {
 
     it('should classify self-transfer (same asset in and out)', () => {
       const fundFlow: ExchangeFundFlow = {
-        inflows: [{ asset: 'BTC', grossAmount: '1.0' }],
-        outflows: [{ asset: 'BTC', grossAmount: '0.5' }],
+        inflows: [{ assetSymbol: 'BTC', grossAmount: '1.0' }],
+        outflows: [{ assetSymbol: 'BTC', grossAmount: '0.5' }],
         fees: [],
-        primary: { asset: 'BTC', amount: '1.0' },
+        primary: { assetSymbol: 'BTC', amount: '1.0' },
         correlationId: 'tx1',
         entryCount: 2,
         timestamp: Date.now(),
@@ -306,8 +306,8 @@ describe('correlating-exchange-processor-utils', () => {
       const fundFlow: ExchangeFundFlow = {
         inflows: [],
         outflows: [],
-        fees: [{ asset: 'BTC', amount: '0.001', scope: 'platform', settlement: 'balance' }],
-        primary: { asset: 'BTC', amount: '0.001' },
+        fees: [{ assetSymbol: 'BTC', amount: '0.001', scope: 'platform', settlement: 'balance' }],
+        primary: { assetSymbol: 'BTC', amount: '0.001' },
         correlationId: 'tx1',
         entryCount: 1,
         timestamp: Date.now(),
@@ -324,12 +324,12 @@ describe('correlating-exchange-processor-utils', () => {
     it('should classify complex multi-asset with uncertainty', () => {
       const fundFlow: ExchangeFundFlow = {
         inflows: [
-          { asset: 'BTC', grossAmount: '1.0' },
-          { asset: 'ETH', grossAmount: '10.0' },
+          { assetSymbol: 'BTC', grossAmount: '1.0' },
+          { assetSymbol: 'ETH', grossAmount: '10.0' },
         ],
-        outflows: [{ asset: 'USD', grossAmount: '50000' }],
+        outflows: [{ assetSymbol: 'USD', grossAmount: '50000' }],
         fees: [],
-        primary: { asset: 'BTC', amount: '1.0' },
+        primary: { assetSymbol: 'BTC', amount: '1.0' },
         correlationId: 'tx1',
         entryCount: 3,
         timestamp: Date.now(),
@@ -350,15 +350,15 @@ describe('correlating-exchange-processor-utils', () => {
     it('should handle unclassifiable transactions', () => {
       const fundFlow: ExchangeFundFlow = {
         inflows: [
-          { asset: 'BTC', grossAmount: '1.0' },
-          { asset: 'ETH', grossAmount: '10.0' },
+          { assetSymbol: 'BTC', grossAmount: '1.0' },
+          { assetSymbol: 'ETH', grossAmount: '10.0' },
         ],
         outflows: [
-          { asset: 'USD', grossAmount: '50000' },
-          { asset: 'USDC', grossAmount: '1000' },
+          { assetSymbol: 'USD', grossAmount: '50000' },
+          { assetSymbol: 'USDC', grossAmount: '1000' },
         ],
         fees: [],
-        primary: { asset: 'BTC', amount: '1.0' },
+        primary: { assetSymbol: 'BTC', amount: '1.0' },
         correlationId: 'tx1',
         entryCount: 4,
         timestamp: Date.now(),
@@ -379,10 +379,10 @@ describe('correlating-exchange-processor-utils', () => {
   describe('detectExchangeClassificationUncertainty', () => {
     it('should detect uncertainty with multiple inflows', () => {
       const inflows: MovementInput[] = [
-        { asset: 'BTC', grossAmount: '1.0' },
-        { asset: 'ETH', grossAmount: '10.0' },
+        { assetSymbol: 'BTC', grossAmount: '1.0' },
+        { assetSymbol: 'ETH', grossAmount: '10.0' },
       ];
-      const outflows: MovementInput[] = [{ asset: 'USD', grossAmount: '50000' }];
+      const outflows: MovementInput[] = [{ assetSymbol: 'USD', grossAmount: '50000' }];
 
       const result = detectExchangeClassificationUncertainty(inflows, outflows);
 
@@ -392,10 +392,10 @@ describe('correlating-exchange-processor-utils', () => {
     });
 
     it('should detect uncertainty with multiple outflows', () => {
-      const inflows: MovementInput[] = [{ asset: 'USD', grossAmount: '50000' }];
+      const inflows: MovementInput[] = [{ assetSymbol: 'USD', grossAmount: '50000' }];
       const outflows: MovementInput[] = [
-        { asset: 'BTC', grossAmount: '1.0' },
-        { asset: 'ETH', grossAmount: '10.0' },
+        { assetSymbol: 'BTC', grossAmount: '1.0' },
+        { assetSymbol: 'ETH', grossAmount: '10.0' },
       ];
 
       const result = detectExchangeClassificationUncertainty(inflows, outflows);
@@ -406,8 +406,8 @@ describe('correlating-exchange-processor-utils', () => {
     });
 
     it('should not detect uncertainty for simple transactions', () => {
-      const inflows: MovementInput[] = [{ asset: 'BTC', grossAmount: '1.0' }];
-      const outflows: MovementInput[] = [{ asset: 'USD', grossAmount: '50000' }];
+      const inflows: MovementInput[] = [{ assetSymbol: 'BTC', grossAmount: '1.0' }];
+      const outflows: MovementInput[] = [{ assetSymbol: 'USD', grossAmount: '50000' }];
 
       const result = detectExchangeClassificationUncertainty(inflows, outflows);
 
@@ -415,7 +415,7 @@ describe('correlating-exchange-processor-utils', () => {
     });
 
     it('should not detect uncertainty for single direction', () => {
-      const inflows: MovementInput[] = [{ asset: 'BTC', grossAmount: '1.0' }];
+      const inflows: MovementInput[] = [{ assetSymbol: 'BTC', grossAmount: '1.0' }];
       const outflows: MovementInput[] = [];
 
       const result = detectExchangeClassificationUncertainty(inflows, outflows);
@@ -432,8 +432,8 @@ describe('correlating-exchange-processor-utils', () => {
 
   describe('determinePrimaryDirection', () => {
     it('should return inflow when primary asset is in inflows', () => {
-      const inflows: MovementInput[] = [{ asset: 'BTC', grossAmount: '1.0' }];
-      const outflows: MovementInput[] = [{ asset: 'USD', grossAmount: '50000' }];
+      const inflows: MovementInput[] = [{ assetSymbol: 'BTC', grossAmount: '1.0' }];
+      const outflows: MovementInput[] = [{ assetSymbol: 'USD', grossAmount: '50000' }];
 
       const result = determinePrimaryDirection(inflows, outflows, 'BTC');
 
@@ -441,8 +441,8 @@ describe('correlating-exchange-processor-utils', () => {
     });
 
     it('should return outflow when primary asset is in outflows', () => {
-      const inflows: MovementInput[] = [{ asset: 'USD', grossAmount: '50000' }];
-      const outflows: MovementInput[] = [{ asset: 'BTC', grossAmount: '1.0' }];
+      const inflows: MovementInput[] = [{ assetSymbol: 'USD', grossAmount: '50000' }];
+      const outflows: MovementInput[] = [{ assetSymbol: 'BTC', grossAmount: '1.0' }];
 
       const result = determinePrimaryDirection(inflows, outflows, 'BTC');
 
@@ -450,8 +450,8 @@ describe('correlating-exchange-processor-utils', () => {
     });
 
     it('should return neutral when primary asset is in both', () => {
-      const inflows: MovementInput[] = [{ asset: 'BTC', grossAmount: '1.0' }];
-      const outflows: MovementInput[] = [{ asset: 'BTC', grossAmount: '0.5' }];
+      const inflows: MovementInput[] = [{ assetSymbol: 'BTC', grossAmount: '1.0' }];
+      const outflows: MovementInput[] = [{ assetSymbol: 'BTC', grossAmount: '0.5' }];
 
       const result = determinePrimaryDirection(inflows, outflows, 'BTC');
 
@@ -459,8 +459,8 @@ describe('correlating-exchange-processor-utils', () => {
     });
 
     it('should return neutral when primary asset is in neither', () => {
-      const inflows: MovementInput[] = [{ asset: 'ETH', grossAmount: '10.0' }];
-      const outflows: MovementInput[] = [{ asset: 'USD', grossAmount: '50000' }];
+      const inflows: MovementInput[] = [{ assetSymbol: 'ETH', grossAmount: '10.0' }];
+      const outflows: MovementInput[] = [{ assetSymbol: 'USD', grossAmount: '50000' }];
 
       const result = determinePrimaryDirection(inflows, outflows, 'BTC');
 

@@ -50,7 +50,7 @@ describe('isSameDay', () => {
 
 describe('validatePriceData', () => {
   const validData: PriceData = createTestPriceData({
-    asset: Currency.create('BTC'),
+    assetSymbol: Currency.create('BTC'),
     timestamp: new Date('2024-01-15T00:00:00.000Z'),
     price: 43000,
     currency: Currency.create('USD'),
@@ -96,7 +96,7 @@ describe('validatePriceData', () => {
 describe('createCacheKey', () => {
   it('should create consistent cache keys', () => {
     const query: PriceQuery = {
-      asset: Currency.create('BTC'),
+      assetSymbol: Currency.create('BTC'),
       timestamp: new Date('2024-01-15T14:30:00.000Z'),
       currency: Currency.create('USD'),
     };
@@ -107,7 +107,7 @@ describe('createCacheKey', () => {
 
   it('should normalize asset and currency', () => {
     const query: PriceQuery = {
-      asset: Currency.create('btc'),
+      assetSymbol: Currency.create('btc'),
       timestamp: new Date('2024-01-15T00:00:00.000Z'),
       currency: Currency.create('usd'),
     };
@@ -117,7 +117,7 @@ describe('createCacheKey', () => {
 
   it('should default to USD if currency not specified', () => {
     const query: PriceQuery = {
-      asset: Currency.create('ETH'),
+      assetSymbol: Currency.create('ETH'),
       timestamp: new Date('2024-01-15T00:00:00.000Z'),
       currency: Currency.create('USD'),
     };
@@ -130,7 +130,7 @@ describe('sortByTimestamp', () => {
   it('should sort prices by timestamp ascending', () => {
     const prices: PriceData[] = [
       createTestPriceData({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date('2024-01-17T00:00:00.000Z'),
         price: 45000,
         currency: Currency.create('USD'),
@@ -138,7 +138,7 @@ describe('sortByTimestamp', () => {
         fetchedAt: new Date(),
       }),
       createTestPriceData({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: 43000,
         currency: Currency.create('USD'),
@@ -146,7 +146,7 @@ describe('sortByTimestamp', () => {
         fetchedAt: new Date(),
       }),
       createTestPriceData({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date('2024-01-16T00:00:00.000Z'),
         price: 44000,
         currency: Currency.create('USD'),
@@ -166,7 +166,7 @@ describe('sortByTimestamp', () => {
   it('should not mutate original array', () => {
     const prices: PriceData[] = [
       createTestPriceData({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp: new Date('2024-01-17T00:00:00.000Z'),
         price: 45000,
         currency: Currency.create('USD'),
@@ -188,7 +188,7 @@ describe('deduplicatePrices', () => {
 
     const prices: PriceData[] = [
       createTestPriceData({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp,
         price: 43000,
         currency: Currency.create('USD'),
@@ -196,7 +196,7 @@ describe('deduplicatePrices', () => {
         fetchedAt: oldFetch,
       }),
       createTestPriceData({
-        asset: Currency.create('BTC'),
+        assetSymbol: Currency.create('BTC'),
         timestamp,
         price: 43100,
         currency: Currency.create('USD'),

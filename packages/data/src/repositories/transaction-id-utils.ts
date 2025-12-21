@@ -46,12 +46,12 @@ export function generateDeterministicTransactionHash(
 
   for (const inflow of transaction.movements.inflows ?? []) {
     const netAmount = inflow.netAmount?.toFixed() ?? inflow.grossAmount.toFixed();
-    movementParts.push(`in:${inflow.asset}:${inflow.grossAmount.toFixed()}:${netAmount}`);
+    movementParts.push(`in:${inflow.assetSymbol}:${inflow.grossAmount.toFixed()}:${netAmount}`);
   }
 
   for (const outflow of transaction.movements.outflows ?? []) {
     const netAmount = outflow.netAmount?.toFixed() ?? outflow.grossAmount.toFixed();
-    movementParts.push(`out:${outflow.asset}:${outflow.grossAmount.toFixed()}:${netAmount}`);
+    movementParts.push(`out:${outflow.assetSymbol}:${outflow.grossAmount.toFixed()}:${netAmount}`);
   }
 
   // Sort movements for determinism (same movements in different order should produce same hash)
@@ -61,7 +61,7 @@ export function generateDeterministicTransactionHash(
   // Collect all fees
   const feeParts: string[] = [];
   for (const fee of transaction.fees ?? []) {
-    feeParts.push(`fee:${fee.asset}:${fee.amount.toFixed()}:${fee.scope}:${fee.settlement}`);
+    feeParts.push(`fee:${fee.assetSymbol}:${fee.amount.toFixed()}:${fee.scope}:${fee.settlement}`);
   }
 
   // Sort fees for determinism

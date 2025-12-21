@@ -28,14 +28,14 @@ export function mapTatumTransaction(
   const timestamp = rawData.time * 1000;
 
   const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input, _index) => ({
-    address: input.coin?.address,
+    address: input.coin?.address ?? undefined,
     txid: input.prevout?.hash,
     value: input.coin?.value?.toString() || '0',
     vout: input.prevout?.index,
   }));
 
   const outputs: BitcoinTransactionOutput[] = rawData.outputs.map((output, index) => ({
-    address: output.address,
+    address: output.address ?? undefined,
     index,
     value: output.value.toString(),
   }));
@@ -80,9 +80,9 @@ export function mapTatumBCashTransaction(
 
   const inputs: BitcoinTransactionInput[] = rawData.vin.map((input) => ({
     address: undefined, // BCash vin doesn't include address, would need to fetch from previous tx
-    txid: input.txid,
+    txid: input.txid ?? undefined,
     value: '0', // Would need to fetch from previous tx output
-    vout: input.vout,
+    vout: input.vout ?? undefined,
   }));
 
   const outputs: BitcoinTransactionOutput[] = rawData.vout.map((output) => ({
@@ -131,14 +131,14 @@ export function mapTatumDogecoinTransaction(
   const timestamp = rawData.time * 1000;
 
   const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input) => ({
-    address: input.coin?.address,
+    address: input.coin?.address ?? undefined,
     txid: input.prevout?.hash,
     value: input.coin?.value ? parseDecimal(input.coin.value).times(100000000).toFixed() : '0', // Convert DOGE to satoshis
     vout: input.prevout?.index,
   }));
 
   const outputs: BitcoinTransactionOutput[] = rawData.outputs.map((output, index) => ({
-    address: output.address,
+    address: output.address ?? undefined,
     index,
     value: parseDecimal(output.value).times(100000000).toFixed(), // Convert DOGE to satoshis
   }));
@@ -181,14 +181,14 @@ export function mapTatumLitecoinTransaction(
   const timestamp = rawData.time * 1000;
 
   const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input) => ({
-    address: input.coin?.address,
+    address: input.coin?.address ?? undefined,
     txid: input.prevout?.hash,
     value: input.coin?.value ? parseDecimal(input.coin.value).times(100000000).toFixed() : '0', // Convert LTC to satoshis
     vout: input.prevout?.index,
   }));
 
   const outputs: BitcoinTransactionOutput[] = rawData.outputs.map((output, index) => ({
-    address: output.address,
+    address: output.address ?? undefined,
     index,
     value: parseDecimal(output.value).times(100000000).toFixed(), // Convert LTC to satoshis
   }));

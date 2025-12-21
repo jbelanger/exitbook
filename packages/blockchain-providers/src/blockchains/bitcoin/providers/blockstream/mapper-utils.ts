@@ -25,14 +25,14 @@ export function mapBlockstreamTransaction(
     rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time.getTime() : Date.now();
 
   const inputs: BitcoinTransactionInput[] = rawData.vin.map((input) => ({
-    address: input.prevout?.scriptpubkey_address,
+    address: input.prevout?.scriptpubkey_address ?? undefined,
     txid: input.txid,
     value: input.prevout?.value ? input.prevout.value.toString() : '0',
     vout: input.vout,
   }));
 
   const outputs: BitcoinTransactionOutput[] = rawData.vout.map((output, index) => ({
-    address: output.scriptpubkey_address,
+    address: output.scriptpubkey_address ?? undefined,
     index,
     value: output.value.toString(),
   }));

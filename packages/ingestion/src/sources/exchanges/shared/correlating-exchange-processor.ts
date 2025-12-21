@@ -89,7 +89,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
             const net = parseDecimal(inflow.netAmount ?? inflow.grossAmount);
 
             return {
-              asset: inflow.asset,
+              assetSymbol: inflow.assetSymbol,
               grossAmount: gross,
               netAmount: net,
             };
@@ -100,7 +100,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
             const net = parseDecimal(outflow.netAmount ?? outflow.grossAmount);
 
             return {
-              asset: outflow.asset,
+              assetSymbol: outflow.assetSymbol,
               grossAmount: gross,
               netAmount: net,
             };
@@ -108,7 +108,7 @@ export class CorrelatingExchangeProcessor<TRaw = unknown> extends BaseTransactio
         },
 
         fees: fundFlow.fees.map((fee) => ({
-          asset: fee.asset,
+          assetSymbol: fee.assetSymbol,
           amount: parseDecimal(fee.amount),
           scope: fee.scope,
           settlement: fee.settlement,

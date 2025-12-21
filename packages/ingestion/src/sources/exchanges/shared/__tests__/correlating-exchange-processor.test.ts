@@ -8,7 +8,7 @@ import { standardAmounts } from '../strategies/interpretation.js';
 function createEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
   return {
     amount: '0',
-    asset: 'USD',
+    assetSymbol: 'USD',
     correlationId: 'REF001',
     id: 'ENTRY001',
     timestamp: 1704067200000,
@@ -32,9 +32,9 @@ describe('CorrelatingExchangeProcessor - Strategy Composition', () => {
     const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
-      wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-100', asset: 'USD' })),
-      wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.001', asset: 'BTC' })),
-      wrapEntry(createEntry({ id: 'E3', correlationId: 'DEP001', amount: '500', asset: 'EUR' })),
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-100', assetSymbol: 'USD' })),
+      wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.001', assetSymbol: 'BTC' })),
+      wrapEntry(createEntry({ id: 'E3', correlationId: 'DEP001', amount: '500', assetSymbol: 'EUR' })),
     ];
 
     const result = await processor.process(entries);
@@ -56,8 +56,8 @@ describe('CorrelatingExchangeProcessor - Strategy Composition', () => {
     const processor = new CorrelatingExchangeProcessor('test-exchange', noGrouping, standardAmounts);
 
     const entries = [
-      wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-100', asset: 'USD' })),
-      wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.001', asset: 'BTC' })),
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-100', assetSymbol: 'USD' })),
+      wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.001', assetSymbol: 'BTC' })),
     ];
 
     const result = await processor.process(entries);
@@ -75,9 +75,9 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
     const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
-      wrapEntry(createEntry({ id: 'E1', correlationId: 'MULTI001', amount: '-100', asset: 'USD' })),
-      wrapEntry(createEntry({ id: 'E2', correlationId: 'MULTI001', amount: '-50', asset: 'USD' })),
-      wrapEntry(createEntry({ id: 'E3', correlationId: 'MULTI001', amount: '0.002', asset: 'BTC' })),
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'MULTI001', amount: '-100', assetSymbol: 'USD' })),
+      wrapEntry(createEntry({ id: 'E2', correlationId: 'MULTI001', amount: '-50', assetSymbol: 'USD' })),
+      wrapEntry(createEntry({ id: 'E3', correlationId: 'MULTI001', amount: '0.002', assetSymbol: 'BTC' })),
     ];
 
     const result = await processor.process(entries);
@@ -90,11 +90,11 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
     if (!transaction) return;
 
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.asset).toBe('USD');
+    expect(transaction.movements.outflows![0]?.assetSymbol).toBe('USD');
     expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('150');
 
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.asset).toBe('BTC');
+    expect(transaction.movements.inflows![0]?.assetSymbol).toBe('BTC');
   });
 
   test('consolidates fees across correlated entries', async () => {
@@ -106,7 +106,7 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
           id: 'E1',
           correlationId: 'SWAP001',
           amount: '-100',
-          asset: 'USD',
+          assetSymbol: 'USD',
           fee: '1.50',
           feeCurrency: 'USD',
         })
@@ -116,7 +116,7 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
           id: 'E2',
           correlationId: 'SWAP001',
           amount: '0.001',
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           fee: '1.00',
           feeCurrency: 'USD',
         })
@@ -133,7 +133,7 @@ describe('CorrelatingExchangeProcessor - Fund Flow Analysis', () => {
     if (!transaction) return;
 
     expect(transaction.fees.find((f) => f.scope === 'platform')?.amount.toFixed()).toBe('2.5');
-    expect(transaction.fees.find((f) => f.scope === 'platform')?.asset.toString()).toBe('USD');
+    expect(transaction.fees.find((f) => f.scope === 'platform')?.assetSymbol.toString()).toBe('USD');
   });
 });
 
@@ -142,8 +142,8 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
     const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
-      wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-100', asset: 'USD' })),
-      wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.001', asset: 'BTC' })),
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'SWAP001', amount: '-100', assetSymbol: 'USD' })),
+      wrapEntry(createEntry({ id: 'E2', correlationId: 'SWAP001', amount: '0.001', assetSymbol: 'BTC' })),
     ];
 
     const result = await processor.process(entries);
@@ -159,7 +159,7 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
   test('classifies deposit (inflow only)', async () => {
     const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
 
-    const entries = [wrapEntry(createEntry({ id: 'E1', correlationId: 'DEP001', amount: '700', asset: 'CAD' }))];
+    const entries = [wrapEntry(createEntry({ id: 'E1', correlationId: 'DEP001', amount: '700', assetSymbol: 'CAD' }))];
 
     const result = await processor.process(entries);
 
@@ -174,7 +174,9 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
   test('classifies withdrawal (outflow only)', async () => {
     const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
 
-    const entries = [wrapEntry(createEntry({ id: 'E1', correlationId: 'WITH001', amount: '-385.155', asset: 'CAD' }))];
+    const entries = [
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'WITH001', amount: '-385.155', assetSymbol: 'CAD' })),
+    ];
 
     const result = await processor.process(entries);
 
@@ -190,8 +192,8 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
     const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
-      wrapEntry(createEntry({ id: 'E1', correlationId: 'TRANS001', amount: '-100', asset: 'USDT' })),
-      wrapEntry(createEntry({ id: 'E2', correlationId: 'TRANS001', amount: '100', asset: 'USDT' })),
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'TRANS001', amount: '-100', assetSymbol: 'USDT' })),
+      wrapEntry(createEntry({ id: 'E2', correlationId: 'TRANS001', amount: '100', assetSymbol: 'USDT' })),
     ];
 
     const result = await processor.process(entries);
@@ -208,10 +210,10 @@ describe('CorrelatingExchangeProcessor - Operation Classification', () => {
     const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
 
     const entries = [
-      wrapEntry(createEntry({ id: 'E1', correlationId: 'COMPLEX001', amount: '-100', asset: 'USD' })),
-      wrapEntry(createEntry({ id: 'E2', correlationId: 'COMPLEX001', amount: '-50', asset: 'EUR' })),
-      wrapEntry(createEntry({ id: 'E3', correlationId: 'COMPLEX001', amount: '0.001', asset: 'BTC' })),
-      wrapEntry(createEntry({ id: 'E4', correlationId: 'COMPLEX001', amount: '0.01', asset: 'ETH' })),
+      wrapEntry(createEntry({ id: 'E1', correlationId: 'COMPLEX001', amount: '-100', assetSymbol: 'USD' })),
+      wrapEntry(createEntry({ id: 'E2', correlationId: 'COMPLEX001', amount: '-50', assetSymbol: 'EUR' })),
+      wrapEntry(createEntry({ id: 'E3', correlationId: 'COMPLEX001', amount: '0.001', assetSymbol: 'BTC' })),
+      wrapEntry(createEntry({ id: 'E4', correlationId: 'COMPLEX001', amount: '0.01', assetSymbol: 'ETH' })),
     ];
 
     const result = await processor.process(entries);
@@ -245,9 +247,9 @@ describe('CorrelatingExchangeProcessor - Error Handling', () => {
   test('skips entries without valid id in grouping', async () => {
     const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
 
-    const validEntry = wrapEntry(createEntry({ id: 'E1', correlationId: 'REF001', amount: '100', asset: 'USD' }));
+    const validEntry = wrapEntry(createEntry({ id: 'E1', correlationId: 'REF001', amount: '100', assetSymbol: 'USD' }));
     const invalidEntry = {
-      normalized: createEntry({ id: '', correlationId: 'REF002', amount: '50', asset: 'EUR' }),
+      normalized: createEntry({ id: '', correlationId: 'REF002', amount: '50', assetSymbol: 'EUR' }),
       raw: {},
       externalId: 'E2',
       cursor: {},
@@ -269,7 +271,7 @@ describe('CorrelatingExchangeProcessor - Metadata', () => {
   test('sets source correctly', async () => {
     const processor = new CorrelatingExchangeProcessor('kraken', byCorrelationId, standardAmounts);
 
-    const entries = [wrapEntry(createEntry({ id: 'E1', amount: '100', asset: 'USD' }))];
+    const entries = [wrapEntry(createEntry({ id: 'E1', amount: '100', assetSymbol: 'USD' }))];
 
     const result = await processor.process(entries);
 
@@ -283,7 +285,7 @@ describe('CorrelatingExchangeProcessor - Metadata', () => {
     const timestamp = 1704153600000;
     const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
 
-    const entries = [wrapEntry(createEntry({ id: 'E1', timestamp, amount: '100', asset: 'USD' }))];
+    const entries = [wrapEntry(createEntry({ id: 'E1', timestamp, amount: '100', assetSymbol: 'USD' }))];
 
     const result = await processor.process(entries);
 
@@ -297,7 +299,7 @@ describe('CorrelatingExchangeProcessor - Metadata', () => {
   test('preserves entry status', async () => {
     const processor = new CorrelatingExchangeProcessor('test-exchange', byCorrelationId, standardAmounts);
 
-    const entries = [wrapEntry(createEntry({ id: 'E1', amount: '100', asset: 'USD', status: 'pending' }))];
+    const entries = [wrapEntry(createEntry({ id: 'E1', amount: '100', assetSymbol: 'USD', status: 'pending' }))];
 
     const result = await processor.process(entries);
 

@@ -49,9 +49,14 @@ function createMockTransaction(
   };
 }
 
-function createMovement(asset: string, amount: string, priceAmount?: string, priceCurrency = 'USD'): AssetMovement {
+function createMovement(
+  assetSymbol: string,
+  amount: string,
+  priceAmount?: string,
+  priceCurrency = 'USD'
+): AssetMovement {
   const movement: AssetMovement = {
-    asset,
+    assetSymbol,
     grossAmount: new Decimal(amount),
   };
 
@@ -72,7 +77,7 @@ function createMovement(asset: string, amount: string, priceAmount?: string, pri
 function createFeeMovement(
   scope: 'network' | 'platform' | 'spread' | 'tax' | 'other',
   settlement: 'on-chain' | 'balance' | 'external',
-  asset: string,
+  assetSymbol: string,
   amount: string,
   priceAmount?: string,
   priceCurrency = 'USD'
@@ -80,7 +85,7 @@ function createFeeMovement(
   const movement: FeeMovement = {
     scope,
     settlement,
-    asset,
+    assetSymbol: assetSymbol,
     amount: new Decimal(amount),
   };
 
@@ -113,7 +118,7 @@ function createTransactionLink(
   id: string,
   sourceName: number,
   targetId: number,
-  asset: string,
+  assetSymbol: string,
   sourceAmount: string,
   targetAmount: string,
   confidenceScore = '0.99'
@@ -122,7 +127,7 @@ function createTransactionLink(
     id,
     sourceTransactionId: sourceName,
     targetTransactionId: targetId,
-    asset,
+    assetSymbol,
     sourceAmount: new Decimal(sourceAmount),
     targetAmount: new Decimal(targetAmount),
     linkType: 'exchange_to_blockchain',
@@ -366,10 +371,10 @@ describe('lot-matcher-utils', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.length).toBe(2);
-        expect(result.value[0]!.asset).toBe('USD');
+        expect(result.value[0]!.assetSymbol).toBe('USD');
         expect(result.value[0]!.amount.toFixed()).toBe('1.5');
         expect(result.value[0]!.txId).toBe(1);
-        expect(result.value[1]!.asset).toBe('EUR');
+        expect(result.value[1]!.assetSymbol).toBe('EUR');
         expect(result.value[1]!.amount.toFixed()).toBe('2');
         expect(result.value[1]!.txId).toBe(2);
       }
@@ -675,7 +680,7 @@ describe('lot-matcher-utils', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const lot = result.value;
-        expect(lot.asset).toBe('BTC');
+        expect(lot.assetSymbol).toBe('BTC');
         expect(lot.quantity.toFixed()).toBe('1');
         // Cost basis = (1 * 50000 + 100) / 1 = 50100
         expect(lot.costBasisPerUnit.toFixed()).toBe('50100');
@@ -835,7 +840,7 @@ describe('lot-matcher-utils', () => {
   describe('validateOutflowFees', () => {
     it('should pass when netAmount matches grossAmount minus on-chain fees', () => {
       const outflow: AssetMovement = {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: new Decimal('1.0'),
         netAmount: new Decimal('0.9995'),
       };
@@ -850,7 +855,7 @@ describe('lot-matcher-utils', () => {
 
     it('should pass when no netAmount is provided (legacy data)', () => {
       const outflow: AssetMovement = {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: new Decimal('1.0'),
       };
       const tx = createMockTransaction(1, '2024-01-01T00:00:00Z', {});
@@ -862,7 +867,7 @@ describe('lot-matcher-utils', () => {
 
     it('should ignore balance-settled fees when validating netAmount', () => {
       const outflow: AssetMovement = {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: new Decimal('1.0'),
         netAmount: new Decimal('1.0'),
       };
@@ -877,7 +882,7 @@ describe('lot-matcher-utils', () => {
 
     it('should error when hidden fees exceed error threshold', () => {
       const outflow: AssetMovement = {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: new Decimal('1.0'),
         netAmount: new Decimal('0.94'),
       };
@@ -897,7 +902,7 @@ describe('lot-matcher-utils', () => {
 
     it('should pass when hidden fees are within error threshold', () => {
       const outflow: AssetMovement = {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: new Decimal('1.0'),
         netAmount: new Decimal('0.98'),
       };
@@ -910,7 +915,7 @@ describe('lot-matcher-utils', () => {
 
     it('should sum multiple on-chain fees when validating', () => {
       const outflow: AssetMovement = {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: new Decimal('1.0'),
         netAmount: new Decimal('0.9988'),
       };
@@ -926,7 +931,7 @@ describe('lot-matcher-utils', () => {
 
     it('should use custom tolerance when provided', () => {
       const outflow: AssetMovement = {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: new Decimal('1.0'),
         netAmount: new Decimal('0.92'),
       };

@@ -87,7 +87,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         id: uuidv4(),
         sourceTransactionId: 1,
         targetTransactionId: 2,
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         sourceAmount: new Decimal('1.0'),
         targetAmount: new Decimal('0.9995'),
         linkType: 'exchange_to_blockchain',
@@ -116,7 +116,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
       const fetchResult = await repo.findById(link.id);
       expect(fetchResult.isOk()).toBe(true);
       if (fetchResult.isOk() && fetchResult.value) {
-        expect(fetchResult.value.asset).toBe('BTC');
+        expect(fetchResult.value.assetSymbol).toBe('BTC');
         expect(fetchResult.value?.sourceAmount?.toFixed()).toBe('1');
         expect(fetchResult.value?.targetAmount?.toFixed()).toBe('0.9995');
       }
@@ -127,7 +127,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         id: uuidv4(),
         sourceTransactionId: 1,
         targetTransactionId: 2,
-        asset: 'ETH',
+        assetSymbol: 'ETH',
         sourceAmount: new Decimal('10.0'),
         targetAmount: new Decimal('9.95'),
         linkType: 'blockchain_to_blockchain',
@@ -167,7 +167,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         id: uuidv4(),
         sourceTransactionId: 3,
         targetTransactionId: 4,
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         sourceAmount: new Decimal('0.00001'),
         targetAmount: new Decimal('0.000009'),
         linkType: 'exchange_to_blockchain',
@@ -199,7 +199,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         id: uuidv4(),
         sourceTransactionId: 5,
         targetTransactionId: 6,
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         sourceAmount: new Decimal('1000000.123456789'),
         targetAmount: new Decimal('999999.123456789'),
         linkType: 'exchange_to_exchange',
@@ -234,7 +234,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
           id: uuidv4(),
           sourceTransactionId: 1,
           targetTransactionId: 2,
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           sourceAmount: new Decimal('1.0'),
           targetAmount: new Decimal('0.9995'),
           linkType: 'exchange_to_blockchain',
@@ -253,7 +253,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
           id: uuidv4(),
           sourceTransactionId: 3,
           targetTransactionId: 4,
-          asset: 'ETH',
+          assetSymbol: 'ETH',
           sourceAmount: new Decimal('10.0'),
           targetAmount: new Decimal('9.98'),
           linkType: 'blockchain_to_blockchain',
@@ -281,7 +281,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         const fetchResult = await repo.findById(link.id);
         expect(fetchResult.isOk()).toBe(true);
         if (fetchResult.isOk() && fetchResult.value) {
-          expect(fetchResult.value.asset).toBe(link.asset);
+          expect(fetchResult.value.assetSymbol).toBe(link.assetSymbol);
           expect(fetchResult.value.sourceAmount.toFixed()).toBe(link.sourceAmount.toFixed());
           expect(fetchResult.value.targetAmount.toFixed()).toBe(link.targetAmount.toFixed());
         }
@@ -295,7 +295,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         id: uuidv4(),
         sourceTransactionId: 7,
         targetTransactionId: 8,
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         sourceAmount: new Decimal('1.0'),
         targetAmount: new Decimal('0.9995'),
         linkType: 'exchange_to_blockchain',
@@ -315,7 +315,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         id: uuidv4(),
         sourceTransactionId: 7,
         targetTransactionId: 9,
-        asset: 'ETH',
+        assetSymbol: 'ETH',
         sourceAmount: new Decimal('5.0'),
         targetAmount: new Decimal('4.99'),
         linkType: 'exchange_to_blockchain',
@@ -338,7 +338,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toHaveLength(2);
-        expect(result.value[0]?.asset).toBeDefined();
+        expect(result.value[0]?.assetSymbol).toBeDefined();
         expect(result.value[0]?.sourceAmount).toBeDefined();
         expect(result.value[0]?.targetAmount).toBeDefined();
       }
@@ -351,7 +351,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         id: uuidv4(),
         sourceTransactionId: 1,
         targetTransactionId: 2,
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         sourceAmount: new Decimal('1.0'),
         targetAmount: new Decimal('0.9995'),
         linkType: 'exchange_to_blockchain',
@@ -375,7 +375,7 @@ describe('TransactionLinkRepository - ADR-004 Phase 0', () => {
         expect(result.value.length).toBeGreaterThan(0);
         const foundLink = result.value.find((l) => l.id === link.id);
         expect(foundLink).toBeDefined();
-        expect(foundLink?.asset).toBe('BTC');
+        expect(foundLink?.assetSymbol).toBe('BTC');
         expect(foundLink?.sourceAmount.toFixed()).toBe('1');
         expect(foundLink?.targetAmount.toFixed()).toBe('0.9995');
       }

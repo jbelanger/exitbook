@@ -101,7 +101,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             outflows: hasOutflow
               ? [
                   {
-                    asset: this.chainConfig.nativeCurrency,
+                    assetSymbol: this.chainConfig.nativeCurrency,
                     grossAmount: grossOutflowAmount,
                     netAmount: netOutflowAmount,
                   },
@@ -110,7 +110,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             inflows: includeWalletOutputAsInflow
               ? [
                   {
-                    asset: this.chainConfig.nativeCurrency,
+                    assetSymbol: this.chainConfig.nativeCurrency,
                     grossAmount: walletOutputAmount,
                     netAmount: walletOutputAmount,
                   },
@@ -122,7 +122,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             shouldRecordFeeEntry && !feeAmount.isZero()
               ? [
                   {
-                    asset: normalizedTx.feeCurrency || this.chainConfig.nativeCurrency,
+                    assetSymbol: normalizedTx.feeCurrency || this.chainConfig.nativeCurrency,
                     amount: feeAmount,
                     scope: 'network',
                     settlement: 'on-chain',

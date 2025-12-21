@@ -118,7 +118,7 @@ export class BankOfCanadaProvider extends BasePriceProvider {
    */
   protected async fetchPriceInternal(query: PriceQuery): Promise<Result<PriceData, Error>> {
     try {
-      const { asset, currency, timestamp } = query;
+      const { assetSymbol: asset, currency, timestamp } = query;
 
       // Validate: asset must be CAD
       if (!asset.isFiat() || asset.toString() !== 'CAD') {
@@ -160,7 +160,11 @@ export class BankOfCanadaProvider extends BasePriceProvider {
    * BoC only publishes rates on business days. For weekend/holiday requests,
    * walk back to find the most recent available rate.
    */
-  private async fetchFromApi(asset: Currency, timestamp: Date, currency: Currency): Promise<Result<PriceData, Error>> {
+  private async fetchFromApi(
+    assetSymbol: Currency,
+    timestamp: Date,
+    currency: Currency
+  ): Promise<Result<PriceData, Error>> {
     const maxAttempts = 7; // Try up to a week back
     let attemptDate = new Date(timestamp);
     let lastError: Error | undefined;
@@ -177,7 +181,7 @@ export class BankOfCanadaProvider extends BasePriceProvider {
       const isOriginalDate = attempt === 0;
       this.logger.debug(
         {
-          asset: asset.toString(),
+          assetSymbol: assetSymbol.toString(),
           currency: currency.toString(),
           requestedDate: formatBoCDate(timestamp),
           attemptDate: dateStr,
@@ -206,7 +210,7 @@ export class BankOfCanadaProvider extends BasePriceProvider {
 
       // Transform response to PriceData
       const now = new Date();
-      const priceDataResult = transformBoCResponse(parseResult.data, asset, attemptDate, currency, now);
+      const priceDataResult = transformBoCResponse(parseResult.data, assetSymbol, attemptDate, currency, now);
 
       if (priceDataResult.isOk()) {
         // Successfully found a rate
@@ -216,7 +220,7 @@ export class BankOfCanadaProvider extends BasePriceProvider {
         if (!isOriginalDate) {
           this.logger.info(
             {
-              asset: asset.toString(),
+              assetSymbol: assetSymbol.toString(),
               requestedDate: formatBoCDate(timestamp),
               actualDate: dateStr,
               daysBack: attempt,
@@ -243,7 +247,7 @@ export class BankOfCanadaProvider extends BasePriceProvider {
     // Exhausted all attempts
     return err(
       new Error(
-        `No FX rate found for ${asset.toString()} within ${maxAttempts} days of ${formatBoCDate(timestamp)}. ` +
+        `No FX rate found for ${assetSymbol.toString()} within ${maxAttempts} days of ${formatBoCDate(timestamp)}. ` +
           `Last error: ${lastError?.message || 'unknown'}`
       )
     );

@@ -31,14 +31,14 @@ export function formatBoCDate(date: Date): string {
  */
 export function transformBoCResponse(
   response: BankOfCanadaResponse,
-  asset: Currency,
+  assetSymbol: Currency,
   timestamp: Date,
   currency: Currency,
   fetchedAt: Date
 ): Result<PriceData, Error> {
   const observations = response.observations;
   if (!observations || observations.length === 0) {
-    return err(new Error(`No exchange rate data found for ${String(asset)} on ${formatBoCDate(timestamp)}`));
+    return err(new Error(`No exchange rate data found for ${String(assetSymbol)} on ${formatBoCDate(timestamp)}`));
   }
 
   // Bank of Canada returns observations in date order
@@ -61,7 +61,7 @@ export function transformBoCResponse(
   const cadToUsdRate = new Decimal(1).dividedBy(usdCadRate);
 
   return ok({
-    asset,
+    assetSymbol,
     timestamp,
     price: cadToUsdRate,
     currency,

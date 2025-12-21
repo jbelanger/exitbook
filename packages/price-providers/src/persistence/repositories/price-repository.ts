@@ -35,7 +35,11 @@ export class PriceRepository {
    * Tries multiple granularity levels: minute, hour, day
    * Returns the most precise match available
    */
-  async getPrice(asset: Currency, currency: Currency, timestamp: Date): Promise<Result<PriceData | undefined, Error>> {
+  async getPrice(
+    assetSymbol: Currency,
+    currency: Currency,
+    timestamp: Date
+  ): Promise<Result<PriceData | undefined, Error>> {
     try {
       // Try to find exact matches at different granularities (most precise first)
       const minuteBucket = roundToMinute(timestamp);
@@ -50,7 +54,7 @@ export class PriceRepository {
       const records = await this.db
         .selectFrom('prices')
         .selectAll()
-        .where('asset_symbol', '=', asset.toString())
+        .where('asset_symbol', '=', assetSymbol.toString())
         .where('currency', '=', currency.toString())
         .where('timestamp', '>=', startOfDay.toISOString())
         .where('timestamp', '<=', endOfDay.toISOString())
@@ -107,7 +111,7 @@ export class PriceRepository {
       await this.db
         .insertInto('prices')
         .values({
-          asset_symbol: priceData.asset.toString(),
+          asset_symbol: priceData.assetSymbol.toString(),
           currency: priceData.currency.toString(),
           timestamp: timestampStr,
           price: priceData.price.toFixed(),
@@ -145,7 +149,7 @@ export class PriceRepository {
         const batch = prices.slice(i, i + batchSize);
 
         for (const priceData of batch) {
-          const coinId = providerCoinIds?.get(priceData.asset.toString());
+          const coinId = providerCoinIds?.get(priceData.assetSymbol.toString());
           const result = await this.savePrice(priceData, coinId);
 
           if (result.isErr()) {
@@ -164,7 +168,7 @@ export class PriceRepository {
    * Get price range for an asset
    */
   async getPriceRange(
-    asset: string,
+    assetSymbol: string,
     currency: string,
     startDate: Date,
     endDate: Date
@@ -176,7 +180,7 @@ export class PriceRepository {
       const records = await this.db
         .selectFrom('prices')
         .selectAll()
-        .where('asset_symbol', '=', asset.toUpperCase())
+        .where('asset_symbol', '=', assetSymbol.toUpperCase())
         .where('currency', '=', currency.toUpperCase())
         .where('timestamp', '>=', startStr)
         .where('timestamp', '<=', endStr)
@@ -194,7 +198,7 @@ export class PriceRepository {
   /**
    * Check if price exists in cache for the given day
    */
-  async hasPrice(asset: string, currency: string, timestamp: Date): Promise<Result<boolean, Error>> {
+  async hasPrice(assetSymbol: string, currency: string, timestamp: Date): Promise<Result<boolean, Error>> {
     try {
       // Look for prices on the same day
       const startOfDay = new Date(timestamp);
@@ -206,7 +210,7 @@ export class PriceRepository {
       const count = await this.db
         .selectFrom('prices')
         .select((eb) => eb.fn.countAll().as('count'))
-        .where('asset_symbol', '=', asset.toUpperCase())
+        .where('asset_symbol', '=', assetSymbol.toUpperCase())
         .where('currency', '=', currency.toUpperCase())
         .where('timestamp', '>=', startOfDay.toISOString())
         .where('timestamp', '<=', endOfDay.toISOString())
@@ -224,7 +228,7 @@ export class PriceRepository {
 
   private recordToPriceData(record: PriceRecord): PriceData {
     return {
-      asset: Currency.create(record.asset_symbol),
+      assetSymbol: Currency.create(record.asset_symbol),
       currency: Currency.create(record.currency),
       timestamp: new Date(record.timestamp),
       price: parseDecimal(record.price),

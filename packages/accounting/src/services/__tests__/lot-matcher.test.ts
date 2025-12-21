@@ -30,14 +30,14 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
             ],
             outflows: [
               {
-                asset: 'USD',
+                assetSymbol: 'USD',
                 grossAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -45,7 +45,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               amount: parseDecimal('100'),
               scope: 'platform',
               settlement: 'balance',
@@ -69,7 +69,7 @@ describe('LotMatcher - Fee Handling', () => {
       }
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
         expect(btcResult!.lots).toHaveLength(1);
 
@@ -96,14 +96,14 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'ETH',
+                assetSymbol: 'ETH',
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('3000'),
               },
             ],
             outflows: [
               {
-                asset: 'USD',
+                assetSymbol: 'USD',
                 grossAmount: parseDecimal('3000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -111,7 +111,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'ETH',
+              assetSymbol: 'ETH',
               amount: parseDecimal('0.001'),
               scope: 'network',
               settlement: 'on-chain',
@@ -132,7 +132,7 @@ describe('LotMatcher - Fee Handling', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const ethResult = result.value.assetResults.find((r) => r.asset === 'ETH');
+        const ethResult = result.value.assetResults.find((r) => r.assetSymbol === 'ETH');
         expect(ethResult).toBeDefined();
         expect(ethResult!.lots).toHaveLength(1);
 
@@ -157,14 +157,14 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
             ],
             outflows: [
               {
-                asset: 'USD',
+                assetSymbol: 'USD',
                 grossAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -172,14 +172,14 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               amount: parseDecimal('100'),
               scope: 'platform',
               settlement: 'balance',
               priceAtTxTime: createPriceAtTxTime('1'),
             },
             {
-              asset: 'BTC',
+              assetSymbol: 'BTC',
               amount: parseDecimal('0.0001'),
               scope: 'network',
               settlement: 'on-chain',
@@ -200,7 +200,7 @@ describe('LotMatcher - Fee Handling', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
         expect(btcResult!.lots).toHaveLength(1);
 
@@ -230,14 +230,14 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
             ],
             outflows: [
               {
-                asset: 'USD',
+                assetSymbol: 'USD',
                 grossAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -260,14 +260,14 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'USD',
+                assetSymbol: 'USD',
                 grossAmount: parseDecimal('60000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
             outflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('60000'),
               },
@@ -275,7 +275,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               amount: parseDecimal('150'),
               scope: 'platform',
               settlement: 'balance',
@@ -296,7 +296,7 @@ describe('LotMatcher - Fee Handling', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
         expect(btcResult!.disposals).toHaveLength(1);
 
@@ -326,14 +326,14 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'ETH',
+                assetSymbol: 'ETH',
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('3000'),
               },
             ],
             outflows: [
               {
-                asset: 'USD',
+                assetSymbol: 'USD',
                 grossAmount: parseDecimal('3000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -356,14 +356,14 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'USD',
+                assetSymbol: 'USD',
                 grossAmount: parseDecimal('3500'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
             outflows: [
               {
-                asset: 'ETH',
+                assetSymbol: 'ETH',
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('3500'),
               },
@@ -371,7 +371,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'ETH',
+              assetSymbol: 'ETH',
               amount: parseDecimal('0.002'),
               scope: 'network',
               settlement: 'on-chain',
@@ -392,7 +392,7 @@ describe('LotMatcher - Fee Handling', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const ethResult = result.value.assetResults.find((r) => r.asset === 'ETH');
+        const ethResult = result.value.assetResults.find((r) => r.assetSymbol === 'ETH');
         expect(ethResult).toBeDefined();
         expect(ethResult!.disposals).toHaveLength(1);
 
@@ -424,19 +424,19 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
               {
-                asset: 'ETH',
+                assetSymbol: 'ETH',
                 grossAmount: parseDecimal('10'),
                 priceAtTxTime: createPriceAtTxTime('2500'),
               },
             ],
             outflows: [
               {
-                asset: 'USD',
+                assetSymbol: 'USD',
                 grossAmount: parseDecimal('75000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -444,7 +444,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               amount: parseDecimal('75'),
               scope: 'platform',
               settlement: 'balance',
@@ -465,8 +465,8 @@ describe('LotMatcher - Fee Handling', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
-        const ethResult = result.value.assetResults.find((r) => r.asset === 'ETH');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
+        const ethResult = result.value.assetResults.find((r) => r.assetSymbol === 'ETH');
 
         expect(btcResult).toBeDefined();
         expect(ethResult).toBeDefined();
@@ -505,19 +505,19 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.5'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.5'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
             ],
             outflows: [
               {
-                asset: 'USD',
+                assetSymbol: 'USD',
                 grossAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -525,7 +525,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               amount: parseDecimal('20'),
               scope: 'platform',
               settlement: 'balance',
@@ -546,7 +546,7 @@ describe('LotMatcher - Fee Handling', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
         expect(btcResult!.lots).toHaveLength(2);
 
@@ -588,7 +588,7 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1'),
                 netAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
@@ -596,7 +596,7 @@ describe('LotMatcher - Fee Handling', () => {
             ],
             outflows: [
               {
-                asset: 'USD',
+                assetSymbol: 'USD',
                 grossAmount: parseDecimal('50000'),
                 netAmount: parseDecimal('50000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
@@ -620,19 +620,19 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'USD',
+                assetSymbol: 'USD',
                 grossAmount: parseDecimal('60000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
             outflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.6'),
                 priceAtTxTime: createPriceAtTxTime('60000'),
               },
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('0.4'),
                 priceAtTxTime: createPriceAtTxTime('60000'),
               },
@@ -640,7 +640,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               amount: parseDecimal('30'),
               scope: 'platform',
               settlement: 'balance',
@@ -661,7 +661,7 @@ describe('LotMatcher - Fee Handling', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
         expect(btcResult!.disposals).toHaveLength(2);
 
@@ -701,7 +701,7 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'ETH',
+                assetSymbol: 'ETH',
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('3000'),
               },
@@ -710,7 +710,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'ETH',
+              assetSymbol: 'ETH',
               amount: parseDecimal('0.001'),
               scope: 'network',
               settlement: 'on-chain',
@@ -749,7 +749,7 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000', 'USD'),
               },
@@ -758,7 +758,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               amount: parseDecimal('100'),
               scope: 'platform',
               settlement: 'balance',
@@ -779,7 +779,7 @@ describe('LotMatcher - Fee Handling', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
         expect(btcResult).toBeDefined();
         expect(btcResult!.lots).toHaveLength(1);
 
@@ -802,7 +802,7 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000', 'USD'),
               },
@@ -811,7 +811,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'CAD',
+              assetSymbol: 'CAD',
               amount: parseDecimal('100'),
               scope: 'platform',
               settlement: 'balance',
@@ -854,7 +854,7 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'XYZ',
+                assetSymbol: 'XYZ',
                 grossAmount: parseDecimal('100'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value airdrop
               },
@@ -863,7 +863,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'ETH',
+              assetSymbol: 'ETH',
               amount: parseDecimal('0.001'),
               scope: 'network',
               settlement: 'on-chain',
@@ -884,7 +884,7 @@ describe('LotMatcher - Fee Handling', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const xyzResult = result.value.assetResults.find((r) => r.asset === 'XYZ');
+        const xyzResult = result.value.assetResults.find((r) => r.assetSymbol === 'XYZ');
         expect(xyzResult).toBeDefined();
         expect(xyzResult!.lots).toHaveLength(1);
 
@@ -911,12 +911,12 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'TOKEN_A',
+                assetSymbol: 'TOKEN_A',
                 grossAmount: parseDecimal('100'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value
               },
               {
-                asset: 'TOKEN_B',
+                assetSymbol: 'TOKEN_B',
                 grossAmount: parseDecimal('50'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value
               },
@@ -925,7 +925,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               amount: parseDecimal('10'),
               scope: 'platform',
               settlement: 'balance',
@@ -946,8 +946,8 @@ describe('LotMatcher - Fee Handling', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const tokenAResult = result.value.assetResults.find((r) => r.asset === 'TOKEN_A');
-        const tokenBResult = result.value.assetResults.find((r) => r.asset === 'TOKEN_B');
+        const tokenAResult = result.value.assetResults.find((r) => r.assetSymbol === 'TOKEN_A');
+        const tokenBResult = result.value.assetResults.find((r) => r.assetSymbol === 'TOKEN_B');
 
         expect(tokenAResult).toBeDefined();
         expect(tokenBResult).toBeDefined();
@@ -981,14 +981,14 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'XYZ',
+                assetSymbol: 'XYZ',
                 grossAmount: parseDecimal('100'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value
               },
             ],
             outflows: [
               {
-                asset: 'USD',
+                assetSymbol: 'USD',
                 grossAmount: parseDecimal('0'), // Zero-value fiat
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -996,7 +996,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               amount: parseDecimal('5'),
               scope: 'platform',
               settlement: 'balance',
@@ -1017,7 +1017,7 @@ describe('LotMatcher - Fee Handling', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const xyzResult = result.value.assetResults.find((r) => r.asset === 'XYZ');
+        const xyzResult = result.value.assetResults.find((r) => r.assetSymbol === 'XYZ');
         expect(xyzResult).toBeDefined();
 
         // XYZ should get the full $5 fee (only non-fiat movement)
@@ -1025,7 +1025,7 @@ describe('LotMatcher - Fee Handling', () => {
         expect(lot.totalCostBasis.toString()).toBe('5');
 
         // USD may appear in results but should have empty lots (fiat not tracked for cost basis)
-        const usdResult = result.value.assetResults.find((r) => r.asset === 'USD');
+        const usdResult = result.value.assetResults.find((r) => r.assetSymbol === 'USD');
         if (usdResult) {
           expect(usdResult.lots).toHaveLength(0);
           expect(usdResult.disposals).toHaveLength(0);
@@ -1047,14 +1047,14 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'USD',
+                assetSymbol: 'USD',
                 grossAmount: parseDecimal('1000'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
             ],
             outflows: [
               {
-                asset: 'CAD',
+                assetSymbol: 'CAD',
                 grossAmount: parseDecimal('1350'),
                 priceAtTxTime: createPriceAtTxTime('1'),
               },
@@ -1062,7 +1062,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               amount: parseDecimal('5'),
               scope: 'platform',
               settlement: 'balance',
@@ -1084,8 +1084,8 @@ describe('LotMatcher - Fee Handling', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         // Fiat currencies may appear in results but with empty lots/disposals
-        const usdResult = result.value.assetResults.find((r) => r.asset === 'USD');
-        const cadResult = result.value.assetResults.find((r) => r.asset === 'CAD');
+        const usdResult = result.value.assetResults.find((r) => r.assetSymbol === 'USD');
+        const cadResult = result.value.assetResults.find((r) => r.assetSymbol === 'CAD');
 
         if (usdResult) {
           expect(usdResult.lots).toHaveLength(0);
@@ -1098,7 +1098,9 @@ describe('LotMatcher - Fee Handling', () => {
         }
 
         // No non-fiat crypto assets should exist
-        const nonFiatAssets = result.value.assetResults.filter((r) => r.asset !== 'USD' && r.asset !== 'CAD');
+        const nonFiatAssets = result.value.assetResults.filter(
+          (r) => r.assetSymbol !== 'USD' && r.assetSymbol !== 'CAD'
+        );
         expect(nonFiatAssets).toHaveLength(0);
       }
     });
@@ -1121,12 +1123,12 @@ describe('LotMatcher - Fee Handling', () => {
           movements: {
             inflows: [
               {
-                asset: 'BTC',
+                assetSymbol: 'BTC',
                 grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('50000'),
               },
               {
-                asset: 'XYZ',
+                assetSymbol: 'XYZ',
                 grossAmount: parseDecimal('100'),
                 priceAtTxTime: createPriceAtTxTime('0'), // Zero value
               },
@@ -1135,7 +1137,7 @@ describe('LotMatcher - Fee Handling', () => {
           },
           fees: [
             {
-              asset: 'USD',
+              assetSymbol: 'USD',
               amount: parseDecimal('100'),
               scope: 'platform',
               settlement: 'balance',
@@ -1156,8 +1158,8 @@ describe('LotMatcher - Fee Handling', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const btcResult = result.value.assetResults.find((r) => r.asset === 'BTC');
-        const xyzResult = result.value.assetResults.find((r) => r.asset === 'XYZ');
+        const btcResult = result.value.assetResults.find((r) => r.assetSymbol === 'BTC');
+        const xyzResult = result.value.assetResults.find((r) => r.assetSymbol === 'XYZ');
 
         expect(btcResult).toBeDefined();
         expect(xyzResult).toBeDefined();

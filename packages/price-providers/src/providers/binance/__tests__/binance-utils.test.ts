@@ -214,7 +214,7 @@ describe('transformBinanceKlineResponse', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toEqual({
-        asset,
+        assetSymbol: asset,
         timestamp: new Date('2024-01-01T12:34:00Z'), // Rounded to minute
         price: parseDecimal('47500'),
         currency,
@@ -251,7 +251,7 @@ describe('transformBinanceKlineResponse', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toEqual({
-        asset,
+        assetSymbol: asset,
         timestamp: new Date('2024-01-15T00:00:00Z'), // Rounded to day
         price: parseDecimal('3550'),
         currency,

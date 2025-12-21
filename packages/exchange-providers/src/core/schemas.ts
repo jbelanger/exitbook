@@ -27,7 +27,7 @@ export const ExchangeLedgerEntrySchema = z
     type: z.string().min(1, 'Entry type must not be empty'),
 
     /** Asset symbol (BTC, USD, ETH, etc.) */
-    asset: z.string().min(1, 'Asset must not be empty'),
+    assetSymbol: z.string().min(1, 'Asset symbol must not be empty'),
 
     /** Amount as string (can be positive or negative) */
     amount: z.string(),

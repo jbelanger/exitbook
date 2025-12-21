@@ -17,7 +17,7 @@ const logger = getLogger('KrakenClient');
  * Normalize Kraken asset symbols by removing X/Z prefixes.
  * Kraken uses X prefix for crypto (XXBT, XETH) and Z prefix for fiat (ZUSD, ZEUR).
  */
-function normalizeKrakenAsset(asset: string): string {
+function normalizeKrakenAsset(assetSymbol: string): string {
   const assetMappings: Record<string, string> = {
     XXBT: 'BTC',
     XBT: 'BTC',
@@ -38,13 +38,13 @@ function normalizeKrakenAsset(asset: string): string {
   };
 
   // Check exact match first
-  if (assetMappings[asset]) {
-    return assetMappings[asset];
+  if (assetMappings[assetSymbol]) {
+    return assetMappings[assetSymbol];
   }
 
   // Remove X/Z prefix if present
-  if (asset.startsWith('X') || asset.startsWith('Z')) {
-    const withoutPrefix = asset.substring(1);
+  if (assetSymbol.startsWith('X') || assetSymbol.startsWith('Z')) {
+    const withoutPrefix = assetSymbol.substring(1);
     // Check if the result is in mappings
     if (assetMappings[withoutPrefix]) {
       return assetMappings[withoutPrefix];
@@ -55,7 +55,7 @@ function normalizeKrakenAsset(asset: string): string {
     }
   }
 
-  return asset;
+  return assetSymbol;
 }
 
 /**
@@ -147,7 +147,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
                   correlationId: validatedData.refid,
                   timestamp: Math.floor(validatedData.time * 1000),
                   type: validatedData.type,
-                  asset: normalizedAsset,
+                  assetSymbol: normalizedAsset,
                   amount: validatedData.amount,
                   fee: validatedData.fee,
                   feeCurrency: normalizedAsset,

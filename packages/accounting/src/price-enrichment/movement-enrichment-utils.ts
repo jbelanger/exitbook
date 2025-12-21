@@ -91,7 +91,7 @@ export function enrichMovementsWithPrices(
   pricesMap: Map<string, PriceAtTxTime>
 ): AssetMovement[] {
   return movements.map((movement) => {
-    const newPrice = pricesMap.get(movement.asset);
+    const newPrice = pricesMap.get(movement.assetSymbol);
     if (!newPrice) {
       return movement;
     }

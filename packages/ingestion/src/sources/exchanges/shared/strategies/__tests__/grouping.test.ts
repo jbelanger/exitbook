@@ -6,7 +6,7 @@ import { byCorrelationId, byTimestamp, noGrouping, type RawTransactionWithMetada
 function createTestEntry(overrides: Partial<ExchangeLedgerEntry>): ExchangeLedgerEntry {
   return {
     amount: '0',
-    asset: 'USD',
+    assetSymbol: 'USD',
     correlationId: 'REF001',
     id: 'ENTRY001',
     timestamp: 1704067200000,
@@ -57,8 +57,8 @@ describe('GroupingStrategy - byCorrelationId', () => {
 
   test('handles entries with same correlationId but different assets (swap)', () => {
     const entries = [
-      wrapEntry(createTestEntry({ id: 'E1', correlationId: 'SWAP001', asset: 'USD', amount: '-100' })),
-      wrapEntry(createTestEntry({ id: 'E2', correlationId: 'SWAP001', asset: 'BTC', amount: '0.001' })),
+      wrapEntry(createTestEntry({ id: 'E1', correlationId: 'SWAP001', assetSymbol: 'USD', amount: '-100' })),
+      wrapEntry(createTestEntry({ id: 'E2', correlationId: 'SWAP001', assetSymbol: 'BTC', amount: '0.001' })),
     ];
 
     const groups = byCorrelationId.group(entries);
@@ -66,8 +66,8 @@ describe('GroupingStrategy - byCorrelationId', () => {
     expect(groups.size).toBe(1);
     const group = groups.get('SWAP001');
     expect(group).toHaveLength(2);
-    expect(group?.[0]?.normalized.asset).toBe('USD');
-    expect(group?.[1]?.normalized.asset).toBe('BTC');
+    expect(group?.[0]?.normalized.assetSymbol).toBe('USD');
+    expect(group?.[1]?.normalized.assetSymbol).toBe('BTC');
   });
 
   test('skips entries without valid id', () => {
@@ -151,8 +151,8 @@ describe('GroupingStrategy - byTimestamp', () => {
     const timestamp = 1704067200000;
 
     const entries = [
-      wrapEntry(createTestEntry({ id: 'E1', timestamp, asset: 'USD', amount: '-100' })),
-      wrapEntry(createTestEntry({ id: 'E2', timestamp, asset: 'BTC', amount: '0.001' })),
+      wrapEntry(createTestEntry({ id: 'E1', timestamp, assetSymbol: 'USD', amount: '-100' })),
+      wrapEntry(createTestEntry({ id: 'E2', timestamp, assetSymbol: 'BTC', amount: '0.001' })),
     ];
 
     const groups = byTimestamp.group(entries);

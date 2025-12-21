@@ -17,7 +17,7 @@ import { PriceRepository } from '../persistence/repositories/price-repository.js
  * Manual price entry data
  */
 export interface ManualPriceEntry {
-  asset: string;
+  assetSymbol: string;
   date: Date;
   price: Decimal;
   currency?: string | undefined;
@@ -57,7 +57,7 @@ export class ManualPriceService {
    * ```typescript
    * const service = new ManualPriceService();
    * const result = await service.savePrice({
-   *   asset: 'BTC',
+   *   assetSymbol: 'BTC',
    *   date: new Date('2024-01-15T10:30:00Z'),
    *   price: new Decimal(45000),
    *   currency: 'USD',
@@ -74,12 +74,12 @@ export class ManualPriceService {
       }
 
       // Parse currencies
-      const asset = Currency.create(entry.asset);
+      const asset = Currency.create(entry.assetSymbol);
       const currency = Currency.create(entry.currency || 'USD');
 
       // Save to cache
       const saveResult = await this.repository!.savePrice({
-        asset,
+        assetSymbol: asset,
         currency,
         timestamp: entry.date,
         price: entry.price,
@@ -135,7 +135,7 @@ export class ManualPriceService {
 
       // Save to cache (asset=from, currency=to)
       const saveResult = await this.repository!.savePrice({
-        asset: fromCurrency,
+        assetSymbol: fromCurrency,
         currency: toCurrency,
         timestamp: entry.date,
         price: entry.rate,
@@ -191,7 +191,7 @@ export class ManualPriceService {
  *
  * Convenience wrapper that creates a service instance, saves the price, and cleans up.
  *
- * @param asset - Asset symbol (e.g., 'BTC', 'ETH')
+ * @param assetSymbol - Asset symbol (e.g., 'BTC', 'ETH')
  * @param date - Date/time for the price
  * @param price - Price value as Decimal or string
  * @param currency - Currency code (default: 'USD')
@@ -199,7 +199,7 @@ export class ManualPriceService {
  * @returns Result indicating success or failure
  */
 export async function saveManualPrice(
-  asset: string,
+  assetSymbol: string,
   date: Date,
   price: Decimal | string,
   currency = 'USD',
@@ -207,7 +207,7 @@ export async function saveManualPrice(
 ): Promise<Result<void, Error>> {
   const service = new ManualPriceService();
   return service.savePrice({
-    asset,
+    assetSymbol: assetSymbol,
     date,
     price: typeof price === 'string' ? parseDecimal(price) : price,
     currency,

@@ -129,7 +129,7 @@ describe('buildViewMeta', () => {
   });
 
   it('should include filters when provided', () => {
-    const filters = { asset: 'BTC', source: 'kraken' };
+    const filters = { assetSymbol: 'BTC', source: 'kraken' };
     const meta = buildViewMeta(10, 0, 20, 10, filters);
 
     expect(meta.filters).toEqual(filters);
@@ -190,7 +190,7 @@ describe('buildViewMeta', () => {
 
   it('should handle complex filters object', () => {
     const filters = {
-      asset: 'BTC',
+      assetSymbol: 'BTC',
       source: 'kraken',
       since: '2024-01-01',
       until: '2024-12-31',
@@ -218,7 +218,7 @@ describe('getAllMovements', () => {
     const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           grossAmount: new Decimal('1'),
         },
       ],
@@ -228,7 +228,7 @@ describe('getAllMovements', () => {
     const result = getAllMovements(movements);
 
     expect(result).toHaveLength(1);
-    expect(result[0]!.asset).toBe('BTC');
+    expect(result[0]!.assetSymbol).toBe('BTC');
     expect(result[0]!.grossAmount.toFixed()).toBe('1');
   });
 
@@ -237,7 +237,7 @@ describe('getAllMovements', () => {
       inflows: [],
       outflows: [
         {
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           grossAmount: new Decimal('1'),
         },
       ],
@@ -246,7 +246,7 @@ describe('getAllMovements', () => {
     const result = getAllMovements(movements);
 
     expect(result).toHaveLength(1);
-    expect(result[0]!.asset).toBe('BTC');
+    expect(result[0]!.assetSymbol).toBe('BTC');
     expect(result[0]!.grossAmount.toFixed()).toBe('1');
   });
 
@@ -254,13 +254,13 @@ describe('getAllMovements', () => {
     const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           grossAmount: new Decimal('1'),
         },
       ],
       outflows: [
         {
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           grossAmount: new Decimal('0.5'),
         },
       ],
@@ -269,9 +269,9 @@ describe('getAllMovements', () => {
     const result = getAllMovements(movements);
 
     expect(result).toHaveLength(2);
-    expect(result[0]!.asset).toBe('BTC');
+    expect(result[0]!.assetSymbol).toBe('BTC');
     expect(result[0]!.grossAmount.toFixed()).toBe('1');
-    expect(result[1]!.asset).toBe('BTC');
+    expect(result[1]!.assetSymbol).toBe('BTC');
     expect(result[1]!.grossAmount.toFixed()).toBe('0.5');
   });
 
@@ -279,21 +279,21 @@ describe('getAllMovements', () => {
     const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           grossAmount: new Decimal('1'),
         },
         {
-          asset: 'ETH',
+          assetSymbol: 'ETH',
           grossAmount: new Decimal('10'),
         },
       ],
       outflows: [
         {
-          asset: 'USD',
+          assetSymbol: 'USD',
           grossAmount: new Decimal('80000'),
         },
         {
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           grossAmount: new Decimal('0.1'),
         },
       ],
@@ -302,10 +302,10 @@ describe('getAllMovements', () => {
     const result = getAllMovements(movements);
 
     expect(result).toHaveLength(4);
-    expect(result[0]!.asset).toBe('BTC');
-    expect(result[1]!.asset).toBe('ETH');
-    expect(result[2]!.asset).toBe('USD');
-    expect(result[3]!.asset).toBe('BTC');
+    expect(result[0]!.assetSymbol).toBe('BTC');
+    expect(result[1]!.assetSymbol).toBe('ETH');
+    expect(result[2]!.assetSymbol).toBe('USD');
+    expect(result[3]!.assetSymbol).toBe('BTC');
   });
 
   it('should handle undefined inflows', () => {
@@ -313,7 +313,7 @@ describe('getAllMovements', () => {
       inflows: undefined,
       outflows: [
         {
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           grossAmount: new Decimal('1'),
         },
       ],
@@ -322,14 +322,14 @@ describe('getAllMovements', () => {
     const result = getAllMovements(movements);
 
     expect(result).toHaveLength(1);
-    expect(result[0]!.asset).toBe('BTC');
+    expect(result[0]!.assetSymbol).toBe('BTC');
   });
 
   it('should handle undefined outflows', () => {
     const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           grossAmount: new Decimal('1'),
         },
       ],
@@ -339,7 +339,7 @@ describe('getAllMovements', () => {
     const result = getAllMovements(movements);
 
     expect(result).toHaveLength(1);
-    expect(result[0]!.asset).toBe('BTC');
+    expect(result[0]!.assetSymbol).toBe('BTC');
   });
 
   it('should handle both inflows and outflows undefined', () => {
@@ -357,7 +357,7 @@ describe('getAllMovements', () => {
     const movements: UniversalTransactionData['movements'] = {
       inflows: [
         {
-          asset: 'BTC',
+          assetSymbol: 'BTC',
           grossAmount: new Decimal('1.23456789'),
           netAmount: new Decimal('1.23356789'),
           priceAtTxTime: {
@@ -375,7 +375,7 @@ describe('getAllMovements', () => {
 
     const result = getAllMovements(movements);
 
-    expect(result[0]!.asset).toBe('BTC');
+    expect(result[0]!.assetSymbol).toBe('BTC');
     expect(result[0]!.grossAmount.toFixed()).toBe('1.23456789');
     expect(result[0]!.netAmount?.toFixed()).toBe('1.23356789');
     expect(result[0]!.priceAtTxTime?.price.amount.toFixed()).toBe('40500.5');
@@ -384,7 +384,7 @@ describe('getAllMovements', () => {
   it('should not modify original movements arrays', () => {
     const inflows = [
       {
-        asset: 'BTC',
+        assetSymbol: 'BTC',
         grossAmount: new Decimal('1'),
       },
     ];

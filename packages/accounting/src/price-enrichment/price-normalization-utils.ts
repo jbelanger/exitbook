@@ -305,7 +305,7 @@ export async function normalizeMovementArray(
       results.push({
         item: movement,
         wasNormalized: false,
-        error: `Asset ${movement.asset} (${priceCurrency.toString()} → USD): ${normalizedPrice.error.message}`,
+        error: `Asset ${movement.assetSymbol} (${priceCurrency.toString()} → USD): ${normalizedPrice.error.message}`,
       });
       continue;
     }
@@ -381,7 +381,7 @@ export async function normalizeFeeArray(
       results.push({
         item: fee,
         wasNormalized: false,
-        error: `Fee ${fee.asset} (${priceCurrency.toString()} → USD): ${normalizedPrice.error.message}`,
+        error: `Fee ${fee.assetSymbol} (${priceCurrency.toString()} → USD): ${normalizedPrice.error.message}`,
       });
       continue;
     }
