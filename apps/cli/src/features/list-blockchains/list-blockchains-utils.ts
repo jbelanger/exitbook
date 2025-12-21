@@ -108,8 +108,18 @@ export function getBlockchainLayer(blockchain: string): string | undefined {
  * Convert provider info to summary.
  */
 export function providerToSummary(provider: ProviderInfo, detailed: boolean): ProviderSummary {
-  // Keep full operation names for clarity
-  const capabilities = provider.capabilities.supportedOperations;
+  // Shorten operation names for display
+  const capabilities = Array.from(
+    new Set(
+      provider.capabilities.supportedOperations.map((op) => {
+        if (op.includes('Balance')) return 'balance';
+        if (op.includes('Transaction')) return 'txs';
+        if (op.includes('Withdrawal')) return 'withdrawals';
+        if (op.includes('Token')) return 'tokens';
+        return op;
+      })
+    )
+  );
 
   const summary: ProviderSummary = {
     name: provider.name,

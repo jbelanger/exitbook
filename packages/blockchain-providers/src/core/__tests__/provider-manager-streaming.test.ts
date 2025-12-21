@@ -590,7 +590,7 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       provider1.setBatches([
         {
           data: [],
-          isComplete: false,
+          isComplete: true,
           cursor: {
             primary: { type: 'blockNumber', value: 1000 },
             lastTransactionId: 'none',

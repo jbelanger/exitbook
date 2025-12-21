@@ -123,7 +123,6 @@ export function createEmptyCompletionCursor(config: {
     metadata: {
       providerName: config.providerName,
       updatedAt: Date.now(),
-      isComplete: true,
     },
   };
 }

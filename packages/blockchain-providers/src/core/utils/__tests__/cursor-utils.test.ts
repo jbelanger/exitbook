@@ -203,7 +203,6 @@ describe('Cursor Utils', () => {
 
       // Ensure custom metadata doesn't clobber core fields
       expect(cursorState.metadata?.providerName).toBe('nearblocks');
-      expect(cursorState.metadata?.isComplete).toBe(false);
     });
 
     it('should omit custom key when customMetadata is omitted', () => {
@@ -275,15 +274,6 @@ describe('Cursor Utils', () => {
 
       expect(cursor.lastTransactionId).toBe('account-123:balances:empty');
       expect(cursor.metadata?.providerName).toBe('routescan');
-    });
-
-    it('should always mark as complete', () => {
-      const cursor = createEmptyCompletionCursor({
-        providerName: 'test',
-        operationType: 'test-op',
-      });
-
-      expect(cursor.metadata?.isComplete).toBe(true);
     });
 
     it('should have zero totalFetched', () => {

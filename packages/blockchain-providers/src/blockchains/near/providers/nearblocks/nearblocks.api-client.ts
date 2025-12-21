@@ -128,11 +128,19 @@ export class NearBlocksApiClient extends BaseApiClient {
     // Route to appropriate streaming implementation
     switch (operation.type) {
       case 'getAddressTransactions':
+        if (!isValidNearAccountId(operation.address)) {
+          yield err(new Error(`Invalid NEAR account ID: ${operation.address}`));
+          return;
+        }
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
         break;
       case 'getAddressTokenTransactions':
+        if (!isValidNearAccountId(operation.address)) {
+          yield err(new Error(`Invalid NEAR account ID: ${operation.address}`));
+          return;
+        }
         yield* this.streamAddressTokenTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;

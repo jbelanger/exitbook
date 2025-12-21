@@ -116,16 +116,20 @@ describe('TatumBitcoinApiClient', () => {
       const mockTransactions: TatumBitcoinTransaction[] = [];
       mockHttpGet.mockResolvedValue(ok(mockTransactions));
 
-      const result = await client.execute({
+      const operation = {
         address: mockAddress,
-        limit: undefined,
-        type: 'getAddressTransactions',
-      });
+        type: 'getAddressTransactions' as const,
+      };
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toEqual(mockTransactions);
+      const results: TatumBitcoinTransaction[] = [];
+      for await (const result of client.executeStreaming(operation)) {
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          results.push(...result.value.data.map((item) => item.raw as TatumBitcoinTransaction));
+        }
       }
+
+      expect(results).toEqual(mockTransactions);
     });
 
     it('should execute getAddressBalances operation', async () => {
